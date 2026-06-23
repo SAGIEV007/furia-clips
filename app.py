@@ -350,11 +350,13 @@ def api_cut_shorts():
                     emit_progress(f"Face tracking indisponivel: {str(e)}. Usando crop centralizado.", "warning")
 
             project_name = os.path.splitext(os.path.basename(video_path))[0]
+            output_dir = settings.get("output_dir", "") or ""
             results = cutter.batch_cut(
                 video_path, top_clips, project_name,
                 use_face_tracking=bool(face_positions_map),
                 face_positions_map=face_positions_map,
-                emit_progress=emit_progress
+                emit_progress=emit_progress,
+                output_dir=output_dir if output_dir else None
             )
 
             # Save to DB
@@ -642,11 +644,13 @@ def api_process_complete():
             except Exception as e:
                 emit_progress(f"Face tracking indisponivel: {str(e)}", "warning")
 
+            output_dir = settings.get("output_dir", "") or ""
             results = cutter.batch_cut(
                 video_path, top_clips, video_name,
                 use_face_tracking=bool(face_positions_map),
                 face_positions_map=face_positions_map,
-                emit_progress=emit_progress
+                emit_progress=emit_progress,
+                output_dir=output_dir if output_dir else None
             )
 
             # ── Step 5: Generate subtitles for each clip ──
@@ -741,10 +745,15 @@ def api_process_complete():
                     "clip_id": res.get("clip_id"),
                 })
 
+            # Report where files are saved
+            save_location = output_dir if output_dir else EXPORT_DIR
+            emit_progress(f"Clips salvos em: {save_location}", "info")
+
             emit_status("complete_done", {
                 "project_id": project_id,
                 "clips": clip_results,
                 "total_clips": len(clip_results),
+                "output_dir": save_location,
             })
             emit_progress(f"PROCESSO COMPLETO! {len(clip_results)} clips gerados, ranqueados e otimizados.", "success")
 

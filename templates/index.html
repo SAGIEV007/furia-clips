@@ -4,9 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Furia Clips - Corte. Ranqueie. Domine.</title>
+    <link rel="stylesheet" href="/static/vendor/fonts.css">
     <link rel="stylesheet" href="/static/css/style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
 </head>
 <body>
     <!-- Sidebar -->
@@ -135,6 +134,20 @@
                 </div>
             </div>
 
+            <!-- Output Directory -->
+            <div class="sidebar-section">
+                <h3><span class="material-icons-round">folder_open</span> Pasta de Saida</h3>
+                <div class="setting-group">
+                    <div class="output-dir-display" id="outputDirDisplay">
+                        <span class="material-icons-round">folder</span>
+                        <span id="outputDirText">workspace/exports</span>
+                    </div>
+                    <button class="btn btn-sm btn-outline" id="btnChangeOutputDir" style="margin-top:8px; width:100%">
+                        <span class="material-icons-round">edit</span> Alterar Pasta de Saida
+                    </button>
+                </div>
+            </div>
+
             <button class="btn btn-save-settings" id="btnSaveSettings">
                 <span class="material-icons-round">save</span>
                 Salvar Configuracoes
@@ -147,39 +160,56 @@
         <!-- Header -->
         <header class="main-header">
             <h2>Dashboard de Edicao</h2>
-            <p>Selecione um video e escolha a operacao desejada</p>
+            <p>Importe um video e escolha a operacao desejada</p>
             <button class="btn btn-help" id="btnHelp">
                 <span class="material-icons-round">help</span> Ajuda
             </button>
         </header>
 
-        <!-- File Explorer -->
-        <section class="section" id="fileExplorerSection">
+        <!-- Media Library (like CapCut) -->
+        <section class="section" id="mediaLibrarySection">
             <div class="section-header">
-                <h3><span class="material-icons-round">folder</span> Explorador de Arquivos</h3>
+                <h3><span class="material-icons-round">video_library</span> Biblioteca de Midias</h3>
                 <div class="section-actions">
-                    <button class="btn btn-sm" id="btnNewFolder">
-                        <span class="material-icons-round">create_new_folder</span> Nova Pasta
-                    </button>
-                    <button class="btn btn-sm btn-primary" id="btnImport">
-                        <span class="material-icons-round">upload</span> Importar
-                    </button>
-                    <button class="btn btn-sm btn-icon" id="btnRefresh">
-                        <span class="material-icons-round">refresh</span>
+                    <button class="btn btn-sm btn-primary" id="btnImportMedia">
+                        <span class="material-icons-round">add</span> Importar Video
                     </button>
                 </div>
             </div>
 
-            <div class="breadcrumb" id="breadcrumb">
-                <span class="material-icons-round">home</span>
-                <span class="breadcrumb-item active" data-path="">Workspace</span>
+            <div class="media-drop-zone" id="mediaDropZone">
+                <span class="material-icons-round">cloud_upload</span>
+                <p>Arraste um video aqui ou clique em <strong>Importar Video</strong></p>
+                <span class="drop-formats">MP4, MKV, AVI, MOV, WebM</span>
             </div>
 
-            <div class="file-grid" id="fileGrid">
-                <!-- Files loaded dynamically -->
+            <div class="media-grid" id="mediaGrid">
+                <!-- Media thumbnails loaded dynamically -->
             </div>
 
             <input type="file" id="fileInput" accept=".mp4,.mkv,.avi,.mov,.webm,.flv,.wmv" style="display:none" multiple>
+        </section>
+
+        <!-- Video Preview -->
+        <section class="section" id="videoPreviewSection" style="display:none">
+            <div class="section-header">
+                <h3><span class="material-icons-round">play_circle</span> Preview do Video</h3>
+                <div class="section-actions">
+                    <span class="preview-video-name" id="previewVideoName"></span>
+                    <button class="btn btn-sm btn-icon" id="btnClosePreview" title="Fechar preview">
+                        <span class="material-icons-round">close</span>
+                    </button>
+                </div>
+            </div>
+            <div class="video-preview-container">
+                <video id="videoPreview" controls preload="metadata">
+                    <source id="videoPreviewSource" src="" type="video/mp4">
+                </video>
+                <div class="video-info-bar" id="videoInfoBar">
+                    <span id="videoDuration"></span>
+                    <span id="videoResolution"></span>
+                </div>
+            </div>
         </section>
 
         <!-- Actions -->
@@ -248,8 +278,9 @@
         <!-- Results Panel -->
         <section class="section" id="resultsSection" style="display:none">
             <div class="section-header">
-                <h3><span class="material-icons-round">video_library</span> Resultados</h3>
+                <h3><span class="material-icons-round">emoji_events</span> Resultados — Clips Ranqueados</h3>
                 <div class="section-actions">
+                    <span class="results-summary" id="resultsSummary"></span>
                     <button class="btn btn-sm btn-primary" id="btnExportAll">
                         <span class="material-icons-round">download</span> Exportar Todos
                     </button>
@@ -272,7 +303,6 @@
                 </div>
                 <div class="console-output" id="consoleOutput">
                     <div class="console-line info">[Sistema] Furia Clips pronto para processar videos.</div>
-                    <div class="console-line info">[Sistema] Conectando ao servidor...</div>
                 </div>
             </div>
         </section>
@@ -383,37 +413,41 @@
                         <div class="step-number">1</div>
                         <div>
                             <h4>Importe seu video</h4>
-                            <p>Clique em "Importar" no explorador de arquivos ou arraste o video para a area.</p>
+                            <p>Arraste o video para a area de "Biblioteca de Midias" ou clique em "Importar Video". O video aparecera com preview automatico.</p>
                         </div>
                     </div>
                     <div class="help-step">
                         <div class="step-number">2</div>
                         <div>
                             <h4>Selecione o video</h4>
-                            <p>Clique no video importado para seleciona-lo. Ele aparecera na barra lateral.</p>
+                            <p>Clique no video na biblioteca. Ele sera selecionado automaticamente e voce vera o preview acima.</p>
                         </div>
                     </div>
                     <div class="help-step">
                         <div class="step-number">3</div>
                         <div>
                             <h4>Configure as opcoes</h4>
-                            <p>Ajuste modelo Whisper, duracao dos cortes, e backend de IA na barra lateral.</p>
+                            <p>Ajuste modelo Whisper, duracao dos cortes, e backend de IA na barra lateral. Escolha a pasta de saida.</p>
                         </div>
                     </div>
                     <div class="help-step">
                         <div class="step-number">4</div>
                         <div>
                             <h4>Execute uma acao</h4>
-                            <p>Use "Processo Completo" para fazer tudo de uma vez, ou execute acoes individuais.</p>
+                            <p>Use "Processo Completo" para fazer tudo de uma vez, ou execute acoes individuais. Acompanhe o progresso no console.</p>
                         </div>
                     </div>
                     <div class="help-step">
                         <div class="step-number">5</div>
                         <div>
                             <h4>Veja os resultados</h4>
-                            <p>Os clips gerados aparecerao com score viral, titulos sugeridos e opcao de exportar.</p>
+                            <p>Os clips gerados aparecerao com <strong>score viral (0-100)</strong>, preview em video, titulos sugeridos e opcao de exportar. Scores altos = maior chance de viralizar!</p>
                         </div>
                     </div>
+                </div>
+                <div class="help-note">
+                    <span class="material-icons-round">info</span>
+                    <p><strong>100% Offline:</strong> Apos o primeiro setup, tudo funciona sem internet. Whisper, FFmpeg e IA (Ollama) rodam localmente no seu PC.</p>
                 </div>
             </div>
         </div>
@@ -455,7 +489,32 @@
         </div>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.4/socket.io.min.js"></script>
+    <!-- Output Dir Modal -->
+    <div class="modal-overlay" id="outputDirModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3><span class="material-icons-round">folder_open</span> Escolher Pasta de Saida</h3>
+                <button class="btn btn-icon modal-close" onclick="closeOutputDirModal()">
+                    <span class="material-icons-round">close</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="setting-group">
+                    <label>Caminho da pasta onde os clips serao salvos:</label>
+                    <input type="text" id="outputDirInput" class="setting-input" placeholder="Ex: C:\Users\Fernando\Videos\FuriaClips">
+                    <p class="setting-hint">Deixe vazio para usar a pasta padrao (workspace/exports)</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" onclick="closeOutputDirModal()">Cancelar</button>
+                <button class="btn btn-primary" onclick="saveOutputDir()">
+                    <span class="material-icons-round">check</span> Salvar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/vendor/socket.io.min.js"></script>
     <script src="/static/js/app.js"></script>
 </body>
 </html>

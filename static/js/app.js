@@ -1,13 +1,16 @@
 // ═══════════════════════════════════════════════════
-// FURIA CLIPS - Frontend Application
+// FURIA CLIPS - Frontend Application v2.0
 // ═══════════════════════════════════════════════════
 
 const state = {
     selectedVideo: null,
+    selectedVideoName: "",
     currentPath: "",
     settings: {},
     clips: [],
+    mediaFiles: [],
     connected: false,
+    outputDir: "",
 };
 
 // ─── WebSocket Connection ───
@@ -44,7 +47,7 @@ function handleStatusUpdate(data) {
         case "silence_complete":
             hideProgressBar();
             showToast("Silencio removido com sucesso!", "success");
-            loadFiles(state.currentPath);
+            loadMediaFiles();
             break;
         case "transcribe_complete":
             hideProgressBar();
@@ -52,28 +55,31 @@ function handleStatusUpdate(data) {
             break;
         case "cut_complete":
             hideProgressBar();
-            showToast(`${data.data.clips.length} clips gerados!`, "success");
+            showToast(`${data.data.clips.length} clips gerados e ranqueados!`, "success");
             displayResults(data.data.clips);
             break;
         case "subtitles_complete":
             hideProgressBar();
             showToast("Legendas geradas com sucesso!", "success");
-            loadFiles(state.currentPath);
+            loadMediaFiles();
             break;
         case "seo_complete":
             hideProgressBar();
             showToast("Conteudo SEO gerado!", "success");
+            if (data.data) displaySeoResult(data.data);
             break;
         case "thumbnail_complete":
             hideProgressBar();
             showToast("Thumbnail gerada!", "success");
-            loadFiles(state.currentPath);
+            if (data.data && data.data.path) {
+                showThumbnailPreview(data.data.path);
+            }
             break;
         case "complete_done":
             hideProgressBar();
-            showToast(`Processo completo! ${data.data.total_clips} clips gerados.`, "success");
+            showToast(`Processo completo! ${data.data.total_clips} clips gerados e ranqueados.`, "success");
             displayResults(data.data.clips);
-            loadFiles(state.currentPath);
+            loadMediaFiles();
             break;
         case "error":
             hideProgressBar();
@@ -91,13 +97,17 @@ function addConsoleLog(message, level = "info") {
     line.textContent = message;
     console_el.appendChild(line);
     console_el.scrollTop = console_el.scrollHeight;
+
+    // Keep max 200 lines
+    while (console_el.children.length > 200) {
+        console_el.removeChild(console_el.firstChild);
+    }
 }
 
 function showProgressBar() {
     const container = document.getElementById("progressBarContainer");
     const bar = document.getElementById("progressBar");
     container.style.display = "block";
-    // Animate progress bar continuously
     if (!bar.dataset.animating) {
         bar.dataset.animating = "true";
         let width = 0;
@@ -127,107 +137,118 @@ function hideProgressBar() {
     }, 1000);
 }
 
-// ─── File Manager ───
+// ─── Media Library ───
 
-async function loadFiles(path = "") {
+async function loadMediaFiles() {
     try {
-        const res = await fetch(`/api/files?path=${encodeURIComponent(path)}`);
+        const res = await fetch("/api/files?path=uploads");
         const data = await res.json();
-        state.currentPath = data.current_path;
-        renderFiles(data.items);
-        renderBreadcrumb(data.current_path);
+        state.mediaFiles = data.items.filter(f => f.is_video);
+        renderMediaLibrary();
     } catch (e) {
-        addConsoleLog(`[Erro] Falha ao carregar arquivos: ${e.message}`, "error");
+        addConsoleLog(`[Erro] Falha ao carregar midias: ${e.message}`, "error");
     }
 }
 
-function renderFiles(items) {
-    const grid = document.getElementById("fileGrid");
-    grid.innerHTML = "";
+function renderMediaLibrary() {
+    const grid = document.getElementById("mediaGrid");
+    const dropZone = document.getElementById("mediaDropZone");
 
-    if (items.length === 0) {
-        grid.innerHTML = `
-            <div class="file-grid-empty">
-                <span class="material-icons-round">cloud_upload</span>
-                <p>Nenhum arquivo encontrado. Importe um video para comecar!</p>
-            </div>`;
+    if (state.mediaFiles.length === 0) {
+        grid.style.display = "none";
+        dropZone.style.display = "flex";
         return;
     }
 
-    items.forEach(item => {
-        const el = document.createElement("div");
-        el.className = "file-item" + (state.selectedVideo === item.path ? " selected" : "");
+    dropZone.style.display = "none";
+    grid.style.display = "grid";
+    grid.innerHTML = "";
 
-        if (item.is_dir) {
-            el.innerHTML = `
-                <div class="file-icon folder">
-                    <span class="material-icons-round">folder</span>
+    state.mediaFiles.forEach(file => {
+        const card = document.createElement("div");
+        card.className = "media-card" + (state.selectedVideo === file.path ? " selected" : "");
+        card.innerHTML = `
+            <div class="media-thumb">
+                <video preload="metadata" muted>
+                    <source src="/workspace/${file.path}" type="video/mp4">
+                </video>
+                <div class="media-play-overlay">
+                    <span class="material-icons-round">play_circle_filled</span>
                 </div>
-                <span class="file-name">${item.name}</span>`;
-            el.addEventListener("click", () => loadFiles(item.path));
-        } else {
-            const icon = item.is_video ? "movie" : "description";
-            const iconClass = item.is_video ? "video" : "folder";
-            el.innerHTML = `
-                <div class="file-icon ${iconClass}">
-                    <span class="material-icons-round">${icon}</span>
-                </div>
-                <span class="file-name">${item.name}</span>
-                <span class="file-size">${item.size_human}</span>
-                ${item.is_video ? '<span class="file-badge">MP4</span>' : ''}`;
+                <div class="media-duration">${file.size_human}</div>
+            </div>
+            <div class="media-info">
+                <span class="media-name" title="${file.name}">${truncateName(file.name, 30)}</span>
+            </div>
+        `;
 
-            if (item.is_video) {
-                el.addEventListener("click", () => selectVideo(item));
-            }
-        }
-
-        grid.appendChild(el);
+        card.addEventListener("click", () => selectVideo(file));
+        grid.appendChild(card);
     });
 }
 
-function renderBreadcrumb(path) {
-    const bc = document.getElementById("breadcrumb");
-    let html = `<span class="material-icons-round">home</span>
-                <span class="breadcrumb-item${!path ? ' active' : ''}" data-path="" onclick="loadFiles('')">Workspace</span>`;
-
-    if (path) {
-        const parts = path.split("/");
-        let accumulated = "";
-        parts.forEach((part, i) => {
-            accumulated += (accumulated ? "/" : "") + part;
-            const isLast = i === parts.length - 1;
-            html += `<span class="breadcrumb-separator">/</span>
-                     <span class="breadcrumb-item${isLast ? ' active' : ''}"
-                           data-path="${accumulated}"
-                           onclick="loadFiles('${accumulated}')">${part}</span>`;
-        });
-    }
-
-    bc.innerHTML = html;
+function truncateName(name, max) {
+    if (name.length <= max) return name;
+    const ext = name.split('.').pop();
+    return name.substring(0, max - ext.length - 4) + "..." + ext;
 }
+
+// ─── Video Selection & Preview ───
 
 function selectVideo(item) {
     state.selectedVideo = item.path;
-    document.querySelectorAll(".file-item").forEach(el => el.classList.remove("selected"));
-    event.currentTarget.classList.add("selected");
+    state.selectedVideoName = item.name;
 
+    // Update sidebar info
     const info = document.getElementById("selectedVideoInfo");
     info.className = "selected-video has-video";
     info.innerHTML = `
         <div class="video-info-selected">
-            <span class="video-name">${item.name}</span>
-            <span class="video-meta">${item.size_human}</span>
-            <button class="btn btn-sm btn-deselect" onclick="deselectVideo()">
-                <span class="material-icons-round" style="font-size:14px">close</span> Remover selecao
+            <span class="material-icons-round" style="color:var(--gold);font-size:20px">movie</span>
+            <div>
+                <span class="video-name">${truncateName(item.name, 25)}</span>
+                <span class="video-meta">${item.size_human}</span>
+            </div>
+            <button class="btn btn-sm btn-deselect" onclick="deselectVideo()" title="Remover selecao">
+                <span class="material-icons-round" style="font-size:14px">close</span>
             </button>
         </div>`;
 
+    // Update media grid selection
+    document.querySelectorAll(".media-card").forEach(el => el.classList.remove("selected"));
+    event.currentTarget.classList.add("selected");
+
+    // Show video preview
+    showVideoPreview(item);
+
     addConsoleLog(`[Sistema] Video selecionado: ${item.name}`, "info");
+    showToast(`Video selecionado: ${truncateName(item.name, 30)}`, "success");
+}
+
+function showVideoPreview(item) {
+    const section = document.getElementById("videoPreviewSection");
+    const video = document.getElementById("videoPreview");
+    const source = document.getElementById("videoPreviewSource");
+    const nameEl = document.getElementById("previewVideoName");
+
+    section.style.display = "block";
+    nameEl.textContent = item.name;
+    source.src = `/workspace/${item.path}`;
+    video.load();
+
+    video.addEventListener("loadedmetadata", () => {
+        const dur = formatTime(video.duration);
+        const res = `${video.videoWidth}x${video.videoHeight}`;
+        document.getElementById("videoDuration").textContent = `Duracao: ${dur}`;
+        document.getElementById("videoResolution").textContent = `Resolucao: ${res}`;
+    }, { once: true });
 }
 
 function deselectVideo() {
     state.selectedVideo = null;
-    document.querySelectorAll(".file-item").forEach(el => el.classList.remove("selected"));
+    state.selectedVideoName = "";
+    document.querySelectorAll(".media-card").forEach(el => el.classList.remove("selected"));
+
     const info = document.getElementById("selectedVideoInfo");
     info.className = "selected-video";
     info.innerHTML = `
@@ -235,11 +256,14 @@ function deselectVideo() {
             <span class="material-icons-round">videocam_off</span>
             <p>Nenhum video selecionado</p>
         </div>`;
+
+    // Hide preview
+    document.getElementById("videoPreviewSection").style.display = "none";
 }
 
 // ─── File Upload ───
 
-document.getElementById("btnImport").addEventListener("click", () => {
+document.getElementById("btnImportMedia").addEventListener("click", () => {
     document.getElementById("fileInput").click();
 });
 
@@ -250,14 +274,27 @@ document.getElementById("fileInput").addEventListener("change", async (e) => {
     for (const file of files) {
         await uploadFile(file);
     }
-    loadFiles(state.currentPath);
+    await loadMediaFiles();
+
+    // Auto-select the first uploaded file
+    if (state.mediaFiles.length > 0 && !state.selectedVideo) {
+        const lastFile = state.mediaFiles[state.mediaFiles.length - 1];
+        // Simulate click on last uploaded media card
+        setTimeout(() => {
+            const cards = document.querySelectorAll(".media-card");
+            if (cards.length > 0) {
+                cards[cards.length - 1].click();
+            }
+        }, 100);
+    }
+
     e.target.value = "";
 });
 
 async function uploadFile(file) {
     const formData = new FormData();
     formData.append("file", file);
-    formData.append("path", state.currentPath || "uploads");
+    formData.append("path", "uploads");
 
     addConsoleLog(`[Upload] Enviando ${file.name}...`, "info");
     showToast(`Importando ${file.name}...`, "info");
@@ -281,57 +318,47 @@ async function uploadFile(file) {
     }
 }
 
-// Drag and drop
-const fileExplorer = document.getElementById("fileExplorerSection");
-fileExplorer.addEventListener("dragover", (e) => {
-    e.preventDefault();
-    fileExplorer.classList.add("drag-over");
-});
-fileExplorer.addEventListener("dragleave", () => {
-    fileExplorer.classList.remove("drag-over");
-});
-fileExplorer.addEventListener("drop", async (e) => {
-    e.preventDefault();
-    fileExplorer.classList.remove("drag-over");
-    const files = e.dataTransfer.files;
-    for (const file of files) {
-        await uploadFile(file);
-    }
-    loadFiles(state.currentPath);
-});
+// Drag and drop on media library
+const mediaDropZone = document.getElementById("mediaDropZone");
+const mediaSection = document.getElementById("mediaLibrarySection");
 
-// ─── New Folder ───
-
-document.getElementById("btnNewFolder").addEventListener("click", async () => {
-    const name = prompt("Nome da nova pasta:");
-    if (!name) return;
-
-    try {
-        const res = await fetch("/api/files/mkdir", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name, parent: state.currentPath }),
-        });
-        const data = await res.json();
-        if (data.success) {
-            loadFiles(state.currentPath);
-            showToast("Pasta criada!", "success");
+[mediaDropZone, mediaSection].forEach(el => {
+    el.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        mediaDropZone.classList.add("drag-over");
+    });
+    el.addEventListener("dragleave", () => {
+        mediaDropZone.classList.remove("drag-over");
+    });
+    el.addEventListener("drop", async (e) => {
+        e.preventDefault();
+        mediaDropZone.classList.remove("drag-over");
+        const files = e.dataTransfer.files;
+        for (const file of files) {
+            await uploadFile(file);
         }
-    } catch (e) {
-        showToast("Erro ao criar pasta", "error");
-    }
+        await loadMediaFiles();
+        // Auto-select
+        setTimeout(() => {
+            const cards = document.querySelectorAll(".media-card");
+            if (cards.length > 0 && !state.selectedVideo) {
+                cards[cards.length - 1].click();
+            }
+        }, 100);
+    });
 });
 
-// Refresh
-document.getElementById("btnRefresh").addEventListener("click", () => {
-    loadFiles(state.currentPath);
+// ─── Close Preview ───
+
+document.getElementById("btnClosePreview").addEventListener("click", () => {
+    document.getElementById("videoPreviewSection").style.display = "none";
 });
 
 // ─── Actions ───
 
 function requireVideo() {
     if (!state.selectedVideo) {
-        showToast("Selecione um video primeiro!", "warning");
+        showToast("Selecione um video primeiro na biblioteca!", "warning");
         return false;
     }
     return true;
@@ -358,7 +385,7 @@ document.getElementById("actionCut").querySelector(".btn-action").addEventListen
 });
 
 document.getElementById("actionSeo").querySelector(".btn-action").addEventListener("click", async () => {
-    showToast("Selecione um clip nos resultados para gerar SEO", "info");
+    showToast("Use o 'Processo Completo' ou gere SEO a partir de um clip nos resultados", "info");
 });
 
 document.getElementById("actionThumbnail").querySelector(".btn-action").addEventListener("click", () => {
@@ -373,7 +400,10 @@ document.getElementById("actionComplete").querySelector(".btn-action").addEventL
     await fetch("/api/process/complete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ video_path: state.selectedVideo }),
+        body: JSON.stringify({
+            video_path: state.selectedVideo,
+            output_dir: state.outputDir || "",
+        }),
     });
 });
 
@@ -399,7 +429,7 @@ function updateSubtitlePreview() {
 
     preview.innerHTML = `
         <div style="width:100%; height:100%; display:flex; align-items:${position === 'bottom' ? 'flex-end' : 'flex-start'};
-                    justify-content:center; padding:16px; background:#111;">
+                    justify-content:center; padding:16px; background:#111; border-radius:8px;">
             <div style="text-align:center;">
                 <span style="color:${textColor}; font-size:${Math.max(12, fontSize * 0.6)}px; font-weight:700;
                              text-shadow: -1px -1px 0 ${borderColor}, 1px -1px 0 ${borderColor},
@@ -489,17 +519,58 @@ async function generateThumbnail() {
     });
 }
 
+function showThumbnailPreview(path) {
+    showToast("Thumbnail salva em: " + path, "success");
+}
+
+// ─── Output Directory ───
+
+document.getElementById("btnChangeOutputDir").addEventListener("click", () => {
+    document.getElementById("outputDirInput").value = state.outputDir || "";
+    document.getElementById("outputDirModal").classList.add("active");
+});
+
+function closeOutputDirModal() {
+    document.getElementById("outputDirModal").classList.remove("active");
+}
+
+function saveOutputDir() {
+    const dir = document.getElementById("outputDirInput").value.trim();
+    state.outputDir = dir;
+    document.getElementById("outputDirText").textContent = dir || "workspace/exports (padrao)";
+    closeOutputDirModal();
+
+    // Save to settings
+    fetch("/api/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ output_dir: dir }),
+    });
+
+    showToast("Pasta de saida atualizada!", "success");
+}
+
 // ─── Results Display ───
 
 function displayResults(clips) {
     const section = document.getElementById("resultsSection");
     const grid = document.getElementById("resultsGrid");
+    const summary = document.getElementById("resultsSummary");
     section.style.display = "block";
     grid.innerHTML = "";
 
     state.clips = clips;
 
-    clips.forEach((clip, i) => {
+    // Summary
+    const avgScore = clips.reduce((a, c) => a + (c.viral_score || 0), 0) / clips.length;
+    const highScoreCount = clips.filter(c => c.viral_score >= 70).length;
+    summary.textContent = `${clips.length} clips | Media: ${avgScore.toFixed(0)} | ${highScoreCount} com alto potencial`;
+
+    // Sort by viral score (highest first)
+    const sorted = [...clips].sort((a, b) => (b.viral_score || 0) - (a.viral_score || 0));
+
+    sorted.forEach((clip, i) => {
+        const originalIndex = clips.indexOf(clip);
         const scoreClass = clip.viral_score >= 70 ? "high" : clip.viral_score >= 40 ? "medium" : "low";
         const seo = clip.seo || {};
         const titles = seo.titles || [];
@@ -509,46 +580,60 @@ function displayResults(clips) {
         const card = document.createElement("div");
         card.className = "result-card";
         card.innerHTML = `
+            <div class="result-header-bar">
+                <div class="result-rank">#${i + 1}</div>
+                <div class="viral-score-badge ${scoreClass}">
+                    <span class="material-icons-round">trending_up</span>
+                    <span class="score-value">${clip.viral_score || 0}</span>
+                    <span class="score-label">/100</span>
+                </div>
+                ${clip.has_hook ? '<span class="hook-badge"><span class="material-icons-round" style="font-size:12px">flash_on</span> Gancho</span>' : ''}
+            </div>
             <div class="result-video-preview">
-                <video controls preload="metadata">
+                <video controls preload="metadata" poster="">
                     <source src="/workspace/${clip.subtitled_path || clip.path}" type="video/mp4">
                 </video>
             </div>
             <div class="result-info">
-                <div class="result-header">
-                    <span class="result-clip-number">Clip #${i + 1}</span>
-                    <div style="display:flex; align-items:center; gap:8px;">
-                        ${clip.has_hook ? '<span class="hook-badge"><span class="material-icons-round" style="font-size:12px">flash_on</span> Gancho</span>' : ''}
-                        <span class="viral-score ${scoreClass}">
-                            <span class="material-icons-round">trending_up</span>
-                            ${clip.viral_score}
-                        </span>
-                    </div>
-                </div>
                 <div class="result-duration">
+                    <span class="material-icons-round" style="font-size:14px">schedule</span>
                     ${formatTime(clip.start)} - ${formatTime(clip.end)} (${clip.duration.toFixed(1)}s)
                 </div>
-                <div class="result-text">${clip.text || "Sem transcricao"}</div>
+
+                ${clip.breakdown ? `
+                <div class="score-breakdown">
+                    <div class="breakdown-item" title="Gancho"><span>Gancho</span><div class="bar"><div style="width:${clip.breakdown.hook || 0}%"></div></div><span>${clip.breakdown.hook || 0}</span></div>
+                    <div class="breakdown-item" title="Emocao"><span>Emocao</span><div class="bar"><div style="width:${clip.breakdown.emotional || 0}%"></div></div><span>${clip.breakdown.emotional || 0}</span></div>
+                    <div class="breakdown-item" title="Energia"><span>Energia</span><div class="bar"><div style="width:${clip.breakdown.energy || 0}%"></div></div><span>${clip.breakdown.energy || 0}</span></div>
+                    <div class="breakdown-item" title="Duracao"><span>Duracao</span><div class="bar"><div style="width:${clip.breakdown.duration || 0}%"></div></div><span>${clip.breakdown.duration || 0}</span></div>
+                </div>` : ''}
+
+                <div class="result-text-preview">${clip.text ? clip.text.substring(0, 150) + (clip.text.length > 150 ? '...' : '') : "Sem transcricao"}</div>
 
                 ${titles.length > 0 ? `
                 <div class="result-seo">
-                    <h5>Titulos Sugeridos</h5>
-                    ${titles.slice(0, 3).map(t => `<div class="seo-title" onclick="copyToClipboard('${escapeHtml(t)}')">${t}</div>`).join('')}
+                    <h5><span class="material-icons-round" style="font-size:14px">title</span> Titulos Sugeridos</h5>
+                    ${titles.slice(0, 3).map(t => `<div class="seo-title" onclick="copyToClipboard(this.textContent)">${t}</div>`).join('')}
                 </div>` : ''}
 
                 ${tags.length > 0 ? `
                 <div class="seo-tags">
-                    ${tags.slice(0, 8).map(t => `<span class="seo-tag">${t}</span>`).join('')}
+                    ${tags.slice(0, 10).map(t => `<span class="seo-tag" onclick="copyToClipboard('${t}')">${t}</span>`).join('')}
+                </div>` : ''}
+
+                ${hashtags.length > 0 ? `
+                <div class="seo-hashtags">
+                    ${hashtags.slice(0, 8).map(h => `<span class="seo-hashtag">${h}</span>`).join('')}
                 </div>` : ''}
 
                 <div class="result-actions">
-                    <button class="btn btn-sm btn-primary" onclick="downloadClip(${i})">
-                        <span class="material-icons-round">download</span> Exportar
+                    <button class="btn btn-sm btn-primary" onclick="downloadClip(${originalIndex})">
+                        <span class="material-icons-round">download</span> Baixar
                     </button>
-                    <button class="btn btn-sm" onclick="generateClipSeo(${i})">
+                    <button class="btn btn-sm" onclick="generateClipSeo(${originalIndex})">
                         <span class="material-icons-round">auto_awesome</span> SEO
                     </button>
-                    <button class="btn btn-sm" onclick="generateClipThumb(${i})">
+                    <button class="btn btn-sm" onclick="generateClipThumb(${originalIndex})">
                         <span class="material-icons-round">image</span> Capa
                     </button>
                 </div>
@@ -560,21 +645,27 @@ function displayResults(clips) {
     section.scrollIntoView({ behavior: "smooth" });
 }
 
+function displaySeoResult(seo) {
+    // Update the last clip that was generating SEO
+    addConsoleLog(`[SEO] Titulos: ${(seo.titles || []).join(' | ')}`, "success");
+    addConsoleLog(`[SEO] Tags: ${(seo.tags || []).slice(0, 5).join(', ')}...`, "info");
+}
+
 function formatTime(seconds) {
     const m = Math.floor(seconds / 60);
     const s = Math.floor(seconds % 60);
     return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
-function escapeHtml(str) {
-    return str.replace(/'/g, "\\'").replace(/"/g, "&quot;");
-}
-
 function downloadClip(index) {
     const clip = state.clips[index];
     if (clip) {
         const path = clip.subtitled_path || clip.path;
-        window.open(`/workspace/${path}`, "_blank");
+        const a = document.createElement("a");
+        a.href = `/workspace/${path}`;
+        a.download = path.split("/").pop();
+        a.click();
+        showToast("Download iniciado!", "success");
     }
 }
 
@@ -584,7 +675,7 @@ async function generateClipSeo(index) {
         showToast("Clip sem transcricao para gerar SEO", "warning");
         return;
     }
-    addConsoleLog(`[SEO] Gerando conteudo para Clip #${index + 1}...`, "info");
+    addConsoleLog(`[SEO] Gerando conteudo para Clip...`, "info");
     await fetch("/api/process/seo", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -602,7 +693,7 @@ async function generateClipThumb(index) {
     const text = prompt("Texto para a thumbnail:", clip.text ? clip.text.substring(0, 40) : "");
     if (text === null) return;
 
-    addConsoleLog(`[Thumbnail] Gerando capa para Clip #${index + 1}...`, "info");
+    addConsoleLog(`[Thumbnail] Gerando capa...`, "info");
     await fetch("/api/process/thumbnail", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -618,7 +709,7 @@ async function generateClipThumb(index) {
 
 function copyToClipboard(text) {
     navigator.clipboard.writeText(text).then(() => {
-        showToast("Copiado para a area de transferencia!", "success");
+        showToast("Copiado!", "success");
     });
 }
 
@@ -658,6 +749,10 @@ function applySettings() {
     if (s.ollama_model) document.getElementById("settingOllamaModel").value = s.ollama_model;
     if (s.gemini_api_key) document.getElementById("settingGeminiKey").value = s.gemini_api_key;
     if (s.claude_api_key) document.getElementById("settingClaudeKey").value = s.claude_api_key;
+    if (s.output_dir) {
+        state.outputDir = s.output_dir;
+        document.getElementById("outputDirText").textContent = s.output_dir || "workspace/exports (padrao)";
+    }
 }
 
 function updateAiConfigVisibility(backend) {
@@ -687,6 +782,7 @@ document.getElementById("btnSaveSettings").addEventListener("click", async () =>
         ollama_model: document.getElementById("settingOllamaModel").value,
         gemini_api_key: document.getElementById("settingGeminiKey").value,
         claude_api_key: document.getElementById("settingClaudeKey").value,
+        output_dir: state.outputDir,
     };
 
     try {
@@ -768,7 +864,7 @@ function showToast(message, type = "info") {
     const toast = document.createElement("div");
     toast.className = `toast ${type}`;
     toast.innerHTML = `
-        <span class="material-icons-round" style="font-size:18px; color:var(--${type})">${icons[type]}</span>
+        <span class="material-icons-round" style="font-size:18px">${icons[type]}</span>
         <span>${message}</span>`;
 
     toastContainer.appendChild(toast);
@@ -791,11 +887,12 @@ document.getElementById("btnExportAll").addEventListener("click", () => {
     state.clips.forEach((clip, i) => {
         setTimeout(() => downloadClip(i), i * 500);
     });
+    showToast(`Exportando ${state.clips.length} clips...`, "info");
 });
 
 // ─── Init ───
 
 document.addEventListener("DOMContentLoaded", () => {
     loadSettings();
-    loadFiles();
+    loadMediaFiles();
 });

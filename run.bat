@@ -1,64 +1,81 @@
 @echo off
+chcp 65001 >nul
 title Furia Clips - Corte. Ranqueie. Domine.
 color 0E
 
-echo ============================================
+echo ══════════════════════════════════════════════════
 echo    FURIA CLIPS - Corte. Ranqueie. Domine.
-echo ============================================
+echo ══════════════════════════════════════════════════
 echo.
 
 :: Check Python
 python --version >nul 2>&1
-if %errorlevel% neq 0 (
+if errorlevel 1 (
     echo [ERRO] Python nao encontrado!
-    echo Instale o Python em: https://www.python.org/downloads/
-    echo Marque "Add Python to PATH" durante a instalacao.
+    echo Instale Python 3.10+ de: https://www.python.org/downloads/
+    echo IMPORTANTE: Marque "Add Python to PATH" na instalacao!
     pause
     exit /b 1
 )
 
 :: Check FFmpeg
 ffmpeg -version >nul 2>&1
-if %errorlevel% neq 0 (
-    echo [AVISO] FFmpeg nao encontrado!
-    echo Instale o FFmpeg em: https://ffmpeg.org/download.html
+if errorlevel 1 (
+    echo [AVISO] FFmpeg nao encontrado no PATH.
+    echo Instale de: https://ffmpeg.org/download.html
     echo Adicione ao PATH do sistema.
     echo.
-    echo Tentando continuar mesmo assim...
+    echo O programa vai iniciar mas cortes de video nao funcionarao.
+    echo.
 )
 
-:: Define venv path
-set VENV_DIR=.venv
-
-:: Create venv if needed
-if not exist "%VENV_DIR%" (
-    echo [SETUP] Criando ambiente virtual...
-    python -m venv "%VENV_DIR%"
+:: Create virtual environment if needed
+if not exist "venv" (
+    echo [Setup] Criando ambiente virtual...
+    python -m venv venv
+    echo [Setup] Ambiente criado!
+    echo.
 )
 
 :: Activate venv
-echo [SETUP] Ativando ambiente virtual...
-call "%VENV_DIR%\Scripts\activate.bat"
+call venv\Scripts\activate.bat
 
-:: Upgrade pip
-pip install --upgrade pip -q 2>nul
+:: Install dependencies if needed
+if not exist "venv\.deps_installed" (
+    echo ══════════════════════════════════════════════════
+    echo    PRIMEIRO USO - Instalando dependencias...
+    echo    (isso so acontece uma vez^)
+    echo ══════════════════════════════════════════════════
+    echo.
+    echo [Setup] Instalando pacotes Python...
+    pip install --quiet --upgrade pip
+    pip install --quiet torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+    pip install --quiet -r requirements.txt
+    echo.
+    echo [Setup] Baixando modelo Whisper (small^)...
+    echo    Isso pode demorar alguns minutos na primeira vez.
+    echo    Apos isso, tudo funciona 100%% OFFLINE!
+    python -c "import whisper; whisper.load_model('small')"
+    echo.
+    echo [Setup] Instalacao completa!
+    echo. > venv\.deps_installed
+    echo.
+    echo ══════════════════════════════════════════════════
+    echo    SETUP COMPLETO! Tudo pronto para uso offline.
+    echo ══════════════════════════════════════════════════
+    echo.
+)
 
-:: Install dependencies
-echo [SETUP] Verificando dependencias...
-pip install -r requirements.txt -q 2>nul
-
-:: Start the app
+:: Start the server
+echo [Furia Clips] Iniciando servidor...
+echo [Furia Clips] Acesse: http://localhost:3001
+echo [Furia Clips] Para parar: feche esta janela ou pressione Ctrl+C
 echo.
-echo ============================================
-echo    Iniciando Furia Clips...
-echo    Acesse: http://localhost:3001
-echo ============================================
-echo.
 
-:: Open browser after delay
-start "" cmd /c "timeout /t 3 >nul && start http://localhost:3001"
+:: Open browser after a short delay
+start "" cmd /c "timeout /t 2 /nobreak >nul && start http://localhost:3001"
 
-:: Run the server
+:: Run the app
 python app.py
 
 pause

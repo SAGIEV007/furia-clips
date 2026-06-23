@@ -184,13 +184,14 @@ class VideoCutter:
         return output_path
 
     def batch_cut(self, video_path, cuts, project_name, use_face_tracking=False,
-                  face_positions_map=None, emit_progress=None):
-        os.makedirs(EXPORT_DIR, exist_ok=True)
+                  face_positions_map=None, emit_progress=None, output_dir=None):
+        export_dir = output_dir if output_dir and os.path.isabs(output_dir) else EXPORT_DIR
+        os.makedirs(export_dir, exist_ok=True)
         results = []
 
         for i, cut in enumerate(cuts):
             output_name = f"{project_name}_clip_{i+1:03d}.mp4"
-            output_path = os.path.join(EXPORT_DIR, output_name)
+            output_path = os.path.join(export_dir, output_name)
 
             if emit_progress:
                 emit_progress(f"Cortando clip {i+1}/{len(cuts)}...")
