@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Furia Clips - Corte. Ranqueie. Domine.</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+</head>
+<body>
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <div class="logo-icon">
+                    <span class="material-icons-round">local_fire_department</span>
+                </div>
+                <div class="logo-text">
+                    <h1>Furia Clips</h1>
+                    <span class="slogan">Corte. Ranqueie. Domine.</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="sidebar-content">
+            <!-- Video Selection -->
+            <div class="sidebar-section">
+                <h3><span class="material-icons-round">movie</span> Video Selecionado</h3>
+                <div class="selected-video" id="selectedVideoInfo">
+                    <div class="no-video">
+                        <span class="material-icons-round">videocam_off</span>
+                        <p>Nenhum video selecionado</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settings -->
+            <div class="sidebar-section">
+                <h3><span class="material-icons-round">settings</span> Configuracoes</h3>
+
+                <div class="setting-group">
+                    <label>Modelo Whisper</label>
+                    <select id="settingWhisperModel" class="setting-select">
+                        <option value="tiny">Tiny (mais rapido)</option>
+                        <option value="base">Base</option>
+                        <option value="small" selected>Small (recomendado)</option>
+                        <option value="medium">Medium (mais preciso)</option>
+                        <option value="large">Large (melhor qualidade)</option>
+                    </select>
+                </div>
+
+                <div class="setting-group">
+                    <label>Metodo de Corte</label>
+                    <select id="settingCutMethod" class="setting-select">
+                        <option value="intelligent" selected>Inteligente (Whisper/Fala)</option>
+                        <option value="scene">Por Cena</option>
+                        <option value="fixed">Duracao Fixa</option>
+                    </select>
+                </div>
+
+                <div class="setting-group">
+                    <label>Duracao dos Cortes</label>
+                    <select id="settingCutDuration" class="setting-select">
+                        <option value="15">15 segundos</option>
+                        <option value="30">30 segundos</option>
+                        <option value="45" selected>45 segundos</option>
+                        <option value="60">60 segundos</option>
+                    </select>
+                </div>
+
+                <div class="setting-group">
+                    <label>Silencio Minimo <span class="setting-value" id="silenceValue">0.5s</span></label>
+                    <input type="range" id="settingSilenceDuration" min="0.2" max="2.0" step="0.1" value="0.5" class="setting-range">
+                </div>
+
+                <div class="setting-group">
+                    <label>Margem (Padding) <span class="setting-value" id="paddingValue">0.25s</span></label>
+                    <input type="range" id="settingPadding" min="0.0" max="1.0" step="0.05" value="0.25" class="setting-range">
+                </div>
+
+                <div class="setting-group">
+                    <label>Idioma do Audio</label>
+                    <select id="settingLanguage" class="setting-select">
+                        <option value="pt" selected>Portugues</option>
+                        <option value="en">English</option>
+                        <option value="es">Espanol</option>
+                    </select>
+                </div>
+
+                <div class="setting-group setting-toggle">
+                    <label>Correcao com IA</label>
+                    <div class="toggle" id="settingAiCorrection" data-active="true">
+                        <div class="toggle-slider"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI Backend -->
+            <div class="sidebar-section">
+                <h3><span class="material-icons-round">smart_toy</span> Backend de IA</h3>
+
+                <div class="setting-group">
+                    <label>Motor de IA</label>
+                    <select id="settingAiBackend" class="setting-select">
+                        <option value="ollama" selected>Ollama (Local/Gratis)</option>
+                        <option value="gemini">Google Gemini (API Gratis)</option>
+                        <option value="claude">Claude API (Pago)</option>
+                    </select>
+                </div>
+
+                <div class="setting-group ai-config" id="ollamaConfig">
+                    <label>Modelo Ollama</label>
+                    <select id="settingOllamaModel" class="setting-select">
+                        <option value="llama3.2:3b" selected>Llama 3.2 3B (Leve)</option>
+                        <option value="llama3.1:8b">Llama 3.1 8B</option>
+                        <option value="mistral:7b">Mistral 7B</option>
+                        <option value="phi3:mini">Phi-3 Mini</option>
+                    </select>
+                </div>
+
+                <div class="setting-group ai-config" id="geminiConfig" style="display:none">
+                    <label>Gemini API Key</label>
+                    <input type="password" id="settingGeminiKey" class="setting-input" placeholder="Cole sua API key aqui">
+                </div>
+
+                <div class="setting-group ai-config" id="claudeConfig" style="display:none">
+                    <label>Claude API Key</label>
+                    <input type="password" id="settingClaudeKey" class="setting-input" placeholder="Cole sua API key aqui">
+                </div>
+
+                <div class="ai-status" id="aiStatus">
+                    <span class="material-icons-round">check_circle</span>
+                    <span>Ollama local selecionado</span>
+                </div>
+            </div>
+
+            <button class="btn btn-save-settings" id="btnSaveSettings">
+                <span class="material-icons-round">save</span>
+                Salvar Configuracoes
+            </button>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Header -->
+        <header class="main-header">
+            <h2>Dashboard de Edicao</h2>
+            <p>Selecione um video e escolha a operacao desejada</p>
+            <button class="btn btn-help" id="btnHelp">
+                <span class="material-icons-round">help</span> Ajuda
+            </button>
+        </header>
+
+        <!-- File Explorer -->
+        <section class="section" id="fileExplorerSection">
+            <div class="section-header">
+                <h3><span class="material-icons-round">folder</span> Explorador de Arquivos</h3>
+                <div class="section-actions">
+                    <button class="btn btn-sm" id="btnNewFolder">
+                        <span class="material-icons-round">create_new_folder</span> Nova Pasta
+                    </button>
+                    <button class="btn btn-sm btn-primary" id="btnImport">
+                        <span class="material-icons-round">upload</span> Importar
+                    </button>
+                    <button class="btn btn-sm btn-icon" id="btnRefresh">
+                        <span class="material-icons-round">refresh</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="breadcrumb" id="breadcrumb">
+                <span class="material-icons-round">home</span>
+                <span class="breadcrumb-item active" data-path="">Workspace</span>
+            </div>
+
+            <div class="file-grid" id="fileGrid">
+                <!-- Files loaded dynamically -->
+            </div>
+
+            <input type="file" id="fileInput" accept=".mp4,.mkv,.avi,.mov,.webm,.flv,.wmv" style="display:none" multiple>
+        </section>
+
+        <!-- Actions -->
+        <section class="section" id="actionsSection">
+            <div class="section-header">
+                <h3><span class="material-icons-round">bolt</span> Acoes Disponiveis</h3>
+            </div>
+
+            <div class="action-cards">
+                <div class="action-card" id="actionSilence" data-action="silence">
+                    <div class="action-icon" style="background: linear-gradient(135deg, #FF6B6B, #FF8E53)">
+                        <span class="material-icons-round">content_cut</span>
+                    </div>
+                    <h4>Remover Silencio</h4>
+                    <p>Detecta e remove automaticamente pausas e silencios do video</p>
+                    <button class="btn btn-action">Executar Corte</button>
+                </div>
+
+                <div class="action-card" id="actionSubtitles" data-action="subtitles">
+                    <div class="action-icon" style="background: linear-gradient(135deg, #4ECDC4, #44CF6C)">
+                        <span class="material-icons-round">subtitles</span>
+                    </div>
+                    <h4>Gerar Legendas</h4>
+                    <p>Transcreve o audio e adiciona legendas dinamicas estilo CapCut</p>
+                    <button class="btn btn-action" onclick="openSubtitleModal()">Configurar e Gerar</button>
+                </div>
+
+                <div class="action-card" id="actionCut" data-action="cut">
+                    <div class="action-icon" style="background: linear-gradient(135deg, #A78BFA, #7C3AED)">
+                        <span class="material-icons-round">auto_awesome</span>
+                    </div>
+                    <h4>Cortar Shorts</h4>
+                    <p>Gera cortes ranqueados por potencial viral (score 0-100)</p>
+                    <button class="btn btn-action">Cortar e Ranquear</button>
+                </div>
+
+                <div class="action-card" id="actionSeo" data-action="seo">
+                    <div class="action-icon" style="background: linear-gradient(135deg, #F59E0B, #D97706)">
+                        <span class="material-icons-round">trending_up</span>
+                    </div>
+                    <h4>Gerar Conteudo SEO</h4>
+                    <p>Titulos, tags, descricao e hashtags via IA</p>
+                    <button class="btn btn-action">Gerar Conteudo</button>
+                </div>
+
+                <div class="action-card" id="actionThumbnail" data-action="thumbnail">
+                    <div class="action-icon" style="background: linear-gradient(135deg, #EC4899, #BE185D)">
+                        <span class="material-icons-round">image</span>
+                    </div>
+                    <h4>Gerar Thumbnail</h4>
+                    <p>Sugestao de capa com identidade visual do canal</p>
+                    <button class="btn btn-action">Gerar Capa</button>
+                </div>
+
+                <div class="action-card action-card-complete" id="actionComplete" data-action="complete">
+                    <div class="action-icon" style="background: linear-gradient(135deg, #FFD700, #B8860B)">
+                        <span class="material-icons-round">rocket_launch</span>
+                    </div>
+                    <h4>Processo Completo</h4>
+                    <p>Pipeline completo: Corta silencio + Legendas + Cortes + SEO + Thumbnails</p>
+                    <button class="btn btn-action btn-gold">Executar Tudo</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Results Panel -->
+        <section class="section" id="resultsSection" style="display:none">
+            <div class="section-header">
+                <h3><span class="material-icons-round">video_library</span> Resultados</h3>
+                <div class="section-actions">
+                    <button class="btn btn-sm btn-primary" id="btnExportAll">
+                        <span class="material-icons-round">download</span> Exportar Todos
+                    </button>
+                </div>
+            </div>
+            <div class="results-grid" id="resultsGrid">
+                <!-- Results loaded dynamically -->
+            </div>
+        </section>
+
+        <!-- Console -->
+        <section class="section" id="consoleSection">
+            <div class="section-header collapsible" id="consoleToggle">
+                <h3><span class="material-icons-round">terminal</span> Console de Processamento</h3>
+                <span class="material-icons-round toggle-icon">expand_more</span>
+            </div>
+            <div class="console-content" id="consoleContent">
+                <div class="progress-bar-container" id="progressBarContainer" style="display:none">
+                    <div class="progress-bar" id="progressBar"></div>
+                </div>
+                <div class="console-output" id="consoleOutput">
+                    <div class="console-line info">[Sistema] Furia Clips pronto para processar videos.</div>
+                    <div class="console-line info">[Sistema] Conectando ao servidor...</div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Subtitle Configuration Modal -->
+    <div class="modal-overlay" id="subtitleModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3><span class="material-icons-round">subtitles</span> Configurar Legendas</h3>
+                <button class="btn btn-icon modal-close" onclick="closeSubtitleModal()">
+                    <span class="material-icons-round">close</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="subtitle-config-grid">
+                    <div class="config-row">
+                        <div class="config-col">
+                            <label>Destaque</label>
+                            <div class="color-picker-group">
+                                <input type="color" id="subHighlightColor" value="#FFD700">
+                                <span class="color-value">#FFD700</span>
+                            </div>
+                        </div>
+                        <div class="config-col">
+                            <label>Texto</label>
+                            <div class="color-picker-group">
+                                <input type="color" id="subTextColor" value="#FFFFFF">
+                                <span class="color-value">#FFFFFF</span>
+                            </div>
+                        </div>
+                        <div class="config-col">
+                            <label>Borda</label>
+                            <div class="color-picker-group">
+                                <input type="color" id="subBorderColor" value="#000000">
+                                <span class="color-value">#000000</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="config-row">
+                        <div class="config-col full">
+                            <label>Tamanho da Fonte <span class="setting-value" id="fontSizeValue">28pt</span></label>
+                            <input type="range" id="subFontSize" min="16" max="60" value="28" class="setting-range">
+                        </div>
+                    </div>
+
+                    <div class="config-row">
+                        <div class="config-col">
+                            <label>Tamanho do Destaque <span class="setting-value" id="highlightSizeValue">5</span></label>
+                            <input type="range" id="subHighlightSize" min="1" max="15" value="5" class="setting-range">
+                        </div>
+                        <div class="config-col">
+                            <label>Borda do Texto <span class="setting-value" id="borderSizeValue">1.5</span></label>
+                            <input type="range" id="subBorderSize" min="0.5" max="5" step="0.5" value="1.5" class="setting-range">
+                        </div>
+                    </div>
+
+                    <div class="config-row">
+                        <div class="config-col full">
+                            <label>Estilo</label>
+                            <select id="subStyle" class="setting-select">
+                                <option value="word_by_word" selected>Palavra por Palavra (Karaoke)</option>
+                                <option value="full_sentence">Frase Completa</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="config-row">
+                        <div class="config-col full">
+                            <label>Posicao</label>
+                            <select id="subPosition" class="setting-select">
+                                <option value="bottom" selected>Inferior</option>
+                                <option value="top">Superior</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="subtitle-preview" id="subtitlePreview">
+                        <div class="preview-placeholder">
+                            <span class="material-icons-round">preview</span>
+                            <p>Preview das legendas aparecera aqui</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" onclick="closeSubtitleModal()">Cancelar</button>
+                <button class="btn btn-primary" onclick="generateSubtitles()">
+                    <span class="material-icons-round">auto_awesome</span> Gerar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Help Modal -->
+    <div class="modal-overlay" id="helpModal">
+        <div class="modal modal-lg">
+            <div class="modal-header">
+                <h3><span class="material-icons-round">help</span> Como Usar o Furia Clips</h3>
+                <button class="btn btn-icon modal-close" onclick="closeHelpModal()">
+                    <span class="material-icons-round">close</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="help-content">
+                    <div class="help-step">
+                        <div class="step-number">1</div>
+                        <div>
+                            <h4>Importe seu video</h4>
+                            <p>Clique em "Importar" no explorador de arquivos ou arraste o video para a area.</p>
+                        </div>
+                    </div>
+                    <div class="help-step">
+                        <div class="step-number">2</div>
+                        <div>
+                            <h4>Selecione o video</h4>
+                            <p>Clique no video importado para seleciona-lo. Ele aparecera na barra lateral.</p>
+                        </div>
+                    </div>
+                    <div class="help-step">
+                        <div class="step-number">3</div>
+                        <div>
+                            <h4>Configure as opcoes</h4>
+                            <p>Ajuste modelo Whisper, duracao dos cortes, e backend de IA na barra lateral.</p>
+                        </div>
+                    </div>
+                    <div class="help-step">
+                        <div class="step-number">4</div>
+                        <div>
+                            <h4>Execute uma acao</h4>
+                            <p>Use "Processo Completo" para fazer tudo de uma vez, ou execute acoes individuais.</p>
+                        </div>
+                    </div>
+                    <div class="help-step">
+                        <div class="step-number">5</div>
+                        <div>
+                            <h4>Veja os resultados</h4>
+                            <p>Os clips gerados aparecerao com score viral, titulos sugeridos e opcao de exportar.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Thumbnail Modal -->
+    <div class="modal-overlay" id="thumbnailModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3><span class="material-icons-round">image</span> Gerar Thumbnail</h3>
+                <button class="btn btn-icon modal-close" onclick="closeThumbnailModal()">
+                    <span class="material-icons-round">close</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="setting-group">
+                    <label>Texto da Thumbnail</label>
+                    <input type="text" id="thumbText" class="setting-input" placeholder="Texto impactante para a capa">
+                </div>
+                <div class="setting-group">
+                    <label>Estilo</label>
+                    <select id="thumbStyle" class="setting-select">
+                        <option value="dark_gold">Escuro + Dourado</option>
+                        <option value="red_impact">Vermelho Impacto</option>
+                        <option value="clean_white">Clean Branco</option>
+                    </select>
+                </div>
+                <div class="setting-group">
+                    <label>Tempo do Frame (segundos)</label>
+                    <input type="number" id="thumbTime" class="setting-input" value="5" min="0">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" onclick="closeThumbnailModal()">Cancelar</button>
+                <button class="btn btn-primary" onclick="generateThumbnail()">
+                    <span class="material-icons-round">auto_awesome</span> Gerar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.4/socket.io.min.js"></script>
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

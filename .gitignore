@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+
+# Project data
+workspace/uploads/*
+workspace/processed/*
+workspace/exports/*
+workspace/thumbnails/*
+data/*.db
+
+# Keep directories
+!workspace/uploads/.gitkeep
+!workspace/processed/.gitkeep
+!workspace/exports/.gitkeep
+!workspace/thumbnails/.gitkeep
+!data/.gitkeep
+
+# OS
+.DS_Store
+Thumbs.db
