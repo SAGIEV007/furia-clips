@@ -69,13 +69,8 @@
                 </div>
 
                 <div class="setting-group">
-                    <label>Silencio Minimo <span class="setting-value" id="silenceValue">0.5s</span></label>
+                    <label>Pausa Minima (s) <span class="setting-value" id="silenceValue">0.5s</span></label>
                     <input type="range" id="settingSilenceDuration" min="0.2" max="2.0" step="0.1" value="0.5" class="setting-range">
-                </div>
-
-                <div class="setting-group">
-                    <label>Margem (Padding) <span class="setting-value" id="paddingValue">0.25s</span></label>
-                    <input type="range" id="settingPadding" min="0.0" max="1.0" step="0.05" value="0.25" class="setting-range">
                 </div>
 
                 <div class="setting-group">
@@ -212,6 +207,24 @@
             </div>
         </section>
 
+        <!-- User Context / ClipAnything -->
+        <section class="section" id="contextSection">
+            <div class="section-header">
+                <h3><span class="material-icons-round">psychology</span> O que voce quer extrair?</h3>
+            </div>
+            <div class="context-input-wrapper">
+                <textarea id="userContextInput" class="context-input" placeholder="Descreva o que deseja cortar deste video... Ex: momentos polemicos, frases de efeito, criticas ao governo, opinioes fortes" rows="2"></textarea>
+                <div class="context-suggestions" id="contextSuggestions">
+                    <button class="context-chip" data-context="Momentos polemicos e opinioes fortes">Polemicas</button>
+                    <button class="context-chip" data-context="Frases curtas e impactantes que funcionam como gancho">Frases de efeito</button>
+                    <button class="context-chip" data-context="Criticas ao governo e politicos">Criticas</button>
+                    <button class="context-chip" data-context="Momentos emocionais e com muita energia">Momentos emocionais</button>
+                    <button class="context-chip" data-context="Dados, estatisticas e informacoes relevantes">Dados e fatos</button>
+                    <button class="context-chip" data-context="Momentos engracados e ironicos">Humor e ironia</button>
+                </div>
+            </div>
+        </section>
+
         <!-- Actions -->
         <section class="section" id="actionsSection">
             <div class="section-header">
@@ -242,7 +255,7 @@
                         <span class="material-icons-round">auto_awesome</span>
                     </div>
                     <h4>Cortar Shorts</h4>
-                    <p>Gera cortes ranqueados por potencial viral (score 0-100)</p>
+                    <p>Selecao inteligente via IA com cortes precisos em limites de frase</p>
                     <button class="btn btn-action">Cortar e Ranquear</button>
                 </div>
 
@@ -269,7 +282,7 @@
                         <span class="material-icons-round">rocket_launch</span>
                     </div>
                     <h4>Processo Completo</h4>
-                    <p>Pipeline completo: Corta silencio + Legendas + Cortes + SEO + Thumbnails</p>
+                    <p>Silencio + Transcricao + Selecao IA + Legendas + SEO</p>
                     <button class="btn btn-action btn-gold">Executar Tudo</button>
                 </div>
             </div>

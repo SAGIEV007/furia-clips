@@ -1472,3 +1472,109 @@ body {
     from { opacity: 0; transform: translateX(100px); }
     to { opacity: 1; transform: translateX(0); }
 }
+
+/* ─── Context Input (ClipAnything) ─── */
+
+#contextSection {
+    margin-bottom: 8px;
+}
+
+.context-input-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.context-input {
+    width: 100%;
+    padding: 14px 16px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-size: 14px;
+    font-family: inherit;
+    resize: vertical;
+    min-height: 56px;
+    transition: border-color 0.2s;
+}
+
+.context-input:focus {
+    outline: none;
+    border-color: var(--gold);
+    box-shadow: 0 0 0 2px var(--gold-glow);
+}
+
+.context-input::placeholder {
+    color: var(--text-muted);
+}
+
+.context-suggestions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.context-chip {
+    padding: 6px 14px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    color: var(--text-secondary);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.context-chip:hover {
+    border-color: var(--gold);
+    color: var(--gold);
+    background: rgba(255, 215, 0, 0.05);
+}
+
+.context-chip.active {
+    border-color: var(--gold);
+    color: var(--gold);
+    background: rgba(255, 215, 0, 0.1);
+}
+
+/* ─── Result Title ─── */
+
+.result-title {
+    padding: 8px 14px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--gold);
+    border-bottom: 1px solid var(--border);
+    background: rgba(255, 215, 0, 0.03);
+}
+
+/* ─── Grade Breakdown (A/B/C) ─── */
+
+.score-breakdown-grades {
+    display: flex;
+    gap: 12px;
+    padding: 10px 0;
+    flex-wrap: wrap;
+}
+
+.grade-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    min-width: 50px;
+}
+
+.grade-label {
+    font-size: 10px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.grade-value {
+    font-size: 22px;
+    font-weight: 800;
+    line-height: 1;
+}

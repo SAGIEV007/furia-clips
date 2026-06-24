@@ -1,12 +1,21 @@
+"""
+Viral Ranker v2 — Category-based scoring with A/B/C grades.
+
+Evaluates clips on 4 dimensions:
+- Hook: Do the first 3 seconds grab attention?
+- Flow: Does the clip have a coherent beginning, middle, and end?
+- Value: Does it offer insight, strong opinion, emotion, or useful info?
+- Energy: Is the vocal tone intense, animated, emotional?
+"""
+
 import re
-import math
 
 
 HOOK_PATTERNS_PT = [
     r"voce\s+sabia",
     r"presta\s+atencao",
-    r"olha\s+isso",
-    r"verdade\s+(e|eh)\s+que",
+    r"olha\s+(isso|so)",
+    r"a?\s*verdade\s+(e|eh)\s+que",
     r"ninguem\s+te\s+(conta|fala|diz)",
     r"(isso|aqui)\s+que\s+ninguem",
     r"por\s+que\s+(ninguem|nenhum)",
@@ -25,15 +34,10 @@ HOOK_PATTERNS_PT = [
     r"escandal",
     r"denunci",
     r"corrupc",
-    r"traic",
-    r"brasil",
-    r"povo\s+brasileiro",
-    r"nosso\s+pais",
-    r"liberdade",
-    r"democracia",
-    r"constituicao",
-    r"direita",
-    r"conservador",
+    r"eu\s+vou\s+te\s+(falar|dizer|contar)",
+    r"sabe\s+o\s+que",
+    r"o\s+problema\s+e",
+    r"a\s+questao\s+e",
 ]
 
 EMOTIONAL_WORDS_PT = [
@@ -44,16 +48,7 @@ EMOTIONAL_WORDS_PT = [
     "vitoria", "luta", "resistencia", "verdade", "justica",
     "povo", "nacao", "brasil", "deus", "familia",
     "impressionante", "incrivel", "surreal", "devastador", "chocante",
-]
-
-CALL_TO_ACTION_PATTERNS = [
-    r"compart[iy]lh",
-    r"inscrev",
-    r"coment[ae]",
-    r"deixa\s+(o\s+)?like",
-    r"segue\s+o\s+canal",
-    r"ativa\s+o\s+sininho",
-    r"link\s+na\s+descricao",
+    "ridiculo", "tragedia", "desastre", "catastrofe", "horror",
 ]
 
 
@@ -61,176 +56,200 @@ class ViralRanker:
     def __init__(self, channel_context=""):
         self.channel_context = channel_context
 
-    def score_clip(self, text, duration, start_time, energy_data=None):
-        scores = {}
+    def score_clip(self, clip):
+        """Score a clip and assign A/B/C grades per category."""
+        text = clip.get("text", "")
+        duration = clip.get("duration", 30)
 
-        scores["hook"] = self._score_hook(text)
-        scores["emotional"] = self._score_emotional_intensity(text)
-        scores["duration"] = self._score_duration(duration)
-        scores["density"] = self._score_text_density(text, duration)
-        scores["cta"] = self._score_cta(text)
-        scores["energy"] = self._score_energy(energy_data) if energy_data else 5.0
-        scores["opening"] = self._score_opening_strength(text)
+        # If clip already has LLM-assigned grades, convert and return
+        if clip.get("breakdown") and isinstance(clip["breakdown"].get("hook"), str):
+            return self._score_from_grades(clip)
 
-        weights = {
-            "hook": 0.25,
-            "emotional": 0.20,
-            "duration": 0.10,
-            "density": 0.10,
-            "cta": 0.05,
-            "energy": 0.15,
-            "opening": 0.15,
-        }
+        # Otherwise, calculate scores from text analysis
+        hook_score = self._evaluate_hook(text)
+        flow_score = self._evaluate_flow(text, duration)
+        value_score = self._evaluate_value(text)
+        energy_score = self._evaluate_energy(text)
 
-        final_score = sum(scores[k] * weights[k] for k in scores)
-        final_score = min(100, max(0, final_score))
+        # Convert to grades
+        hook_grade = self._score_to_grade(hook_score)
+        flow_grade = self._score_to_grade(flow_score)
+        value_grade = self._score_to_grade(value_score)
+        energy_grade = self._score_to_grade(energy_score)
+
+        # Weighted final score
+        viral_score = int(
+            hook_score * 0.30 +
+            flow_score * 0.25 +
+            value_score * 0.25 +
+            energy_score * 0.20
+        )
 
         return {
-            "viral_score": round(final_score),
-            "breakdown": {k: round(v, 1) for k, v in scores.items()},
-            "has_hook": scores["hook"] > 50,
-            "emotional_intensity": round(scores["emotional"] / 10, 2),
+            "viral_score": viral_score,
+            "breakdown": {
+                "hook": hook_grade,
+                "flow": flow_grade,
+                "value": value_grade,
+                "energy": energy_grade,
+            },
+            "has_hook": hook_grade in ("A", "B"),
         }
 
-    def _score_hook(self, text):
+    def _score_from_grades(self, clip):
+        """Convert existing A/B/C grades to numeric score."""
+        grade_to_num = {"A": 95, "B": 70, "C": 40}
+        breakdown = clip["breakdown"]
+
+        hook = grade_to_num.get(breakdown.get("hook", "B"), 70)
+        flow = grade_to_num.get(breakdown.get("flow", "B"), 70)
+        value = grade_to_num.get(breakdown.get("value", "B"), 70)
+        energy = grade_to_num.get(breakdown.get("energy", "B"), 70)
+
+        viral_score = int(hook * 0.30 + flow * 0.25 + value * 0.25 + energy * 0.20)
+
+        return {
+            "viral_score": viral_score,
+            "breakdown": breakdown,
+            "has_hook": breakdown.get("hook", "C") in ("A", "B"),
+        }
+
+    def _evaluate_hook(self, text):
+        """Evaluate if the opening grabs attention."""
         text_lower = self._normalize(text)
         first_words = " ".join(text_lower.split()[:20])
 
+        score = 20  # base
+
+        # Check for hook patterns
         hook_count = 0
         for pattern in HOOK_PATTERNS_PT:
             if re.search(pattern, first_words):
                 hook_count += 1
 
         if hook_count >= 3:
-            return 100
+            score = 100
         elif hook_count >= 2:
-            return 80
+            score = 85
         elif hook_count >= 1:
-            return 60
+            score = 70
 
-        if len(first_words.split()) >= 5 and any(
-            c in first_words for c in ["?", "!"]
-        ):
-            return 40
+        # Question or exclamation in first sentence
+        first_sentence = text.split(".")[0] if "." in text[:100] else text[:80]
+        if "!" in first_sentence:
+            score = max(score, 60)
+        if "?" in first_sentence:
+            score = max(score, 55)
 
-        return 15
-
-    def _score_emotional_intensity(self, text):
-        text_lower = self._normalize(text)
-        words = text_lower.split()
-        total_words = max(len(words), 1)
-
-        emotional_count = 0
-        for word in words:
-            for ew in EMOTIONAL_WORDS_PT:
-                if ew in word:
-                    emotional_count += 1
-                    break
-
-        exclamation_count = text.count("!")
-        question_count = text.count("?")
-        caps_words = sum(1 for w in text.split() if w.isupper() and len(w) > 2)
-
-        density = emotional_count / total_words
-        score = min(100, density * 500 + exclamation_count * 5 + question_count * 3 + caps_words * 3)
-
-        return score
-
-    def _score_duration(self, duration):
-        if 25 <= duration <= 55:
-            return 100
-        elif 15 <= duration <= 60:
-            return 80
-        elif duration < 15:
-            return 40
-        elif duration <= 90:
-            return 60
-        else:
-            return max(20, 100 - (duration - 60) * 2)
-
-    def _score_text_density(self, text, duration):
-        words = len(text.split())
-        words_per_second = words / max(duration, 1)
-
-        if 2.0 <= words_per_second <= 3.5:
-            return 100
-        elif 1.5 <= words_per_second <= 4.0:
-            return 70
-        elif words_per_second < 1.0:
-            return 30
-        else:
-            return 50
-
-    def _score_cta(self, text):
-        text_lower = self._normalize(text)
-        cta_count = 0
-        for pattern in CALL_TO_ACTION_PATTERNS:
-            if re.search(pattern, text_lower):
-                cta_count += 1
-        return min(100, cta_count * 40)
-
-    def _score_energy(self, energy_data):
-        if not energy_data:
-            return 50
-
-        energies = [e.get("energy_normalized", 0) for e in energy_data]
-        if not energies:
-            return 50
-
-        avg = sum(energies) / len(energies)
-        peak = max(energies)
-        variance = sum((e - avg) ** 2 for e in energies) / len(energies)
-
-        score = avg * 40 + peak * 30 + min(variance * 100, 30)
-        return min(100, max(0, score))
-
-    def _score_opening_strength(self, text):
-        words = text.split()
-        first_sentence = ""
-        for i, word in enumerate(words):
-            first_sentence += word + " "
-            if any(first_sentence.rstrip().endswith(p) for p in [".", "!", "?", "..."]):
-                break
-            if i > 15:
-                break
-
-        first_sentence = first_sentence.strip()
-        score = 30
-
-        if first_sentence.endswith("!"):
-            score += 20
-        if first_sentence.endswith("?"):
-            score += 15
-
-        first_lower = self._normalize(first_sentence)
-        for pattern in HOOK_PATTERNS_PT:
-            if re.search(pattern, first_lower):
-                score += 15
-                break
-
-        if len(first_sentence.split()) <= 10:
+        # Short, punchy opening (under 10 words to first punctuation)
+        first_punct_pos = len(first_sentence.split())
+        if first_punct_pos <= 8:
             score += 10
 
         return min(100, score)
 
-    def rank_clips(self, clips_data, energy_profiles=None):
+    def _evaluate_flow(self, text, duration):
+        """Evaluate narrative completeness — beginning, middle, end."""
+        score = 50  # base
+
+        # Ends with proper punctuation (conclusion)
+        stripped = text.strip()
+        if stripped and stripped[-1] in ".!?":
+            score += 25
+        else:
+            score -= 20
+
+        # Has multiple sentences (development)
+        sentence_count = len(re.split(r'[.!?]+', text))
+        if sentence_count >= 3:
+            score += 15
+        elif sentence_count >= 2:
+            score += 5
+
+        # Duration sweet spot (25-55 seconds)
+        if 25 <= duration <= 55:
+            score += 10
+        elif duration < 20 or duration > 70:
+            score -= 10
+
+        # Doesn't start with connector words (would indicate cut mid-thought)
+        first_word = text.strip().split()[0].lower() if text.strip() else ""
+        mid_sentence_starters = ["e", "mas", "porem", "entao", "porque", "que", "ai", "ou", "nem"]
+        if first_word in mid_sentence_starters:
+            score -= 25
+
+        return max(0, min(100, score))
+
+    def _evaluate_value(self, text):
+        """Evaluate content value — insight, opinion, emotion, information."""
+        text_lower = self._normalize(text)
+        words = text_lower.split()
+        total_words = max(len(words), 1)
+        score = 40  # base
+
+        # Emotional word density
+        emotional_count = sum(1 for w in words if any(ew in w for ew in EMOTIONAL_WORDS_PT))
+        density = emotional_count / total_words
+        score += min(30, density * 400)
+
+        # Exclamations and questions (engagement markers)
+        score += min(15, text.count("!") * 4 + text.count("?") * 3)
+
+        # Information density (more words per second = more content)
+        # Approximate: if text is dense, it has more value
+        if total_words > 50:
+            score += 10
+        elif total_words > 30:
+            score += 5
+
+        # CAPS words (emphasis)
+        caps_words = sum(1 for w in text.split() if w.isupper() and len(w) > 2)
+        score += min(10, caps_words * 3)
+
+        return max(0, min(100, score))
+
+    def _evaluate_energy(self, text):
+        """Evaluate vocal energy from text cues (punctuation, caps, word choice)."""
+        score = 50  # base
+
+        # Exclamation marks indicate high energy
+        excl = text.count("!")
+        score += min(25, excl * 8)
+
+        # ALL CAPS words
+        caps = sum(1 for w in text.split() if w.isupper() and len(w) > 2)
+        score += min(15, caps * 5)
+
+        # Short, punchy sentences (high pace)
+        sentences = [s.strip() for s in re.split(r'[.!?]+', text) if s.strip()]
+        if sentences:
+            avg_sentence_len = sum(len(s.split()) for s in sentences) / len(sentences)
+            if avg_sentence_len < 10:  # Short sentences = fast pace
+                score += 10
+            elif avg_sentence_len > 25:  # Long sentences = slower pace
+                score -= 10
+
+        return max(0, min(100, score))
+
+    def _score_to_grade(self, score):
+        """Convert numeric score to A/B/C grade."""
+        if score >= 75:
+            return "A"
+        elif score >= 50:
+            return "B"
+        else:
+            return "C"
+
+    def rank_clips(self, clips_data):
+        """Rank clips and ensure all have scores and grades."""
         ranked = []
-        for i, clip in enumerate(clips_data):
-            energy = None
-            if energy_profiles and i < len(energy_profiles):
-                energy = energy_profiles[i]
-
-            score_data = self.score_clip(
-                clip.get("text", ""),
-                clip.get("duration", 30),
-                clip.get("start", 0),
-                energy
-            )
-
-            ranked.append({
-                **clip,
-                **score_data,
-            })
+        for clip in clips_data:
+            # If clip already has score from ClipSelector, keep it
+            if clip.get("viral_score") and clip.get("breakdown"):
+                ranked.append(clip)
+            else:
+                score_data = self.score_clip(clip)
+                ranked.append({**clip, **score_data})
 
         ranked.sort(key=lambda x: x["viral_score"], reverse=True)
         return ranked

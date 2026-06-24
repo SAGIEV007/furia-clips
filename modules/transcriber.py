@@ -1,8 +1,9 @@
 import os
 import json
-import whisper
-import torch
-import numpy as np
+import hashlib
+import time
+
+CACHE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "workspace", "cache")
 
 
 class Transcriber:
@@ -10,22 +11,142 @@ class Transcriber:
         self.model_name = model_name
         self.language = language
         self.model = None
+        os.makedirs(CACHE_DIR, exist_ok=True)
+
+    def _get_cache_key(self, audio_path):
+        stat = os.stat(audio_path)
+        raw = f"{os.path.abspath(audio_path)}|{stat.st_size}|{stat.st_mtime}|{self.model_name}"
+        return hashlib.sha256(raw.encode()).hexdigest()
+
+    def _get_cache_path(self, cache_key):
+        return os.path.join(CACHE_DIR, f"transcription_{cache_key}.json")
+
+    def _load_from_cache(self, audio_path, emit_progress=None):
+        cache_key = self._get_cache_key(audio_path)
+        cache_path = self._get_cache_path(cache_key)
+        if os.path.exists(cache_path):
+            try:
+                with open(cache_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                if emit_progress:
+                    emit_progress("Transcricao carregada do cache (instantaneo)!")
+                return data
+            except (json.JSONDecodeError, IOError):
+                pass
+        return None
+
+    def _save_to_cache(self, audio_path, result):
+        cache_key = self._get_cache_key(audio_path)
+        cache_path = self._get_cache_path(cache_key)
+        try:
+            with open(cache_path, "w", encoding="utf-8") as f:
+                json.dump(result, f, ensure_ascii=False)
+        except IOError:
+            pass
 
     def load_model(self, emit_progress=None):
         if emit_progress:
             emit_progress(f"Carregando modelo Whisper '{self.model_name}'...")
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.model = whisper.load_model(self.model_name, device=device)
-        if emit_progress:
-            emit_progress(f"Modelo carregado no dispositivo: {device}")
+
+        try:
+            from faster_whisper import WhisperModel
+            compute_type = "int8"
+            self.model = WhisperModel(
+                self.model_name,
+                device="cpu",
+                compute_type=compute_type,
+                cpu_threads=os.cpu_count() or 4,
+            )
+            self._engine = "faster-whisper"
+            if emit_progress:
+                emit_progress(f"Modelo carregado: faster-whisper ({compute_type}) no CPU")
+        except ImportError:
+            if emit_progress:
+                emit_progress("faster-whisper nao encontrado. Usando openai-whisper como fallback...")
+            import whisper
+            import torch
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+            self.model = whisper.load_model(self.model_name, device=device)
+            self._engine = "openai-whisper"
+            if emit_progress:
+                emit_progress(f"Modelo carregado: openai-whisper no {device}")
 
     def transcribe(self, audio_path, emit_progress=None):
+        cached = self._load_from_cache(audio_path, emit_progress)
+        if cached:
+            return cached
+
         if self.model is None:
             self.load_model(emit_progress)
 
         if emit_progress:
             emit_progress("Iniciando transcricao...")
 
+        start_time = time.time()
+
+        if self._engine == "faster-whisper":
+            result = self._transcribe_faster_whisper(audio_path, emit_progress)
+        else:
+            result = self._transcribe_openai_whisper(audio_path, emit_progress)
+
+        elapsed = time.time() - start_time
+        if emit_progress:
+            emit_progress(
+                f"Transcricao completa: {len(result['segments'])} segmentos, "
+                f"{len(result['full_text'])} caracteres ({elapsed:.0f}s)"
+            )
+
+        self._save_to_cache(audio_path, result)
+        return result
+
+    def _transcribe_faster_whisper(self, audio_path, emit_progress=None):
+        segments_iter, info = self.model.transcribe(
+            audio_path,
+            language=self.language,
+            task="transcribe",
+            beam_size=5,
+            word_timestamps=True,
+            vad_filter=True,
+            vad_parameters=dict(
+                min_silence_duration_ms=300,
+                speech_pad_ms=200,
+            ),
+        )
+
+        segments = []
+        full_text_parts = []
+
+        for seg in segments_iter:
+            words = []
+            if seg.words:
+                for w in seg.words:
+                    words.append({
+                        "word": w.word.strip(),
+                        "start": round(w.start, 3),
+                        "end": round(w.end, 3),
+                    })
+
+            segment_data = {
+                "id": len(segments),
+                "start": round(seg.start, 3),
+                "end": round(seg.end, 3),
+                "text": seg.text.strip(),
+                "words": words,
+            }
+            segments.append(segment_data)
+            full_text_parts.append(seg.text.strip())
+
+            if emit_progress and len(segments) % 50 == 0:
+                emit_progress(f"Transcrevendo... {len(segments)} segmentos processados")
+
+        full_text = " ".join(full_text_parts)
+        return {
+            "segments": segments,
+            "full_text": full_text,
+            "language": self.language,
+        }
+
+    def _transcribe_openai_whisper(self, audio_path, emit_progress=None):
         result = self.model.transcribe(
             audio_path,
             language=self.language,
@@ -52,10 +173,6 @@ class Transcriber:
             segments.append(segment_data)
 
         full_text = result.get("text", "").strip()
-
-        if emit_progress:
-            emit_progress(f"Transcricao completa: {len(segments)} segmentos, {len(full_text)} caracteres")
-
         return {
             "segments": segments,
             "full_text": full_text,

@@ -283,6 +283,7 @@ def api_cut_shorts():
     video_path = os.path.join(WORKSPACE_DIR, data.get("video_path", ""))
     project_id = data.get("project_id")
     use_face_tracking = data.get("face_tracking", True)
+    user_context = data.get("user_context", "")
 
     if not os.path.exists(video_path):
         return jsonify({"error": "Video nao encontrado"}), 404
@@ -292,8 +293,8 @@ def api_cut_shorts():
         try:
             settings = get_all_settings()
 
-            # Step 1: Transcribe
-            emit_progress("=== ETAPA 1/5: Transcricao ===", "info")
+            # Step 1: Transcribe (with cache)
+            emit_progress("=== ETAPA 1/4: Transcricao ===", "info")
             from modules.transcriber import Transcriber
             transcriber = Transcriber(
                 model_name=settings.get("whisper_model", "small"),
@@ -307,34 +308,41 @@ def api_cut_shorts():
                     transcription["language"], settings.get("whisper_model", "small")
                 )
 
-            # Step 2: Audio analysis
-            emit_progress("=== ETAPA 2/5: Analise de Audio ===", "info")
+            # Step 2: Intelligent clip selection
+            emit_progress("=== ETAPA 2/4: Selecao Inteligente de Clips ===", "info")
+            from modules.clip_selector import ClipSelector
             from modules.audio_analyzer import AudioAnalyzer
+
             analyzer = AudioAnalyzer()
             energy_profile = analyzer.analyze_energy(video_path, emit_progress=emit_progress)
 
-            # Step 3: Find smart cuts
-            emit_progress("=== ETAPA 3/5: Calculando Cortes ===", "info")
-            from modules.video_cutter import VideoCutter
-            cutter = VideoCutter(
-                method=settings.get("cut_method", "intelligent"),
+            selector = ClipSelector(
                 target_duration=settings.get("cut_duration", 45),
+                max_clips=15,
+                min_duration=20,
+                max_duration=90,
             )
-            candidates = cutter.find_smart_cuts(
-                transcription["segments"], energy_profile,
-                emit_progress=emit_progress
+            top_clips = selector.select_clips(
+                transcription,
+                energy_profile=energy_profile,
+                user_context=user_context,
+                settings=settings,
+                emit_progress=emit_progress,
             )
 
-            # Step 4: Rank by viral potential
-            emit_progress("=== ETAPA 4/5: Ranqueamento Viral ===", "info")
+            # Step 3: Rank and finalize scores
+            emit_progress("=== ETAPA 3/4: Ranqueamento ===", "info")
             from modules.viral_ranker import ViralRanker
             ranker = ViralRanker(channel_context=settings.get("channel_context", ""))
-            ranked = ranker.rank_clips(candidates, None)
+            top_clips = ranker.rank_clips(top_clips)
 
-            top_clips = ranked[:15]
-
-            # Step 5: Cut clips with face tracking
-            emit_progress("=== ETAPA 5/5: Cortando Clips ===", "info")
+            # Step 4: Cut clips with face tracking
+            emit_progress("=== ETAPA 4/4: Cortando Clips ===", "info")
+            from modules.video_cutter import VideoCutter
+            cutter = VideoCutter(
+                method="intelligent",
+                target_duration=settings.get("cut_duration", 45),
+            )
 
             face_positions_map = {}
             if use_face_tracking:
@@ -367,7 +375,7 @@ def api_cut_shorts():
                         project_id, res["path"], res["start"], res["end"],
                         res["duration"], clip_data.get("viral_score", 0),
                         clip_data.get("has_hook", False),
-                        clip_data.get("emotional_intensity", 0),
+                        0,
                         res.get("text", "")
                     )
 
@@ -379,6 +387,8 @@ def api_cut_shorts():
                     "viral_score": clip_info.get("viral_score", 0),
                     "has_hook": clip_info.get("has_hook", False),
                     "breakdown": clip_info.get("breakdown", {}),
+                    "title": clip_info.get("title", ""),
+                    "source": clip_info.get("source", "nlp"),
                 })
 
             emit_status("cut_complete", {"clips": clip_results})
@@ -572,6 +582,7 @@ def api_generate_thumbnail():
 def api_process_complete():
     data = request.json
     video_path = os.path.join(WORKSPACE_DIR, data.get("video_path", ""))
+    user_context = data.get("user_context", "")
 
     if not os.path.exists(video_path):
         return jsonify({"error": "Video nao encontrado"}), 404
@@ -594,7 +605,7 @@ def api_process_complete():
             silence_result = remover.remove_silence(video_path, emit_progress=emit_progress)
             working_video = silence_result["output_path"] if silence_result else video_path
 
-            # ── Step 2: Transcribe ──
+            # ── Step 2: Transcribe (with cache) ──
             emit_progress("━━━ ETAPA 2/6: Transcrevendo ━━━", "info")
             from modules.transcriber import Transcriber
             transcriber = Transcriber(
@@ -607,29 +618,40 @@ def api_process_complete():
                 transcription["language"], settings.get("whisper_model", "small")
             )
 
-            # ── Step 3: Audio analysis ──
-            emit_progress("━━━ ETAPA 3/6: Analisando Audio ━━━", "info")
+            # ── Step 3: Intelligent clip selection ──
+            emit_progress("━━━ ETAPA 3/6: Selecao Inteligente de Clips ━━━", "info")
+            from modules.clip_selector import ClipSelector
             from modules.audio_analyzer import AudioAnalyzer
+
             analyzer = AudioAnalyzer()
             energy_profile = analyzer.analyze_energy(working_video, emit_progress=emit_progress)
 
-            # ── Step 4: Smart cuts + ranking ──
-            emit_progress("━━━ ETAPA 4/6: Cortando e Ranqueando ━━━", "info")
-            from modules.video_cutter import VideoCutter
-            from modules.viral_ranker import ViralRanker
-
-            cutter = VideoCutter(
-                method=settings.get("cut_method", "intelligent"),
+            selector = ClipSelector(
                 target_duration=settings.get("cut_duration", 45),
+                max_clips=15,
+                min_duration=20,
+                max_duration=90,
             )
-            candidates = cutter.find_smart_cuts(
-                transcription["segments"], energy_profile,
-                emit_progress=emit_progress
+            top_clips = selector.select_clips(
+                transcription,
+                energy_profile=energy_profile,
+                user_context=user_context,
+                settings=settings,
+                emit_progress=emit_progress,
             )
+
+            # ── Step 4: Rank and cut ──
+            emit_progress("━━━ ETAPA 4/6: Ranqueando e Cortando ━━━", "info")
+            from modules.viral_ranker import ViralRanker
+            from modules.video_cutter import VideoCutter
 
             ranker = ViralRanker(channel_context=settings.get("channel_context", ""))
-            ranked = ranker.rank_clips(candidates)
-            top_clips = ranked[:15]
+            top_clips = ranker.rank_clips(top_clips)
+
+            cutter = VideoCutter(
+                method="intelligent",
+                target_duration=settings.get("cut_duration", 45),
+            )
 
             # Face tracking
             face_positions_map = {}
@@ -740,6 +762,8 @@ def api_process_complete():
                     "viral_score": clip_info.get("viral_score", 0),
                     "has_hook": clip_info.get("has_hook", False),
                     "breakdown": clip_info.get("breakdown", {}),
+                    "title": clip_info.get("title", ""),
+                    "source": clip_info.get("source", "nlp"),
                     "text": res.get("text", ""),
                     "seo": res.get("seo", {}),
                     "clip_id": res.get("clip_id"),

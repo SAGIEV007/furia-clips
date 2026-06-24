@@ -376,11 +376,17 @@ document.getElementById("actionSilence").querySelector(".btn-action").addEventLi
 
 document.getElementById("actionCut").querySelector(".btn-action").addEventListener("click", async () => {
     if (!requireVideo()) return;
-    addConsoleLog("[Acao] Iniciando corte de shorts...", "info");
+    const userContext = document.getElementById("userContextInput").value.trim();
+    addConsoleLog("[Acao] Iniciando corte inteligente de shorts...", "info");
+    if (userContext) addConsoleLog(`[Contexto] "${userContext}"`, "info");
     await fetch("/api/process/cut", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ video_path: state.selectedVideo, face_tracking: true }),
+        body: JSON.stringify({
+            video_path: state.selectedVideo,
+            face_tracking: true,
+            user_context: userContext,
+        }),
     });
 });
 
@@ -396,13 +402,16 @@ document.getElementById("actionThumbnail").querySelector(".btn-action").addEvent
 document.getElementById("actionComplete").querySelector(".btn-action").addEventListener("click", async () => {
     if (!requireVideo()) return;
     if (!confirm("Executar o pipeline completo? Isso pode demorar alguns minutos dependendo do tamanho do video.")) return;
+    const userContext = document.getElementById("userContextInput").value.trim();
     addConsoleLog("[Acao] Iniciando processo completo...", "info");
+    if (userContext) addConsoleLog(`[Contexto] "${userContext}"`, "info");
     await fetch("/api/process/complete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
             video_path: state.selectedVideo,
             output_dir: state.outputDir || "",
+            user_context: userContext,
         }),
     });
 });
@@ -564,7 +573,8 @@ function displayResults(clips) {
     // Summary
     const avgScore = clips.reduce((a, c) => a + (c.viral_score || 0), 0) / clips.length;
     const highScoreCount = clips.filter(c => c.viral_score >= 70).length;
-    summary.textContent = `${clips.length} clips | Media: ${avgScore.toFixed(0)} | ${highScoreCount} com alto potencial`;
+    const source = clips.length > 0 && clips[0].source === "llm" ? "IA" : "NLP";
+    summary.textContent = `${clips.length} clips | Media: ${avgScore.toFixed(0)} | ${highScoreCount} com alto potencial | via ${source}`;
 
     // Sort by viral score (highest first)
     const sorted = [...clips].sort((a, b) => (b.viral_score || 0) - (a.viral_score || 0));
@@ -576,6 +586,14 @@ function displayResults(clips) {
         const titles = seo.titles || [];
         const tags = seo.tags || [];
         const hashtags = seo.hashtags || [];
+        const breakdown = clip.breakdown || {};
+
+        // Grade color helper
+        const gradeColor = (grade) => {
+            if (grade === 'A') return '#22c55e';
+            if (grade === 'B') return '#f59e0b';
+            return '#ef4444';
+        };
 
         const card = document.createElement("div");
         card.className = "result-card";
@@ -589,6 +607,9 @@ function displayResults(clips) {
                 </div>
                 ${clip.has_hook ? '<span class="hook-badge"><span class="material-icons-round" style="font-size:12px">flash_on</span> Gancho</span>' : ''}
             </div>
+
+            ${clip.title ? `<div class="result-title">${clip.title}</div>` : ''}
+
             <div class="result-video-preview">
                 <video controls preload="metadata" poster="">
                     <source src="/workspace/${clip.subtitled_path || clip.path}" type="video/mp4">
@@ -600,12 +621,24 @@ function displayResults(clips) {
                     ${formatTime(clip.start)} - ${formatTime(clip.end)} (${clip.duration.toFixed(1)}s)
                 </div>
 
-                ${clip.breakdown ? `
-                <div class="score-breakdown">
-                    <div class="breakdown-item" title="Gancho"><span>Gancho</span><div class="bar"><div style="width:${clip.breakdown.hook || 0}%"></div></div><span>${clip.breakdown.hook || 0}</span></div>
-                    <div class="breakdown-item" title="Emocao"><span>Emocao</span><div class="bar"><div style="width:${clip.breakdown.emotional || 0}%"></div></div><span>${clip.breakdown.emotional || 0}</span></div>
-                    <div class="breakdown-item" title="Energia"><span>Energia</span><div class="bar"><div style="width:${clip.breakdown.energy || 0}%"></div></div><span>${clip.breakdown.energy || 0}</span></div>
-                    <div class="breakdown-item" title="Duracao"><span>Duracao</span><div class="bar"><div style="width:${clip.breakdown.duration || 0}%"></div></div><span>${clip.breakdown.duration || 0}</span></div>
+                ${breakdown.hook ? `
+                <div class="score-breakdown-grades">
+                    <div class="grade-item">
+                        <span class="grade-label">Gancho</span>
+                        <span class="grade-value" style="color:${gradeColor(breakdown.hook)}">${breakdown.hook}</span>
+                    </div>
+                    <div class="grade-item">
+                        <span class="grade-label">Fluidez</span>
+                        <span class="grade-value" style="color:${gradeColor(breakdown.flow)}">${breakdown.flow}</span>
+                    </div>
+                    <div class="grade-item">
+                        <span class="grade-label">Valor</span>
+                        <span class="grade-value" style="color:${gradeColor(breakdown.value)}">${breakdown.value}</span>
+                    </div>
+                    <div class="grade-item">
+                        <span class="grade-label">Energia</span>
+                        <span class="grade-value" style="color:${gradeColor(breakdown.energy)}">${breakdown.energy}</span>
+                    </div>
                 </div>` : ''}
 
                 <div class="result-text-preview">${clip.text ? clip.text.substring(0, 150) + (clip.text.length > 150 ? '...' : '') : "Sem transcricao"}</div>
@@ -734,10 +767,6 @@ function applySettings() {
         document.getElementById("settingSilenceDuration").value = s.min_silence_duration;
         document.getElementById("silenceValue").textContent = s.min_silence_duration + "s";
     }
-    if (s.padding != null) {
-        document.getElementById("settingPadding").value = s.padding;
-        document.getElementById("paddingValue").textContent = s.padding + "s";
-    }
     if (s.language) document.getElementById("settingLanguage").value = s.language;
     if (s.ai_correction != null) {
         document.getElementById("settingAiCorrection").dataset.active = s.ai_correction;
@@ -775,7 +804,7 @@ document.getElementById("btnSaveSettings").addEventListener("click", async () =>
         cut_method: document.getElementById("settingCutMethod").value,
         cut_duration: parseInt(document.getElementById("settingCutDuration").value),
         min_silence_duration: parseFloat(document.getElementById("settingSilenceDuration").value),
-        padding: parseFloat(document.getElementById("settingPadding").value),
+        padding: 0.25,
         language: document.getElementById("settingLanguage").value,
         ai_correction: document.getElementById("settingAiCorrection").dataset.active === "true",
         ai_backend: document.getElementById("settingAiBackend").value,
@@ -803,9 +832,6 @@ document.getElementById("btnSaveSettings").addEventListener("click", async () =>
 // Range sliders
 document.getElementById("settingSilenceDuration").addEventListener("input", (e) => {
     document.getElementById("silenceValue").textContent = e.target.value + "s";
-});
-document.getElementById("settingPadding").addEventListener("input", (e) => {
-    document.getElementById("paddingValue").textContent = e.target.value + "s";
 });
 
 // Toggle
@@ -888,6 +914,18 @@ document.getElementById("btnExportAll").addEventListener("click", () => {
         setTimeout(() => downloadClip(i), i * 500);
     });
     showToast(`Exportando ${state.clips.length} clips...`, "info");
+});
+
+// ─── Context Chips ───
+
+document.querySelectorAll(".context-chip").forEach(chip => {
+    chip.addEventListener("click", () => {
+        const input = document.getElementById("userContextInput");
+        input.value = chip.dataset.context;
+        // Highlight active chip
+        document.querySelectorAll(".context-chip").forEach(c => c.classList.remove("active"));
+        chip.classList.add("active");
+    });
 });
 
 // ─── Init ───
