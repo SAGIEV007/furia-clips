@@ -176,15 +176,51 @@ function renderMediaLibrary() {
                     <span class="material-icons-round">play_circle_filled</span>
                 </div>
                 <div class="media-duration">${file.size_human}</div>
+                <button class="media-delete-btn" title="Excluir video" data-path="${file.path}">
+                    <span class="material-icons-round">delete</span>
+                </button>
             </div>
             <div class="media-info">
                 <span class="media-name" title="${file.name}">${truncateName(file.name, 30)}</span>
             </div>
         `;
 
-        card.addEventListener("click", () => selectVideo(file));
+        card.addEventListener("click", (e) => {
+            if (e.target.closest(".media-delete-btn")) return;
+            selectVideo(file);
+        });
+
+        const deleteBtn = card.querySelector(".media-delete-btn");
+        deleteBtn.addEventListener("click", async (e) => {
+            e.stopPropagation();
+            if (!confirm(`Excluir "${file.name}"?`)) return;
+            await deleteMediaFile(file);
+        });
+
         grid.appendChild(card);
     });
+}
+
+async function deleteMediaFile(file) {
+    try {
+        const res = await fetch("/api/files/delete", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ path: file.path }),
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast(`"${file.name}" excluido!`, "success");
+            if (state.selectedVideo === file.path) {
+                deselectVideo();
+            }
+            await loadMediaFiles();
+        } else {
+            showToast(data.error || "Erro ao excluir", "error");
+        }
+    } catch (e) {
+        showToast("Erro ao excluir arquivo", "error");
+    }
 }
 
 function truncateName(name, max) {

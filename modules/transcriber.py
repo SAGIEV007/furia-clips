@@ -2,6 +2,9 @@ import os
 import json
 import hashlib
 import time
+import subprocess
+import shutil
+import re as _re
 
 CACHE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "workspace", "cache")
 
@@ -71,13 +74,62 @@ class Transcriber:
             if emit_progress:
                 emit_progress(f"Modelo carregado: openai-whisper no {device}")
 
+    def _check_audio_stream(self, video_path, emit_progress=None):
+        """Check if the video file contains an audio stream. Returns True if audio exists."""
+        try:
+            ffprobe = shutil.which("ffprobe")
+            if not ffprobe:
+                return True  # Can't check, assume it has audio
+
+            result = subprocess.run(
+                [ffprobe, "-v", "quiet", "-show_streams", "-select_streams", "a", video_path],
+                capture_output=True, text=True, timeout=15,
+            )
+            if "codec_type=audio" not in result.stdout:
+                if emit_progress:
+                    emit_progress(
+                        "ERRO: Este video NAO contem audio! "
+                        "Provavelmente foi baixado no formato DASH (so video). "
+                        "Baixe novamente com audio incluido.",
+                        "error",
+                    )
+                return False
+            return True
+        except Exception:
+            return True  # Can't check, assume it has audio
+
+    def _sanitize_path_for_ffmpeg(self, audio_path):
+        """Copy file to a safe temp path if filename has special chars that break FFmpeg on Windows."""
+        basename = os.path.basename(audio_path)
+        if _re.search(r'[^\w\s.\-()]', basename, _re.ASCII):
+            safe_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "workspace", "cache")
+            os.makedirs(safe_dir, exist_ok=True)
+            ext = os.path.splitext(basename)[1]
+            cache_key = self._get_cache_key(audio_path)
+            safe_path = os.path.join(safe_dir, f"temp_audio_{cache_key[:16]}{ext}")
+            if not os.path.exists(safe_path):
+                shutil.copy2(audio_path, safe_path)
+            return safe_path
+        return audio_path
+
     def transcribe(self, audio_path, emit_progress=None):
         cached = self._load_from_cache(audio_path, emit_progress)
         if cached:
             return cached
 
+        # Check for audio stream before anything else
+        if not self._check_audio_stream(audio_path, emit_progress):
+            raise ValueError(
+                "O video nao contem stream de audio. "
+                "Baixe o video novamente incluindo o audio. "
+                "No yt-dlp use: -f bestvideo+bestaudio --merge-output-format mp4"
+            )
+
         if self.model is None:
             self.load_model(emit_progress)
+
+        # Handle filenames with special characters (accents, etc)
+        working_path = self._sanitize_path_for_ffmpeg(audio_path)
 
         if emit_progress:
             emit_progress("Iniciando transcricao...")
@@ -85,9 +137,9 @@ class Transcriber:
         start_time = time.time()
 
         if self._engine == "faster-whisper":
-            result = self._transcribe_faster_whisper(audio_path, emit_progress)
+            result = self._transcribe_faster_whisper(working_path, emit_progress)
         else:
-            result = self._transcribe_openai_whisper(audio_path, emit_progress)
+            result = self._transcribe_openai_whisper(working_path, emit_progress)
 
         elapsed = time.time() - start_time
         if emit_progress:

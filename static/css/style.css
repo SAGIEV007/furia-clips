@@ -854,6 +854,38 @@ body {
     font-weight: 600;
 }
 
+.media-delete-btn {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    background: rgba(239, 68, 68, 0.85);
+    border: none;
+    border-radius: 6px;
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.2s, background 0.2s;
+    z-index: 5;
+}
+
+.media-delete-btn .material-icons-round {
+    font-size: 16px;
+}
+
+.media-card:hover .media-delete-btn {
+    opacity: 1;
+}
+
+.media-delete-btn:hover {
+    background: rgba(239, 68, 68, 1);
+}
+
 .media-info {
     padding: 8px 10px;
 }
