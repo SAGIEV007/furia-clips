@@ -60,11 +60,153 @@ class FaceTracker:
             return model_path
         return None
 
-    def detect_layout(self, video_path, emit_progress=None):
-        """Detect video layout by sampling frames and counting faces."""
-        if not self._ensure_detector():
+    def detect_layout(self, video_path, emit_progress=None, video_genre=None):
+        """Detect video layout. Uses multiple fallback strategies:
+        1. Genre preset from user (if provided)
+        2. Title/filename keywords
+        3. FFmpeg aspect ratio analysis
+        4. MediaPipe face counting (if available)
+        """
+        # Strategy 1: User-selected genre preset overrides everything
+        if video_genre:
+            genre_map = {
+                "debate": LAYOUT_DEBATE,
+                "podcast": LAYOUT_PODCAST,
+                "palestra": LAYOUT_SINGLE,
+                "vlog": LAYOUT_SINGLE,
+            }
+            if video_genre.lower() in genre_map:
+                self._layout = genre_map[video_genre.lower()]
+                if emit_progress:
+                    emit_progress(f"[Layout] Genero selecionado: {video_genre} -> {self._layout}")
+                return self._layout
+
+        # Strategy 2: Title/filename keyword detection
+        filename = os.path.basename(video_path).lower()
+        debate_keywords = ["debate", "painel", "confronto", "x ", " vs ",
+                           "versus", "embate", "discussao", "mesa redonda"]
+        podcast_keywords = ["podcast", "entrevista", "conversa", "bate-papo",
+                           "episodio", "ep.", "ep "]
+        for kw in debate_keywords:
+            if kw in filename:
+                self._layout = LAYOUT_DEBATE
+                if emit_progress:
+                    emit_progress(f"[Layout] Debate detectado pelo titulo (palavra-chave: '{kw}')")
+                return self._layout
+        for kw in podcast_keywords:
+            if kw in filename:
+                self._layout = LAYOUT_PODCAST
+                if emit_progress:
+                    emit_progress(f"[Layout] Podcast/entrevista detectado pelo titulo (palavra-chave: '{kw}')")
+                return self._layout
+
+        # Strategy 3: FFmpeg-based analysis (aspect ratio + scene complexity)
+        ffmpeg_layout = self._detect_layout_ffmpeg(video_path, emit_progress)
+        if ffmpeg_layout != LAYOUT_UNKNOWN:
+            self._layout = ffmpeg_layout
+            return self._layout
+
+        # Strategy 4: MediaPipe face counting (original method)
+        if self._ensure_detector():
+            mediapipe_layout = self._detect_layout_mediapipe(video_path, emit_progress)
+            if mediapipe_layout != LAYOUT_UNKNOWN:
+                self._layout = mediapipe_layout
+                return self._layout
+
+        # Final fallback
+        if emit_progress:
+            emit_progress("[Layout] Nao foi possivel detectar layout. Usando modo padrao (single speaker).")
+        self._layout = LAYOUT_SINGLE
+        return self._layout
+
+    def _detect_layout_ffmpeg(self, video_path, emit_progress=None):
+        """Detect layout using FFmpeg analysis (no MediaPipe needed)."""
+        try:
+            # Get video info via ffprobe
+            cmd = [
+                "ffprobe", "-v", "quiet", "-print_format", "json",
+                "-show_streams", "-select_streams", "v:0", video_path
+            ]
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+            if result.returncode != 0:
+                return LAYOUT_UNKNOWN
+
+            info = json.loads(result.stdout)
+            streams = info.get("streams", [])
+            if not streams:
+                return LAYOUT_UNKNOWN
+
+            width = int(streams[0].get("width", 0))
+            height = int(streams[0].get("height", 0))
+
+            if width == 0 or height == 0:
+                return LAYOUT_UNKNOWN
+
+            aspect = width / height
+
+            # Vertical video (9:16) = likely single speaker/vlog
+            if aspect < 0.7:
+                if emit_progress:
+                    emit_progress("[Layout] Video vertical detectado -> single speaker")
+                return LAYOUT_SINGLE
+
+            # Standard 16:9 with high resolution = could be debate or single
+            # Use edge detection to check for split screen divider
+            if aspect >= 1.5:
+                has_split = self._detect_split_screen_ffmpeg(video_path)
+                if has_split:
+                    if emit_progress:
+                        emit_progress("[Layout] Tela dividida detectada via FFmpeg -> debate/painel")
+                    return LAYOUT_DEBATE
+
+            return LAYOUT_UNKNOWN
+        except Exception:
             return LAYOUT_UNKNOWN
 
+    def _detect_split_screen_ffmpeg(self, video_path):
+        """Use FFmpeg to detect if video has a vertical split (debate layout).
+        Samples frames and checks for a consistent vertical line in the center."""
+        try:
+            # Extract a single frame at 30% of the video and analyze center column
+            cmd = [
+                "ffprobe", "-v", "quiet", "-print_format", "json",
+                "-show_entries", "format=duration", video_path
+            ]
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+            if result.returncode != 0:
+                return False
+
+            info = json.loads(result.stdout)
+            duration = float(info.get("format", {}).get("duration", 0))
+            if duration < 30:
+                return False
+
+            # Sample at 30% of video - extract center column brightness variance
+            sample_time = duration * 0.3
+            cmd = [
+                "ffmpeg", "-ss", str(sample_time), "-i", video_path,
+                "-vframes", "1", "-vf",
+                "crop=2:ih:iw/2-1:0,format=gray",
+                "-f", "rawvideo", "-"
+            ]
+            result = subprocess.run(cmd, capture_output=True, timeout=10)
+            if result.returncode != 0 or not result.stdout:
+                return False
+
+            # If center column has very low variance, likely a divider line
+            pixels = list(result.stdout)
+            if len(pixels) < 10:
+                return False
+            avg = sum(pixels) / len(pixels)
+            variance = sum((p - avg) ** 2 for p in pixels) / len(pixels)
+            # Low variance in center = consistent color = likely divider
+            return variance < 500
+
+        except Exception:
+            return False
+
+    def _detect_layout_mediapipe(self, video_path, emit_progress=None):
+        """Original MediaPipe-based layout detection."""
         try:
             import cv2
         except ImportError:
@@ -75,7 +217,6 @@ class FaceTracker:
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         duration = total_frames / fps
 
-        # Sample 5-8 frames spread across the video
         sample_times = []
         num_samples = min(8, max(5, int(duration / 60)))
         for i in range(num_samples):
@@ -102,26 +243,27 @@ class FaceTracker:
         avg_faces = sum(face_counts) / len(face_counts)
         multi_face_ratio = sum(1 for c in face_counts if c >= 2) / len(face_counts)
 
+        layout = LAYOUT_UNKNOWN
         if avg_faces < 0.3:
-            self._layout = LAYOUT_FULLSCREEN
+            layout = LAYOUT_FULLSCREEN
         elif multi_face_ratio > 0.5:
-            self._layout = LAYOUT_DEBATE
+            layout = LAYOUT_DEBATE
         elif avg_faces <= 1.3:
-            self._layout = LAYOUT_SINGLE
+            layout = LAYOUT_SINGLE
         else:
-            self._layout = LAYOUT_PODCAST
+            layout = LAYOUT_PODCAST
 
         if emit_progress:
             layout_labels = {
-                LAYOUT_SINGLE: "Speaker unico detectado",
-                LAYOUT_DEBATE: "Debate/painel detectado (multiplos participantes)",
-                LAYOUT_PODCAST: "Podcast/entrevista detectado",
-                LAYOUT_FULLSCREEN: "Apresentacao/tela cheia detectada",
+                LAYOUT_SINGLE: "Speaker unico detectado (MediaPipe)",
+                LAYOUT_DEBATE: "Debate/painel detectado (MediaPipe - multiplos participantes)",
+                LAYOUT_PODCAST: "Podcast/entrevista detectado (MediaPipe)",
+                LAYOUT_FULLSCREEN: "Apresentacao/tela cheia detectada (MediaPipe)",
                 LAYOUT_UNKNOWN: "Layout nao identificado",
             }
-            emit_progress(f"[Layout] {layout_labels.get(self._layout, self._layout)}")
+            emit_progress(f"[Layout] {layout_labels.get(layout, layout)}")
 
-        return self._layout
+        return layout
 
     def get_layout(self):
         return self._layout

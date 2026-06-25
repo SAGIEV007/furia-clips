@@ -163,9 +163,9 @@ class ClipSelector:
         if not transcript_blocks:
             return []
 
-        # Send in chunks if transcript is too long (max ~3000 words per request)
+        # Send in chunks if transcript is too long (smaller chunks = faster per request on CPU)
         all_selections = []
-        chunk_size = 40  # blocks per chunk
+        chunk_size = 25  # blocks per chunk (smaller = faster response from llama3.2:3b on CPU)
 
         for chunk_idx in range(0, len(transcript_blocks), chunk_size):
             chunk = transcript_blocks[chunk_idx:chunk_idx + chunk_size]
@@ -182,9 +182,9 @@ class ClipSelector:
                         "prompt": prompt,
                         "system": self._get_system_prompt(),
                         "stream": False,
-                        "options": {"temperature": 0.3, "num_predict": 3000},
+                        "options": {"temperature": 0.3, "num_predict": 1500},
                     },
-                    timeout=180,
+                    timeout=600,  # 10 min — llama3.2:3b on CPU is slow with large transcripts
                 )
                 response.raise_for_status()
                 data = response.json()
@@ -428,16 +428,49 @@ Retorne APENAS o JSON com os clips selecionados. Nada mais."""
         all_words = [w.strip('.,;:!?"()') for w in text_lower.split()]
         context_words = [w for w in all_words if len(w) > 1]
 
-        # Extract names (capitalized words from original)
+        # Common Portuguese stop words / verbs / prepositions that are NOT names
+        stop_words_pt = {
+            "quero", "quando", "como", "onde", "sobre", "para", "este", "esta",
+            "esse", "essa", "principalmente", "extrair", "momentos", "onde",
+            "esteja", "falando", "clips", "cortes", "video", "fazer", "pedir",
+            "quais", "melhor", "mais", "menos", "muito", "pouco", "todos",
+            "todas", "cada", "outro", "outra", "outros", "outras", "aqui",
+            "ali", "isso", "isto", "aquilo", "dele", "dela", "deles", "delas",
+            "nele", "nela", "neles", "nelas", "meu", "minha", "seu", "sua",
+            "nosso", "nossa", "vosso", "vossa", "com", "sem", "por", "entre",
+            "contra", "desde", "ate", "apos", "antes", "depois", "durante",
+            "pode", "deve", "quer", "tem", "vai", "vem", "esta", "estao",
+            "foram", "seria", "seria", "fosse", "sendo", "sido", "tendo",
+            "tendo", "faz", "fez", "faria", "somente", "apenas", "tambem",
+            "ainda", "agora", "logo", "sempre", "nunca", "talvez", "sim",
+            "nao", "bem", "mal", "assim", "entao", "pois", "porque", "como",
+        }
+
+        # Extract names: any word 2-12 chars that isn't a common stop word
+        # This catches "kim", "Kim", "KIM" etc.
         names = []
         for w in user_context.split():
             clean = w.strip('.,;:!?"()')
-            if clean and clean[0].isupper() and len(clean) > 1:
-                # Exclude common Portuguese words that happen to start caps
-                skip = {"Quando", "Como", "Onde", "Quero", "Sobre", "Para",
-                        "Este", "Esta", "Esse", "Essa", "Principalmente"}
-                if clean not in skip:
-                    names.append(clean.lower())
+            if not clean or len(clean) < 2 or len(clean) > 12:
+                continue
+            clean_lower = clean.lower()
+            # Skip stop words
+            if clean_lower in stop_words_pt:
+                continue
+            # Skip pure numbers
+            if clean.isdigit():
+                continue
+            # If capitalized in original OR is a short word (2-6 chars) not in stop list,
+            # treat as potential name
+            if clean[0].isupper() or (len(clean) <= 6 and clean_lower not in stop_words_pt):
+                # Additional filter: skip very common verbs/adverbs even if short
+                common_short = {"que", "mas", "nem", "dos", "das", "nos", "nas",
+                                "uns", "uma", "umas", "ele", "ela", "eles", "elas",
+                                "sao", "era", "foi", "ser", "ter", "ver", "dar",
+                                "vir", "por", "pre", "pos", "sub", "pro"}
+                if clean_lower not in common_short:
+                    if clean_lower not in names:
+                        names.append(clean_lower)
 
         # Extract multi-word phrases (3+ word sequences between punctuation/commas)
         phrases = []
@@ -447,7 +480,7 @@ Retorne APENAS o JSON com os clips selecionados. Nada mais."""
             words_in_part = part.split()
             if len(words_in_part) >= 3:
                 phrases.append(part)
-            # Also extract numeric phrases like "1 trilhão 100 bilhões"
+            # Also extract numeric phrases like "1 trilhao 100 bilhoes"
             numeric_phrases = re.findall(r'\d+[\s\w]*\d+[\s\w]*', part)
             for np_match in numeric_phrases:
                 if len(np_match.split()) >= 2:

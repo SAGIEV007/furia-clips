@@ -467,6 +467,7 @@ document.getElementById("actionCut").querySelector(".btn-action").addEventListen
     const userContext = document.getElementById("userContextInput").value.trim();
     addConsoleLog("[Acao] Iniciando corte inteligente de shorts...", "info");
     if (userContext) addConsoleLog(`[Contexto] "${userContext}"`, "info");
+    const videoGenre = document.getElementById("settingVideoGenre").value;
     await fetch("/api/process/cut", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -474,6 +475,7 @@ document.getElementById("actionCut").querySelector(".btn-action").addEventListen
             video_path: state.selectedVideo,
             face_tracking: true,
             user_context: userContext,
+            video_genre: videoGenre,
         }),
     });
 });
@@ -493,6 +495,7 @@ document.getElementById("actionComplete").querySelector(".btn-action").addEventL
     const userContext = document.getElementById("userContextInput").value.trim();
     addConsoleLog("[Acao] Iniciando processo completo...", "info");
     if (userContext) addConsoleLog(`[Contexto] "${userContext}"`, "info");
+    const videoGenreComplete = document.getElementById("settingVideoGenre").value;
     await fetch("/api/process/complete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -500,6 +503,7 @@ document.getElementById("actionComplete").querySelector(".btn-action").addEventL
             video_path: state.selectedVideo,
             output_dir: state.outputDir || "",
             user_context: userContext,
+            video_genre: videoGenreComplete,
         }),
     });
 });

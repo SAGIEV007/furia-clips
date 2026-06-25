@@ -299,6 +299,7 @@ def api_cut_shorts():
     project_id = data.get("project_id")
     use_face_tracking = data.get("face_tracking", True)
     user_context = data.get("user_context", "")
+    video_genre = data.get("video_genre", "")
 
     if not os.path.exists(video_path):
         return jsonify({"error": "Video nao encontrado"}), 404
@@ -345,7 +346,10 @@ def api_cut_shorts():
             try:
                 from modules.face_tracker import FaceTracker
                 tracker = FaceTracker()
-                video_layout = tracker.detect_layout(video_path, emit_progress=emit_progress)
+                video_layout = tracker.detect_layout(
+                    video_path, emit_progress=emit_progress,
+                    video_genre=video_genre if video_genre else None
+                )
             except Exception as e:
                 emit_progress(f"Deteccao de layout indisponivel: {str(e)}", "warning")
 
@@ -405,14 +409,19 @@ def api_cut_shorts():
                         from modules.face_tracker import FaceTracker
                         tracker = FaceTracker()
                     all_faces = tracker.detect_faces_in_video(video_path, emit_progress=emit_progress)
-                    for i, clip in enumerate(top_clips):
-                        face_positions_map[i] = tracker.get_face_positions_for_segment(
-                            all_faces, clip["start"], clip["end"]
-                        )
+                    if all_faces:
+                        for i, clip in enumerate(top_clips):
+                            positions = tracker.get_face_positions_for_segment(
+                                all_faces, clip["start"], clip["end"]
+                            )
+                            if positions:
+                                face_positions_map[i] = positions
+                    if not face_positions_map:
+                        emit_progress("Face tracking sem dados. Usando crop padrao.", "info")
                 except Exception as e:
-                    emit_progress(f"Face tracking indisponivel: {str(e)}. Usando crop centralizado.", "warning")
+                    emit_progress(f"Face tracking indisponivel: {str(e)}. Usando crop padrao.", "warning")
             elif video_layout == "debate":
-                emit_progress("[Layout] Debate: enquadramento centralizado (face tracking desabilitado)", "info")
+                emit_progress("[Layout] Debate: preservando enquadramento original (sem crop).", "info")
 
             project_name = os.path.splitext(os.path.basename(video_path))[0]
             output_dir = settings.get("output_dir", "") or ""
@@ -657,6 +666,7 @@ def api_process_complete():
     data = request.json
     video_path = os.path.join(WORKSPACE_DIR, data.get("video_path", ""))
     user_context = data.get("user_context", "")
+    video_genre = data.get("video_genre", "")
 
     if not os.path.exists(video_path):
         return jsonify({"error": "Video nao encontrado"}), 404
@@ -727,16 +737,27 @@ def api_process_complete():
                 target_duration=settings.get("cut_duration", 45),
             )
 
-            # Face tracking
+            # Layout detection + Face tracking
+            video_layout = "unknown"
             face_positions_map = {}
             try:
                 from modules.face_tracker import FaceTracker
                 tracker = FaceTracker()
-                all_faces = tracker.detect_faces_in_video(video_path, emit_progress=emit_progress)
-                for i, clip in enumerate(top_clips):
-                    face_positions_map[i] = tracker.get_face_positions_for_segment(
-                        all_faces, clip["start"], clip["end"]
-                    )
+                video_layout = tracker.detect_layout(
+                    video_path, emit_progress=emit_progress,
+                    video_genre=video_genre if video_genre else None
+                )
+                if video_layout != "debate":
+                    all_faces = tracker.detect_faces_in_video(video_path, emit_progress=emit_progress)
+                    if all_faces:
+                        for i, clip in enumerate(top_clips):
+                            positions = tracker.get_face_positions_for_segment(
+                                all_faces, clip["start"], clip["end"]
+                            )
+                            if positions:
+                                face_positions_map[i] = positions
+                else:
+                    emit_progress("[Layout] Debate: preservando enquadramento original.", "info")
             except Exception as e:
                 emit_progress(f"Face tracking indisponivel: {str(e)}", "warning")
 
@@ -746,7 +767,8 @@ def api_process_complete():
                 use_face_tracking=bool(face_positions_map),
                 face_positions_map=face_positions_map,
                 emit_progress=emit_progress,
-                output_dir=output_dir if output_dir else None
+                output_dir=output_dir if output_dir else None,
+                video_layout=video_layout,
             )
 
             # ── Step 5: Generate subtitles for each clip ──

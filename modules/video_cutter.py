@@ -91,7 +91,7 @@ class VideoCutter:
         return candidates
 
     def cut_clip(self, video_path, start_time, end_time, output_path,
-                 vertical=True, emit_progress=None):
+                 vertical=True, emit_progress=None, video_layout=None):
         if emit_progress:
             emit_progress(f"Cortando clip {start_time:.1f}s - {end_time:.1f}s...")
 
@@ -99,8 +99,14 @@ class VideoCutter:
 
         vf_filters = []
         if vertical:
-            vf_filters.append("crop=ih*9/16:ih")
-            vf_filters.append("scale=1080:1920")
+            if video_layout == "debate":
+                # For debates: letterbox the original 16:9 frame into 9:16
+                # This preserves ALL participants visible
+                vf_filters.append("scale=1080:-2")
+                vf_filters.append("pad=1080:1920:(ow-iw)/2:(oh-ih)/2:black")
+            else:
+                vf_filters.append("crop=ih*9/16:ih")
+                vf_filters.append("scale=1080:1920")
 
         vf_str = ",".join(vf_filters) if vf_filters else None
 
@@ -241,7 +247,8 @@ class VideoCutter:
             else:
                 result = self.cut_clip(
                     video_path, cut["start"], cut["end"],
-                    output_path, vertical=True, emit_progress=emit_progress
+                    output_path, vertical=True, emit_progress=emit_progress,
+                    video_layout=video_layout
                 )
 
             if result:
