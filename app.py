@@ -9,6 +9,21 @@ import platform
 import requests
 from datetime import datetime
 
+# Load .env file for Gemini API key and other settings
+try:
+    from dotenv import load_dotenv
+    load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
+except ImportError:
+    # python-dotenv not installed — load .env manually
+    _env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+    if os.path.exists(_env_path):
+        with open(_env_path, "r") as _ef:
+            for _line in _ef:
+                _line = _line.strip()
+                if _line and not _line.startswith("#") and "=" in _line:
+                    _k, _v = _line.split("=", 1)
+                    os.environ.setdefault(_k.strip(), _v.strip())
+
 from flask import Flask, render_template, request, jsonify, send_from_directory, send_file
 from flask_socketio import SocketIO, emit
 
@@ -72,7 +87,35 @@ def api_save_settings():
     data = request.json
     for key, value in data.items():
         set_setting(key, value)
+
+    # Save Gemini key to .env for persistence across sessions
+    gemini_key = data.get("gemini_api_key", "")
+    if gemini_key:
+        _save_key_to_env("GEMINI_API_KEY", gemini_key)
+
     return jsonify({"success": True})
+
+
+def _save_key_to_env(key_name, key_value):
+    """Save an API key to the .env file."""
+    env_file = os.path.join(BASE_DIR, ".env")
+    lines = []
+    found = False
+
+    if os.path.exists(env_file):
+        with open(env_file, "r") as f:
+            for line in f:
+                if line.strip().startswith(f"{key_name}="):
+                    lines.append(f"{key_name}={key_value}\n")
+                    found = True
+                else:
+                    lines.append(line)
+
+    if not found:
+        lines.append(f"{key_name}={key_value}\n")
+
+    with open(env_file, "w") as f:
+        f.writelines(lines)
 
 
 # ─── API: File Manager ───
@@ -309,11 +352,11 @@ def api_cut_shorts():
         try:
             settings = get_all_settings()
 
-            # Check Ollama status before starting
-            ollama_status = _check_ollama_status(settings)
-            mode_label = "IA Inteligente (Ollama)" if ollama_status["connected"] else "NLP Basico (sem IA)"
-            emit_progress(f"[Modo] {mode_label}", "info")
-            socketio.emit("ollama_status", ollama_status)
+            # Check AI status before starting
+            ai_backend = settings.get("ai_backend", "ollama")
+            ai_status = _check_ai_status(settings)
+            emit_progress(f"[Modo] {ai_status['mode_label']}", "info")
+            socketio.emit("ai_status", ai_status)
 
             # Context confirmation
             if user_context:
@@ -373,7 +416,7 @@ def api_cut_shorts():
                 target_duration=settings.get("cut_duration", 45),
                 max_clips=15,
                 min_duration=20,
-                max_duration=90,
+                max_duration=180,
             )
             top_clips = selector.select_clips(
                 transcription,
@@ -394,7 +437,7 @@ def api_cut_shorts():
             ranker = ViralRanker(channel_context=settings.get("channel_context", ""))
             top_clips = ranker.rank_clips(top_clips)
 
-            # Step 5: Cut clips with face tracking
+            # Step 5: Cut clips (face tracking disabled for now)
             emit_progress("=== ETAPA 5/5: Cortando Clips ===", "info")
             from modules.video_cutter import VideoCutter
             cutter = VideoCutter(
@@ -402,26 +445,12 @@ def api_cut_shorts():
                 target_duration=settings.get("cut_duration", 45),
             )
 
+            # Face tracking disabled — focus on selection quality first
             face_positions_map = {}
-            if use_face_tracking and video_layout != "debate":
-                try:
-                    if not tracker:
-                        from modules.face_tracker import FaceTracker
-                        tracker = FaceTracker()
-                    all_faces = tracker.detect_faces_in_video(video_path, emit_progress=emit_progress)
-                    if all_faces:
-                        for i, clip in enumerate(top_clips):
-                            positions = tracker.get_face_positions_for_segment(
-                                all_faces, clip["start"], clip["end"]
-                            )
-                            if positions:
-                                face_positions_map[i] = positions
-                    if not face_positions_map:
-                        emit_progress("Face tracking sem dados. Usando crop padrao.", "info")
-                except Exception as e:
-                    emit_progress(f"Face tracking indisponivel: {str(e)}. Usando crop padrao.", "warning")
-            elif video_layout == "debate":
+            if video_layout == "debate":
                 emit_progress("[Layout] Debate: preservando enquadramento original (sem crop).", "info")
+            else:
+                emit_progress("[Layout] Crop centralizado (face tracking desabilitado).", "info")
 
             project_name = os.path.splitext(os.path.basename(video_path))[0]
             output_dir = settings.get("output_dir", "") or ""
@@ -714,7 +743,7 @@ def api_process_complete():
                 target_duration=settings.get("cut_duration", 45),
                 max_clips=15,
                 min_duration=20,
-                max_duration=90,
+                max_duration=180,
             )
             top_clips = selector.select_clips(
                 transcription,
@@ -905,7 +934,7 @@ def api_cancel():
 @app.route("/api/ollama/status", methods=["GET"])
 def api_ollama_status():
     settings = get_all_settings()
-    status = _check_ollama_status(settings)
+    status = _check_ai_status(settings)
     return jsonify(status)
 
 
@@ -943,9 +972,11 @@ def api_open_folder():
 @socketio.on("connect")
 def handle_connect():
     emit("connected", {"message": "Conectado ao Furia Clips!"})
-    # Send Ollama status on connect
+    # Send AI status on connect
     settings = get_all_settings()
-    status = _check_ollama_status(settings)
+    status = _check_ai_status(settings)
+    emit("ai_status", status)
+    # Also emit as ollama_status for backward compatibility
     emit("ollama_status", status)
 
 
@@ -957,14 +988,48 @@ def handle_disconnect():
 @socketio.on("check_ollama")
 def handle_check_ollama():
     settings = get_all_settings()
-    status = _check_ollama_status(settings)
+    status = _check_ai_status(settings)
+    emit("ai_status", status)
     emit("ollama_status", status)
 
 
 # --- Helpers ---
 
-def _check_ollama_status(settings):
-    """Check Ollama connectivity and model availability."""
+def _check_ai_status(settings):
+    """Check AI backend status (Gemini, Ollama, or NLP)."""
+    ai_backend = settings.get("ai_backend", "ollama")
+
+    if ai_backend == "gemini":
+        api_key = settings.get("gemini_api_key", "")
+        if api_key:
+            try:
+                resp = requests.get(
+                    f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}",
+                    timeout=5
+                )
+                if resp.status_code == 200:
+                    return {
+                        "connected": True,
+                        "mode": "gemini",
+                        "model": "gemini-2.0-flash",
+                        "model_available": True,
+                        "status": "connected",
+                        "backend": "gemini",
+                        "mode_label": "Gemini Flash (Online)",
+                    }
+            except Exception:
+                pass
+        return {
+            "connected": False,
+            "mode": "gemini_offline",
+            "model": "gemini-2.0-flash",
+            "model_available": False,
+            "status": "no_key" if not api_key else "offline",
+            "backend": "gemini",
+            "mode_label": "Gemini (sem API key)" if not api_key else "Gemini (sem internet)",
+        }
+
+    # Ollama check
     ollama_url = settings.get("ollama_url", "http://localhost:11434")
     model = settings.get("ollama_model", "llama3.2:3b")
 
@@ -981,6 +1046,8 @@ def _check_ollama_status(settings):
                 "model_available": has_model,
                 "available_models": models,
                 "status": "connected",
+                "backend": "ollama",
+                "mode_label": "IA Inteligente (Ollama)",
             }
     except Exception:
         pass
@@ -992,7 +1059,14 @@ def _check_ollama_status(settings):
         "model_available": False,
         "available_models": [],
         "status": "offline",
+        "backend": "ollama",
+        "mode_label": "NLP Basico (sem IA)",
     }
+
+
+def _check_ollama_status(settings):
+    """Legacy wrapper for Ollama status check."""
+    return _check_ai_status(settings)
 
 
 def _translate_error(error_msg):
@@ -1035,19 +1109,23 @@ def _human_size(size_bytes):
 if __name__ == "__main__":
     init_db()
 
-    # Startup Ollama check
+    # Startup AI check
     settings = get_all_settings()
-    status = _check_ollama_status(settings)
+    ai_status = _check_ai_status(settings)
     print("\n" + "=" * 50)
     print("   FURIA CLIPS - Corte. Ranqueie. Domine.")
     print("=" * 50)
-    if status["connected"]:
-        print(f"   [IA] Ollama conectado! Modelo: {status['model']}")
-        print(f"   [IA] Modo: Selecao INTELIGENTE ativa")
+    backend = ai_status.get("backend", "nlp")
+    if backend == "gemini" and ai_status["connected"]:
+        print(f"   [IA] Gemini Flash conectado!")
+        print(f"   [IA] Modo: Selecao INTELIGENTE (online)")
+    elif backend == "ollama" and ai_status["connected"]:
+        print(f"   [IA] Ollama conectado! Modelo: {ai_status['model']}")
+        print(f"   [IA] Modo: Selecao INTELIGENTE (offline)")
     else:
-        print(f"   [AVISO] Ollama NAO detectado.")
+        print(f"   [AVISO] Nenhuma IA conectada.")
         print(f"   [AVISO] Modo: NLP basico (menos preciso)")
-        print(f"   [AVISO] Instale em: https://ollama.com")
+        print(f"   [DICA] Configure Gemini: https://aistudio.google.com/apikeys")
     print(f"   Acesse: http://localhost:3001")
     print("=" * 50 + "\n")
     socketio.run(app, host="0.0.0.0", port=3001, debug=False, allow_unsafe_werkzeug=True)

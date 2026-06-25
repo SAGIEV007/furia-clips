@@ -238,15 +238,20 @@ class VideoCutter:
             if emit_progress:
                 emit_progress(f"Cortando clip {rank}/{len(cuts)}: {safe_title}...")
 
+            # Apply padding for natural-sounding clips
+            # +0.3s before (smooth start), +0.8s after (don't cut last word)
+            padded_start = max(0, cut["start"] - 0.3)
+            padded_end = cut["end"] + 0.8
+
             if use_face_tracking and face_positions_map:
                 face_pos = face_positions_map.get(i, None)
                 result = self.cut_clip_with_face_tracking(
-                    video_path, cut["start"], cut["end"],
+                    video_path, padded_start, padded_end,
                     output_path, face_pos, emit_progress
                 )
             else:
                 result = self.cut_clip(
-                    video_path, cut["start"], cut["end"],
+                    video_path, padded_start, padded_end,
                     output_path, vertical=True, emit_progress=emit_progress,
                     video_layout=video_layout
                 )

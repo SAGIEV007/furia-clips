@@ -1,11 +1,10 @@
 """
-Clip Selector — Intelligent clip selection using LLM (Ollama) or NLP fallback.
+Clip Selector — Intelligent clip selection using Gemini, Ollama (LLM) or NLP fallback.
 
-This replaces the old brute-force approach (generate all windows → rank by regex)
-with an intelligent approach:
-1. Build sentences from transcription segments
-2. Send to LLM with user context for intelligent selection
-3. Fall back to NLP-based selection if LLM unavailable
+Selection priority (based on user choice):
+1. Google Gemini Flash (if API key configured) — most capable, free tier
+2. Ollama local LLM (if running) — good, free, 100% offline
+3. NLP keyword matching (always available) — basic fallback
 """
 
 import json
@@ -16,15 +15,15 @@ from collections import Counter
 
 # Portuguese filler words to detect
 FILLER_WORDS_PT = {
-    "ne", "né", "tipo", "ah", "eh", "éh", "então", "entao",
+    "ne", "ne\u0301", "tipo", "ah", "eh", "e\u0301h", "enta\u0303o", "entao",
     "sabe", "basicamente", "na verdade", "ou seja", "entendeu",
     "digamos", "assim", "enfim", "bom", "olha", "veja",
-    "quer dizer", "pois é", "pois e", "ta", "tá", "cara",
+    "quer dizer", "pois e\u0301", "pois e", "ta", "ta\u0301", "cara",
 }
 
 
 class ClipSelector:
-    def __init__(self, target_duration=45, max_clips=15, min_duration=20, max_duration=90):
+    def __init__(self, target_duration=45, max_clips=15, min_duration=20, max_duration=180):
         self.target_duration = target_duration
         self.max_clips = max_clips
         self.min_duration = min_duration
@@ -35,27 +34,43 @@ class ClipSelector:
                      video_layout=None):
         settings = settings or {}
         self._selection_source = None
+        ai_backend = settings.get("ai_backend", "ollama")
         sentences = self._build_sentences(transcription["segments"])
 
         if emit_progress:
             emit_progress(f"Transcricao dividida em {len(sentences)} sentencas")
 
-        # Extract context keywords for display
         if user_context and emit_progress:
             keywords = self._extract_context_keywords(user_context)
             if keywords:
                 emit_progress(f"Contexto aplicado: {', '.join(keywords[:8])}...", "info")
 
-        # Try LLM-based selection first
-        clips = self._select_with_llm(
-            sentences, energy_profile, user_context, settings, emit_progress
-        )
+        clips = None
 
-        if clips:
-            self._selection_source = "llm"
-            if emit_progress:
-                emit_progress("[IA] Selecao inteligente via Ollama concluida!", "success")
-        else:
+        # Try Gemini first if selected
+        if ai_backend == "gemini":
+            clips = self._select_with_gemini(
+                sentences, energy_profile, user_context, settings, emit_progress
+            )
+            if clips:
+                self._selection_source = "gemini"
+                if emit_progress:
+                    emit_progress(f"[Gemini] Selecao inteligente concluida! {len(clips)} clips.", "success")
+
+        # Try Ollama (as primary or as fallback from Gemini)
+        if not clips and ai_backend in ("ollama", "gemini"):
+            if ai_backend == "gemini" and emit_progress:
+                emit_progress("[Gemini] Tentando Ollama como fallback...", "warning")
+            clips = self._select_with_llm(
+                sentences, energy_profile, user_context, settings, emit_progress
+            )
+            if clips:
+                self._selection_source = "llm"
+                if emit_progress:
+                    emit_progress(f"[Ollama] Selecao inteligente concluida! {len(clips)} clips.", "success")
+
+        # NLP fallback (always available)
+        if not clips:
             self._selection_source = "nlp"
             if emit_progress:
                 emit_progress("[NLP] Usando selecao por palavras-chave (menos preciso)...", "warning")
@@ -74,7 +89,8 @@ class ClipSelector:
         clips = clips[:self.max_clips]
 
         if emit_progress:
-            source_label = "IA (Ollama)" if self._selection_source == "llm" else "NLP basico"
+            source_labels = {"gemini": "Gemini Flash", "llm": "IA (Ollama)", "nlp": "NLP basico"}
+            source_label = source_labels.get(self._selection_source, "NLP basico")
             emit_progress(f"Selecionados {len(clips)} clips de partes diferentes do video (via {source_label})")
 
         return clips
@@ -100,6 +116,42 @@ class ClipSelector:
                 keywords.append(clean)
         return keywords
 
+    def _extract_names_from_context(self, user_context):
+        """Extract likely person names from user context for speaker filtering."""
+        stop_words = {
+            "quero", "quando", "como", "onde", "sobre", "para", "este", "esta",
+            "esse", "essa", "principalmente", "extrair", "momentos",
+            "esteja", "falando", "clips", "cortes", "video", "fazer", "pedir",
+            "quais", "melhor", "mais", "menos", "muito", "pouco", "todos",
+            "todas", "cada", "outro", "outra", "outros", "outras",
+            "pode", "deve", "quer", "tem", "vai", "vem",
+            "somente", "apenas", "tambem", "ainda", "agora", "debate",
+            "neste", "nesta", "deste", "desta", "pontos", "fala", "fale",
+            "proeminentes", "melhores", "piores", "bons", "ruins",
+            "sobressaindo", "nesse", "nessa", "aqui", "ali",
+        }
+        common_short = {
+            "que", "mas", "nem", "dos", "das", "nos", "nas", "uns", "uma",
+            "umas", "ele", "ela", "eles", "elas", "sao", "era", "foi",
+            "ser", "ter", "ver", "dar", "vir", "por", "pre", "pos", "sub", "pro",
+        }
+        names = []
+        for w in user_context.split():
+            clean = re.sub(r'[^\w]', '', w)
+            if not clean or len(clean) < 2 or len(clean) > 15:
+                continue
+            if clean.lower() in stop_words:
+                continue
+            if clean.isdigit():
+                continue
+            if clean.lower() in common_short:
+                continue
+            # Potential name: starts with capital, OR is short (2-6 chars) not in stop lists
+            if clean[0].isupper() or (len(clean) <= 6 and clean.lower() not in stop_words):
+                if clean.lower() not in [n.lower() for n in names]:
+                    names.append(clean)
+        return names
+
     def _build_sentences(self, segments):
         """Group transcription segments into natural sentences based on punctuation and pauses."""
         sentences = []
@@ -111,7 +163,6 @@ class ClipSelector:
         for seg in segments:
             pause_before = seg["start"] - last_end if last_end > 0 else 0
 
-            # Start new sentence on long pause (>0.8s) or if current is empty
             if pause_before > 0.8 and current_text:
                 sentences.append({
                     "text": current_text.strip(),
@@ -129,7 +180,6 @@ class ClipSelector:
             current_end = seg["end"]
             last_end = seg["end"]
 
-            # Split on sentence-ending punctuation
             text_stripped = current_text.strip()
             if text_stripped and text_stripped[-1] in ".!?" and len(text_stripped.split()) >= 5:
                 sentences.append({
@@ -141,7 +191,6 @@ class ClipSelector:
                 current_text = ""
                 current_start = None
 
-        # Don't forget the last chunk
         if current_text.strip():
             sentences.append({
                 "text": current_text.strip(),
@@ -152,27 +201,211 @@ class ClipSelector:
 
         return sentences
 
+    # ═══════════════════════════════════════════════════
+    # GEMINI — Google Gemini Flash API (most capable)
+    # ═══════════════════════════════════════════════════
+
+    def _select_with_gemini(self, sentences, energy_profile, user_context, settings, emit_progress):
+        """Use Google Gemini Flash API to select clips — sends FULL transcript at once."""
+        api_key = settings.get("gemini_api_key", "")
+        if not api_key:
+            if emit_progress:
+                emit_progress("[Gemini] API key nao configurada.", "warning")
+            return []
+
+        transcript_blocks = self._build_transcript_blocks(sentences)
+        if not transcript_blocks:
+            return []
+
+        system_prompt = self._get_gemini_system_prompt()
+        user_prompt = self._build_gemini_prompt(transcript_blocks, user_context)
+
+        if emit_progress:
+            emit_progress(f"[Gemini] Enviando {len(transcript_blocks)} blocos para analise...", "info")
+
+        try:
+            response = requests.post(
+                f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}",
+                json={
+                    "contents": [{"parts": [{"text": user_prompt}]}],
+                    "systemInstruction": {"parts": [{"text": system_prompt}]},
+                    "generationConfig": {
+                        "temperature": 0.3,
+                        "maxOutputTokens": 8192,
+                        "responseMimeType": "application/json",
+                    },
+                },
+                timeout=120,
+            )
+
+            if response.status_code == 400:
+                error_data = response.json()
+                error_msg = error_data.get("error", {}).get("message", "")
+                if emit_progress:
+                    emit_progress(f"[Gemini] Erro de API: {error_msg[:200]}", "warning")
+                return []
+
+            if response.status_code == 403:
+                if emit_progress:
+                    emit_progress("[Gemini] API key invalida ou sem permissao.", "warning")
+                return []
+
+            response.raise_for_status()
+            data = response.json()
+
+            candidates = data.get("candidates", [])
+            if not candidates:
+                if emit_progress:
+                    emit_progress("[Gemini] Sem resposta da API.", "warning")
+                return []
+
+            text = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+
+            selections = self._parse_llm_response(text, sentences, transcript_blocks, 0, source="gemini")
+
+            if emit_progress and selections:
+                emit_progress(f"[Gemini] Encontrou {len(selections)} clips candidatos!", "info")
+
+            # Sort by score descending
+            selections.sort(key=lambda x: x.get("viral_score", 0), reverse=True)
+            return selections
+
+        except requests.exceptions.ConnectionError:
+            if emit_progress:
+                emit_progress("[Gemini] Sem conexao com internet.", "warning")
+            return []
+        except requests.exceptions.Timeout:
+            if emit_progress:
+                emit_progress("[Gemini] Timeout na requisicao (>120s).", "warning")
+            return []
+        except Exception as e:
+            if emit_progress:
+                emit_progress(f"[Gemini] Erro: {str(e)[:200]}", "warning")
+            return []
+
+    def _get_gemini_system_prompt(self):
+        return """Voce e um editor de video profissional especialista em selecionar os melhores momentos de debates, entrevistas, podcasts e videos longos para clips curtos (YouTube Shorts, TikTok, Reels).
+
+REGRAS CRITICAS:
+
+1. CONTEXTO COMPLETO OBRIGATORIO:
+   Cada clip DEVE fazer sentido para quem NAO viu o video inteiro.
+   - Se alguem faz uma PERGUNTA e outro RESPONDE, o clip DEVE incluir a pergunta E a resposta.
+   - Se alguem diz "esse impacto", "isso tudo", "essa questao", o clip DEVE incluir o que veio antes para contextualizar.
+   - O espectador NUNCA deve se perguntar "impacto de que?", "isso o que?", "quem?".
+   - Na duvida, inclua blocos a mais para dar contexto.
+
+2. PENSAMENTO 100% COMPLETO:
+   NUNCA corte no meio de uma frase ou raciocinio.
+   - O falante DEVE terminar COMPLETAMENTE sua ideia antes do clip acabar.
+   - Se ele esta no meio de uma explicacao, CONTINUE incluindo blocos ate ele terminar.
+   - O clip ideal termina com o falante fazendo uma pausa natural ou passando a palavra.
+
+3. IDENTIFICACAO DE FALANTES:
+   Em debates e entrevistas, identifique quem fala em cada trecho:
+   - Jornalistas/mediadores geralmente fazem perguntas e introduzem topicos.
+   - Debatedores/convidados respondem e argumentam.
+   - Mudancas no conteudo, estilo de fala e tom indicam troca de falante.
+
+4. FILTRAGEM POR FALANTE:
+   Se o usuario mencionou um NOME ESPECIFICO (ex: "Kim", "Chico", "reporter"):
+   - SOMENTE selecione clips onde ESSA PESSOA e o falante principal.
+   - PODE incluir a pergunta de um jornalista como setup (1-2 blocos iniciais), mas o foco DEVE ser a resposta da pessoa mencionada.
+   - Se nao tiver certeza de quem esta falando em um trecho, NAO inclua.
+
+5. DURACAO E SELECAO:
+   - Cada clip: 30 a 180 segundos. Prefira 45 a 120 segundos.
+   - Clips mais longos sao OTIMOS se o pensamento estiver completo e o conteudo justificar.
+   - Selecione clips de PARTES DIFERENTES do video (diversidade temporal).
+   - Prefira momentos com: opiniao forte, dado concreto, confronto, emocao, humor.
+
+6. AVALIACAO HONESTA — use a escala INTEIRA, nao de A para tudo:
+   - hook: A = Primeiros segundos prendem atencao imediatamente. B = Inicio razoavel. C = Inicio confuso ou fraco.
+   - flow: A = Contexto 100% completo e pensamento totalmente terminado. B = Quase completo, falta algo menor. C = Falta contexto ou cortado no meio.
+   - value: A = Conteudo forte, impactante, polemico, engajante. B = Conteudo razoavel. C = Conteudo generico/fraco.
+   - energy: A = Tom intenso, animado, emocionante. B = Tom normal. C = Monotono.
+   Um clip medio DEVE receber B ou C, NAO A.
+
+FORMATO DE RESPOSTA — retorne APENAS um array JSON valido:
+[
+  {
+    "blocks": [3, 4, 5],
+    "title": "Titulo descritivo que resume o conteudo do clip",
+    "speaker": "Nome da pessoa principal falando",
+    "reason": "Por que este clip e relevante para o pedido do usuario",
+    "hook": "A",
+    "flow": "A",
+    "value": "B",
+    "energy": "A"
+  }
+]"""
+
+    def _build_gemini_prompt(self, blocks, user_context):
+        """Build prompt for Gemini — sends ALL blocks at once (Gemini handles long context)."""
+        lines = []
+        for b in blocks:
+            timestamp = f"[{self._format_time(b['start'])} - {self._format_time(b['end'])}]"
+            lines.append(f"BLOCO {b['index']}: {timestamp} ({b['duration']}s)\n{b['text']}\n")
+
+        transcript_text = "\n".join(lines)
+
+        context_instruction = ""
+        if user_context:
+            names = self._extract_names_from_context(user_context)
+            if names:
+                names_str = ", ".join(names)
+                context_instruction = f"""
+
+INSTRUCAO DO USUARIO: "{user_context}"
+
+ATENCAO: O usuario mencionou nomes especificos: {names_str}.
+SOMENTE selecione clips onde uma dessas pessoas esta falando como falante principal.
+A pergunta de outro pode ser incluida como setup, mas o FOCO deve ser a fala de {names_str}.
+Se o nome nao aparece literalmente na transcricao, identifique pela posicao no debate (quem defende qual argumento)."""
+            else:
+                context_instruction = f"""
+
+INSTRUCAO DO USUARIO: "{user_context}"
+Selecione clips que melhor atendam a esse pedido."""
+
+        num_clips = min(15, max(5, len(blocks) // 4))
+
+        return f"""Analise esta transcricao completa e selecione os {num_clips} MELHORES momentos para clips curtos.
+{context_instruction}
+
+TRANSCRICAO COMPLETA ({len(blocks)} blocos, {self._format_time(blocks[-1]['end'])} de video):
+
+{transcript_text}
+
+Combine blocos consecutivos para formar clips de 30-180 segundos com CONTEXTO COMPLETO.
+Lembre: cada clip deve ter inicio (contexto/pergunta), meio (desenvolvimento) e fim (conclusao do raciocinio).
+Retorne APENAS o array JSON. Nenhum texto antes ou depois."""
+
+    # ═══════════════════════════════════════════════════
+    # OLLAMA — Local LLM (offline, free)
+    # ═══════════════════════════════════════════════════
+
     def _select_with_llm(self, sentences, energy_profile, user_context, settings, emit_progress):
         """Use Ollama to intelligently select the best clips."""
         ollama_url = settings.get("ollama_url", "http://localhost:11434")
         ollama_model = settings.get("ollama_model", "llama3.2:3b")
 
-        # Build a condensed transcript with indices for the LLM
         transcript_blocks = self._build_transcript_blocks(sentences)
-
         if not transcript_blocks:
             return []
 
-        # Send in chunks if transcript is too long (smaller chunks = faster per request on CPU)
         all_selections = []
-        chunk_size = 25  # blocks per chunk (smaller = faster response from llama3.2:3b on CPU)
+        chunk_size = 25
 
         for chunk_idx in range(0, len(transcript_blocks), chunk_size):
             chunk = transcript_blocks[chunk_idx:chunk_idx + chunk_size]
             prompt = self._build_llm_prompt(chunk, user_context, chunk_idx, len(transcript_blocks))
 
             if emit_progress:
-                emit_progress(f"Analisando trecho {chunk_idx // chunk_size + 1}/{math.ceil(len(transcript_blocks) / chunk_size)} com IA...")
+                emit_progress(
+                    f"Analisando trecho {chunk_idx // chunk_size + 1}/"
+                    f"{math.ceil(len(transcript_blocks) / chunk_size)} com IA..."
+                )
 
             try:
                 response = requests.post(
@@ -182,15 +415,15 @@ class ClipSelector:
                         "prompt": prompt,
                         "system": self._get_system_prompt(),
                         "stream": False,
-                        "options": {"temperature": 0.3, "num_predict": 1500},
+                        "options": {"temperature": 0.3, "num_predict": 2000},
                     },
-                    timeout=600,  # 10 min — llama3.2:3b on CPU is slow with large transcripts
+                    timeout=600,
                 )
                 response.raise_for_status()
                 data = response.json()
                 text = data.get("response", "")
 
-                selections = self._parse_llm_response(text, sentences, transcript_blocks, chunk_idx)
+                selections = self._parse_llm_response(text, sentences, transcript_blocks, chunk_idx, source="llm")
                 all_selections.extend(selections)
 
             except requests.exceptions.ConnectionError:
@@ -199,15 +432,73 @@ class ClipSelector:
                 return []
             except Exception as e:
                 if emit_progress:
-                    emit_progress(f"Erro na IA: {str(e)}")
+                    emit_progress(f"Erro na IA: {str(e)[:200]}")
                 return []
 
-        # Sort by score descending
         all_selections.sort(key=lambda x: x.get("viral_score", 0), reverse=True)
         return all_selections
 
+    def _get_system_prompt(self):
+        """System prompt for Ollama — simpler and more direct for small models (3B)."""
+        return """Voce seleciona os melhores trechos de uma transcricao de video para clips curtos.
+
+REGRAS OBRIGATORIAS:
+1. CONTEXTO: Cada clip DEVE ter contexto completo. Se ha uma pergunta, inclua a pergunta E a resposta juntas.
+2. COMPLETO: O falante DEVE terminar sua frase e seu raciocinio. NUNCA corte no meio.
+3. FALANTE: Se o usuario pediu clips de uma pessoa especifica, SOMENTE inclua momentos dessa pessoa falando.
+4. DIVERSIDADE: Selecione clips de partes DIFERENTES do video.
+5. DURACAO: 30 a 180 segundos por clip. Clips longos sao OK se o conteudo justificar.
+6. NOTAS: A = excelente (raro), B = bom (normal), C = fraco. NAO de A para tudo, seja critico.
+
+FORMATO — retorne APENAS JSON valido:
+[
+  {
+    "blocks": [3, 4, 5],
+    "title": "Titulo descritivo do clip",
+    "reason": "Por que este clip e bom",
+    "hook": "A",
+    "flow": "A",
+    "value": "B",
+    "energy": "B"
+  }
+]"""
+
+    def _build_llm_prompt(self, blocks, user_context, chunk_offset, total_blocks):
+        """Build prompt for Ollama — simpler and more explicit."""
+        lines = []
+        for b in blocks:
+            timestamp = f"[{self._format_time(b['start'])} - {self._format_time(b['end'])}]"
+            lines.append(f"BLOCO {b['index']}: {timestamp} ({b['duration']}s)\n{b['text']}\n")
+
+        transcript_text = "\n".join(lines)
+
+        context_instruction = ""
+        if user_context:
+            names = self._extract_names_from_context(user_context)
+            if names:
+                names_str = ", ".join(names)
+                context_instruction = f"""
+
+INSTRUCAO DO USUARIO: "{user_context}"
+IMPORTANTE: SOMENTE selecione clips onde {names_str} esta falando. Clips de outras pessoas devem ser EXCLUIDOS."""
+            else:
+                context_instruction = f"""
+
+INSTRUCAO DO USUARIO: "{user_context}"
+Selecione clips que atendam a esse pedido."""
+
+        return f"""Selecione os {min(5, len(blocks) // 3 + 1)} MELHORES momentos para clips curtos.
+{context_instruction}
+
+TRANSCRICAO (blocos {chunk_offset} a {chunk_offset + len(blocks) - 1} de {total_blocks} total):
+
+{transcript_text}
+
+Combine blocos consecutivos para clips de 30-180 segundos com contexto completo.
+Retorne APENAS o JSON."""
+
     def _build_transcript_blocks(self, sentences):
-        """Group sentences into blocks of ~30-60 seconds for LLM analysis."""
+        """Group sentences into blocks of ~40-60 seconds for analysis."""
         blocks = []
         current_block_sentences = []
         current_start = None
@@ -220,8 +511,8 @@ class ClipSelector:
             current_block_sentences.append(sent)
             current_duration = sent["end"] - current_start
 
-            # Create a block every ~20-30 seconds of speech
-            if current_duration >= 20 or (sent["text"].strip()[-1:] in ".!?" and current_duration >= 10):
+            # Create a block every ~40-60 seconds for better context
+            if current_duration >= 40 or (sent["text"].strip()[-1:] in ".!?" and current_duration >= 25):
                 block_text = " ".join(s["text"] for s in current_block_sentences)
                 blocks.append({
                     "index": len(blocks),
@@ -248,62 +539,8 @@ class ClipSelector:
 
         return blocks
 
-    def _get_system_prompt(self):
-        return """Voce e um editor de video especialista em conteudo viral para YouTube Shorts, TikTok e Reels.
-Sua tarefa e analisar a transcricao de um video e selecionar os melhores momentos para cortar como clips virais.
-
-REGRAS FUNDAMENTAIS:
-- Cada clip DEVE ter um PENSAMENTO COMPLETO (comeco, meio e fim)
-- Cada clip DEVE comecar com uma frase forte que prende atencao (gancho)
-- NUNCA cortar no meio de uma frase ou raciocinio
-- Selecionar momentos de partes DIFERENTES do video (diversidade)
-- Cada clip deve fazer sentido SOZINHO, sem contexto adicional
-- Preferir momentos com opiniao forte, emocao, frases de efeito
-- Duração ideal: 30-60 segundos por clip
-
-FORMATO DE RESPOSTA - retorne APENAS JSON valido:
-[
-  {
-    "blocks": [3, 4, 5],
-    "title": "Titulo curto e cativante para o clip",
-    "reason": "Por que este momento e viral",
-    "hook": "A",
-    "flow": "A",
-    "value": "A",
-    "energy": "B"
-  }
-]
-
-Onde hook/flow/value/energy sao notas A (excelente), B (bom) ou C (fraco).
-- hook: Os primeiros segundos prendem atencao?
-- flow: O clip tem comeco, meio e fim coerentes?
-- value: Oferece insight, opiniao forte, emocao ou informacao util?
-- energy: O tom de voz e intenso, animado, emocionante?"""
-
-    def _build_llm_prompt(self, blocks, user_context, chunk_offset, total_blocks):
-        lines = []
-        for b in blocks:
-            timestamp = f"[{self._format_time(b['start'])} - {self._format_time(b['end'])}]"
-            lines.append(f"BLOCO {b['index']}: {timestamp} ({b['duration']}s)\n{b['text']}\n")
-
-        transcript_text = "\n".join(lines)
-
-        context_instruction = ""
-        if user_context:
-            context_instruction = f"\n\nCONTEXTO DO USUARIO (priorize clips que se encaixem nisso): {user_context}"
-
-        return f"""Analise esta transcricao e selecione os {min(5, len(blocks) // 3 + 1)} MELHORES momentos para clips virais.
-{context_instruction}
-
-TRANSCRICAO (blocos {chunk_offset} a {chunk_offset + len(blocks) - 1} de {total_blocks} total):
-
-{transcript_text}
-
-Selecione combinando blocos consecutivos para formar clips de 30-60 segundos.
-Retorne APENAS o JSON com os clips selecionados. Nada mais."""
-
-    def _parse_llm_response(self, response_text, sentences, all_blocks, chunk_offset):
-        """Parse LLM JSON response into clip data with timestamps."""
+    def _parse_llm_response(self, response_text, sentences, all_blocks, chunk_offset, source="llm"):
+        """Parse LLM/Gemini JSON response into clip data with timestamps."""
         try:
             json_str = response_text.strip()
             # Extract JSON from potential markdown code blocks
@@ -346,27 +583,25 @@ Retorne APENAS o JSON com os clips selecionados. Nada mais."""
             clip_duration = clip_end - clip_start
 
             # Validate duration
-            if clip_duration < self.min_duration or clip_duration > self.max_duration:
-                # Try to trim if too long
-                if clip_duration > self.max_duration:
-                    clip_end = clip_start + self.max_duration
-                    clip_duration = self.max_duration
-                elif clip_duration < self.min_duration:
-                    continue
+            if clip_duration < self.min_duration:
+                continue
+            if clip_duration > self.max_duration:
+                clip_end = clip_start + self.max_duration
+                clip_duration = self.max_duration
 
             clip_text = " ".join(b["text"] for b in valid_blocks)
 
-            # Convert letter grades to scores
-            grade_to_score = {"A": 95, "B": 70, "C": 40}
-            hook_score = grade_to_score.get(sel.get("hook", "B"), 70)
-            flow_score = grade_to_score.get(sel.get("flow", "B"), 70)
-            value_score = grade_to_score.get(sel.get("value", "B"), 70)
-            energy_score = grade_to_score.get(sel.get("energy", "B"), 70)
+            # Score scale: A=90, B=55, C=25 (wide spread for real differentiation)
+            grade_to_score = {"A": 90, "B": 55, "C": 25}
+            hook_score = grade_to_score.get(sel.get("hook", "B"), 55)
+            flow_score = grade_to_score.get(sel.get("flow", "B"), 55)
+            value_score = grade_to_score.get(sel.get("value", "B"), 55)
+            energy_score = grade_to_score.get(sel.get("energy", "B"), 55)
 
-            # Weighted final score
+            # Weighted: flow (context completeness) gets highest weight
             viral_score = int(
-                hook_score * 0.30 +
-                flow_score * 0.25 +
+                hook_score * 0.20 +
+                flow_score * 0.35 +
                 value_score * 0.25 +
                 energy_score * 0.20
             )
@@ -378,6 +613,7 @@ Retorne APENAS o JSON com os clips selecionados. Nada mais."""
                 "text": clip_text,
                 "title": sel.get("title", ""),
                 "reason": sel.get("reason", ""),
+                "speaker": sel.get("speaker", ""),
                 "viral_score": viral_score,
                 "has_hook": sel.get("hook", "C") in ("A", "B"),
                 "breakdown": {
@@ -386,13 +622,17 @@ Retorne APENAS o JSON com os clips selecionados. Nada mais."""
                     "value": sel.get("value", "B"),
                     "energy": sel.get("energy", "B"),
                 },
-                "source": "llm",
+                "source": source,
             })
 
         return clips
 
+    # ═══════════════════════════════════════════════════
+    # NLP — Keyword-based fallback (always available)
+    # ═══════════════════════════════════════════════════
+
     def _select_with_nlp(self, sentences, energy_profile, user_context, emit_progress):
-        """NLP-based fallback when Ollama is not available."""
+        """NLP-based fallback when no AI backend is available."""
         if emit_progress:
             emit_progress("[NLP] Construindo clips com analise por palavras-chave...")
 
@@ -400,19 +640,14 @@ Retorne APENAS o JSON com os clips selecionados. Nada mais."""
         if not blocks:
             return []
 
-        # Pre-compute context matching data
         context_data = self._prepare_context_matching(user_context) if user_context else None
 
-        # Score each block
         scored_blocks = []
         for block in blocks:
             score = self._nlp_score_block(block, user_context, energy_profile, context_data)
             scored_blocks.append((block, score))
 
-        # Build clips by combining consecutive high-scoring blocks
         clips = self._build_clips_from_scored_blocks(scored_blocks, context_data)
-
-        # Sort by score
         clips.sort(key=lambda x: x["viral_score"], reverse=True)
 
         if emit_progress:
@@ -424,11 +659,9 @@ Retorne APENAS o JSON com os clips selecionados. Nada mais."""
         """Pre-process user context for efficient matching."""
         text_lower = user_context.lower()
 
-        # Extract individual words (min 2 chars)
         all_words = [w.strip('.,;:!?"()') for w in text_lower.split()]
         context_words = [w for w in all_words if len(w) > 1]
 
-        # Common Portuguese stop words / verbs / prepositions that are NOT names
         stop_words_pt = {
             "quero", "quando", "como", "onde", "sobre", "para", "este", "esta",
             "esse", "essa", "principalmente", "extrair", "momentos", "onde",
@@ -446,24 +679,17 @@ Retorne APENAS o JSON com os clips selecionados. Nada mais."""
             "nao", "bem", "mal", "assim", "entao", "pois", "porque", "como",
         }
 
-        # Extract names: any word 2-12 chars that isn't a common stop word
-        # This catches "kim", "Kim", "KIM" etc.
         names = []
         for w in user_context.split():
             clean = w.strip('.,;:!?"()')
             if not clean or len(clean) < 2 or len(clean) > 12:
                 continue
             clean_lower = clean.lower()
-            # Skip stop words
             if clean_lower in stop_words_pt:
                 continue
-            # Skip pure numbers
             if clean.isdigit():
                 continue
-            # If capitalized in original OR is a short word (2-6 chars) not in stop list,
-            # treat as potential name
             if clean[0].isupper() or (len(clean) <= 6 and clean_lower not in stop_words_pt):
-                # Additional filter: skip very common verbs/adverbs even if short
                 common_short = {"que", "mas", "nem", "dos", "das", "nos", "nas",
                                 "uns", "uma", "umas", "ele", "ela", "eles", "elas",
                                 "sao", "era", "foi", "ser", "ter", "ver", "dar",
@@ -472,7 +698,6 @@ Retorne APENAS o JSON com os clips selecionados. Nada mais."""
                     if clean_lower not in names:
                         names.append(clean_lower)
 
-        # Extract multi-word phrases (3+ word sequences between punctuation/commas)
         phrases = []
         parts = re.split(r'[,;.!?]', text_lower)
         for part in parts:
@@ -480,7 +705,6 @@ Retorne APENAS o JSON com os clips selecionados. Nada mais."""
             words_in_part = part.split()
             if len(words_in_part) >= 3:
                 phrases.append(part)
-            # Also extract numeric phrases like "1 trilhao 100 bilhoes"
             numeric_phrases = re.findall(r'\d+[\s\w]*\d+[\s\w]*', part)
             for np_match in numeric_phrases:
                 if len(np_match.split()) >= 2:
@@ -496,9 +720,9 @@ Retorne APENAS o JSON com os clips selecionados. Nada mais."""
     def _nlp_score_block(self, block, user_context, energy_profile, context_data=None):
         """Score a block using NLP heuristics."""
         text = block["text"].lower()
-        score = 40  # Base score (lowered to give more room for context)
+        score = 40
 
-        # Hook detection (strong opening)
+        # Hook detection
         first_words = " ".join(text.split()[:15])
         hook_patterns = [
             r"voce\s+sabia", r"presta\s+atencao", r"olha\s+isso",
@@ -542,7 +766,7 @@ Retorne APENAS o JSON com os clips selecionados. Nada mais."""
         filler_density = filler_count / max(len(word_list), 1)
         filler_penalty = min(15, filler_density * 150)
 
-        # User context relevance (DOMINANT FACTOR when context exists)
+        # User context relevance
         context_score = 0
         if context_data:
             context_score = self._compute_context_score(text, context_data)
@@ -556,7 +780,7 @@ Retorne APENAS o JSON com os clips selecionados. Nada mais."""
         else:
             duration_score = 0
 
-        # Sentence completeness (ends with punctuation)
+        # Sentence completeness
         if block["text"].strip()[-1:] in ".!?":
             completeness_score = 10
         else:
@@ -568,28 +792,24 @@ Retorne APENAS o JSON com os clips selecionados. Nada mais."""
         return max(0, min(100, total))
 
     def _compute_context_score(self, text, context_data):
-        """Compute context relevance score — the most important factor for user intent."""
+        """Compute context relevance score."""
         score = 0
 
-        # 1. Phrase matching (highest value — multi-word sequences)
         for phrase in context_data["phrases"]:
             if phrase in text:
-                score += 20  # Full phrase match is very valuable
+                score += 20
 
-        # 2. Name matching (very high value — user mentioned specific people)
         for name in context_data["names"]:
             if name in text:
-                score += 25  # Name match is critical for intent
+                score += 25
 
-        # 3. Individual word matching (standard value)
         for cw in context_data["words"]:
             if len(cw) > 1 and cw in text:
                 score += 5
 
-        # Cap at 60 but name matches can push higher
         name_bonus = sum(25 for n in context_data["names"] if n in text)
         if name_bonus > 0:
-            return min(80, score)  # Names can dominate ranking
+            return min(80, score)
         return min(60, score)
 
     def _build_clips_from_scored_blocks(self, scored_blocks, context_data=None):
@@ -597,19 +817,16 @@ Retorne APENAS o JSON com os clips selecionados. Nada mais."""
         clips = []
         used_indices = set()
 
-        # Sort by score to process best blocks first
         sorted_by_score = sorted(enumerate(scored_blocks), key=lambda x: x[1][1], reverse=True)
 
         for start_idx, (start_block, start_score) in sorted_by_score:
             if start_idx in used_indices:
                 continue
 
-            # Try to build a clip starting from this block
             clip_blocks = [start_block]
             clip_duration = start_block["duration"]
             clip_end_idx = start_idx
 
-            # Extend forward to reach target duration
             for next_idx in range(start_idx + 1, len(scored_blocks)):
                 if next_idx in used_indices:
                     break
@@ -629,7 +846,6 @@ Retorne APENAS o JSON com os clips selecionados. Nada mais."""
             if clip_duration < self.min_duration:
                 continue
 
-            # Mark used indices
             for idx in range(start_idx, clip_end_idx + 1):
                 used_indices.add(idx)
 
@@ -637,21 +853,17 @@ Retorne APENAS o JSON com os clips selecionados. Nada mais."""
             clip_start = clip_blocks[0]["start"]
             clip_end = clip_blocks[-1]["end"]
 
-            # Calculate average score of included blocks
             avg_score = sum(scored_blocks[i][1] for i in range(start_idx, clip_end_idx + 1)) / (clip_end_idx - start_idx + 1)
 
-            # Determine grades
             hook_grade = "A" if start_score > 75 else ("B" if start_score > 50 else "C")
             flow_grade = "A" if clip_text.strip()[-1:] in ".!?" else "B"
             value_grade = "A" if avg_score > 70 else ("B" if avg_score > 50 else "C")
-            energy_grade = "B"  # Default without LLM
+            energy_grade = "B"
 
             viral_score = int(avg_score)
 
-            # Generate a simple title from first sentence
             title = self._generate_simple_title(clip_text)
 
-            # Generate reason based on context match
             reason = ""
             if context_data and context_data["names"]:
                 matched_names = [n for n in context_data["names"] if n in clip_text.lower()]
@@ -680,19 +892,20 @@ Retorne APENAS o JSON com os clips selecionados. Nada mais."""
 
     def _generate_simple_title(self, text):
         """Generate a basic title from the clip text."""
-        # Get first sentence
         for end_char in ["!", "?", "."]:
             idx = text.find(end_char)
             if 10 < idx < 80:
                 title = text[:idx + 1].strip()
                 return title
-
-        # Fallback: first ~50 characters at word boundary
         words = text.split()[:8]
         title = " ".join(words)
         if len(title) > 60:
             title = title[:57] + "..."
         return title
+
+    # ═══════════════════════════════════════════════════
+    # Post-processing helpers
+    # ═══════════════════════════════════════════════════
 
     def _adjust_to_scene_boundaries(self, clips, scene_changes):
         """Adjust clip start/end to nearest scene boundary to avoid cutting mid-transition."""
@@ -704,13 +917,11 @@ Retorne APENAS o JSON com os clips selecionados. Nada mais."""
             best_start = clip["start"]
             best_end = clip["end"]
 
-            # Find nearest scene change within 2s of clip start
             for sc in scene_changes:
                 if abs(sc - clip["start"]) < 2.0:
                     best_start = sc
                     break
 
-            # Find nearest scene change within 2s of clip end
             for sc in scene_changes:
                 if abs(sc - clip["end"]) < 2.0:
                     best_end = sc
@@ -730,7 +941,6 @@ Retorne APENAS o JSON com os clips selecionados. Nada mais."""
         if not clips:
             return []
 
-        # Already sorted by score
         selected = []
         for clip in clips:
             overlaps = False

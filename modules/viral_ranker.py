@@ -98,15 +98,15 @@ class ViralRanker:
 
     def _score_from_grades(self, clip):
         """Convert existing A/B/C grades to numeric score."""
-        grade_to_num = {"A": 95, "B": 70, "C": 40}
+        grade_to_num = {"A": 90, "B": 55, "C": 25}
         breakdown = clip["breakdown"]
 
-        hook = grade_to_num.get(breakdown.get("hook", "B"), 70)
-        flow = grade_to_num.get(breakdown.get("flow", "B"), 70)
-        value = grade_to_num.get(breakdown.get("value", "B"), 70)
-        energy = grade_to_num.get(breakdown.get("energy", "B"), 70)
+        hook = grade_to_num.get(breakdown.get("hook", "B"), 55)
+        flow = grade_to_num.get(breakdown.get("flow", "B"), 55)
+        value = grade_to_num.get(breakdown.get("value", "B"), 55)
+        energy = grade_to_num.get(breakdown.get("energy", "B"), 55)
 
-        viral_score = int(hook * 0.30 + flow * 0.25 + value * 0.25 + energy * 0.20)
+        viral_score = int(hook * 0.20 + flow * 0.35 + value * 0.25 + energy * 0.20)
 
         return {
             "viral_score": viral_score,

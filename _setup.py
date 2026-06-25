@@ -31,18 +31,94 @@ def check_ffmpeg():
         return False
 
 
+def check_gemini_key():
+    """Check for Gemini API key in env or .env file."""
+    # Check env var first
+    api_key = os.environ.get("GEMINI_API_KEY", "")
+    if api_key:
+        print("[OK] Gemini API key encontrada (variavel de ambiente)")
+        _save_gemini_key_to_env(api_key)
+        return True
+
+    # Check .env file
+    env_file = os.path.join(os.path.dirname(__file__), ".env")
+    if os.path.exists(env_file):
+        with open(env_file, "r") as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith("GEMINI_API_KEY=") and len(line) > 15:
+                    print("[OK] Gemini API key encontrada (.env)")
+                    return True
+
+    return False
+
+
+def prompt_gemini_key():
+    """Ask user for Gemini API key on first run."""
+    print()
+    print("--------------------------------------------------")
+    print("   Configuracao do Google Gemini (IA Online)")
+    print("--------------------------------------------------")
+    print()
+    print("  O Gemini Flash e a IA mais inteligente do Furia Clips.")
+    print("  E GRATIS - crie sua API key em 30 segundos:")
+    print()
+    print("  -> https://aistudio.google.com/apikeys")
+    print()
+    print("  Cole a API key abaixo, ou pressione Enter para pular")
+    print("  (voce pode configurar depois na interface do app).")
+    print()
+
+    try:
+        key = input("  Gemini API Key: ").strip()
+    except (EOFError, KeyboardInterrupt):
+        key = ""
+
+    if key and len(key) > 10:
+        _save_gemini_key_to_env(key)
+        print()
+        print("[OK] Gemini API key salva! O app usara Gemini como padrao.")
+        return True
+    else:
+        print()
+        print("[INFO] Sem Gemini. O app usara Ollama (offline) ou NLP basico.")
+        print("  Voce pode configurar o Gemini depois na interface do app.")
+        return False
+
+
+def _save_gemini_key_to_env(api_key):
+    """Save Gemini API key to .env file."""
+    env_file = os.path.join(os.path.dirname(__file__), ".env")
+    lines = []
+    found = False
+
+    if os.path.exists(env_file):
+        with open(env_file, "r") as f:
+            for line in f:
+                if line.strip().startswith("GEMINI_API_KEY="):
+                    lines.append(f"GEMINI_API_KEY={api_key}\n")
+                    found = True
+                else:
+                    lines.append(line)
+
+    if not found:
+        lines.append(f"GEMINI_API_KEY={api_key}\n")
+
+    with open(env_file, "w") as f:
+        f.writelines(lines)
+
+
 def check_ollama():
     """Check if Ollama is available and has the model."""
     print()
     print("--------------------------------------------------")
-    print("   Verificando Ollama (IA local)...")
+    print("   Verificando Ollama (IA local/offline)...")
     print("--------------------------------------------------")
 
     if not shutil.which("ollama"):
         print("[AVISO] Ollama NAO encontrado.")
-        print("  Sem o Ollama, o programa usara selecao NLP basica.")
-        print("  Para selecao INTELIGENTE com IA, instale:")
-        print("  https://ollama.com")
+        print("  Sem o Ollama, o programa usara Gemini (online) ou NLP basico.")
+        print("  Para IA OFFLINE, instale: https://ollama.com")
         print("  Apos instalar, rode: ollama pull llama3.2:3b")
         return False
 
@@ -92,7 +168,7 @@ def setup_venv():
 def install_deps():
     """Install dependencies if needed."""
     venv_dir = os.path.join(os.path.dirname(__file__), "venv")
-    deps_version = "v5_phase1"
+    deps_version = "v6_gemini"
     marker = os.path.join(venv_dir, f".deps_{deps_version}")
 
     if os.path.exists(marker):
@@ -178,6 +254,12 @@ def main():
     print(f"[OK] Python {sys.version.split()[0]} encontrado")
 
     check_ffmpeg()
+
+    # Check Gemini first (recommended)
+    has_gemini = check_gemini_key()
+    if not has_gemini:
+        has_gemini = prompt_gemini_key()
+
     check_ollama()
     print()
 

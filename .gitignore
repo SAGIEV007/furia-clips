@@ -24,6 +24,9 @@ data/*.db
 !workspace/thumbnails/.gitkeep
 !data/.gitkeep
 
+# Secrets
+.env
+
 # OS
 .DS_Store
 Thumbs.db

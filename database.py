@@ -113,6 +113,15 @@ def get_all_settings():
     for key, value in DEFAULT_SETTINGS.items():
         if key not in settings:
             settings[key] = value
+
+    # Override Gemini API key from environment if available and not set in DB
+    env_key = os.environ.get("GEMINI_API_KEY", "")
+    if env_key and not settings.get("gemini_api_key"):
+        settings["gemini_api_key"] = env_key
+        # Auto-switch to Gemini if key is available and backend is default
+        if settings.get("ai_backend") == "ollama":
+            settings["ai_backend"] = "gemini"
+
     return settings
 
 

@@ -52,6 +52,12 @@ socket.on("ollama_status", (data) => {
     updateOllamaStatusBadge(data);
 });
 
+socket.on("ai_status", (data) => {
+    state.ollamaStatus = data.status;
+    state.processingMode = data.mode;
+    updateOllamaStatusBadge(data);
+});
+
 socket.on("selection_mode", (data) => {
     state.selectionSource = data.source;
 });
@@ -68,14 +74,28 @@ function updateOllamaStatusBadge(data) {
     dot.className = "status-dot";
     modeIndicator.className = "ollama-mode-indicator";
 
-    if (data.connected) {
+    const backend = data.backend || "ollama";
+
+    if (backend === "gemini" && data.connected) {
+        dot.classList.add("connected");
+        label.textContent = "Gemini Conectado";
+        modeIndicator.classList.add("llm-mode");
+        modeIcon.textContent = "cloud";
+        modeLabel.textContent = "Gemini Flash";
+    } else if (backend === "gemini" && !data.connected) {
+        dot.classList.add("offline");
+        label.textContent = data.mode_label || "Gemini Offline";
+        modeIndicator.classList.add("nlp-mode");
+        modeIcon.textContent = "cloud_off";
+        modeLabel.textContent = "Gemini Offline";
+    } else if (data.connected) {
         dot.classList.add("connected");
         label.textContent = "Ollama Conectado";
         modeIndicator.classList.add("llm-mode");
         modeIcon.textContent = "psychology";
         modeLabel.textContent = "IA Inteligente";
         if (data.model_available) {
-            label.textContent = `Ollama Conectado (${data.model})`;
+            label.textContent = `Ollama (${data.model})`;
         }
     } else {
         dot.classList.add("offline");
@@ -669,7 +689,8 @@ function displayResults(clips) {
     // Summary
     const avgScore = clips.reduce((a, c) => a + (c.viral_score || 0), 0) / clips.length;
     const highScoreCount = clips.filter(c => c.viral_score >= 70).length;
-    const source = clips.length > 0 && clips[0].source === "llm" ? "IA" : "NLP";
+    const sourceMap = { "gemini": "Gemini", "llm": "Ollama", "nlp": "NLP" };
+    const source = clips.length > 0 ? (sourceMap[clips[0].source] || "NLP") : "NLP";
     summary.textContent = `${clips.length} clips | Media: ${avgScore.toFixed(0)} | ${highScoreCount} com alto potencial | via ${source}`;
 
     // Sort by viral score (highest first)
@@ -685,8 +706,9 @@ function displayResults(clips) {
         const hashtags = seo.hashtags || [];
         const breakdown = clip.breakdown || {};
         const clipSource = clip.source || "nlp";
-        const sourceLabel = clipSource === "llm" ? "IA" : "NLP";
-        const sourceClass = clipSource === "llm" ? "source-llm" : "source-nlp";
+        const sourceLabels = { "gemini": "Gemini", "llm": "Ollama", "nlp": "NLP" };
+        const sourceLabel = sourceLabels[clipSource] || "NLP";
+        const sourceClass = clipSource === "gemini" ? "source-gemini" : (clipSource === "llm" ? "source-llm" : "source-nlp");
         const transcriptId = `transcript-${originalIndex}`;
 
         // Grade color helper
@@ -804,7 +826,10 @@ function updateResultsModeBadge(source) {
     const badge = document.getElementById("resultModeBadge");
     if (!badge) return;
     badge.className = "results-mode-badge";
-    if (source === "llm") {
+    if (source === "gemini") {
+        badge.classList.add("mode-llm");
+        badge.textContent = "Gemini Flash";
+    } else if (source === "llm") {
         badge.classList.add("mode-llm");
         badge.textContent = "IA Inteligente";
     } else {

@@ -227,6 +227,22 @@ body {
     transition: border-color 0.2s;
 }
 
+.setting-hint {
+    display: block;
+    margin-top: 4px;
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.setting-hint a {
+    color: var(--gold);
+    text-decoration: none;
+}
+
+.setting-hint a:hover {
+    text-decoration: underline;
+}
+
 .setting-select:focus, .setting-input:focus {
     outline: none;
     border-color: var(--gold);
@@ -1898,6 +1914,11 @@ body {
 .clip-source-badge.source-llm {
     background: rgba(68, 207, 108, 0.9);
     color: #000;
+}
+
+.clip-source-badge.source-gemini {
+    background: rgba(66, 133, 244, 0.9);
+    color: #fff;
 }
 
 .clip-source-badge.source-nlp {
