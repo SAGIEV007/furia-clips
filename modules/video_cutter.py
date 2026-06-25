@@ -2,6 +2,7 @@ import subprocess
 import json
 import os
 import re
+import unicodedata
 from config import EXPORT_DIR
 
 
@@ -183,18 +184,53 @@ class VideoCutter:
 
         return output_path
 
+    def _sanitize_folder_name(self, name, max_len=80):
+        """Create a safe folder name from video title."""
+        safe = re.sub(r'[<>:"/\\|?*]', '', name)
+        safe = safe.strip('. ')
+        if len(safe) > max_len:
+            safe = safe[:max_len].rstrip('. ')
+        return safe or "clips"
+
+    def _sanitize_filename(self, name, max_len=60):
+        """Create a safe filename from clip title."""
+        safe = re.sub(r'[<>:"/\\|?*\n\r]', '', name)
+        safe = safe.strip('. ')
+        if len(safe) > max_len:
+            safe = safe[:max_len].rstrip('. ')
+        return safe or "clip"
+
     def batch_cut(self, video_path, cuts, project_name, use_face_tracking=False,
-                  face_positions_map=None, emit_progress=None, output_dir=None):
-        export_dir = output_dir if output_dir and os.path.isabs(output_dir) else EXPORT_DIR
+                  face_positions_map=None, emit_progress=None, output_dir=None,
+                  video_layout=None):
+        base_export = output_dir if output_dir and os.path.isabs(output_dir) else EXPORT_DIR
+
+        # Create subfolder named after the video
+        folder_name = self._sanitize_folder_name(project_name)
+        export_dir = os.path.join(base_export, folder_name)
         os.makedirs(export_dir, exist_ok=True)
+
+        # For debates, use centered crop instead of face tracking
+        if video_layout == "debate":
+            use_face_tracking = False
+            if emit_progress:
+                emit_progress("[Layout] Debate detectado. Usando enquadramento centralizado.", "info")
+
         results = []
 
         for i, cut in enumerate(cuts):
-            output_name = f"{project_name}_clip_{i+1:03d}.mp4"
+            rank = i + 1
+            # Use AI-generated title if available, otherwise generate from text
+            clip_title = cut.get("title", "")
+            if not clip_title:
+                clip_title = self._generate_clip_title(cut.get("text", ""))
+
+            safe_title = self._sanitize_filename(clip_title)
+            output_name = f"{rank}. {safe_title}.mp4"
             output_path = os.path.join(export_dir, output_name)
 
             if emit_progress:
-                emit_progress(f"Cortando clip {i+1}/{len(cuts)}...")
+                emit_progress(f"Cortando clip {rank}/{len(cuts)}: {safe_title}...")
 
             if use_face_tracking and face_positions_map:
                 face_pos = face_positions_map.get(i, None)
@@ -216,9 +252,29 @@ class VideoCutter:
                     "end": cut["end"],
                     "duration": cut["duration"],
                     "text": cut.get("text", ""),
+                    "title": clip_title,
+                    "rank": rank,
+                    "output_folder": export_dir,
                 })
 
         if emit_progress:
             emit_progress(f"Corte completo: {len(results)}/{len(cuts)} clips gerados")
+            emit_progress(f"Clips salvos em: {export_dir}", "success")
 
         return results
+
+    def _generate_clip_title(self, text):
+        """Generate a title from clip text if no AI title is available."""
+        if not text:
+            return "Clip sem titulo"
+        # Get first sentence
+        for end_char in ["!", "?", "."]:
+            idx = text.find(end_char)
+            if 10 < idx < 80:
+                return text[:idx + 1].strip()
+        # Fallback: first ~50 chars at word boundary
+        words = text.split()[:8]
+        title = " ".join(words)
+        if len(title) > 60:
+            title = title[:57] + "..."
+        return title

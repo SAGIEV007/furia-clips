@@ -1610,3 +1610,297 @@ body {
     font-weight: 800;
     line-height: 1;
 }
+
+/* ═══════════════════════════════════════════════════
+   OLLAMA STATUS BADGE
+   ═══════════════════════════════════════════════════ */
+
+.ollama-status-badge {
+    margin-top: 12px;
+    padding: 10px 14px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.ollama-status-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    flex-shrink: 0;
+    transition: all 0.3s;
+}
+
+.status-dot.connected {
+    background: var(--success);
+    box-shadow: 0 0 8px rgba(68, 207, 108, 0.5);
+    animation: pulse-green 2s infinite;
+}
+
+.status-dot.offline {
+    background: var(--error);
+    box-shadow: 0 0 8px rgba(239, 68, 68, 0.5);
+}
+
+.status-dot.checking {
+    background: var(--warning);
+    animation: pulse-yellow 1s infinite;
+}
+
+@keyframes pulse-green {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+
+@keyframes pulse-yellow {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+}
+
+.status-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.ollama-mode-indicator {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    background: rgba(255, 215, 0, 0.08);
+}
+
+.ollama-mode-indicator .mode-icon {
+    font-size: 16px;
+    color: var(--gold);
+}
+
+.ollama-mode-indicator .mode-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.ollama-mode-indicator.llm-mode {
+    background: rgba(68, 207, 108, 0.1);
+    border: 1px solid rgba(68, 207, 108, 0.2);
+}
+
+.ollama-mode-indicator.llm-mode .mode-icon {
+    color: var(--success);
+}
+
+.ollama-mode-indicator.llm-mode .mode-label {
+    color: var(--success);
+}
+
+.ollama-mode-indicator.nlp-mode {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.ollama-mode-indicator.nlp-mode .mode-icon {
+    color: var(--warning);
+}
+
+.ollama-mode-indicator.nlp-mode .mode-label {
+    color: var(--warning);
+}
+
+/* ═══════════════════════════════════════════════════
+   RESULTS MODE BADGE
+   ═══════════════════════════════════════════════════ */
+
+.results-mode-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.results-mode-badge.mode-llm {
+    background: rgba(68, 207, 108, 0.15);
+    color: var(--success);
+    border: 1px solid rgba(68, 207, 108, 0.3);
+}
+
+.results-mode-badge.mode-nlp {
+    background: rgba(245, 158, 11, 0.15);
+    color: var(--warning);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+/* ═══════════════════════════════════════════════════
+   TRANSCRIPT SEARCH
+   ═══════════════════════════════════════════════════ */
+
+.transcript-search-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    margin-bottom: 16px;
+}
+
+.transcript-search-bar .material-icons-round {
+    color: var(--text-muted);
+    font-size: 20px;
+}
+
+.transcript-search-bar input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    font-size: 14px;
+    outline: none;
+}
+
+.transcript-search-bar input::placeholder {
+    color: var(--text-muted);
+}
+
+.search-count {
+    font-size: 12px;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+/* ═══════════════════════════════════════════════════
+   CLIP TRANSCRIPT DISPLAY
+   ═══════════════════════════════════════════════════ */
+
+.clip-transcript {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+    border-top: 1px solid var(--border);
+}
+
+.clip-transcript.expanded {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.clip-transcript-content {
+    padding: 12px 14px;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.clip-transcript-content .search-highlight {
+    background: rgba(255, 215, 0, 0.3);
+    color: var(--text-primary);
+    padding: 1px 2px;
+    border-radius: 2px;
+}
+
+.btn-show-transcript {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 4px 8px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: transparent;
+    transition: all 0.2s;
+}
+
+.btn-show-transcript:hover {
+    color: var(--gold);
+    border-color: var(--gold);
+}
+
+/* ═══════════════════════════════════════════════════
+   CONTEXT CONFIRMATION
+   ═══════════════════════════════════════════════════ */
+
+.context-active-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    background: rgba(255, 215, 0, 0.1);
+    color: var(--gold);
+    border: 1px solid rgba(255, 215, 0, 0.2);
+    margin-top: 6px;
+}
+
+.context-active-badge .material-icons-round {
+    font-size: 14px;
+}
+
+/* ═══════════════════════════════════════════════════
+   CLIP RANK BADGE
+   ═══════════════════════════════════════════════════ */
+
+.clip-rank-badge {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--gold);
+    color: #000;
+    font-weight: 800;
+    font-size: 14px;
+    border-radius: 50%;
+    z-index: 2;
+    box-shadow: 0 2px 8px rgba(255, 215, 0, 0.3);
+}
+
+.clip-source-badge {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    z-index: 2;
+}
+
+.clip-source-badge.source-llm {
+    background: rgba(68, 207, 108, 0.9);
+    color: #000;
+}
+
+.clip-source-badge.source-nlp {
+    background: rgba(245, 158, 11, 0.9);
+    color: #000;
+}

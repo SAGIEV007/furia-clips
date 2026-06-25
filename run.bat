@@ -1,11 +1,10 @@
 @echo off
-chcp 65001 >nul
 title Furia Clips - Corte. Ranqueie. Domine.
 color 0E
 
-echo ══════════════════════════════════════════════════
+echo ==================================================
 echo    FURIA CLIPS - Corte. Ranqueie. Domine.
-echo ══════════════════════════════════════════════════
+echo ==================================================
 echo.
 
 :: Check Python
@@ -17,6 +16,7 @@ if errorlevel 1 (
     pause
     exit /b 1
 )
+echo [OK] Python encontrado
 
 :: Check FFmpeg
 ffmpeg -version >nul 2>&1
@@ -27,7 +27,41 @@ if errorlevel 1 (
     echo.
     echo O programa vai iniciar mas cortes de video nao funcionarao.
     echo.
+) else (
+    echo [OK] FFmpeg encontrado
 )
+
+:: Check Ollama
+echo.
+echo --------------------------------------------------
+echo    Verificando Ollama (IA local)...
+echo --------------------------------------------------
+ollama list >nul 2>&1
+if errorlevel 1 (
+    echo [AVISO] Ollama NAO encontrado.
+    echo    Sem o Ollama, o programa usara selecao NLP basica.
+    echo    Para selecao INTELIGENTE com IA, instale o Ollama:
+    echo    https://ollama.com
+    echo    Apos instalar, rode: ollama pull llama3.2:3b
+    echo.
+) else (
+    echo [OK] Ollama detectado
+    ollama list 2>nul | find "llama3.2" >nul 2>&1
+    if errorlevel 1 (
+        echo [Setup] Modelo llama3.2:3b nao encontrado. Baixando...
+        echo    Isso pode demorar alguns minutos (modelo de ~2GB)
+        call ollama pull llama3.2:3b
+        if errorlevel 1 (
+            echo [AVISO] Nao foi possivel baixar o modelo.
+            echo    Tente manualmente: ollama pull llama3.2:3b
+        ) else (
+            echo [OK] Modelo llama3.2:3b instalado com sucesso!
+        )
+    ) else (
+        echo [OK] Modelo llama3.2:3b disponivel
+    )
+)
+echo.
 
 :: Create virtual environment if needed
 if not exist "venv" (
@@ -42,20 +76,21 @@ call venv\Scripts\activate.bat
 
 :: Install/upgrade dependencies
 :: Uses a version marker to detect when requirements change
-set "DEPS_VERSION=v3_faster_whisper"
+set "DEPS_VERSION=v4_camadas"
 if not exist "venv\.deps_%DEPS_VERSION%" (
-    echo ══════════════════════════════════════════════════
+    echo ==================================================
     echo    Instalando/atualizando dependencias...
-    echo ══════════════════════════════════════════════════
+    echo ==================================================
     echo.
-    echo [Setup] Instalando pacotes Python...
+    echo [Setup] Atualizando pip...
     pip install --quiet --upgrade pip
 
     :: Install faster-whisper (4x mais rapido que openai-whisper)
     echo [Setup] Instalando faster-whisper (transcricao rapida)...
-    pip install --quiet faster-whisper>=1.0.0
+    pip install --quiet "faster-whisper>=1.0.0"
 
     :: Install remaining dependencies
+    echo [Setup] Instalando demais dependencias...
     pip install --quiet -r requirements.txt
     echo.
 
@@ -76,9 +111,9 @@ if not exist "venv\.deps_%DEPS_VERSION%" (
     del /q venv\.deps_* 2>nul
     echo. > "venv\.deps_%DEPS_VERSION%"
     echo.
-    echo ══════════════════════════════════════════════════
+    echo ==================================================
     echo    SETUP COMPLETO! Tudo pronto para uso offline.
-    echo ══════════════════════════════════════════════════
+    echo ==================================================
     echo.
 )
 
@@ -90,7 +125,10 @@ if not exist "workspace\thumbnails" mkdir workspace\thumbnails
 if not exist "workspace\cache" mkdir workspace\cache
 
 :: Start the server
-echo [Furia Clips] Iniciando servidor...
+echo ==================================================
+echo    Iniciando Furia Clips...
+echo ==================================================
+echo.
 echo [Furia Clips] Acesse: http://localhost:3001
 echo [Furia Clips] Para parar: feche esta janela ou pressione Ctrl+C
 echo.

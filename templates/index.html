@@ -127,6 +127,18 @@
                     <span class="material-icons-round">check_circle</span>
                     <span>Ollama local selecionado</span>
                 </div>
+
+                <!-- Ollama Status Badge -->
+                <div class="ollama-status-badge" id="ollamaStatusBadge">
+                    <div class="ollama-status-indicator">
+                        <span class="status-dot" id="ollamaStatusDot"></span>
+                        <span class="status-label" id="ollamaStatusLabel">Verificando...</span>
+                    </div>
+                    <div class="ollama-mode-indicator" id="ollamaModeIndicator">
+                        <span class="mode-icon material-icons-round" id="ollamaModeIcon">psychology</span>
+                        <span class="mode-label" id="ollamaModeLabel">---</span>
+                    </div>
+                </div>
             </div>
 
             <!-- Output Directory -->
@@ -294,11 +306,26 @@
                 <h3><span class="material-icons-round">emoji_events</span> Resultados — Clips Ranqueados</h3>
                 <div class="section-actions">
                     <span class="results-summary" id="resultsSummary"></span>
+                    <span class="results-mode-badge" id="resultModeBadge"></span>
+                    <button class="btn btn-sm" id="btnOpenFolder" style="display:none" title="Abrir pasta dos clips">
+                        <span class="material-icons-round">folder_open</span> Abrir Pasta
+                    </button>
                     <button class="btn btn-sm btn-primary" id="btnExportAll">
                         <span class="material-icons-round">download</span> Exportar Todos
                     </button>
                 </div>
             </div>
+
+            <!-- Transcript Search -->
+            <div class="transcript-search-bar" id="transcriptSearchBar" style="display:none">
+                <span class="material-icons-round">search</span>
+                <input type="text" id="transcriptSearchInput" placeholder="Buscar na transcricao..." autocomplete="off">
+                <span class="search-count" id="searchCount"></span>
+                <button class="btn btn-icon btn-sm" id="btnClearSearch" style="display:none">
+                    <span class="material-icons-round">close</span>
+                </button>
+            </div>
+
             <div class="results-grid" id="resultsGrid">
                 <!-- Results loaded dynamically -->
             </div>

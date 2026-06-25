@@ -4,6 +4,9 @@ import json
 import uuid
 import shutil
 import threading
+import subprocess
+import platform
+import requests
 from datetime import datetime
 
 from flask import Flask, render_template, request, jsonify, send_from_directory, send_file
@@ -19,6 +22,18 @@ from database import (
     save_clip, get_clips, update_clip_seo, update_clip_thumbnail,
     save_transcription, get_transcription, log_action
 )
+
+# User-friendly error messages (Portuguese)
+ERROR_MESSAGES = {
+    "no_audio": "Este video NAO contem audio! Provavelmente foi baixado no formato DASH (so video). Baixe novamente com audio incluido. No yt-dlp use: -f bestvideo+bestaudio --merge-output-format mp4",
+    "unsupported_format": "Formato de video nao suportado. Tente converter para MP4 primeiro.",
+    "ffmpeg_not_found": "FFmpeg nao encontrado. Instale de: https://ffmpeg.org/download.html",
+    "file_not_found": "Video nao encontrado no caminho especificado.",
+    "ollama_unavailable": "Ollama nao detectado. Usando NLP basico (menos preciso). Instale em: https://ollama.com",
+    "processing_active": "Ja existe um processamento em andamento. Aguarde o termino.",
+    "disk_full": "Espaco em disco insuficiente para gerar os clips.",
+    "timeout": "A operacao demorou muito e foi cancelada. Tente com um video menor.",
+}
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "furia-clips-secret-key"
@@ -293,14 +308,27 @@ def api_cut_shorts():
         try:
             settings = get_all_settings()
 
+            # Check Ollama status before starting
+            ollama_status = _check_ollama_status(settings)
+            mode_label = "IA Inteligente (Ollama)" if ollama_status["connected"] else "NLP Basico (sem IA)"
+            emit_progress(f"[Modo] {mode_label}", "info")
+            socketio.emit("ollama_status", ollama_status)
+
+            # Context confirmation
+            if user_context:
+                emit_progress(f'[Contexto] Prompt do usuario: "{user_context[:100]}..."' if len(user_context) > 100 else f'[Contexto] Prompt do usuario: "{user_context}"', "info")
+            else:
+                emit_progress("[Contexto] Nenhum contexto definido. Cortes serao genericos.", "warning")
+
             # Step 1: Transcribe (with cache)
-            emit_progress("=== ETAPA 1/4: Transcricao ===", "info")
+            emit_progress("=== ETAPA 1/5: Transcricao ===", "info")
             from modules.transcriber import Transcriber
             transcriber = Transcriber(
                 model_name=settings.get("whisper_model", "small"),
                 language=settings.get("language", "pt"),
             )
             transcription = transcriber.transcribe(video_path, emit_progress=emit_progress)
+            emit_progress(f"[Whisper] Motor: {transcriber._engine}", "info")
 
             if project_id:
                 save_transcription(
@@ -308,8 +336,29 @@ def api_cut_shorts():
                     transcription["language"], settings.get("whisper_model", "small")
                 )
 
-            # Step 2: Intelligent clip selection
-            emit_progress("=== ETAPA 2/4: Selecao Inteligente de Clips ===", "info")
+            # Step 2: Layout detection + Scene detection
+            emit_progress("=== ETAPA 2/5: Analise de Video ===", "info")
+            video_layout = "unknown"
+            scene_changes = None
+            tracker = None
+
+            try:
+                from modules.face_tracker import FaceTracker
+                tracker = FaceTracker()
+                video_layout = tracker.detect_layout(video_path, emit_progress=emit_progress)
+            except Exception as e:
+                emit_progress(f"Deteccao de layout indisponivel: {str(e)}", "warning")
+
+            # Scene change detection
+            try:
+                from modules.video_cutter import VideoCutter as SceneDetector
+                scene_det = SceneDetector()
+                scene_changes = scene_det.detect_scenes(video_path, emit_progress=emit_progress)
+            except Exception as e:
+                emit_progress(f"Deteccao de cena indisponivel: {str(e)}", "warning")
+
+            # Step 3: Intelligent clip selection
+            emit_progress("=== ETAPA 3/5: Selecao Inteligente de Clips ===", "info")
             from modules.clip_selector import ClipSelector
             from modules.audio_analyzer import AudioAnalyzer
 
@@ -328,16 +377,21 @@ def api_cut_shorts():
                 user_context=user_context,
                 settings=settings,
                 emit_progress=emit_progress,
+                scene_changes=scene_changes,
+                video_layout=video_layout,
             )
 
-            # Step 3: Rank and finalize scores
-            emit_progress("=== ETAPA 3/4: Ranqueamento ===", "info")
+            selection_source = selector.get_selection_source()
+            socketio.emit("selection_mode", {"source": selection_source})
+
+            # Step 4: Rank and finalize scores
+            emit_progress("=== ETAPA 4/5: Ranqueamento ===", "info")
             from modules.viral_ranker import ViralRanker
             ranker = ViralRanker(channel_context=settings.get("channel_context", ""))
             top_clips = ranker.rank_clips(top_clips)
 
-            # Step 4: Cut clips with face tracking
-            emit_progress("=== ETAPA 4/4: Cortando Clips ===", "info")
+            # Step 5: Cut clips with face tracking
+            emit_progress("=== ETAPA 5/5: Cortando Clips ===", "info")
             from modules.video_cutter import VideoCutter
             cutter = VideoCutter(
                 method="intelligent",
@@ -345,10 +399,11 @@ def api_cut_shorts():
             )
 
             face_positions_map = {}
-            if use_face_tracking:
+            if use_face_tracking and video_layout != "debate":
                 try:
-                    from modules.face_tracker import FaceTracker
-                    tracker = FaceTracker()
+                    if not tracker:
+                        from modules.face_tracker import FaceTracker
+                        tracker = FaceTracker()
                     all_faces = tracker.detect_faces_in_video(video_path, emit_progress=emit_progress)
                     for i, clip in enumerate(top_clips):
                         face_positions_map[i] = tracker.get_face_positions_for_segment(
@@ -356,6 +411,8 @@ def api_cut_shorts():
                         )
                 except Exception as e:
                     emit_progress(f"Face tracking indisponivel: {str(e)}. Usando crop centralizado.", "warning")
+            elif video_layout == "debate":
+                emit_progress("[Layout] Debate: enquadramento centralizado (face tracking desabilitado)", "info")
 
             project_name = os.path.splitext(os.path.basename(video_path))[0]
             output_dir = settings.get("output_dir", "") or ""
@@ -364,10 +421,12 @@ def api_cut_shorts():
                 use_face_tracking=bool(face_positions_map),
                 face_positions_map=face_positions_map,
                 emit_progress=emit_progress,
-                output_dir=output_dir if output_dir else None
+                output_dir=output_dir if output_dir else None,
+                video_layout=video_layout,
             )
 
             # Save to DB
+            output_folder = ""
             if project_id:
                 for i, res in enumerate(results):
                     clip_data = top_clips[i] if i < len(top_clips) else {}
@@ -378,6 +437,8 @@ def api_cut_shorts():
                         0,
                         res.get("text", "")
                     )
+                    if not output_folder:
+                        output_folder = res.get("output_folder", "")
 
             clip_results = []
             for i, res in enumerate(results):
@@ -389,19 +450,32 @@ def api_cut_shorts():
                     "breakdown": clip_info.get("breakdown", {}),
                     "title": clip_info.get("title", ""),
                     "source": clip_info.get("source", "nlp"),
+                    "rank": res.get("rank", i + 1),
                 })
 
-            emit_status("cut_complete", {"clips": clip_results})
-            emit_progress(f"Corte completo! {len(results)} clips gerados e ranqueados.", "success")
+            emit_status("cut_complete", {
+                "clips": clip_results,
+                "selection_source": selection_source,
+                "video_layout": video_layout,
+                "output_folder": output_folder,
+            })
 
+            source_label = "IA Inteligente" if selection_source == "llm" else "NLP Basico"
+            emit_progress(f"Corte completo! {len(results)} clips gerados via {source_label}.", "success")
+
+        except ValueError as ve:
+            friendly = _translate_error(str(ve))
+            emit_progress(f"Erro: {friendly}", "error")
+            emit_status("error", {"message": friendly})
         except Exception as e:
-            emit_progress(f"Erro no corte: {str(e)}", "error")
-            emit_status("error", {"message": str(e)})
+            friendly = _translate_error(str(e))
+            emit_progress(f"Erro no corte: {friendly}", "error")
+            emit_status("error", {"message": friendly, "technical": str(e)})
         finally:
             current_task["active"] = False
 
     if current_task["active"]:
-        return jsonify({"error": "Ja existe um processamento em andamento"}), 409
+        return jsonify({"error": ERROR_MESSAGES["processing_active"]}), 409
 
     threading.Thread(target=task, daemon=True).start()
     return jsonify({"success": True, "message": "Corte de shorts iniciado"})
@@ -804,9 +878,53 @@ def api_cancel():
 
 # ─── WebSocket ───
 
+# --- API: Ollama Status ---
+
+@app.route("/api/ollama/status", methods=["GET"])
+def api_ollama_status():
+    settings = get_all_settings()
+    status = _check_ollama_status(settings)
+    return jsonify(status)
+
+
+# --- API: Open Folder ---
+
+@app.route("/api/open_folder", methods=["POST"])
+def api_open_folder():
+    data = request.json
+    folder_path = data.get("path", "")
+
+    if not folder_path:
+        folder_path = EXPORT_DIR
+
+    if not os.path.isabs(folder_path):
+        folder_path = os.path.join(WORKSPACE_DIR, folder_path)
+
+    folder_path = os.path.normpath(folder_path)
+
+    if not os.path.isdir(folder_path):
+        return jsonify({"error": "Pasta nao encontrada"}), 404
+
+    try:
+        system = platform.system()
+        if system == "Windows":
+            os.startfile(folder_path)
+        elif system == "Darwin":
+            subprocess.Popen(["open", folder_path])
+        else:
+            subprocess.Popen(["xdg-open", folder_path])
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"error": str(e), "path": folder_path}), 500
+
+
 @socketio.on("connect")
 def handle_connect():
     emit("connected", {"message": "Conectado ao Furia Clips!"})
+    # Send Ollama status on connect
+    settings = get_all_settings()
+    status = _check_ollama_status(settings)
+    emit("ollama_status", status)
 
 
 @socketio.on("disconnect")
@@ -814,7 +932,69 @@ def handle_disconnect():
     pass
 
 
-# ─── Helpers ───
+@socketio.on("check_ollama")
+def handle_check_ollama():
+    settings = get_all_settings()
+    status = _check_ollama_status(settings)
+    emit("ollama_status", status)
+
+
+# --- Helpers ---
+
+def _check_ollama_status(settings):
+    """Check Ollama connectivity and model availability."""
+    ollama_url = settings.get("ollama_url", "http://localhost:11434")
+    model = settings.get("ollama_model", "llama3.2:3b")
+
+    try:
+        resp = requests.get(f"{ollama_url}/api/tags", timeout=3)
+        if resp.status_code == 200:
+            data = resp.json()
+            models = [m.get("name", "") for m in data.get("models", [])]
+            has_model = any(model.split(":")[0] in m for m in models)
+            return {
+                "connected": True,
+                "mode": "llm",
+                "model": model,
+                "model_available": has_model,
+                "available_models": models,
+                "status": "connected",
+            }
+    except Exception:
+        pass
+
+    return {
+        "connected": False,
+        "mode": "nlp",
+        "model": model,
+        "model_available": False,
+        "available_models": [],
+        "status": "offline",
+    }
+
+
+def _translate_error(error_msg):
+    """Translate technical errors to user-friendly Portuguese messages."""
+    error_lower = error_msg.lower()
+
+    if "audio" in error_lower and ("stream" in error_lower or "contem" in error_lower):
+        return ERROR_MESSAGES["no_audio"]
+    if "codec" in error_lower or "unsupported" in error_lower or "invalid data" in error_lower:
+        return ERROR_MESSAGES["unsupported_format"]
+    if "ffmpeg" in error_lower and "not found" in error_lower:
+        return ERROR_MESSAGES["ffmpeg_not_found"]
+    if "no such file" in error_lower or "not found" in error_lower:
+        return ERROR_MESSAGES["file_not_found"]
+    if "no space" in error_lower or "disk full" in error_lower:
+        return ERROR_MESSAGES["disk_full"]
+    if "timeout" in error_lower or "timed out" in error_lower:
+        return ERROR_MESSAGES["timeout"]
+
+    # Return original if no translation found, but clean it up
+    if len(error_msg) > 300:
+        return error_msg[:300] + "..."
+    return error_msg
+
 
 def _human_size(size_bytes):
     if size_bytes == 0:
@@ -828,13 +1008,24 @@ def _human_size(size_bytes):
     return f"{size:.1f} {units[i]}"
 
 
-# ─── Main ───
+# --- Main ---
 
 if __name__ == "__main__":
     init_db()
+
+    # Startup Ollama check
+    settings = get_all_settings()
+    status = _check_ollama_status(settings)
     print("\n" + "=" * 50)
     print("   FURIA CLIPS - Corte. Ranqueie. Domine.")
     print("=" * 50)
+    if status["connected"]:
+        print(f"   [IA] Ollama conectado! Modelo: {status['model']}")
+        print(f"   [IA] Modo: Selecao INTELIGENTE ativa")
+    else:
+        print(f"   [AVISO] Ollama NAO detectado.")
+        print(f"   [AVISO] Modo: NLP basico (menos preciso)")
+        print(f"   [AVISO] Instale em: https://ollama.com")
     print(f"   Acesse: http://localhost:3001")
     print("=" * 50 + "\n")
     socketio.run(app, host="0.0.0.0", port=3001, debug=False, allow_unsafe_werkzeug=True)

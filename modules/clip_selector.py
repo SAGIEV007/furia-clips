@@ -14,6 +14,14 @@ import math
 import requests
 from collections import Counter
 
+# Portuguese filler words to detect
+FILLER_WORDS_PT = {
+    "ne", "né", "tipo", "ah", "eh", "éh", "então", "entao",
+    "sabe", "basicamente", "na verdade", "ou seja", "entendeu",
+    "digamos", "assim", "enfim", "bom", "olha", "veja",
+    "quer dizer", "pois é", "pois e", "ta", "tá", "cara",
+}
+
 
 class ClipSelector:
     def __init__(self, target_duration=45, max_clips=15, min_duration=20, max_duration=90):
@@ -23,24 +31,41 @@ class ClipSelector:
         self.max_duration = max_duration
 
     def select_clips(self, transcription, energy_profile=None, user_context="",
-                     settings=None, emit_progress=None):
+                     settings=None, emit_progress=None, scene_changes=None,
+                     video_layout=None):
         settings = settings or {}
+        self._selection_source = None
         sentences = self._build_sentences(transcription["segments"])
 
         if emit_progress:
-            emit_progress(f"Transcrição dividida em {len(sentences)} sentencas")
+            emit_progress(f"Transcricao dividida em {len(sentences)} sentencas")
+
+        # Extract context keywords for display
+        if user_context and emit_progress:
+            keywords = self._extract_context_keywords(user_context)
+            if keywords:
+                emit_progress(f"Contexto aplicado: {', '.join(keywords[:8])}...", "info")
 
         # Try LLM-based selection first
         clips = self._select_with_llm(
             sentences, energy_profile, user_context, settings, emit_progress
         )
 
-        if not clips:
+        if clips:
+            self._selection_source = "llm"
             if emit_progress:
-                emit_progress("Usando selecao NLP (sem Ollama)...")
+                emit_progress("[IA] Selecao inteligente via Ollama concluida!", "success")
+        else:
+            self._selection_source = "nlp"
+            if emit_progress:
+                emit_progress("[NLP] Usando selecao por palavras-chave (menos preciso)...", "warning")
             clips = self._select_with_nlp(
                 sentences, energy_profile, user_context, emit_progress
             )
+
+        # Filter clips at scene boundaries if available
+        if scene_changes:
+            clips = self._adjust_to_scene_boundaries(clips, scene_changes)
 
         # Apply anti-overlap filter
         clips = self._remove_overlaps(clips)
@@ -49,9 +74,31 @@ class ClipSelector:
         clips = clips[:self.max_clips]
 
         if emit_progress:
-            emit_progress(f"Selecionados {len(clips)} clips de partes diferentes do video")
+            source_label = "IA (Ollama)" if self._selection_source == "llm" else "NLP basico"
+            emit_progress(f"Selecionados {len(clips)} clips de partes diferentes do video (via {source_label})")
 
         return clips
+
+    def get_selection_source(self):
+        return self._selection_source or "nlp"
+
+    def _extract_context_keywords(self, user_context):
+        """Extract meaningful keywords from user context for display."""
+        stop_words = {
+            "quero", "extrair", "cortes", "onde", "esteja", "neste", "nesta",
+            "debate", "principalmente", "quando", "sobre", "para", "como",
+            "que", "com", "dos", "das", "nos", "nas", "por", "mais",
+            "uma", "uns", "umas", "este", "esta", "esse", "essa",
+            "ele", "ela", "eles", "elas", "seu", "sua", "seus", "suas",
+            "nos", "pontos", "fala", "fale", "deste", "desta",
+        }
+        words = user_context.split()
+        keywords = []
+        for w in words:
+            clean = re.sub(r'[^\w]', '', w)
+            if clean and len(clean) > 1 and clean.lower() not in stop_words:
+                keywords.append(clean)
+        return keywords
 
     def _build_sentences(self, segments):
         """Group transcription segments into natural sentences based on punctuation and pauses."""
@@ -347,33 +394,76 @@ Retorne APENAS o JSON com os clips selecionados. Nada mais."""
     def _select_with_nlp(self, sentences, energy_profile, user_context, emit_progress):
         """NLP-based fallback when Ollama is not available."""
         if emit_progress:
-            emit_progress("Construindo clips com analise NLP...")
+            emit_progress("[NLP] Construindo clips com analise por palavras-chave...")
 
         blocks = self._build_transcript_blocks(sentences)
         if not blocks:
             return []
 
+        # Pre-compute context matching data
+        context_data = self._prepare_context_matching(user_context) if user_context else None
+
         # Score each block
         scored_blocks = []
         for block in blocks:
-            score = self._nlp_score_block(block, user_context, energy_profile)
+            score = self._nlp_score_block(block, user_context, energy_profile, context_data)
             scored_blocks.append((block, score))
 
         # Build clips by combining consecutive high-scoring blocks
-        clips = self._build_clips_from_scored_blocks(scored_blocks)
+        clips = self._build_clips_from_scored_blocks(scored_blocks, context_data)
 
         # Sort by score
         clips.sort(key=lambda x: x["viral_score"], reverse=True)
 
         if emit_progress:
-            emit_progress(f"NLP encontrou {len(clips)} clips candidatos")
+            emit_progress(f"[NLP] Encontrou {len(clips)} clips candidatos")
 
         return clips
 
-    def _nlp_score_block(self, block, user_context, energy_profile):
+    def _prepare_context_matching(self, user_context):
+        """Pre-process user context for efficient matching."""
+        text_lower = user_context.lower()
+
+        # Extract individual words (min 2 chars)
+        all_words = [w.strip('.,;:!?"()') for w in text_lower.split()]
+        context_words = [w for w in all_words if len(w) > 1]
+
+        # Extract names (capitalized words from original)
+        names = []
+        for w in user_context.split():
+            clean = w.strip('.,;:!?"()')
+            if clean and clean[0].isupper() and len(clean) > 1:
+                # Exclude common Portuguese words that happen to start caps
+                skip = {"Quando", "Como", "Onde", "Quero", "Sobre", "Para",
+                        "Este", "Esta", "Esse", "Essa", "Principalmente"}
+                if clean not in skip:
+                    names.append(clean.lower())
+
+        # Extract multi-word phrases (3+ word sequences between punctuation/commas)
+        phrases = []
+        parts = re.split(r'[,;.!?]', text_lower)
+        for part in parts:
+            part = part.strip()
+            words_in_part = part.split()
+            if len(words_in_part) >= 3:
+                phrases.append(part)
+            # Also extract numeric phrases like "1 trilhão 100 bilhões"
+            numeric_phrases = re.findall(r'\d+[\s\w]*\d+[\s\w]*', part)
+            for np_match in numeric_phrases:
+                if len(np_match.split()) >= 2:
+                    phrases.append(np_match.strip())
+
+        return {
+            "words": context_words,
+            "names": names,
+            "phrases": phrases,
+            "raw": text_lower,
+        }
+
+    def _nlp_score_block(self, block, user_context, energy_profile, context_data=None):
         """Score a block using NLP heuristics."""
         text = block["text"].lower()
-        score = 50  # Base score
+        score = 40  # Base score (lowered to give more room for context)
 
         # Hook detection (strong opening)
         first_words = " ".join(text.split()[:15])
@@ -382,11 +472,14 @@ Retorne APENAS o JSON com os clips selecionados. Nada mais."""
             r"a\s+verdade\s+e", r"ninguem\s+te", r"cuidado",
             r"absurdo", r"vergonha", r"mentira", r"bomba",
             r"urgente", r"inacreditavel", r"chocante",
+            r"vou\s+te\s+falar", r"isso\s+e\s+muito",
+            r"nao\s+pode", r"tem\s+que",
         ]
         hook_score = 0
         for pattern in hook_patterns:
             if re.search(pattern, first_words):
-                hook_score += 15
+                hook_score += 12
+        hook_score = min(20, hook_score)
 
         # Emotional intensity
         emotional_words = [
@@ -399,21 +492,27 @@ Retorne APENAS o JSON com os clips selecionados. Nada mais."""
         word_list = text.split()
         emotional_count = sum(1 for w in word_list if any(ew in w for ew in emotional_words))
         emotional_density = emotional_count / max(len(word_list), 1)
-        emotional_score = min(30, emotional_density * 300)
+        emotional_score = min(20, emotional_density * 200)
 
         # Punctuation energy
         excl_count = block["text"].count("!")
         quest_count = block["text"].count("?")
-        punct_score = min(15, excl_count * 5 + quest_count * 3)
+        punct_score = min(10, excl_count * 4 + quest_count * 2)
 
-        # User context relevance
+        # Filler word penalty
+        filler_count = 0
+        for fw in FILLER_WORDS_PT:
+            if " " in fw:
+                filler_count += text.count(fw)
+            else:
+                filler_count += sum(1 for w in word_list if w == fw)
+        filler_density = filler_count / max(len(word_list), 1)
+        filler_penalty = min(15, filler_density * 150)
+
+        # User context relevance (DOMINANT FACTOR when context exists)
         context_score = 0
-        if user_context:
-            context_words = user_context.lower().split()
-            for cw in context_words:
-                if len(cw) > 3 and cw in text:
-                    context_score += 10
-            context_score = min(25, context_score)
+        if context_data:
+            context_score = self._compute_context_score(text, context_data)
 
         # Duration penalty (prefer 25-55s)
         duration = block["duration"]
@@ -430,10 +529,37 @@ Retorne APENAS o JSON com os clips selecionados. Nada mais."""
         else:
             completeness_score = -15
 
-        total = score + hook_score + emotional_score + punct_score + context_score + duration_score + completeness_score
+        total = (score + hook_score + emotional_score + punct_score
+                 + context_score + duration_score + completeness_score
+                 - filler_penalty)
         return max(0, min(100, total))
 
-    def _build_clips_from_scored_blocks(self, scored_blocks):
+    def _compute_context_score(self, text, context_data):
+        """Compute context relevance score — the most important factor for user intent."""
+        score = 0
+
+        # 1. Phrase matching (highest value — multi-word sequences)
+        for phrase in context_data["phrases"]:
+            if phrase in text:
+                score += 20  # Full phrase match is very valuable
+
+        # 2. Name matching (very high value — user mentioned specific people)
+        for name in context_data["names"]:
+            if name in text:
+                score += 25  # Name match is critical for intent
+
+        # 3. Individual word matching (standard value)
+        for cw in context_data["words"]:
+            if len(cw) > 1 and cw in text:
+                score += 5
+
+        # Cap at 60 but name matches can push higher
+        name_bonus = sum(25 for n in context_data["names"] if n in text)
+        if name_bonus > 0:
+            return min(80, score)  # Names can dominate ranking
+        return min(60, score)
+
+    def _build_clips_from_scored_blocks(self, scored_blocks, context_data=None):
         """Build clips by combining consecutive blocks to reach target duration."""
         clips = []
         used_indices = set()
@@ -492,13 +618,20 @@ Retorne APENAS o JSON com os clips selecionados. Nada mais."""
             # Generate a simple title from first sentence
             title = self._generate_simple_title(clip_text)
 
+            # Generate reason based on context match
+            reason = ""
+            if context_data and context_data["names"]:
+                matched_names = [n for n in context_data["names"] if n in clip_text.lower()]
+                if matched_names:
+                    reason = f"Contem mencao a: {', '.join(matched_names)}"
+
             clips.append({
                 "start": clip_start,
                 "end": clip_end,
                 "duration": round(clip_duration, 3),
                 "text": clip_text,
                 "title": title,
-                "reason": "",
+                "reason": reason,
                 "viral_score": viral_score,
                 "has_hook": hook_grade in ("A", "B"),
                 "breakdown": {
@@ -527,6 +660,37 @@ Retorne APENAS o JSON com os clips selecionados. Nada mais."""
         if len(title) > 60:
             title = title[:57] + "..."
         return title
+
+    def _adjust_to_scene_boundaries(self, clips, scene_changes):
+        """Adjust clip start/end to nearest scene boundary to avoid cutting mid-transition."""
+        if not scene_changes or len(scene_changes) < 2:
+            return clips
+
+        adjusted = []
+        for clip in clips:
+            best_start = clip["start"]
+            best_end = clip["end"]
+
+            # Find nearest scene change within 2s of clip start
+            for sc in scene_changes:
+                if abs(sc - clip["start"]) < 2.0:
+                    best_start = sc
+                    break
+
+            # Find nearest scene change within 2s of clip end
+            for sc in scene_changes:
+                if abs(sc - clip["end"]) < 2.0:
+                    best_end = sc
+                    break
+
+            clip["start"] = best_start
+            clip["end"] = best_end
+            clip["duration"] = round(best_end - best_start, 3)
+
+            if clip["duration"] >= self.min_duration:
+                adjusted.append(clip)
+
+        return adjusted
 
     def _remove_overlaps(self, clips):
         """Remove clips that overlap more than 30% with higher-scored clips."""

@@ -11,6 +11,10 @@ const state = {
     mediaFiles: [],
     connected: false,
     outputDir: "",
+    ollamaStatus: "checking",
+    processingMode: "unknown",
+    selectionSource: "unknown",
+    outputFolder: "",
 };
 
 // ─── WebSocket Connection ───
@@ -40,6 +44,48 @@ socket.on("status", (data) => {
     handleStatusUpdate(data);
 });
 
+// ─── Ollama Status ───
+
+socket.on("ollama_status", (data) => {
+    state.ollamaStatus = data.status;
+    state.processingMode = data.mode;
+    updateOllamaStatusBadge(data);
+});
+
+socket.on("selection_mode", (data) => {
+    state.selectionSource = data.source;
+});
+
+function updateOllamaStatusBadge(data) {
+    const dot = document.getElementById("ollamaStatusDot");
+    const label = document.getElementById("ollamaStatusLabel");
+    const modeIndicator = document.getElementById("ollamaModeIndicator");
+    const modeIcon = document.getElementById("ollamaModeIcon");
+    const modeLabel = document.getElementById("ollamaModeLabel");
+
+    if (!dot || !label) return;
+
+    dot.className = "status-dot";
+    modeIndicator.className = "ollama-mode-indicator";
+
+    if (data.connected) {
+        dot.classList.add("connected");
+        label.textContent = "Ollama Conectado";
+        modeIndicator.classList.add("llm-mode");
+        modeIcon.textContent = "psychology";
+        modeLabel.textContent = "IA Inteligente";
+        if (data.model_available) {
+            label.textContent = `Ollama Conectado (${data.model})`;
+        }
+    } else {
+        dot.classList.add("offline");
+        label.textContent = "Ollama Offline";
+        modeIndicator.classList.add("nlp-mode");
+        modeIcon.textContent = "text_fields";
+        modeLabel.textContent = "NLP Basico";
+    }
+}
+
 // ─── Status Handlers ───
 
 function handleStatusUpdate(data) {
@@ -55,8 +101,12 @@ function handleStatusUpdate(data) {
             break;
         case "cut_complete":
             hideProgressBar();
+            state.selectionSource = data.data.selection_source || "nlp";
+            state.outputFolder = data.data.output_folder || "";
             showToast(`${data.data.clips.length} clips gerados e ranqueados!`, "success");
             displayResults(data.data.clips);
+            updateResultsModeBadge(state.selectionSource);
+            updateOpenFolderButton(state.outputFolder);
             break;
         case "subtitles_complete":
             hideProgressBar();
@@ -77,8 +127,10 @@ function handleStatusUpdate(data) {
             break;
         case "complete_done":
             hideProgressBar();
+            state.outputFolder = data.data.output_dir || "";
             showToast(`Processo completo! ${data.data.total_clips} clips gerados e ranqueados.`, "success");
             displayResults(data.data.clips);
+            updateOpenFolderButton(state.outputFolder);
             loadMediaFiles();
             break;
         case "error":
@@ -601,10 +653,14 @@ function displayResults(clips) {
     const section = document.getElementById("resultsSection");
     const grid = document.getElementById("resultsGrid");
     const summary = document.getElementById("resultsSummary");
+    const searchBar = document.getElementById("transcriptSearchBar");
     section.style.display = "block";
     grid.innerHTML = "";
 
     state.clips = clips;
+
+    // Show search bar
+    if (searchBar) searchBar.style.display = "flex";
 
     // Summary
     const avgScore = clips.reduce((a, c) => a + (c.viral_score || 0), 0) / clips.length;
@@ -617,12 +673,17 @@ function displayResults(clips) {
 
     sorted.forEach((clip, i) => {
         const originalIndex = clips.indexOf(clip);
+        const rank = clip.rank || (i + 1);
         const scoreClass = clip.viral_score >= 70 ? "high" : clip.viral_score >= 40 ? "medium" : "low";
         const seo = clip.seo || {};
         const titles = seo.titles || [];
         const tags = seo.tags || [];
         const hashtags = seo.hashtags || [];
         const breakdown = clip.breakdown || {};
+        const clipSource = clip.source || "nlp";
+        const sourceLabel = clipSource === "llm" ? "IA" : "NLP";
+        const sourceClass = clipSource === "llm" ? "source-llm" : "source-nlp";
+        const transcriptId = `transcript-${originalIndex}`;
 
         // Grade color helper
         const gradeColor = (grade) => {
@@ -634,14 +695,15 @@ function displayResults(clips) {
         const card = document.createElement("div");
         card.className = "result-card";
         card.innerHTML = `
-            <div class="result-header-bar">
-                <div class="result-rank">#${i + 1}</div>
+            <div class="result-header-bar" style="position:relative">
+                <div class="result-rank">#${rank}</div>
                 <div class="viral-score-badge ${scoreClass}">
                     <span class="material-icons-round">trending_up</span>
                     <span class="score-value">${clip.viral_score || 0}</span>
                     <span class="score-label">/100</span>
                 </div>
                 ${clip.has_hook ? '<span class="hook-badge"><span class="material-icons-round" style="font-size:12px">flash_on</span> Gancho</span>' : ''}
+                <span class="clip-source-badge ${sourceClass}">${sourceLabel}</span>
             </div>
 
             ${clip.title ? `<div class="result-title">${clip.title}</div>` : ''}
@@ -679,6 +741,15 @@ function displayResults(clips) {
 
                 <div class="result-text-preview">${clip.text ? clip.text.substring(0, 150) + (clip.text.length > 150 ? '...' : '') : "Sem transcricao"}</div>
 
+                ${clip.text ? `
+                <button class="btn-show-transcript" onclick="toggleTranscript('${transcriptId}')">
+                    <span class="material-icons-round" style="font-size:14px">description</span>
+                    Ver Transcricao
+                </button>
+                <div class="clip-transcript" id="${transcriptId}">
+                    <div class="clip-transcript-content">${clip.text}</div>
+                </div>` : ''}
+
                 ${titles.length > 0 ? `
                 <div class="result-seo">
                     <h5><span class="material-icons-round" style="font-size:14px">title</span> Titulos Sugeridos</h5>
@@ -712,6 +783,61 @@ function displayResults(clips) {
     });
 
     section.scrollIntoView({ behavior: "smooth" });
+}
+
+// --- Transcript Toggle ---
+
+function toggleTranscript(id) {
+    const el = document.getElementById(id);
+    if (el) {
+        el.classList.toggle("expanded");
+    }
+}
+
+// --- Results Mode Badge ---
+
+function updateResultsModeBadge(source) {
+    const badge = document.getElementById("resultModeBadge");
+    if (!badge) return;
+    badge.className = "results-mode-badge";
+    if (source === "llm") {
+        badge.classList.add("mode-llm");
+        badge.textContent = "IA Inteligente";
+    } else {
+        badge.classList.add("mode-nlp");
+        badge.textContent = "NLP Basico";
+    }
+}
+
+// --- Open Folder Button ---
+
+function updateOpenFolderButton(folderPath) {
+    const btn = document.getElementById("btnOpenFolder");
+    if (!btn) return;
+    if (folderPath) {
+        btn.style.display = "inline-flex";
+        btn.onclick = () => openOutputFolder(folderPath);
+    } else {
+        btn.style.display = "none";
+    }
+}
+
+async function openOutputFolder(folderPath) {
+    try {
+        const res = await fetch("/api/open_folder", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ path: folderPath }),
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast("Pasta aberta!", "success");
+        } else {
+            showToast(data.error || "Nao foi possivel abrir a pasta", "warning");
+        }
+    } catch (e) {
+        showToast("Erro ao abrir pasta", "error");
+    }
 }
 
 function displaySeoResult(seo) {
@@ -964,9 +1090,96 @@ document.querySelectorAll(".context-chip").forEach(chip => {
     });
 });
 
+// ─── Transcript Search ───
+
+const transcriptSearchInput = document.getElementById("transcriptSearchInput");
+const btnClearSearch = document.getElementById("btnClearSearch");
+
+if (transcriptSearchInput) {
+    transcriptSearchInput.addEventListener("input", (e) => {
+        const query = e.target.value.trim().toLowerCase();
+        const countEl = document.getElementById("searchCount");
+        const clearBtn = document.getElementById("btnClearSearch");
+
+        if (!query) {
+            if (countEl) countEl.textContent = "";
+            if (clearBtn) clearBtn.style.display = "none";
+            // Remove highlights
+            document.querySelectorAll(".clip-transcript-content").forEach(el => {
+                el.innerHTML = el.textContent;
+            });
+            return;
+        }
+
+        if (clearBtn) clearBtn.style.display = "inline-flex";
+
+        let totalMatches = 0;
+        document.querySelectorAll(".clip-transcript-content").forEach(el => {
+            const text = el.textContent;
+            const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+            const matches = text.match(regex);
+            if (matches) {
+                totalMatches += matches.length;
+                el.innerHTML = text.replace(regex, '<span class="search-highlight">$1</span>');
+                // Auto-expand transcript panels with matches
+                const parent = el.closest(".clip-transcript");
+                if (parent) parent.classList.add("expanded");
+            } else {
+                el.innerHTML = text;
+            }
+        });
+
+        if (countEl) {
+            countEl.textContent = totalMatches > 0 ? `${totalMatches} encontrados` : "Nenhum resultado";
+        }
+    });
+}
+
+if (btnClearSearch) {
+    btnClearSearch.addEventListener("click", () => {
+        if (transcriptSearchInput) {
+            transcriptSearchInput.value = "";
+            transcriptSearchInput.dispatchEvent(new Event("input"));
+        }
+    });
+}
+
+// ─── Keyboard Shortcuts ───
+
+document.addEventListener("keydown", (e) => {
+    // Don't capture if typing in input/textarea
+    if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA" || e.target.tagName === "SELECT") {
+        return;
+    }
+
+    switch (e.key) {
+        case " ":
+            // Space = play/pause current video
+            e.preventDefault();
+            const activeVideo = document.querySelector(".result-card video");
+            if (activeVideo) {
+                if (activeVideo.paused) activeVideo.play();
+                else activeVideo.pause();
+            }
+            break;
+        case "f":
+        case "F":
+            // F = focus search
+            e.preventDefault();
+            if (transcriptSearchInput) transcriptSearchInput.focus();
+            break;
+        case "Escape":
+            // Close any open modal
+            document.querySelectorAll(".modal-overlay.active").forEach(m => m.classList.remove("active"));
+            break;
+    }
+});
+
 // ─── Init ───
 
 document.addEventListener("DOMContentLoaded", () => {
     loadSettings();
     loadMediaFiles();
+    // Check Ollama status on load
+    socket.emit("check_ollama");
 });
