@@ -23,8 +23,7 @@ ffmpeg -version >nul 2>&1
 if errorlevel 1 (
     echo [AVISO] FFmpeg nao encontrado no PATH.
     echo Instale de: https://ffmpeg.org/download.html
-    echo Adicione ao PATH do sistema.
-    echo O programa vai iniciar mas cortes de video nao funcionarao.
+    echo O programa vai iniciar mas cortes nao funcionarao.
     echo.
 ) else (
     echo [OK] FFmpeg encontrado
@@ -51,93 +50,87 @@ if "%OLLAMA_OK%"=="0" (
 )
 
 echo [OK] Ollama detectado
-
-:: Check if model is available (flat structure - no nesting)
 ollama list 2>nul | find "llama3.2" >nul 2>&1
-if errorlevel 1 (
-    echo [Setup] Modelo llama3.2:3b nao encontrado. Baixando...
-    echo    Isso pode demorar alguns minutos - modelo de ~2GB
-    call ollama pull llama3.2:3b
-    if errorlevel 1 (
-        echo [AVISO] Nao foi possivel baixar o modelo.
-        echo    Tente manualmente: ollama pull llama3.2:3b
-    ) else (
-        echo [OK] Modelo llama3.2:3b instalado com sucesso!
-    )
-) else (
+if not errorlevel 1 (
     echo [OK] Modelo llama3.2:3b disponivel
+    goto :after_ollama
+)
+
+echo [Setup] Modelo llama3.2:3b nao encontrado. Baixando...
+echo    Isso pode demorar alguns minutos - modelo de ~2GB
+call ollama pull llama3.2:3b
+if not errorlevel 1 (
+    echo [OK] Modelo llama3.2:3b instalado com sucesso!
+) else (
+    echo [AVISO] Nao foi possivel baixar o modelo.
+    echo    Tente manualmente: ollama pull llama3.2:3b
 )
 
 :after_ollama
 echo.
 
 :: Create virtual environment if needed
-if not exist "venv" (
-    echo [Setup] Criando ambiente virtual...
-    python -m venv venv
-    if errorlevel 1 (
-        echo [ERRO] Falha ao criar ambiente virtual.
-        echo Tente: python -m pip install --user virtualenv
-        pause
-        exit /b 1
-    )
-    echo [Setup] Ambiente criado!
-    echo.
-)
-
-:: Activate venv
-call venv\Scripts\activate.bat
+if exist "venv\Scripts\activate.bat" goto :activate_venv
+echo [Setup] Criando ambiente virtual...
+python -m venv venv
 if errorlevel 1 (
-    echo [ERRO] Falha ao ativar ambiente virtual.
+    echo [ERRO] Falha ao criar ambiente virtual.
     pause
     exit /b 1
 )
+echo [Setup] Ambiente criado!
+echo.
 
-:: Install/upgrade dependencies
+:activate_venv
+call venv\Scripts\activate.bat
+
+:: Check if deps are installed
 set "DEPS_VERSION=v4_camadas"
-if not exist "venv\.deps_%DEPS_VERSION%" (
-    echo ==================================================
-    echo    Instalando/atualizando dependencias...
-    echo ==================================================
-    echo.
-    echo [Setup] Atualizando pip...
-    pip install --quiet --upgrade pip
+if exist "venv\.deps_%DEPS_VERSION%" goto :start_app
 
-    echo [Setup] Instalando faster-whisper (transcricao rapida)...
-    pip install --quiet "faster-whisper>=1.0.0"
+echo ==================================================
+echo    Instalando/atualizando dependencias...
+echo ==================================================
+echo.
+echo [Setup] Atualizando pip...
+pip install --quiet --upgrade pip
 
-    echo [Setup] Instalando demais dependencias...
-    pip install --quiet -r requirements.txt
-    if errorlevel 1 (
-        echo [AVISO] Algumas dependencias podem ter falhado.
-        echo    Tentando instalar individualmente...
-        pip install flask flask-socketio gevent gevent-websocket --quiet
-        pip install numpy scipy Pillow requests pydub --quiet
-        pip install mediapipe scenedetect[opencv] --quiet
-    )
-    echo.
+echo [Setup] Instalando faster-whisper...
+pip install --quiet faster-whisper
+if errorlevel 1 echo [AVISO] faster-whisper pode ter falhado
 
-    echo [Setup] Baixando modelo Whisper (small)...
-    echo    Isso pode demorar na primeira vez.
-    echo    Apos isso, tudo funciona 100%% OFFLINE!
-    python -c "from faster_whisper import WhisperModel; WhisperModel('small', device='cpu', compute_type='int8')" 2>nul
-    if errorlevel 1 (
-        echo [Setup] Tentando com openai-whisper como fallback...
-        pip install --quiet openai-whisper 2>nul
-    )
-    echo.
-    echo [Setup] Instalacao completa!
-
-    :: Mark deps as installed
-    del /q "venv\.deps_v*" 2>nul
-    type nul > "venv\.deps_%DEPS_VERSION%"
-    echo.
-    echo ==================================================
-    echo    SETUP COMPLETO! Tudo pronto para uso offline.
-    echo ==================================================
-    echo.
+echo [Setup] Instalando demais dependencias...
+pip install --quiet -r requirements.txt
+if errorlevel 1 (
+    echo [AVISO] Algumas dependencias falharam. Tentando individualmente...
+    pip install flask flask-socketio gevent gevent-websocket --quiet
+    pip install numpy scipy Pillow requests pydub python-dotenv --quiet
+    pip install mediapipe --quiet
+    pip install ffmpeg-python --quiet
 )
+echo.
 
+echo [Setup] Baixando modelo Whisper (small)...
+echo    Pode demorar na primeira vez.
+echo    Depois disso tudo funciona OFFLINE!
+python -c "from faster_whisper import WhisperModel; m=WhisperModel('small', device='cpu', compute_type='int8')" 2>nul
+if errorlevel 1 (
+    echo [AVISO] faster-whisper falhou, tentando openai-whisper...
+    pip install --quiet openai-whisper 2>nul
+)
+echo.
+echo [Setup] Instalacao completa!
+
+:: Mark deps installed
+del /q "venv\.deps_v*" 2>nul
+type nul > "venv\.deps_%DEPS_VERSION%"
+echo.
+echo ==================================================
+echo    SETUP COMPLETO! Tudo pronto para uso offline.
+echo ==================================================
+echo.
+
+:start_app
 :: Create workspace directories
 if not exist "workspace\uploads" mkdir "workspace\uploads"
 if not exist "workspace\processed" mkdir "workspace\processed"
@@ -151,7 +144,7 @@ echo    Iniciando Furia Clips...
 echo ==================================================
 echo.
 echo [Furia Clips] Acesse: http://localhost:3001
-echo [Furia Clips] Para parar: feche esta janela ou pressione Ctrl+C
+echo [Furia Clips] Para parar: feche esta janela ou Ctrl+C
 echo.
 
 :: Open browser after a short delay
@@ -160,7 +153,7 @@ start "" cmd /c "timeout /t 3 /nobreak >nul && start http://localhost:3001"
 :: Run the app
 python app.py
 
-:: If we get here, python exited (error or Ctrl+C)
+:: If we get here, python exited
 echo.
 echo ==================================================
 echo    Furia Clips encerrado.
