@@ -77,6 +77,16 @@ def index():
 
 # ─── API: Settings ───
 
+def _sync_env_key_to_db():
+    """On startup, sync GEMINI_API_KEY from .env to DB if not already set."""
+    env_key = os.environ.get("GEMINI_API_KEY", "")
+    if env_key and len(env_key) > 10:
+        db_key = get_setting("gemini_api_key")
+        if not db_key:
+            set_setting("gemini_api_key", env_key)
+            set_setting("ai_backend", "gemini")
+
+
 @app.route("/api/settings", methods=["GET"])
 def api_get_settings():
     return jsonify(get_all_settings())
@@ -88,10 +98,16 @@ def api_save_settings():
     for key, value in data.items():
         set_setting(key, value)
 
-    # Save Gemini key to .env for persistence across sessions
+    # Save Gemini key to .env AND os.environ for immediate use
     gemini_key = data.get("gemini_api_key", "")
     if gemini_key:
         _save_key_to_env("GEMINI_API_KEY", gemini_key)
+        os.environ["GEMINI_API_KEY"] = gemini_key
+        print(f"[Settings] Gemini API key salva (tamanho: {len(gemini_key)} chars)")
+
+    ai_backend = data.get("ai_backend", "")
+    if ai_backend:
+        print(f"[Settings] Motor de IA: {ai_backend}")
 
     return jsonify({"success": True})
 
@@ -1108,6 +1124,7 @@ def _human_size(size_bytes):
 
 if __name__ == "__main__":
     init_db()
+    _sync_env_key_to_db()
 
     # Startup AI check
     settings = get_all_settings()

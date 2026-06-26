@@ -488,6 +488,18 @@ document.getElementById("actionCut").querySelector(".btn-action").addEventListen
     addConsoleLog("[Acao] Iniciando corte inteligente de shorts...", "info");
     if (userContext) addConsoleLog(`[Contexto] "${userContext}"`, "info");
     const videoGenre = document.getElementById("settingVideoGenre").value;
+
+    // Auto-save Gemini key before processing (in case user pasted but didn't click Save)
+    const geminiKey = document.getElementById("settingGeminiKey").value.trim();
+    const aiBackend = document.getElementById("settingAiBackend").value;
+    if (geminiKey.length > 10 || aiBackend) {
+        await fetch("/api/settings", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ gemini_api_key: geminiKey, ai_backend: aiBackend }),
+        });
+    }
+
     await fetch("/api/process/cut", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -984,6 +996,23 @@ function updateAiConfigVisibility(backend) {
     const labels = { ollama: "Ollama local selecionado", gemini: "Google Gemini selecionado", claude: "Claude API selecionado" };
     status.querySelector("span:last-child").textContent = labels[backend] || backend;
 }
+
+// Auto-save Gemini key when changed (no need to click Save)
+document.getElementById("settingGeminiKey").addEventListener("change", async (e) => {
+    const key = e.target.value.trim();
+    if (key.length > 10) {
+        try {
+            await fetch("/api/settings", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ gemini_api_key: key, ai_backend: "gemini" }),
+            });
+            showToast("Gemini API key salva!", "success");
+            state.settings.gemini_api_key = key;
+            state.settings.ai_backend = "gemini";
+        } catch (err) { /* silent */ }
+    }
+});
 
 document.getElementById("settingAiBackend").addEventListener("change", (e) => {
     updateAiConfigVisibility(e.target.value);

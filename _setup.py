@@ -259,7 +259,16 @@ def main():
     has_gemini = check_gemini_key()
     if not has_gemini:
         # Only prompt on first run (marker file tracks if already asked)
-        marker_file = os.path.join(os.path.dirname(__file__), "data", ".gemini_asked")
+        # Use venv dir for marker so it resets when user deletes venv
+        venv_dir = os.path.join(os.path.dirname(__file__), "venv")
+        marker_file = os.path.join(venv_dir, ".gemini_asked")
+        # Also check old marker location and remove it
+        old_marker = os.path.join(os.path.dirname(__file__), "data", ".gemini_asked")
+        if os.path.exists(old_marker):
+            try:
+                os.remove(old_marker)
+            except Exception:
+                pass
         if not os.path.exists(marker_file):
             has_gemini = prompt_gemini_key()
             # Mark that we already asked (even if skipped)
