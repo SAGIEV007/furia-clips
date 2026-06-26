@@ -258,7 +258,14 @@ def main():
     # Check Gemini first (recommended)
     has_gemini = check_gemini_key()
     if not has_gemini:
-        has_gemini = prompt_gemini_key()
+        # Only prompt on first run (marker file tracks if already asked)
+        marker_file = os.path.join(os.path.dirname(__file__), "data", ".gemini_asked")
+        if not os.path.exists(marker_file):
+            has_gemini = prompt_gemini_key()
+            # Mark that we already asked (even if skipped)
+            os.makedirs(os.path.dirname(marker_file), exist_ok=True)
+            with open(marker_file, "w") as f:
+                f.write("asked")
 
     check_ollama()
     print()

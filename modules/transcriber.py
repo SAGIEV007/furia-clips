@@ -14,6 +14,7 @@ class Transcriber:
         self.model_name = model_name
         self.language = language
         self.model = None
+        self._engine = "cache"
         os.makedirs(CACHE_DIR, exist_ok=True)
 
     def _get_cache_key(self, audio_path):
