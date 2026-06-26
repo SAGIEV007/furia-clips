@@ -353,7 +353,7 @@ def api_cut_shorts():
             settings = get_all_settings()
 
             # Check AI status before starting
-            ai_backend = settings.get("ai_backend", "ollama")
+            ai_backend = settings.get("ai_backend", "gemini")
             ai_status = _check_ai_status(settings)
             emit_progress(f"[Modo] {ai_status['mode_label']}", "info")
             socketio.emit("ai_status", ai_status)
@@ -997,7 +997,7 @@ def handle_check_ollama():
 
 def _check_ai_status(settings):
     """Check AI backend status (Gemini, Ollama, or NLP)."""
-    ai_backend = settings.get("ai_backend", "ollama")
+    ai_backend = settings.get("ai_backend", "gemini")
 
     if ai_backend == "gemini":
         api_key = settings.get("gemini_api_key", "")
@@ -1011,7 +1011,7 @@ def _check_ai_status(settings):
                     return {
                         "connected": True,
                         "mode": "gemini",
-                        "model": "gemini-2.0-flash",
+                        "model": "gemini-2.5-flash",
                         "model_available": True,
                         "status": "connected",
                         "backend": "gemini",
@@ -1022,7 +1022,7 @@ def _check_ai_status(settings):
         return {
             "connected": False,
             "mode": "gemini_offline",
-            "model": "gemini-2.0-flash",
+            "model": "gemini-2.5-flash",
             "model_available": False,
             "status": "no_key" if not api_key else "offline",
             "backend": "gemini",

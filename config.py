@@ -22,7 +22,7 @@ DEFAULT_SETTINGS = {
     "padding": 0.25,
     "language": "pt",
     "ai_correction": True,
-    "ai_backend": "ollama",
+    "ai_backend": "gemini",
     "ollama_model": "llama3.2:3b",
     "ollama_url": "http://localhost:11434",
     "claude_api_key": "",

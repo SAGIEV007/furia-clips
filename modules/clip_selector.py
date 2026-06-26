@@ -34,7 +34,7 @@ class ClipSelector:
                      video_layout=None):
         settings = settings or {}
         self._selection_source = None
-        ai_backend = settings.get("ai_backend", "ollama")
+        ai_backend = settings.get("ai_backend", "gemini")
         sentences = self._build_sentences(transcription["segments"])
 
         if emit_progress:
@@ -117,7 +117,8 @@ class ClipSelector:
         return keywords
 
     def _extract_names_from_context(self, user_context):
-        """Extract likely person names from user context for speaker filtering."""
+        """Extract likely person names from user context for speaker filtering.
+        Only extracts words that start with uppercase (proper nouns)."""
         stop_words = {
             "quero", "quando", "como", "onde", "sobre", "para", "este", "esta",
             "esse", "essa", "principalmente", "extrair", "momentos",
@@ -129,16 +130,19 @@ class ClipSelector:
             "neste", "nesta", "deste", "desta", "pontos", "fala", "fale",
             "proeminentes", "melhores", "piores", "bons", "ruins",
             "sobressaindo", "nesse", "nessa", "aqui", "ali",
+            "sobresaia", "estaja", "respondendo", "perguntas", "mitando",
         }
         common_short = {
             "que", "mas", "nem", "dos", "das", "nos", "nas", "uns", "uma",
             "umas", "ele", "ela", "eles", "elas", "sao", "era", "foi",
             "ser", "ter", "ver", "dar", "vir", "por", "pre", "pos", "sub", "pro",
+            "se", "no", "na", "ao", "os", "as", "de", "do", "da", "em", "um",
+            "ou", "ja", "so", "ha", "la", "ca", "ai", "ir", "oi", "ah", "eh",
         }
         names = []
         for w in user_context.split():
             clean = re.sub(r'[^\w]', '', w)
-            if not clean or len(clean) < 2 or len(clean) > 15:
+            if not clean or len(clean) < 3 or len(clean) > 15:
                 continue
             if clean.lower() in stop_words:
                 continue
@@ -146,19 +150,21 @@ class ClipSelector:
                 continue
             if clean.lower() in common_short:
                 continue
-            # Potential name: starts with capital, OR is short (2-6 chars) not in stop lists
-            if clean[0].isupper() or (len(clean) <= 6 and clean.lower() not in stop_words):
+            # Only extract as name if starts with uppercase (proper noun)
+            if clean[0].isupper():
                 if clean.lower() not in [n.lower() for n in names]:
                     names.append(clean)
         return names
 
     def _build_sentences(self, segments):
-        """Group transcription segments into natural sentences based on punctuation and pauses."""
+        """Group transcription segments into natural sentences based on punctuation and pauses.
+        Caps sentence length at 30s to prevent mega-blocks."""
         sentences = []
         current_text = ""
         current_start = None
         current_end = None
         last_end = 0
+        MAX_SENTENCE_DURATION = 30  # Force split at 30s to keep blocks manageable
 
         for seg in segments:
             pause_before = seg["start"] - last_end if last_end > 0 else 0
@@ -179,6 +185,19 @@ class ClipSelector:
             current_text += " " + seg["text"]
             current_end = seg["end"]
             last_end = seg["end"]
+
+            # Force split if sentence exceeds max duration
+            current_duration = current_end - current_start
+            if current_duration >= MAX_SENTENCE_DURATION:
+                sentences.append({
+                    "text": current_text.strip(),
+                    "start": current_start,
+                    "end": current_end,
+                    "duration": current_duration,
+                })
+                current_text = ""
+                current_start = None
+                continue
 
             text_stripped = current_text.strip()
             if text_stripped and text_stripped[-1] in ".!?" and len(text_stripped.split()) >= 5:
@@ -225,7 +244,7 @@ class ClipSelector:
 
         try:
             response = requests.post(
-                f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}",
+                f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}",
                 json={
                     "contents": [{"parts": [{"text": user_prompt}]}],
                     "systemInstruction": {"parts": [{"text": system_prompt}]},
@@ -238,19 +257,20 @@ class ClipSelector:
                 timeout=120,
             )
 
-            if response.status_code == 400:
-                error_data = response.json()
-                error_msg = error_data.get("error", {}).get("message", "")
+            if response.status_code != 200:
+                try:
+                    error_data = response.json()
+                    error_msg = error_data.get("error", {}).get("message", "")
+                except Exception:
+                    error_msg = response.text[:200]
                 if emit_progress:
-                    emit_progress(f"[Gemini] Erro de API: {error_msg[:200]}", "warning")
+                    if response.status_code == 429:
+                        emit_progress(f"[Gemini] Quota excedida. Aguarde alguns minutos. Detalhe: {error_msg[:150]}", "warning")
+                    elif response.status_code == 403:
+                        emit_progress("[Gemini] API key invalida ou sem permissao.", "warning")
+                    else:
+                        emit_progress(f"[Gemini] Erro {response.status_code}: {error_msg[:200]}", "warning")
                 return []
-
-            if response.status_code == 403:
-                if emit_progress:
-                    emit_progress("[Gemini] API key invalida ou sem permissao.", "warning")
-                return []
-
-            response.raise_for_status()
             data = response.json()
 
             candidates = data.get("candidates", [])
@@ -424,6 +444,10 @@ Retorne APENAS o array JSON. Nenhum texto antes ou depois."""
                 text = data.get("response", "")
 
                 selections = self._parse_llm_response(text, sentences, transcript_blocks, chunk_idx, source="llm")
+                if not selections and text and emit_progress:
+                    # Ollama responded but JSON was unparseable - log for debug
+                    preview = text[:150].replace("\n", " ")
+                    emit_progress(f"[Ollama] Resposta invalida (nao e JSON): {preview}...", "warning")
                 all_selections.extend(selections)
 
             except requests.exceptions.ConnectionError:
@@ -648,6 +672,22 @@ Retorne APENAS o JSON."""
             scored_blocks.append((block, score))
 
         clips = self._build_clips_from_scored_blocks(scored_blocks, context_data)
+
+        # SPEAKER FILTERING: When names are specified, EXCLUDE clips without them
+        if context_data and context_data["names"]:
+            target_names = context_data["names"]
+            filtered = []
+            for clip in clips:
+                clip_text_lower = clip["text"].lower()
+                has_target = any(name in clip_text_lower for name in target_names)
+                if has_target:
+                    filtered.append(clip)
+            # If filtering removes too many, keep at least some clips
+            if len(filtered) >= 3:
+                clips = filtered
+            elif emit_progress:
+                emit_progress(f"[NLP] Poucos clips com '{', '.join(target_names)}' na transcricao. Mostrando melhores disponiveis.", "warning")
+
         clips.sort(key=lambda x: x["viral_score"], reverse=True)
 
         if emit_progress:
@@ -660,7 +700,7 @@ Retorne APENAS o JSON."""
         text_lower = user_context.lower()
 
         all_words = [w.strip('.,;:!?"()') for w in text_lower.split()]
-        context_words = [w for w in all_words if len(w) > 1]
+        context_words = [w for w in all_words if len(w) > 2]
 
         stop_words_pt = {
             "quero", "quando", "como", "onde", "sobre", "para", "este", "esta",
@@ -677,23 +717,28 @@ Retorne APENAS o JSON."""
             "tendo", "faz", "fez", "faria", "somente", "apenas", "tambem",
             "ainda", "agora", "logo", "sempre", "nunca", "talvez", "sim",
             "nao", "bem", "mal", "assim", "entao", "pois", "porque", "como",
+            "sobresaia", "estaja", "respondendo", "perguntas", "mitando",
+            "debate", "neste", "nesta", "deste", "desta",
         }
 
         names = []
         for w in user_context.split():
             clean = w.strip('.,;:!?"()')
-            if not clean or len(clean) < 2 or len(clean) > 12:
+            if not clean or len(clean) < 3 or len(clean) > 12:
                 continue
             clean_lower = clean.lower()
             if clean_lower in stop_words_pt:
                 continue
             if clean.isdigit():
                 continue
-            if clean[0].isupper() or (len(clean) <= 6 and clean_lower not in stop_words_pt):
+            # Only treat as name if starts with uppercase
+            if clean[0].isupper():
                 common_short = {"que", "mas", "nem", "dos", "das", "nos", "nas",
                                 "uns", "uma", "umas", "ele", "ela", "eles", "elas",
                                 "sao", "era", "foi", "ser", "ter", "ver", "dar",
-                                "vir", "por", "pre", "pos", "sub", "pro"}
+                                "vir", "por", "pre", "pos", "sub", "pro",
+                                "se", "no", "na", "ao", "os", "as", "de", "do",
+                                "da", "em", "um", "ou", "ja", "so", "ha", "la"}
                 if clean_lower not in common_short:
                     if clean_lower not in names:
                         names.append(clean_lower)
@@ -813,7 +858,8 @@ Retorne APENAS o JSON."""
         return min(60, score)
 
     def _build_clips_from_scored_blocks(self, scored_blocks, context_data=None):
-        """Build clips by combining consecutive blocks to reach target duration."""
+        """Build clips by combining consecutive blocks to reach target duration.
+        Enforces max_duration on ALL clips including single-block clips."""
         clips = []
         used_indices = set()
 
@@ -852,6 +898,13 @@ Retorne APENAS o JSON."""
             clip_text = " ".join(b["text"] for b in clip_blocks)
             clip_start = clip_blocks[0]["start"]
             clip_end = clip_blocks[-1]["end"]
+
+            # ENFORCE max_duration — truncate if clip exceeds limit
+            if clip_end - clip_start > self.max_duration:
+                clip_end = clip_start + self.max_duration
+                clip_duration = self.max_duration
+            else:
+                clip_duration = clip_end - clip_start
 
             avg_score = sum(scored_blocks[i][1] for i in range(start_idx, clip_end_idx + 1)) / (clip_end_idx - start_idx + 1)
 

@@ -87,7 +87,7 @@ class AIBackend:
         try:
             import google.generativeai as genai
             genai.configure(api_key=api_key)
-            model = genai.GenerativeModel("gemini-1.5-flash")
+            model = genai.GenerativeModel("gemini-2.5-flash")
             full_prompt = f"{system_prompt}\n\n{prompt}" if system_prompt else prompt
             response = model.generate_content(full_prompt)
             return response.text
