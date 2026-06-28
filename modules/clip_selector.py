@@ -226,7 +226,7 @@ class ClipSelector:
 
     def _select_with_gemini(self, sentences, energy_profile, user_context, settings, emit_progress):
         """Use Google Gemini Flash API to select clips — sends FULL transcript at once."""
-        api_key = settings.get("gemini_api_key", "")
+        api_key = settings.get("gemini_api_key", "").strip()
         if not api_key:
             if emit_progress:
                 emit_progress("[Gemini] API key nao configurada.", "warning")
@@ -242,66 +242,131 @@ class ClipSelector:
         if emit_progress:
             emit_progress(f"[Gemini] Enviando {len(transcript_blocks)} blocos para analise...", "info")
 
-        try:
-            response = requests.post(
-                f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}",
-                json={
-                    "contents": [{"parts": [{"text": user_prompt}]}],
-                    "systemInstruction": {"parts": [{"text": system_prompt}]},
-                    "generationConfig": {
-                        "temperature": 0.3,
-                        "maxOutputTokens": 8192,
-                        "responseMimeType": "application/json",
-                    },
-                },
-                timeout=120,
-            )
+        import time as _time
 
-            if response.status_code != 200:
+        # Try multiple models with retry for transient errors (503)
+        models_to_try = ["gemini-2.5-flash", "gemini-2.0-flash"]
+        last_error = ""
+
+        for model_name in models_to_try:
+            for attempt in range(3):
                 try:
-                    error_data = response.json()
-                    error_msg = error_data.get("error", {}).get("message", "")
-                except Exception:
-                    error_msg = response.text[:200]
-                if emit_progress:
+                    if attempt > 0 and emit_progress:
+                        emit_progress(f"[Gemini] Tentativa {attempt + 1} com {model_name}...", "info")
+
+                    response = requests.post(
+                        f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}",
+                        json={
+                            "contents": [{"parts": [{"text": user_prompt}]}],
+                            "systemInstruction": {"parts": [{"text": system_prompt}]},
+                            "generationConfig": {
+                                "temperature": 0.3,
+                                "maxOutputTokens": 16384,
+                            },
+                        },
+                        timeout=180,
+                    )
+
+                    if response.status_code == 503:
+                        # Temporary overload — retry after delay
+                        if emit_progress:
+                            emit_progress(f"[Gemini] {model_name} sobrecarregado (503). Retentando em {5 * (attempt + 1)}s...", "warning")
+                        _time.sleep(5 * (attempt + 1))
+                        continue
+
                     if response.status_code == 429:
-                        emit_progress(f"[Gemini] Quota excedida. Aguarde alguns minutos. Detalhe: {error_msg[:150]}", "warning")
-                    elif response.status_code == 403:
-                        emit_progress("[Gemini] API key invalida ou sem permissao.", "warning")
-                    else:
-                        emit_progress(f"[Gemini] Erro {response.status_code}: {error_msg[:200]}", "warning")
-                return []
-            data = response.json()
+                        # Quota exceeded — try next model
+                        try:
+                            error_msg = response.json().get("error", {}).get("message", "")
+                        except Exception:
+                            error_msg = response.text[:200]
+                        if emit_progress:
+                            emit_progress(f"[Gemini] {model_name} quota excedida. Tentando proximo modelo...", "warning")
+                        last_error = f"429: {error_msg[:150]}"
+                        break  # Break retry loop, try next model
 
-            candidates = data.get("candidates", [])
-            if not candidates:
-                if emit_progress:
-                    emit_progress("[Gemini] Sem resposta da API.", "warning")
-                return []
+                    if response.status_code == 403:
+                        if emit_progress:
+                            emit_progress("[Gemini] API key invalida ou sem permissao.", "warning")
+                        return []
 
-            text = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+                    if response.status_code != 200:
+                        try:
+                            error_msg = response.json().get("error", {}).get("message", "")
+                        except Exception:
+                            error_msg = response.text[:200]
+                        if emit_progress:
+                            emit_progress(f"[Gemini] Erro {response.status_code}: {error_msg[:200]}", "warning")
+                        last_error = f"{response.status_code}: {error_msg[:150]}"
+                        break  # Try next model
 
-            selections = self._parse_llm_response(text, sentences, transcript_blocks, 0, source="gemini")
+                    # Success! Parse the response
+                    data = response.json()
+                    candidates = data.get("candidates", [])
+                    if not candidates:
+                        if emit_progress:
+                            emit_progress(f"[Gemini] {model_name} sem resposta da API.", "warning")
+                        last_error = "no candidates"
+                        break  # Try next model
 
-            if emit_progress and selections:
-                emit_progress(f"[Gemini] Encontrou {len(selections)} clips candidatos!", "info")
+                    # Gemini 2.5 Flash may return "thinking" parts before actual response
+                    parts = candidates[0].get("content", {}).get("parts", [])
+                    text = ""
+                    for part in parts:
+                        if part.get("thought"):
+                            continue  # Skip thinking parts
+                        if "text" in part:
+                            text = part["text"]
+                            break  # Use the first non-thinking text part
 
-            # Sort by score descending
-            selections.sort(key=lambda x: x.get("viral_score", 0), reverse=True)
-            return selections
+                    if not text:
+                        # Fallback: try last part regardless
+                        if parts:
+                            text = parts[-1].get("text", "")
 
-        except requests.exceptions.ConnectionError:
-            if emit_progress:
-                emit_progress("[Gemini] Sem conexao com internet.", "warning")
-            return []
-        except requests.exceptions.Timeout:
-            if emit_progress:
-                emit_progress("[Gemini] Timeout na requisicao (>120s).", "warning")
-            return []
-        except Exception as e:
-            if emit_progress:
-                emit_progress(f"[Gemini] Erro: {str(e)[:200]}", "warning")
-            return []
+                    if not text:
+                        finish_reason = candidates[0].get("finishReason", "unknown")
+                        if emit_progress:
+                            emit_progress(f"[Gemini] {model_name} resposta vazia (finishReason: {finish_reason}).", "warning")
+                        last_error = f"empty response: {finish_reason}"
+                        break  # Try next model
+
+                    if emit_progress:
+                        emit_progress(f"[Gemini] Resposta recebida de {model_name} ({len(text)} chars). Parseando...", "info")
+
+                    selections = self._parse_llm_response(text, sentences, transcript_blocks, 0, source="gemini")
+
+                    if not selections:
+                        if emit_progress:
+                            preview = text[:300].replace("\n", " ")
+                            emit_progress(f"[Gemini] JSON parseado mas 0 clips validos. Preview: {preview}...", "warning")
+                        last_error = "0 clips parsed"
+                        break  # Try next model
+
+                    if emit_progress:
+                        emit_progress(f"[Gemini] {model_name} encontrou {len(selections)} clips candidatos!", "info")
+
+                    selections.sort(key=lambda x: x.get("viral_score", 0), reverse=True)
+                    return selections
+
+                except requests.exceptions.ConnectionError:
+                    if emit_progress:
+                        emit_progress("[Gemini] Sem conexao com internet.", "warning")
+                    return []
+                except requests.exceptions.Timeout:
+                    if emit_progress:
+                        emit_progress(f"[Gemini] Timeout com {model_name} (>180s).", "warning")
+                    last_error = "timeout"
+                    break  # Try next model
+                except Exception as e:
+                    if emit_progress:
+                        emit_progress(f"[Gemini] Erro com {model_name}: {str(e)[:200]}", "warning")
+                    last_error = str(e)[:150]
+                    break  # Try next model
+
+        if emit_progress and last_error:
+            emit_progress(f"[Gemini] Todos os modelos falharam. Ultimo erro: {last_error}", "warning")
+        return []
 
     def _get_gemini_system_prompt(self):
         return """Voce e um editor de video profissional especialista em selecionar os melhores momentos de debates, entrevistas, podcasts e videos longos para clips curtos (YouTube Shorts, TikTok, Reels).
@@ -435,7 +500,7 @@ Retorne APENAS o array JSON. Nenhum texto antes ou depois."""
                         "prompt": prompt,
                         "system": self._get_system_prompt(),
                         "stream": False,
-                        "options": {"temperature": 0.3, "num_predict": 2000},
+                        "options": {"temperature": 0.3, "num_predict": 4096},
                     },
                     timeout=600,
                 )
@@ -511,7 +576,8 @@ IMPORTANTE: SOMENTE selecione clips onde {names_str} esta falando. Clips de outr
 INSTRUCAO DO USUARIO: "{user_context}"
 Selecione clips que atendam a esse pedido."""
 
-        return f"""Selecione os {min(5, len(blocks) // 3 + 1)} MELHORES momentos para clips curtos.
+        num_clips = min(8, max(3, len(blocks) // 3))
+        return f"""Selecione os {num_clips} MELHORES momentos para clips curtos.
 {context_instruction}
 
 TRANSCRICAO (blocos {chunk_offset} a {chunk_offset + len(blocks) - 1} de {total_blocks} total):
@@ -571,9 +637,9 @@ Retorne APENAS o JSON."""
             if "```json" in json_str:
                 json_str = json_str.split("```json")[1].split("```")[0]
             elif "```" in json_str:
-                parts = json_str.split("```")
-                if len(parts) >= 3:
-                    json_str = parts[1]
+                code_parts = json_str.split("```")
+                if len(code_parts) >= 3:
+                    json_str = code_parts[1]
 
             # Try to find JSON array in the response
             start_idx = json_str.find("[")
@@ -581,9 +647,32 @@ Retorne APENAS o JSON."""
             if start_idx >= 0 and end_idx > start_idx:
                 json_str = json_str[start_idx:end_idx]
 
+            # Fix common JSON issues from LLMs
+            # Replace smart quotes with regular quotes
+            json_str = json_str.replace("\u201c", '"').replace("\u201d", '"')
+            json_str = json_str.replace("\u2018", "'").replace("\u2019", "'")
+            # Remove trailing commas before ] or }
+            json_str = re.sub(r',\s*([}\]])', r'\1', json_str)
+
             selections = json.loads(json_str)
         except (json.JSONDecodeError, ValueError):
-            return []
+            # Try a more aggressive approach: find each {...} object
+            try:
+                objects = re.findall(r'\{[^{}]+\}', response_text)
+                selections = []
+                for obj_str in objects:
+                    obj_str = obj_str.replace("\u201c", '"').replace("\u201d", '"')
+                    obj_str = re.sub(r',\s*([}\]])', r'\1', obj_str)
+                    try:
+                        obj = json.loads(obj_str)
+                        if "blocks" in obj:
+                            selections.append(obj)
+                    except (json.JSONDecodeError, ValueError):
+                        continue
+                if not selections:
+                    return []
+            except Exception:
+                return []
 
         clips = []
         for sel in selections:
@@ -593,6 +682,13 @@ Retorne APENAS o JSON."""
             block_indices = sel.get("blocks", [])
             if not block_indices:
                 continue
+
+            # Handle both 0-indexed and 1-indexed block references
+            # Check if any index exceeds our block count (likely 1-indexed)
+            max_idx = max(block_indices) if block_indices else 0
+            if max_idx >= len(all_blocks) and min(block_indices) >= 1:
+                # Likely 1-indexed, convert to 0-indexed
+                block_indices = [i - 1 for i in block_indices]
 
             # Map block indices to actual timestamps
             valid_blocks = [

@@ -99,8 +99,10 @@ def api_save_settings():
         set_setting(key, value)
 
     # Save Gemini key to .env AND os.environ for immediate use
-    gemini_key = data.get("gemini_api_key", "")
+    gemini_key = data.get("gemini_api_key", "").strip()
     if gemini_key:
+        # Re-save the trimmed version to DB
+        set_setting("gemini_api_key", gemini_key)
         _save_key_to_env("GEMINI_API_KEY", gemini_key)
         os.environ["GEMINI_API_KEY"] = gemini_key
         print(f"[Settings] Gemini API key salva (tamanho: {len(gemini_key)} chars)")
