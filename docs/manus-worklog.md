@@ -43,3 +43,11 @@ A suíte passou a conter 25 testes aprovados, incluindo integração real com FF
 Foi criada a branch local `manus/rebuild-opus-parity` para a reconstrução. O smoke test de importação do servidor foi aprovado e a suíte final alcançou 32 testes aprovados. A integração GitHub permanece sem autenticação de escrita comprovada: o token GH_TOKEN informado pelo ambiente foi reportado como inválido e a rede para GitHub/PyPI apresentou falha de resolução em tentativas subsequentes.
 
 A entrega desta execução deve distinguir claramente o que foi implementado e validado localmente do que ainda precisa de um ambiente com dependências multimídia completas, credenciais de provedores de IA, vídeo real de longa duração e autenticação GitHub funcional.
+
+## Entrega local
+
+Foi criado o commit local `893204e` na branch `manus/rebuild-opus-parity`, com 32 arquivos e 2.410 linhas adicionadas. A tentativa de publicar a branch em `origin` falhou com HTTP 403: o GitHub recusou a permissão do token disponível para `SAGIEV007/furia-clips.git`.
+
+Foram gerados `/home/ubuntu/furia-clips-rebuild-rebuild.patch` e `/home/ubuntu/furia-clips-rebuild.bundle` para transferência/aplicação manual quando a autenticação GitHub for corrigida.
+
+O `run.bat` permanece marcado localmente por diferença de checkout de finais de linha (`.gitattributes` exige CRLF), mas não foi incluído no commit da reconstrução.
