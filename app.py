@@ -6,6 +6,7 @@ import shutil
 import threading
 import subprocess
 import platform
+import secrets
 import requests
 from datetime import datetime
 
@@ -25,18 +26,44 @@ except ImportError:
                     os.environ.setdefault(_k.strip(), _v.strip())
 
 from flask import Flask, render_template, request, jsonify, send_from_directory, send_file
-from flask_socketio import SocketIO, emit
+try:
+    from flask_socketio import SocketIO, emit
+except ImportError:  # Optional dependency fallback for minimal local installs.
+    def emit(*args, **kwargs):
+        return None
+
+    class SocketIO:
+        def __init__(self, app, *args, **kwargs):
+            self.app = app
+
+        def on(self, _event):
+            def decorator(func):
+                return func
+            return decorator
+
+        def emit(self, *_args, **_kwargs):
+            return None
+
+        def run(self, app, **kwargs):
+            kwargs.pop("allow_unsafe_werkzeug", None)
+            return app.run(**kwargs)
 
 from config import (
     BASE_DIR, WORKSPACE_DIR, UPLOAD_DIR, PROCESSED_DIR,
-    EXPORT_DIR, THUMBNAIL_DIR, ALLOWED_EXTENSIONS, MAX_UPLOAD_SIZE
+    EXPORT_DIR, THUMBNAIL_DIR, ALLOWED_EXTENSIONS, MAX_UPLOAD_SIZE, DB_PATH
 )
 from database import (
     init_db, get_all_settings, get_setting, set_setting,
     create_project, get_project, get_all_projects, update_project_status,
     save_clip, get_clips, update_clip_seo, update_clip_thumbnail,
-    save_transcription, get_transcription, log_action
+    save_transcription, get_transcription, log_action,
+    update_clip_editorial_score, save_clip_feedback, get_clip_feedback,
+    update_clip_review_status
 )
+from modules.security import UnsafePathError, safe_workspace_path, unique_storage_name
+from modules.job_manager import JobManager, JobCancelled
+from modules.batch_queue import build_manifest
+from modules.render_presets import list_presets
 
 # User-friendly error messages (Portuguese)
 ERROR_MESSAGES = {
@@ -51,10 +78,18 @@ ERROR_MESSAGES = {
 }
 
 app = Flask(__name__)
-app.config["SECRET_KEY"] = "furia-clips-secret-key"
+app.config["SECRET_KEY"] = os.environ.get("FURIA_SECRET_KEY") or secrets.token_hex(32)
 app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD_SIZE
 
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
+_ALLOWED_CORS = [
+    origin.strip()
+    for origin in os.environ.get(
+        "FURIA_CORS_ORIGINS",
+        "http://127.0.0.1:3001,http://localhost:3001",
+    ).split(",")
+    if origin.strip()
+]
+socketio = SocketIO(app, cors_allowed_origins=_ALLOWED_CORS, async_mode="threading")
 
 processing_lock = threading.Lock()
 current_task = {"active": False, "cancel": False}
@@ -66,6 +101,84 @@ def emit_progress(message, level="info"):
 
 def emit_status(status, data=None):
     socketio.emit("status", {"status": status, "data": data or {}})
+
+
+def _emit_job_update(job):
+    if job:
+        socketio.emit("job_update", job)
+
+
+job_manager = JobManager(DB_PATH, max_workers=1, on_event=_emit_job_update)
+
+
+def _workspace_input_path(relative_path):
+    try:
+        return safe_workspace_path(WORKSPACE_DIR, relative_path, allow_missing=False)
+    except (UnsafePathError, FileNotFoundError):
+        return None
+
+
+@app.route("/api/jobs", methods=["GET"])
+def api_list_jobs():
+    try:
+        limit = min(max(int(request.args.get("limit", 50)), 1), 200)
+    except (TypeError, ValueError):
+        limit = 50
+    return jsonify({"jobs": job_manager.list(limit=limit)})
+
+
+@app.route("/api/jobs/<job_id>", methods=["GET"])
+def api_get_job(job_id):
+    job = job_manager.get(job_id)
+    if not job:
+        return jsonify({"error": "Job não encontrado"}), 404
+    return jsonify(job)
+
+
+@app.route("/api/jobs/<job_id>/cancel", methods=["POST"])
+def api_cancel_job(job_id):
+    try:
+        return jsonify(job_manager.request_cancel(job_id))
+    except KeyError:
+        return jsonify({"error": "Job não encontrado"}), 404
+
+
+@app.route("/api/render-presets", methods=["GET"])
+def api_render_presets():
+    return jsonify({"presets": list_presets()})
+
+
+@app.route("/api/batch/scan", methods=["POST"])
+def api_batch_scan():
+    data = request.get_json(silent=True) or {}
+    relative_root = data.get("path", "uploads")
+    try:
+        root = safe_workspace_path(WORKSPACE_DIR, relative_root, allow_missing=False)
+    except (UnsafePathError, FileNotFoundError):
+        return jsonify({"error": "Pasta de lote inválida"}), 403
+    if not os.path.isdir(root):
+        return jsonify({"error": "Pasta de lote não encontrada"}), 404
+    manifest = build_manifest(root, ALLOWED_EXTENSIONS)
+    manifest["relative_root"] = os.path.relpath(root, WORKSPACE_DIR)
+    return jsonify(manifest)
+
+
+@app.route("/api/clips/<int:clip_id>/feedback", methods=["GET", "POST"])
+def api_clip_feedback(clip_id):
+    if request.method == "GET":
+        return jsonify({"feedback": get_clip_feedback(clip_id)})
+    data = request.get_json(silent=True) or {}
+    action = data.get("action", "")
+    try:
+        save_clip_feedback(
+            clip_id,
+            action,
+            adjustments=data.get("adjustments") or {},
+            note=data.get("note", ""),
+        )
+        return jsonify({"success": True, "clip_id": clip_id, "review_status": action})
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
 
 
 # ─── Page Routes ───
@@ -89,23 +202,36 @@ def _sync_env_key_to_db():
 
 @app.route("/api/settings", methods=["GET"])
 def api_get_settings():
-    return jsonify(get_all_settings())
+    settings = get_all_settings()
+    for key in ("gemini_api_key", "claude_api_key"):
+        configured = bool(settings.get(key))
+        settings[key] = ""
+        settings[f"{key}_configured"] = configured
+    return jsonify(settings)
 
 
 @app.route("/api/settings", methods=["POST"])
 def api_save_settings():
-    data = request.json
+    data = request.get_json(silent=True) or {}
+    allowed_keys = set(get_all_settings().keys())
     for key, value in data.items():
-        set_setting(key, value)
+        if key in allowed_keys and key not in {"gemini_api_key", "claude_api_key"}:
+            set_setting(key, value)
 
     # Save Gemini key to .env AND os.environ for immediate use
-    gemini_key = data.get("gemini_api_key", "").strip()
+    gemini_key = str(data.get("gemini_api_key", "") or "").strip()
     if gemini_key:
-        # Re-save the trimmed version to DB
         set_setting("gemini_api_key", gemini_key)
         _save_key_to_env("GEMINI_API_KEY", gemini_key)
         os.environ["GEMINI_API_KEY"] = gemini_key
         print(f"[Settings] Gemini API key salva (tamanho: {len(gemini_key)} chars)")
+
+    claude_key = str(data.get("claude_api_key", "") or "").strip()
+    if claude_key:
+        set_setting("claude_api_key", claude_key)
+        _save_key_to_env("ANTHROPIC_API_KEY", claude_key)
+        os.environ["ANTHROPIC_API_KEY"] = claude_key
+        print(f"[Settings] Claude API key salva (tamanho: {len(claude_key)} chars)")
 
     ai_backend = data.get("ai_backend", "")
     if ai_backend:
@@ -142,9 +268,9 @@ def _save_key_to_env(key_name, key_value):
 def api_list_files():
     path = request.args.get("path", "")
     base = WORKSPACE_DIR
-    target = os.path.normpath(os.path.join(base, path))
-
-    if not target.startswith(base):
+    try:
+        target = safe_workspace_path(base, path, allow_missing=False)
+    except (UnsafePathError, FileNotFoundError):
         return jsonify({"error": "Acesso negado"}), 403
 
     items = []
@@ -186,19 +312,14 @@ def api_upload_file():
         return jsonify({"error": f"Formato nao suportado: {ext}"}), 400
 
     dest_dir = request.form.get("path", "uploads")
-    dest_path = os.path.join(WORKSPACE_DIR, dest_dir)
+    try:
+        dest_path = safe_workspace_path(WORKSPACE_DIR, dest_dir, allow_missing=True)
+    except UnsafePathError:
+        return jsonify({"error": "Pasta de destino inválida"}), 403
     os.makedirs(dest_path, exist_ok=True)
 
-    filename = file.filename
+    filename = unique_storage_name(file.filename, extension=ext)
     filepath = os.path.join(dest_path, filename)
-
-    counter = 1
-    base_name = os.path.splitext(filename)[0]
-    while os.path.exists(filepath):
-        filename = f"{base_name}_{counter}{ext}"
-        filepath = os.path.join(dest_path, filename)
-        counter += 1
-
     file.save(filepath)
 
     return jsonify({
@@ -211,15 +332,21 @@ def api_upload_file():
 
 @app.route("/api/files/mkdir", methods=["POST"])
 def api_mkdir():
-    data = request.json
+    data = request.get_json(silent=True) or {}
     name = data.get("name", "").strip()
     parent = data.get("parent", "")
 
     if not name:
         return jsonify({"error": "Nome da pasta nao informado"}), 400
 
-    target = os.path.normpath(os.path.join(WORKSPACE_DIR, parent, name))
-    if not target.startswith(WORKSPACE_DIR):
+    try:
+        parent_path = safe_workspace_path(WORKSPACE_DIR, parent, allow_missing=True)
+        target = safe_workspace_path(
+            WORKSPACE_DIR,
+            os.path.join(os.path.relpath(parent_path, WORKSPACE_DIR), name),
+            allow_missing=True,
+        )
+    except UnsafePathError:
         return jsonify({"error": "Acesso negado"}), 403
 
     os.makedirs(target, exist_ok=True)
@@ -228,11 +355,14 @@ def api_mkdir():
 
 @app.route("/api/files/delete", methods=["POST"])
 def api_delete_file():
-    data = request.json
+    data = request.get_json(silent=True) or {}
     path = data.get("path", "")
-    target = os.path.normpath(os.path.join(WORKSPACE_DIR, path))
+    try:
+        target = safe_workspace_path(WORKSPACE_DIR, path, allow_missing=False)
+    except (UnsafePathError, FileNotFoundError):
+        return jsonify({"error": "Acesso negado"}), 403
 
-    if not target.startswith(WORKSPACE_DIR) or target == WORKSPACE_DIR:
+    if target == os.path.realpath(WORKSPACE_DIR):
         return jsonify({"error": "Acesso negado"}), 403
 
     if os.path.isdir(target):
@@ -247,9 +377,12 @@ def api_delete_file():
 
 @app.route("/workspace/<path:filepath>")
 def serve_workspace_file(filepath):
-    full = os.path.normpath(os.path.join(WORKSPACE_DIR, filepath))
-    if not full.startswith(WORKSPACE_DIR):
+    try:
+        full = safe_workspace_path(WORKSPACE_DIR, filepath, allow_missing=False)
+    except (UnsafePathError, FileNotFoundError):
         return "Acesso negado", 403
+    if not os.path.isfile(full):
+        return "Arquivo não encontrado", 404
     directory = os.path.dirname(full)
     filename = os.path.basename(full)
     return send_from_directory(directory, filename)
@@ -276,8 +409,10 @@ def api_get_project(project_id):
 
 @app.route("/api/process/silence", methods=["POST"])
 def api_remove_silence():
-    data = request.json
-    video_path = os.path.join(WORKSPACE_DIR, data.get("video_path", ""))
+    data = request.get_json(silent=True) or {}
+    video_path = _workspace_input_path(data.get("video_path", ""))
+    if not video_path:
+        return jsonify({"error": "Video não encontrado ou caminho inválido"}), 404
 
     if not os.path.exists(video_path):
         return jsonify({"error": "Video nao encontrado"}), 404
@@ -314,8 +449,10 @@ def api_remove_silence():
 
 @app.route("/api/process/transcribe", methods=["POST"])
 def api_transcribe():
-    data = request.json
-    video_path = os.path.join(WORKSPACE_DIR, data.get("video_path", ""))
+    data = request.get_json(silent=True) or {}
+    video_path = _workspace_input_path(data.get("video_path", ""))
+    if not video_path:
+        return jsonify({"error": "Video não encontrado ou caminho inválido"}), 404
     project_id = data.get("project_id")
 
     if not os.path.exists(video_path):
@@ -355,8 +492,10 @@ def api_transcribe():
 
 @app.route("/api/process/cut", methods=["POST"])
 def api_cut_shorts():
-    data = request.json
-    video_path = os.path.join(WORKSPACE_DIR, data.get("video_path", ""))
+    data = request.get_json(silent=True) or {}
+    video_path = _workspace_input_path(data.get("video_path", ""))
+    if not video_path:
+        return jsonify({"error": "Video não encontrado ou caminho inválido"}), 404
     project_id = data.get("project_id")
     use_face_tracking = data.get("face_tracking", True)
     user_context = data.get("user_context", "")
@@ -453,7 +592,11 @@ def api_cut_shorts():
             emit_progress("=== ETAPA 4/5: Ranqueamento ===", "info")
             from modules.viral_ranker import ViralRanker
             ranker = ViralRanker(channel_context=settings.get("channel_context", ""))
-            top_clips = ranker.rank_clips(top_clips)
+            top_clips = ranker.rank_clips(
+                top_clips,
+                user_context=user_context,
+                energy_profile=energy_profile,
+            )
 
             # Step 5: Cut clips (face tracking disabled for now)
             emit_progress("=== ETAPA 5/5: Cortando Clips ===", "info")
@@ -461,6 +604,7 @@ def api_cut_shorts():
             cutter = VideoCutter(
                 method="intelligent",
                 target_duration=settings.get("cut_duration", 45),
+                preset=settings.get("render_preset", "shorts"),
             )
 
             # Face tracking disabled — focus on selection quality first
@@ -539,8 +683,10 @@ def api_cut_shorts():
 
 @app.route("/api/process/subtitles", methods=["POST"])
 def api_generate_subtitles():
-    data = request.json
-    video_path = os.path.join(WORKSPACE_DIR, data.get("video_path", ""))
+    data = request.get_json(silent=True) or {}
+    video_path = _workspace_input_path(data.get("video_path", ""))
+    if not video_path:
+        return jsonify({"error": "Video não encontrado ou caminho inválido"}), 404
     project_id = data.get("project_id")
     subtitle_settings = data.get("subtitle_settings", {})
 
@@ -663,8 +809,10 @@ def api_generate_seo():
 
 @app.route("/api/process/thumbnail", methods=["POST"])
 def api_generate_thumbnail():
-    data = request.json
-    video_path = os.path.join(WORKSPACE_DIR, data.get("video_path", ""))
+    data = request.get_json(silent=True) or {}
+    video_path = _workspace_input_path(data.get("video_path", ""))
+    if not video_path:
+        return jsonify({"error": "Video não encontrado ou caminho inválido"}), 404
     time_seconds = data.get("time", 5)
     text = data.get("text", "")
     style = data.get("style", "dark_gold")
@@ -710,18 +858,22 @@ def api_generate_thumbnail():
 
 @app.route("/api/process/complete", methods=["POST"])
 def api_process_complete():
-    data = request.json
-    video_path = os.path.join(WORKSPACE_DIR, data.get("video_path", ""))
+    data = request.get_json(silent=True) or {}
+    video_path = _workspace_input_path(data.get("video_path", ""))
+    if not video_path:
+        return jsonify({"error": "Video não encontrado ou caminho inválido"}), 404
     user_context = data.get("user_context", "")
     video_genre = data.get("video_genre", "")
 
     if not os.path.exists(video_path):
         return jsonify({"error": "Video nao encontrado"}), 404
 
-    def task():
+    def task(ctx):
         current_task["active"] = True
         try:
             settings = get_all_settings()
+            ctx.update(stage="project", progress=3, message="Criando projeto")
+            ctx.check_cancel()
             video_name = os.path.splitext(os.path.basename(video_path))[0]
             project_id = create_project(video_name, data.get("video_path", ""))
 
@@ -734,7 +886,18 @@ def api_process_complete():
                 padding=settings.get("padding", 0.25),
             )
             silence_result = remover.remove_silence(video_path, emit_progress=emit_progress)
-            working_video = silence_result["output_path"] if silence_result else video_path
+            ctx.update(stage="silence", progress=15, message="Análise de silêncio concluída")
+            ctx.check_cancel()
+            if silence_result:
+                emit_progress(
+                    "Versão sem silêncio gerada como artefato separado; "
+                    "a seleção continuará usando a timeline original.",
+                    "info",
+                )
+            # The original video remains canonical. Removing silence resets PTS
+            # in the derived file, so its timestamps must never be used to cut
+            # the source without an explicit TimelineMap conversion.
+            working_video = video_path
 
             # ── Step 2: Transcribe (with cache) ──
             emit_progress("━━━ ETAPA 2/6: Transcrevendo ━━━", "info")
@@ -748,6 +911,8 @@ def api_process_complete():
                 project_id, transcription["segments"], transcription["full_text"],
                 transcription["language"], settings.get("whisper_model", "small")
             )
+            ctx.update(stage="transcription", progress=35, message="Transcrição concluída")
+            ctx.check_cancel()
 
             # ── Step 3: Intelligent clip selection ──
             emit_progress("━━━ ETAPA 3/6: Selecao Inteligente de Clips ━━━", "info")
@@ -770,6 +935,8 @@ def api_process_complete():
                 settings=settings,
                 emit_progress=emit_progress,
             )
+            ctx.update(stage="candidate_generation", progress=55, message=f"{len(top_clips)} candidatos encontrados")
+            ctx.check_cancel()
 
             # ── Step 4: Rank and cut ──
             emit_progress("━━━ ETAPA 4/6: Ranqueando e Cortando ━━━", "info")
@@ -777,11 +944,16 @@ def api_process_complete():
             from modules.video_cutter import VideoCutter
 
             ranker = ViralRanker(channel_context=settings.get("channel_context", ""))
-            top_clips = ranker.rank_clips(top_clips)
+            top_clips = ranker.rank_clips(
+                top_clips,
+                user_context=user_context,
+                energy_profile=energy_profile,
+            )
 
             cutter = VideoCutter(
                 method="intelligent",
                 target_duration=settings.get("cut_duration", 45),
+                preset=settings.get("render_preset", "shorts"),
             )
 
             # Layout detection + Face tracking
@@ -817,6 +989,8 @@ def api_process_complete():
                 output_dir=output_dir if output_dir else None,
                 video_layout=video_layout,
             )
+            ctx.update(stage="rendering", progress=72, message=f"{len(results)} clips renderizados")
+            ctx.check_cancel()
 
             # ── Step 5: Generate subtitles for each clip ──
             emit_progress("━━━ ETAPA 5/6: Gerando Legendas ━━━", "info")
@@ -824,6 +998,7 @@ def api_process_complete():
             sub_gen = SubtitleGenerator(settings)
 
             for i, res in enumerate(results):
+                ctx.check_cancel()
                 clip_data = top_clips[i] if i < len(top_clips) else {}
                 clip_segments = []
                 for seg in transcription["segments"]:
@@ -847,7 +1022,10 @@ def api_process_complete():
                 if clip_segments:
                     base_clip = os.path.splitext(res["path"])[0]
                     ass_path = base_clip + ".ass"
-                    sub_gen.generate_ass_file(clip_segments, ass_path, 1080, 1920)
+                    preset = sub_gen.preset
+                    sub_gen.generate_ass_file(
+                        clip_segments, ass_path, preset["width"], preset["height"]
+                    )
                     subtitled_path = base_clip + "_leg.mp4"
                     sub_result = sub_gen.burn_subtitles(res["path"], ass_path, subtitled_path, emit_progress)
                     if sub_result:
@@ -861,6 +1039,16 @@ def api_process_complete():
                     res.get("text", "")
                 )
                 res["clip_id"] = clip_id
+                update_clip_editorial_score(
+                    clip_id,
+                    clip_data.get("editorial_potential_score", clip_data.get("viral_score", 0)),
+                    clip_data.get("factors", {}),
+                    clip_data.get("confidence", 0),
+                    clip_data.get("editorial_score_version", "v1-explainable"),
+                )
+
+            ctx.update(stage="subtitles", progress=86, message="Legendas processadas")
+            ctx.check_cancel()
 
             # ── Step 6: Generate SEO content ──
             emit_progress("━━━ ETAPA 6/6: Gerando Conteudo SEO ━━━", "info")
@@ -871,6 +1059,7 @@ def api_process_complete():
             )
 
             for res in results:
+                ctx.check_cancel()
                 text = res.get("text", "")
                 if text and res.get("clip_id"):
                     try:
@@ -891,6 +1080,8 @@ def api_process_complete():
                     except Exception as e:
                         emit_progress(f"Erro SEO clip {res.get('clip_id')}: {str(e)}", "warning")
 
+            ctx.update(stage="seo", progress=96, message="Metadados SEO processados")
+            ctx.check_cancel()
             update_project_status(project_id, "completed")
 
             clip_results = []
@@ -924,25 +1115,42 @@ def api_process_complete():
             })
             emit_progress(f"PROCESSO COMPLETO! {len(clip_results)} clips gerados, ranqueados e otimizados.", "success")
 
+        except JobCancelled:
+            emit_progress("Processo completo cancelado pelo usuário.", "warning")
+            emit_status("cancelled", {})
+            raise
         except Exception as e:
             emit_progress(f"Erro no processo completo: {str(e)}", "error")
             emit_status("error", {"message": str(e)})
             import traceback
             traceback.print_exc()
+            raise
         finally:
             current_task["active"] = False
 
     if current_task["active"]:
         return jsonify({"error": "Ja existe um processamento em andamento"}), 409
 
-    threading.Thread(target=task, daemon=True).start()
-    return jsonify({"success": True, "message": "Processo completo iniciado"})
+    job = job_manager.submit("process_complete", task)
+    return jsonify({
+        "success": True,
+        "message": "Processo completo iniciado",
+        "job_id": job["id"],
+        "state": job["state"],
+    })
 
 
 @app.route("/api/process/cancel", methods=["POST"])
 def api_cancel():
+    data = request.get_json(silent=True) or {}
+    job_id = data.get("job_id")
+    if job_id:
+        try:
+            return jsonify(job_manager.request_cancel(job_id))
+        except KeyError:
+            return jsonify({"error": "Job não encontrado"}), 404
     current_task["cancel"] = True
-    return jsonify({"success": True, "message": "Cancelamento solicitado"})
+    return jsonify({"success": True, "message": "Cancelamento legado solicitado"})
 
 
 # ─── WebSocket ───
@@ -960,16 +1168,14 @@ def api_ollama_status():
 
 @app.route("/api/open_folder", methods=["POST"])
 def api_open_folder():
-    data = request.json
+    data = request.get_json(silent=True) or {}
     folder_path = data.get("path", "")
+    relative_path = os.path.relpath(EXPORT_DIR, WORKSPACE_DIR) if not folder_path else folder_path
 
-    if not folder_path:
-        folder_path = EXPORT_DIR
-
-    if not os.path.isabs(folder_path):
-        folder_path = os.path.join(WORKSPACE_DIR, folder_path)
-
-    folder_path = os.path.normpath(folder_path)
+    try:
+        folder_path = safe_workspace_path(WORKSPACE_DIR, relative_path, allow_missing=False)
+    except (UnsafePathError, FileNotFoundError):
+        return jsonify({"error": "Pasta nao encontrada ou caminho invalido"}), 404
 
     if not os.path.isdir(folder_path):
         return jsonify({"error": "Pasta nao encontrada"}), 404
@@ -984,7 +1190,7 @@ def api_open_folder():
             subprocess.Popen(["xdg-open", folder_path])
         return jsonify({"success": True})
     except Exception as e:
-        return jsonify({"error": str(e), "path": folder_path}), 500
+        return jsonify({"error": "Não foi possível abrir a pasta", "path": os.path.relpath(folder_path, WORKSPACE_DIR)}), 500
 
 
 @socketio.on("connect")
@@ -1145,6 +1351,8 @@ if __name__ == "__main__":
         print(f"   [AVISO] Nenhuma IA conectada.")
         print(f"   [AVISO] Modo: NLP basico (menos preciso)")
         print(f"   [DICA] Configure Gemini: https://aistudio.google.com/apikeys")
-    print(f"   Acesse: http://localhost:3001")
+    host = os.environ.get("FURIA_HOST", "127.0.0.1")
+    port = int(os.environ.get("FURIA_PORT", "3001"))
+    print(f"   Acesse: http://{host}:{port}")
     print("=" * 50 + "\n")
-    socketio.run(app, host="0.0.0.0", port=3001, debug=False, allow_unsafe_werkzeug=True)
+    socketio.run(app, host=host, port=port, debug=False, allow_unsafe_werkzeug=True)

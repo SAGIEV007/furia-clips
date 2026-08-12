@@ -69,6 +69,18 @@
                 </div>
 
                 <div class="setting-group">
+                    <label>Preset de Plataforma</label>
+                    <select id="settingRenderPreset" class="setting-select">
+                        <option value="shorts" selected>YouTube Shorts — 9:16</option>
+                        <option value="reels">Instagram Reels — 9:16</option>
+                        <option value="tiktok">TikTok — 9:16</option>
+                        <option value="square">Quadrado — 1:1</option>
+                        <option value="landscape">Paisagem — 16:9</option>
+                    </select>
+                    <small class="setting-hint">Define resolução, aspecto e área segura da legenda.</small>
+                </div>
+
+                <div class="setting-group">
                     <label>Pausa Minima (s) <span class="setting-value" id="silenceValue">0.5s</span></label>
                     <input type="range" id="settingSilenceDuration" min="0.2" max="2.0" step="0.1" value="0.5" class="setting-range">
                 </div>

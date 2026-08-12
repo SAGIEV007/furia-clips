@@ -47,6 +47,10 @@ def init_db():
             suggested_description TEXT,
             suggested_hashtags TEXT,
             thumbnail_path TEXT,
+            score_factors TEXT,
+            score_confidence REAL DEFAULT 0,
+            editorial_score_version TEXT,
+            review_status TEXT DEFAULT 'pending',
             status TEXT DEFAULT 'pending',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (project_id) REFERENCES projects(id)
@@ -72,7 +76,30 @@ def init_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (project_id) REFERENCES projects(id)
         );
+
+        CREATE TABLE IF NOT EXISTS clip_feedback (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            clip_id INTEGER NOT NULL,
+            action TEXT NOT NULL,
+            adjustments TEXT,
+            note TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (clip_id) REFERENCES clips(id)
+        );
     """)
+
+    existing_columns = {
+        row["name"] for row in cursor.execute("PRAGMA table_info(clips)").fetchall()
+    }
+    migrations = {
+        "score_factors": "ALTER TABLE clips ADD COLUMN score_factors TEXT",
+        "score_confidence": "ALTER TABLE clips ADD COLUMN score_confidence REAL DEFAULT 0",
+        "editorial_score_version": "ALTER TABLE clips ADD COLUMN editorial_score_version TEXT",
+        "review_status": "ALTER TABLE clips ADD COLUMN review_status TEXT DEFAULT 'pending'",
+    }
+    for column, statement in migrations.items():
+        if column not in existing_columns:
+            cursor.execute(statement)
 
     for key, value in DEFAULT_SETTINGS.items():
         cursor.execute(
@@ -196,6 +223,57 @@ def update_clip_seo(clip_id, titles, tags, description, hashtags):
     )
     conn.commit()
     conn.close()
+
+
+def update_clip_editorial_score(clip_id, score, factors, confidence, version="v1-explainable"):
+    conn = get_db()
+    conn.execute(
+        """UPDATE clips SET viral_score = ?, score_factors = ?,
+           score_confidence = ?, editorial_score_version = ? WHERE id = ?""",
+        (int(score), json.dumps(factors or {}), float(confidence or 0), version, clip_id)
+    )
+    conn.commit()
+    conn.close()
+
+
+def update_clip_review_status(clip_id, status):
+    if status not in {"pending", "approved", "rejected", "needs_review"}:
+        raise ValueError("Estado de revisão inválido")
+    conn = get_db()
+    conn.execute("UPDATE clips SET review_status = ? WHERE id = ?", (status, clip_id))
+    conn.commit()
+    conn.close()
+
+
+def save_clip_feedback(clip_id, action, adjustments=None, note=""):
+    if action not in {"approved", "rejected", "adjusted", "rendered"}:
+        raise ValueError("Ação de feedback inválida")
+    conn = get_db()
+    status = action if action in {"approved", "rejected"} else "needs_review"
+    conn.execute(
+        "INSERT INTO clip_feedback (clip_id, action, adjustments, note) VALUES (?, ?, ?, ?)",
+        (clip_id, action, json.dumps(adjustments or {}), note or ""),
+    )
+    conn.execute("UPDATE clips SET review_status = ? WHERE id = ?", (status, clip_id))
+    conn.commit()
+    conn.close()
+
+
+def get_clip_feedback(clip_id):
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT * FROM clip_feedback WHERE clip_id = ? ORDER BY created_at DESC", (clip_id,)
+    ).fetchall()
+    conn.close()
+    result = []
+    for row in rows:
+        item = dict(row)
+        try:
+            item["adjustments"] = json.loads(item.get("adjustments") or "{}")
+        except json.JSONDecodeError:
+            item["adjustments"] = {}
+        result.append(item)
+    return result
 
 
 def update_clip_thumbnail(clip_id, thumbnail_path):

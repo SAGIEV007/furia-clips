@@ -39,6 +39,7 @@ DEFAULT_SETTINGS = {
     "channel_context": "Canal de politica brasileira conservadora. Furia da Nacao (@FuriaNacao). Foco em cortes do Renan Santos e MBL. Conteudo voltado para engajamento e viralizacao em plataformas de video curto.",
     "export_format": "mp4",
     "export_quality": "high",
+    "render_preset": "shorts",
 }
 
 ALLOWED_EXTENSIONS = {".mp4", ".mkv", ".avi", ".mov", ".webm", ".flv", ".wmv"}

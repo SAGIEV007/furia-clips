@@ -2,7 +2,9 @@ import subprocess
 import os
 import json
 import tempfile
+import subprocess
 from config import PROCESSED_DIR
+from .render_presets import get_preset
 
 
 class SubtitleGenerator:
@@ -17,6 +19,8 @@ class SubtitleGenerator:
         self.highlight_size = self.settings.get("subtitle_highlight_size", 5)
         self.position = self.settings.get("subtitle_position", "bottom")
         self.style = self.settings.get("subtitle_style", "word_by_word")
+        preset_name = self.settings.get("render_preset", "shorts")
+        self.preset = get_preset(preset_name) if isinstance(preset_name, str) else get_preset("shorts")
 
     def generate_ass_file(self, segments, output_path, video_width=1080, video_height=1920):
         margin_v = 120 if self.position == "bottom" else 80
@@ -80,9 +84,9 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                     text_parts = []
                     for j, cw in enumerate(chunk):
                         if j == highlight_idx:
-                            text_parts.append("{\\rHighlight}" + cw["word"] + "{\\rDefault}")
+                            text_parts.append("{\\rHighlight}" + self._escape_ass_text(cw.get("word", "")) + "{\\rDefault}")
                         else:
-                            text_parts.append(cw["word"])
+                            text_parts.append(self._escape_ass_text(cw.get("word", "")))
 
                     line_text = " ".join(text_parts)
                     lines += f"Dialogue: 0,{w_start},{w_end},Default,,0,0,0,,{line_text}\n"
@@ -94,7 +98,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         for seg in segments:
             start = self._seconds_to_ass_time(seg["start"])
             end = self._seconds_to_ass_time(seg["end"])
-            text = seg["text"].replace("\n", "\\N")
+            text = self._escape_ass_text(seg.get("text", ""))
             lines += f"Dialogue: 0,{start},{end},Default,,0,0,0,,{text}\n"
         return lines
 
@@ -140,6 +144,9 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 idx += 1
         return output_path
 
+    def _escape_ass_text(self, text):
+        return str(text or "").replace("\\", "\\\\").replace("{", "\\{").replace("}", "\\}").replace("\n", "\\N")
+
     def _color_to_ass(self, hex_color):
         hex_color = hex_color.lstrip("#")
         r = int(hex_color[0:2], 16)
@@ -148,6 +155,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         return f"&H00{b:02X}{g:02X}{r:02X}"
 
     def _seconds_to_ass_time(self, seconds):
+        seconds = max(0.0, float(seconds))
         h = int(seconds // 3600)
         m = int((seconds % 3600) // 60)
         s = int(seconds % 60)
@@ -155,6 +163,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         return f"{h}:{m:02d}:{s:02d}.{cs:02d}"
 
     def _seconds_to_srt_time(self, seconds):
+        seconds = max(0.0, float(seconds))
         h = int(seconds // 3600)
         m = int((seconds % 3600) // 60)
         s = int(seconds % 60)

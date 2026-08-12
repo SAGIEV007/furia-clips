@@ -1,15 +1,18 @@
-import subprocess
 import json
 import os
 import re
 import unicodedata
+import subprocess
 from config import EXPORT_DIR
+from .media_validation import validate_media
+from .render_presets import get_preset, ffmpeg_video_filter
 
 
 class VideoCutter:
-    def __init__(self, method="intelligent", target_duration=45):
+    def __init__(self, method="intelligent", target_duration=45, preset="shorts"):
         self.method = method
         self.target_duration = target_duration
+        self.preset = get_preset(preset) if isinstance(preset, str) else (preset or get_preset("shorts"))
 
     def get_video_info(self, video_path):
         cmd = [
@@ -91,24 +94,14 @@ class VideoCutter:
         return candidates
 
     def cut_clip(self, video_path, start_time, end_time, output_path,
-                 vertical=True, emit_progress=None, video_layout=None):
+                 vertical=True, emit_progress=None, video_layout=None, preset=None):
         if emit_progress:
             emit_progress(f"Cortando clip {start_time:.1f}s - {end_time:.1f}s...")
 
         duration = end_time - start_time
 
-        vf_filters = []
-        if vertical:
-            if video_layout == "debate":
-                # For debates: letterbox the original 16:9 frame into 9:16
-                # This preserves ALL participants visible
-                vf_filters.append("scale=1080:-2")
-                vf_filters.append("pad=1080:1920:(ow-iw)/2:(oh-ih)/2:black")
-            else:
-                vf_filters.append("crop=ih*9/16:ih")
-                vf_filters.append("scale=1080:1920")
-
-        vf_str = ",".join(vf_filters) if vf_filters else None
+        active_preset = preset or self.preset
+        vf_str = ffmpeg_video_filter(active_preset, layout=video_layout or "center") if vertical else None
 
         cmd = [
             "ffmpeg", "-y",
@@ -140,7 +133,7 @@ class VideoCutter:
         return output_path
 
     def cut_clip_with_face_tracking(self, video_path, start_time, end_time,
-                                     output_path, face_positions=None, emit_progress=None):
+                                     output_path, face_positions=None, emit_progress=None, preset=None):
         if emit_progress:
             emit_progress(f"Cortando clip com face tracking {start_time:.1f}s - {end_time:.1f}s...")
 
@@ -164,7 +157,8 @@ class VideoCutter:
         else:
             crop_x = (orig_w - crop_w) // 2
 
-        vf = f"crop={crop_w}:{orig_h}:{crop_x}:0,scale=1080:1920"
+        active_preset = preset or self.preset
+        vf = f"crop={crop_w}:{orig_h}:{crop_x}:0,scale={active_preset['width']}:{active_preset['height']}"
 
         cmd = [
             "ffmpeg", "-y",
@@ -208,7 +202,8 @@ class VideoCutter:
 
     def batch_cut(self, video_path, cuts, project_name, use_face_tracking=False,
                   face_positions_map=None, emit_progress=None, output_dir=None,
-                  video_layout=None):
+                  video_layout=None, preset=None):
+        active_preset = get_preset(preset) if isinstance(preset, str) else (preset or self.preset)
         base_export = output_dir if output_dir and os.path.isabs(output_dir) else EXPORT_DIR
 
         # Create subfolder named after the video
@@ -247,16 +242,33 @@ class VideoCutter:
                 face_pos = face_positions_map.get(i, None)
                 result = self.cut_clip_with_face_tracking(
                     video_path, padded_start, padded_end,
-                    output_path, face_pos, emit_progress
+                    output_path, face_pos, emit_progress, active_preset
                 )
             else:
                 result = self.cut_clip(
                     video_path, padded_start, padded_end,
                     output_path, vertical=True, emit_progress=emit_progress,
-                    video_layout=video_layout
+                    video_layout=video_layout, preset=active_preset
                 )
 
             if result:
+                validation = validate_media(
+                    result,
+                    expected_width=active_preset["width"],
+                    expected_height=active_preset["height"],
+                    expected_duration=max(0.1, padded_end - padded_start),
+                    duration_tolerance=2.0,
+                    require_audio=True,
+                    require_video=True,
+                )
+                if not validation.valid:
+                    if emit_progress:
+                        emit_progress(
+                            f"Validação falhou para {os.path.basename(result)}: "
+                            + "; ".join(validation.errors),
+                            "error",
+                        )
+                    continue
                 results.append({
                     "index": i,
                     "path": output_path,
@@ -267,6 +279,8 @@ class VideoCutter:
                     "title": clip_title,
                     "rank": rank,
                     "output_folder": export_dir,
+                    "validation": validation.as_dict(),
+                    "preset": active_preset["aspect"],
                 })
 
         if emit_progress:
