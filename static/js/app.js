@@ -15,6 +15,7 @@ const state = {
     processingMode: "unknown",
     selectionSource: "unknown",
     outputFolder: "",
+    activeJob: null,
 };
 
 // ─── WebSocket Connection ───
@@ -42,6 +43,10 @@ socket.on("progress", (data) => {
 
 socket.on("status", (data) => {
     handleStatusUpdate(data);
+});
+
+socket.on("job_update", (job) => {
+    handleJobUpdate(job);
 });
 
 // ─── Ollama Status ───
@@ -192,6 +197,39 @@ function showProgressBar() {
             }
         }, 500);
         bar.dataset.interval = interval;
+    }
+}
+
+function handleJobUpdate(job) {
+    state.activeJob = job;
+    const container = document.getElementById("progressBarContainer");
+    const bar = document.getElementById("progressBar");
+    if (container && bar && ["queued", "running", "cancel_requested"].includes(job.state)) {
+        container.style.display = "block";
+        bar.dataset.animating = "false";
+        bar.style.width = `${Math.max(2, Math.min(100, job.progress || 0))}%`;
+        addConsoleLog(`[Job ${job.id.slice(0, 8)}] ${job.message || job.stage || job.state}`, "info");
+    }
+    if (job.state === "completed") {
+        if (bar) bar.style.width = "100%";
+        setTimeout(hideProgressBar, 250);
+    } else if (job.state === "failed") {
+        hideProgressBar();
+        showToast(job.error || "O job falhou", "error");
+    } else if (job.state === "cancelled") {
+        hideProgressBar();
+        showToast("Processamento cancelado", "warning");
+    }
+}
+
+async function recoverActiveJobs() {
+    try {
+        const response = await fetch("/api/jobs?limit=10");
+        const payload = await response.json();
+        const active = (payload.jobs || []).find(job => ["queued", "running", "cancel_requested"].includes(job.state));
+        if (active) handleJobUpdate(active);
+    } catch (error) {
+        addConsoleLog("[Job] Não foi possível recuperar o status persistido.", "warning");
     }
 }
 
@@ -717,6 +755,9 @@ function displayResults(clips) {
         const tags = seo.tags || [];
         const hashtags = seo.hashtags || [];
         const breakdown = clip.breakdown || {};
+        const factors = clip.factors || {};
+        const reviewStatus = clip.review_status || "pending";
+        const confidence = Math.round((clip.confidence || 0) * 100);
         const clipSource = clip.source || "nlp";
         const sourceLabels = { "gemini": "Gemini", "llm": "Ollama", "nlp": "NLP" };
         const sourceLabel = sourceLabels[clipSource] || "NLP";
@@ -777,6 +818,20 @@ function displayResults(clips) {
                     </div>
                 </div>` : ''}
 
+                ${Object.keys(factors).length > 0 ? `
+                <div class="editorial-factors" style="margin:10px 0; padding:10px; border-radius:8px; background:rgba(255,255,255,0.04)">
+                    <div style="display:flex; justify-content:space-between; gap:8px; font-size:12px; opacity:.9; margin-bottom:6px">
+                        <span>Potencial editorial explicável</span><span>Confiança: ${confidence}%</span>
+                    </div>
+                    ${Object.entries(factors).filter(([key]) => key !== 'diversity').slice(0, 7).map(([key, value]) => `
+                        <div style="display:flex; align-items:center; gap:8px; margin:4px 0; font-size:11px">
+                            <span style="width:112px">${key.replaceAll('_', ' ')}</span>
+                            <div style="flex:1; height:5px; background:rgba(255,255,255,.12); border-radius:4px"><div style="width:${Math.max(0, Math.min(100, Number(value)))}%; height:100%; background:#f59e0b; border-radius:4px"></div></div>
+                            <span style="width:28px; text-align:right">${Number(value).toFixed(0)}</span>
+                        </div>`).join('')}
+                    ${clip.reason ? `<div style="font-size:11px; opacity:.75; margin-top:7px">${clip.reason}</div>` : ''}
+                </div>` : ''}
+
                 <div class="result-text-preview">${clip.text ? clip.text.substring(0, 150) + (clip.text.length > 150 ? '...' : '') : "Sem transcricao"}</div>
 
                 ${clip.text ? `
@@ -815,12 +870,38 @@ function displayResults(clips) {
                         <span class="material-icons-round">image</span> Capa
                     </button>
                 </div>
+                <div class="review-actions" style="display:flex; gap:6px; margin-top:8px; align-items:center">
+                    <button class="btn btn-sm" onclick="setClipReview(${originalIndex}, 'approved')" style="border-color:#22c55e">✓ Aprovar</button>
+                    <button class="btn btn-sm" onclick="setClipReview(${originalIndex}, 'rejected')" style="border-color:#ef4444">✕ Rejeitar</button>
+                    <span class="review-status" id="review-status-${originalIndex}" style="font-size:11px; opacity:.75">${reviewStatus}</span>
+                </div>
             </div>`;
 
         grid.appendChild(card);
     });
 
     section.scrollIntoView({ behavior: "smooth" });
+}
+
+async function setClipReview(index, action) {
+    const clip = state.clips[index];
+    if (!clip) return;
+    clip.review_status = action;
+    const status = document.getElementById(`review-status-${index}`);
+    if (status) status.textContent = action === "approved" ? "aprovado" : "rejeitado";
+    try {
+        if (clip.clip_id) {
+            const response = await fetch(`/api/clips/${clip.clip_id}/feedback`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action }),
+            });
+            if (!response.ok) throw new Error("feedback rejected");
+        }
+        showToast(action === "approved" ? "Clip aprovado" : "Clip rejeitado", action === "approved" ? "success" : "warning");
+    } catch (error) {
+        showToast("Não foi possível salvar o feedback", "error");
+    }
 }
 
 // --- Transcript Toggle ---
@@ -966,6 +1047,7 @@ function applySettings() {
     if (s.whisper_model) document.getElementById("settingWhisperModel").value = s.whisper_model;
     if (s.cut_method) document.getElementById("settingCutMethod").value = s.cut_method;
     if (s.cut_duration) document.getElementById("settingCutDuration").value = s.cut_duration;
+    if (s.render_preset) document.getElementById("settingRenderPreset").value = s.render_preset;
     if (s.min_silence_duration != null) {
         document.getElementById("settingSilenceDuration").value = s.min_silence_duration;
         document.getElementById("silenceValue").textContent = s.min_silence_duration + "s";
@@ -1023,6 +1105,7 @@ document.getElementById("btnSaveSettings").addEventListener("click", async () =>
         whisper_model: document.getElementById("settingWhisperModel").value,
         cut_method: document.getElementById("settingCutMethod").value,
         cut_duration: parseInt(document.getElementById("settingCutDuration").value),
+        render_preset: document.getElementById("settingRenderPreset").value,
         min_silence_duration: parseFloat(document.getElementById("settingSilenceDuration").value),
         padding: 0.25,
         language: document.getElementById("settingLanguage").value,
@@ -1238,6 +1321,7 @@ document.addEventListener("keydown", (e) => {
 document.addEventListener("DOMContentLoaded", () => {
     loadSettings();
     loadMediaFiles();
+    recoverActiveJobs();
     // Check Ollama status on load
     socket.emit("check_ollama");
 });
