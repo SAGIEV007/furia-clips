@@ -10,6 +10,8 @@ Evaluates clips on 4 dimensions:
 
 import re
 
+from .editorial_ranker import EditorialRanker
+
 
 HOOK_PATTERNS_PT = [
     r"voce\s+sabia",
@@ -55,6 +57,7 @@ EMOTIONAL_WORDS_PT = [
 class ViralRanker:
     def __init__(self, channel_context=""):
         self.channel_context = channel_context
+        self._editorial_ranker = EditorialRanker(channel_context)
 
     def score_clip(self, clip):
         """Score a clip and assign A/B/C grades per category."""
@@ -240,19 +243,13 @@ class ViralRanker:
         else:
             return "C"
 
-    def rank_clips(self, clips_data):
-        """Rank clips and ensure all have scores and grades."""
-        ranked = []
-        for clip in clips_data:
-            # If clip already has score from ClipSelector, keep it
-            if clip.get("viral_score") and clip.get("breakdown"):
-                ranked.append(clip)
-            else:
-                score_data = self.score_clip(clip)
-                ranked.append({**clip, **score_data})
-
-        ranked.sort(key=lambda x: x["viral_score"], reverse=True)
-        return ranked
+    def rank_clips(self, clips_data, user_context="", energy_profile=None):
+        """Rank clips with explainable editorial factors and legacy aliases."""
+        return self._editorial_ranker.rank_clips(
+            clips_data,
+            user_context=user_context,
+            energy_profile=energy_profile,
+        )
 
     def _normalize(self, text):
         text = text.lower()
