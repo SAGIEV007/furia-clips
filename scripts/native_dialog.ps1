@@ -7,6 +7,10 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+try {
+    [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)
+    [Console]::ErrorEncoding = New-Object System.Text.UTF8Encoding($false)
+} catch { }
 Add-Type -AssemblyName System.Windows.Forms
 [System.Windows.Forms.Application]::EnableVisualStyles()
 
@@ -25,6 +29,7 @@ if ($Mode -eq "folder") {
 
 $result = $dialog.ShowDialog()
 if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
-    if ($Mode -eq "folder") { Write-Output $dialog.SelectedPath }
-    else { Write-Output $dialog.FileName }
+    if ($Mode -eq "folder") { [Console]::WriteLine($dialog.SelectedPath) }
+    else { [Console]::WriteLine($dialog.FileName) }
 }
+exit 0

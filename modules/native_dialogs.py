@@ -22,6 +22,20 @@ class DialogError(RuntimeError):
     """Raised when a native dialog cannot be opened."""
 
 
+def _decode_process_output(value: bytes | str | None) -> str:
+    """Decode PowerShell output across Windows code pages without crashing."""
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value
+    for encoding in ("utf-8-sig", "utf-8", "cp1252", "mbcs"):
+        try:
+            return value.decode(encoding)
+        except (UnicodeDecodeError, LookupError):
+            continue
+    return value.decode("utf-8", errors="replace")
+
+
 def _existing_dir(initial_path: str | None) -> str:
     if initial_path:
         candidate = Path(initial_path).expanduser()
@@ -52,10 +66,13 @@ def choose_path(mode: str = "folder", initial_path: str | None = None, title: st
             "-Title",
             title,
         ]
-        result = subprocess.run(command, capture_output=True, text=True, timeout=120)
+        result = subprocess.run(command, capture_output=True, text=False, timeout=120)
+        stdout = _decode_process_output(getattr(result, "stdout", None))
+        stderr = _decode_process_output(getattr(result, "stderr", None))
         if result.returncode != 0:
-            raise DialogError(result.stderr.strip() or "Falha ao abrir diálogo nativo")
-        return result.stdout.strip().splitlines()[-1] if result.stdout.strip() else ""
+            raise DialogError(stderr.strip() or "Falha ao abrir diálogo nativo")
+        lines = [line.strip() for line in stdout.splitlines() if line.strip()]
+        return lines[-1] if lines else ""
 
     try:
         import tkinter as tk
