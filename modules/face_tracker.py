@@ -17,6 +17,7 @@ class FaceTracker:
         self._available = None
         self._layout = LAYOUT_UNKNOWN
         self._face_count_history = []
+        self._last_detected_face_count = 0
 
     def _ensure_detector(self):
         if self._available is False:
@@ -278,11 +279,13 @@ class FaceTracker:
 
             if hasattr(mp, 'solutions') and hasattr(mp.solutions, 'face_detection'):
                 results = self.detector.process(rgb_frame)
+                self._last_detected_face_count = len(results.detections or [])
                 if results.detections:
                     return len(results.detections)
             elif hasattr(mp, 'tasks'):
                 mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
                 results = self.detector.detect(mp_image)
+                self._last_detected_face_count = len(results.detections or [])
                 if results.detections:
                     return len(results.detections)
         except Exception:
@@ -326,8 +329,10 @@ class FaceTracker:
                 if frame_idx % frame_interval == 0:
                     time_sec = frame_idx / fps
                     face = self._detect_face_in_frame(frame)
+                    face_count = self._last_detected_face_count
                     if face:
                         face["time"] = round(time_sec, 3)
+                        face["face_count"] = face_count
                         face_positions.append(face)
 
                 frame_idx += 1
@@ -352,6 +357,7 @@ class FaceTracker:
 
             if hasattr(mp, 'solutions') and hasattr(mp.solutions, 'face_detection'):
                 results = self.detector.process(rgb_frame)
+                self._last_detected_face_count = len(results.detections or [])
                 if results.detections:
                     largest = max(
                         results.detections,
@@ -370,6 +376,7 @@ class FaceTracker:
                 # Newer API
                 mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
                 results = self.detector.detect(mp_image)
+                self._last_detected_face_count = len(results.detections or [])
                 if results.detections:
                     largest = max(
                         results.detections,
@@ -393,6 +400,41 @@ class FaceTracker:
             fp for fp in all_positions
             if start_time <= fp["time"] <= end_time
         ]
+
+    def assess_segment_tracking(self, all_positions, start_time, end_time,
+                                min_confidence=0.60, min_coverage=0.60,
+                                max_position_jump=0.30):
+        """Return stable positions only when a single visible speaker is reliable."""
+        duration = max(0.1, float(end_time) - float(start_time))
+        positions = self.get_face_positions_for_segment(all_positions, start_time, end_time)
+        positions = [p for p in positions if float(p.get("confidence", 0)) >= min_confidence]
+        if len(positions) < 3:
+            return {"confident": False, "positions": positions, "reason": "poucas detecções faciais"}
+
+        positions.sort(key=lambda item: float(item.get("time", 0)))
+        coverage = (positions[-1]["time"] - positions[0]["time"]) / duration
+        average_confidence = sum(float(p.get("confidence", 0)) for p in positions) / len(positions)
+        multiple_face_samples = sum(1 for p in positions if int(p.get("face_count", 1) or 1) > 1)
+        jumps = []
+        for previous, current in zip(positions, positions[1:]):
+            jumps.append(abs(float(current.get("center_x", 0.5)) - float(previous.get("center_x", 0.5))))
+        largest_jump = max(jumps, default=0.0)
+        confident = (
+            coverage >= min_coverage
+            and average_confidence >= min_confidence
+            and multiple_face_samples == 0
+            and largest_jump <= max_position_jump
+        )
+        reason = "estável" if confident else "detecção ambígua, múltiplas faces ou troca de câmera"
+        return {
+            "confident": confident,
+            "positions": positions,
+            "coverage": round(coverage, 3),
+            "average_confidence": round(average_confidence, 3),
+            "largest_jump": round(largest_jump, 3),
+            "multiple_face_samples": multiple_face_samples,
+            "reason": reason,
+        }
 
     def get_average_face_position(self, positions):
         if not positions:

@@ -93,7 +93,8 @@ def probe_public_url(url: str) -> dict:
     }
 
 
-def download_public_video(url: str, destination: str, progress=None) -> dict:
+def download_public_video(url: str, destination: str, progress=None, max_height: int = 1080) -> dict:
+    """Download the best public source up to the requested vertical resolution."""
     value = validate_public_url(url)
     yt_dlp = _yt_dlp()
     target = Path(destination).expanduser().resolve()
@@ -110,8 +111,17 @@ def download_public_video(url: str, destination: str, progress=None) -> dict:
                 progress({"status": "finished", "filename": status.get("filename", "")})
         hooks.append(hook)
 
+    try:
+        height_limit = max(144, min(int(max_height or 1080), 1080))
+    except (TypeError, ValueError):
+        height_limit = 1080
+
     options = {
-        "format": "bv*+ba/b",
+        # Prefer the best separate video/audio streams up to 1080p. The final
+        # fallback still accepts a combined stream when the extractor exposes
+        # no DASH pair at or below the configured limit.
+        "format": f"bv*[height<={height_limit}]+ba/b[height<={height_limit}]/b",
+        "format_sort": [f"res:{height_limit}", "fps", "codec:h264", "size", "br", "asr"],
         "merge_output_format": "mp4",
         "outtmpl": str(target / "%(title).120B [%(id)s].%(ext)s"),
         "noplaylist": True,
@@ -145,4 +155,5 @@ def download_public_video(url: str, destination: str, progress=None) -> dict:
         "duration": info.get("duration"),
         "url": value,
         "extractor": info.get("extractor", ""),
+        "max_height": height_limit,
     }

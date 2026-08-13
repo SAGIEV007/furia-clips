@@ -1979,6 +1979,62 @@ body {
     min-width: 220px;
 }
 
+.source-download-options {
+    margin-top: 12px;
+    padding: 10px 12px;
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: var(--radius-sm);
+    background: rgba(255,255,255,.025);
+}
+
+.source-destination-row, .source-option-row {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    flex-wrap: wrap;
+}
+
+.source-destination-row {
+    color: var(--text-secondary);
+    font-size: 12px;
+}
+
+.source-destination-row > span:nth-child(2) {
+    flex: 1 1 260px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.source-option-row {
+    justify-content: space-between;
+    margin-top: 10px;
+    color: var(--text-secondary);
+    font-size: 12px;
+}
+
+.source-checkbox {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.source-checkbox input {
+    accent-color: var(--gold);
+}
+
+.source-quality-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.source-quality-label .setting-select {
+    min-width: 82px;
+    padding: 5px 7px;
+    font-size: 12px;
+}
+
 .source-status {
     margin-top: 10px;
     color: var(--text-secondary);
@@ -1986,4 +2042,5 @@ body {
 }
 
 .source-status.success { color: var(--success); }
+.source-status.warning { color: var(--warning); }
 .source-status.error { color: var(--error); }

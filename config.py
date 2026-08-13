@@ -46,6 +46,8 @@ DEFAULT_SETTINGS = {
     "export_quality": "high",
     "render_preset": "shorts",
     "output_dir": "",
+    "source_download_dir": "",
+    "source_max_height": 1080,
 }
 
 ALLOWED_EXTENSIONS = {".mp4", ".mkv", ".avi", ".mov", ".webm", ".flv", ".wmv"}

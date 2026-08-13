@@ -18,6 +18,8 @@ const state = {
     activeJob: null,
     manualTranscript: null,
     sourceUrl: "",
+    sourceDownloadDir: "",
+    sourceMaxHeight: 1080,
 };
 
 // ─── WebSocket Connection ───
@@ -129,12 +131,25 @@ function handleStatusUpdate(data) {
             break;
         case "source_import_complete":
             hideProgressBar();
-            showSourceStatus("Fonte importada; selecione o vídeo na biblioteca.", "success");
+            state.sourceDownloadDir = data.data.destination_dir || state.sourceDownloadDir;
+            if (data.data.transcription) {
+                state.manualTranscript = data.data.transcription;
+                const transcriptCount = data.data.transcription.segment_count || data.data.transcription.segments?.length || 0;
+                const transcriptFile = data.data.transcription_files?.text ? ` TXT salvo em ${data.data.transcription_files.text}` : "";
+                showSourceStatus(`Fonte importada e transcrição automática pronta: ${transcriptCount} segmentos.${transcriptFile}`, "success");
+            } else {
+                showSourceStatus("Fonte importada; a transcrição automática não ficou disponível. Você pode clicar em Gerar do vídeo.", "warning");
+            }
+            const externalImported = {
+                path: data.data.path || data.data.absolute_path,
+                name: data.data.title || (data.data.path || "Vídeo importado").split(/[\\/]/).pop(),
+                size_human: "Fonte pública",
+            };
             loadMediaFiles().then(() => {
                 const imported = state.mediaFiles.find(item => item.path === data.data.path);
-                if (imported) selectVideo(imported);
+                selectVideo(imported || externalImported, null);
             });
-            showToast("Vídeo do link importado!", "success");
+            showToast(data.data.transcription ? "Vídeo e transcrição importados!" : "Vídeo do link importado!", "success");
             break;
         case "cut_complete":
             hideProgressBar();
@@ -309,7 +324,7 @@ function renderMediaLibrary() {
 
         card.addEventListener("click", (e) => {
             if (e.target.closest(".media-delete-btn")) return;
-            selectVideo(file);
+            selectVideo(file, card);
         });
 
         const deleteBtn = card.querySelector(".media-delete-btn");
@@ -353,7 +368,7 @@ function truncateName(name, max) {
 
 // ─── Video Selection & Preview ───
 
-function selectVideo(item) {
+function selectVideo(item, sourceElement = null) {
     const changedVideo = state.selectedVideo && state.selectedVideo !== item.path;
     state.selectedVideo = item.path;
     state.selectedVideoName = item.name;
@@ -383,7 +398,7 @@ function selectVideo(item) {
 
     // Update media grid selection
     document.querySelectorAll(".media-card").forEach(el => el.classList.remove("selected"));
-    event.currentTarget.classList.add("selected");
+    if (sourceElement?.classList) sourceElement.classList.add("selected");
 
     // Show video preview
     showVideoPreview(item);
@@ -400,7 +415,7 @@ function showVideoPreview(item) {
 
     section.style.display = "block";
     nameEl.textContent = item.name;
-    source.src = `/workspace/${item.path}`;
+    source.src = mediaUrlForPath(item.path);
     video.load();
 
     video.addEventListener("loadedmetadata", () => {
@@ -1168,6 +1183,30 @@ document.getElementById("btnApplyTranscript")?.addEventListener("click", async (
     }
 });
 
+document.getElementById("btnGenerateTranscript")?.addEventListener("click", async () => {
+    if (!requireVideo()) return;
+    showProgressBar();
+    showSourceStatus("Gerando transcrição do vídeo; isso pode levar alguns minutos...", "");
+    addConsoleLog("[Transcrição] Geração automática solicitada.", "info");
+    try {
+        const res = await fetch("/api/process/transcribe", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                video_path: state.selectedVideo,
+                transcript_language: document.getElementById("settingLanguage")?.value || "pt",
+            }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) throw new Error(data.error || "Não foi possível iniciar a transcrição");
+        showSourceStatus("Transcrição iniciada; acompanhe o console abaixo.", "");
+    } catch (error) {
+        hideProgressBar();
+        showSourceStatus(error.message, "error");
+        showToast(error.message, "error");
+    }
+});
+
 document.getElementById("btnProbeSource")?.addEventListener("click", async () => {
     const input = document.getElementById("sourceUrlInput");
     const url = normalizePublicUrlInput(input?.value);
@@ -1193,6 +1232,41 @@ document.getElementById("btnProbeSource")?.addEventListener("click", async () =>
     }
 });
 
+async function chooseSourceDirectory() {
+    try {
+        const res = await fetch("/api/dialog/choose", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                mode: "folder",
+                initial_path: state.sourceDownloadDir || "",
+                title: "Escolha onde salvar o vídeo baixado",
+            }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success || !data.path) {
+            if (data.cancelled) return "";
+            throw new Error(data.error || "Não foi possível escolher a pasta");
+        }
+        state.sourceDownloadDir = data.path;
+        const label = document.getElementById("sourceDestinationText");
+        if (label) label.textContent = data.path;
+        await fetch("/api/settings", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ source_download_dir: data.path }),
+        });
+        return data.path;
+    } catch (error) {
+        showSourceStatus(`Não foi possível abrir o explorador: ${error.message}`, "error");
+        return "";
+    }
+}
+
+document.getElementById("btnChooseSourceDir")?.addEventListener("click", async () => {
+    await chooseSourceDirectory();
+});
+
 document.getElementById("btnImportSource")?.addEventListener("click", async () => {
     const input = document.getElementById("sourceUrlInput");
     const url = normalizePublicUrlInput(input?.value);
@@ -1201,18 +1275,27 @@ document.getElementById("btnImportSource")?.addEventListener("click", async () =
         showSourceStatus("Informe uma URL pública.", "error");
         return;
     }
+    const destination = await chooseSourceDirectory();
+    if (!destination) {
+        showSourceStatus("Importação cancelada: escolha uma pasta para salvar o vídeo.", "warning");
+        return;
+    }
+    const maxHeight = parseInt(document.getElementById("sourceMaxHeight")?.value || state.sourceMaxHeight || 1080, 10);
+    const autoTranscribe = document.getElementById("sourceAutoTranscribe")?.checked !== false;
+    state.sourceMaxHeight = maxHeight;
     showProgressBar();
-    showSourceStatus("Importação iniciada; acompanhe o console abaixo.", "");
+    showSourceStatus("Download e transcrição iniciados; acompanhe o console abaixo.", "");
     try {
         const res = await fetch("/api/source/import", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ url }),
+            body: JSON.stringify({ url, destination_dir: destination, max_height: maxHeight, auto_transcribe: autoTranscribe }),
         });
         const data = await res.json();
         if (!res.ok || !data.success) throw new Error(data.error || "Não foi possível iniciar a importação");
         state.sourceUrl = url;
-        addConsoleLog("[Fonte] Download da URL pública iniciado.", "info");
+        addConsoleLog(`[Fonte] Download iniciado em ${destination}, limite de qualidade ${maxHeight}p.`, "info");
+        if (autoTranscribe) addConsoleLog("[Fonte] A transcrição timestampada será gerada automaticamente após o download.", "info");
     } catch (error) {
         hideProgressBar();
         showSourceStatus(error.message, "error");
@@ -1265,6 +1348,16 @@ function applySettings() {
     if (s.output_dir) {
         state.outputDir = s.output_dir;
         document.getElementById("outputDirText").textContent = s.output_dir || "workspace/exports (padrao)";
+    }
+    if (s.source_download_dir) {
+        state.sourceDownloadDir = s.source_download_dir;
+        const sourceLabel = document.getElementById("sourceDestinationText");
+        if (sourceLabel) sourceLabel.textContent = s.source_download_dir;
+    }
+    if (s.source_max_height) {
+        state.sourceMaxHeight = Math.min(1080, Number(s.source_max_height) || 1080);
+        const quality = document.getElementById("sourceMaxHeight");
+        if (quality) quality.value = String(state.sourceMaxHeight);
     }
 }
 
@@ -1322,6 +1415,8 @@ document.getElementById("btnSaveSettings").addEventListener("click", async () =>
         gemini_api_key: document.getElementById("settingGeminiKey").value,
         claude_api_key: document.getElementById("settingClaudeKey").value,
         output_dir: state.outputDir,
+        source_download_dir: state.sourceDownloadDir,
+        source_max_height: state.sourceMaxHeight,
     };
 
     try {

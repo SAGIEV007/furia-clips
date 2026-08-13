@@ -121,6 +121,77 @@ def _workspace_input_path(relative_path):
         return None
 
 
+def _allowed_media_roots(settings=None):
+    settings = settings or get_all_settings()
+    roots = [WORKSPACE_DIR]
+    for key in ("source_download_dir", "output_dir"):
+        value = str(settings.get(key) or "").strip()
+        if value:
+            roots.append(os.path.abspath(os.path.expanduser(value)))
+    return roots
+
+
+def _resolve_media_input(requested):
+    """Resolve workspace-relative or explicitly configured external media."""
+    value = str(requested or "").strip()
+    if not value:
+        return None
+    if not os.path.isabs(value):
+        return _workspace_input_path(value)
+    target = os.path.abspath(os.path.expanduser(value))
+    if not os.path.isfile(target):
+        return None
+    if os.path.splitext(target)[1].lower() not in ALLOWED_EXTENSIONS:
+        return None
+    settings = get_all_settings()
+    if not any(_is_under(target, root) for root in _allowed_media_roots(settings)):
+        return None
+    return target
+
+
+def _resolve_source_destination(requested, settings=None):
+    settings = settings or get_all_settings()
+    value = str(requested or settings.get("source_download_dir") or UPLOAD_DIR).strip()
+    target = os.path.abspath(os.path.expanduser(value))
+    os.makedirs(target, exist_ok=True)
+    return target
+
+
+def _transcribe_video_automatically(video_path, settings, emit_progress):
+    """Prefer timestamped Gemini segments, then use the local Whisper engine."""
+    multimodal = _run_gemini_video_analysis(video_path, settings, {}, "", emit_progress)
+    transcription = _transcription_from_gemini_result(multimodal, settings.get("language", "pt"))
+    if transcription:
+        return transcription
+
+    from modules.transcriber import Transcriber
+    transcriber = Transcriber(
+        model_name=settings.get("whisper_model", "small"),
+        language=settings.get("language", "pt"),
+    )
+    transcription = transcriber.transcribe(video_path, emit_progress=emit_progress)
+    transcription["source"] = "whisper"
+    emit_progress(f"[Whisper] Motor: {transcriber._engine}; timestamps por segmento gerados.", "success")
+    return transcription
+
+
+def _save_transcription_artifacts(video_path, transcription):
+    """Save human-readable Tactiq-style and machine-readable transcript files."""
+    base, _ = os.path.splitext(video_path)
+    txt_path = f"{base}.transcript.txt"
+    json_path = f"{base}.transcript.json"
+    with open(txt_path, "w", encoding="utf-8") as handle:
+        for segment in transcription.get("segments", []):
+            start = float(segment.get("start", 0))
+            hours = int(start // 3600)
+            minutes = int((start % 3600) // 60)
+            seconds = start % 60
+            handle.write(f"{hours:02d}:{minutes:02d}:{seconds:06.3f} {segment.get('text', '').strip()}\n")
+    with open(json_path, "w", encoding="utf-8") as handle:
+        json.dump(transcription, handle, ensure_ascii=False, indent=2)
+    return {"text": txt_path, "json": json_path}
+
+
 def _transcription_from_request(data, duration=None):
     """Return a canonical transcription when the user supplied one."""
     text = data.get("transcript_text") or data.get("manual_transcript") or ""
@@ -517,12 +588,19 @@ def api_source_probe():
 def api_source_import():
     data = request.get_json(silent=True) or {}
     url = str(data.get("url", "")).strip()
+    settings = get_all_settings()
     try:
         validate_public_url(url)
-    except SourceIngestError as exc:
+        destination = _resolve_source_destination(data.get("destination_dir"), settings)
+    except (SourceIngestError, OSError) as exc:
         return jsonify({"success": False, "error": str(exc)}), 400
     if current_task["active"]:
         return jsonify({"error": "Já existe um processamento em andamento"}), 409
+
+    max_height = data.get("max_height", settings.get("source_max_height", 1080))
+    auto_transcribe = bool(data.get("auto_transcribe", True))
+    set_setting("source_download_dir", destination)
+    set_setting("source_max_height", max_height)
 
     def task():
         current_task["active"] = True
@@ -530,16 +608,42 @@ def api_source_import():
             emit_progress("[Fonte] Preparando download de URL pública...", "info")
             result = download_public_video(
                 url,
-                UPLOAD_DIR,
+                destination,
+                max_height=max_height,
                 progress=lambda update: emit_progress(
                     f"[Download] {update.get('percent'):.1f}%" if update.get("percent") is not None else "[Download] processando...",
                     "info",
                 ),
             )
-            relative = os.path.relpath(result["path"], WORKSPACE_DIR)
-            event_data = {**result, "path": relative, "absolute_path": result["path"]}
+            result_path = os.path.abspath(result["path"])
+            display_path = os.path.relpath(result_path, WORKSPACE_DIR) if _is_under(result_path, WORKSPACE_DIR) else result_path
+            transcription = None
+            if auto_transcribe:
+                emit_progress("[Transcrição] Gerando timestamps automaticamente antes da análise...", "info")
+                try:
+                    transcription = _transcribe_video_automatically(result_path, settings, emit_progress)
+                    transcript_files = _save_transcription_artifacts(result_path, transcription)
+                    emit_progress(
+                        f"[Transcrição] {transcription.get('segment_count', len(transcription.get('segments', [])))} segmentos prontos; a seleção poderá preservar pergunta e resposta.",
+                        "success",
+                    )
+                except Exception as transcript_exc:
+                    transcript_files = {}
+                    emit_progress(f"[Transcrição] Falha na geração automática; o vídeo continua disponível: {str(transcript_exc)[:220]}", "warning")
+            else:
+                transcript_files = {}
+
+            event_data = {
+                **result,
+                "path": display_path,
+                "absolute_path": result_path,
+                "destination_dir": destination,
+                "transcription": transcription,
+                "transcription_files": transcript_files,
+                "auto_transcribe": auto_transcribe,
+            }
             emit_status("source_import_complete", event_data)
-            emit_progress(f"[Fonte] Vídeo importado em {relative}", "success")
+            emit_progress(f"[Fonte] Vídeo importado em {display_path}", "success")
         except Exception as exc:
             emit_progress(f"[Fonte] Falha ao importar link: {str(exc)}", "error")
             emit_status("error", {"message": str(exc)})
@@ -547,7 +651,7 @@ def api_source_import():
             current_task["active"] = False
 
     threading.Thread(target=task, daemon=True).start()
-    return jsonify({"success": True, "message": "Importação da fonte iniciada"})
+    return jsonify({"success": True, "message": "Importação e transcrição da fonte iniciadas", "destination_dir": destination})
 
 
 @app.route("/api/transcript/parse", methods=["POST"])
@@ -610,7 +714,7 @@ def api_get_project(project_id):
 @app.route("/api/process/silence", methods=["POST"])
 def api_remove_silence():
     data = request.get_json(silent=True) or {}
-    video_path = _workspace_input_path(data.get("video_path", ""))
+    video_path = _resolve_media_input(data.get("video_path", ""))
     if not video_path:
         return jsonify({"error": "Video não encontrado ou caminho inválido"}), 404
 
@@ -650,7 +754,7 @@ def api_remove_silence():
 @app.route("/api/process/transcribe", methods=["POST"])
 def api_transcribe():
     data = request.get_json(silent=True) or {}
-    video_path = _workspace_input_path(data.get("video_path", ""))
+    video_path = _resolve_media_input(data.get("video_path", ""))
     if not video_path:
         return jsonify({"error": "Video não encontrado ou caminho inválido"}), 404
     project_id = data.get("project_id")
@@ -661,17 +765,12 @@ def api_transcribe():
     def task():
         current_task["active"] = True
         try:
-            from modules.transcriber import Transcriber
             settings = get_all_settings()
             result = _transcription_from_request(data)
             if result:
                 emit_progress(f"[Transcrição manual] {result['segment_count']} segmentos importados; Whisper não será executado.", "success")
             else:
-                transcriber = Transcriber(
-                    model_name=settings.get("whisper_model", "small"),
-                    language=settings.get("language", "pt"),
-                )
-                result = transcriber.transcribe(video_path, emit_progress=emit_progress)
+                result = _transcribe_video_automatically(video_path, settings, emit_progress)
 
             if project_id:
                 save_transcription(
@@ -697,7 +796,7 @@ def api_transcribe():
 @app.route("/api/process/cut", methods=["POST"])
 def api_cut_shorts():
     data = request.get_json(silent=True) or {}
-    video_path = _workspace_input_path(data.get("video_path", ""))
+    video_path = _resolve_media_input(data.get("video_path", ""))
     if not video_path:
         return jsonify({"error": "Video não encontrado ou caminho inválido"}), 404
     project_id = data.get("project_id")
@@ -832,7 +931,7 @@ def api_cut_shorts():
                 energy_profile=energy_profile,
             )
 
-            # Step 5: Cut clips (face tracking disabled for now)
+            # Step 5: Cut clips with confidence-gated speaker framing
             emit_progress("=== ETAPA 5/5: Cortando Clips ===", "info")
             from modules.video_cutter import VideoCutter
             cutter = VideoCutter(
@@ -841,12 +940,28 @@ def api_cut_shorts():
                 preset=settings.get("render_preset", "shorts"),
             )
 
-            # Face tracking disabled — focus on selection quality first
             face_positions_map = {}
-            if video_layout == "debate":
-                emit_progress("[Layout] Debate: preservando enquadramento original (sem crop).", "info")
+            original_aspect_indices = set()
+            if tracker and video_layout not in {"debate", "unknown", "fullscreen"}:
+                try:
+                    emit_progress("[Layout] Detectando o locutor para enquadramento automático...", "info")
+                    all_face_positions = tracker.detect_faces_in_video(video_path, sample_interval=2.0, emit_progress=emit_progress)
+                    for index, clip in enumerate(top_clips):
+                        start = float(clip.get("start", 0))
+                        end = float(clip.get("end", start))
+                        assessment = tracker.assess_segment_tracking(all_face_positions, start, end)
+                        if assessment.get("confident"):
+                            face_positions_map[index] = assessment["positions"]
+                            emit_progress(f"[Layout] Clip {index + 1}: locutor estável; reframe 9:16 ativado.", "success")
+                        else:
+                            original_aspect_indices.add(index)
+                            emit_progress(f"[Layout] Clip {index + 1}: {assessment.get('reason', 'sem confiança')}; mantendo 16:9.", "info")
+                except Exception as exc:
+                    original_aspect_indices.update(range(len(top_clips)))
+                    emit_progress(f"[Layout] Rastreamento não disponível: {str(exc)[:180]}. Mantendo 16:9.", "warning")
             else:
-                emit_progress("[Layout] Crop centralizado (face tracking desabilitado).", "info")
+                original_aspect_indices.update(range(len(top_clips)))
+                emit_progress("[Layout] Entrevista com múltiplos locutores ou layout indefinido; mantendo o original 16:9.", "info")
 
             project_name = os.path.splitext(os.path.basename(video_path))[0]
             output_dir = settings.get("output_dir", "") or ""
@@ -854,6 +969,7 @@ def api_cut_shorts():
                 video_path, top_clips, project_name,
                 use_face_tracking=bool(face_positions_map),
                 face_positions_map=face_positions_map,
+                original_aspect_indices=original_aspect_indices,
                 emit_progress=emit_progress,
                 output_dir=output_dir if output_dir else None,
                 video_layout=video_layout,
@@ -918,7 +1034,7 @@ def api_cut_shorts():
 @app.route("/api/process/subtitles", methods=["POST"])
 def api_generate_subtitles():
     data = request.get_json(silent=True) or {}
-    video_path = _workspace_input_path(data.get("video_path", ""))
+    video_path = _resolve_media_input(data.get("video_path", ""))
     if not video_path:
         return jsonify({"error": "Video não encontrado ou caminho inválido"}), 404
     project_id = data.get("project_id")
@@ -1044,7 +1160,7 @@ def api_generate_seo():
 @app.route("/api/process/thumbnail", methods=["POST"])
 def api_generate_thumbnail():
     data = request.get_json(silent=True) or {}
-    video_path = _workspace_input_path(data.get("video_path", ""))
+    video_path = _resolve_media_input(data.get("video_path", ""))
     if not video_path:
         return jsonify({"error": "Video não encontrado ou caminho inválido"}), 404
     time_seconds = data.get("time", 5)
@@ -1093,7 +1209,7 @@ def api_generate_thumbnail():
 @app.route("/api/process/complete", methods=["POST"])
 def api_process_complete():
     data = request.get_json(silent=True) or {}
-    video_path = _workspace_input_path(data.get("video_path", ""))
+    video_path = _resolve_media_input(data.get("video_path", ""))
     if not video_path:
         return jsonify({"error": "Video não encontrado ou caminho inválido"}), 404
     user_context = data.get("user_context", "")
@@ -1435,8 +1551,8 @@ def api_output_file():
         return jsonify({"error": "Arquivo não informado"}), 400
     target = os.path.abspath(os.path.expanduser(requested)) if os.path.isabs(requested) else _workspace_input_path(requested)
     settings = get_all_settings()
-    configured_root = settings.get("output_dir") or EXPORT_DIR
-    if not target or not os.path.isfile(target) or not (_is_under(target, WORKSPACE_DIR) or _is_under(target, configured_root)):
+    allowed_roots = _allowed_media_roots(settings) + [settings.get("output_dir") or EXPORT_DIR]
+    if not target or not os.path.isfile(target) or not any(_is_under(target, root) for root in allowed_roots if root):
         return jsonify({"error": "Arquivo não encontrado ou fora dos destinos permitidos"}), 404
     return send_file(target, conditional=True)
 
@@ -1457,6 +1573,10 @@ def api_open_folder():
 
     if not os.path.isdir(folder_path):
         return jsonify({"error": "Pasta nao encontrada"}), 404
+    settings = get_all_settings()
+    allowed_roots = _allowed_media_roots(settings) + [settings.get("output_dir") or EXPORT_DIR]
+    if not any(_is_under(folder_path, root) for root in allowed_roots if root):
+        return jsonify({"error": "Pasta fora dos destinos configurados"}), 403
 
     try:
         open_local_path(folder_path)

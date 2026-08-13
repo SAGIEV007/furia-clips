@@ -252,19 +252,38 @@
                 <div class="source-actions">
                     <input type="file" id="transcriptFileInput" accept=".txt,.srt,.vtt" style="display:none">
                     <button class="btn btn-sm btn-outline" id="btnImportTranscript" type="button"><span class="material-icons-round">folder_open</span> Importar arquivo</button>
+                    <button class="btn btn-sm btn-outline" id="btnGenerateTranscript" type="button"><span class="material-icons-round">mic</span> Gerar do vídeo</button>
                     <button class="btn btn-sm btn-primary" id="btnApplyTranscript" type="button"><span class="material-icons-round">check</span> Usar transcrição</button>
                 </div>
                 <div class="source-status" id="transcriptStatus">Nenhuma transcrição manual carregada.</div>
             </div>
-            <div class="source-panel" id="sourcePanelLink" style="display:none">
-                <p class="source-help">Use uma URL pública, preferencialmente do YouTube. O programa valida a fonte e baixa a mídia automaticamente quando necessário para renderizar os cortes.</p>
-                <div class="source-link-row">
-                    <input type="url" id="sourceUrlInput" class="setting-input" placeholder="https://www.youtube.com/watch?v=...">
-                    <button class="btn btn-sm btn-outline" id="btnProbeSource" type="button"><span class="material-icons-round">search</span> Verificar</button>
-                    <button class="btn btn-sm btn-primary" id="btnImportSource" type="button"><span class="material-icons-round">cloud_download</span> Importar</button>
-                </div>
-                <div class="source-status" id="sourceStatus">Nenhuma fonte pública verificada.</div>
-            </div>
+                        <div class="source-panel" id="sourcePanelLink" style="display:none">
+                 <p class="source-help">Use uma URL pública, preferencialmente do YouTube. O programa escolhe a melhor combinação de vídeo e áudio até 1080p, abre uma janela para você definir a pasta final e gera a transcrição timestampada automaticamente.</p>
+                 <div class="source-link-row">
+                     <input type="url" id="sourceUrlInput" class="setting-input" placeholder="https://www.youtube.com/watch?v=...">
+                     <button class="btn btn-sm btn-outline" id="btnProbeSource" type="button"><span class="material-icons-round">search</span> Verificar</button>
+                     <button class="btn btn-sm btn-primary" id="btnImportSource" type="button"><span class="material-icons-round">cloud_download</span> Importar e transcrever</button>
+                 </div>
+                 <div class="source-download-options">
+                     <div class="source-destination-row">
+                         <span class="material-icons-round">folder</span>
+                         <span id="sourceDestinationText">A pasta será escolhida ao importar</span>
+                         <button class="btn btn-sm btn-outline" id="btnChooseSourceDir" type="button"><span class="material-icons-round">folder_open</span> Escolher pasta</button>
+                     </div>
+                     <div class="source-option-row">
+                         <label class="source-checkbox"><input type="checkbox" id="sourceAutoTranscribe" checked> Gerar transcrição automaticamente</label>
+                         <label class="source-quality-label" for="sourceMaxHeight">Qualidade máxima
+                             <select id="sourceMaxHeight" class="setting-select">
+                                 <option value="1080" selected>1080p</option>
+                                 <option value="720">720p</option>
+                                 <option value="480">480p</option>
+                             </select>
+                         </label>
+                     </div>
+                 </div>
+                 <div class="source-status" id="sourceStatus">Nenhuma fonte pública verificada.</div>
+             </div>
+
         </section>
 
         <!-- Video Preview -->

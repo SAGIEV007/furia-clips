@@ -148,14 +148,16 @@ class VideoCutter:
 
         orig_w = int(video_stream["width"])
         orig_h = int(video_stream["height"])
-        crop_w = int(orig_h * 9 / 16)
+        crop_w = min(orig_w, max(2, int(orig_h * 9 / 16)))
 
-        if face_positions and len(face_positions) > 0:
-            avg_x = sum(fp.get("center_x", 0.5) for fp in face_positions) / len(face_positions)
+        if face_positions and len(face_positions) > 0 and crop_w < orig_w:
+            weights = [max(0.01, float(fp.get("confidence", 1.0))) for fp in face_positions]
+            weighted_x = sum(float(fp.get("center_x", 0.5)) * weight for fp, weight in zip(face_positions, weights))
+            avg_x = weighted_x / sum(weights)
             crop_x = int(avg_x * orig_w - crop_w / 2)
             crop_x = max(0, min(crop_x, orig_w - crop_w))
         else:
-            crop_x = (orig_w - crop_w) // 2
+            crop_x = max(0, (orig_w - crop_w) // 2)
 
         active_preset = preset or self.preset
         vf = f"crop={crop_w}:{orig_h}:{crop_x}:0,scale={active_preset['width']}:{active_preset['height']}"
@@ -202,7 +204,7 @@ class VideoCutter:
 
     def batch_cut(self, video_path, cuts, project_name, use_face_tracking=False,
                   face_positions_map=None, emit_progress=None, output_dir=None,
-                  video_layout=None, preset=None):
+                  video_layout=None, preset=None, original_aspect_indices=None):
         active_preset = get_preset(preset) if isinstance(preset, str) else (preset or self.preset)
         base_export = output_dir if output_dir and os.path.isabs(output_dir) else EXPORT_DIR
 
@@ -211,11 +213,12 @@ class VideoCutter:
         export_dir = os.path.join(base_export, folder_name)
         os.makedirs(export_dir, exist_ok=True)
 
-        # For debates, use centered crop instead of face tracking
-        if video_layout == "debate":
+        original_aspect_indices = set(original_aspect_indices or [])
+        if video_layout in {"debate", "unknown", "fullscreen"}:
+            original_aspect_indices.update(range(len(cuts)))
             use_face_tracking = False
             if emit_progress:
-                emit_progress("[Layout] Debate detectado. Usando enquadramento centralizado.", "info")
+                emit_progress("[Layout] Locutor não identificado com segurança. Preservando o enquadramento original 16:9.", "info")
 
         results = []
 
@@ -238,24 +241,37 @@ class VideoCutter:
             padded_start = max(0, cut["start"] - 0.3)
             padded_end = cut["end"] + 0.8
 
-            if use_face_tracking and face_positions_map:
-                face_pos = face_positions_map.get(i, None)
+            face_pos = face_positions_map.get(i, None) if face_positions_map else None
+            can_reframe = use_face_tracking and bool(face_pos) and i not in original_aspect_indices
+            if can_reframe:
                 result = self.cut_clip_with_face_tracking(
                     video_path, padded_start, padded_end,
                     output_path, face_pos, emit_progress, active_preset
                 )
+                framing_mode = "face_tracking"
+            elif i in original_aspect_indices:
+                result = self.cut_clip(
+                    video_path, padded_start, padded_end,
+                    output_path, vertical=False, emit_progress=emit_progress,
+                    video_layout=video_layout, preset=active_preset
+                )
+                framing_mode = "original_16_9"
+                if emit_progress:
+                    emit_progress(f"[Layout] Clip {rank}: sem locutor confiável; saída original 16:9.", "info")
             else:
                 result = self.cut_clip(
                     video_path, padded_start, padded_end,
                     output_path, vertical=True, emit_progress=emit_progress,
                     video_layout=video_layout, preset=active_preset
                 )
+                framing_mode = "center_crop"
 
             if result:
+                render_vertical = framing_mode != "original_16_9"
                 validation = validate_media(
                     result,
-                    expected_width=active_preset["width"],
-                    expected_height=active_preset["height"],
+                    expected_width=active_preset["width"] if render_vertical else None,
+                    expected_height=active_preset["height"] if render_vertical else None,
                     expected_duration=max(0.1, padded_end - padded_start),
                     duration_tolerance=2.0,
                     require_audio=True,
@@ -280,7 +296,8 @@ class VideoCutter:
                     "rank": rank,
                     "output_folder": export_dir,
                     "validation": validation.as_dict(),
-                    "preset": active_preset["aspect"],
+                    "preset": active_preset["aspect"] if render_vertical else "original_16:9",
+                    "framing_mode": framing_mode,
                 })
 
         if emit_progress:
