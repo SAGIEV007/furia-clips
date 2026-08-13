@@ -47,7 +47,8 @@ class WindowsBootstrapTests(unittest.TestCase):
 
     def test_setup_explains_gemini_is_optional(self):
         setup = (ROOT / "_setup.py").read_text(encoding="utf-8")
-        self.assertIn("continuara funcionando localmente", setup)
+        self.assertIn("Gemini Online e a prioridade", setup)
+        self.assertIn("fallback local", setup)
         self.assertIn('deps_version = "v8_sources_gemini"', setup)
         self.assertIn('python_exe, "-m", "pip"', setup)
 

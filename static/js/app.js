@@ -1118,6 +1118,19 @@ function copyToClipboard(text) {
 
 // ─── Source Intake ───
 
+async function parseJsonResponse(response, context = "servidor") {
+    const raw = await response.text();
+    if (!raw) {
+        throw new Error(`${context}: resposta vazia (HTTP ${response.status}). Veja o console do launcher.`);
+    }
+    try {
+        return JSON.parse(raw);
+    } catch (error) {
+        const preview = raw.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 180);
+        throw new Error(`${context}: resposta inválida do servidor (HTTP ${response.status})${preview ? ` — ${preview}` : ""}`);
+    }
+}
+
 function showSourceStatus(message, type = "") {
     const transcriptStatus = document.getElementById("transcriptStatus");
     const sourceStatus = document.getElementById("sourceStatus");
@@ -1171,7 +1184,7 @@ document.getElementById("btnApplyTranscript")?.addEventListener("click", async (
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ text, language: document.getElementById("settingLanguage")?.value || "pt" }),
         });
-        const data = await res.json();
+        const data = await parseJsonResponse(res, "Transcrição");
         if (!res.ok || !data.success) throw new Error(data.error || "Transcrição inválida");
         state.manualTranscript = data.transcription;
         showSourceStatus(`Transcrição ${data.transcription.format} pronta: ${data.transcription.segment_count} segmentos. Ela será usada no próximo corte sem Whisper.`, "success");
@@ -1197,7 +1210,7 @@ document.getElementById("btnGenerateTranscript")?.addEventListener("click", asyn
                 transcript_language: document.getElementById("settingLanguage")?.value || "pt",
             }),
         });
-        const data = await res.json();
+        const data = await parseJsonResponse(res, "Transcrição automática");
         if (!res.ok || !data.success) throw new Error(data.error || "Não foi possível iniciar a transcrição");
         showSourceStatus("Transcrição iniciada; acompanhe o console abaixo.", "");
     } catch (error) {
@@ -1222,7 +1235,7 @@ document.getElementById("btnProbeSource")?.addEventListener("click", async () =>
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ url }),
         });
-        const data = await res.json();
+        const data = await parseJsonResponse(res, "Verificação da fonte");
         if (!res.ok || !data.success) throw new Error(data.error || "Fonte indisponível");
         state.sourceUrl = url;
         const duration = data.source.duration ? ` — ${formatTime(data.source.duration)}` : "";
@@ -1243,7 +1256,7 @@ async function chooseSourceDirectory() {
                 title: "Escolha onde salvar o vídeo baixado",
             }),
         });
-        const data = await res.json();
+        const data = await parseJsonResponse(res, "Escolha da pasta");
         if (!res.ok || !data.success || !data.path) {
             if (data.cancelled) return "";
             throw new Error(data.error || "Não foi possível escolher a pasta");
@@ -1291,7 +1304,7 @@ document.getElementById("btnImportSource")?.addEventListener("click", async () =
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ url, destination_dir: destination, max_height: maxHeight, auto_transcribe: autoTranscribe }),
         });
-        const data = await res.json();
+        const data = await parseJsonResponse(res, "Importação da fonte");
         if (!res.ok || !data.success) throw new Error(data.error || "Não foi possível iniciar a importação");
         state.sourceUrl = url;
         addConsoleLog(`[Fonte] Download iniciado em ${destination}, limite de qualidade ${maxHeight}p.`, "info");

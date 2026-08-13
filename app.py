@@ -158,11 +158,14 @@ def _resolve_source_destination(requested, settings=None):
 
 
 def _transcribe_video_automatically(video_path, settings, emit_progress):
-    """Prefer timestamped Gemini segments, then use the local Whisper engine."""
+    """Try online Gemini first and use CPU Whisper only as an explicit fallback."""
+    emit_progress("[Transcrição] Prioridade: Gemini multimodal online; Whisper CPU ficará apenas como fallback.", "info")
     multimodal = _run_gemini_video_analysis(video_path, settings, {}, "", emit_progress)
     transcription = _transcription_from_gemini_result(multimodal, settings.get("language", "pt"))
     if transcription:
+        emit_progress("[Transcrição] Gemini forneceu timestamps; Whisper CPU não será iniciado.", "success")
         return transcription
+    emit_progress("[Transcrição] Gemini não retornou segmentos; iniciando fallback local faster-whisper.", "warning")
 
     from modules.transcriber import Transcriber
     transcriber = Transcriber(
@@ -208,9 +211,13 @@ def _transcription_from_request(data, duration=None):
 
 
 def _run_gemini_video_analysis(video_path, settings, editorial_context, user_context, emit_progress):
-    backend = str(settings.get("ai_backend", "auto") or "auto").lower()
+    backend = str(settings.get("ai_backend", "gemini") or "gemini").lower()
     api_key = str(settings.get("gemini_api_key", "") or "").strip()
-    if backend not in {"auto", "gemini"} or not api_key:
+    if backend not in {"auto", "gemini"}:
+        emit_progress(f"[Gemini] Backend definido como {backend}; Gemini online não será usado nesta execução.", "info")
+        return None
+    if not api_key:
+        emit_progress("[Gemini] Nenhuma API key configurada; não é possível usar Gemini online. Configure-a em Backend de IA; fallback local ativado.", "warning")
         return None
     try:
         from modules.gemini_video import analyze_video_with_gemini
@@ -590,12 +597,15 @@ def api_source_import():
     url = str(data.get("url", "")).strip()
     settings = get_all_settings()
     try:
-        validate_public_url(url)
+        url = validate_public_url(url)
         destination = _resolve_source_destination(data.get("destination_dir"), settings)
     except (SourceIngestError, OSError) as exc:
         return jsonify({"success": False, "error": str(exc)}), 400
-    if current_task["active"]:
-        return jsonify({"error": "Já existe um processamento em andamento"}), 409
+    with processing_lock:
+        if current_task["active"]:
+            return jsonify({"error": "Já existe um processamento em andamento"}), 409
+        current_task["active"] = True
+        current_task["cancel"] = False
 
     max_height = data.get("max_height", settings.get("source_max_height", 1080))
     auto_transcribe = bool(data.get("auto_transcribe", True))
@@ -603,7 +613,6 @@ def api_source_import():
     set_setting("source_max_height", max_height)
 
     def task():
-        current_task["active"] = True
         try:
             emit_progress("[Fonte] Preparando download de URL pública...", "info")
             result = download_public_video(
@@ -1617,7 +1626,7 @@ def handle_check_ollama():
 
 def _check_ai_status(settings):
     """Check the selected AI backend without making any backend mandatory."""
-    ai_backend = settings.get("ai_backend", "auto")
+    ai_backend = settings.get("ai_backend", "gemini")
     api_key = str(settings.get("gemini_api_key", "") or "").strip()
     ollama_url = settings.get("ollama_url", "http://localhost:11434")
     model = settings.get("ollama_model", "llama3.2:3b")
@@ -1727,16 +1736,18 @@ if __name__ == "__main__":
     print("\n" + "=" * 50)
     print("   FURIA CLIPS - Corte. Ranqueie. Domine.")
     print("=" * 50)
-    backend = ai_status.get("backend", "auto")
+    backend = ai_status.get("backend", "gemini")
     if ai_status.get("mode") == "gemini" and ai_status["connected"]:
         print("   [IA] Gemini Flash conectado!")
-        print("   [IA] Modo automatico: selecao inteligente online")
+        print("   [IA] Prioridade: analise online multimodal")
     elif ai_status.get("mode") == "llm" and ai_status["connected"]:
         print(f"   [IA] Ollama conectado! Modelo: {ai_status['model']}")
-        print("   [IA] Modo automatico: selecao inteligente offline")
+        print("   [IA] Fallback online indisponível; análise local avançada ativa")
+    elif ai_status.get("status") == "no_key":
+        print("   [IA] Gemini Online é a prioridade, mas nenhuma API key foi configurada.")
+        print("   [IA] Fallback local ativo; configure a chave em Backend de IA para maior qualidade.")
     else:
-        print("   [IA] Modo automatico: ranking NLP local ativo")
-        print("   [IA] Nenhuma chave ou servico externo e necessario para iniciar.")
+        print("   [IA] Gemini Online indisponível; fallback NLP/Whisper local ativo.")
     host = os.environ.get("FURIA_HOST", "127.0.0.1")
     port = int(os.environ.get("FURIA_PORT", "3001"))
     print(f"   Acesse: http://{host}:{port}")

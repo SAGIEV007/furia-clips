@@ -130,9 +130,9 @@
                 <div class="setting-group">
                     <label>Motor de IA</label>
                     <select id="settingAiBackend" class="setting-select">
-                        <option value="auto" selected>Automático (Gemini → Ollama → local)</option>
+                        <option value="gemini" selected>Gemini Online (prioritário → fallback local)</option>
+                        <option value="auto">Automático (Gemini → Ollama → local)</option>
                         <option value="ollama">Ollama (Local/Gratis)</option>
-                        <option value="gemini">Google Gemini (API opcional)</option>
                         <option value="claude">Claude API (Pago)</option>
                     </select>
                 </div>
@@ -160,7 +160,7 @@
 
                 <div class="ai-status" id="aiStatus">
                     <span class="material-icons-round">check_circle</span>
-                    <span>Modo automático: Gemini → Ollama → local</span>
+                    <span>Gemini Online prioritário; fallback local somente se necessário</span>
                 </div>
 
                 <!-- Ollama Status Badge -->
@@ -577,7 +577,7 @@
                 </div>
                 <div class="help-note">
                     <span class="material-icons-round">info</span>
-                    <p><strong>100% Offline:</strong> Apos o primeiro setup, tudo funciona sem internet. Whisper, FFmpeg e IA (Ollama) rodam localmente no seu PC.</p>
+                    <p><strong>Modo recomendado:</strong> Gemini Online é usado primeiro para maior qualidade. Se não houver internet ou API key, o Furia Clips informa o motivo e usa Whisper/Ollama local como fallback.</p>
                 </div>
             </div>
         </div>

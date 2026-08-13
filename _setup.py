@@ -207,7 +207,7 @@ def install_deps():
     print()
     print("[Setup] Baixando modelo Whisper (small)...")
     print("  Pode demorar na primeira vez.")
-    print("  Depois disso tudo funciona OFFLINE!")
+    print("  O modo offline fica disponível como fallback após essa preparação.")
     run_cmd([python_exe, "-c",
              "from faster_whisper import WhisperModel; "
              "WhisperModel('small', device='cpu', compute_type='int8')"],
@@ -229,7 +229,7 @@ def install_deps():
 
     print()
     print("==================================================")
-    print("   SETUP COMPLETO! Tudo pronto para uso offline.")
+    print("   SETUP COMPLETO! Gemini Online prioritário; fallback offline pronto.")
     print("==================================================")
     print()
 
@@ -257,12 +257,13 @@ def main():
         print("[ERRO] FFmpeg e ffprobe sao necessarios para cortar e validar videos.")
         return 1
 
-    # Gemini e opcional. O modo automatico usa Gemini somente se uma chave ja existir;
-    # caso contrario, tenta Ollama e depois cai para o ranking NLP local.
+    # Gemini Online e a rota prioritária. Sem API key, o app informa o motivo
+    # e usa Ollama/Whisper/NLP local somente como fallback.
     if check_gemini_key():
-        print("[IA] Gemini configurado; o modo automatico podera usa-lo.")
+        print("[IA] Gemini Online configurado e definido como prioridade.")
     else:
-        print("[IA] Nenhuma chave Gemini configurada; o Furia Clips continuara funcionando localmente.")
+        print("[IA] Gemini Online e a prioridade, mas nenhuma API key foi configurada.")
+        print("      O fallback local sera usado ate configurar a chave em Backend de IA.")
 
     check_ollama()
     print()
