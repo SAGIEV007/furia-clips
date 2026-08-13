@@ -21,13 +21,15 @@ O Furia Clips é uma ferramenta local para transformar vídeos longos em clipes 
 
 ## Instalação no Windows
 
-O caminho recomendado é usar o launcher versionado:
+O caminho recomendado é simplesmente executar o launcher automático:
 
 ```text
 run.bat
 ```
 
-O launcher cria ou reutiliza o ambiente virtual, instala as dependências e inicia o servidor local. É necessário ter **Python 3.10 ou superior** e **FFmpeg** instalados e disponíveis no `PATH`.
+O launcher faz o bootstrap do computador: procura Python, instala Python 3.12 automaticamente quando necessário, prepara FFmpeg e `ffprobe`, cria o ambiente virtual, instala as dependências, prepara o modelo Whisper e inicia o servidor local. Em Windows 10/11, ele usa WinGet quando disponível; se WinGet não estiver disponível, tenta o instalador oficial do Python e um build público de FFmpeg referenciado pelo projeto FFmpeg.
+
+Na primeira execução é necessário ter conexão com a internet e permitir eventuais avisos de instalação do Windows. Depois que os runtimes e dependências estiverem em `.runtime` e `venv`, as execuções seguintes reutilizam o que já foi instalado. **Não é necessário instalar Python, FFmpeg, Ollama ou Gemini manualmente para começar.** Ollama e Gemini são otimizações opcionais; sem eles o ranking NLP local continua funcionando.
 
 Se preferir executar manualmente:
 
@@ -39,7 +41,7 @@ python -m pip install -r requirements.txt
 python app.py
 ```
 
-Acesse [http://127.0.0.1:3001](http://127.0.0.1:3001).
+Acesse [http://127.0.0.1:3001](http://127.0.0.1:3001). Se o bootstrap não puder concluir por falta de internet, política corporativa ou bloqueio do instalador, execute `run.bat` novamente após corrigir a conectividade.
 
 ## Instalação no Linux ou macOS
 
@@ -55,20 +57,22 @@ Acesse [http://127.0.0.1:3001](http://127.0.0.1:3001). O servidor fica limitado 
 
 ## Dependências do sistema
 
-O projeto requer **FFmpeg e ffprobe** no `PATH`. O Whisper usa `faster-whisper` e pode funcionar em CPU; uma GPU NVIDIA é opcional. Em Linux, também pode ser necessário instalar bibliotecas do sistema exigidas pelo OpenCV/MediaPipe conforme a distribuição.
+O projeto usa **FFmpeg e ffprobe** para cortar e validar mídia. No Windows, `run.bat` prepara esses executáveis automaticamente. No Linux/macOS, eles precisam estar instalados no `PATH`. O Whisper usa `faster-whisper` e pode funcionar em CPU; uma GPU NVIDIA é opcional. Em Linux, também pode ser necessário instalar bibliotecas do sistema exigidas pelo OpenCV/MediaPipe conforme a distribuição.
 
 ## Backends de IA
 
-A aplicação pode trabalhar em três níveis, conforme a configuração disponível:
+O padrão é **Automático**, que tenta Gemini somente se uma chave já estiver configurada, depois verifica Ollama e finalmente usa o ranking NLP local. Portanto, o programa inicia, seleciona cortes e renderiza sem qualquer chave de API.
 
-| Backend | Custo | Uso | Requisito |
+
+| Backend | Custo | Comportamento | Requisito |
 | --- | --- | --- | --- |
-| Ollama | Local | Seleção e conteúdo com fallback local | Ollama instalado e um modelo disponível |
-| Google Gemini | Conforme a conta/API | Seleção contextual e geração de conteúdo | Chave configurada na interface ou no ambiente |
-| Claude API | Conforme a conta/API | Geração de conteúdo | Chave da Anthropic |
-| NLP local | Gratuito | Fallback determinístico | Nenhum serviço externo |
+| Automático | Gratuito no caminho local | Gemini → Ollama → NLP local | Nenhum requisito obrigatório |
+| Ollama | Local | Seleção contextual offline, se o serviço estiver disponível | Ollama e um modelo, ambos opcionais |
+| Google Gemini | Conforme a conta/API | Seleção contextual online mais avançada | Chave opcional na interface ou no ambiente |
+| Claude API | Conforme a conta/API | Geração de conteúdo | Chave opcional da Anthropic |
+| NLP local | Gratuito | Fallback determinístico de seleção | Nenhum serviço externo |
 
-Nunca coloque chaves de API em commits. Use a interface local, variáveis de ambiente ou a persistência protegida prevista pelo aplicativo.
+Uma chave Gemini melhora a seleção contextual quando a API está acessível, mas não é necessária para usar o programa. Se você informar uma chave, o modo automático passa a considerá-la sem obrigar a aplicação a permanecer online; se a API falhar, o processamento continua por Ollama ou NLP. Nunca coloque chaves de API em commits.
 
 ## Perfil editorial político
 
@@ -115,7 +119,7 @@ docs/                      arquitetura, roadmap e relatórios, incluindo pesquis
 
 ## Status da reconstrução
 
-A branch `manus/rebuild-opus-parity` contém a reconstrução incremental comparada à branch base `devin/1782248654-furia-clips`. A implementação foi validada localmente com uma suíte de 40 casos, incluindo o perfil editorial político, contexto de abertura, energia de áudio por janela, ritmo visual, smoke tests HTTP e renderização real com FFmpeg. O relatório detalhado está em [`docs/rebuild-report.md`](docs/rebuild-report.md), o perfil editorial está em [`docs/editorial-profile.md`](docs/editorial-profile.md) e os critérios de qualidade estão em [`docs/quality-gates.md`](docs/quality-gates.md).
+A branch `manus/rebuild-opus-parity` contém a reconstrução incremental comparada à branch base `devin/1782248654-furia-clips`. A implementação foi validada localmente com uma suíte de 45 casos, incluindo o perfil editorial político, contexto de abertura, energia de áudio por janela, ritmo visual, bootstrap automático, fallback sem chave, smoke tests HTTP e renderização real com FFmpeg. O relatório detalhado está em [`docs/rebuild-report.md`](docs/rebuild-report.md), o perfil editorial está em [`docs/editorial-profile.md`](docs/editorial-profile.md) e os critérios de qualidade estão em [`docs/quality-gates.md`](docs/quality-gates.md).
 
 Esta versão aproxima o produto de um fluxo profissional de clipping, mas não afirma paridade total com plataformas comerciais. Ainda são evoluções futuras o editor visual de timeline com handles, reenquadramento temporal contínuo de rostos/objetos, rerender parcial e calibração estatística do ranking usando um histórico amplo de feedback.
 

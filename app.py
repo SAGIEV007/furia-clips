@@ -197,7 +197,6 @@ def _sync_env_key_to_db():
         db_key = get_setting("gemini_api_key")
         if not db_key:
             set_setting("gemini_api_key", env_key)
-            set_setting("ai_backend", "gemini")
 
 
 @app.route("/api/settings", methods=["GET"])
@@ -1234,61 +1233,52 @@ def handle_check_ollama():
 # --- Helpers ---
 
 def _check_ai_status(settings):
-    """Check AI backend status (Gemini, Ollama, or NLP)."""
-    ai_backend = settings.get("ai_backend", "gemini")
-
-    if ai_backend == "gemini":
-        api_key = settings.get("gemini_api_key", "")
-        if api_key:
-            try:
-                resp = requests.get(
-                    f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}",
-                    timeout=5
-                )
-                if resp.status_code == 200:
-                    return {
-                        "connected": True,
-                        "mode": "gemini",
-                        "model": "gemini-2.5-flash",
-                        "model_available": True,
-                        "status": "connected",
-                        "backend": "gemini",
-                        "mode_label": "Gemini Flash (Online)",
-                    }
-            except Exception:
-                pass
-        return {
-            "connected": False,
-            "mode": "gemini_offline",
-            "model": "gemini-2.5-flash",
-            "model_available": False,
-            "status": "no_key" if not api_key else "offline",
-            "backend": "gemini",
-            "mode_label": "Gemini (sem API key)" if not api_key else "Gemini (sem internet)",
-        }
-
-    # Ollama check
+    """Check the selected AI backend without making any backend mandatory."""
+    ai_backend = settings.get("ai_backend", "auto")
+    api_key = str(settings.get("gemini_api_key", "") or "").strip()
     ollama_url = settings.get("ollama_url", "http://localhost:11434")
     model = settings.get("ollama_model", "llama3.2:3b")
 
-    try:
-        resp = requests.get(f"{ollama_url}/api/tags", timeout=3)
-        if resp.status_code == 200:
-            data = resp.json()
-            models = [m.get("name", "") for m in data.get("models", [])]
-            has_model = any(model.split(":")[0] in m for m in models)
-            return {
-                "connected": True,
-                "mode": "llm",
-                "model": model,
-                "model_available": has_model,
-                "available_models": models,
-                "status": "connected",
-                "backend": "ollama",
-                "mode_label": "IA Inteligente (Ollama)",
-            }
-    except Exception:
-        pass
+    # In automatic mode, use Gemini only when an existing key is available.
+    if ai_backend in ("auto", "gemini") and api_key:
+        try:
+            resp = requests.get(
+                f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}",
+                timeout=5
+            )
+            if resp.status_code == 200:
+                return {
+                    "connected": True,
+                    "mode": "gemini",
+                    "model": "gemini-2.5-flash",
+                    "model_available": True,
+                    "status": "connected",
+                    "backend": "gemini",
+                    "mode_label": "Gemini Flash (Online)",
+                }
+        except Exception:
+            pass
+
+    # Ollama is optional and is checked for automatic, Gemini, and Ollama modes.
+    if ai_backend in ("auto", "gemini", "ollama"):
+        try:
+            resp = requests.get(f"{ollama_url}/api/tags", timeout=3)
+            if resp.status_code == 200:
+                data = resp.json()
+                models = [m.get("name", "") for m in data.get("models", [])]
+                has_model = any(model.split(":")[0] in m for m in models)
+                return {
+                    "connected": True,
+                    "mode": "llm",
+                    "model": model,
+                    "model_available": has_model,
+                    "available_models": models,
+                    "status": "connected",
+                    "backend": "ollama",
+                    "mode_label": "IA Inteligente (Ollama)",
+                }
+        except Exception:
+            pass
 
     return {
         "connected": False,
@@ -1296,9 +1286,9 @@ def _check_ai_status(settings):
         "model": model,
         "model_available": False,
         "available_models": [],
-        "status": "offline",
-        "backend": "ollama",
-        "mode_label": "NLP Basico (sem IA)",
+        "status": "no_key" if ai_backend == "gemini" and not api_key else "offline",
+        "backend": "auto" if ai_backend == "auto" else ai_backend,
+        "mode_label": "NLP local (sem chave ou serviço externo)",
     }
 
 
@@ -1354,17 +1344,16 @@ if __name__ == "__main__":
     print("\n" + "=" * 50)
     print("   FURIA CLIPS - Corte. Ranqueie. Domine.")
     print("=" * 50)
-    backend = ai_status.get("backend", "nlp")
-    if backend == "gemini" and ai_status["connected"]:
-        print(f"   [IA] Gemini Flash conectado!")
-        print(f"   [IA] Modo: Selecao INTELIGENTE (online)")
-    elif backend == "ollama" and ai_status["connected"]:
+    backend = ai_status.get("backend", "auto")
+    if ai_status.get("mode") == "gemini" and ai_status["connected"]:
+        print("   [IA] Gemini Flash conectado!")
+        print("   [IA] Modo automatico: selecao inteligente online")
+    elif ai_status.get("mode") == "llm" and ai_status["connected"]:
         print(f"   [IA] Ollama conectado! Modelo: {ai_status['model']}")
-        print(f"   [IA] Modo: Selecao INTELIGENTE (offline)")
+        print("   [IA] Modo automatico: selecao inteligente offline")
     else:
-        print(f"   [AVISO] Nenhuma IA conectada.")
-        print(f"   [AVISO] Modo: NLP basico (menos preciso)")
-        print(f"   [DICA] Configure Gemini: https://aistudio.google.com/apikeys")
+        print("   [IA] Modo automatico: ranking NLP local ativo")
+        print("   [IA] Nenhuma chave ou servico externo e necessario para iniciar.")
     host = os.environ.get("FURIA_HOST", "127.0.0.1")
     port = int(os.environ.get("FURIA_PORT", "3001"))
     print(f"   Acesse: http://{host}:{port}")

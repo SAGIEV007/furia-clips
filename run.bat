@@ -1,17 +1,51 @@
 @echo off
+setlocal EnableExtensions EnableDelayedExpansion
 title Furia Clips - Corte. Ranqueie. Domine.
 color 0E
+cd /d "%~dp0"
 
-:: Check Python exists
-python --version >nul 2>&1
-if errorlevel 1 goto :no_python
+set "RUNTIME_DIR=%~dp0.runtime"
+set "PYTHON_EXE="
+set "FFMPEG_DIR="
 
-:: Run setup via Python (avoids CMD parsing issues)
-python _setup.py
+if exist "%RUNTIME_DIR%\python_path.txt" for /f "usebackq delims=" %%P in ("%RUNTIME_DIR%\python_path.txt") do set "PYTHON_EXE=%%P"
+if exist "%RUNTIME_DIR%\ffmpeg_path.txt" for /f "usebackq delims=" %%F in ("%RUNTIME_DIR%\ffmpeg_path.txt") do set "FFMPEG_DIR=%%F"
+
+set "NEEDS_BOOTSTRAP=0"
+if not defined PYTHON_EXE set "NEEDS_BOOTSTRAP=1"
+if defined PYTHON_EXE if not exist "!PYTHON_EXE!" set "NEEDS_BOOTSTRAP=1"
+if not defined FFMPEG_DIR set "NEEDS_BOOTSTRAP=1"
+if defined FFMPEG_DIR if not exist "!FFMPEG_DIR!\ffmpeg.exe" set "NEEDS_BOOTSTRAP=1"
+if defined FFMPEG_DIR if not exist "!FFMPEG_DIR!\ffprobe.exe" set "NEEDS_BOOTSTRAP=1"
+
+if "%NEEDS_BOOTSTRAP%"=="1" (
+    echo ==================================================
+    echo    Primeiro uso: preparando Python e FFmpeg...
+    echo ==================================================
+    echo.
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0bootstrap_windows.ps1"
+    if errorlevel 1 goto :bootstrap_failed
+
+    set "PYTHON_EXE="
+    set "FFMPEG_DIR="
+    for /f "usebackq delims=" %%P in ("%RUNTIME_DIR%\python_path.txt") do set "PYTHON_EXE=%%P"
+    for /f "usebackq delims=" %%F in ("%RUNTIME_DIR%\ffmpeg_path.txt") do set "FFMPEG_DIR=%%F"
+)
+
+if not defined PYTHON_EXE goto :bootstrap_failed
+if not exist "%PYTHON_EXE%" goto :bootstrap_failed
+if not defined FFMPEG_DIR goto :bootstrap_failed
+if not exist "%FFMPEG_DIR%\ffmpeg.exe" goto :bootstrap_failed
+if not exist "%FFMPEG_DIR%\ffprobe.exe" goto :bootstrap_failed
+
+set "PATH=%FFMPEG_DIR%;%PATH%"
+
+"%PYTHON_EXE%" _setup.py
 if errorlevel 1 goto :setup_failed
 
-:: Activate venv and start app
-call venv\Scripts\activate.bat
+if not exist "venv\Scripts\python.exe" goto :setup_failed
+
+set "PATH=%~dp0venv\Scripts;%PATH%"
 
 echo ==================================================
 echo    Iniciando Furia Clips...
@@ -21,32 +55,38 @@ echo [Furia Clips] Acesse: http://localhost:3001
 echo [Furia Clips] Para parar: feche esta janela ou Ctrl+C
 echo.
 
-:: Open browser after short delay
-start "" cmd /c "timeout /t 3 /nobreak >nul && start http://localhost:3001"
+start "" cmd /c "timeout /t 3 /nobreak >nul ^&^& start http://localhost:3001"
 
-:: Run the app
-python app.py
+"%~dp0venv\Scripts\python.exe" app.py
+
+if errorlevel 1 goto :app_failed
 
 echo.
 echo ==================================================
 echo    Furia Clips encerrado.
 echo ==================================================
 echo.
-pause
-goto :eof
+exit /b 0
 
-:no_python
+:bootstrap_failed
 echo.
-echo [ERRO] Python nao encontrado!
-echo Instale Python 3.10+ de: https://www.python.org/downloads/
-echo IMPORTANTE: Marque "Add Python to PATH" na instalacao!
+echo [ERRO] Nao foi possivel preparar automaticamente Python e FFmpeg.
+echo Verifique a conexao com a internet e tente executar run.bat novamente.
 echo.
 pause
 exit /b 1
 
 :setup_failed
 echo.
-echo [ERRO] Falha no setup. Verifique os erros acima.
+echo [ERRO] Falha na instalacao das dependencias Python.
+echo Os detalhes aparecem acima; execute run.bat novamente para tentar corrigir.
+echo.
+pause
+exit /b 1
+
+:app_failed
+echo.
+echo [ERRO] O aplicativo foi encerrado com erro.
 echo.
 pause
 exit /b 1
