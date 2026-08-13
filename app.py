@@ -590,8 +590,19 @@ def api_cut_shorts():
 
             # Step 4: Rank and finalize scores
             emit_progress("=== ETAPA 4/5: Ranqueamento ===", "info")
+            if scene_changes:
+                for clip in top_clips:
+                    start = float(clip.get("start", 0))
+                    end = float(clip.get("end", start))
+                    clip["scene_changes"] = [
+                        change for change in scene_changes
+                        if start <= float(change) <= end
+                    ]
             from modules.viral_ranker import ViralRanker
-            ranker = ViralRanker(channel_context=settings.get("channel_context", ""))
+            ranker = ViralRanker(
+                channel_context=settings.get("channel_context", ""),
+                editorial_profile=settings.get("editorial_profile", "renan_santos_politics"),
+            )
             top_clips = ranker.rank_clips(
                 top_clips,
                 user_context=user_context,
@@ -943,7 +954,10 @@ def api_process_complete():
             from modules.viral_ranker import ViralRanker
             from modules.video_cutter import VideoCutter
 
-            ranker = ViralRanker(channel_context=settings.get("channel_context", ""))
+            ranker = ViralRanker(
+                channel_context=settings.get("channel_context", ""),
+                editorial_profile=settings.get("editorial_profile", "renan_santos_politics"),
+            )
             top_clips = ranker.rank_clips(
                 top_clips,
                 user_context=user_context,
