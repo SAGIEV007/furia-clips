@@ -137,3 +137,24 @@ def test_editorial_context_can_force_generic_focus_even_with_renan_reference():
     )
     context = analyze_transcript_context(transcription, focus="generic")
     assert context["focus"] == "generic_political"
+
+
+def test_download_stream_labels_distinguish_video_and_audio():
+    from modules.source_ingest import _stream_label
+
+    assert _stream_label({"vcodec": "avc1", "acodec": "none"}) == "vídeo"
+    assert _stream_label({"vcodec": "none", "acodec": "opus"}) == "áudio"
+    assert _stream_label({"vcodec": "avc1", "acodec": "aac"}) == "mídia"
+
+
+def test_source_progress_messages_explain_multistream_and_merge_stages():
+    import app as app_module
+
+    assert "vídeo" in app_module._format_source_import_progress({
+        "status": "downloading", "stream": "vídeo", "percent": 42.5,
+    })
+    assert "próxima etapa" in app_module._format_source_import_progress({
+        "status": "stream_finished", "stream": "áudio",
+    })
+    assert "Unindo vídeo e áudio" in app_module._format_source_import_progress({"status": "merging"})
+    assert "Arquivo final pronto" in app_module._format_source_import_progress({"status": "merge_finished"})

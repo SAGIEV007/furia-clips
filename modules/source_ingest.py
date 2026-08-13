@@ -162,6 +162,18 @@ def download_public_subtitles(url: str, destination: str, progress=None, cancel_
         return None
 
 
+def _stream_label(status: dict) -> str:
+    """Return a human-readable label for a yt-dlp transfer hook."""
+    info = status.get("info_dict") or {}
+    vcodec = str(status.get("vcodec") or info.get("vcodec") or "").lower()
+    acodec = str(status.get("acodec") or info.get("acodec") or "").lower()
+    if vcodec and vcodec != "none" and (not acodec or acodec == "none"):
+        return "vídeo"
+    if acodec and acodec != "none" and (not vcodec or vcodec == "none"):
+        return "áudio"
+    return "mídia"
+
+
 def download_public_video(url: str, destination: str, progress=None, max_height: int = 1080, retries: int = 3, cancel_check=None) -> dict:
     """Download the best public source up to the requested vertical resolution."""
     value = validate_public_url(url)
@@ -169,19 +181,25 @@ def download_public_video(url: str, destination: str, progress=None, max_height:
     target = Path(destination).expanduser().resolve()
     target.mkdir(parents=True, exist_ok=True)
     hooks = []
+    postprocessor_hooks = []
     if progress:
-        last_percent = None
-        last_emit = 0.0
+        last_percent_by_stream = {}
+        last_emit_by_stream = {}
 
         def hook(status):
             if cancel_check:
                 cancel_check()
-            nonlocal last_percent, last_emit
+            filename = str(status.get("tmpfilename") or status.get("filename") or "stream")
+            format_id = str(status.get("format_id") or (status.get("info_dict") or {}).get("format_id") or "")
+            stream_key = f"{format_id}:{filename}"
+            stream_label = _stream_label(status)
             if status.get("status") == "downloading":
                 total = status.get("total_bytes") or status.get("total_bytes_estimate") or 0
                 done = status.get("downloaded_bytes") or 0
                 percent = (done / total * 100) if total else None
                 now = time.monotonic()
+                last_percent = last_percent_by_stream.get(stream_key)
+                last_emit = last_emit_by_stream.get(stream_key, 0.0)
                 should_emit = (
                     percent is None
                     or last_percent is None
@@ -190,12 +208,29 @@ def download_public_video(url: str, destination: str, progress=None, max_height:
                     or now - last_emit >= 1.0
                 )
                 if should_emit:
-                    last_percent = percent
-                    last_emit = now
-                    progress({"status": "downloading", "percent": percent, "downloaded": done, "total": total})
+                    last_percent_by_stream[stream_key] = percent
+                    last_emit_by_stream[stream_key] = now
+                    progress({
+                        "status": "downloading",
+                        "percent": percent,
+                        "downloaded": done,
+                        "total": total,
+                        "stream": stream_label,
+                    })
             elif status.get("status") == "finished":
-                progress({"status": "finished", "filename": status.get("filename", "")})
+                progress({"status": "stream_finished", "filename": status.get("filename", ""), "stream": stream_label})
+
+        def postprocessor_hook(status):
+            if cancel_check:
+                cancel_check()
+            name = str(status.get("postprocessor") or "processamento")
+            if status.get("status") == "started":
+                progress({"status": "merging", "postprocessor": name})
+            elif status.get("status") == "finished":
+                progress({"status": "merge_finished", "postprocessor": name})
+
         hooks.append(hook)
+        postprocessor_hooks.append(postprocessor_hook)
 
     try:
         height_limit = max(144, min(int(max_height or 1080), 1080))
@@ -218,6 +253,7 @@ def download_public_video(url: str, destination: str, progress=None, max_height:
         **_common_yt_dlp_options(),
         "retries": max(1, min(int(retries or 3), 5)),
         "progress_hooks": hooks,
+        "postprocessor_hooks": postprocessor_hooks,
     }
     max_attempts = max(1, min(int(retries or 3), 5))
     last_error = None

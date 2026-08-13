@@ -235,7 +235,7 @@ def _transcribe_video_automatically(video_path, settings, emit_progress, transcr
         except Exception as exc:
             emit_progress(f"[Transcrição] Legenda pública não pôde ser interpretada: {str(exc)[:180]}", "warning")
 
-    emit_progress("[Transcrição] Gemini/legenda pública sem segmentos; iniciando fallback local faster-whisper.", "warning")
+    emit_progress("[Transcrição] Gemini/legenda pública não entregaram timestamps; iniciando fallback local faster-whisper.", "warning")
     from modules.transcriber import Transcriber
     requested_model = settings.get("whisper_model", "small")
     requested_device = settings.get("whisper_device", "auto")
@@ -258,6 +258,10 @@ def _transcribe_video_automatically(video_path, settings, emit_progress, transcr
             "O modelo Small continua disponível para refinamento posterior.",
             "warning",
         )
+    emit_progress(
+        f"[Whisper] Fallback local iniciado em {resolved_device.upper()} com modelo {model_name}. Você pode usar Parar operação com segurança.",
+        "info",
+    )
     transcriber = Transcriber(
         model_name=model_name,
         language=settings.get("language", "pt"),
@@ -336,7 +340,14 @@ def _run_gemini_video_analysis(video_path, settings, editorial_context, user_con
     except OperationCancelled:
         raise
     except Exception as exc:
-        emit_progress(f"[Gemini] Análise multimodal não concluída; seguindo com sinais locais: {str(exc)[:220]}", "warning")
+        detail = str(exc)[:220]
+        if "503" in detail or "high demand" in detail.lower():
+            emit_progress(
+                "[Gemini] Serviço temporariamente sobrecarregado (HTTP 503). A chave e o vídeo foram aceitos; seguindo para legenda pública/Whisper local sem reenviar o arquivo.",
+                "warning",
+            )
+        else:
+            emit_progress(f"[Gemini] Análise multimodal não concluída; seguindo com sinais locais: {detail}", "warning")
         return None
 
 
@@ -704,6 +715,23 @@ def api_source_probe():
         return jsonify({"success": False, "error": str(exc)}), 400
 
 
+def _format_source_import_progress(update):
+    """Present yt-dlp multi-stream progress without implying a single global percent."""
+    status = update.get("status")
+    stream = str(update.get("stream") or "mídia")
+    if status == "downloading" and update.get("percent") is not None:
+        return f"[Download · {stream}] {float(update['percent']):.1f}%"
+    if status == "stream_finished":
+        return f"[Download · {stream}] transferência concluída; preparando a próxima etapa..."
+    if status == "retry":
+        return f"[Download] nova tentativa {update.get('attempt')}/{update.get('max_attempts')}..."
+    if status == "merging":
+        return "[Download] Unindo vídeo e áudio no arquivo MP4 final..."
+    if status == "merge_finished":
+        return "[Download] Arquivo final pronto; conferindo a mídia..."
+    return "[Download] Preparando arquivo final..."
+
+
 @app.route("/api/source/import", methods=["POST"])
 def api_source_import():
     data = request.get_json(silent=True) or {}
@@ -734,18 +762,7 @@ def api_source_import():
                 max_height=max_height,
                 retries=settings.get("source_download_retries", 3),
                 cancel_check=check_current_task_cancel,
-                progress=lambda update: emit_progress(
-                    (
-                        f"[Download] {update.get('percent'):.1f}%"
-                        if update.get("percent") is not None
-                        else (
-                            f"[Download] nova tentativa {update.get('attempt')}/{update.get('max_attempts')}..."
-                            if update.get("status") == "retry"
-                            else "[Download] processamento final/merge..."
-                        )
-                    ),
-                    "info",
-                ),
+                progress=lambda update: emit_progress(_format_source_import_progress(update), "info"),
             )
             result_path = os.path.abspath(result["path"])
             display_path = os.path.relpath(result_path, WORKSPACE_DIR) if _is_under(result_path, WORKSPACE_DIR) else result_path
