@@ -1,0 +1,134 @@
+{
+  "source_file": "docs/instagram-api-catalog.csv",
+  "rows": 24,
+  "profiles": {
+    "renansantosreserva": {
+      "sample_size": 12,
+      "video_items": 12,
+      "total_views_sample": 277803.0,
+      "median_views_sample": 5831.0,
+      "max_views_sample": 180609.0,
+      "mean_engagement_rate_by_views": 0.18024558060835297,
+      "format_counts": {
+        "vertical_9x16": 3,
+        "square_or_other": 3,
+        "vertical_4x5": 6
+      },
+      "signal_counts": {
+        "politics": 21,
+        "conflict": 5,
+        "humor": 2,
+        "conclusion": 5,
+        "cta": 2
+      },
+      "top_items_by_views": [
+        {
+          "shortcode": "Db8wfUyFHiV",
+          "views": 180609.0,
+          "likes": 29878.0,
+          "comments": 969.0,
+          "caption": "Ué, será que esse jornalista mudou de ideia sobre o Renan Santos? 🤔  #Eleições2026 #Política #PartidoMissão #RenanSantos #eleições",
+          "url": "https://www.instagram.com/p/Db8wfUyFHiV/"
+        },
+        {
+          "shortcode": "Db9ImrRjMh4",
+          "views": 28707.0,
+          "likes": 4228.0,
+          "comments": 44.0,
+          "caption": "Por essa ninguém esperava! Renan Santos defendeu Mano Brown e falou a verdade sobre Oruam, que muita gente não tem coragem de admitir.  #RenanSantos #Política #PartidoMissão #Oruam #ManoBrown",
+          "url": "https://www.instagram.com/p/Db9ImrRjMh4/"
+        },
+        {
+          "shortcode": "Db8tEDiD0eD",
+          "views": 22595.0,
+          "likes": 3898.0,
+          "comments": 95.0,
+          "caption": "Piada! O sistema está tentando esconder o que as redes sociais não escondem, Renan Santos está GIGANTE e crescendo cada vez mais.  #Eleições2026 #Política #PartidoMissão #RenanSantos #eleições",
+          "url": "https://www.instagram.com/p/Db8tEDiD0eD/"
+        },
+        {
+          "shortcode": "Db8-QOnCemH",
+          "views": 13793.0,
+          "likes": 2621.0,
+          "comments": 28.0,
+          "caption": "Ao ser questionado se acataria todas as decisões do STF em um eventual governo seu, Renan Santos disse: decisão ilegal não se cumpre!  #RenanSantos #Política #PartidoMissão #Eleições2026 #Direita",
+          "url": "https://www.instagram.com/p/Db8-QOnCemH/"
+        },
+        {
+          "shortcode": "Db9PagNj1QQ",
+          "views": 11068.0,
+          "likes": 2257.0,
+          "comments": 119.0,
+          "caption": "Renan Santos afirma que o Brasil precisa ter sua própria Bomba Atômica e jornalistas ficam chocado!  #RenanSantos #Política #PartidoMissão #Eleições2026 #Direita",
+          "url": "https://www.instagram.com/p/Db9PagNj1QQ/"
+        }
+      ]
+    },
+    "renansantosmbl": {
+      "sample_size": 12,
+      "video_items": 12,
+      "total_views_sample": 5087906.0,
+      "median_views_sample": 209292.0,
+      "max_views_sample": 2687788.0,
+      "mean_engagement_rate_by_views": 0.24828044791477302,
+      "format_counts": {
+        "vertical_9x16": 11,
+        "vertical_4x5": 1
+      },
+      "signal_counts": {
+        "politics": 2,
+        "conflict": 4,
+        "cta": 7,
+        "conclusion": 3,
+        "humor": 1
+      },
+      "top_items_by_views": [
+        {
+          "shortcode": "DZ7ZY6EtlNq",
+          "views": 2687788.0,
+          "likes": 456503.0,
+          "comments": 12409.0,
+          "caption": "O que é o mundo por trás da propaganda do PT  Siga @renansantosmbl",
+          "url": "https://www.instagram.com/p/DZ7ZY6EtlNq/"
+        },
+        {
+          "shortcode": "DbWxJ54hbKO",
+          "views": 630418.0,
+          "likes": 126394.0,
+          "comments": 8642.0,
+          "caption": "O PT destruiu minha vida 3 vezes.  Siga @renansantosmbl",
+          "url": "https://www.instagram.com/p/DbWxJ54hbKO/"
+        },
+        {
+          "shortcode": "Db8fcmItfCw",
+          "views": 326665.0,
+          "likes": 67680.0,
+          "comments": 3007.0,
+          "caption": "Veja como isso é bom!   Siga @renansantosmbl",
+          "url": "https://www.instagram.com/p/Db8fcmItfCw/"
+        },
+        {
+          "shortcode": "Db6qoCUBulc",
+          "views": 324954.0,
+          "likes": 40661.0,
+          "comments": 747.0,
+          "caption": "Nao deixa que a última risada seja a deles. Siga @renansantosmbl",
+          "url": "https://www.instagram.com/p/Db6qoCUBulc/"
+        },
+        {
+          "shortcode": "Db6g5dfteDn",
+          "views": 242299.0,
+          "likes": 50893.0,
+          "comments": 1562.0,
+          "caption": "Decisão ilegal não se cumpre 👍🏻 Siga @renansantosmbl",
+          "url": "https://www.instagram.com/p/Db6g5dfteDn/"
+        }
+      ]
+    }
+  },
+  "limitations": [
+    "O catálogo disponível ainda é uma amostra pública: 12 itens por perfil, com uma segunda resposta duplicada para reserva; a rota seguinte encontrou HTTP 429.",
+    "Os campos de visualizações, curtidas e comentários são contagens observadas no momento da coleta e não são uma série temporal nem uma prova causal de viralidade.",
+    "Não há duração, áudio, música, retenção, transcrição ou resultado audiovisual no catálogo de perfil; esses sinais precisam de análise do Reel individual."
+  ]
+}

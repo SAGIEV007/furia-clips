@@ -27,6 +27,18 @@ data/*.db
 # Secrets
 .env
 
+# Public Instagram research: keep normalized catalogs and profile JSONs, but do
+# not publish signed media URLs, raw HTML, or failed API payloads.
+docs/instagram-full-catalog.csv
+docs/instagram-raw/*feed-page-*.json
+docs/instagram-raw/*.html
+docs/instagram-raw/*graphql*.json
+docs/instagram-raw/*alt-host*.json
+docs/instagram-raw/
+logs/
+.manus-publication-log.txt
+video_*_analysis_*.md
+
 # OS
 .DS_Store
 Thumbs.db

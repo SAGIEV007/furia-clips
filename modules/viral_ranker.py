@@ -11,6 +11,7 @@ Evaluates clips on 4 dimensions:
 import re
 
 from .editorial_ranker import EditorialRanker
+from .political_profile import PROFILE_NAME
 
 
 HOOK_PATTERNS_PT = [
@@ -55,9 +56,10 @@ EMOTIONAL_WORDS_PT = [
 
 
 class ViralRanker:
-    def __init__(self, channel_context=""):
+    def __init__(self, channel_context="", editorial_profile=PROFILE_NAME):
         self.channel_context = channel_context
-        self._editorial_ranker = EditorialRanker(channel_context)
+        self.editorial_profile = editorial_profile or PROFILE_NAME
+        self._editorial_ranker = EditorialRanker(channel_context, editorial_profile=self.editorial_profile)
 
     def score_clip(self, clip):
         """Score a clip and assign A/B/C grades per category."""
@@ -249,6 +251,15 @@ class ViralRanker:
             clips_data,
             user_context=user_context,
             energy_profile=energy_profile,
+        )
+
+    def rank_daily_portfolio(self, clips_data, user_context="", energy_profile=None, **kwargs):
+        """Select a quality-gated portfolio across multiple live sources."""
+        return self._editorial_ranker.rank_daily_portfolio(
+            clips_data,
+            user_context=user_context,
+            energy_profile=energy_profile,
+            **kwargs,
         )
 
     def _normalize(self, text):

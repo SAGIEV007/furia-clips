@@ -1,0 +1,6 @@
+2026-08-13T11:31:28.158670+00:00 renansantosreserva: página 1/400, itens=12, novos=0, vídeos=12, mais=True
+2026-08-13T11:31:36.161129+00:00 renansantosreserva: página 2/400, itens=12, novos=0, vídeos=12, mais=True
+2026-08-13T11:31:36.360656+00:00 renansantosreserva: HTTP 429 na página 3; tentativa 1/6, aguardando 60s
+2026-08-13T11:32:36.393603+00:00 renansantosreserva: HTTP 429 na página 3; tentativa 2/6, aguardando 120s
+2026-08-13T11:34:36.565607+00:00 renansantosreserva: HTTP 429 na página 3; tentativa 3/6, aguardando 180s
+2026-08-13T11:37:36.714699+00:00 renansantosreserva: HTTP 429 na página 3; tentativa 4/6, aguardando 240s

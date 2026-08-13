@@ -141,13 +141,17 @@ def get_all_settings():
         if key not in settings:
             settings[key] = value
 
-    # Override Gemini API key from environment if available and not set in DB
+    # Disponibiliza a chave do ambiente sem alterar o backend escolhido.
+    # O modo "auto" decide em tempo de execução se Gemini, Ollama ou NLP local
+    # está realmente disponível.
     env_key = os.environ.get("GEMINI_API_KEY", "")
     if env_key and not settings.get("gemini_api_key"):
         settings["gemini_api_key"] = env_key
-        # Auto-switch to Gemini if key is available and backend is default
-        if settings.get("ai_backend") == "ollama":
-            settings["ai_backend"] = "gemini"
+
+    # Migra a configuração antiga que selecionava Gemini sem chave para o modo
+    # automático, mantendo o funcionamento local em instalações já existentes.
+    if settings.get("ai_backend") == "gemini" and not settings.get("gemini_api_key"):
+        settings["ai_backend"] = "auto"
 
     return settings
 

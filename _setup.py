@@ -21,13 +21,12 @@ def run_cmd(cmd, check=False, quiet=False):
 
 def check_ffmpeg():
     """Check if FFmpeg is available."""
-    if shutil.which("ffmpeg"):
-        print("[OK] FFmpeg encontrado")
+    if shutil.which("ffmpeg") and shutil.which("ffprobe"):
+        print("[OK] FFmpeg e ffprobe encontrados")
         return True
     else:
-        print("[AVISO] FFmpeg nao encontrado no PATH.")
-        print("  Instale de: https://ffmpeg.org/download.html")
-        print("  O programa vai iniciar mas cortes nao funcionarao.")
+        print("[ERRO] FFmpeg/ffprobe nao encontrado no PATH.")
+        print("  O launcher tenta instalar automaticamente antes deste setup.")
         return False
 
 
@@ -116,16 +115,16 @@ def check_ollama():
     print("--------------------------------------------------")
 
     if not shutil.which("ollama"):
-        print("[AVISO] Ollama NAO encontrado.")
-        print("  Sem o Ollama, o programa usara Gemini (online) ou NLP basico.")
-        print("  Para IA OFFLINE, instale: https://ollama.com")
+        print("[INFO] Ollama nao encontrado; isso e opcional.")
+        print("  O programa usara Gemini se configurado ou o ranking NLP local.")
+        print("  Se quiser IA local mais avancada depois, instale Ollama em https://ollama.com")
         print("  Apos instalar, rode: ollama pull llama3.2:3b")
         return False
 
     # Check if ollama is running
     if not run_cmd(["ollama", "list"], quiet=True):
-        print("[AVISO] Ollama instalado mas nao esta rodando.")
-        print("  Abra o Ollama antes de usar o Furia Clips.")
+        print("[INFO] Ollama instalado, mas nao esta rodando; isso e opcional.")
+        print("  O programa continuara funcionando com Gemini configurado ou NLP local.")
         return False
 
     print("[OK] Ollama detectado")
@@ -145,8 +144,7 @@ def check_ollama():
         print("[OK] Modelo llama3.2:3b instalado com sucesso!")
         return True
     else:
-        print("[AVISO] Nao foi possivel baixar o modelo.")
-        print("  Tente manualmente: ollama pull llama3.2:3b")
+        print("[INFO] Nao foi possivel baixar o modelo Ollama; continuando com o fallback local.")
         return False
 
 
@@ -168,7 +166,7 @@ def setup_venv():
 def install_deps():
     """Install dependencies if needed."""
     venv_dir = os.path.join(os.path.dirname(__file__), "venv")
-    deps_version = "v6_gemini"
+    deps_version = "v7_auto_backend"
     marker = os.path.join(venv_dir, f".deps_{deps_version}")
 
     if os.path.exists(marker):
@@ -253,28 +251,16 @@ def main():
     print()
     print(f"[OK] Python {sys.version.split()[0]} encontrado")
 
-    check_ffmpeg()
+    if not check_ffmpeg():
+        print("[ERRO] FFmpeg e ffprobe sao necessarios para cortar e validar videos.")
+        return 1
 
-    # Check Gemini first (recommended)
-    has_gemini = check_gemini_key()
-    if not has_gemini:
-        # Only prompt on first run (marker file tracks if already asked)
-        # Use venv dir for marker so it resets when user deletes venv
-        venv_dir = os.path.join(os.path.dirname(__file__), "venv")
-        marker_file = os.path.join(venv_dir, ".gemini_asked")
-        # Also check old marker location and remove it
-        old_marker = os.path.join(os.path.dirname(__file__), "data", ".gemini_asked")
-        if os.path.exists(old_marker):
-            try:
-                os.remove(old_marker)
-            except Exception:
-                pass
-        if not os.path.exists(marker_file):
-            has_gemini = prompt_gemini_key()
-            # Mark that we already asked (even if skipped)
-            os.makedirs(os.path.dirname(marker_file), exist_ok=True)
-            with open(marker_file, "w") as f:
-                f.write("asked")
+    # Gemini e opcional. O modo automatico usa Gemini somente se uma chave ja existir;
+    # caso contrario, tenta Ollama e depois cai para o ranking NLP local.
+    if check_gemini_key():
+        print("[IA] Gemini configurado; o modo automatico podera usa-lo.")
+    else:
+        print("[IA] Nenhuma chave Gemini configurada; o Furia Clips continuara funcionando localmente.")
 
     check_ollama()
     print()

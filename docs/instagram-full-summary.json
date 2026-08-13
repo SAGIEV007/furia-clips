@@ -1,0 +1,26 @@
+{
+  "renansantosreserva": {
+    "reported_posts": 330,
+    "pages_completed": 2,
+    "items_unique": 12,
+    "video_items": 12,
+    "image_or_carousel_items": 0,
+    "errors": [],
+    "page_status": [
+      {
+        "page": 1,
+        "items": 12,
+        "new_items": 0,
+        "videos": 12,
+        "has_next_page": true
+      },
+      {
+        "page": 2,
+        "items": 12,
+        "new_items": 0,
+        "videos": 12,
+        "has_next_page": true
+      }
+    ]
+  }
+}

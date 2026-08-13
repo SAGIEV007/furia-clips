@@ -756,6 +756,7 @@ function displayResults(clips) {
         const hashtags = seo.hashtags || [];
         const breakdown = clip.breakdown || {};
         const factors = clip.factors || {};
+        const politicalType = clip.political_editorial_type || "";
         const reviewStatus = clip.review_status || "pending";
         const confidence = Math.round((clip.confidence || 0) * 100);
         const clipSource = clip.source || "nlp";
@@ -783,6 +784,7 @@ function displayResults(clips) {
                 </div>
                 ${clip.has_hook ? '<span class="hook-badge"><span class="material-icons-round" style="font-size:12px">flash_on</span> Gancho</span>' : ''}
                 <span class="clip-source-badge ${sourceClass}">${sourceLabel}</span>
+                ${politicalType ? `<span class="clip-source-badge source-editorial">${politicalType}</span>` : ''}
             </div>
 
             ${clip.title ? `<div class="result-title">${clip.title}</div>` : ''}
@@ -793,6 +795,7 @@ function displayResults(clips) {
                 </video>
             </div>
             <div class="result-info">
+                ${politicalType ? `<div style="font-size:12px; color:#f59e0b; margin-bottom:6px"><span class="material-icons-round" style="font-size:14px; vertical-align:middle">account_balance</span> Formato editorial: ${politicalType}</div>` : ''}
                 <div class="result-duration">
                     <span class="material-icons-round" style="font-size:14px">schedule</span>
                     ${formatTime(clip.start)} - ${formatTime(clip.end)} (${clip.duration.toFixed(1)}s)
@@ -1048,6 +1051,7 @@ function applySettings() {
     if (s.cut_method) document.getElementById("settingCutMethod").value = s.cut_method;
     if (s.cut_duration) document.getElementById("settingCutDuration").value = s.cut_duration;
     if (s.render_preset) document.getElementById("settingRenderPreset").value = s.render_preset;
+    if (s.editorial_profile) document.getElementById("settingEditorialProfile").value = s.editorial_profile;
     if (s.min_silence_duration != null) {
         document.getElementById("settingSilenceDuration").value = s.min_silence_duration;
         document.getElementById("silenceValue").textContent = s.min_silence_duration + "s";
@@ -1070,12 +1074,18 @@ function applySettings() {
 }
 
 function updateAiConfigVisibility(backend) {
-    document.getElementById("ollamaConfig").style.display = backend === "ollama" ? "block" : "none";
-    document.getElementById("geminiConfig").style.display = backend === "gemini" ? "block" : "none";
+    const automatic = backend === "auto";
+    document.getElementById("ollamaConfig").style.display = (automatic || backend === "ollama") ? "block" : "none";
+    document.getElementById("geminiConfig").style.display = (automatic || backend === "gemini") ? "block" : "none";
     document.getElementById("claudeConfig").style.display = backend === "claude" ? "block" : "none";
 
     const status = document.getElementById("aiStatus");
-    const labels = { ollama: "Ollama local selecionado", gemini: "Google Gemini selecionado", claude: "Claude API selecionado" };
+    const labels = {
+        auto: "Modo automático: Gemini → Ollama → local",
+        ollama: "Ollama local selecionado",
+        gemini: "Google Gemini selecionado (chave opcional)",
+        claude: "Claude API selecionado",
+    };
     status.querySelector("span:last-child").textContent = labels[backend] || backend;
 }
 
@@ -1087,11 +1097,12 @@ document.getElementById("settingGeminiKey").addEventListener("change", async (e)
             await fetch("/api/settings", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ gemini_api_key: key, ai_backend: "gemini" }),
+                body: JSON.stringify({ gemini_api_key: key }),
             });
             showToast("Gemini API key salva!", "success");
+            // A chave fica disponível para o modo automático, sem trocar a preferência do usuário.
             state.settings.gemini_api_key = key;
-            state.settings.ai_backend = "gemini";
+            updateAiConfigVisibility(document.getElementById("settingAiBackend").value);
         } catch (err) { /* silent */ }
     }
 });
@@ -1106,6 +1117,7 @@ document.getElementById("btnSaveSettings").addEventListener("click", async () =>
         cut_method: document.getElementById("settingCutMethod").value,
         cut_duration: parseInt(document.getElementById("settingCutDuration").value),
         render_preset: document.getElementById("settingRenderPreset").value,
+        editorial_profile: document.getElementById("settingEditorialProfile").value,
         min_silence_duration: parseFloat(document.getElementById("settingSilenceDuration").value),
         padding: 0.25,
         language: document.getElementById("settingLanguage").value,

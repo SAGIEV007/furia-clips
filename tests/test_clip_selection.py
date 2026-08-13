@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 
 from modules.clip_selector import ClipSelector
 
@@ -42,6 +43,22 @@ class ClipSelectionTests(unittest.TestCase):
         clips = self.selector._select_with_nlp(sentences, [], "", None)
         self.assertTrue(clips)
         self.assertTrue(all(clip["duration"] <= 30 for clip in clips))
+
+    def test_auto_backend_uses_nlp_without_gemini_key(self):
+        transcription = {
+            "segments": [
+                {"start": 0.0, "end": 4.0, "text": "A proposta é reduzir impostos com responsabilidade."},
+                {"start": 4.2, "end": 8.0, "text": "O plano precisa de metas e prazo claro."},
+                {"start": 8.2, "end": 12.0, "text": "Essa é a consequência para o cidadão."},
+            ]
+        }
+        with patch.object(self.selector, "_select_with_llm", return_value=None):
+            clips = self.selector.select_clips(
+                transcription,
+                settings={"ai_backend": "auto", "gemini_api_key": ""},
+            )
+        self.assertTrue(clips)
+        self.assertEqual(self.selector.get_selection_source(), "nlp")
 
 
 if __name__ == "__main__":

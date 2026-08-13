@@ -1,0 +1,27 @@
+nohup: ignoring input
+{
+  "renansantosreserva": {
+    "pages_attempted": 1,
+    "items_unique": 0,
+    "video_items": 0,
+    "items_with_view_count": 0,
+    "page_status": [
+      {
+        "page": 1,
+        "error": "401 Client Error: Unauthorized for url: https://www.instagram.com/api/v1/feed/user/24031008826/?count=12"
+      }
+    ]
+  },
+  "renansantosmbl": {
+    "pages_attempted": 1,
+    "items_unique": 0,
+    "video_items": 0,
+    "items_with_view_count": 0,
+    "page_status": [
+      {
+        "page": 1,
+        "error": "401 Client Error: Unauthorized for url: https://www.instagram.com/api/v1/feed/user/2334727603/?count=12"
+      }
+    ]
+  }
+}

@@ -23,6 +23,36 @@ class EditorialRankerTests(unittest.TestCase):
         self.assertIn("context_match", result["factors"])
         self.assertIn("completeness", result["factors"])
 
+    def test_audio_energy_uses_windows_inside_clip(self):
+        result = self.ranker.score_clip(
+            {
+                "start": 10,
+                "end": 14,
+                "duration": 4,
+                "text": "A fala termina com uma conclusão clara.",
+            },
+            energy_profile=[
+                {"time": 0, "energy_normalized": 0.1},
+                {"time": 10, "energy_normalized": 0.8},
+                {"time": 11, "energy_normalized": 1.0},
+                {"time": 12, "energy_normalized": 0.9},
+                {"time": 20, "energy_normalized": 0.1},
+            ],
+        )
+        self.assertGreater(result["factors"]["audio_energy"], 80)
+
+    def test_visual_change_density_is_exposed_when_scene_data_exists(self):
+        result = self.ranker.score_clip(
+            {
+                "start": 0,
+                "end": 20,
+                "duration": 20,
+                "text": "A proposta é clara e muda a vida das pessoas.",
+                "scene_changes": [3, 7, 11, 15, 18],
+            }
+        )
+        self.assertGreater(result["factors"]["visual_change_density"], 50)
+
     def test_context_match_changes_with_requested_topic(self):
         clip = {"start": 0, "end": 20, "duration": 20, "text": "O orçamento público teve dados oficiais."}
         matching = self.ranker.score_clip(clip, user_context="encontre orçamento público")

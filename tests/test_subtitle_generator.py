@@ -31,6 +31,42 @@ class SubtitleGeneratorTests(unittest.TestCase):
         self.assertIn("\\{agora\\}", content)
         self.assertNotIn("-1:", content)
 
+    def test_political_terms_use_alert_style(self):
+        generator = SubtitleGenerator({"render_preset": "political_shorts"})
+        with tempfile.TemporaryDirectory() as tempdir:
+            path = os.path.join(tempdir, "alert.ass")
+            generator.generate_ass_file(
+                [{
+                    "start": 0,
+                    "end": 1,
+                    "text": "Decisão ilegal: 10 mil casos.",
+                    "words": [
+                        {"word": "Decisão", "start": 0, "end": 0.2},
+                        {"word": "ilegal", "start": 0.2, "end": 0.5},
+                        {"word": "10", "start": 0.5, "end": 0.7},
+                        {"word": "mil", "start": 0.7, "end": 0.8},
+                    ],
+                }],
+                path,
+            )
+            with open(path, encoding="utf-8") as handle:
+                content = handle.read()
+        self.assertIn("Style: Alert", content)
+        self.assertIn("{\\rAlert}ilegal", content)
+        self.assertIn("{\\rAlert}10", content)
+
+    def test_political_preset_uses_larger_bottom_safe_margin(self):
+        generator = SubtitleGenerator({"render_preset": "political_shorts"})
+        with tempfile.TemporaryDirectory() as tempdir:
+            path = os.path.join(tempdir, "political.ass")
+            generator.generate_ass_file(
+                [{"start": 0, "end": 1, "text": "Tese política", "words": []}],
+                path,
+            )
+            with open(path, encoding="utf-8") as handle:
+                content = handle.read()
+        self.assertIn(",360,1\n", content)
+
     def test_generates_srt_with_non_negative_time(self):
         generator = SubtitleGenerator()
         with tempfile.TemporaryDirectory() as tempdir:

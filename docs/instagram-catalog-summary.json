@@ -1,0 +1,22 @@
+{
+  "renansantosreserva": {
+    "file": "/home/ubuntu/furia-clips-rebuild/docs/instagram-raw/renansantosreserva.html",
+    "html_bytes": 605283,
+    "unique_reel_ids_in_initial_html": 0,
+    "unique_post_or_tv_ids_in_initial_html": 0,
+    "has_show_more_posts": false,
+    "has_cursor_marker": false,
+    "followers_text": [],
+    "posts_text": []
+  },
+  "renansantosmbl": {
+    "file": "/home/ubuntu/furia-clips-rebuild/docs/instagram-raw/renansantosmbl.html",
+    "html_bytes": 605047,
+    "unique_reel_ids_in_initial_html": 0,
+    "unique_post_or_tv_ids_in_initial_html": 0,
+    "has_show_more_posts": false,
+    "has_cursor_marker": false,
+    "followers_text": [],
+    "posts_text": []
+  }
+}

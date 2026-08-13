@@ -1,10 +1,10 @@
 """
 Clip Selector — Intelligent clip selection using Gemini, Ollama (LLM) or NLP fallback.
 
-Selection priority (based on user choice):
-1. Google Gemini Flash (if API key configured) — most capable, free tier
-2. Ollama local LLM (if running) — good, free, 100% offline
-3. NLP keyword matching (always available) — basic fallback
+Selection priority in automatic mode:
+1. Google Gemini Flash, only when a key is already configured
+2. Ollama local LLM, when the service and model are available
+3. NLP keyword matching, always available and requiring no key
 """
 
 import json
@@ -12,6 +12,8 @@ import re
 import math
 import requests
 from collections import Counter
+
+from .political_profile import PROFILE_NAME, build_political_prompt_fragment
 
 # Portuguese filler words to detect
 FILLER_WORDS_PT = {
@@ -34,7 +36,8 @@ class ClipSelector:
                      video_layout=None):
         settings = settings or {}
         self._selection_source = None
-        ai_backend = settings.get("ai_backend", "gemini")
+        ai_backend = settings.get("ai_backend", "auto")
+        gemini_key = str(settings.get("gemini_api_key", "") or "").strip()
         sentences = self._build_sentences(transcription["segments"])
 
         if emit_progress:
@@ -47,8 +50,8 @@ class ClipSelector:
 
         clips = None
 
-        # Try Gemini first if selected
-        if ai_backend == "gemini":
+        # Gemini só entra no fluxo automático quando a chave já existe.
+        if ai_backend in ("auto", "gemini") and gemini_key:
             clips = self._select_with_gemini(
                 sentences, energy_profile, user_context, settings, emit_progress
             )
@@ -57,9 +60,11 @@ class ClipSelector:
                 if emit_progress:
                     emit_progress(f"[Gemini] Selecao inteligente concluida! {len(clips)} clips.", "success")
 
-        # Try Ollama (as primary or as fallback from Gemini)
-        if not clips and ai_backend in ("ollama", "gemini"):
-            if ai_backend == "gemini" and emit_progress:
+        # Ollama é opcional; falhas de conexão não interrompem o processamento.
+        if not clips and ai_backend in ("auto", "gemini", "ollama"):
+            if ai_backend == "gemini" and not gemini_key and emit_progress:
+                emit_progress("[Gemini] Sem chave configurada; seguindo para o modo local.", "info")
+            elif ai_backend == "gemini" and emit_progress:
                 emit_progress("[Gemini] Tentando Ollama como fallback...", "warning")
             clips = self._select_with_llm(
                 sentences, energy_profile, user_context, settings, emit_progress
@@ -69,11 +74,11 @@ class ClipSelector:
                 if emit_progress:
                     emit_progress(f"[Ollama] Selecao inteligente concluida! {len(clips)} clips.", "success")
 
-        # NLP fallback (always available)
+        # O ranking NLP é o caminho final e não requer API, Ollama ou download extra.
         if not clips:
             self._selection_source = "nlp"
             if emit_progress:
-                emit_progress("[NLP] Usando selecao por palavras-chave (menos preciso)...", "warning")
+                emit_progress("[NLP] Usando selecao local por contexto e palavras-chave.", "info")
             clips = self._select_with_nlp(
                 sentences, energy_profile, user_context, emit_progress
             )
@@ -236,7 +241,7 @@ class ClipSelector:
         if not transcript_blocks:
             return []
 
-        system_prompt = self._get_gemini_system_prompt()
+        system_prompt = self._get_gemini_system_prompt(settings.get("editorial_profile", PROFILE_NAME))
         user_prompt = self._build_gemini_prompt(transcript_blocks, user_context)
 
         if emit_progress:
@@ -368,7 +373,10 @@ class ClipSelector:
             emit_progress(f"[Gemini] Todos os modelos falharam. Ultimo erro: {last_error}", "warning")
         return []
 
-    def _get_gemini_system_prompt(self):
+    def _get_gemini_system_prompt(self, editorial_profile=PROFILE_NAME):
+        political_fragment = ""
+        if editorial_profile in (PROFILE_NAME, "politics", "political"):
+            political_fragment = "\n\n" + build_political_prompt_fragment()
         return """Voce e um editor de video profissional especialista em selecionar os melhores momentos de debates, entrevistas, podcasts e videos longos para clips curtos (YouTube Shorts, TikTok, Reels).
 
 REGRAS CRITICAS:
@@ -402,7 +410,8 @@ REGRAS CRITICAS:
    - Cada clip: 30 a 180 segundos. Prefira 45 a 120 segundos.
    - Clips mais longos sao OTIMOS se o pensamento estiver completo e o conteudo justificar.
    - Selecione clips de PARTES DIFERENTES do video (diversidade temporal).
-   - Prefira momentos com: opiniao forte, dado concreto, confronto, emocao, humor.
+   - Prefira momentos com: opiniao forte, dado concreto, confronto, emocao, humor, reacao, historia, bastidor ou conversa descontraida.
+   - Nao force tudo como politico. Escolha uma familia editorial: politico, humor, reacao, bastidor, descontraido ou conversa.
 
 6. AVALIACAO HONESTA — use a escala INTEIRA, nao de A para tudo:
    - hook: A = Primeiros segundos prendem atencao imediatamente. B = Inicio razoavel. C = Inicio confuso ou fraco.
@@ -418,12 +427,13 @@ FORMATO DE RESPOSTA — retorne APENAS um array JSON valido:
     "title": "Titulo descritivo que resume o conteudo do clip",
     "speaker": "Nome da pessoa principal falando",
     "reason": "Por que este clip e relevante para o pedido do usuario",
+    "editorial_family": "politico|humor|reacao|bastidor|descontraido|conversa",
     "hook": "A",
     "flow": "A",
     "value": "B",
     "energy": "A"
   }
-]"""
+]""" + political_fragment
 
     def _build_gemini_prompt(self, blocks, user_context):
         """Build prompt for Gemini — sends ALL blocks at once (Gemini handles long context)."""
@@ -498,7 +508,7 @@ Retorne APENAS o array JSON. Nenhum texto antes ou depois."""
                     json={
                         "model": ollama_model,
                         "prompt": prompt,
-                        "system": self._get_system_prompt(),
+                        "system": self._get_system_prompt(settings.get("editorial_profile", PROFILE_NAME)),
                         "stream": False,
                         "options": {"temperature": 0.3, "num_predict": 4096},
                     },
@@ -527,8 +537,11 @@ Retorne APENAS o array JSON. Nenhum texto antes ou depois."""
         all_selections.sort(key=lambda x: x.get("viral_score", 0), reverse=True)
         return all_selections
 
-    def _get_system_prompt(self):
+    def _get_system_prompt(self, editorial_profile=PROFILE_NAME):
         """System prompt for Ollama — simpler and more direct for small models (3B)."""
+        political_fragment = ""
+        if editorial_profile in (PROFILE_NAME, "politics", "political"):
+            political_fragment = "\n\n" + build_political_prompt_fragment()
         return """Voce seleciona os melhores trechos de uma transcricao de video para clips curtos.
 
 REGRAS OBRIGATORIAS:
@@ -550,7 +563,7 @@ FORMATO — retorne APENAS JSON valido:
     "value": "B",
     "energy": "B"
   }
-]"""
+]""" + political_fragment
 
     def _build_llm_prompt(self, blocks, user_context, chunk_offset, total_blocks):
         """Build prompt for Ollama — simpler and more explicit."""
@@ -734,6 +747,7 @@ Retorne APENAS o JSON."""
                 "title": sel.get("title", ""),
                 "reason": sel.get("reason", ""),
                 "speaker": sel.get("speaker", ""),
+                "editorial_family": sel.get("editorial_family", ""),
                 "viral_score": viral_score,
                 "has_hook": sel.get("hook", "C") in ("A", "B"),
                 "breakdown": {

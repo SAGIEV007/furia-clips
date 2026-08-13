@@ -15,6 +15,18 @@ PRESETS = {
         "safe_top": 180,
         "safe_bottom": 300,
     },
+    "political_shorts": {
+        "name": "Politica Editorial — 9:16",
+        "width": 1080,
+        "height": 1920,
+        "aspect": "9:16",
+        "max_duration": 180,
+        "safe_top": 220,
+        "safe_bottom": 360,
+        "editorial_profile": "renan_santos_politics",
+        "caption_mode": "keyword_impact",
+        "audio_policy": "voice_and_ambience",
+    },
     "reels": {
         "name": "Instagram Reels",
         "width": 1080,
