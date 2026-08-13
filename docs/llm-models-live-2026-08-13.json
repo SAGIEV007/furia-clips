@@ -1,0 +1,18 @@
+{
+  "collected_at": "2026-08-13",
+  "source": "OPENAI_API_BASE/models",
+  "models": [
+    "gpt-5-nano",
+    "gpt-5-mini",
+    "gpt-5",
+    "gpt-5.5",
+    "claude-haiku-4-5",
+    "claude-sonnet-4-6",
+    "claude-opus-4-6",
+    "claude-opus-4-7",
+    "gemini-3-flash-preview",
+    "gemini-3.1-pro-preview"
+  ],
+  "selection_for_batch": "gemini-3-flash-preview",
+  "reason": "Modelo multimodal de baixo custo e contexto longo, adequado a triagem audiovisual com quadros e transcrição."
+}

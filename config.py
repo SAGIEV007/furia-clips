@@ -32,6 +32,7 @@ DEFAULT_SETTINGS = {
     "ollama_url": "http://localhost:11434",
     "claude_api_key": "",
     "gemini_api_key": "",
+    "gemini_model": "gemini-2.5-flash",
     "subtitle_font": "Arial",
     "subtitle_font_size": 28,
     "subtitle_color": "#FFFFFF",

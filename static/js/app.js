@@ -624,7 +624,11 @@ document.getElementById("actionCut").querySelector(".btn-action").addEventListen
         await fetch("/api/settings", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ gemini_api_key: geminiKey, ai_backend: aiBackend }),
+            body: JSON.stringify({
+                gemini_api_key: geminiKey,
+                gemini_model: document.getElementById("settingGeminiModel").value.trim(),
+                ai_backend: aiBackend,
+            }),
         });
     }
 
@@ -1427,6 +1431,7 @@ function applySettings() {
     }
     if (s.ollama_model) document.getElementById("settingOllamaModel").value = s.ollama_model;
     if (s.gemini_api_key) document.getElementById("settingGeminiKey").value = s.gemini_api_key;
+    if (s.gemini_model) document.getElementById("settingGeminiModel").value = s.gemini_model;
     if (s.claude_api_key) document.getElementById("settingClaudeKey").value = s.claude_api_key;
     if (s.output_dir) {
         state.outputDir = s.output_dir;
@@ -1496,6 +1501,7 @@ document.getElementById("btnSaveSettings").addEventListener("click", async () =>
         ai_correction: document.getElementById("settingAiCorrection").dataset.active === "true",
         ai_backend: document.getElementById("settingAiBackend").value,
         ollama_model: document.getElementById("settingOllamaModel").value,
+        gemini_model: document.getElementById("settingGeminiModel").value.trim(),
         gemini_api_key: document.getElementById("settingGeminiKey").value,
         claude_api_key: document.getElementById("settingClaudeKey").value,
         output_dir: state.outputDir,

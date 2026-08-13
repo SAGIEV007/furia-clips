@@ -227,6 +227,14 @@ Timestamps devem usar MM:SS. Gere segmentos suficientes para a seleção editori
             return response.text[:240]
 
 
-def analyze_video_with_gemini(video_path: str, api_key: str, editorial_context=None, user_context="", emit_progress=None, cancel_check=None) -> dict:
-    analyzer = GeminiVideoAnalyzer(api_key)
+def analyze_video_with_gemini(
+    video_path: str,
+    api_key: str,
+    editorial_context=None,
+    user_context="",
+    emit_progress=None,
+    cancel_check=None,
+    model: str = "gemini-2.5-flash",
+) -> dict:
+    analyzer = GeminiVideoAnalyzer(api_key, model=model)
     return analyzer.analyze(video_path, editorial_context, user_context, emit_progress, cancel_check)

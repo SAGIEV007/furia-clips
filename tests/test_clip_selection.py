@@ -60,6 +60,29 @@ class ClipSelectionTests(unittest.TestCase):
         self.assertTrue(clips)
         self.assertEqual(self.selector.get_selection_source(), "nlp")
 
+    @patch("modules.clip_selector.requests.post")
+    def test_gemini_selector_uses_configured_model(self, post):
+        post.return_value.status_code = 403
+        sentences = self.selector._build_sentences([
+            {"start": 0.0, "end": 4.0, "text": "A proposta exige uma resposta concreta."},
+        ])
+
+        self.selector._select_with_gemini(
+            sentences,
+            energy_profile=[],
+            user_context="",
+            settings={
+                "gemini_api_key": "chave-de-teste",
+                "gemini_model": "gemini-2.5-flash-lite",
+            },
+            emit_progress=None,
+        )
+
+        self.assertIn(
+            "/models/gemini-2.5-flash-lite:generateContent",
+            post.call_args.args[0],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

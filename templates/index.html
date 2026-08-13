@@ -162,6 +162,9 @@
                     <label>Gemini API Key <span class="setting-hint">(opcional)</span></label>
                     <input type="password" id="settingGeminiKey" class="setting-input" placeholder="Opcional — deixe vazio para usar o modo local">
                     <small class="setting-hint">Só é necessária para análise online. Sem chave, o app tenta legendas públicas e depois Whisper CPU. Disponível no <a href="https://aistudio.google.com/apikeys" target="_blank">Google AI Studio</a>.</small>
+                    <label for="settingGeminiModel">Modelo Gemini <span class="setting-hint">(avançado)</span></label>
+                    <input type="text" id="settingGeminiModel" class="setting-input" value="gemini-2.5-flash" placeholder="gemini-2.5-flash" autocomplete="off">
+                    <small class="setting-hint">Usado tanto na análise multimodal quanto no ranking dos cortes. Mantenha o padrão salvo, salvo se sua conta tiver outro modelo compatível.</small>
                 </div>
 
                 <div class="setting-group ai-config" id="claudeConfig" style="display:none">

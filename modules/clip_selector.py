@@ -253,8 +253,12 @@ class ClipSelector:
 
         import time as _time
 
-        # Try multiple models with retry for transient errors (503)
-        models_to_try = ["gemini-2.5-flash"]
+        # Usa o mesmo modelo Gemini configurado para a análise multimodal.
+        # O padrão preserva compatibilidade com instalações existentes; a validação
+        # impede que uma configuração corrompida altere o caminho da requisição.
+        configured_model = str(settings.get("gemini_model", "gemini-2.5-flash") or "").strip()
+        model_name = configured_model if re.fullmatch(r"gemini-[a-z0-9.-]+", configured_model) else "gemini-2.5-flash"
+        models_to_try = [model_name]
         last_error = ""
 
         for model_name in models_to_try:

@@ -8,6 +8,7 @@ import subprocess
 import platform
 import secrets
 import requests
+import re
 from datetime import datetime
 
 # Load .env file for Gemini API key and other settings
@@ -158,6 +159,12 @@ def _allowed_media_roots(settings=None):
     return roots
 
 
+def _configured_gemini_model(settings):
+    """Return a safe Gemini model identifier from persisted settings."""
+    model = str((settings or {}).get("gemini_model", "gemini-2.5-flash") or "").strip()
+    return model if re.fullmatch(r"gemini-[a-z0-9.-]+", model) else "gemini-2.5-flash"
+
+
 def _resolve_media_input(requested):
     """Resolve workspace-relative or explicitly configured external media."""
     value = str(requested or "").strip()
@@ -304,6 +311,7 @@ def _transcription_from_request(data, duration=None):
 def _run_gemini_video_analysis(video_path, settings, editorial_context, user_context, emit_progress, cancel_check=None):
     backend = str(settings.get("ai_backend", "gemini") or "gemini").lower()
     api_key = str(settings.get("gemini_api_key", "") or "").strip()
+    model = _configured_gemini_model(settings)
     if backend not in {"auto", "gemini"}:
         emit_progress(f"[Gemini] Backend definido como {backend}; Gemini online não será usado nesta execução.", "info")
         return None
@@ -319,6 +327,7 @@ def _run_gemini_video_analysis(video_path, settings, editorial_context, user_con
             user_context=user_context,
             emit_progress=emit_progress,
             cancel_check=cancel_check,
+            model=model,
         )
         emit_progress("[Gemini] Análise multimodal concluída; sinais de áudio, imagem e entrevista incorporados.", "success")
         return result
@@ -961,8 +970,8 @@ def api_cut_shorts():
         return jsonify({"error": "Video nao encontrado"}), 404
 
     def task():
-        current_task["active"] = True
         try:
+            check_current_task_cancel()
             settings = get_all_settings()
 
             # Check AI status before starting
@@ -1184,6 +1193,9 @@ def api_cut_shorts():
             source_label = "IA Inteligente" if selection_source == "llm" else "NLP Basico"
             emit_progress(f"Corte completo! {len(results)} clips gerados via {source_label}.", "success")
 
+        except OperationCancelled as exc:
+            emit_progress(f"[Corte] Operação cancelada: {exc}", "warning")
+            emit_status("cancelled", {"operation": "cut", "message": str(exc)})
         except ValueError as ve:
             friendly = _translate_error(str(ve))
             emit_progress(f"Erro: {friendly}", "error")
@@ -1193,10 +1205,12 @@ def api_cut_shorts():
             emit_progress(f"Erro no corte: {friendly}", "error")
             emit_status("error", {"message": friendly, "technical": str(e)})
         finally:
-            current_task["active"] = False
+            _set_legacy_task("", active=False)
 
-    if current_task["active"]:
-        return jsonify({"error": ERROR_MESSAGES["processing_active"]}), 409
+    with processing_lock:
+        if current_task["active"]:
+            return jsonify({"error": ERROR_MESSAGES["processing_active"]}), 409
+        _set_legacy_task("cut", active=True)
 
     threading.Thread(target=task, daemon=True).start()
     return jsonify({"success": True, "message": "Corte de shorts iniciado"})
@@ -1822,7 +1836,7 @@ def _check_ai_status(settings):
                 return {
                     "connected": True,
                     "mode": "gemini",
-                    "model": "gemini-2.5-flash",
+                    "model": _configured_gemini_model(settings),
                     "model_available": True,
                     "status": "connected",
                     "backend": "gemini",
