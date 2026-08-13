@@ -1169,7 +1169,9 @@ document.getElementById("btnApplyTranscript")?.addEventListener("click", async (
 });
 
 document.getElementById("btnProbeSource")?.addEventListener("click", async () => {
-    const url = document.getElementById("sourceUrlInput")?.value.trim();
+    const input = document.getElementById("sourceUrlInput");
+    const url = normalizePublicUrlInput(input?.value);
+    if (input && url) input.value = url;
     if (!url) {
         showSourceStatus("Informe uma URL pública.", "error");
         return;
@@ -1192,7 +1194,9 @@ document.getElementById("btnProbeSource")?.addEventListener("click", async () =>
 });
 
 document.getElementById("btnImportSource")?.addEventListener("click", async () => {
-    const url = document.getElementById("sourceUrlInput")?.value.trim();
+    const input = document.getElementById("sourceUrlInput");
+    const url = normalizePublicUrlInput(input?.value);
+    if (input && url) input.value = url;
     if (!url) {
         showSourceStatus("Informe uma URL pública.", "error");
         return;
@@ -1215,6 +1219,14 @@ document.getElementById("btnImportSource")?.addEventListener("click", async () =
         showToast(error.message, "error");
     }
 });
+
+function normalizePublicUrlInput(rawUrl) {
+    const value = String(rawUrl || "").trim();
+    if (!value) return "";
+    if (value.startsWith("//")) return `https:${value}`;
+    if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(value)) return `https://${value}`;
+    return value;
+}
 
 // ─── Settings ───
 

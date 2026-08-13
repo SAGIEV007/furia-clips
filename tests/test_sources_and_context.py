@@ -1,7 +1,7 @@
 import pytest
 
 from modules.editorial_context import analyze_transcript_context
-from modules.source_ingest import SourceIngestError, validate_public_url
+from modules.source_ingest import SourceIngestError, normalize_public_url, validate_public_url
 from modules.transcript_parser import parse_transcript_text
 
 
@@ -37,6 +37,12 @@ def test_editorial_context_detects_question_response_and_renan_signal():
     assert context["qa_candidates"]
     assert context["qa_candidates"][0]["needs_question"] is True
     assert context["qa_candidates"][0]["renan_signal"] is True
+
+
+def test_public_url_normalizes_browser_style_links_without_scheme():
+    assert normalize_public_url("www.youtube.com/watch?v=k-LjFgh5o4Y&t") == "https://www.youtube.com/watch?v=k-LjFgh5o4Y&t"
+    assert normalize_public_url("//www.youtube.com/watch?v=k-LjFgh5o4Y") == "https://www.youtube.com/watch?v=k-LjFgh5o4Y"
+    assert normalize_public_url("https://www.youtube.com/watch?v=k-LjFgh5o4Y") == "https://www.youtube.com/watch?v=k-LjFgh5o4Y"
 
 
 def test_public_url_rejects_local_and_non_http_sources():

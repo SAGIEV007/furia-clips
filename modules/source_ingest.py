@@ -21,8 +21,24 @@ class SourceIngestError(RuntimeError):
 BLOCKED_HOSTS = {"localhost", "localhost.localdomain", "0.0.0.0", "127.0.0.1", "::1"}
 
 
-def validate_public_url(url: str) -> str:
+def normalize_public_url(url: str) -> str:
+    """Return a browser-friendly public URL while keeping the input semantics.
+
+    Users commonly paste ``www.youtube.com/...`` without the scheme.  That is
+    a valid browser address but not a complete URL for ``urlparse`` or yt-dlp.
+    Only a missing scheme is repaired here; explicit schemes such as ``file``
+    remain untouched so the security validator can reject them.
+    """
     value = str(url or "").strip()
+    if value and not urlparse(value).scheme and not value.startswith("//"):
+        value = f"https://{value}"
+    elif value.startswith("//"):
+        value = f"https:{value}"
+    return value
+
+
+def validate_public_url(url: str) -> str:
+    value = normalize_public_url(url)
     parsed = urlparse(value)
     if parsed.scheme not in {"http", "https"} or not parsed.netloc:
         raise SourceIngestError("Informe uma URL pública http(s) válida.")

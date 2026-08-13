@@ -21,9 +21,9 @@ Após clicar em **Usar transcrição**, o parser informa quantos segmentos foram
 
 ## Link público
 
-Na aba **Link público**, informe uma URL `http(s)` acessível sem login, preferencialmente um vídeo público do YouTube. O botão **Verificar** obtém metadados e duração quando o extrator disponível consegue fazê-lo. **Importar** baixa a fonte para o workspace com yt-dlp e mantém o caminho dentro de `workspace/uploads`.
+Na aba **Link público**, informe uma URL acessível sem login, preferencialmente um vídeo público do YouTube. O campo aceita tanto `https://www.youtube.com/...` quanto o formato frequentemente copiado do navegador, como `www.youtube.com/...`; nesse segundo caso, o Furia Clips acrescenta `https://` automaticamente antes da validação. O botão **Verificar** obtém metadados e duração quando o extrator disponível consegue fazê-lo. **Importar** baixa a fonte para o workspace com yt-dlp e mantém o caminho dentro de `workspace/uploads`.
 
-O fluxo não aceita cookies pessoais, credenciais, bypass de DRM, bypass de paywall, URL `file://`, localhost, endereços privados ou conteúdo privado/restrito. A disponibilidade de cada plataforma depende do extrator e dos termos aplicáveis. Para renderizar cortes, a ferramenta ainda precisa de mídia local; quando download parcial não for tecnicamente possível, o fallback é baixar a mídia completa de maneira transparente.
+O fluxo não aceita cookies pessoais, credenciais, bypass de DRM, bypass de paywall, URL `file://`, localhost, endereços privados ou conteúdo privado/restrito. A disponibilidade de cada plataforma depende do extrator e dos termos aplicáveis. Para renderizar cortes, a ferramenta ainda precisa de mídia local; quando download parcial não for tecnicamente possível, o fallback é baixar a mídia completa de maneira transparente. No Windows, o launcher aguarda o Flask responder e tenta abrir o Opera GX por caminhos instalados, PATH e registro do sistema; se não localizar o executável, abre a URL no navegador padrão e registra o diagnóstico em `logs\\run-latest.log`.
 
 ## Entrevistas longas
 

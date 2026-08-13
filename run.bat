@@ -68,7 +68,7 @@ echo [Furia Clips] Para parar: feche esta janela ou Ctrl+C
 echo [Furia Clips] Log do launcher: %RUN_LOG%
 echo.
 
-start "" powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "%~dp0scripts\open_browser_windows.ps1" -Url "http://127.0.0.1:3001" -LogFile "%RUN_LOG%"
+start "" powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "%~dp0scripts\open_browser_windows.ps1" -Url "http://127.0.0.1:3001" -TimeoutSeconds 120 -LogFile "%RUN_LOG%"
 "%~dp0venv\Scripts\python.exe" app.py
 
 set "APP_CODE=!ERRORLEVEL!"

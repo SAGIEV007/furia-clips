@@ -17,6 +17,7 @@ class WindowsBootstrapTests(unittest.TestCase):
         self.assertIn('run-latest.log', launcher)
         self.assertIn('open_browser_windows.ps1', launcher)
         self.assertIn('127.0.0.1:3001', launcher)
+        self.assertIn('-TimeoutSeconds 120', launcher)
 
     def test_bootstrap_has_python_and_ffmpeg_routes(self):
         bootstrap = (ROOT / "bootstrap_windows.ps1").read_text(encoding="utf-8")
@@ -33,6 +34,8 @@ class WindowsBootstrapTests(unittest.TestCase):
         helper = (ROOT / "scripts" / "open_browser_windows.ps1").read_text(encoding="utf-8")
         self.assertIn("Invoke-WebRequest", helper)
         self.assertIn("opera.exe", helper)
+        self.assertIn("TimeoutSeconds", helper)
+        self.assertIn("Get-RegistryExecutable", helper)
         self.assertIn("Start-Process", helper)
 
     def test_requirements_include_public_source_downloader(self):
