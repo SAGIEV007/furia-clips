@@ -163,8 +163,24 @@ def _resolve_source_destination(requested, settings=None):
     return target
 
 
+def _probe_video_duration_seconds(video_path):
+    ffprobe = shutil.which("ffprobe")
+    if not ffprobe:
+        return None
+    try:
+        result = subprocess.run(
+            [ffprobe, "-v", "error", "-show_entries", "format=duration", "-of", "default=nw=1:nk=1", video_path],
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        return float(result.stdout.strip()) if result.stdout.strip() else None
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return None
+
+
 def _transcribe_video_automatically(video_path, settings, emit_progress, transcript_fallback_path=None):
-    """Try Gemini first, then public timestamps, and only then CPU Whisper."""
+    """Try Gemini first, then public timestamps, and only then adaptive CPU Whisper."""
     emit_progress("[Transcrição] Prioridade: Gemini multimodal online; fontes timestampadas e Whisper CPU são fallback.", "info")
     multimodal = _run_gemini_video_analysis(video_path, settings, {}, "", emit_progress)
     transcription = _transcription_from_gemini_result(multimodal, settings.get("language", "pt"))
@@ -188,15 +204,41 @@ def _transcribe_video_automatically(video_path, settings, emit_progress, transcr
 
     emit_progress("[Transcrição] Gemini/legenda pública sem segmentos; iniciando fallback local faster-whisper.", "warning")
     from modules.transcriber import Transcriber
+    requested_model = settings.get("whisper_model", "small")
+    requested_device = settings.get("whisper_device", "auto")
+    duration = _probe_video_duration_seconds(video_path)
+    threshold_minutes = float(settings.get("whisper_long_video_threshold_minutes", 45) or 45)
+    long_model = str(settings.get("whisper_long_video_model", "base") or "base")
+    probe = Transcriber(model_name=requested_model, device=requested_device)
+    resolved_device = probe._detect_device()
+    model_name = requested_model
+    if (
+        duration is not None
+        and duration >= threshold_minutes * 60
+        and resolved_device == "cpu"
+        and str(requested_model).lower() == "small"
+        and long_model
+    ):
+        model_name = long_model
+        emit_progress(
+            f"[Whisper] Vídeo longo ({duration / 60:.1f} min) em CPU; usando modelo {model_name} para descoberta rápida. "
+            "O modelo Small continua disponível para refinamento posterior.",
+            "warning",
+        )
     transcriber = Transcriber(
-        model_name=settings.get("whisper_model", "small"),
+        model_name=model_name,
         language=settings.get("language", "pt"),
         word_timestamps=settings.get("whisper_word_timestamps", False),
         beam_size=settings.get("whisper_beam_size", 1),
+        device=resolved_device,
     )
     transcription = transcriber.transcribe(video_path, emit_progress=emit_progress)
     transcription["source"] = "whisper"
-    emit_progress(f"[Whisper] Motor: {transcriber._engine}; timestamps por segmento gerados.", "success")
+    emit_progress(
+        f"[Whisper] Motor: {transcriber._engine} em {transcriber.device}; "
+        "timestamps por segmento gerados.",
+        "success",
+    )
     return transcription
 
 

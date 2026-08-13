@@ -35,9 +35,13 @@ def test_automatic_transcription_reports_and_uses_cpu_only_after_gemini_failure(
 
     class FakeWhisper:
         _engine = "faster-whisper"
+        device = "cpu"
 
         def __init__(self, *args, **kwargs):
             pass
+
+        def _detect_device(self):
+            return "cpu"
 
         def transcribe(self, video_path, emit_progress=None):
             return {"segments": [{"start": 0, "end": 1, "text": "fallback"}], "full_text": "fallback", "language": "pt", "segment_count": 1}
@@ -99,3 +103,42 @@ def test_public_subtitle_fallback_prevents_cpu_whisper(monkeypatch, tmp_path):
     )
     assert result["source"] == "public_subtitles"
     assert result["segment_count"] == 1
+
+
+def test_long_cpu_video_uses_fast_model_for_discovery(monkeypatch, tmp_path):
+    import app as app_module
+
+    calls = []
+    monkeypatch.setattr(app_module, "_run_gemini_video_analysis", lambda *args: None)
+    monkeypatch.setattr(app_module, "_probe_video_duration_seconds", lambda path: 3600.0)
+
+    class FakeWhisper:
+        _engine = "faster-whisper"
+        device = "cpu"
+
+        def __init__(self, model_name="small", **kwargs):
+            calls.append(model_name)
+
+        def _detect_device(self):
+            return "cpu"
+
+        def transcribe(self, video_path, emit_progress=None):
+            return {"segments": [], "full_text": "", "language": "pt", "segment_count": 0}
+
+    monkeypatch.setattr("modules.transcriber.Transcriber", FakeWhisper)
+    events = []
+    result = app_module._transcribe_video_automatically(
+        str(tmp_path / "video.mp4"),
+        {
+            "ai_backend": "gemini",
+            "gemini_api_key": "",
+            "language": "pt",
+            "whisper_model": "small",
+            "whisper_long_video_model": "base",
+            "whisper_long_video_threshold_minutes": 45,
+        },
+        lambda message, level="info": events.append((message, level)),
+    )
+    assert result["source"] == "whisper"
+    assert calls == ["small", "base"]
+    assert any("modelo base" in message for message, _ in events)

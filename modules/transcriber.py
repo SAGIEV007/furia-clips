@@ -10,14 +10,26 @@ CACHE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file_
 
 
 class Transcriber:
-    def __init__(self, model_name="small", language="pt", word_timestamps=False, beam_size=1):
+    def __init__(self, model_name="small", language="pt", word_timestamps=False, beam_size=1, device="auto"):
         self.model_name = model_name
         self.language = language
         self.word_timestamps = bool(word_timestamps)
         self.beam_size = max(1, int(beam_size or 1))
+        self.requested_device = str(device or "auto").lower()
+        self.device = "cpu"
+        self.compute_type = "int8"
         self.model = None
         self._engine = "cache"
         os.makedirs(CACHE_DIR, exist_ok=True)
+
+    def _detect_device(self):
+        if self.requested_device in {"cpu", "cuda"}:
+            return self.requested_device
+        try:
+            import ctranslate2
+            return "cuda" if ctranslate2.get_cuda_device_count() > 0 else "cpu"
+        except (ImportError, AttributeError, RuntimeError):
+            return "cpu"
 
     def _get_cache_key(self, audio_path):
         stat = os.stat(audio_path)
@@ -56,22 +68,29 @@ class Transcriber:
 
         try:
             from faster_whisper import WhisperModel
-            compute_type = "int8"
-            self.model = WhisperModel(
-                self.model_name,
-                device="cpu",
-                compute_type=compute_type,
-                cpu_threads=os.cpu_count() or 4,
-            )
+            self.device = self._detect_device()
+            self.compute_type = "float16" if self.device == "cuda" else "int8"
+            model_kwargs = {
+                "device": self.device,
+                "compute_type": self.compute_type,
+            }
+            if self.device == "cpu":
+                model_kwargs["cpu_threads"] = max(1, (os.cpu_count() or 4) - 1)
+            self.model = WhisperModel(self.model_name, **model_kwargs)
             self._engine = "faster-whisper"
             if emit_progress:
-                emit_progress(f"Modelo carregado: faster-whisper ({compute_type}) no CPU")
+                emit_progress(
+                    f"Modelo carregado: faster-whisper ({self.compute_type}) no {self.device.upper()}; "
+                    f"beam={self.beam_size}, word_timestamps={'on' if self.word_timestamps else 'off'}"
+                )
         except ImportError:
             if emit_progress:
                 emit_progress("faster-whisper nao encontrado. Usando openai-whisper como fallback...")
             import whisper
             import torch
             device = "cuda" if torch.cuda.is_available() else "cpu"
+            self.device = device
+            self.compute_type = "float16" if device == "cuda" else "float32"
             self.model = whisper.load_model(self.model_name, device=device)
             self._engine = "openai-whisper"
             if emit_progress:

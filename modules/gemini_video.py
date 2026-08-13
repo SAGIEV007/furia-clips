@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import mimetypes
 import os
+import random
 import time
 from pathlib import Path
 
@@ -42,23 +43,20 @@ class GeminiVideoAnalyzer:
         self._wait_until_active(file_info.get("name", ""), emit_progress)
 
         prompt = self._build_prompt(editorial_context or {}, user_context)
-        response = self.session.post(
-            f"{self.base_url}/v1beta/models/{self.model}:generateContent",
-            json={
-                "contents": [{
-                    "parts": [
-                        {"file_data": {"mime_type": mime_type, "file_uri": file_info.get("uri", "")}},
-                        {"text": prompt},
-                    ]
-                }],
-                "generationConfig": {
-                    "temperature": 0.2,
-                    "maxOutputTokens": 8192,
-                    "responseMimeType": "application/json",
-                },
+        request_payload = {
+            "contents": [{
+                "parts": [
+                    {"file_data": {"mime_type": mime_type, "file_uri": file_info.get("uri", "")}},
+                    {"text": prompt},
+                ]
+            }],
+            "generationConfig": {
+                "temperature": 0.2,
+                "maxOutputTokens": 8192,
+                "responseMimeType": "application/json",
             },
-            timeout=600,
-        )
+        }
+        response = self._generate_content(request_payload, emit_progress)
         if response.status_code != 200:
             raise GeminiVideoError(f"Gemini retornou HTTP {response.status_code}: {self._error_text(response)}")
         payload = response.json()
@@ -74,6 +72,30 @@ class GeminiVideoAnalyzer:
         parsed["source"] = "gemini_video"
         parsed["model"] = self.model
         return parsed
+
+    def _generate_content(self, request_payload: dict, emit_progress=None):
+        """Retry only transient API failures; the video upload is not repeated."""
+        endpoint = f"{self.base_url}/v1beta/models/{self.model}:generateContent"
+        retryable = {408, 429, 500, 502, 503, 504}
+        max_attempts = 3
+        last_response = None
+        for attempt in range(1, max_attempts + 1):
+            response = self.session.post(endpoint, json=request_payload, timeout=600)
+            last_response = response
+            if response.status_code == 200:
+                return response
+            if response.status_code not in retryable or attempt == max_attempts:
+                break
+            if emit_progress:
+                emit_progress(
+                    f"[Gemini] HTTP {response.status_code} transitório; nova tentativa "
+                    f"{attempt + 1}/{max_attempts} com backoff...",
+                    "warning",
+                )
+            time.sleep(min(2 ** (attempt - 1), 8) + random.uniform(0.0, 0.5))
+        raise GeminiVideoError(
+            f"Gemini retornou HTTP {last_response.status_code}: {self._error_text(last_response)}"
+        )
 
     def _upload_file(self, path: Path, mime_type: str, emit_progress=None) -> dict:
         size = path.stat().st_size

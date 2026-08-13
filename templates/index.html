@@ -39,7 +39,7 @@
                 <h3><span class="material-icons-round">settings</span> Configuracoes</h3>
 
                 <div class="setting-group">
-                    <label>Modelo Whisper</label>
+                    <label>Modelo Whisper (fallback local)</label>
                     <select id="settingWhisperModel" class="setting-select">
                         <option value="tiny">Tiny (mais rapido)</option>
                         <option value="base">Base</option>
@@ -47,6 +47,7 @@
                         <option value="medium">Medium (mais preciso)</option>
                         <option value="large">Large (melhor qualidade)</option>
                     </select>
+                    <small class="setting-hint">Em CPU, lives acima de 45 min usam Base automaticamente para descoberta rápida; Gemini Online continua sendo a prioridade.</small>
                 </div>
 
                 <div class="setting-group">

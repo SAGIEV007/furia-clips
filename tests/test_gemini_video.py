@@ -26,3 +26,31 @@ def test_gemini_video_analyzer_extracts_non_thought_text():
 
 def test_gemini_video_analyzer_strips_json_fence():
     assert GeminiVideoAnalyzer._strip_fence("```json\n{\"ok\": true}\n```") == '{"ok": true}'
+
+
+def test_gemini_generate_content_retries_transient_503(monkeypatch):
+    from types import SimpleNamespace
+    import modules.gemini_video as gemini_module
+
+    responses = [
+        SimpleNamespace(status_code=503, text="busy", json=lambda: {"error": {"message": "high demand"}}),
+        SimpleNamespace(status_code=503, text="busy", json=lambda: {"error": {"message": "high demand"}}),
+        SimpleNamespace(status_code=200, text="ok", json=lambda: {"ok": True}),
+    ]
+    calls = []
+
+    class FakeSession:
+        def post(self, endpoint, json, timeout):
+            calls.append((endpoint, json, timeout))
+            return responses.pop(0)
+
+    analyzer = GeminiVideoAnalyzer("configured")
+    analyzer.session = FakeSession()
+    monkeypatch.setattr(gemini_module.time, "sleep", lambda seconds: None)
+    monkeypatch.setattr(gemini_module.random, "uniform", lambda left, right: 0.0)
+    events = []
+    response = analyzer._generate_content({"payload": True}, lambda message, level="info": events.append((message, level)))
+    assert response.status_code == 200
+    assert len(calls) == 3
+    assert len(events) == 2
+    assert all("503" in message for message, _ in events)
