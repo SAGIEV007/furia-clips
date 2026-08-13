@@ -72,6 +72,7 @@
                     <label>Preset de Plataforma</label>
                     <select id="settingRenderPreset" class="setting-select">
                         <option value="shorts" selected>YouTube Shorts — 9:16</option>
+                        <option value="political_shorts">Politica Editorial — 9:16</option>
                         <option value="reels">Instagram Reels — 9:16</option>
                         <option value="tiktok">TikTok — 9:16</option>
                         <option value="square">Quadrado — 1:1</option>
@@ -103,6 +104,15 @@
                         <option value="palestra">Palestra / Apresentacao</option>
                         <option value="vlog">Vlog / Single Speaker</option>
                     </select>
+                </div>
+
+                <div class="setting-group">
+                    <label>Perfil Editorial</label>
+                    <select id="settingEditorialProfile" class="setting-select">
+                        <option value="renan_santos_politics" selected>Politica — Renan Santos/MBL</option>
+                        <option value="generic">Generico — todos os temas</option>
+                    </select>
+                    <small class="setting-hint">Prioriza tese, conflito, proposta, evidencia e conclusao.</small>
                 </div>
 
                 <div class="setting-group setting-toggle">
@@ -249,14 +259,14 @@
                 <h3><span class="material-icons-round">psychology</span> O que voce quer extrair?</h3>
             </div>
             <div class="context-input-wrapper">
-                <textarea id="userContextInput" class="context-input" placeholder="Descreva o que deseja cortar deste video... Ex: momentos polemicos, frases de efeito, criticas ao governo, opinioes fortes" rows="2"></textarea>
+                <textarea id="userContextInput" class="context-input" placeholder="Descreva o corte politico desejado... Ex: propostas de seguranca com dados, confrontos juridicos, criticas ao governo com conclusao" rows="2"></textarea>
                 <div class="context-suggestions" id="contextSuggestions">
-                    <button class="context-chip" data-context="Momentos polemicos e opinioes fortes">Polemicas</button>
-                    <button class="context-chip" data-context="Frases curtas e impactantes que funcionam como gancho">Frases de efeito</button>
-                    <button class="context-chip" data-context="Criticas ao governo e politicos">Criticas</button>
-                    <button class="context-chip" data-context="Momentos emocionais e com muita energia">Momentos emocionais</button>
-                    <button class="context-chip" data-context="Dados, estatisticas e informacoes relevantes">Dados e fatos</button>
-                    <button class="context-chip" data-context="Momentos engracados e ironicos">Humor e ironia</button>
+                    <button class="context-chip" data-context="Confrontos politicos com uma resposta forte e contexto completo">Confrontos</button>
+                    <button class="context-chip" data-context="Propostas concretas de seguranca, economia ou educacao com numeros e conclusao">Propostas</button>
+                    <button class="context-chip" data-context="Criticas ao governo ou ao STF com contexto juridico e fala completa">Criticas juridicas</button>
+                    <button class="context-chip" data-context="Dados, pesquisas, leis e fatos que sustentem uma tese politica">Dados e fatos</button>
+                    <button class="context-chip" data-context="Frases de efeito com gancho inicial e conclusao forte">Frases de efeito</button>
+                    <button class="context-chip" data-context="Momentos de mobilizacao, campanha e chamada para acao depois de uma ideia clara">Mobilizacao</button>
                 </div>
             </div>
         </section>
