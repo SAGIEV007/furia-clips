@@ -16,6 +16,7 @@ const state = {
     selectionSource: "unknown",
     outputFolder: "",
     activeJob: null,
+    operationJobs: [],
     manualTranscript: null,
     sourceUrl: "",
     sourceDownloadDir: "",
@@ -298,6 +299,7 @@ async function requestCancelOperation() {
 }
 
 document.getElementById("btnCancelOperation")?.addEventListener("click", requestCancelOperation);
+document.getElementById("btnRefreshOperations")?.addEventListener("click", loadOperationDashboard);
 
 function showProgressBar() {
     showProcessingControls();
@@ -319,8 +321,123 @@ function showProgressBar() {
     }
 }
 
-function handleJobUpdate(job) {
+function formatOperationJobType(type) {
+    const labels = {
+        cut_shorts: "Corte inteligente",
+        process_complete: "Processo completo",
+    };
+    return labels[type] || String(type || "Processamento").replaceAll("_", " ");
+}
+
+function operationJobTime(value) {
+    if (!value) return "agora";
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? "agora" : parsed.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+}
+
+function renderOperationDashboard(jobs = state.operationJobs || []) {
+    const list = Array.isArray(jobs) ? jobs : [];
+    const active = list.filter((job) => job.state === "running").length;
+    const queued = list.filter((job) => ["queued", "cancel_requested"].includes(job.state)).length;
+    const completed = list.filter((job) => job.state === "completed").length;
+    const attention = list.filter((job) => ["failed", "cancelled"].includes(job.state)).length;
+    const setCount = (id, value) => {
+        const element = document.getElementById(id);
+        if (element) element.textContent = value;
+    };
+    setCount("operationActiveCount", active);
+    setCount("operationQueuedCount", queued);
+    setCount("operationCompletedCount", completed);
+    setCount("operationAttentionCount", attention);
+
+    const subtitle = document.getElementById("operationSubtitle");
+    if (subtitle) {
+        subtitle.textContent = list.length
+            ? `${active + queued} tarefa(s) em execução ou aguardando; histórico recente salvo neste computador.`
+            : "Nenhuma tarefa recente. Importe uma live para iniciar a fila visual.";
+    }
+
+    const container = document.getElementById("operationJobs");
+    if (!container) return;
+    if (!list.length) {
+        container.innerHTML = `<div class="operation-empty">A fila aparecerá aqui com o andamento de cada live.</div>`;
+        return;
+    }
+    container.innerHTML = list.slice(0, 8).map((job) => {
+        const progress = Math.max(0, Math.min(100, Number(job.progress || 0)));
+        const message = escapeHtml(job.error || job.message || job.stage || "Aguardando execução");
+        const stateLabel = escapeHtml(String(job.state || "queued").replaceAll("_", " "));
+        return `<article class="operation-job ${escapeHtml(job.state || "queued")}">
+            <div class="operation-job-head">
+                <div class="operation-job-type"><span class="material-icons-round">${job.type === "cut_shorts" ? "content_cut" : "auto_awesome"}</span>${escapeHtml(formatOperationJobType(job.type))}</div>
+                <span class="operation-job-state">${stateLabel}</span>
+            </div>
+            <p class="operation-job-message">${message}</p>
+            <div class="operation-job-progress"><div style="width:${progress}%"></div></div>
+            <div class="operation-job-meta"><span>${progress}%</span><span>${operationJobTime(job.updated_at || job.created_at)}</span></div>
+        </article>`;
+    }).join("");
+}
+
+function renderEditorialLearning(calibration = {}) {
+    const panel = document.getElementById("editorialLearning");
+    const title = document.getElementById("editorialLearningTitle");
+    const text = document.getElementById("editorialLearningText");
+    const badge = document.getElementById("editorialLearningBadge");
+    if (!panel || !title || !text || !badge) return;
+    const sample = Number(calibration.sample_size || 0);
+    const minimum = Number(calibration.minimum_sample_size || 12);
+    panel.classList.toggle("is-active", Boolean(calibration.eligible));
+    if (calibration.eligible) {
+        title.textContent = "Calibração editorial ativa";
+        text.textContent = `${sample} decisões finais já ajudam a ajustar o ranking de forma limitada e explicável.`;
+        badge.textContent = "ATIVA";
+    } else {
+        const remaining = Math.max(0, minimum - sample);
+        title.textContent = "Aprendizado editorial em coleta";
+        text.textContent = `${sample} decisão(ões) final(is) registradas. Faltam ${remaining} para avaliar uma calibração conservadora.`;
+        badge.textContent = `${sample}/${minimum}`;
+    }
+}
+
+async function loadEditorialLearning() {
+    try {
+        const response = await fetch("/api/editorial/calibration");
+        const payload = await parseJsonResponse(response, "Aprendizado editorial");
+        if (!response.ok) throw new Error(payload.error || "Não foi possível carregar a calibração");
+        renderEditorialLearning(payload);
+    } catch (error) {
+        const text = document.getElementById("editorialLearningText");
+        if (text) text.textContent = "O histórico editorial ficará disponível assim que a próxima revisão for salva.";
+    }
+}
+
+async function loadOperationDashboard() {
+    try {
+        const response = await fetch("/api/jobs?limit=12");
+        const payload = await parseJsonResponse(response, "Histórico de operações");
+        if (!response.ok) throw new Error(payload.error || "Não foi possível carregar os jobs");
+        state.operationJobs = Array.isArray(payload.jobs) ? payload.jobs : [];
+        renderOperationDashboard();
+        loadEditorialLearning();
+        const active = state.operationJobs.find((job) => ["queued", "running", "cancel_requested"].includes(job.state));
+        if (active) handleJobUpdate(active, { refreshDashboard: false });
+    } catch (error) {
+        const subtitle = document.getElementById("operationSubtitle");
+        if (subtitle) subtitle.textContent = "Não foi possível carregar o histórico local agora.";
+    }
+}
+
+function handleJobUpdate(job, options = {}) {
     state.activeJob = job;
+    const existingIndex = (state.operationJobs || []).findIndex((item) => item.id === job.id);
+    if (existingIndex >= 0) state.operationJobs[existingIndex] = job;
+    else state.operationJobs = [job, ...(state.operationJobs || [])];
+    renderOperationDashboard();
+    if (options.refreshDashboard !== false) window.clearTimeout(state.operationRefreshTimer);
+    if (options.refreshDashboard !== false) {
+        state.operationRefreshTimer = window.setTimeout(loadOperationDashboard, 700);
+    }
     const container = document.getElementById("progressBarContainer");
     const bar = document.getElementById("progressBar");
     if (container && bar && ["queued", "running", "cancel_requested"].includes(job.state)) {
@@ -346,14 +463,7 @@ function handleJobUpdate(job) {
 }
 
 async function recoverActiveJobs() {
-    try {
-        const response = await fetch("/api/jobs?limit=10");
-        const payload = await response.json();
-        const active = (payload.jobs || []).find(job => ["queued", "running", "cancel_requested"].includes(job.state));
-        if (active) handleJobUpdate(active);
-    } catch (error) {
-        addConsoleLog("[Job] Não foi possível recuperar o status persistido.", "warning");
-    }
+    await loadOperationDashboard();
 }
 
 function hideProgressBar() {
@@ -675,7 +785,7 @@ document.getElementById("actionCut").querySelector(".btn-action").addEventListen
         });
     }
 
-    await fetch("/api/process/cut", {
+    const response = await fetch("/api/process/cut", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -689,6 +799,12 @@ document.getElementById("actionCut").querySelector(".btn-action").addEventListen
             } : {}),
         }),
     });
+    const started = await parseJsonResponse(response, "Corte inteligente");
+    if (!response.ok || started.error) throw new Error(started.error || "Não foi possível iniciar o corte");
+    if (started.job_id) {
+        state.activeJob = { id: started.job_id, state: started.state || "queued" };
+        showProcessingControls("Corte adicionado à fila persistente.");
+    }
 });
 
 document.getElementById("actionSeo").querySelector(".btn-action").addEventListener("click", async () => {
@@ -707,7 +823,7 @@ document.getElementById("actionComplete").querySelector(".btn-action").addEventL
     addConsoleLog("[Acao] Iniciando processo completo...", "info");
     if (userContext) addConsoleLog(`[Contexto] "${userContext}"`, "info");
     const videoGenreComplete = document.getElementById("settingVideoGenre").value;
-    await fetch("/api/process/complete", {
+    const response = await fetch("/api/process/complete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -721,6 +837,12 @@ document.getElementById("actionComplete").querySelector(".btn-action").addEventL
             } : {}),
         }),
     });
+    const started = await parseJsonResponse(response, "Processo completo");
+    if (!response.ok || started.error) throw new Error(started.error || "Não foi possível iniciar o processo completo");
+    if (started.job_id) {
+        state.activeJob = { id: started.job_id, state: started.state || "queued" };
+        showProcessingControls("Processo completo adicionado à fila persistente.");
+    }
 });
 
 // ─── Subtitle Modal ───
@@ -903,6 +1025,16 @@ function mediaUrlForPath(path) {
     return `/workspace/${value.replace(/^\\+/, "")}`;
 }
 
+function escapeHtml(value) {
+    return String(value ?? "").replace(/[&<>'"]/g, (character) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        "'": "&#39;",
+        '"': "&quot;",
+    }[character]));
+}
+
 function mediaUrlForClip(clip) {
     return mediaUrlForPath(clip.subtitled_path || clip.path);
 }
@@ -1080,11 +1212,11 @@ function renderResultsGrid() {
                 </div>
                 ${clip.has_hook ? '<span class="hook-badge"><span class="material-icons-round" style="font-size:12px">flash_on</span> Gancho</span>' : ''}
                 <span class="clip-source-badge ${sourceClass}">${sourceLabel}</span>
-                ${politicalType ? `<span class="clip-source-badge source-editorial">${politicalType}</span>` : ''}
+                ${politicalType ? `<span class="clip-source-badge source-editorial">${escapeHtml(politicalType)}</span>` : ''}
                 <span class="review-state-chip ${reviewStatus}">${reviewStatus === "needs_review" ? "revisar contexto" : reviewStatus === "pending" ? "na fila" : reviewStatus}</span>
             </div>
 
-            ${clip.title ? `<div class="result-title">${clip.title}</div>` : ''}
+            ${clip.title ? `<div class="result-title">${escapeHtml(clip.title)}</div>` : ''}
 
             <div class="result-video-preview">
                 <video controls preload="metadata" poster="">
@@ -1092,12 +1224,12 @@ function renderResultsGrid() {
                 </video>
             </div>
             <div class="result-info">
-                ${politicalType ? `<div style="font-size:12px; color:#f59e0b; margin-bottom:6px"><span class="material-icons-round" style="font-size:14px; vertical-align:middle">account_balance</span> Formato editorial: ${politicalType}</div>` : ''}
+                ${politicalType ? `<div style="font-size:12px; color:#f59e0b; margin-bottom:6px"><span class="material-icons-round" style="font-size:14px; vertical-align:middle">account_balance</span> Formato editorial: ${escapeHtml(politicalType)}</div>` : ''}
                 <div class="result-duration">
                     <span class="material-icons-round" style="font-size:14px">schedule</span>
                     ${formatTime(clip.start)} - ${formatTime(clip.end)} (${clip.duration.toFixed(1)}s)
                 </div>
-                <div class="review-format-chip" title="${layoutMeta.hint}"><span class="material-icons-round">${layoutMeta.icon}</span>${layoutMeta.label}</div>
+                <div class="review-format-chip" title="${escapeHtml(layoutMeta.hint)}"><span class="material-icons-round">${escapeHtml(layoutMeta.icon)}</span>${escapeHtml(layoutMeta.label)}</div>
                 <div class="clip-storyline" aria-label="Jornada editorial do corte">
                     <div class="clip-storyline-header"><span>Jornada editorial</span><span>${clip.has_hook ? "gancho identificado" : "abertura a revisar"}</span></div>
                     <div class="clip-storyline-track">
@@ -1134,14 +1266,14 @@ function renderResultsGrid() {
                     </div>
                     ${Object.entries(factors).filter(([key]) => key !== 'diversity').slice(0, 7).map(([key, value]) => `
                         <div style="display:flex; align-items:center; gap:8px; margin:4px 0; font-size:11px">
-                            <span style="width:112px">${key.replaceAll('_', ' ')}</span>
+                            <span style="width:112px">${escapeHtml(key.replaceAll('_', ' '))}</span>
                             <div style="flex:1; height:5px; background:rgba(255,255,255,.12); border-radius:4px"><div style="width:${Math.max(0, Math.min(100, Number(value)))}%; height:100%; background:#f59e0b; border-radius:4px"></div></div>
                             <span style="width:28px; text-align:right">${Number(value).toFixed(0)}</span>
                         </div>`).join('')}
-                    ${clip.reason ? `<div style="font-size:11px; opacity:.75; margin-top:7px">${clip.reason}</div>` : ''}
+                    ${clip.reason ? `<div style="font-size:11px; opacity:.75; margin-top:7px">${escapeHtml(clip.reason)}</div>` : ''}
                 </div>` : ''}
 
-                <div class="result-text-preview">${clip.text ? clip.text.substring(0, 150) + (clip.text.length > 150 ? '...' : '') : "Sem transcricao"}</div>
+                <div class="result-text-preview">${clip.text ? escapeHtml(clip.text.substring(0, 150) + (clip.text.length > 150 ? '...' : '')) : "Sem transcricao"}</div>
 
                 ${clip.text ? `
                 <button class="btn-show-transcript" onclick="toggleTranscript('${transcriptId}')">
@@ -1149,23 +1281,23 @@ function renderResultsGrid() {
                     Ver Transcricao
                 </button>
                 <div class="clip-transcript" id="${transcriptId}">
-                    <div class="clip-transcript-content">${clip.text}</div>
+                    <div class="clip-transcript-content">${escapeHtml(clip.text)}</div>
                 </div>` : ''}
 
                 ${titles.length > 0 ? `
                 <div class="result-seo">
                     <h5><span class="material-icons-round" style="font-size:14px">title</span> Titulos Sugeridos</h5>
-                    ${titles.slice(0, 3).map(t => `<div class="seo-title" onclick="copyToClipboard(this.textContent)">${t}</div>`).join('')}
+                    ${titles.slice(0, 3).map(t => `<div class="seo-title" onclick="copyToClipboard(this.textContent)">${escapeHtml(t)}</div>`).join('')}
                 </div>` : ''}
 
                 ${tags.length > 0 ? `
                 <div class="seo-tags">
-                    ${tags.slice(0, 10).map(t => `<span class="seo-tag" onclick="copyToClipboard('${t}')">${t}</span>`).join('')}
+                    ${tags.slice(0, 10).map(t => `<span class="seo-tag" onclick="copyToClipboard(this.textContent)">${escapeHtml(t)}</span>`).join('')}
                 </div>` : ''}
 
                 ${hashtags.length > 0 ? `
                 <div class="seo-hashtags">
-                    ${hashtags.slice(0, 8).map(h => `<span class="seo-hashtag">${h}</span>`).join('')}
+                    ${hashtags.slice(0, 8).map(h => `<span class="seo-hashtag">${escapeHtml(h)}</span>`).join('')}
                 </div>` : ''}
 
                 <div class="result-actions">
@@ -1216,6 +1348,7 @@ async function setClipReview(index, action) {
             needs_review: "Clip marcado para revisão de contexto",
         };
         showToast(messages[action] || "Feedback salvo", action === "approved" ? "success" : "warning");
+        loadEditorialLearning();
     } catch (error) {
         clip.review_status = previousStatus;
         renderReviewCommandCenter();

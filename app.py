@@ -59,7 +59,7 @@ from database import (
     save_clip, get_clips, update_clip_seo, update_clip_thumbnail,
     save_transcription, get_transcription, log_action,
     update_clip_editorial_score, save_clip_feedback, get_clip_feedback,
-    update_clip_review_status
+    update_clip_review_status, get_feedback_calibration
 )
 from modules.security import UnsafePathError, safe_workspace_path, unique_storage_name
 from modules.native_dialogs import DialogError, choose_path, open_local_path
@@ -107,6 +107,7 @@ current_task = {
     "active": False,
     "cancel": False,
     "operation": "",
+    "job_id": None,
     "started_at": None,
 }
 
@@ -116,9 +117,10 @@ def check_current_task_cancel():
         raise OperationCancelled("Operação cancelada pelo usuário")
 
 
-def _set_legacy_task(operation, active=True):
+def _set_legacy_task(operation, active=True, job_id=None):
     current_task["active"] = active
     current_task["operation"] = operation if active else ""
+    current_task["job_id"] = job_id if active else None
     if active:
         current_task["cancel"] = False
         current_task["started_at"] = datetime.now().isoformat(timespec="seconds")
@@ -473,6 +475,11 @@ def api_clip_feedback(clip_id):
         return jsonify({"success": True, "clip_id": clip_id, "review_status": action})
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
+
+
+@app.route("/api/editorial/calibration", methods=["GET"])
+def api_editorial_calibration():
+    return jsonify(get_feedback_calibration())
 
 
 # ─── Page Routes ───
@@ -969,9 +976,10 @@ def api_cut_shorts():
     if not os.path.exists(video_path):
         return jsonify({"error": "Video nao encontrado"}), 404
 
-    def task():
+    def task(ctx):
         try:
-            check_current_task_cancel()
+            ctx.update(stage="transcription", progress=5, message="Preparando transcrição e contexto")
+            ctx.check_cancel()
             settings = get_all_settings()
             active_project_id = project_id
             if not active_project_id:
@@ -1003,7 +1011,7 @@ def api_cut_shorts():
                     {},
                     user_context,
                     emit_progress,
-                    cancel_check=check_current_task_cancel,
+                    cancel_check=ctx.check_cancel,
                 )
                 transcription = _transcription_from_gemini_result(multimodal_result, settings.get("language", "pt"))
             if transcription and transcription.get("source") == "manual":
@@ -1043,6 +1051,9 @@ def api_cut_shorts():
             )
             settings["editorial_context"] = editorial_context
 
+            ctx.update(stage="video_analysis", progress=28, message="Analisando layout e cenas")
+            ctx.check_cancel()
+
             # Step 2: Layout detection + Scene detection
             emit_progress("=== ETAPA 2/5: Analise de Video ===", "info")
             video_layout = "unknown"
@@ -1066,6 +1077,9 @@ def api_cut_shorts():
                 scene_changes = scene_det.detect_scenes(video_path, emit_progress=emit_progress)
             except Exception as e:
                 emit_progress(f"Deteccao de cena indisponivel: {str(e)}", "warning")
+
+            ctx.update(stage="candidate_generation", progress=48, message="Gerando candidatos editoriais")
+            ctx.check_cancel()
 
             # Step 3: Intelligent clip selection
             emit_progress("=== ETAPA 3/5: Selecao Inteligente de Clips ===", "info")
@@ -1094,6 +1108,9 @@ def api_cut_shorts():
             selection_source = selector.get_selection_source()
             socketio.emit("selection_mode", {"source": selection_source})
 
+            ctx.update(stage="ranking", progress=64, message=f"Ranqueando {len(top_clips)} candidatos")
+            ctx.check_cancel()
+
             # Step 4: Rank and finalize scores
             emit_progress("=== ETAPA 4/5: Ranqueamento ===", "info")
             if scene_changes:
@@ -1105,15 +1122,30 @@ def api_cut_shorts():
                         if start <= float(change) <= end
                     ]
             from modules.viral_ranker import ViralRanker
+            feedback_calibration = get_feedback_calibration()
+            if feedback_calibration.get("eligible"):
+                emit_progress(
+                    f"[Feedback editorial] Calibração aplicada com {feedback_calibration['sample_size']} decisões finais.",
+                    "info",
+                )
+            else:
+                emit_progress(
+                    f"[Feedback editorial] Coletando decisões: {feedback_calibration['sample_size']}/{feedback_calibration['minimum_sample_size']} para calibrar o ranking.",
+                    "info",
+                )
             ranker = ViralRanker(
                 channel_context=settings.get("channel_context", ""),
                 editorial_profile=settings.get("editorial_profile", "renan_santos_politics"),
+                feedback_calibration=feedback_calibration,
             )
             top_clips = ranker.rank_clips(
                 top_clips,
                 user_context=user_context,
                 energy_profile=energy_profile,
             )
+
+            ctx.update(stage="rendering", progress=76, message="Validando enquadramento e renderizando cortes")
+            ctx.check_cancel()
 
             # Step 5: Cut clips with confidence-gated speaker framing
             emit_progress("=== ETAPA 5/5: Cortando Clips ===", "info")
@@ -1213,18 +1245,33 @@ def api_cut_shorts():
 
             source_label = "IA Inteligente" if selection_source == "llm" else "NLP Basico"
             emit_progress(f"Corte completo! {len(results)} clips gerados via {source_label}.", "success")
+            return {
+                "artifacts": [{
+                    "type": "clips",
+                    "project_id": active_project_id,
+                    "count": len(clip_results),
+                    "output_folder": output_folder,
+                }]
+            }
 
+        except JobCancelled as exc:
+            emit_progress(f"[Corte] Operação cancelada: {exc}", "warning")
+            emit_status("cancelled", {"operation": "cut", "message": str(exc)})
+            raise
         except OperationCancelled as exc:
             emit_progress(f"[Corte] Operação cancelada: {exc}", "warning")
             emit_status("cancelled", {"operation": "cut", "message": str(exc)})
+            raise JobCancelled(str(exc)) from exc
         except ValueError as ve:
             friendly = _translate_error(str(ve))
             emit_progress(f"Erro: {friendly}", "error")
             emit_status("error", {"message": friendly})
+            raise
         except Exception as e:
             friendly = _translate_error(str(e))
             emit_progress(f"Erro no corte: {friendly}", "error")
             emit_status("error", {"message": friendly, "technical": str(e)})
+            raise
         finally:
             _set_legacy_task("", active=False)
 
@@ -1232,9 +1279,15 @@ def api_cut_shorts():
         if current_task["active"]:
             return jsonify({"error": ERROR_MESSAGES["processing_active"]}), 409
         _set_legacy_task("cut", active=True)
+        job = job_manager.submit("cut_shorts", task, project_id=project_id)
+        current_task["job_id"] = job["id"]
 
-    threading.Thread(target=task, daemon=True).start()
-    return jsonify({"success": True, "message": "Corte de shorts iniciado"})
+    return jsonify({
+        "success": True,
+        "message": "Corte de shorts iniciado",
+        "job_id": job["id"],
+        "state": job["state"],
+    })
 
 
 @app.route("/api/process/subtitles", methods=["POST"])
@@ -1551,9 +1604,14 @@ def api_process_complete():
                 preset=settings.get("render_preset", "shorts"),
             )
 
-            # Layout detection + Face tracking
+            # Layout detection + face tracking with confidence gating. Reframe is
+            # enabled only for a stable speaker; interviews and visual compositions
+            # preserve their original frame by default.
             video_layout = "unknown"
+            tracker = None
             face_positions_map = {}
+            original_aspect_indices = set()
+            framing_by_index = {}
             try:
                 from modules.face_tracker import FaceTracker
                 tracker = FaceTracker()
@@ -1561,25 +1619,44 @@ def api_process_complete():
                     video_path, emit_progress=emit_progress,
                     video_genre=video_genre if video_genre else None
                 )
-                if video_layout != "debate":
-                    all_faces = tracker.detect_faces_in_video(video_path, emit_progress=emit_progress)
-                    if all_faces:
-                        for i, clip in enumerate(top_clips):
-                            positions = tracker.get_face_positions_for_segment(
-                                all_faces, clip["start"], clip["end"]
-                            )
-                            if positions:
-                                face_positions_map[i] = positions
-                else:
-                    emit_progress("[Layout] Debate: preservando enquadramento original.", "info")
-            except Exception as e:
-                emit_progress(f"Face tracking indisponivel: {str(e)}", "warning")
+            except Exception as exc:
+                emit_progress(f"Face tracking indisponível: {str(exc)}", "warning")
+
+            if tracker and video_layout not in {"debate", "unknown", "fullscreen"}:
+                try:
+                    emit_progress("[Layout] Avaliando estabilidade do locutor para reframe...", "info")
+                    ctx.check_cancel()
+                    all_faces = tracker.detect_faces_in_video(video_path, sample_interval=2.0, emit_progress=emit_progress)
+                    for index, clip in enumerate(top_clips):
+                        assessment = tracker.assess_segment_tracking(all_faces, clip["start"], clip["end"])
+                        if assessment.get("confident"):
+                            face_positions_map[index] = assessment["positions"]
+                            framing_by_index[index] = {
+                                "mode": "reframe_9_16",
+                                "reason": "locutor estável identificado com confiança",
+                            }
+                        else:
+                            reason = assessment.get("reason", "confiança insuficiente para rastrear o locutor")
+                            original_aspect_indices.add(index)
+                            framing_by_index[index] = {"mode": "original", "reason": reason}
+                    ctx.check_cancel()
+                except Exception as exc:
+                    original_aspect_indices.update(range(len(top_clips)))
+                    reason = f"rastreamento indisponível: {str(exc)[:180]}"
+                    framing_by_index.update({index: {"mode": "original", "reason": reason} for index in range(len(top_clips))})
+                    emit_progress(f"[Layout] {reason}; mantendo o quadro original.", "warning")
+            else:
+                original_aspect_indices.update(range(len(top_clips)))
+                reason = "múltiplos locutores ou layout sem segurança para reframe"
+                framing_by_index.update({index: {"mode": "original", "reason": reason} for index in range(len(top_clips))})
+                emit_progress("[Layout] Composição preservada: múltiplos locutores ou layout ambíguo.", "info")
 
             output_dir = settings.get("output_dir", "") or ""
             results = cutter.batch_cut(
                 video_path, top_clips, video_name,
                 use_face_tracking=bool(face_positions_map),
                 face_positions_map=face_positions_map,
+                original_aspect_indices=original_aspect_indices,
                 emit_progress=emit_progress,
                 output_dir=output_dir if output_dir else None,
                 video_layout=video_layout,
@@ -1696,6 +1773,10 @@ def api_process_complete():
                     "text": res.get("text", ""),
                     "seo": res.get("seo", {}),
                     "clip_id": res.get("clip_id"),
+                    "framing": framing_by_index.get(i, {
+                        "mode": "original",
+                        "reason": "composição original preservada por segurança",
+                    }),
                 })
 
             # Report where files are saved
@@ -1706,6 +1787,7 @@ def api_process_complete():
                 "project_id": project_id,
                 "clips": clip_results,
                 "total_clips": len(clip_results),
+                "video_layout": video_layout,
                 "output_dir": save_location,
             })
             emit_progress(f"PROCESSO COMPLETO! {len(clip_results)} clips gerados, ranqueados e otimizados.", "success")
@@ -1744,6 +1826,12 @@ def api_cancel():
             return jsonify(job_manager.request_cancel(job_id))
         except KeyError:
             return jsonify({"error": "Job não encontrado"}), 404
+    active_job_id = current_task.get("job_id")
+    if active_job_id:
+        try:
+            return jsonify(job_manager.request_cancel(active_job_id))
+        except KeyError:
+            pass
     current_task["cancel"] = True
     return jsonify({"success": True, "message": "Cancelamento legado solicitado"})
 

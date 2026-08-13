@@ -404,6 +404,28 @@
             </div>
         </section>
 
+        <section class="section operation-dashboard" id="operationDashboard" aria-label="Operação diária">
+            <div class="section-header">
+                <div>
+                    <h3><span class="material-icons-round">dashboard</span> Operação do Dia</h3>
+                    <p class="operation-subtitle" id="operationSubtitle">Carregando o histórico local de processamento...</p>
+                </div>
+                <button class="btn btn-sm" id="btnRefreshOperations" type="button"><span class="material-icons-round">refresh</span> Atualizar</button>
+            </div>
+            <div class="operation-metrics" aria-live="polite">
+                <div class="operation-metric active"><span class="material-icons-round">play_circle</span><div><strong id="operationActiveCount">0</strong><span>em andamento</span></div></div>
+                <div class="operation-metric queued"><span class="material-icons-round">schedule</span><div><strong id="operationQueuedCount">0</strong><span>na fila</span></div></div>
+                <div class="operation-metric complete"><span class="material-icons-round">task_alt</span><div><strong id="operationCompletedCount">0</strong><span>concluídos</span></div></div>
+                <div class="operation-metric failed"><span class="material-icons-round">error_outline</span><div><strong id="operationAttentionCount">0</strong><span>exigem atenção</span></div></div>
+            </div>
+            <div class="editorial-learning" id="editorialLearning" aria-live="polite">
+                <span class="material-icons-round">school</span>
+                <div><strong id="editorialLearningTitle">Aprendizado editorial</strong><p id="editorialLearningText">Carregando decisões de revisão...</p></div>
+                <span class="editorial-learning-badge" id="editorialLearningBadge">—</span>
+            </div>
+            <div class="operation-jobs" id="operationJobs" aria-live="polite"></div>
+        </section>
+
         <!-- Results Panel -->
         <section class="section" id="resultsSection" style="display:none">
             <div class="section-header">

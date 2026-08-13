@@ -325,3 +325,73 @@ def log_action(project_id, action, details="", status="completed"):
     )
     conn.commit()
     conn.close()
+
+
+def get_feedback_calibration(min_samples=12, min_per_outcome=3):
+    """Summarize final review decisions without claiming statistical certainty.
+
+    The result becomes eligible only when there are enough approved and rejected
+    clips. Pending and context-review items are intentionally excluded because
+    they are not final editorial verdicts.
+    """
+    conn = get_db()
+    rows = conn.execute(
+        """SELECT viral_score, score_factors, review_status
+           FROM clips
+           WHERE review_status IN ('approved', 'rejected')"""
+    ).fetchall()
+    conn.close()
+
+    groups = {"approved": [], "rejected": []}
+    for row in rows:
+        item = dict(row)
+        try:
+            factors = json.loads(item.get("score_factors") or "{}")
+        except (TypeError, json.JSONDecodeError):
+            factors = {}
+        groups[item["review_status"]].append({
+            "score": float(item.get("viral_score") or 0),
+            "factors": {
+                key: float(value)
+                for key, value in factors.items()
+                if isinstance(value, (int, float))
+            },
+        })
+
+    approved = groups["approved"]
+    rejected = groups["rejected"]
+    sample_size = len(approved) + len(rejected)
+    eligible = (
+        sample_size >= int(min_samples)
+        and len(approved) >= int(min_per_outcome)
+        and len(rejected) >= int(min_per_outcome)
+    )
+
+    def mean(values):
+        return sum(values) / len(values) if values else 0.0
+
+    common_factors = set.intersection(
+        *[set(item["factors"]) for item in approved + rejected]
+    ) if approved and rejected else set()
+    factor_deltas = {
+        factor: round(
+            mean([item["factors"][factor] for item in approved])
+            - mean([item["factors"][factor] for item in rejected]),
+            2,
+        )
+        for factor in sorted(common_factors)
+    }
+
+    return {
+        "eligible": eligible,
+        "sample_size": sample_size,
+        "approved_count": len(approved),
+        "rejected_count": len(rejected),
+        "minimum_sample_size": int(min_samples),
+        "score_gap": round(
+            mean([item["score"] for item in approved])
+            - mean([item["score"] for item in rejected]),
+            2,
+        ),
+        "factor_deltas": factor_deltas,
+    }

@@ -42,9 +42,15 @@ MID_SENTENCE_STARTERS = {"e", "mas", "porem", "entao", "porque", "que", "ai", "o
 
 
 class EditorialRanker:
-    def __init__(self, channel_context: str = "", editorial_profile: str = PROFILE_NAME):
+    def __init__(
+        self,
+        channel_context: str = "",
+        editorial_profile: str = PROFILE_NAME,
+        feedback_calibration: Optional[dict] = None,
+    ):
         self.channel_context = channel_context or ""
         self.editorial_profile = editorial_profile or PROFILE_NAME
+        self.feedback_calibration = feedback_calibration or {}
 
     def rank_clips(
         self,
@@ -146,6 +152,11 @@ class EditorialRanker:
                 score = int(round(base_score * 0.84 + political_signals.get("editorial_family_fit", 50.0) * 0.16))
         else:
             score = int(round(base_score))
+        feedback_adjustment = self._feedback_adjustment(factors)
+        if feedback_adjustment:
+            score = max(0, min(100, int(round(score + feedback_adjustment))) )
+            factors["editor_feedback_alignment"] = round(50.0 + feedback_adjustment * 5.0, 1)
+
         confidence = self._confidence(text, factors, duration)
         breakdown = {
             "hook": self._grade(factors["hook"]),
@@ -157,7 +168,7 @@ class EditorialRanker:
         return {
             "viral_score": score,
             "editorial_potential_score": score,
-            "editorial_score_version": "v1-explainable",
+            "editorial_score_version": "v1-feedback-calibrated" if feedback_adjustment else "v1-explainable",
             "breakdown": breakdown,
             "factors": {key: round(value, 1) for key, value in factors.items()},
             "confidence": round(confidence, 2),
@@ -167,6 +178,29 @@ class EditorialRanker:
             "political_editorial_type": political_signals.get("editorial_type", "") if political_signals else "",
             "political_signals": political_signals,
         }
+
+    def _feedback_adjustment(self, factors: dict) -> float:
+        """Return a bounded adjustment only after enough final editor decisions.
+
+        Factor deltas compare approved and rejected clips. The adjustment stays
+        within +/- 6 points so model and editorial signals remain dominant.
+        """
+        calibration = self.feedback_calibration
+        if not calibration.get("eligible"):
+            return 0.0
+        deltas = calibration.get("factor_deltas") or {}
+        contributions = []
+        for factor, delta in deltas.items():
+            value = factors.get(factor)
+            if not isinstance(value, (int, float)) or not isinstance(delta, (int, float)):
+                continue
+            if abs(delta) < 2:
+                continue
+            direction = 1.0 if delta > 0 else -1.0
+            contributions.append(direction * ((float(value) - 50.0) / 50.0) * min(abs(float(delta)), 25.0))
+        if not contributions:
+            return 0.0
+        return max(-6.0, min(6.0, sum(contributions) / len(contributions) * 0.35))
 
     def _hook(self, text: str) -> float:
         normalized = _normalize(text)
