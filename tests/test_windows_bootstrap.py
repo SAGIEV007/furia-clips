@@ -12,6 +12,9 @@ class WindowsBootstrapTests(unittest.TestCase):
         self.assertIn("python_path.txt", launcher)
         self.assertIn("ffmpeg_path.txt", launcher)
         self.assertIn("venv\\Scripts\\python.exe", launcher)
+        self.assertIn("validate_runtime", launcher)
+        self.assertIn("show_log", launcher)
+        self.assertIn("run-latest.log", launcher)
 
     def test_bootstrap_has_python_and_ffmpeg_routes(self):
         bootstrap = (ROOT / "bootstrap_windows.ps1").read_text(encoding="utf-8")
@@ -19,6 +22,10 @@ class WindowsBootstrapTests(unittest.TestCase):
         self.assertIn('Gyan.FFmpeg', bootstrap)
         self.assertIn('ffprobe.exe', bootstrap)
         self.assertIn('PrependPath=1', bootstrap)
+        self.assertIn('Start-Transcript', bootstrap)
+        self.assertIn('bootstrap-latest.log', bootstrap)
+        self.assertIn('System.IO.File]::WriteAllText', bootstrap)
+        self.assertIn('UTF8Encoding($false)', bootstrap)
 
     def test_setup_explains_gemini_is_optional(self):
         setup = (ROOT / "_setup.py").read_text(encoding="utf-8")
