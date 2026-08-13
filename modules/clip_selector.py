@@ -1,10 +1,10 @@
 """
 Clip Selector — Intelligent clip selection using Gemini, Ollama (LLM) or NLP fallback.
 
-Selection priority (based on user choice):
-1. Google Gemini Flash (if API key configured) — most capable, free tier
-2. Ollama local LLM (if running) — good, free, 100% offline
-3. NLP keyword matching (always available) — basic fallback
+Selection priority in automatic mode:
+1. Google Gemini Flash, only when a key is already configured
+2. Ollama local LLM, when the service and model are available
+3. NLP keyword matching, always available and requiring no key
 """
 
 import json
@@ -36,7 +36,8 @@ class ClipSelector:
                      video_layout=None):
         settings = settings or {}
         self._selection_source = None
-        ai_backend = settings.get("ai_backend", "gemini")
+        ai_backend = settings.get("ai_backend", "auto")
+        gemini_key = str(settings.get("gemini_api_key", "") or "").strip()
         sentences = self._build_sentences(transcription["segments"])
 
         if emit_progress:
@@ -49,8 +50,8 @@ class ClipSelector:
 
         clips = None
 
-        # Try Gemini first if selected
-        if ai_backend == "gemini":
+        # Gemini só entra no fluxo automático quando a chave já existe.
+        if ai_backend in ("auto", "gemini") and gemini_key:
             clips = self._select_with_gemini(
                 sentences, energy_profile, user_context, settings, emit_progress
             )
@@ -59,9 +60,11 @@ class ClipSelector:
                 if emit_progress:
                     emit_progress(f"[Gemini] Selecao inteligente concluida! {len(clips)} clips.", "success")
 
-        # Try Ollama (as primary or as fallback from Gemini)
-        if not clips and ai_backend in ("ollama", "gemini"):
-            if ai_backend == "gemini" and emit_progress:
+        # Ollama é opcional; falhas de conexão não interrompem o processamento.
+        if not clips and ai_backend in ("auto", "gemini", "ollama"):
+            if ai_backend == "gemini" and not gemini_key and emit_progress:
+                emit_progress("[Gemini] Sem chave configurada; seguindo para o modo local.", "info")
+            elif ai_backend == "gemini" and emit_progress:
                 emit_progress("[Gemini] Tentando Ollama como fallback...", "warning")
             clips = self._select_with_llm(
                 sentences, energy_profile, user_context, settings, emit_progress
@@ -71,11 +74,11 @@ class ClipSelector:
                 if emit_progress:
                     emit_progress(f"[Ollama] Selecao inteligente concluida! {len(clips)} clips.", "success")
 
-        # NLP fallback (always available)
+        # O ranking NLP é o caminho final e não requer API, Ollama ou download extra.
         if not clips:
             self._selection_source = "nlp"
             if emit_progress:
-                emit_progress("[NLP] Usando selecao por palavras-chave (menos preciso)...", "warning")
+                emit_progress("[NLP] Usando selecao local por contexto e palavras-chave.", "info")
             clips = self._select_with_nlp(
                 sentences, energy_profile, user_context, emit_progress
             )
