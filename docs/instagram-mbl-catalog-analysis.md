@@ -108,3 +108,22 @@ O próximo ganho de qualidade não é apenas coletar mais vídeos: é executar o
 [^3]: [Relatório audiovisual do Reel Db_OfZDjKMW, perfil reserva](instagram_reserva_analysis/Db_OfZDjKMW.md).
 
 Fontes públicas de contexto: [perfil principal @renansantosmbl](https://www.instagram.com/renansantosmbl/) e [perfil reserva @renansantosreserva](https://www.instagram.com/renansantosreserva/).
+
+
+## Rodada pública via navegador — Reels recentes
+
+Em uma rodada adicional, foram abertas diretamente no navegador as páginas públicas de um Reel novo do perfil principal (`Db_zbMhNfYJ`) e de doze Reels recentes do perfil reserva (`Db_qtXRgm1b`, `Db_mfm5ihyd`, `Db_jBIqj1nb`, `Db_foElAY3K`, `Db_fnFCDK8I`, `Db_cM5TlApr`, `Db_aVwFEkfD`, `Db_Y07LFV7J`, `Db_VUXqjnyO`, `Db_R92njTCq`, `Db_OfZDjKMW` e `Db_LANvAgY6`). A evidência foi registrada no [log de análise via navegador](instagram-browser-analysis-log-2026-08-13.md).
+
+A rodada ampliou a base com formatos que não devem ser confundidos com o comentário político padrão. O perfil reserva publica peças de **campanha/identidade**, com repetição de símbolos, slogan e CTA; peças de **bastidor/humor**, com curiosidade ou reação espontânea; **comparação eleitoral**, em que uma referência a outra figura serve de ponte para o posicionamento de Renan; **política pública/economia**, com desafio, número, diagnóstico e proposta; e **react com notícia**, no qual a emoção precisa permanecer ligada à evidência que a provocou.
+
+| Novo sinal | Regra editorial incorporada |
+| --- | --- |
+| Campanha com slogan, cores e símbolos | Pode ser candidato integral quando a mensagem visual já tem começo e assinatura; proteger texto e identidade, sem exigir arco argumentativo de entrevista. |
+| Humor/bastidor | Manter curiosidade, reação e payoff; separar do ranking de confronto político e não pontuar imagem isolada como corte completo. |
+| Referência a outra figura + voto em Renan | Preservar a transição `referência externa → posicionamento próprio → conclusão eleitoral`. |
+| Diagnóstico fiscal/econômico | Exigir premissa, número/atribuição e proposta; marcar `needs_review` quando a afirmação factual não estiver contextualizada. |
+| React de notícia | Manter `evidência → reação → interpretação`; não terminar em frase extrema ou CTA. |
+| CTA do aplicativo Missão | Marcar como chamada promocional, não como conclusão editorial; permitir corte separado apenas se o usuário solicitar campanha. |
+| Comentários polarizados | Usar como sinal de debate, nunca como prova suficiente de qualidade ou viralidade. |
+
+A principal consequência para o Furia Clips é que o ranking diário precisa distinguir **potencial de publicação** de **potencial de debate**. Uma peça pode gerar comentários pela controvérsia e ainda precisar de revisão factual, atribuição ou contexto. A central visual deve mostrar essa distinção e permitir que o editor aprove um corte de humor, campanha, economia ou react sem obrigá-lo a competir com um monólogo político no mesmo eixo.
