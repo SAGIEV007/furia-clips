@@ -48,3 +48,15 @@ class VideoCutterTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_detect_scenes_handles_empty_stderr(monkeypatch):
+    from types import SimpleNamespace
+    import modules.video_cutter as module
+
+    monkeypatch.setattr(
+        module.subprocess,
+        "run",
+        lambda *args, **kwargs: SimpleNamespace(stderr=None, returncode=0),
+    )
+    assert VideoCutter().detect_scenes("video.mp4") == [0.0]

@@ -45,6 +45,8 @@ DEFAULT_SETTINGS = {
     "channel_context": "Canal de politica brasileira conservadora. Foco em cortes do Renan Santos e MBL. Conteudo voltado para engajamento, clareza e viralizacao em plataformas de video curto.",
     "editorial_profile": "renan_santos_politics",
     "editorial_profile_label": "Cortes politicos — Renan Santos/MBL",
+    "editorial_focus": "auto",
+    "gemini_manual_video_analysis": False,
     "political_audio_policy": "voice_and_ambience",
     "political_caption_mode": "keyword_impact",
     "export_format": "mp4",

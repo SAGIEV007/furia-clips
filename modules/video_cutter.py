@@ -36,7 +36,10 @@ class VideoCutter:
         result = subprocess.run(cmd, capture_output=True, text=True)
 
         scene_changes = [0.0]
-        for line in result.stderr.split("\n"):
+        stderr = result.stderr or ""
+        if isinstance(stderr, bytes):
+            stderr = stderr.decode("utf-8", errors="replace")
+        for line in str(stderr).split("\n"):
             if "pts_time:" in line:
                 try:
                     time_str = line.split("pts_time:")[1].split()[0]

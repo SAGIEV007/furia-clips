@@ -9,6 +9,9 @@ from typing import Iterable
 TIMESTAMP_RE = re.compile(
     r"(?P<stamp>\d{1,2}:\d{2}(?::\d{2})?(?:[\.,]\d{1,3})?)"
 )
+INLINE_TIMESTAMP_RE = re.compile(
+    r"(?<![\w:])(?P<stamp>\d{1,2}:\d{2}(?::\d{2})?(?:[\.,]\d{1,3})?)(?=\s|[-–—:)>\]])"
+)
 RANGE_RE = re.compile(
     r"(?P<start>\d{1,2}:\d{2}(?::\d{2})?(?:[\.,]\d{1,3})?)\s*-->\s*"
     r"(?P<end>\d{1,2}:\d{2}(?::\d{2})?(?:[\.,]\d{1,3})?)"
@@ -45,7 +48,12 @@ def _normalize(segments: Iterable[dict], duration: float | None = None) -> list[
         next_start = float(ordered[index + 1]["start"]) if index + 1 < len(ordered) else None
         end = item.get("end")
         if end is None:
-            end = next_start if next_start is not None and next_start > start else start + 2.0
+            if next_start is not None and next_start > start:
+                end = next_start
+            elif len(ordered) == 1 and duration is not None and float(duration) > start:
+                end = float(duration)
+            else:
+                end = start + 2.0
         end = max(start + 0.05, float(end))
         if duration is not None:
             end = min(end, max(start + 0.05, float(duration)))
@@ -98,6 +106,23 @@ def _parse_timestamp_lines(raw: str) -> list[dict]:
         text = line[match.end():].strip(" -\t")
         if text:
             segments.append({"start": parse_timestamp(match.group("stamp")), "text": text})
+
+    # Tactiq and copied captions sometimes arrive as one wrapped paragraph,
+    # with timestamps inline instead of one timestamp per line.
+    if len(segments) <= 1:
+        matches = list(INLINE_TIMESTAMP_RE.finditer(raw))
+        if len(matches) > 1:
+            inline_segments = []
+            for index, match in enumerate(matches):
+                next_start = matches[index + 1].start() if index + 1 < len(matches) else len(raw)
+                text = raw[match.end():next_start].strip(" -–—:|[]()\t\n")
+                if text:
+                    inline_segments.append({
+                        "start": parse_timestamp(match.group("stamp")),
+                        "text": text,
+                    })
+            if len(inline_segments) > len(segments):
+                segments = inline_segments
     return segments
 
 

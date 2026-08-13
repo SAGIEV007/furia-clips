@@ -356,13 +356,16 @@ def _transcription_from_gemini_result(result, language="pt"):
     return result
 
 
-def _enrich_editorial_context(video_path, settings, editorial_context, user_context, emit_progress, multimodal=None):
-    """Use Gemini multimodal analysis as enrichment, never as a hard dependency."""
-    if multimodal is None:
+def _enrich_editorial_context(video_path, settings, editorial_context, user_context, emit_progress, multimodal=None, allow_video_analysis=True):
+    """Use Gemini multimodal analysis as optional enrichment, never as a hard dependency."""
+    if multimodal is None and allow_video_analysis:
         multimodal = _run_gemini_video_analysis(video_path, settings, editorial_context, user_context, emit_progress)
     if multimodal:
         return {**editorial_context, "multimodal": multimodal}
-    emit_progress("[Gemini] Análise multimodal indisponível; usando transcrição e sinais locais.", "info")
+    if not allow_video_analysis:
+        emit_progress("[Gemini] Transcrição manual fornecida; análise multimodal adicional não será reenviada. Usando sinais locais.", "info")
+    else:
+        emit_progress("[Gemini] Análise multimodal indisponível; usando transcrição e sinais locais.", "info")
     return editorial_context
 
 
@@ -792,7 +795,12 @@ def api_source_import():
 def api_parse_transcript():
     data = request.get_json(silent=True) or {}
     try:
-        result = parse_transcript_text(data.get("text", ""), duration=data.get("duration"))
+        duration = data.get("duration")
+        if not duration and data.get("video_path"):
+            resolved_video = _resolve_media_input(data.get("video_path"))
+            if resolved_video and os.path.exists(resolved_video):
+                duration = _probe_video_duration_seconds(resolved_video)
+        result = parse_transcript_text(data.get("text", ""), duration=duration)
         result["language"] = data.get("language", "pt")
         return jsonify({"success": True, "transcription": result})
     except (TypeError, ValueError) as exc:
@@ -981,7 +989,7 @@ def api_cut_shorts():
                     {},
                     user_context,
                     emit_progress,
-                    cancel_check=ctx.check_cancel,
+                    cancel_check=check_current_task_cancel,
                 )
                 transcription = _transcription_from_gemini_result(multimodal_result, settings.get("language", "pt"))
             if transcription and transcription.get("source") == "manual":
@@ -999,7 +1007,7 @@ def api_cut_shorts():
                 transcription = transcriber.transcribe(
                     video_path,
                     emit_progress=emit_progress,
-                    cancel_check=ctx.check_cancel,
+                    cancel_check=check_current_task_cancel,
                 )
                 emit_progress(f"[Whisper] Motor: {transcriber._engine}", "info")
 
@@ -1010,11 +1018,15 @@ def api_cut_shorts():
                 )
 
             from modules.editorial_context import analyze_transcript_context
-            editorial_context = analyze_transcript_context(transcription)
+            editorial_context = analyze_transcript_context(transcription, focus=settings.get("editorial_focus", "auto"))
             emit_progress(f"[Contexto editorial] {editorial_context['description']}", "info")
             editorial_context = _enrich_editorial_context(
                 video_path, settings, editorial_context, user_context, emit_progress,
                 multimodal=multimodal_result,
+                allow_video_analysis=not (
+                    transcription.get("source") == "manual"
+                    and not settings.get("gemini_manual_video_analysis", False)
+                ),
             )
             settings["editorial_context"] = editorial_context
 
@@ -1414,7 +1426,14 @@ def api_process_complete():
             transcription = _transcription_from_request(data)
             multimodal_result = None
             if not transcription:
-                multimodal_result = _run_gemini_video_analysis(working_video, settings, {}, user_context, emit_progress)
+                multimodal_result = _run_gemini_video_analysis(
+                    working_video,
+                    settings,
+                    {},
+                    user_context,
+                    emit_progress,
+                    cancel_check=ctx.check_cancel,
+                )
                 transcription = _transcription_from_gemini_result(multimodal_result, settings.get("language", "pt"))
             if transcription and transcription.get("source") == "manual":
                 emit_progress(f"[Transcrição manual] {transcription['segment_count']} segmentos importados; Whisper não será executado.", "success")
@@ -1424,18 +1443,29 @@ def api_process_complete():
                 transcriber = Transcriber(
                     model_name=settings.get("whisper_model", "small"),
                     language=settings.get("language", "pt"),
+                    word_timestamps=settings.get("whisper_word_timestamps", False),
+                    beam_size=settings.get("whisper_beam_size", 1),
+                    device=settings.get("whisper_device", "auto"),
                 )
-                transcription = transcriber.transcribe(working_video, emit_progress=emit_progress)
+                transcription = transcriber.transcribe(
+                    working_video,
+                    emit_progress=emit_progress,
+                    cancel_check=ctx.check_cancel,
+                )
             save_transcription(
                 project_id, transcription["segments"], transcription["full_text"],
                 transcription["language"], settings.get("whisper_model", "small")
             )
             from modules.editorial_context import analyze_transcript_context
-            editorial_context = analyze_transcript_context(transcription)
+            editorial_context = analyze_transcript_context(transcription, focus=settings.get("editorial_focus", "auto"))
             emit_progress(f"[Contexto editorial] {editorial_context['description']}", "info")
             editorial_context = _enrich_editorial_context(
                 video_path, settings, editorial_context, user_context, emit_progress,
                 multimodal=multimodal_result,
+                allow_video_analysis=not (
+                    transcription.get("source") == "manual"
+                    and not settings.get("gemini_manual_video_analysis", False)
+                ),
             )
             settings["editorial_context"] = editorial_context
             ctx.update(stage="transcription", progress=35, message="Transcrição e contexto concluídos")

@@ -36,7 +36,7 @@ def _contains_renan(text: str) -> bool:
     return any(term in normalized for term in RENAN_TERMS)
 
 
-def analyze_transcript_context(transcription: dict) -> dict:
+def analyze_transcript_context(transcription: dict, focus: str = "auto") -> dict:
     segments = transcription.get("segments", []) if isinstance(transcription, dict) else []
     enriched = []
     for segment in segments:
@@ -56,6 +56,13 @@ def analyze_transcript_context(transcription: dict) -> dict:
     if not references and not questions:
         participant_confidence = 0.2
 
+    normalized_focus = str(focus or "auto").lower().strip()
+    renan_focus = normalized_focus in {"renan", "renan_santos", "renan_santos_politics"}
+    if normalized_focus == "auto":
+        renan_focus = bool(references)
+    focus_key = "renan_santos" if renan_focus else "generic_political"
+    focus_label = "Renan Santos" if renan_focus else "participante principal / contexto político"
+
     duration = max((float(s.get("end", 0)) for s in enriched), default=0.0)
     summary = {
         "duration": round(duration, 3),
@@ -64,15 +71,15 @@ def analyze_transcript_context(transcription: dict) -> dict:
         "renan_reference_count": len(references),
         "interview_windows": interview_windows,
         "qa_candidates": qa_candidates,
-        "focus": "renan_santos",
-        "participant_confidence": round(participant_confidence, 3),
+        "focus": focus_key,
+        "participant_confidence": round(participant_confidence if renan_focus else min(participant_confidence, 0.55), 3),
         "signals": {
             "question_response_structure": bool(qa_candidates),
             "speaker_markers": sum(1 for s in enriched if s["speaker_marker"]),
             "possible_overlap": _possible_overlap(enriched),
             "long_form": duration >= 3600,
         },
-        "description": _description(duration, len(questions), len(qa_candidates), participant_confidence),
+        "description": _description(duration, len(questions), len(qa_candidates), participant_confidence, focus_label),
     }
     return summary
 
@@ -153,11 +160,11 @@ def _possible_overlap(segments: list[dict]) -> bool:
     return False
 
 
-def _description(duration: float, question_count: int, qa_count: int, confidence: float) -> str:
+def _description(duration: float, question_count: int, qa_count: int, confidence: float, focus_label: str) -> str:
     hours = duration / 3600 if duration else 0
     size = "vídeo longo" if hours >= 1 else "vídeo curto/médio"
     return (
         f"Pré-análise: {size} com {question_count} perguntas detectadas e {qa_count} "
-        f"candidatos pergunta–resposta. O foco editorial configurado é Renan Santos, "
+        f"candidatos pergunta–resposta. O foco editorial é {focus_label}, "
         f"com confiança inicial de {confidence:.0%}; confirme casos ambíguos na revisão."
     )

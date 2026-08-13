@@ -109,3 +109,31 @@ def test_public_source_403_is_actionable():
     assert "HTTP 403" in message
     assert "link é público" in message
     assert "yt-dlp" in message
+
+
+def test_parse_inline_timestamps_and_expand_single_segment_duration():
+    inline = "00:00:00.000 Primeiro trecho completo. 00:00:12.000 Segundo trecho completo."
+    parsed = parse_transcript_text(inline, duration=30)
+    assert parsed["segment_count"] == 2
+    assert parsed["segments"][1]["start"] == 12.0
+
+    single = parse_transcript_text("00:00:10.000 Texto sem novo timestamp até o fim.", duration=40)
+    assert single["segment_count"] == 1
+    assert single["segments"][0]["end"] == 40.0
+
+
+def test_editorial_context_uses_generic_focus_without_renan_reference():
+    transcription = parse_transcript_text(
+        "00:00:00.000 O candidato explica a proposta para reduzir a violência."
+    )
+    context = analyze_transcript_context(transcription)
+    assert context["focus"] == "generic_political"
+    assert "Renan Santos" not in context["description"]
+
+
+def test_editorial_context_can_force_generic_focus_even_with_renan_reference():
+    transcription = parse_transcript_text(
+        "00:00:00.000 Renan Santos comenta a proposta e conclui a explicação."
+    )
+    context = analyze_transcript_context(transcription, focus="generic")
+    assert context["focus"] == "generic_political"

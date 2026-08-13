@@ -1236,7 +1236,12 @@ document.getElementById("btnApplyTranscript")?.addEventListener("click", async (
         const res = await fetch("/api/transcript/parse", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ text, language: document.getElementById("settingLanguage")?.value || "pt" }),
+            body: JSON.stringify({
+                text,
+                language: document.getElementById("settingLanguage")?.value || "pt",
+                duration: state.selectedVideo?.duration || state.selectedVideo?.duration_seconds || null,
+                video_path: state.selectedVideo?.path || null,
+            }),
         });
         const data = await parseJsonResponse(res, "Transcrição");
         if (!res.ok || !data.success) throw new Error(data.error || "Transcrição inválida");
@@ -1407,6 +1412,7 @@ function applySettings() {
     if (s.cut_duration) document.getElementById("settingCutDuration").value = s.cut_duration;
     if (s.render_preset) document.getElementById("settingRenderPreset").value = s.render_preset;
     if (s.editorial_profile) document.getElementById("settingEditorialProfile").value = s.editorial_profile;
+    if (s.editorial_focus) document.getElementById("settingEditorialFocus").value = s.editorial_focus;
     if (s.min_silence_duration != null) {
         document.getElementById("settingSilenceDuration").value = s.min_silence_duration;
         document.getElementById("silenceValue").textContent = s.min_silence_duration + "s";
@@ -1483,6 +1489,7 @@ document.getElementById("btnSaveSettings").addEventListener("click", async () =>
         cut_duration: parseInt(document.getElementById("settingCutDuration").value),
         render_preset: document.getElementById("settingRenderPreset").value,
         editorial_profile: document.getElementById("settingEditorialProfile").value,
+        editorial_focus: document.getElementById("settingEditorialFocus").value,
         min_silence_duration: parseFloat(document.getElementById("settingSilenceDuration").value),
         padding: 0.25,
         language: document.getElementById("settingLanguage").value,
