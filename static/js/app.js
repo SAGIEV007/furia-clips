@@ -1074,12 +1074,18 @@ function applySettings() {
 }
 
 function updateAiConfigVisibility(backend) {
-    document.getElementById("ollamaConfig").style.display = backend === "ollama" ? "block" : "none";
-    document.getElementById("geminiConfig").style.display = backend === "gemini" ? "block" : "none";
+    const automatic = backend === "auto";
+    document.getElementById("ollamaConfig").style.display = (automatic || backend === "ollama") ? "block" : "none";
+    document.getElementById("geminiConfig").style.display = (automatic || backend === "gemini") ? "block" : "none";
     document.getElementById("claudeConfig").style.display = backend === "claude" ? "block" : "none";
 
     const status = document.getElementById("aiStatus");
-    const labels = { ollama: "Ollama local selecionado", gemini: "Google Gemini selecionado", claude: "Claude API selecionado" };
+    const labels = {
+        auto: "Modo automático: Gemini → Ollama → local",
+        ollama: "Ollama local selecionado",
+        gemini: "Google Gemini selecionado (chave opcional)",
+        claude: "Claude API selecionado",
+    };
     status.querySelector("span:last-child").textContent = labels[backend] || backend;
 }
 
@@ -1091,11 +1097,12 @@ document.getElementById("settingGeminiKey").addEventListener("change", async (e)
             await fetch("/api/settings", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ gemini_api_key: key, ai_backend: "gemini" }),
+                body: JSON.stringify({ gemini_api_key: key }),
             });
             showToast("Gemini API key salva!", "success");
+            // A chave fica disponível para o modo automático, sem trocar a preferência do usuário.
             state.settings.gemini_api_key = key;
-            state.settings.ai_backend = "gemini";
+            updateAiConfigVisibility(document.getElementById("settingAiBackend").value);
         } catch (err) { /* silent */ }
     }
 });
