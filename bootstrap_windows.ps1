@@ -213,7 +213,10 @@ try {
     Write-Host ("!" * 72) -ForegroundColor Red
 } finally {
     if ($TranscriptStarted) {
-        Stop-Transcript | Out-Host
+        # O Stop-Transcript imprime uma confirmação localizada (por exemplo,
+        # “Transcrição interrompida...”) que parece erro no console do .bat.
+        # O log já foi gravado; suprima somente essa saída redundante.
+        Stop-Transcript | Out-Null
     }
 }
 

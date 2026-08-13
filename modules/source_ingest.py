@@ -10,6 +10,7 @@ from __future__ import annotations
 import ipaddress
 import os
 import socket
+import time
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -70,17 +71,17 @@ def probe_public_url(url: str) -> dict:
     value = validate_public_url(url)
     yt_dlp = _yt_dlp()
     options = {
+        **_common_yt_dlp_options(),
         "quiet": True,
         "no_warnings": True,
         "skip_download": True,
-        "noplaylist": True,
         "extract_flat": False,
     }
     try:
         with yt_dlp.YoutubeDL(options) as downloader:
             info = downloader.extract_info(value, download=False)
     except Exception as exc:
-        raise SourceIngestError(f"Não foi possível ler a fonte pública: {str(exc)[:240]}") from exc
+        raise _source_error("Não foi possível ler a fonte pública", exc) from exc
     return {
         "url": value,
         "id": info.get("id", ""),
@@ -93,7 +94,65 @@ def probe_public_url(url: str) -> dict:
     }
 
 
-def download_public_video(url: str, destination: str, progress=None, max_height: int = 1080) -> dict:
+def _common_yt_dlp_options():
+    return {
+        "retries": 3,
+        "fragment_retries": 3,
+        "extractor_retries": 3,
+        "file_access_retries": 3,
+        "continuedl": True,
+        "noplaylist": True,
+    }
+
+
+def _source_error(prefix: str, exc: Exception) -> SourceIngestError:
+    detail = str(exc)[:240]
+    if "403" in detail or "Forbidden" in detail:
+        return SourceIngestError(
+            f"{prefix}: a fonte recusou o download (HTTP 403). "
+            "O programa tentou novamente; verifique se o link é público, atualize o yt-dlp e tente outra vez."
+        )
+    return SourceIngestError(f"{prefix}: {detail}")
+
+
+def download_public_subtitles(url: str, destination: str, progress=None) -> str | None:
+    """Try public Portuguese subtitles before the expensive CPU fallback."""
+    value = validate_public_url(url)
+    yt_dlp = _yt_dlp()
+    target = Path(destination).expanduser().resolve()
+    target.mkdir(parents=True, exist_ok=True)
+    options = {
+        **_common_yt_dlp_options(),
+        "quiet": True,
+        "no_warnings": True,
+        "skip_download": True,
+        "writesubtitles": True,
+        "writeautomaticsub": True,
+        "subtitleslangs": ["pt-BR", "pt", "por"],
+        "subtitlesformat": "vtt/srt/best",
+        "outtmpl": str(target / "%(title).120B [%(id)s].%(ext)s"),
+    }
+    try:
+        with yt_dlp.YoutubeDL(options) as downloader:
+            info = downloader.extract_info(value, download=True)
+        source_id = info.get("id", "")
+        candidates = sorted(
+            [*target.glob(f"*{source_id}*.vtt"), *target.glob(f"*{source_id}*.srt")],
+            key=lambda path: path.stat().st_mtime,
+            reverse=True,
+        )
+        if candidates:
+            if progress:
+                progress({"status": "subtitle", "filename": str(candidates[0])})
+            return str(candidates[0])
+        return None
+    except Exception as exc:
+        if progress:
+            progress({"status": "subtitle_error", "error": str(exc)[:240]})
+        return None
+
+
+def download_public_video(url: str, destination: str, progress=None, max_height: int = 1080, retries: int = 3) -> dict:
     """Download the best public source up to the requested vertical resolution."""
     value = validate_public_url(url)
     yt_dlp = _yt_dlp()
@@ -101,12 +160,27 @@ def download_public_video(url: str, destination: str, progress=None, max_height:
     target.mkdir(parents=True, exist_ok=True)
     hooks = []
     if progress:
+        last_percent = None
+        last_emit = 0.0
+
         def hook(status):
+            nonlocal last_percent, last_emit
             if status.get("status") == "downloading":
                 total = status.get("total_bytes") or status.get("total_bytes_estimate") or 0
                 done = status.get("downloaded_bytes") or 0
                 percent = (done / total * 100) if total else None
-                progress({"status": "downloading", "percent": percent, "downloaded": done, "total": total})
+                now = time.monotonic()
+                should_emit = (
+                    percent is None
+                    or last_percent is None
+                    or percent >= 100
+                    or percent - last_percent >= 0.5
+                    or now - last_emit >= 1.0
+                )
+                if should_emit:
+                    last_percent = percent
+                    last_emit = now
+                    progress({"status": "downloading", "percent": percent, "downloaded": done, "total": total})
             elif status.get("status") == "finished":
                 progress({"status": "finished", "filename": status.get("filename", "")})
         hooks.append(hook)
@@ -129,23 +203,39 @@ def download_public_video(url: str, destination: str, progress=None, max_height:
         "nooverwrites": True,
         "quiet": True,
         "no_warnings": True,
+        **_common_yt_dlp_options(),
+        "retries": max(1, min(int(retries or 3), 5)),
         "progress_hooks": hooks,
     }
-    try:
-        with yt_dlp.YoutubeDL(options) as downloader:
-            info = downloader.extract_info(value, download=True)
-            filename = downloader.prepare_filename(info)
-            output = Path(filename)
-            if output.suffix.lower() != ".mp4":
-                merged = output.with_suffix(".mp4")
-                if merged.exists():
-                    output = merged
-            if not output.exists():
-                candidates = sorted(target.glob(f"*[{info.get('id', '')}]*"), key=lambda p: p.stat().st_mtime, reverse=True)
-                if candidates:
-                    output = candidates[0]
-    except Exception as exc:
-        raise SourceIngestError(f"Não foi possível baixar a fonte pública: {str(exc)[:240]}") from exc
+    max_attempts = max(1, min(int(retries or 3), 5))
+    last_error = None
+    output = None
+    info = {}
+    for attempt in range(1, max_attempts + 1):
+        try:
+            if attempt > 1 and progress:
+                progress({"status": "retry", "attempt": attempt, "max_attempts": max_attempts})
+            with yt_dlp.YoutubeDL(options) as downloader:
+                info = downloader.extract_info(value, download=True)
+                filename = downloader.prepare_filename(info)
+                output = Path(filename)
+                if output.suffix.lower() != ".mp4":
+                    merged = output.with_suffix(".mp4")
+                    if merged.exists():
+                        output = merged
+                if not output.exists():
+                    candidates = sorted(target.glob(f"*{info.get('id', '')}*"), key=lambda p: p.stat().st_mtime, reverse=True)
+                    if candidates:
+                        output = candidates[0]
+            if output and output.exists():
+                break
+        except Exception as exc:
+            last_error = exc
+            if attempt < max_attempts:
+                time.sleep(min(2 ** (attempt - 1), 5))
+
+    if last_error is not None and (not output or not output.exists()):
+        raise _source_error("Não foi possível baixar a fonte pública", last_error) from last_error
 
     if not output.exists() or not output.is_file():
         raise SourceIngestError("O download terminou sem produzir um arquivo de vídeo.")

@@ -80,7 +80,7 @@ def prompt_gemini_key():
         return True
     else:
         print()
-        print("[INFO] Sem Gemini. O app usara Ollama (offline) ou NLP basico.")
+        print("[INFO] Sem Gemini. O app tentara legendas publicas timestampadas e so depois Whisper CPU.")
         print("  Voce pode configurar o Gemini depois na interface do app.")
         return False
 
@@ -166,7 +166,7 @@ def setup_venv():
 def install_deps():
     """Install dependencies if needed."""
     venv_dir = os.path.join(os.path.dirname(__file__), "venv")
-    deps_version = "v8_sources_gemini"
+    deps_version = "v9_sources_gemini_fast_transcription"
     marker = os.path.join(venv_dir, f".deps_{deps_version}")
 
     if os.path.exists(marker):
@@ -193,9 +193,9 @@ def install_deps():
     if not run_cmd(pip_cmd + ["install", "--quiet", "faster-whisper"]):
         print("[AVISO] faster-whisper pode ter falhado")
 
-    print("[Setup] Instalando demais dependencias...")
+    print("[Setup] Instalando demais dependencias e atualizando yt-dlp...")
     req_file = os.path.join(os.path.dirname(__file__), "requirements.txt")
-    if not run_cmd(pip_cmd + ["install", "--quiet", "-r", req_file]):
+    if not run_cmd(pip_cmd + ["install", "--quiet", "--upgrade", "-r", req_file]):
         print("[AVISO] Algumas dependencias falharam. Tentando individualmente...")
         run_cmd(pip_cmd + ["install", "flask", "flask-socketio", "gevent",
                  "gevent-websocket", "--quiet"])
@@ -229,7 +229,7 @@ def install_deps():
 
     print()
     print("==================================================")
-    print("   SETUP COMPLETO! Gemini Online prioritário; fallback offline pronto.")
+    print("   SETUP COMPLETO! Gemini Online prioritário; legenda/Whisper offline prontos.")
     print("==================================================")
     print()
 
@@ -263,7 +263,7 @@ def main():
         print("[IA] Gemini Online configurado e definido como prioridade.")
     else:
         print("[IA] Gemini Online e a prioridade, mas nenhuma API key foi configurada.")
-        print("      O fallback local sera usado ate configurar a chave em Backend de IA.")
+        print("      O app tentara legenda publica; Whisper CPU sera o ultimo fallback ate configurar a chave.")
 
     check_ollama()
     print()

@@ -15,6 +15,8 @@ for d in [WORKSPACE_DIR, UPLOAD_DIR, PROCESSED_DIR, EXPORT_DIR, THUMBNAIL_DIR, D
 
 DEFAULT_SETTINGS = {
     "whisper_model": "small",
+    "whisper_word_timestamps": False,
+    "whisper_beam_size": 1,
     "cut_method": "intelligent",
     "cut_duration": 45,
     "min_silence_duration": 0.5,
@@ -48,6 +50,7 @@ DEFAULT_SETTINGS = {
     "output_dir": "",
     "source_download_dir": "",
     "source_max_height": 1080,
+    "source_download_retries": 3,
 }
 
 ALLOWED_EXTENSIONS = {".mp4", ".mkv", ".avi", ".mov", ".webm", ".flv", ".wmv"}

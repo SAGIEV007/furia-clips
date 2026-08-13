@@ -61,8 +61,8 @@ def test_source_import_passes_normalized_url_to_downloader(monkeypatch, tmp_path
 
     monkeypatch.setattr(app_module, "validate_public_url", lambda value: "https://www.youtube.com/watch?v=normalized")
 
-    def fake_download(url, destination, max_height=1080, progress=None):
-        received.update({"url": url, "destination": destination, "max_height": max_height})
+    def fake_download(url, destination, max_height=1080, progress=None, retries=3):
+        received.update({"url": url, "destination": destination, "max_height": max_height, "retries": retries})
         return {"path": str(downloaded), "title": "Teste", "duration": 1, "url": url, "extractor": "youtube"}
 
     monkeypatch.setattr(app_module, "download_public_video", fake_download)
@@ -77,3 +77,25 @@ def test_source_import_passes_normalized_url_to_downloader(monkeypatch, tmp_path
     assert received["url"] == "https://www.youtube.com/watch?v=normalized"
     assert received["max_height"] == 1080
     assert app_module.current_task["active"] is False
+
+
+def test_public_subtitle_fallback_prevents_cpu_whisper(monkeypatch, tmp_path):
+    import app as app_module
+
+    subtitle = tmp_path / "source.pt.vtt"
+    subtitle.write_text("WEBVTT\n\n00:00:01.000 --> 00:00:02.000\nResposta do Renan.\n", encoding="utf-8")
+    monkeypatch.setattr(app_module, "_run_gemini_video_analysis", lambda *args: None)
+
+    class ForbiddenWhisper:
+        def __init__(self, *args, **kwargs):
+            raise AssertionError("Whisper CPU não deveria ser iniciado com VTT público válido")
+
+    monkeypatch.setattr("modules.transcriber.Transcriber", ForbiddenWhisper)
+    result = app_module._transcribe_video_automatically(
+        str(tmp_path / "video.mp4"),
+        {"ai_backend": "gemini", "gemini_api_key": "", "language": "pt"},
+        lambda *args: None,
+        transcript_fallback_path=str(subtitle),
+    )
+    assert result["source"] == "public_subtitles"
+    assert result["segment_count"] == 1

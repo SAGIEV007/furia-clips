@@ -72,3 +72,40 @@ def test_dialog_route_rejects_invalid_mode():
     client = app_module.app.test_client()
     response = client.post("/api/dialog/choose", json={"mode": "shell"})
     assert response.status_code == 400
+
+
+def test_public_subtitles_are_detected_before_cpu_fallback(monkeypatch, tmp_path):
+    from types import SimpleNamespace
+    import modules.source_ingest as source_ingest
+
+    class FakeYoutubeDL:
+        def __init__(self, options):
+            self.options = options
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def extract_info(self, url, download=True):
+            subtitle = tmp_path / "Fonte [abc123].pt.vtt"
+            subtitle.write_text("WEBVTT\\n\\n00:00:01.000 --> 00:00:02.000\\nResposta do Renan.\\n", encoding="utf-8")
+            return {"id": "abc123"}
+
+    monkeypatch.setattr(source_ingest, "validate_public_url", lambda value: "https://www.youtube.com/watch?v=abc123")
+    monkeypatch.setattr(source_ingest, "_yt_dlp", lambda: SimpleNamespace(YoutubeDL=FakeYoutubeDL))
+    progress = []
+    path = source_ingest.download_public_subtitles("https://example.com/video", str(tmp_path), progress.append)
+    assert path is not None
+    assert path.endswith(".vtt")
+    assert progress[-1]["status"] == "subtitle"
+
+
+def test_public_source_403_is_actionable():
+    from modules.source_ingest import _source_error
+
+    message = str(_source_error("Não foi possível baixar a fonte pública", RuntimeError("HTTP Error 403: Forbidden")))
+    assert "HTTP 403" in message
+    assert "link é público" in message
+    assert "yt-dlp" in message

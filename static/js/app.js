@@ -1280,6 +1280,16 @@ document.getElementById("btnChooseSourceDir")?.addEventListener("click", async (
     await chooseSourceDirectory();
 });
 
+async function ensureSourceDirectory() {
+    const existing = String(state.sourceDownloadDir || "").trim();
+    if (existing) {
+        const label = document.getElementById("sourceDestinationText");
+        if (label) label.textContent = existing;
+        return existing;
+    }
+    return chooseSourceDirectory();
+}
+
 document.getElementById("btnImportSource")?.addEventListener("click", async () => {
     const input = document.getElementById("sourceUrlInput");
     const url = normalizePublicUrlInput(input?.value);
@@ -1288,7 +1298,7 @@ document.getElementById("btnImportSource")?.addEventListener("click", async () =
         showSourceStatus("Informe uma URL pública.", "error");
         return;
     }
-    const destination = await chooseSourceDirectory();
+    const destination = await ensureSourceDirectory();
     if (!destination) {
         showSourceStatus("Importação cancelada: escolha uma pasta para salvar o vídeo.", "warning");
         return;

@@ -10,9 +10,11 @@ CACHE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file_
 
 
 class Transcriber:
-    def __init__(self, model_name="small", language="pt"):
+    def __init__(self, model_name="small", language="pt", word_timestamps=False, beam_size=1):
         self.model_name = model_name
         self.language = language
+        self.word_timestamps = bool(word_timestamps)
+        self.beam_size = max(1, int(beam_size or 1))
         self.model = None
         self._engine = "cache"
         os.makedirs(CACHE_DIR, exist_ok=True)
@@ -75,6 +77,19 @@ class Transcriber:
             if emit_progress:
                 emit_progress(f"Modelo carregado: openai-whisper no {device}")
 
+    def _probe_duration(self, video_path):
+        ffprobe = shutil.which("ffprobe")
+        if not ffprobe:
+            return None
+        try:
+            result = subprocess.run(
+                [ffprobe, "-v", "error", "-show_entries", "format=duration", "-of", "default=nw=1:nk=1", video_path],
+                capture_output=True, text=True, timeout=15,
+            )
+            return float(result.stdout.strip()) if result.stdout.strip() else None
+        except (OSError, ValueError, subprocess.SubprocessError):
+            return None
+
     def _check_audio_stream(self, video_path, emit_progress=None):
         """Check if the video file contains an audio stream. Returns True if audio exists."""
         try:
@@ -126,6 +141,15 @@ class Transcriber:
                 "No yt-dlp use: -f bestvideo+bestaudio --merge-output-format mp4"
             )
 
+        duration = self._probe_duration(audio_path)
+        if duration and duration >= 900 and emit_progress:
+            minutes = duration / 60
+            emit_progress(
+                f"Fallback local: vídeo de {minutes:.1f} min; processamento CPU pode levar vários minutos. "
+                "Gemini Online é recomendado para reduzir este tempo.",
+                "warning",
+            )
+
         if self.model is None:
             self.load_model(emit_progress)
 
@@ -157,8 +181,8 @@ class Transcriber:
             audio_path,
             language=self.language,
             task="transcribe",
-            beam_size=5,
-            word_timestamps=True,
+            beam_size=self.beam_size,
+            word_timestamps=self.word_timestamps,
             vad_filter=True,
             vad_parameters=dict(
                 min_silence_duration_ms=300,
@@ -195,6 +219,7 @@ class Transcriber:
         full_text = " ".join(full_text_parts)
         return {
             "segments": segments,
+            "segment_count": len(segments),
             "full_text": full_text,
             "language": self.language,
         }
@@ -205,7 +230,7 @@ class Transcriber:
             language=self.language,
             task="transcribe",
             verbose=False,
-            word_timestamps=True,
+            word_timestamps=self.word_timestamps,
         )
 
         segments = []
@@ -228,6 +253,7 @@ class Transcriber:
         full_text = result.get("text", "").strip()
         return {
             "segments": segments,
+            "segment_count": len(segments),
             "full_text": full_text,
             "language": result.get("language", self.language),
         }

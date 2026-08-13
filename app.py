@@ -63,7 +63,13 @@ from database import (
 from modules.security import UnsafePathError, safe_workspace_path, unique_storage_name
 from modules.native_dialogs import DialogError, choose_path, open_local_path
 from modules.transcript_parser import parse_transcript_text, normalize_segment_payload, parse_timestamp
-from modules.source_ingest import SourceIngestError, probe_public_url, download_public_video, validate_public_url
+from modules.source_ingest import (
+    SourceIngestError,
+    probe_public_url,
+    download_public_video,
+    download_public_subtitles,
+    validate_public_url,
+)
 from modules.job_manager import JobManager, JobCancelled
 from modules.batch_queue import build_manifest
 from modules.render_presets import list_presets
@@ -157,20 +163,36 @@ def _resolve_source_destination(requested, settings=None):
     return target
 
 
-def _transcribe_video_automatically(video_path, settings, emit_progress):
-    """Try online Gemini first and use CPU Whisper only as an explicit fallback."""
-    emit_progress("[Transcrição] Prioridade: Gemini multimodal online; Whisper CPU ficará apenas como fallback.", "info")
+def _transcribe_video_automatically(video_path, settings, emit_progress, transcript_fallback_path=None):
+    """Try Gemini first, then public timestamps, and only then CPU Whisper."""
+    emit_progress("[Transcrição] Prioridade: Gemini multimodal online; fontes timestampadas e Whisper CPU são fallback.", "info")
     multimodal = _run_gemini_video_analysis(video_path, settings, {}, "", emit_progress)
     transcription = _transcription_from_gemini_result(multimodal, settings.get("language", "pt"))
     if transcription:
         emit_progress("[Transcrição] Gemini forneceu timestamps; Whisper CPU não será iniciado.", "success")
+        transcription["source"] = "gemini_video"
         return transcription
-    emit_progress("[Transcrição] Gemini não retornou segmentos; iniciando fallback local faster-whisper.", "warning")
 
+    if transcript_fallback_path and os.path.isfile(transcript_fallback_path):
+        try:
+            with open(transcript_fallback_path, "r", encoding="utf-8-sig") as handle:
+                transcription = parse_transcript_text(handle.read(), duration=None)
+            transcription["source"] = "public_subtitles"
+            emit_progress(
+                f"[Transcrição] Legenda pública timestampada usada ({transcription.get('segment_count', len(transcription.get('segments', [])))} segmentos); Whisper CPU não será iniciado.",
+                "success",
+            )
+            return transcription
+        except Exception as exc:
+            emit_progress(f"[Transcrição] Legenda pública não pôde ser interpretada: {str(exc)[:180]}", "warning")
+
+    emit_progress("[Transcrição] Gemini/legenda pública sem segmentos; iniciando fallback local faster-whisper.", "warning")
     from modules.transcriber import Transcriber
     transcriber = Transcriber(
         model_name=settings.get("whisper_model", "small"),
         language=settings.get("language", "pt"),
+        word_timestamps=settings.get("whisper_word_timestamps", False),
+        beam_size=settings.get("whisper_beam_size", 1),
     )
     transcription = transcriber.transcribe(video_path, emit_progress=emit_progress)
     transcription["source"] = "whisper"
@@ -619,18 +641,42 @@ def api_source_import():
                 url,
                 destination,
                 max_height=max_height,
+                retries=settings.get("source_download_retries", 3),
                 progress=lambda update: emit_progress(
-                    f"[Download] {update.get('percent'):.1f}%" if update.get("percent") is not None else "[Download] processando...",
+                    (
+                        f"[Download] {update.get('percent'):.1f}%"
+                        if update.get("percent") is not None
+                        else (
+                            f"[Download] nova tentativa {update.get('attempt')}/{update.get('max_attempts')}..."
+                            if update.get("status") == "retry"
+                            else "[Download] processamento final/merge..."
+                        )
+                    ),
                     "info",
                 ),
             )
             result_path = os.path.abspath(result["path"])
             display_path = os.path.relpath(result_path, WORKSPACE_DIR) if _is_under(result_path, WORKSPACE_DIR) else result_path
             transcription = None
+            subtitle_path = None
             if auto_transcribe:
+                gemini_configured = (
+                    str(settings.get("ai_backend", "gemini") or "gemini").lower() in {"auto", "gemini"}
+                    and bool(str(settings.get("gemini_api_key", "") or "").strip())
+                )
+                if not gemini_configured:
+                    emit_progress("[Transcrição] Gemini sem chave nesta instalação; procurando legenda pública timestampada antes do Whisper...", "info")
+                    subtitle_path = download_public_subtitles(url, destination)
+                    if subtitle_path:
+                        emit_progress(f"[Transcrição] Legenda pública encontrada: {os.path.basename(subtitle_path)}", "success")
                 emit_progress("[Transcrição] Gerando timestamps automaticamente antes da análise...", "info")
                 try:
-                    transcription = _transcribe_video_automatically(result_path, settings, emit_progress)
+                    transcription = _transcribe_video_automatically(
+                        result_path,
+                        settings,
+                        emit_progress,
+                        transcript_fallback_path=subtitle_path,
+                    )
                     transcript_files = _save_transcription_artifacts(result_path, transcription)
                     emit_progress(
                         f"[Transcrição] {transcription.get('segment_count', len(transcription.get('segments', [])))} segmentos prontos; a seleção poderá preservar pergunta e resposta.",
@@ -649,6 +695,7 @@ def api_source_import():
                 "destination_dir": destination,
                 "transcription": transcription,
                 "transcription_files": transcript_files,
+                "subtitle_path": subtitle_path,
                 "auto_transcribe": auto_transcribe,
             }
             emit_status("source_import_complete", event_data)
