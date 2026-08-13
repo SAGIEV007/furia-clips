@@ -11,6 +11,8 @@ class WindowsBootstrapTests(unittest.TestCase):
         self.assertIn("bootstrap_windows.ps1", launcher)
         self.assertIn("python_path.txt", launcher)
         self.assertIn("ffmpeg_path.txt", launcher)
+        self.assertIn("ffprobe_path.txt", launcher)
+        self.assertIn("FFPROBE_EXE", launcher)
         self.assertIn("venv\\Scripts\\python.exe", launcher)
         self.assertIn("validate_runtime", launcher)
         self.assertIn('show_log', launcher)
@@ -29,6 +31,7 @@ class WindowsBootstrapTests(unittest.TestCase):
         self.assertIn('bootstrap-latest.log', bootstrap)
         self.assertIn('System.IO.File]::WriteAllText', bootstrap)
         self.assertIn('UTF8Encoding($false)', bootstrap)
+        self.assertIn('Split-Path -Parent $ffmpeg', bootstrap)
 
     def test_browser_helper_waits_and_prefers_opera(self):
         helper = (ROOT / "scripts" / "open_browser_windows.ps1").read_text(encoding="utf-8")

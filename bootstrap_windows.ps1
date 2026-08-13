@@ -27,7 +27,7 @@ function Find-Python {
 
     foreach ($name in @("python.exe", "py.exe")) {
         try {
-            $command = Get-Command $name -ErrorAction Stop
+            $command = Get-Command $name -ErrorAction SilentlyContinue
             if ($command.Source -and ($command.Source -notmatch "WindowsApps")) {
                 $candidates.Add($command.Source)
             }
@@ -65,7 +65,7 @@ function Find-Python {
 
 function Find-Binary([string]$Name) {
     try {
-        $command = Get-Command $Name -ErrorAction Stop
+        $command = Get-Command $Name -ErrorAction SilentlyContinue
         if ($command.Source) { return $command.Source }
     } catch { }
 
@@ -136,7 +136,10 @@ function Ensure-FFmpeg {
     if ($ffmpeg -and $ffprobe) {
         Write-Status "FFmpeg encontrado: $ffmpeg"
         Write-Status "ffprobe encontrado: $ffprobe"
-        return (Split-Path -Parent $ffmpeg)
+        return @{
+            ffmpeg = Split-Path -Parent $ffmpeg
+            ffprobe = $ffprobe
+        }
     }
 
     Write-Status "FFmpeg ou ffprobe nao foi encontrado. Iniciando instalacao automatica."
@@ -147,7 +150,10 @@ function Ensure-FFmpeg {
         if ($ffmpeg -and $ffprobe) {
             Write-Status "FFmpeg instalado: $ffmpeg"
             Write-Status "ffprobe instalado: $ffprobe"
-            return (Split-Path -Parent $ffmpeg)
+            return @{
+                ffmpeg = $ffmpeg
+                ffprobe = $ffprobe
+            }
         }
         Write-Status "WinGet concluiu, mas os executaveis ainda nao foram localizados; tentando o fallback."
     }
@@ -165,7 +171,10 @@ function Ensure-FFmpeg {
     if (-not $ffmpeg -or -not $ffprobe) { throw "O pacote baixado nao contem ffmpeg.exe e ffprobe.exe." }
     Write-Status "FFmpeg pronto: $($ffmpeg.FullName)"
     Write-Status "ffprobe pronto: $($ffprobe.FullName)"
-    return (Split-Path -Parent $ffmpeg.FullName)
+    return @{
+        ffmpeg = Split-Path -Parent $ffmpeg.FullName
+        ffprobe = $ffprobe.FullName
+    }
 }
 
 try {
@@ -182,10 +191,12 @@ try {
     # como parte do primeiro caractere do caminho executavel.
     $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
     [System.IO.File]::WriteAllText((Join-Path $RuntimeDir "python_path.txt"), [string]$pythonPath, $utf8NoBom)
-    [System.IO.File]::WriteAllText((Join-Path $RuntimeDir "ffmpeg_path.txt"), [string]$ffmpegDir, $utf8NoBom)
+    [System.IO.File]::WriteAllText((Join-Path $RuntimeDir "ffmpeg_path.txt"), [string]$ffmpegDir.ffmpeg, $utf8NoBom)
+    [System.IO.File]::WriteAllText((Join-Path $RuntimeDir "ffprobe_path.txt"), [string]$ffmpegDir.ffprobe, $utf8NoBom)
 
     Write-Status "Python pronto: $pythonPath"
-    Write-Status "FFmpeg pronto: $ffmpegDir"
+    Write-Status "FFmpeg pronto: $($ffmpegDir.ffmpeg)"
+    Write-Status "ffprobe pronto: $($ffmpegDir.ffprobe)"
     Write-Status "Dependencias de sistema concluidas."
 } catch {
     $ExitCode = 1
