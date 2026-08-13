@@ -252,12 +252,15 @@ class Transcriber:
     def _transcribe_openai_whisper(self, audio_path, emit_progress=None, cancel_check=None):
         if cancel_check:
             cancel_check()
+        # O openai-whisper usa fp16=True por padrão, mas CPU não oferece suporte
+        # eficiente a esse tipo. O fallback precisa fixar fp16=False fora de CUDA.
         result = self.model.transcribe(
             audio_path,
             language=self.language,
             task="transcribe",
             verbose=False,
             word_timestamps=self.word_timestamps,
+            fp16=self.device == "cuda",
         )
 
         segments = []

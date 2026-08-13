@@ -250,10 +250,10 @@ def update_clip_review_status(clip_id, status):
 
 
 def save_clip_feedback(clip_id, action, adjustments=None, note=""):
-    if action not in {"approved", "rejected", "adjusted", "rendered"}:
+    if action not in {"approved", "rejected", "needs_review", "adjusted", "rendered"}:
         raise ValueError("Ação de feedback inválida")
     conn = get_db()
-    status = action if action in {"approved", "rejected"} else "needs_review"
+    status = action if action in {"approved", "rejected", "needs_review"} else "needs_review"
     conn.execute(
         "INSERT INTO clip_feedback (clip_id, action, adjustments, note) VALUES (?, ?, ?, ?)",
         (clip_id, action, json.dumps(adjustments or {}), note or ""),

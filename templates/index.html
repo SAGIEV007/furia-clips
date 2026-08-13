@@ -420,6 +420,37 @@
                 </div>
             </div>
 
+            <div class="review-command-center" id="reviewCommandCenter" style="display:none" aria-label="Central visual de revisão">
+                <div class="review-overview-header">
+                    <div>
+                        <span class="review-eyebrow"><span class="material-icons-round">fact_check</span> Central de revisão</span>
+                        <h4>Decida rápido, com contexto visível</h4>
+                        <p id="reviewOverviewText">Os indicadores aparecerão quando os cortes forem gerados.</p>
+                    </div>
+                    <div class="review-layout-summary" id="reviewLayoutSummary"></div>
+                </div>
+                <div class="review-metrics" aria-live="polite">
+                    <div class="review-metric total"><span class="material-icons-round">video_library</span><div><strong id="reviewTotalCount">0</strong><span>candidatos</span></div></div>
+                    <div class="review-metric pending"><span class="material-icons-round">hourglass_top</span><div><strong id="reviewPendingCount">0</strong><span>para revisar</span></div></div>
+                    <div class="review-metric approved"><span class="material-icons-round">verified</span><div><strong id="reviewApprovedCount">0</strong><span>aprovados</span></div></div>
+                    <div class="review-metric needs-review"><span class="material-icons-round">visibility</span><div><strong id="reviewNeedsReviewCount">0</strong><span>pedem contexto</span></div></div>
+                </div>
+                <div class="review-queue-progress" aria-label="Progresso de revisão">
+                    <div class="review-queue-label"><span>Fila desta fonte</span><strong id="reviewQueueText">0 de 0 revisados</strong></div>
+                    <div class="review-queue-track"><div class="review-queue-fill" id="reviewQueueFill"></div></div>
+                </div>
+                <div class="review-toolbar">
+                    <div class="review-filter-group" id="reviewFilterGroup" role="group" aria-label="Filtrar revisão">
+                        <button class="review-filter active" type="button" data-review-filter="all">Todos <span id="filterAllCount">0</span></button>
+                        <button class="review-filter" type="button" data-review-filter="pending">Revisar <span id="filterPendingCount">0</span></button>
+                        <button class="review-filter" type="button" data-review-filter="approved">Aprovados <span id="filterApprovedCount">0</span></button>
+                        <button class="review-filter" type="button" data-review-filter="needs_review">Contexto <span id="filterNeedsReviewCount">0</span></button>
+                        <button class="review-filter" type="button" data-review-filter="rejected">Rejeitados <span id="filterRejectedCount">0</span></button>
+                    </div>
+                    <label class="review-sort-control" for="reviewSort"><span class="material-icons-round">sort</span> Ordenar <select id="reviewSort"><option value="score">Maior potencial</option><option value="duration">Maior duração</option><option value="timeline">Início na live</option></select></label>
+                </div>
+            </div>
+
             <!-- Transcript Search -->
             <div class="transcript-search-bar" id="transcriptSearchBar" style="display:none">
                 <span class="material-icons-round">search</span>
@@ -444,6 +475,16 @@
             <div class="console-content" id="consoleContent">
                 <div class="progress-bar-container" id="progressBarContainer" style="display:none">
                     <div class="progress-bar" id="progressBar"></div>
+                </div>
+                <div class="processing-journey" id="processingJourney" style="display:none" aria-live="polite">
+                    <div class="processing-journey-head"><span><span class="material-icons-round">auto_awesome</span> Fluxo visual</span><strong id="processingJourneyLabel">Preparando análise</strong></div>
+                    <div class="processing-steps">
+                        <div class="processing-step" data-process-step="source"><span class="material-icons-round">movie</span><span>Fonte</span></div>
+                        <div class="processing-step" data-process-step="transcript"><span class="material-icons-round">graphic_eq</span><span>Transcrição</span></div>
+                        <div class="processing-step" data-process-step="context"><span class="material-icons-round">psychology</span><span>Contexto</span></div>
+                        <div class="processing-step" data-process-step="ranking"><span class="material-icons-round">emoji_events</span><span>Ranking</span></div>
+                        <div class="processing-step" data-process-step="render"><span class="material-icons-round">content_cut</span><span>Cortes</span></div>
+                    </div>
                 </div>
                 <div class="processing-controls" id="processingControls" style="display:none; margin:10px 0; align-items:center; gap:10px">
                     <button class="btn btn-sm btn-danger" id="btnCancelOperation" type="button">

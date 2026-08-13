@@ -973,6 +973,11 @@ def api_cut_shorts():
         try:
             check_current_task_cancel()
             settings = get_all_settings()
+            active_project_id = project_id
+            if not active_project_id:
+                auto_project_name = os.path.splitext(os.path.basename(video_path))[0]
+                active_project_id = create_project(auto_project_name, data.get("video_path", video_path))
+                emit_progress("[Projeto] Sessão de revisão criada automaticamente para salvar seus feedbacks.", "info")
 
             # Check AI status before starting
             ai_backend = settings.get("ai_backend", "gemini")
@@ -1020,11 +1025,10 @@ def api_cut_shorts():
                 )
                 emit_progress(f"[Whisper] Motor: {transcriber._engine}", "info")
 
-            if project_id:
-                save_transcription(
-                    project_id, transcription["segments"], transcription["full_text"],
-                    transcription["language"], settings.get("whisper_model", "small")
-                )
+            save_transcription(
+                active_project_id, transcription["segments"], transcription["full_text"],
+                transcription["language"], settings.get("whisper_model", "small")
+            )
 
             from modules.editorial_context import analyze_transcript_context
             editorial_context = analyze_transcript_context(transcription, focus=settings.get("editorial_focus", "auto"))
@@ -1122,6 +1126,7 @@ def api_cut_shorts():
 
             face_positions_map = {}
             original_aspect_indices = set()
+            framing_by_index = {}
             if tracker and video_layout not in {"debate", "unknown", "fullscreen"}:
                 try:
                     emit_progress("[Layout] Detectando o locutor para enquadramento automático...", "info")
@@ -1132,15 +1137,25 @@ def api_cut_shorts():
                         assessment = tracker.assess_segment_tracking(all_face_positions, start, end)
                         if assessment.get("confident"):
                             face_positions_map[index] = assessment["positions"]
+                            framing_by_index[index] = {
+                                "mode": "reframe_9_16",
+                                "reason": "locutor estável identificado com confiança",
+                            }
                             emit_progress(f"[Layout] Clip {index + 1}: locutor estável; reframe 9:16 ativado.", "success")
                         else:
+                            reason = assessment.get("reason", "confiança insuficiente para rastrear o locutor")
                             original_aspect_indices.add(index)
-                            emit_progress(f"[Layout] Clip {index + 1}: {assessment.get('reason', 'sem confiança')}; mantendo 16:9.", "info")
+                            framing_by_index[index] = {"mode": "original", "reason": reason}
+                            emit_progress(f"[Layout] Clip {index + 1}: {reason}; mantendo 16:9.", "info")
                 except Exception as exc:
                     original_aspect_indices.update(range(len(top_clips)))
+                    reason = f"rastreamento indisponível: {str(exc)[:180]}"
+                    framing_by_index.update({index: {"mode": "original", "reason": reason} for index in range(len(top_clips))})
                     emit_progress(f"[Layout] Rastreamento não disponível: {str(exc)[:180]}. Mantendo 16:9.", "warning")
             else:
                 original_aspect_indices.update(range(len(top_clips)))
+                reason = "múltiplos locutores ou layout sem segurança para reframe"
+                framing_by_index.update({index: {"mode": "original", "reason": reason} for index in range(len(top_clips))})
                 emit_progress("[Layout] Entrevista com múltiplos locutores ou layout indefinido; mantendo o original 16:9.", "info")
 
             project_name = os.path.splitext(os.path.basename(video_path))[0]
@@ -1155,20 +1170,20 @@ def api_cut_shorts():
                 video_layout=video_layout,
             )
 
-            # Save to DB
+            # Persist rendered clips so review decisions can calibrate future ranking.
             output_folder = ""
-            if project_id:
-                for i, res in enumerate(results):
-                    clip_data = top_clips[i] if i < len(top_clips) else {}
-                    save_clip(
-                        project_id, res["path"], res["start"], res["end"],
-                        res["duration"], clip_data.get("viral_score", 0),
-                        clip_data.get("has_hook", False),
-                        0,
-                        res.get("text", "")
-                    )
-                    if not output_folder:
-                        output_folder = res.get("output_folder", "")
+            clip_id_by_index = {}
+            for i, res in enumerate(results):
+                clip_data = top_clips[i] if i < len(top_clips) else {}
+                clip_id_by_index[i] = save_clip(
+                    active_project_id, res["path"], res["start"], res["end"],
+                    res["duration"], clip_data.get("viral_score", 0),
+                    clip_data.get("has_hook", False),
+                    0,
+                    res.get("text", "")
+                )
+                if not output_folder:
+                    output_folder = res.get("output_folder", "")
 
             clip_results = []
             for i, res in enumerate(results):
@@ -1181,12 +1196,18 @@ def api_cut_shorts():
                     "title": clip_info.get("title", ""),
                     "source": clip_info.get("source", "nlp"),
                     "rank": res.get("rank", i + 1),
+                    "clip_id": clip_id_by_index.get(i),
+                    "framing": framing_by_index.get(i, {
+                        "mode": "original",
+                        "reason": "composição original preservada por segurança",
+                    }),
                 })
 
             emit_status("cut_complete", {
                 "clips": clip_results,
                 "selection_source": selection_source,
                 "video_layout": video_layout,
+                "project_id": active_project_id,
                 "output_folder": output_folder,
             })
 

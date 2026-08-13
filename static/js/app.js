@@ -156,7 +156,7 @@ function handleStatusUpdate(data) {
             state.selectionSource = data.data.selection_source || "nlp";
             state.outputFolder = data.data.output_folder || "";
             showToast(`${data.data.clips.length} clips gerados e ranqueados!`, "success");
-            displayResults(data.data.clips);
+            displayResults(data.data.clips, data.data.video_layout || null);
             updateResultsModeBadge(state.selectionSource);
             updateOpenFolderButton(state.outputFolder);
             break;
@@ -181,7 +181,7 @@ function handleStatusUpdate(data) {
             hideProgressBar();
             state.outputFolder = data.data.output_dir || "";
             showToast(`Processo completo! ${data.data.total_clips} clips gerados e ranqueados.`, "success");
-            displayResults(data.data.clips);
+            displayResults(data.data.clips, data.data.video_layout || null);
             updateOpenFolderButton(state.outputFolder);
             loadMediaFiles();
             break;
@@ -206,6 +206,7 @@ function addConsoleLog(message, level = "info") {
     line.textContent = message;
     console_el.appendChild(line);
     console_el.scrollTop = console_el.scrollHeight;
+    updateProcessingJourney(message, level);
 
     // Keep max 200 lines
     while (console_el.children.length > 200) {
@@ -217,16 +218,58 @@ function showProcessingControls(label = "Processamento em andamento.") {
     const controls = document.getElementById("processingControls");
     const status = document.getElementById("processingOperationStatus");
     const button = document.getElementById("btnCancelOperation");
+    const journey = document.getElementById("processingJourney");
     if (controls) controls.style.display = "flex";
     if (status) status.textContent = label;
     if (button) button.disabled = false;
+    if (journey && journey.style.display !== "block") {
+        resetProcessingJourney();
+        journey.style.display = "block";
+    }
+    const journeyLabel = document.getElementById("processingJourneyLabel");
+    if (journeyLabel) journeyLabel.textContent = label;
 }
 
 function hideProcessingControls() {
     const controls = document.getElementById("processingControls");
     const button = document.getElementById("btnCancelOperation");
+    const journey = document.getElementById("processingJourney");
     if (controls) controls.style.display = "none";
+    if (journey) journey.style.display = "none";
     if (button) button.disabled = false;
+}
+
+function resetProcessingJourney() {
+    document.querySelectorAll("[data-process-step]").forEach((step) => {
+        step.classList.remove("active", "complete", "error");
+    });
+    const source = document.querySelector('[data-process-step="source"]');
+    if (source) source.classList.add("active");
+}
+
+function updateProcessingJourney(message = "", level = "info") {
+    const journey = document.getElementById("processingJourney");
+    if (!journey || journey.style.display === "none") return;
+    const value = String(message).toLowerCase();
+    const stages = ["source", "transcript", "context", "ranking", "render"];
+    let current = null;
+    if (/\[fonte\]|download|importando|vídeo importado/.test(value)) current = "source";
+    else if (/transcri|gemini|whisper|legenda pública/.test(value)) current = "transcript";
+    else if (/contexto|analise de video|análise de vídeo|\[layout\]|detec[cç][aã]o de cena/.test(value)) current = "context";
+    else if (/selecao|seleção|ranqueamento|ranking|\[nlp\]/.test(value)) current = "ranking";
+    else if (/cortando|corte completo|renderizando|clip.*gerado/.test(value)) current = "render";
+    if (!current) return;
+
+    const currentIndex = stages.indexOf(current);
+    stages.forEach((stage, index) => {
+        const element = document.querySelector(`[data-process-step="${stage}"]`);
+        if (!element) return;
+        element.classList.toggle("complete", index < currentIndex);
+        element.classList.toggle("active", index === currentIndex && level !== "error");
+        element.classList.toggle("error", index === currentIndex && level === "error");
+    });
+    const label = document.getElementById("processingJourneyLabel");
+    if (label) label.textContent = message.replace(/^\[[^\]]+\]\s*/, "").slice(0, 100);
 }
 
 async function requestCancelOperation() {
@@ -864,31 +907,142 @@ function mediaUrlForClip(clip) {
     return mediaUrlForPath(clip.subtitled_path || clip.path);
 }
 
-function displayResults(clips) {
+function displayResults(clips, videoLayout = null) {
+    state.clips = Array.isArray(clips) ? clips : [];
+    state.reviewFilter = "all";
+    state.reviewSort = "score";
+    state.videoLayout = videoLayout || "unknown";
+
+    renderReviewCommandCenter();
+    renderResultsGrid();
+    document.getElementById("resultsSection").scrollIntoView({ behavior: "smooth" });
+}
+
+function reviewStatusOf(clip) {
+    return clip.review_status || "pending";
+}
+
+function reviewStats(clips = state.clips) {
+    const all = Array.isArray(clips) ? clips : [];
+    const count = (status) => all.filter((clip) => reviewStatusOf(clip) === status).length;
+    const pending = count("pending");
+    const approved = count("approved");
+    const rejected = count("rejected");
+    const needsReview = count("needs_review");
+    return {
+        total: all.length,
+        pending,
+        approved,
+        rejected,
+        needsReview,
+        reviewed: approved + rejected + needsReview,
+    };
+}
+
+function labelForLayout(videoLayout) {
+    const labels = {
+        single_speaker: "locutor principal detectado",
+        speaker: "locutor principal detectado",
+        debate: "múltiplos participantes",
+        fullscreen: "quadro original protegido",
+        unknown: "enquadramento a confirmar",
+    };
+    return labels[videoLayout] || labels.unknown;
+}
+
+function renderReviewCommandCenter() {
+    const center = document.getElementById("reviewCommandCenter");
+    if (!center) return;
+    const stats = reviewStats();
+    const sourceMap = { gemini: "Gemini", llm: "Ollama", nlp: "NLP" };
+    const source = stats.total > 0 ? (sourceMap[state.clips[0]?.source] || "NLP") : "NLP";
+    const reviewedPercent = stats.total ? Math.round((stats.reviewed / stats.total) * 100) : 0;
+
+    center.style.display = "block";
+    document.getElementById("reviewTotalCount").textContent = stats.total;
+    document.getElementById("reviewPendingCount").textContent = stats.pending;
+    document.getElementById("reviewApprovedCount").textContent = stats.approved;
+    document.getElementById("reviewNeedsReviewCount").textContent = stats.needsReview;
+    document.getElementById("reviewOverviewText").textContent = `${source} identificou ${stats.total} candidatos. Revise primeiro os que mantêm ideia, evidência e conclusão no mesmo intervalo.`;
+    document.getElementById("reviewQueueText").textContent = `${stats.reviewed} de ${stats.total} revisados`;
+    document.getElementById("reviewQueueFill").style.width = `${reviewedPercent}%`;
+    document.getElementById("reviewLayoutSummary").innerHTML = `
+        <span class="layout-summary-chip"><span class="material-icons-round">aspect_ratio</span>${labelForLayout(state.videoLayout)}</span>
+        <span class="layout-summary-chip"><span class="material-icons-round">tips_and_updates</span>score explicável</span>`;
+
+    const counts = {
+        all: stats.total,
+        pending: stats.pending,
+        approved: stats.approved,
+        needs_review: stats.needsReview,
+        rejected: stats.rejected,
+    };
+    document.querySelectorAll("[data-review-filter]").forEach((button) => {
+        const filter = button.dataset.reviewFilter;
+        button.classList.toggle("active", filter === state.reviewFilter);
+        const countElement = button.querySelector("span");
+        if (countElement) countElement.textContent = counts[filter] ?? 0;
+        button.onclick = () => {
+            state.reviewFilter = filter;
+            renderReviewCommandCenter();
+            renderResultsGrid();
+        };
+    });
+
+    const sort = document.getElementById("reviewSort");
+    if (sort) {
+        sort.value = state.reviewSort || "score";
+        sort.onchange = () => {
+            state.reviewSort = sort.value;
+            renderResultsGrid();
+        };
+    }
+}
+
+function clipsForReviewQueue() {
+    const filter = state.reviewFilter || "all";
+    const clips = [...(state.clips || [])].filter((clip) => filter === "all" || reviewStatusOf(clip) === filter);
+    const sort = state.reviewSort || "score";
+    return clips.sort((left, right) => {
+        if (sort === "duration") return Number(right.duration || 0) - Number(left.duration || 0);
+        if (sort === "timeline") return Number(left.start || 0) - Number(right.start || 0);
+        return Number(right.viral_score || 0) - Number(left.viral_score || 0);
+    });
+}
+
+function layoutMetaForClip(clip) {
+    const framing = clip.framing || {};
+    if (framing.mode === "reframe_9_16") {
+        return { icon: "center_focus_strong", label: "Reframe 9:16 seguro", hint: framing.reason || "locutor estável detectado" };
+    }
+    if (framing.mode === "original") {
+        return { icon: "aspect_ratio", label: "Quadro original", hint: framing.reason || "composição preservada" };
+    }
+    return { icon: "visibility", label: "Enquadramento a revisar", hint: "a decisão depende da revisão visual" };
+}
+
+function renderResultsGrid() {
     const section = document.getElementById("resultsSection");
     const grid = document.getElementById("resultsGrid");
     const summary = document.getElementById("resultsSummary");
     const searchBar = document.getElementById("transcriptSearchBar");
+    const allClips = state.clips || [];
+    const clips = clipsForReviewQueue();
     section.style.display = "block";
     grid.innerHTML = "";
 
-    state.clips = clips;
-
-    // Show search bar
     if (searchBar) searchBar.style.display = "flex";
 
-    // Summary
-    const avgScore = clips.reduce((a, c) => a + (c.viral_score || 0), 0) / clips.length;
-    const highScoreCount = clips.filter(c => c.viral_score >= 70).length;
+    const avgScore = allClips.length ? allClips.reduce((a, c) => a + (c.viral_score || 0), 0) / allClips.length : 0;
+    const highScoreCount = allClips.filter(c => c.viral_score >= 70).length;
     const sourceMap = { "gemini": "Gemini", "llm": "Ollama", "nlp": "NLP" };
-    const source = clips.length > 0 ? (sourceMap[clips[0].source] || "NLP") : "NLP";
-    summary.textContent = `${clips.length} clips | Media: ${avgScore.toFixed(0)} | ${highScoreCount} com alto potencial | via ${source}`;
+    const source = allClips.length > 0 ? (sourceMap[allClips[0].source] || "NLP") : "NLP";
+    summary.textContent = `${clips.length} de ${allClips.length} visíveis | Média: ${avgScore.toFixed(0)} | ${highScoreCount} com alto potencial | via ${source}`;
 
-    // Sort by viral score (highest first)
-    const sorted = [...clips].sort((a, b) => (b.viral_score || 0) - (a.viral_score || 0));
+    const sorted = clips;
 
     sorted.forEach((clip, i) => {
-        const originalIndex = clips.indexOf(clip);
+        const originalIndex = state.clips.indexOf(clip);
         const rank = clip.rank || (i + 1);
         const scoreClass = clip.viral_score >= 70 ? "high" : clip.viral_score >= 40 ? "medium" : "low";
         const seo = clip.seo || {};
@@ -898,13 +1052,14 @@ function displayResults(clips) {
         const breakdown = clip.breakdown || {};
         const factors = clip.factors || {};
         const politicalType = clip.political_editorial_type || "";
-        const reviewStatus = clip.review_status || "pending";
+        const reviewStatus = reviewStatusOf(clip);
         const confidence = Math.round((clip.confidence || 0) * 100);
         const clipSource = clip.source || "nlp";
         const sourceLabels = { "gemini": "Gemini", "llm": "Ollama", "nlp": "NLP" };
         const sourceLabel = sourceLabels[clipSource] || "NLP";
         const sourceClass = clipSource === "gemini" ? "source-gemini" : (clipSource === "llm" ? "source-llm" : "source-nlp");
         const transcriptId = `transcript-${originalIndex}`;
+        const layoutMeta = layoutMetaForClip(clip);
 
         // Grade color helper
         const gradeColor = (grade) => {
@@ -914,7 +1069,7 @@ function displayResults(clips) {
         };
 
         const card = document.createElement("div");
-        card.className = "result-card";
+        card.className = `result-card review-${reviewStatus}`;
         card.innerHTML = `
             <div class="result-header-bar" style="position:relative">
                 <div class="result-rank">#${rank}</div>
@@ -926,6 +1081,7 @@ function displayResults(clips) {
                 ${clip.has_hook ? '<span class="hook-badge"><span class="material-icons-round" style="font-size:12px">flash_on</span> Gancho</span>' : ''}
                 <span class="clip-source-badge ${sourceClass}">${sourceLabel}</span>
                 ${politicalType ? `<span class="clip-source-badge source-editorial">${politicalType}</span>` : ''}
+                <span class="review-state-chip ${reviewStatus}">${reviewStatus === "needs_review" ? "revisar contexto" : reviewStatus === "pending" ? "na fila" : reviewStatus}</span>
             </div>
 
             ${clip.title ? `<div class="result-title">${clip.title}</div>` : ''}
@@ -940,6 +1096,15 @@ function displayResults(clips) {
                 <div class="result-duration">
                     <span class="material-icons-round" style="font-size:14px">schedule</span>
                     ${formatTime(clip.start)} - ${formatTime(clip.end)} (${clip.duration.toFixed(1)}s)
+                </div>
+                <div class="review-format-chip" title="${layoutMeta.hint}"><span class="material-icons-round">${layoutMeta.icon}</span>${layoutMeta.label}</div>
+                <div class="clip-storyline" aria-label="Jornada editorial do corte">
+                    <div class="clip-storyline-header"><span>Jornada editorial</span><span>${clip.has_hook ? "gancho identificado" : "abertura a revisar"}</span></div>
+                    <div class="clip-storyline-track">
+                        <span class="story-marker hook" style="left: 9%">entrada</span>
+                        <span class="story-marker" style="left: 50%">ideia</span>
+                        <span class="story-marker payoff" style="left: 91%">fecho</span>
+                    </div>
                 </div>
 
                 ${breakdown.hook ? `
@@ -1014,25 +1179,28 @@ function displayResults(clips) {
                         <span class="material-icons-round">image</span> Capa
                     </button>
                 </div>
-                <div class="review-actions" style="display:flex; gap:6px; margin-top:8px; align-items:center">
-                    <button class="btn btn-sm" onclick="setClipReview(${originalIndex}, 'approved')" style="border-color:#22c55e">✓ Aprovar</button>
-                    <button class="btn btn-sm" onclick="setClipReview(${originalIndex}, 'rejected')" style="border-color:#ef4444">✕ Rejeitar</button>
-                    <span class="review-status" id="review-status-${originalIndex}" style="font-size:11px; opacity:.75">${reviewStatus}</span>
+                <div class="review-actions">
+                    <button class="btn btn-sm btn-success" onclick="setClipReview(${originalIndex}, 'approved')"><span class="material-icons-round">check_circle</span>Aprovar</button>
+                    <button class="btn btn-sm btn-review-context" onclick="setClipReview(${originalIndex}, 'needs_review')"><span class="material-icons-round">visibility</span>Contexto</button>
+                    <button class="btn btn-sm btn-danger" onclick="setClipReview(${originalIndex}, 'rejected')"><span class="material-icons-round">close</span>Rejeitar</button>
                 </div>
             </div>`;
 
         grid.appendChild(card);
     });
 
-    section.scrollIntoView({ behavior: "smooth" });
+    if (clips.length === 0) {
+        grid.innerHTML = `<div class="review-empty-state"><span class="material-icons-round">filter_alt_off</span><strong>Nenhum corte nesta fila</strong><p>Altere o filtro para revisar os outros candidatos.</p></div>`;
+    }
 }
 
 async function setClipReview(index, action) {
     const clip = state.clips[index];
     if (!clip) return;
+    const previousStatus = reviewStatusOf(clip);
     clip.review_status = action;
-    const status = document.getElementById(`review-status-${index}`);
-    if (status) status.textContent = action === "approved" ? "aprovado" : "rejeitado";
+    renderReviewCommandCenter();
+    renderResultsGrid();
     try {
         if (clip.clip_id) {
             const response = await fetch(`/api/clips/${clip.clip_id}/feedback`, {
@@ -1042,8 +1210,16 @@ async function setClipReview(index, action) {
             });
             if (!response.ok) throw new Error("feedback rejected");
         }
-        showToast(action === "approved" ? "Clip aprovado" : "Clip rejeitado", action === "approved" ? "success" : "warning");
+        const messages = {
+            approved: "Clip aprovado",
+            rejected: "Clip rejeitado",
+            needs_review: "Clip marcado para revisão de contexto",
+        };
+        showToast(messages[action] || "Feedback salvo", action === "approved" ? "success" : "warning");
     } catch (error) {
+        clip.review_status = previousStatus;
+        renderReviewCommandCenter();
+        renderResultsGrid();
         showToast("Não foi possível salvar o feedback", "error");
     }
 }
