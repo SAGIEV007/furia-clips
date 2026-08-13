@@ -1,0 +1,31 @@
+# Achados visuais dos quatro Reels restantes
+
+## Db_OfZDjKMW — inspeção de quadros
+
+A folha de contato mostra um Reel vertical em proporção 4:5, com um bloco branco fixo no topo contendo a chamada “QUESTIONADO! Renan Santos foi botado contra a parede por um seguidor e respondeu SEM DÓ!”. A área principal é uma composição dividida: à esquerda permanece uma imagem fixa em preto e branco de um homem; à direita alternam-se vários participantes de um podcast diante de microfones. O vídeo usa cortes de reação e de interlocutor aproximadamente ao longo de todo o material, preservando a moldura editorial superior. Há legendas dinâmicas na parte inferior, majoritariamente brancas com palavras ou trechos destacados em amarelo, como “MAS TEM UM”, “NO COMEÇO POR”, “NA MEDIOCRIDADE DO”, “PORQUE BAIXANDO OS”, “FUNCIONAMENTO DO LICENCIAMENTO”, “MAIS PRODUTO”, “DAS EMPRESAS É”, “QUE FAZ AS”, “ELE TÁ TÃO”, “ESTÁ REELEITO” e “UMA REVOLUÇÃO”.
+
+O design sugere um formato de pergunta/resposta ou confronto: o hook já informa a situação antes da fala, os cortes trocam o interlocutor para manter dinamismo e as legendas enfatizam palavras-chave. A presença de múltiplos rostos e a composição fixa tornam o reframe facial automático arriscado; o formato original deve ser preservado por padrão. A análise visual não permite confirmar com precisão quais trechos são pergunta, resposta, trilha ou sobreposição de fala sem uma transcrição confiável.
+
+## Db_R92njTCq — inspeção de quadros
+
+A folha de contato mostra um Reel quadrado 1:1 construído como captura de uma publicação do X/Twitter: no topo aparece o nome “RENAN SANTOS” e o texto “Eu desafio aqui o senhor Flávio Bolsonaro a trazer uma proposta para o problema fiscal do Brasil sem a ajuda do ChatGPT”. A área inferior mantém uma fotografia fixa de Flávio Bolsonaro à esquerda, enquanto à direita há um vídeo de entrevista com Renan diante de microfone, com mudanças de posição e expressão ao longo do tempo. O fundo do vídeo preserva elementos gráficos de entrevista, incluindo “sabatina eleições 26” e a marca BM&C; há uma faixa inferior com texto editorial adicional.
+
+A composição foi criada para estabelecer contraste entre a imagem estática do adversário e a fala de Renan. O texto superior funciona como headline e contexto suficiente para o argumento. O vídeo é majoritariamente um talking head de Renan no painel direito, mas o layout tem elementos gráficos fixos e pouco espaço para um crop vertical seguro. A proporção original 1:1 deve ser preservada, salvo uma decisão editorial manual. A duração longa e a repetição do layout indicam que o seletor deve procurar a passagem autossuficiente em que o desafio, o problema fiscal e a proposta se conectam, evitando recortes que dependam somente da imagem fixa ou que terminem antes da conclusão.
+
+## Limitações da inspeção
+
+Os quadros foram amostrados uniformemente, não representam todos os cortes internos e não substituem transcrição ou análise de áudio. A tentativa de análise multimodal estruturada foi bloqueada pelo proxy por saldo de créditos insuficiente; o serviço de speech-to-text também retornou erro 402. Por isso, afirmações sobre conteúdo verbal exato, trilha e minutagem fina permanecem marcadas como não observadas até que uma transcrição local ou nova análise online esteja disponível.
+
+## Db_VUXqjnyO — inspeção de quadros
+
+O Reel é quadrado 1:1 e combina uma imagem fixa de Renan em preto e branco na coluna esquerda com imagens de um evento na coluna direita. A sequência começa com participantes no palco e rapidamente mostra Renan falando ao microfone, em plano médio e depois em planos mais fechados, com público e iluminação de congresso ao fundo. Em alguns pontos retorna para um plano aberto do palco, funcionando como respiro visual e prova de contexto. A moldura superior é uma captura de publicação do X/Twitter com a chamada sobre membros do Comando Vermelho, PCC e demais facções e um prazo para entrega; o conteúdo visual sugere um discurso de segurança pública em evento partidário. O vídeo não apresenta uma face única estável em toda a duração: alterna Renan, palco e público. Portanto, preservar 1:1 é mais seguro do que tentar reframe 9:16 automaticamente. Pela duração curta, é um candidato natural a corte quase integral, desde que o áudio tenha começo, tese e conclusão suficientes.
+
+## Db_Y07LFV7J — inspeção de quadros
+
+O Reel é vertical 4:5 e usa uma composição dividida: à esquerda, uma imagem fixa de Renan em um palco ou microfone; à direita, um interlocutor em podcast com fones e microfone. A faixa superior branca traz a chamada “INUSITADO! Renan Santos é honesto sobre a política brasileira: ‘às vezes a direita e esquerda roubam igual’”, com o trecho principal destacado em vermelho. As legendas dinâmicas aparecem na base, em branco e amarelo, acompanhando a fala e destacando termos como “EU COMECEI A”, “E MUITO TRABALHO”, “NÃO TEM NADA”, “GENTE COMEÇA A”, “UM EXEMPLO É”, “DO CENTRÃO DO”, “ELES FAZIAM”, “PAÍS SUPOSTAMENTE COMUNISTA”, “NUMA CIDADE NA”, “PESSOA FALANDO NUMA” e “NENHUM TRABALHA COM”.
+
+O enquadramento do interlocutor à direita é relativamente estável, mas a composição fixa e a presença da imagem lateral tornam um crop agressivo inadequado. O hook editorial é forte e contrarian, e o seletor deve buscar um intervalo em que a comparação entre esquerda/direita se transforme em exemplo concreto e chegue à implicação para a população. O clip provavelmente é autossuficiente quando mantém a faixa superior e a progressão da explicação; cortes que preservem só uma frase de efeito sem exemplo devem receber penalidade de contexto.
+
+## Consolidação provisória dos quatro restantes
+
+Os quatro materiais reforçam um padrão editorial recorrente: bloco superior de contexto ou headline, composição vertical/quadrada com imagem fixa ou split-screen, legenda cinética inferior com palavras-chave destacadas e cortes de reação ou alternância de câmera para sustentar ritmo. A presença de múltiplas faces, imagens editoriais fixas e elementos gráficos torna o reframe automático por face pouco confiável; o modo `original_aspect` deve ser recomendado para os quatro até haver diarização audiovisual mais forte. O seletor pode, porém, usar OCR/visão para detectar a faixa superior e reservar a área inferior das legendas, além de reconhecer mudanças de plano e cortes de reação.
