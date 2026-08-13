@@ -13,6 +13,8 @@ import math
 import requests
 from collections import Counter
 
+from .political_profile import PROFILE_NAME, build_political_prompt_fragment
+
 # Portuguese filler words to detect
 FILLER_WORDS_PT = {
     "ne", "ne\u0301", "tipo", "ah", "eh", "e\u0301h", "enta\u0303o", "entao",
@@ -236,7 +238,7 @@ class ClipSelector:
         if not transcript_blocks:
             return []
 
-        system_prompt = self._get_gemini_system_prompt()
+        system_prompt = self._get_gemini_system_prompt(settings.get("editorial_profile", PROFILE_NAME))
         user_prompt = self._build_gemini_prompt(transcript_blocks, user_context)
 
         if emit_progress:
@@ -368,7 +370,10 @@ class ClipSelector:
             emit_progress(f"[Gemini] Todos os modelos falharam. Ultimo erro: {last_error}", "warning")
         return []
 
-    def _get_gemini_system_prompt(self):
+    def _get_gemini_system_prompt(self, editorial_profile=PROFILE_NAME):
+        political_fragment = ""
+        if editorial_profile in (PROFILE_NAME, "politics", "political"):
+            political_fragment = "\n\n" + build_political_prompt_fragment()
         return """Voce e um editor de video profissional especialista em selecionar os melhores momentos de debates, entrevistas, podcasts e videos longos para clips curtos (YouTube Shorts, TikTok, Reels).
 
 REGRAS CRITICAS:
@@ -423,7 +428,7 @@ FORMATO DE RESPOSTA — retorne APENAS um array JSON valido:
     "value": "B",
     "energy": "A"
   }
-]"""
+]""" + political_fragment
 
     def _build_gemini_prompt(self, blocks, user_context):
         """Build prompt for Gemini — sends ALL blocks at once (Gemini handles long context)."""
@@ -498,7 +503,7 @@ Retorne APENAS o array JSON. Nenhum texto antes ou depois."""
                     json={
                         "model": ollama_model,
                         "prompt": prompt,
-                        "system": self._get_system_prompt(),
+                        "system": self._get_system_prompt(settings.get("editorial_profile", PROFILE_NAME)),
                         "stream": False,
                         "options": {"temperature": 0.3, "num_predict": 4096},
                     },
@@ -527,8 +532,11 @@ Retorne APENAS o array JSON. Nenhum texto antes ou depois."""
         all_selections.sort(key=lambda x: x.get("viral_score", 0), reverse=True)
         return all_selections
 
-    def _get_system_prompt(self):
+    def _get_system_prompt(self, editorial_profile=PROFILE_NAME):
         """System prompt for Ollama — simpler and more direct for small models (3B)."""
+        political_fragment = ""
+        if editorial_profile in (PROFILE_NAME, "politics", "political"):
+            political_fragment = "\n\n" + build_political_prompt_fragment()
         return """Voce seleciona os melhores trechos de uma transcricao de video para clips curtos.
 
 REGRAS OBRIGATORIAS:
@@ -550,7 +558,7 @@ FORMATO — retorne APENAS JSON valido:
     "value": "B",
     "energy": "B"
   }
-]"""
+]""" + political_fragment
 
     def _build_llm_prompt(self, blocks, user_context, chunk_offset, total_blocks):
         """Build prompt for Ollama — simpler and more explicit."""

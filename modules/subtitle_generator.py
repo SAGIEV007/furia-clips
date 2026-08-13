@@ -3,8 +3,16 @@ import os
 import json
 import tempfile
 import subprocess
+import unicodedata
 from config import PROCESSED_DIR
 from .render_presets import get_preset
+
+
+POLITICAL_IMPACT_WORDS = {
+    "absurdo", "urgente", "ilegal", "corrupcao", "stf", "moraes", "lula",
+    "bolsonaro", "crime", "homicidio", "imposto", "proposta", "vitoria",
+    "fracasso", "escandalo", "denuncia", "desmascarado", "brasil", "missao",
+}
 
 
 class SubtitleGenerator:
@@ -23,12 +31,15 @@ class SubtitleGenerator:
         self.preset = get_preset(preset_name) if isinstance(preset_name, str) else get_preset("shorts")
 
     def generate_ass_file(self, segments, output_path, video_width=1080, video_height=1920):
-        margin_v = 120 if self.position == "bottom" else 80
+        safe_bottom = int(self.preset.get("safe_bottom", 300))
+        safe_top = int(self.preset.get("safe_top", 180))
+        margin_v = safe_bottom if self.position == "bottom" else safe_top
         alignment = 2 if self.position == "bottom" else 8
 
         hex_text = self._color_to_ass(self.text_color)
         hex_border = self._color_to_ass(self.border_color)
         hex_highlight = self._color_to_ass(self.highlight_color)
+        hex_alert = self._color_to_ass(self.settings.get("subtitle_alert_color", "#FF3B30"))
 
         ass_content = f"""[Script Info]
 Title: Furia Clips Subtitles
@@ -42,6 +53,7 @@ ScaledBorderAndShadow: yes
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
 Style: Default,{self.font},{self.font_size},{hex_text},&H000000FF,{hex_border},&H80000000,1,0,0,0,100,100,0,0,1,{self.border_size},2,{alignment},40,40,{margin_v},1
 Style: Highlight,{self.font},{int(self.font_size * 1.1)},{hex_highlight},&H000000FF,{hex_border},&H80000000,1,0,0,0,100,100,0,0,1,{self.border_size + 0.5},2,{alignment},40,40,{margin_v},1
+Style: Alert,{self.font},{int(self.font_size * 1.12)},{hex_alert},&H000000FF,{hex_border},&H80000000,1,0,0,0,100,100,0,0,1,{self.border_size + 0.5},2,{alignment},40,40,{margin_v},1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -64,7 +76,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             if not words:
                 start = self._seconds_to_ass_time(seg["start"])
                 end = self._seconds_to_ass_time(seg["end"])
-                lines += f"Dialogue: 0,{start},{end},Default,,0,0,0,,{seg['text']}\n"
+                lines += f"Dialogue: 0,{start},{end},Default,,0,0,0,,{self._escape_ass_text(seg.get('text', ''))}\n"
                 continue
 
             chunk_size = 4
@@ -84,7 +96,8 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                     text_parts = []
                     for j, cw in enumerate(chunk):
                         if j == highlight_idx:
-                            text_parts.append("{\\rHighlight}" + self._escape_ass_text(cw.get("word", "")) + "{\\rDefault}")
+                            style_name = "Alert" if self._is_impact_word(cw.get("word", "")) else "Highlight"
+                            text_parts.append("{\\r" + style_name + "}" + self._escape_ass_text(cw.get("word", "")) + "{\\rDefault}")
                         else:
                             text_parts.append(self._escape_ass_text(cw.get("word", "")))
 
@@ -143,6 +156,12 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 f.write(f"{idx}\n{start} --> {end}\n{seg['text']}\n\n")
                 idx += 1
         return output_path
+
+    def _is_impact_word(self, word):
+        normalized = unicodedata.normalize("NFKD", str(word or "").lower())
+        normalized = "".join(char for char in normalized if not unicodedata.combining(char))
+        normalized = normalized.strip(".,!?;:\"'()[]{}")
+        return normalized in POLITICAL_IMPACT_WORDS or any(char.isdigit() for char in normalized)
 
     def _escape_ass_text(self, text):
         return str(text or "").replace("\\", "\\\\").replace("{", "\\{").replace("}", "\\}").replace("\n", "\\N")
