@@ -31,6 +31,8 @@ O launcher faz o bootstrap do computador: procura Python, instala Python 3.12 au
 
 Na primeira execução é necessário ter conexão com a internet e permitir eventuais avisos de instalação do Windows. Depois que os runtimes e dependências estiverem em `.runtime` e `venv`, as execuções seguintes reutilizam o que já foi instalado. **Não é necessário instalar Python, FFmpeg, Ollama ou Gemini manualmente para começar.** Ollama e Gemini são otimizações opcionais; sem eles o ranking NLP local continua funcionando.
 
+O launcher grava diagnóstico detalhado em `logs\\bootstrap-latest.log` e `logs\\run-latest.log`. Se algo falhar, os últimos eventos são exibidos automaticamente no console; envie esses dois arquivos junto com a mensagem de erro para permitir uma investigação objetiva.
+
 Se preferir executar manualmente:
 
 ```powershell
