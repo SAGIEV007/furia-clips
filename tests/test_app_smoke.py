@@ -1,6 +1,7 @@
 import os
 import tempfile
 import unittest
+from unittest.mock import patch
 
 import app as furia_app
 import database
@@ -34,6 +35,18 @@ class AppSmokeTests(unittest.TestCase):
     def test_file_traversal_is_blocked(self):
         response = self.client.get("/api/files?path=../")
         self.assertEqual(response.status_code, 403)
+
+    def test_auto_ai_status_falls_back_to_local_nlp(self):
+        with patch.object(furia_app.requests, "get", side_effect=RuntimeError("offline")):
+            status = furia_app._check_ai_status({
+                "ai_backend": "auto",
+                "gemini_api_key": "",
+                "ollama_url": "http://127.0.0.1:11434",
+                "ollama_model": "llama3.2:3b",
+            })
+        self.assertEqual(status["mode"], "nlp")
+        self.assertEqual(status["backend"], "auto")
+        self.assertIn("NLP local", status["mode_label"])
 
 
 if __name__ == "__main__":
