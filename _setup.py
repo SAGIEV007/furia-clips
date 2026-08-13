@@ -166,18 +166,19 @@ def setup_venv():
 def install_deps():
     """Install dependencies if needed."""
     venv_dir = os.path.join(os.path.dirname(__file__), "venv")
-    deps_version = "v7_auto_backend"
+    deps_version = "v8_sources_gemini"
     marker = os.path.join(venv_dir, f".deps_{deps_version}")
 
     if os.path.exists(marker):
         return True  # Already installed
 
-    pip_exe = os.path.join(venv_dir, "Scripts", "pip.exe")
     python_exe = os.path.join(venv_dir, "Scripts", "python.exe")
 
-    if not os.path.exists(pip_exe):
-        print("[ERRO] pip nao encontrado no venv.")
+    if not os.path.exists(python_exe):
+        print("[ERRO] Python do venv nao encontrado.")
         return False
+
+    pip_cmd = [python_exe, "-m", "pip"]
 
     print("==================================================")
     print("   Instalando/atualizando dependencias...")
@@ -185,22 +186,23 @@ def install_deps():
     print()
 
     print("[Setup] Atualizando pip...")
-    run_cmd([pip_exe, "install", "--quiet", "--upgrade", "pip"])
+    if not run_cmd(pip_cmd + ["install", "--quiet", "--upgrade", "pip"]):
+        print("[AVISO] Nao foi possivel atualizar o pip; continuando com a versao instalada.")
 
     print("[Setup] Instalando faster-whisper...")
-    if not run_cmd([pip_exe, "install", "--quiet", "faster-whisper"]):
+    if not run_cmd(pip_cmd + ["install", "--quiet", "faster-whisper"]):
         print("[AVISO] faster-whisper pode ter falhado")
 
     print("[Setup] Instalando demais dependencias...")
     req_file = os.path.join(os.path.dirname(__file__), "requirements.txt")
-    if not run_cmd([pip_exe, "install", "--quiet", "-r", req_file]):
+    if not run_cmd(pip_cmd + ["install", "--quiet", "-r", req_file]):
         print("[AVISO] Algumas dependencias falharam. Tentando individualmente...")
-        run_cmd([pip_exe, "install", "flask", "flask-socketio", "gevent",
+        run_cmd(pip_cmd + ["install", "flask", "flask-socketio", "gevent",
                  "gevent-websocket", "--quiet"])
-        run_cmd([pip_exe, "install", "numpy", "scipy", "Pillow", "requests",
-                 "pydub", "python-dotenv", "--quiet"])
-        run_cmd([pip_exe, "install", "mediapipe", "--quiet"])
-        run_cmd([pip_exe, "install", "ffmpeg-python", "--quiet"])
+        run_cmd(pip_cmd + ["install", "numpy", "scipy", "Pillow", "requests",
+                 "pydub", "python-dotenv", "yt-dlp", "--quiet"])
+        run_cmd(pip_cmd + ["install", "mediapipe", "--quiet"])
+        run_cmd(pip_cmd + ["install", "ffmpeg-python", "--quiet"])
 
     print()
     print("[Setup] Baixando modelo Whisper (small)...")

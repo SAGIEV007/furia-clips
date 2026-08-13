@@ -242,7 +242,11 @@ class ClipSelector:
             return []
 
         system_prompt = self._get_gemini_system_prompt(settings.get("editorial_profile", PROFILE_NAME))
-        user_prompt = self._build_gemini_prompt(transcript_blocks, user_context)
+        user_prompt = self._build_gemini_prompt(
+            transcript_blocks,
+            user_context,
+            settings.get("editorial_context"),
+        )
 
         if emit_progress:
             emit_progress(f"[Gemini] Enviando {len(transcript_blocks)} blocos para analise...", "info")
@@ -260,7 +264,8 @@ class ClipSelector:
                         emit_progress(f"[Gemini] Tentativa {attempt + 1} com {model_name}...", "info")
 
                     response = requests.post(
-                        f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}",
+                        f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent",
+                        headers={"x-goog-api-key": api_key, "Content-Type": "application/json"},
                         json={
                             "contents": [{"parts": [{"text": user_prompt}]}],
                             "systemInstruction": {"parts": [{"text": system_prompt}]},
@@ -435,8 +440,8 @@ FORMATO DE RESPOSTA — retorne APENAS um array JSON valido:
   }
 ]""" + political_fragment
 
-    def _build_gemini_prompt(self, blocks, user_context):
-        """Build prompt for Gemini — sends ALL blocks at once (Gemini handles long context)."""
+    def _build_gemini_prompt(self, blocks, user_context, editorial_context=None):
+        """Build prompt with deterministic interview context plus the transcript."""
         lines = []
         for b in blocks:
             timestamp = f"[{self._format_time(b['start'])} - {self._format_time(b['end'])}]"
@@ -463,9 +468,24 @@ Se o nome nao aparece literalmente na transcricao, identifique pela posicao no d
 INSTRUCAO DO USUARIO: "{user_context}"
 Selecione clips que melhor atendam a esse pedido."""
 
+        editorial_instruction = ""
+        if editorial_context:
+            windows = editorial_context.get("interview_windows", [])[:8]
+            qa = editorial_context.get("qa_candidates", [])[:12]
+            editorial_instruction = f"""
+
+PRÉ-ANÁLISE EDITORIAL DETERMINÍSTICA:
+{editorial_context.get('description', '')}
+Foco padrão: Renan Santos/MBL. Confiança inicial de participante: {editorial_context.get('participant_confidence', 0):.0%}.
+Janelas prováveis de entrevista: {windows}.
+Candidatos pergunta–resposta detectados: {qa}.
+Use esses sinais como orientação, não como prova. Quando houver dúvida sobre locutor ou sobreposição de fala, reduza a confiança ou rejeite.
+"""
+
         num_clips = min(15, max(5, len(blocks) // 4))
 
         return f"""Analise esta transcricao completa e selecione os {num_clips} MELHORES momentos para clips curtos.
+{editorial_instruction}
 {context_instruction}
 
 TRANSCRICAO COMPLETA ({len(blocks)} blocos, {self._format_time(blocks[-1]['end'])} de video):
@@ -494,7 +514,13 @@ Retorne APENAS o array JSON. Nenhum texto antes ou depois."""
 
         for chunk_idx in range(0, len(transcript_blocks), chunk_size):
             chunk = transcript_blocks[chunk_idx:chunk_idx + chunk_size]
-            prompt = self._build_llm_prompt(chunk, user_context, chunk_idx, len(transcript_blocks))
+            prompt = self._build_llm_prompt(
+                chunk,
+                user_context,
+                chunk_idx,
+                len(transcript_blocks),
+                settings.get("editorial_context"),
+            )
 
             if emit_progress:
                 emit_progress(
@@ -565,8 +591,8 @@ FORMATO — retorne APENAS JSON valido:
   }
 ]""" + political_fragment
 
-    def _build_llm_prompt(self, blocks, user_context, chunk_offset, total_blocks):
-        """Build prompt for Ollama — simpler and more explicit."""
+    def _build_llm_prompt(self, blocks, user_context, chunk_offset, total_blocks, editorial_context=None):
+        """Build local prompt with the same interview signals as the online path."""
         lines = []
         for b in blocks:
             timestamp = f"[{self._format_time(b['start'])} - {self._format_time(b['end'])}]"
@@ -589,8 +615,13 @@ IMPORTANTE: SOMENTE selecione clips onde {names_str} esta falando. Clips de outr
 INSTRUCAO DO USUARIO: "{user_context}"
 Selecione clips que atendam a esse pedido."""
 
+        editorial_instruction = ""
+        if editorial_context:
+            editorial_instruction = f"\nPRÉ-ANÁLISE: {editorial_context.get('description', '')}\n"
+
         num_clips = min(8, max(3, len(blocks) // 3))
         return f"""Selecione os {num_clips} MELHORES momentos para clips curtos.
+{editorial_instruction}
 {context_instruction}
 
 TRANSCRICAO (blocos {chunk_offset} a {chunk_offset + len(blocks) - 1} de {total_blocks} total):

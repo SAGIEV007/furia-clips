@@ -16,6 +16,8 @@ const state = {
     selectionSource: "unknown",
     outputFolder: "",
     activeJob: null,
+    manualTranscript: null,
+    sourceUrl: "",
 };
 
 // ─── WebSocket Connection ───
@@ -122,7 +124,17 @@ function handleStatusUpdate(data) {
             break;
         case "transcribe_complete":
             hideProgressBar();
+            if (data.data) state.manualTranscript = data.data;
             showToast("Transcricao concluida!", "success");
+            break;
+        case "source_import_complete":
+            hideProgressBar();
+            showSourceStatus("Fonte importada; selecione o vídeo na biblioteca.", "success");
+            loadMediaFiles().then(() => {
+                const imported = state.mediaFiles.find(item => item.path === data.data.path);
+                if (imported) selectVideo(imported);
+            });
+            showToast("Vídeo do link importado!", "success");
             break;
         case "cut_complete":
             hideProgressBar();
@@ -342,8 +354,17 @@ function truncateName(name, max) {
 // ─── Video Selection & Preview ───
 
 function selectVideo(item) {
+    const changedVideo = state.selectedVideo && state.selectedVideo !== item.path;
     state.selectedVideo = item.path;
     state.selectedVideoName = item.name;
+    if (changedVideo) {
+        state.manualTranscript = null;
+        const status = document.getElementById("transcriptStatus");
+        if (status) {
+            status.textContent = "Nenhuma transcrição manual carregada para este vídeo.";
+            status.className = "source-status";
+        }
+    }
 
     // Update sidebar info
     const info = document.getElementById("selectedVideoInfo");
@@ -546,6 +567,10 @@ document.getElementById("actionCut").querySelector(".btn-action").addEventListen
             face_tracking: true,
             user_context: userContext,
             video_genre: videoGenre,
+            ...(state.manualTranscript ? {
+                transcript_segments: state.manualTranscript.segments,
+                transcript_language: state.manualTranscript.language || "pt",
+            } : {}),
         }),
     });
 });
@@ -574,6 +599,10 @@ document.getElementById("actionComplete").querySelector(".btn-action").addEventL
             output_dir: state.outputDir || "",
             user_context: userContext,
             video_genre: videoGenreComplete,
+            ...(state.manualTranscript ? {
+                transcript_segments: state.manualTranscript.segments,
+                transcript_language: state.manualTranscript.language || "pt",
+            } : {}),
         }),
     });
 });
@@ -696,9 +725,33 @@ function showThumbnailPreview(path) {
 
 // ─── Output Directory ───
 
-document.getElementById("btnChangeOutputDir").addEventListener("click", () => {
-    document.getElementById("outputDirInput").value = state.outputDir || "";
-    document.getElementById("outputDirModal").classList.add("active");
+document.getElementById("btnChangeOutputDir").addEventListener("click", async () => {
+    try {
+        const res = await fetch("/api/dialog/choose", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ mode: "folder", initial_path: state.outputDir || "", title: "Escolha a pasta de saída dos cortes" }),
+        });
+        const data = await res.json();
+        if (data.success && data.path) {
+            state.outputDir = data.path;
+            document.getElementById("outputDirText").textContent = data.path;
+            await fetch("/api/settings", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ output_dir: data.path }),
+            });
+            showToast("Pasta de saída atualizada pelo explorador.", "success");
+            return;
+        }
+        if (data.cancelled) return;
+        throw new Error(data.error || "Diálogo não disponível");
+    } catch (error) {
+        // Keep the previous manual modal as a non-destructive fallback.
+        document.getElementById("outputDirInput").value = state.outputDir || "";
+        document.getElementById("outputDirModal").classList.add("active");
+        showToast("Explorador nativo indisponível; você pode informar o caminho manualmente.", "warning");
+    }
 });
 
 function closeOutputDirModal() {
@@ -722,6 +775,21 @@ function saveOutputDir() {
 }
 
 // ─── Results Display ───
+
+function mediaUrlForPath(path) {
+    if (!path) return "";
+    const value = String(path).replaceAll("\\", "/");
+    if (value.startsWith("/workspace/")) return value;
+    if (value.startsWith("workspace/")) return `/${value}`;
+    if (/^[A-Za-z]:\//.test(value) || value.startsWith("/")) {
+        return `/api/output_file?path=${encodeURIComponent(path)}`;
+    }
+    return `/workspace/${value.replace(/^\\+/, "")}`;
+}
+
+function mediaUrlForClip(clip) {
+    return mediaUrlForPath(clip.subtitled_path || clip.path);
+}
 
 function displayResults(clips) {
     const section = document.getElementById("resultsSection");
@@ -791,7 +859,7 @@ function displayResults(clips) {
 
             <div class="result-video-preview">
                 <video controls preload="metadata" poster="">
-                    <source src="/workspace/${clip.subtitled_path || clip.path}" type="video/mp4">
+                    <source src="${mediaUrlForClip(clip)}" type="video/mp4">
                 </video>
             </div>
             <div class="result-info">
@@ -982,8 +1050,8 @@ function downloadClip(index) {
     if (clip) {
         const path = clip.subtitled_path || clip.path;
         const a = document.createElement("a");
-        a.href = `/workspace/${path}`;
-        a.download = path.split("/").pop();
+        a.href = mediaUrlForPath(path);
+        a.download = String(path).split(/[\\\\/]/).pop();
         a.click();
         showToast("Download iniciado!", "success");
     }
@@ -1032,6 +1100,121 @@ function copyToClipboard(text) {
         showToast("Copiado!", "success");
     });
 }
+
+// ─── Source Intake ───
+
+function showSourceStatus(message, type = "") {
+    const transcriptStatus = document.getElementById("transcriptStatus");
+    const sourceStatus = document.getElementById("sourceStatus");
+    [transcriptStatus, sourceStatus].forEach(el => {
+        if (!el) return;
+        el.textContent = message;
+        el.className = `source-status ${type}`.trim();
+    });
+}
+
+function activateSourceTab(name) {
+    document.querySelectorAll(".source-tab").forEach(tab => {
+        tab.classList.toggle("active", tab.dataset.sourceTab === name);
+    });
+    document.querySelectorAll(".source-panel").forEach(panel => {
+        const active = panel.id === `sourcePanel${name.charAt(0).toUpperCase()}${name.slice(1)}`;
+        panel.classList.toggle("active", active);
+        panel.style.display = active ? "block" : "none";
+    });
+}
+
+document.querySelectorAll(".source-tab").forEach(tab => {
+    tab.addEventListener("click", () => activateSourceTab(tab.dataset.sourceTab));
+});
+
+document.getElementById("btnImportTranscript")?.addEventListener("click", () => {
+    document.getElementById("transcriptFileInput")?.click();
+});
+
+document.getElementById("transcriptFileInput")?.addEventListener("change", async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+        const text = await file.text();
+        document.getElementById("manualTranscriptInput").value = text;
+        showSourceStatus(`Arquivo ${file.name} carregado. Clique em Usar transcrição.`, "success");
+    } catch (error) {
+        showSourceStatus(`Falha ao ler o arquivo: ${error.message}`, "error");
+    }
+});
+
+document.getElementById("btnApplyTranscript")?.addEventListener("click", async () => {
+    const text = document.getElementById("manualTranscriptInput")?.value.trim();
+    if (!text) {
+        showSourceStatus("Cole ou importe uma transcrição primeiro.", "error");
+        return;
+    }
+    try {
+        const res = await fetch("/api/transcript/parse", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text, language: document.getElementById("settingLanguage")?.value || "pt" }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) throw new Error(data.error || "Transcrição inválida");
+        state.manualTranscript = data.transcription;
+        showSourceStatus(`Transcrição ${data.transcription.format} pronta: ${data.transcription.segment_count} segmentos. Ela será usada no próximo corte sem Whisper.`, "success");
+        showToast("Transcrição manual aplicada.", "success");
+    } catch (error) {
+        state.manualTranscript = null;
+        showSourceStatus(error.message, "error");
+        showToast("Não foi possível interpretar a transcrição.", "error");
+    }
+});
+
+document.getElementById("btnProbeSource")?.addEventListener("click", async () => {
+    const url = document.getElementById("sourceUrlInput")?.value.trim();
+    if (!url) {
+        showSourceStatus("Informe uma URL pública.", "error");
+        return;
+    }
+    showSourceStatus("Verificando fonte pública...", "");
+    try {
+        const res = await fetch("/api/source/probe", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ url }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) throw new Error(data.error || "Fonte indisponível");
+        state.sourceUrl = url;
+        const duration = data.source.duration ? ` — ${formatTime(data.source.duration)}` : "";
+        showSourceStatus(`${data.source.title || "Fonte válida"}${duration}. Pronta para importar.`, "success");
+    } catch (error) {
+        showSourceStatus(error.message, "error");
+    }
+});
+
+document.getElementById("btnImportSource")?.addEventListener("click", async () => {
+    const url = document.getElementById("sourceUrlInput")?.value.trim();
+    if (!url) {
+        showSourceStatus("Informe uma URL pública.", "error");
+        return;
+    }
+    showProgressBar();
+    showSourceStatus("Importação iniciada; acompanhe o console abaixo.", "");
+    try {
+        const res = await fetch("/api/source/import", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ url }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) throw new Error(data.error || "Não foi possível iniciar a importação");
+        state.sourceUrl = url;
+        addConsoleLog("[Fonte] Download da URL pública iniciado.", "info");
+    } catch (error) {
+        hideProgressBar();
+        showSourceStatus(error.message, "error");
+        showToast(error.message, "error");
+    }
+});
 
 // ─── Settings ───
 

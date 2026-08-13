@@ -32,7 +32,7 @@ O launcher faz o bootstrap do computador: procura Python, instala Python 3.12 au
 
 Na primeira execução é necessário ter conexão com a internet e permitir eventuais avisos de instalação do Windows. Depois que os runtimes e dependências estiverem em `.runtime` e `venv`, as execuções seguintes reutilizam o que já foi instalado. **Não é necessário instalar Python, FFmpeg, Ollama ou Gemini manualmente para começar.** Ollama e Gemini são otimizações opcionais; sem eles o ranking NLP local continua funcionando.
 
-O launcher grava diagnóstico detalhado em `logs\\bootstrap-latest.log` e `logs\\run-latest.log`. Se algo falhar, os últimos eventos são exibidos automaticamente no console; envie esses dois arquivos junto com a mensagem de erro para permitir uma investigação objetiva.
+O launcher grava diagnóstico detalhado em `logs\\bootstrap-latest.log` e `logs\\run-latest.log`. Depois de iniciar o Flask, ele aguarda `http://127.0.0.1:3001` responder e abre uma nova aba no Opera GX quando encontrado, com fallback ao navegador padrão. Se algo falhar, os últimos eventos são exibidos automaticamente no console; envie esses dois arquivos junto com a mensagem de erro para permitir uma investigação objetiva.
 
 Se preferir executar manualmente:
 
@@ -75,7 +75,13 @@ O padrão é **Automático**, que tenta Gemini somente se uma chave já estiver 
 | Claude API | Conforme a conta/API | Geração de conteúdo | Chave opcional da Anthropic |
 | NLP local | Gratuito | Fallback determinístico de seleção | Nenhum serviço externo |
 
-Uma chave Gemini melhora a seleção contextual quando a API está acessível, mas não é necessária para usar o programa. Se você informar uma chave, o modo automático passa a considerá-la sem obrigar a aplicação a permanecer online; se a API falhar, o processamento continua por Ollama ou NLP. Nunca coloque chaves de API em commits.
+Uma chave Gemini melhora a seleção contextual e habilita a análise multimodal online do vídeo quando a API está acessível, mas não é necessária para usar o programa. Se você informar uma chave, o modo automático passa a considerá-la; o fluxo tenta analisar o vídeo com áudio e imagem antes da seleção e reaproveita os segmentos retornados, com fallback para Whisper/Ollama/NLP em caso de falha. A análise multimodal pode exigir upload do arquivo e ter latência/cota. Nunca coloque chaves de API em commits.
+
+## Fontes de análise
+
+A biblioteca mantém o upload local existente e agora oferece uma central de fontes com três caminhos compatíveis. O upload continua sendo a opção mais previsível para renderização. A transcrição manual aceita texto Tactiq com timestamps, além de `.srt` e `.vtt`; quando a fonte é válida, o pipeline pula o Whisper e preserva a timeline original. O link público aceita URLs `http(s)`, faz uma prévia e pode baixar a mídia automaticamente via yt-dlp para o workspace, sem cookies, login, bypass de DRM ou acesso a conteúdo privado. YouTube público é a primeira fonte recomendada; outras plataformas dependem do extrator disponível.
+
+Antes do ranking, o sistema gera uma pré-análise determinística com perguntas, possíveis respostas, referências ao Renan, janelas de entrevista, sobreposição temporal e confiança. Quando Gemini está configurado, essa pré-análise é enriquecida por áudio e imagem. A identidade do falante é tratada como hipótese revisável, não como reconhecimento perfeito.
 
 ## Perfil editorial político
 
@@ -115,7 +121,12 @@ modules/video_cutter.py    corte e exportação por preset
 modules/subtitle_generator.py legendas ASS/SRT e áreas seguras por preset
 modules/media_validation.py validação objetiva com ffprobe
 modules/batch_queue.py     descoberta e deduplicação de lotes
-static/js/app.js           estado, progresso e revisão no frontend
+modules/transcript_parser.py parser Tactiq/SRT/VTT e timeline manual
+modules/editorial_context.py pré-análise de entrevista, perguntas e sinais
+modules/source_ingest.py      validação e download de fontes públicas
+modules/gemini_video.py       upload e análise multimodal online
+modules/native_dialogs.py     exploradores nativos locais
+static/js/app.js           estado, fontes, progresso e revisão no frontend
 templates/index.html       interface principal
 tests/                     regressões e smoke tests
 docs/                      arquitetura, roadmap e relatórios, incluindo pesquisa audiovisual
@@ -123,7 +134,7 @@ docs/                      arquitetura, roadmap e relatórios, incluindo pesquis
 
 ## Status da reconstrução
 
-A branch `manus/rebuild-opus-parity` contém a reconstrução incremental comparada à branch base `devin/1782248654-furia-clips`. A implementação foi validada localmente com uma suíte de 52 casos, incluindo o perfil editorial político, famílias de humor/reação, contexto de abertura, energia de áudio por janela, ritmo visual, portfólio global entre lives, bootstrap automático, fallback sem chave, smoke tests HTTP e renderização real com FFmpeg.
+A branch `manus/rebuild-opus-parity` contém a reconstrução incremental comparada à branch base `devin/1782248654-furia-clips`. A implementação base foi validada localmente com 52 casos; esta evolução acrescenta cobertura de parser, fontes públicas, diálogo local e contexto de entrevista, totalizando 63 testes aprovados na última execução. A validação cobre o perfil editorial político, famílias de humor/reação, contexto de abertura, energia de áudio por janela, portfólio global entre lives, bootstrap automático, fallback sem chave, smoke tests HTTP e renderização real com FFmpeg.
 O relatório detalhado está em [`docs/rebuild-report.md`](docs/rebuild-report.md), o perfil editorial está em [`docs/editorial-profile.md`](docs/editorial-profile.md) e os critérios de qualidade estão em [`docs/quality-gates.md`](docs/quality-gates.md).
 
 Esta versão aproxima o produto de um fluxo profissional de clipping, mas não afirma paridade total com plataformas comerciais. Ainda são evoluções futuras o editor visual de timeline com handles, reenquadramento temporal contínuo de rostos/objetos, rerender parcial e calibração estatística do ranking usando um histórico amplo de feedback.

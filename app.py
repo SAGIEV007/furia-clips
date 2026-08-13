@@ -61,6 +61,9 @@ from database import (
     update_clip_review_status
 )
 from modules.security import UnsafePathError, safe_workspace_path, unique_storage_name
+from modules.native_dialogs import DialogError, choose_path, open_local_path
+from modules.transcript_parser import parse_transcript_text, normalize_segment_payload, parse_timestamp
+from modules.source_ingest import SourceIngestError, probe_public_url, download_public_video, validate_public_url
 from modules.job_manager import JobManager, JobCancelled
 from modules.batch_queue import build_manifest
 from modules.render_presets import list_presets
@@ -116,6 +119,79 @@ def _workspace_input_path(relative_path):
         return safe_workspace_path(WORKSPACE_DIR, relative_path, allow_missing=False)
     except (UnsafePathError, FileNotFoundError):
         return None
+
+
+def _transcription_from_request(data, duration=None):
+    """Return a canonical transcription when the user supplied one."""
+    text = data.get("transcript_text") or data.get("manual_transcript") or ""
+    if isinstance(text, str) and text.strip():
+        result = parse_transcript_text(text, duration=duration)
+        result["language"] = data.get("transcript_language", "pt")
+        return result
+    segments = data.get("transcript_segments")
+    if isinstance(segments, list) and segments:
+        result = normalize_segment_payload(segments, duration=duration)
+        result["language"] = data.get("transcript_language", "pt")
+        return result
+    return None
+
+
+def _run_gemini_video_analysis(video_path, settings, editorial_context, user_context, emit_progress):
+    backend = str(settings.get("ai_backend", "auto") or "auto").lower()
+    api_key = str(settings.get("gemini_api_key", "") or "").strip()
+    if backend not in {"auto", "gemini"} or not api_key:
+        return None
+    try:
+        from modules.gemini_video import analyze_video_with_gemini
+        result = analyze_video_with_gemini(
+            video_path,
+            api_key,
+            editorial_context=editorial_context,
+            user_context=user_context,
+            emit_progress=emit_progress,
+        )
+        emit_progress("[Gemini] Análise multimodal concluída; sinais de áudio, imagem e entrevista incorporados.", "success")
+        return result
+    except Exception as exc:
+        emit_progress(f"[Gemini] Análise multimodal não concluída; seguindo com sinais locais: {str(exc)[:220]}", "warning")
+        return None
+
+
+def _transcription_from_gemini_result(result, language="pt"):
+    if not isinstance(result, dict) or not isinstance(result.get("transcript_segments"), list):
+        return None
+    segments = []
+    for item in result["transcript_segments"]:
+        if not isinstance(item, dict) or not item.get("text"):
+            continue
+        try:
+            start = parse_timestamp(str(item.get("start", "0:00"))) if isinstance(item.get("start"), str) else float(item.get("start", 0))
+            end_value = item.get("end")
+            end = parse_timestamp(str(end_value)) if isinstance(end_value, str) else (float(end_value) if end_value is not None else start + 2)
+        except (TypeError, ValueError):
+            continue
+        segments.append({
+            "start": start,
+            "end": end,
+            "text": str(item["text"]),
+            "speaker": item.get("speaker", "desconhecido"),
+        })
+    if not segments:
+        return None
+    result = normalize_segment_payload(segments)
+    result["language"] = language
+    result["source"] = "gemini_video"
+    return result
+
+
+def _enrich_editorial_context(video_path, settings, editorial_context, user_context, emit_progress, multimodal=None):
+    """Use Gemini multimodal analysis as enrichment, never as a hard dependency."""
+    if multimodal is None:
+        multimodal = _run_gemini_video_analysis(video_path, settings, editorial_context, user_context, emit_progress)
+    if multimodal:
+        return {**editorial_context, "multimodal": multimodal}
+    emit_progress("[Gemini] Análise multimodal indisponível; usando transcrição e sinais locais.", "info")
+    return editorial_context
 
 
 @app.route("/api/jobs", methods=["GET"])
@@ -386,6 +462,26 @@ def api_mkdir():
     return jsonify({"success": True, "path": os.path.relpath(target, WORKSPACE_DIR)})
 
 
+@app.route("/api/dialog/choose", methods=["POST"])
+def api_choose_dialog():
+    """Open a native file/folder picker after an explicit user action."""
+    data = request.get_json(silent=True) or {}
+    mode = str(data.get("mode", "folder")).strip().lower()
+    if mode not in {"folder", "file"}:
+        return jsonify({"error": "Modo de diálogo inválido"}), 400
+    try:
+        selected = choose_path(
+            mode=mode,
+            initial_path=data.get("initial_path"),
+            title=str(data.get("title", "Selecionar"))[:120],
+        )
+    except (DialogError, OSError, subprocess.SubprocessError) as exc:
+        return jsonify({"error": str(exc)}), 500
+    if not selected:
+        return jsonify({"success": False, "cancelled": True, "path": ""})
+    return jsonify({"success": True, "cancelled": False, "path": os.path.abspath(selected)})
+
+
 @app.route("/api/files/delete", methods=["POST"])
 def api_delete_file():
     data = request.get_json(silent=True) or {}
@@ -406,6 +502,77 @@ def api_delete_file():
         return jsonify({"error": "Arquivo nao encontrado"}), 404
 
     return jsonify({"success": True})
+
+
+@app.route("/api/source/probe", methods=["POST"])
+def api_source_probe():
+    data = request.get_json(silent=True) or {}
+    try:
+        return jsonify({"success": True, "source": probe_public_url(data.get("url", ""))})
+    except SourceIngestError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
+
+
+@app.route("/api/source/import", methods=["POST"])
+def api_source_import():
+    data = request.get_json(silent=True) or {}
+    url = str(data.get("url", "")).strip()
+    try:
+        validate_public_url(url)
+    except SourceIngestError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
+    if current_task["active"]:
+        return jsonify({"error": "Já existe um processamento em andamento"}), 409
+
+    def task():
+        current_task["active"] = True
+        try:
+            emit_progress("[Fonte] Preparando download de URL pública...", "info")
+            result = download_public_video(
+                url,
+                UPLOAD_DIR,
+                progress=lambda update: emit_progress(
+                    f"[Download] {update.get('percent'):.1f}%" if update.get("percent") is not None else "[Download] processando...",
+                    "info",
+                ),
+            )
+            relative = os.path.relpath(result["path"], WORKSPACE_DIR)
+            event_data = {**result, "path": relative, "absolute_path": result["path"]}
+            emit_status("source_import_complete", event_data)
+            emit_progress(f"[Fonte] Vídeo importado em {relative}", "success")
+        except Exception as exc:
+            emit_progress(f"[Fonte] Falha ao importar link: {str(exc)}", "error")
+            emit_status("error", {"message": str(exc)})
+        finally:
+            current_task["active"] = False
+
+    threading.Thread(target=task, daemon=True).start()
+    return jsonify({"success": True, "message": "Importação da fonte iniciada"})
+
+
+@app.route("/api/transcript/parse", methods=["POST"])
+def api_parse_transcript():
+    data = request.get_json(silent=True) or {}
+    try:
+        result = parse_transcript_text(data.get("text", ""), duration=data.get("duration"))
+        result["language"] = data.get("language", "pt")
+        return jsonify({"success": True, "transcription": result})
+    except (TypeError, ValueError) as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
+
+
+@app.route("/api/transcript/parse-file", methods=["POST"])
+def api_parse_transcript_file():
+    uploaded = request.files.get("file")
+    if not uploaded or not uploaded.filename:
+        return jsonify({"success": False, "error": "Nenhum arquivo de transcrição enviado"}), 400
+    try:
+        text = uploaded.read().decode("utf-8-sig")
+        result = parse_transcript_text(text, duration=request.form.get("duration"))
+        result["language"] = request.form.get("language", "pt")
+        return jsonify({"success": True, "transcription": result})
+    except (UnicodeDecodeError, TypeError, ValueError) as exc:
+        return jsonify({"success": False, "error": f"Transcrição inválida: {exc}"}), 400
 
 
 @app.route("/workspace/<path:filepath>")
@@ -496,11 +663,15 @@ def api_transcribe():
         try:
             from modules.transcriber import Transcriber
             settings = get_all_settings()
-            transcriber = Transcriber(
-                model_name=settings.get("whisper_model", "small"),
-                language=settings.get("language", "pt"),
-            )
-            result = transcriber.transcribe(video_path, emit_progress=emit_progress)
+            result = _transcription_from_request(data)
+            if result:
+                emit_progress(f"[Transcrição manual] {result['segment_count']} segmentos importados; Whisper não será executado.", "success")
+            else:
+                transcriber = Transcriber(
+                    model_name=settings.get("whisper_model", "small"),
+                    language=settings.get("language", "pt"),
+                )
+                result = transcriber.transcribe(video_path, emit_progress=emit_progress)
 
             if project_id:
                 save_transcription(
@@ -554,21 +725,40 @@ def api_cut_shorts():
             else:
                 emit_progress("[Contexto] Nenhum contexto definido. Cortes serao genericos.", "warning")
 
-            # Step 1: Transcribe (with cache)
-            emit_progress("=== ETAPA 1/5: Transcricao ===", "info")
+            # Step 1: Transcribe or import the canonical manual transcript
+            emit_progress("=== ETAPA 1/5: Transcricao e contexto ===", "info")
             from modules.transcriber import Transcriber
-            transcriber = Transcriber(
-                model_name=settings.get("whisper_model", "small"),
-                language=settings.get("language", "pt"),
-            )
-            transcription = transcriber.transcribe(video_path, emit_progress=emit_progress)
-            emit_progress(f"[Whisper] Motor: {transcriber._engine}", "info")
+            transcription = _transcription_from_request(data)
+            multimodal_result = None
+            if not transcription:
+                multimodal_result = _run_gemini_video_analysis(video_path, settings, {}, user_context, emit_progress)
+                transcription = _transcription_from_gemini_result(multimodal_result, settings.get("language", "pt"))
+            if transcription and transcription.get("source") == "manual":
+                emit_progress(f"[Transcrição manual] {transcription['segment_count']} segmentos importados; Whisper não será executado.", "success")
+            elif transcription and transcription.get("source") == "gemini_video":
+                emit_progress(f"[Gemini] {transcription['segment_count']} segmentos obtidos da análise multimodal; Whisper não será executado.", "success")
+            else:
+                transcriber = Transcriber(
+                    model_name=settings.get("whisper_model", "small"),
+                    language=settings.get("language", "pt"),
+                )
+                transcription = transcriber.transcribe(video_path, emit_progress=emit_progress)
+                emit_progress(f"[Whisper] Motor: {transcriber._engine}", "info")
 
             if project_id:
                 save_transcription(
                     project_id, transcription["segments"], transcription["full_text"],
                     transcription["language"], settings.get("whisper_model", "small")
                 )
+
+            from modules.editorial_context import analyze_transcript_context
+            editorial_context = analyze_transcript_context(transcription)
+            emit_progress(f"[Contexto editorial] {editorial_context['description']}", "info")
+            editorial_context = _enrich_editorial_context(
+                video_path, settings, editorial_context, user_context, emit_progress,
+                multimodal=multimodal_result,
+            )
+            settings["editorial_context"] = editorial_context
 
             # Step 2: Layout detection + Scene detection
             emit_progress("=== ETAPA 2/5: Analise de Video ===", "info")
@@ -943,19 +1133,37 @@ def api_process_complete():
             # the source without an explicit TimelineMap conversion.
             working_video = video_path
 
-            # ── Step 2: Transcribe (with cache) ──
-            emit_progress("━━━ ETAPA 2/6: Transcrevendo ━━━", "info")
+            # ── Step 2: Import manual transcript or transcribe ──
+            emit_progress("━━━ ETAPA 2/6: Transcrição e contexto ━━━", "info")
             from modules.transcriber import Transcriber
-            transcriber = Transcriber(
-                model_name=settings.get("whisper_model", "small"),
-                language=settings.get("language", "pt"),
-            )
-            transcription = transcriber.transcribe(working_video, emit_progress=emit_progress)
+            transcription = _transcription_from_request(data)
+            multimodal_result = None
+            if not transcription:
+                multimodal_result = _run_gemini_video_analysis(working_video, settings, {}, user_context, emit_progress)
+                transcription = _transcription_from_gemini_result(multimodal_result, settings.get("language", "pt"))
+            if transcription and transcription.get("source") == "manual":
+                emit_progress(f"[Transcrição manual] {transcription['segment_count']} segmentos importados; Whisper não será executado.", "success")
+            elif transcription and transcription.get("source") == "gemini_video":
+                emit_progress(f"[Gemini] {transcription['segment_count']} segmentos obtidos da análise multimodal; Whisper não será executado.", "success")
+            else:
+                transcriber = Transcriber(
+                    model_name=settings.get("whisper_model", "small"),
+                    language=settings.get("language", "pt"),
+                )
+                transcription = transcriber.transcribe(working_video, emit_progress=emit_progress)
             save_transcription(
                 project_id, transcription["segments"], transcription["full_text"],
                 transcription["language"], settings.get("whisper_model", "small")
             )
-            ctx.update(stage="transcription", progress=35, message="Transcrição concluída")
+            from modules.editorial_context import analyze_transcript_context
+            editorial_context = analyze_transcript_context(transcription)
+            emit_progress(f"[Contexto editorial] {editorial_context['description']}", "info")
+            editorial_context = _enrich_editorial_context(
+                video_path, settings, editorial_context, user_context, emit_progress,
+                multimodal=multimodal_result,
+            )
+            settings["editorial_context"] = editorial_context
+            ctx.update(stage="transcription", progress=35, message="Transcrição e contexto concluídos")
             ctx.check_cancel()
 
             # ── Step 3: Intelligent clip selection ──
@@ -1211,33 +1419,54 @@ def api_ollama_status():
     return jsonify(status)
 
 
-# --- API: Open Folder ---
+# --- API: Open Folder / external output files ---
+
+def _is_under(path, root):
+    try:
+        return os.path.commonpath([os.path.realpath(path), os.path.realpath(root)]) == os.path.realpath(root)
+    except ValueError:
+        return False
+
+
+@app.route("/api/output_file", methods=["GET"])
+def api_output_file():
+    requested = str(request.args.get("path", "") or "").strip()
+    if not requested:
+        return jsonify({"error": "Arquivo não informado"}), 400
+    target = os.path.abspath(os.path.expanduser(requested)) if os.path.isabs(requested) else _workspace_input_path(requested)
+    settings = get_all_settings()
+    configured_root = settings.get("output_dir") or EXPORT_DIR
+    if not target or not os.path.isfile(target) or not (_is_under(target, WORKSPACE_DIR) or _is_under(target, configured_root)):
+        return jsonify({"error": "Arquivo não encontrado ou fora dos destinos permitidos"}), 404
+    return send_file(target, conditional=True)
+
 
 @app.route("/api/open_folder", methods=["POST"])
 def api_open_folder():
     data = request.get_json(silent=True) or {}
-    folder_path = data.get("path", "")
-    relative_path = os.path.relpath(EXPORT_DIR, WORKSPACE_DIR) if not folder_path else folder_path
-
-    try:
-        folder_path = safe_workspace_path(WORKSPACE_DIR, relative_path, allow_missing=False)
-    except (UnsafePathError, FileNotFoundError):
-        return jsonify({"error": "Pasta nao encontrada ou caminho invalido"}), 404
+    requested = str(data.get("path", "") or "").strip()
+    if not requested:
+        folder_path = EXPORT_DIR
+    elif os.path.isabs(requested):
+        folder_path = os.path.abspath(os.path.expanduser(requested))
+    else:
+        try:
+            folder_path = safe_workspace_path(WORKSPACE_DIR, requested, allow_missing=False)
+        except (UnsafePathError, FileNotFoundError):
+            return jsonify({"error": "Pasta nao encontrada ou caminho invalido"}), 404
 
     if not os.path.isdir(folder_path):
         return jsonify({"error": "Pasta nao encontrada"}), 404
 
     try:
-        system = platform.system()
-        if system == "Windows":
-            os.startfile(folder_path)
-        elif system == "Darwin":
-            subprocess.Popen(["open", folder_path])
-        else:
-            subprocess.Popen(["xdg-open", folder_path])
-        return jsonify({"success": True})
-    except Exception as e:
-        return jsonify({"error": "Não foi possível abrir a pasta", "path": os.path.relpath(folder_path, WORKSPACE_DIR)}), 500
+        open_local_path(folder_path)
+        try:
+            display_path = os.path.relpath(folder_path, WORKSPACE_DIR)
+        except ValueError:
+            display_path = folder_path
+        return jsonify({"success": True, "path": display_path})
+    except (FileNotFoundError, OSError) as exc:
+        return jsonify({"error": "Não foi possível abrir a pasta", "detail": str(exc)[:200]}), 500
 
 
 @socketio.on("connect")

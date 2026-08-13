@@ -133,3 +133,13 @@ A legenda pode ficar em segundo plano por enquanto. A prioridade correta é: **c
 Nesta iteração foram implementados o módulo `modules/daily_portfolio.py`, a API `POST /api/batch/rank`, a competição global entre fontes com limites suaves por live e família, a deduplicação semântica, o piso de qualidade e o relatório explícito quando a faixa 39–50 não é atingida por falta de material. O perfil `renan_santos_politics` também passou a identificar as famílias `politico`, `humor`, `reacao`, `bastidor`, `descontraido` e `conversa`, preservando os cinco subtipos políticos existentes.
 
 Essas mudanças resolvem a ausência de um portfólio global no nível de ranking e de contrato de API, mas não fingem resolver sozinhas a análise multimodal completa. Continuam como próximos pontos de engenharia a diarização robusta, a expansão temporal automática de pergunta/resposta, a análise de áudio/visual por candidato, o reenquadramento temporal e a calibração estatística com decisões reais do editor.
+
+## Implementação da evolução de fontes e contexto — agosto de 2026
+
+Esta iteração acrescenta uma camada de ingestão e análise anterior ao ranking. O launcher Windows aguarda a resposta real do Flask e aciona o Opera GX ou o navegador padrão com log de tentativa e fallback. O instalador passou a atualizar o pip por `python -m pip`, elevou o marcador de dependências e incluiu yt-dlp.
+
+A interface preserva o upload e oferece transcrição manual Tactiq/SRT/VTT e link público. Todas as fontes convergem para segmentos canônicos. A pré-análise determinística detecta perguntas, possíveis respostas, referências ao Renan, janelas de entrevista, sobreposição temporal e confiança. Quando Gemini está configurado, o vídeo pode ser enviado pela Files API para enriquecimento multimodal; os segmentos retornados são reaproveitados antes de considerar Whisper. Nenhum caminho presume diarização perfeita.
+
+A escolha de pasta de saída agora usa diálogo nativo e aceita destino fora do workspace somente para o caminho explicitamente configurado pelo usuário. A entrega de mídia externa é limitada a arquivos sob o workspace ou sob esse destino configurado. O servidor segue limitado a loopback por padrão.
+
+As limitações permanecem explícitas: disponibilidade de extratores públicos, tamanho/cota/latência do Gemini, necessidade de mídia local para renderização, falas sobrepostas e identidade de locutor. Os gates de contexto, conclusão e clareza continuam acima da meta de quantidade diária.

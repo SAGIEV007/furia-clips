@@ -232,6 +232,41 @@
             <input type="file" id="fileInput" accept=".mp4,.mkv,.avi,.mov,.webm,.flv,.wmv" style="display:none" multiple>
         </section>
 
+        <!-- Source Intake -->
+        <section class="section" id="sourceSection">
+            <div class="section-header">
+                <h3><span class="material-icons-round">input</span> Fonte da análise</h3>
+                <span class="section-hint">Upload, transcrição manual ou link público</span>
+            </div>
+            <div class="source-tabs" role="tablist" aria-label="Fonte da análise">
+                <button class="source-tab active" data-source-tab="upload" type="button"><span class="material-icons-round">upload_file</span> Upload</button>
+                <button class="source-tab" data-source-tab="transcript" type="button"><span class="material-icons-round">description</span> Transcrição</button>
+                <button class="source-tab" data-source-tab="link" type="button"><span class="material-icons-round">link</span> Link público</button>
+            </div>
+            <div class="source-panel active" id="sourcePanelUpload">
+                <p class="source-help">Use <strong>Importar Video</strong> ou arraste a live na biblioteca acima. A análise política do Renan será aplicada automaticamente.</p>
+            </div>
+            <div class="source-panel" id="sourcePanelTranscript" style="display:none">
+                <p class="source-help">Cole a transcrição do Tactiq ou importe um arquivo <code>.txt</code>, <code>.srt</code> ou <code>.vtt</code>. Com timestamps válidos, o Whisper não será executado.</p>
+                <textarea id="manualTranscriptInput" class="context-input" rows="7" placeholder="00:12:34.500 Pergunta do entrevistador...\n00:12:40.200 Resposta do Renan..."></textarea>
+                <div class="source-actions">
+                    <input type="file" id="transcriptFileInput" accept=".txt,.srt,.vtt" style="display:none">
+                    <button class="btn btn-sm btn-outline" id="btnImportTranscript" type="button"><span class="material-icons-round">folder_open</span> Importar arquivo</button>
+                    <button class="btn btn-sm btn-primary" id="btnApplyTranscript" type="button"><span class="material-icons-round">check</span> Usar transcrição</button>
+                </div>
+                <div class="source-status" id="transcriptStatus">Nenhuma transcrição manual carregada.</div>
+            </div>
+            <div class="source-panel" id="sourcePanelLink" style="display:none">
+                <p class="source-help">Use uma URL pública, preferencialmente do YouTube. O programa valida a fonte e baixa a mídia automaticamente quando necessário para renderizar os cortes.</p>
+                <div class="source-link-row">
+                    <input type="url" id="sourceUrlInput" class="setting-input" placeholder="https://www.youtube.com/watch?v=...">
+                    <button class="btn btn-sm btn-outline" id="btnProbeSource" type="button"><span class="material-icons-round">search</span> Verificar</button>
+                    <button class="btn btn-sm btn-primary" id="btnImportSource" type="button"><span class="material-icons-round">cloud_download</span> Importar</button>
+                </div>
+                <div class="source-status" id="sourceStatus">Nenhuma fonte pública verificada.</div>
+            </div>
+        </section>
+
         <!-- Video Preview -->
         <section class="section" id="videoPreviewSection" style="display:none">
             <div class="section-header">
@@ -257,10 +292,11 @@
         <!-- User Context / ClipAnything -->
         <section class="section" id="contextSection">
             <div class="section-header">
-                <h3><span class="material-icons-round">psychology</span> O que voce quer extrair?</h3>
+                <h3><span class="material-icons-round">psychology</span> Refinamento opcional do editor</h3>
             </div>
             <div class="context-input-wrapper">
-                <textarea id="userContextInput" class="context-input" placeholder="Descreva o corte politico desejado... Ex: propostas de seguranca com dados, confrontos juridicos, criticas ao governo com conclusao" rows="2"></textarea>
+                <p class="source-help">O perfil político Renan Santos/MBL, a análise de contexto e a busca por pergunta–resposta já são automáticos. Use este campo apenas para priorizar um assunto específico.</p>
+                <textarea id="userContextInput" class="context-input" placeholder="Opcional: encontre a pergunta sobre segurança pública, priorize a resposta sobre impostos ou procure a reação ao tema X." rows="2"></textarea>
                 <div class="context-suggestions" id="contextSuggestions">
                     <button class="context-chip" data-context="Confrontos politicos com uma resposta forte e contexto completo">Confrontos</button>
                     <button class="context-chip" data-context="Propostas concretas de seguranca, economia ou educacao com numeros e conclusao">Propostas</button>

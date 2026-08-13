@@ -1925,3 +1925,65 @@ body {
     background: rgba(245, 158, 11, 0.9);
     color: #000;
 }
+
+/* Source intake: upload, manual transcript and public URL */
+.source-tabs {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+}
+
+.source-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,.035);
+    color: var(--text-secondary);
+    border-radius: var(--radius-sm);
+    padding: 9px 12px;
+    cursor: pointer;
+    transition: .2s ease;
+}
+
+.source-tab:hover, .source-tab.active {
+    color: var(--text-primary);
+    border-color: var(--gold);
+    background: rgba(255,215,0,.10);
+}
+
+.source-panel {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 14px;
+    background: rgba(0,0,0,.10);
+}
+
+.source-help, .section-hint {
+    color: var(--text-secondary);
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.source-actions, .source-link-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-top: 10px;
+}
+
+.source-link-row .setting-input {
+    flex: 1 1 320px;
+    min-width: 220px;
+}
+
+.source-status {
+    margin-top: 10px;
+    color: var(--text-secondary);
+    font-size: 12px;
+}
+
+.source-status.success { color: var(--success); }
+.source-status.error { color: var(--error); }

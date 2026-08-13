@@ -13,8 +13,10 @@ class WindowsBootstrapTests(unittest.TestCase):
         self.assertIn("ffmpeg_path.txt", launcher)
         self.assertIn("venv\\Scripts\\python.exe", launcher)
         self.assertIn("validate_runtime", launcher)
-        self.assertIn("show_log", launcher)
-        self.assertIn("run-latest.log", launcher)
+        self.assertIn('show_log', launcher)
+        self.assertIn('run-latest.log', launcher)
+        self.assertIn('open_browser_windows.ps1', launcher)
+        self.assertIn('127.0.0.1:3001', launcher)
 
     def test_bootstrap_has_python_and_ffmpeg_routes(self):
         bootstrap = (ROOT / "bootstrap_windows.ps1").read_text(encoding="utf-8")
@@ -27,10 +29,21 @@ class WindowsBootstrapTests(unittest.TestCase):
         self.assertIn('System.IO.File]::WriteAllText', bootstrap)
         self.assertIn('UTF8Encoding($false)', bootstrap)
 
+    def test_browser_helper_waits_and_prefers_opera(self):
+        helper = (ROOT / "scripts" / "open_browser_windows.ps1").read_text(encoding="utf-8")
+        self.assertIn("Invoke-WebRequest", helper)
+        self.assertIn("opera.exe", helper)
+        self.assertIn("Start-Process", helper)
+
+    def test_requirements_include_public_source_downloader(self):
+        requirements = (ROOT / "requirements.txt").read_text(encoding="utf-8")
+        self.assertIn("yt-dlp", requirements)
+
     def test_setup_explains_gemini_is_optional(self):
         setup = (ROOT / "_setup.py").read_text(encoding="utf-8")
         self.assertIn("continuara funcionando localmente", setup)
-        self.assertIn('deps_version = "v7_auto_backend"', setup)
+        self.assertIn('deps_version = "v8_sources_gemini"', setup)
+        self.assertIn('python_exe, "-m", "pip"', setup)
 
 
 if __name__ == "__main__":

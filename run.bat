@@ -3,8 +3,10 @@ setlocal EnableExtensions EnableDelayedExpansion
 title Furia Clips - Corte. Ranqueie. Domine.
 color 0E
 cd /d "%~dp0"
+chcp 65001 >nul
 
 set "RUNTIME_DIR=%~dp0.runtime"
+
 set "LOG_DIR=%~dp0logs"
 set "RUN_LOG=%LOG_DIR%\run-latest.log"
 set "PYTHON_EXE="
@@ -66,8 +68,9 @@ echo [Furia Clips] Para parar: feche esta janela ou Ctrl+C
 echo [Furia Clips] Log do launcher: %RUN_LOG%
 echo.
 
-start "" cmd /c "timeout /t 3 /nobreak >nul ^&^& start http://localhost:3001"
+start "" powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "%~dp0scripts\open_browser_windows.ps1" -Url "http://127.0.0.1:3001" -LogFile "%RUN_LOG%"
 "%~dp0venv\Scripts\python.exe" app.py
+
 set "APP_CODE=!ERRORLEVEL!"
 call :log "Aplicacao terminou com codigo !APP_CODE!"
 if not "!APP_CODE!"=="0" goto :app_failed
