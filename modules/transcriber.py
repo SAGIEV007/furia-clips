@@ -147,7 +147,9 @@ class Transcriber:
             return safe_path
         return audio_path
 
-    def transcribe(self, audio_path, emit_progress=None):
+    def transcribe(self, audio_path, emit_progress=None, cancel_check=None):
+        if cancel_check:
+            cancel_check()
         cached = self._load_from_cache(audio_path, emit_progress)
         if cached:
             return cached
@@ -171,6 +173,8 @@ class Transcriber:
 
         if self.model is None:
             self.load_model(emit_progress)
+        if cancel_check:
+            cancel_check()
 
         # Handle filenames with special characters (accents, etc)
         working_path = self._sanitize_path_for_ffmpeg(audio_path)
@@ -181,9 +185,9 @@ class Transcriber:
         start_time = time.time()
 
         if self._engine == "faster-whisper":
-            result = self._transcribe_faster_whisper(working_path, emit_progress)
+            result = self._transcribe_faster_whisper(working_path, emit_progress, cancel_check)
         else:
-            result = self._transcribe_openai_whisper(working_path, emit_progress)
+            result = self._transcribe_openai_whisper(working_path, emit_progress, cancel_check)
 
         elapsed = time.time() - start_time
         if emit_progress:
@@ -195,7 +199,7 @@ class Transcriber:
         self._save_to_cache(audio_path, result)
         return result
 
-    def _transcribe_faster_whisper(self, audio_path, emit_progress=None):
+    def _transcribe_faster_whisper(self, audio_path, emit_progress=None, cancel_check=None):
         segments_iter, info = self.model.transcribe(
             audio_path,
             language=self.language,
@@ -213,6 +217,8 @@ class Transcriber:
         full_text_parts = []
 
         for seg in segments_iter:
+            if cancel_check:
+                cancel_check()
             words = []
             if seg.words:
                 for w in seg.words:
@@ -243,7 +249,9 @@ class Transcriber:
             "language": self.language,
         }
 
-    def _transcribe_openai_whisper(self, audio_path, emit_progress=None):
+    def _transcribe_openai_whisper(self, audio_path, emit_progress=None, cancel_check=None):
+        if cancel_check:
+            cancel_check()
         result = self.model.transcribe(
             audio_path,
             language=self.language,
@@ -254,6 +262,8 @@ class Transcriber:
 
         segments = []
         for seg in result.get("segments", []):
+            if cancel_check:
+                cancel_check()
             segment_data = {
                 "id": seg["id"],
                 "start": round(seg["start"], 3),

@@ -65,7 +65,7 @@ def test_source_import_passes_normalized_url_to_downloader(monkeypatch, tmp_path
 
     monkeypatch.setattr(app_module, "validate_public_url", lambda value: "https://www.youtube.com/watch?v=normalized")
 
-    def fake_download(url, destination, max_height=1080, progress=None, retries=3):
+    def fake_download(url, destination, max_height=1080, progress=None, retries=3, cancel_check=None):
         received.update({"url": url, "destination": destination, "max_height": max_height, "retries": retries})
         return {"path": str(downloaded), "title": "Teste", "duration": 1, "url": url, "extractor": "youtube"}
 

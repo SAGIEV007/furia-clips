@@ -14,6 +14,8 @@ import time
 from pathlib import Path
 from urllib.parse import urlparse
 
+from modules.cancellation import OperationCancelled
+
 
 class SourceIngestError(RuntimeError):
     pass
@@ -115,8 +117,10 @@ def _source_error(prefix: str, exc: Exception) -> SourceIngestError:
     return SourceIngestError(f"{prefix}: {detail}")
 
 
-def download_public_subtitles(url: str, destination: str, progress=None) -> str | None:
+def download_public_subtitles(url: str, destination: str, progress=None, cancel_check=None) -> str | None:
     """Try public Portuguese subtitles before the expensive CPU fallback."""
+    if cancel_check:
+        cancel_check()
     value = validate_public_url(url)
     yt_dlp = _yt_dlp()
     target = Path(destination).expanduser().resolve()
@@ -134,7 +138,11 @@ def download_public_subtitles(url: str, destination: str, progress=None) -> str 
     }
     try:
         with yt_dlp.YoutubeDL(options) as downloader:
+            if cancel_check:
+                cancel_check()
             info = downloader.extract_info(value, download=True)
+        if cancel_check:
+            cancel_check()
         source_id = info.get("id", "")
         candidates = sorted(
             [*target.glob(f"*{source_id}*.vtt"), *target.glob(f"*{source_id}*.srt")],
@@ -146,13 +154,15 @@ def download_public_subtitles(url: str, destination: str, progress=None) -> str 
                 progress({"status": "subtitle", "filename": str(candidates[0])})
             return str(candidates[0])
         return None
+    except OperationCancelled:
+        raise
     except Exception as exc:
         if progress:
             progress({"status": "subtitle_error", "error": str(exc)[:240]})
         return None
 
 
-def download_public_video(url: str, destination: str, progress=None, max_height: int = 1080, retries: int = 3) -> dict:
+def download_public_video(url: str, destination: str, progress=None, max_height: int = 1080, retries: int = 3, cancel_check=None) -> dict:
     """Download the best public source up to the requested vertical resolution."""
     value = validate_public_url(url)
     yt_dlp = _yt_dlp()
@@ -164,6 +174,8 @@ def download_public_video(url: str, destination: str, progress=None, max_height:
         last_emit = 0.0
 
         def hook(status):
+            if cancel_check:
+                cancel_check()
             nonlocal last_percent, last_emit
             if status.get("status") == "downloading":
                 total = status.get("total_bytes") or status.get("total_bytes_estimate") or 0
@@ -213,9 +225,13 @@ def download_public_video(url: str, destination: str, progress=None, max_height:
     info = {}
     for attempt in range(1, max_attempts + 1):
         try:
+            if cancel_check:
+                cancel_check()
             if attempt > 1 and progress:
                 progress({"status": "retry", "attempt": attempt, "max_attempts": max_attempts})
             with yt_dlp.YoutubeDL(options) as downloader:
+                if cancel_check:
+                    cancel_check()
                 info = downloader.extract_info(value, download=True)
                 filename = downloader.prepare_filename(info)
                 output = Path(filename)
@@ -227,12 +243,20 @@ def download_public_video(url: str, destination: str, progress=None, max_height:
                     candidates = sorted(target.glob(f"*{info.get('id', '')}*"), key=lambda p: p.stat().st_mtime, reverse=True)
                     if candidates:
                         output = candidates[0]
+            if cancel_check:
+                cancel_check()
             if output and output.exists():
                 break
+        except OperationCancelled:
+            raise
         except Exception as exc:
             last_error = exc
             if attempt < max_attempts:
-                time.sleep(min(2 ** (attempt - 1), 5))
+                deadline = time.monotonic() + min(2 ** (attempt - 1), 5)
+                while time.monotonic() < deadline:
+                    if cancel_check:
+                        cancel_check()
+                    time.sleep(min(0.5, deadline - time.monotonic()))
 
     if last_error is not None and (not output or not output.exists()):
         raise _source_error("Não foi possível baixar a fonte pública", last_error) from last_error

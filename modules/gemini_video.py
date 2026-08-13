@@ -29,18 +29,20 @@ class GeminiVideoAnalyzer:
         self.session = requests.Session()
         self.session.headers.update({"x-goog-api-key": self.api_key})
 
-    def analyze(self, video_path: str, editorial_context: dict | None = None, user_context: str = "", emit_progress=None) -> dict:
+    def analyze(self, video_path: str, editorial_context: dict | None = None, user_context: str = "", emit_progress=None, cancel_check=None) -> dict:
         if not self.api_key:
             raise GeminiVideoError("Gemini não configurado")
         path = Path(video_path).expanduser().resolve()
         if not path.is_file():
             raise GeminiVideoError("Vídeo não encontrado para análise multimodal")
 
+        if cancel_check:
+            cancel_check()
         mime_type = mimetypes.guess_type(path.name)[0] or "video/mp4"
         if emit_progress:
             emit_progress("[Gemini] Enviando o vídeo para análise multimodal online...", "info")
-        file_info = self._upload_file(path, mime_type, emit_progress)
-        self._wait_until_active(file_info.get("name", ""), emit_progress)
+        file_info = self._upload_file(path, mime_type, emit_progress, cancel_check)
+        self._wait_until_active(file_info.get("name", ""), emit_progress, cancel_check)
 
         prompt = self._build_prompt(editorial_context or {}, user_context)
         request_payload = {
@@ -56,7 +58,7 @@ class GeminiVideoAnalyzer:
                 "responseMimeType": "application/json",
             },
         }
-        response = self._generate_content(request_payload, emit_progress)
+        response = self._generate_content(request_payload, emit_progress, cancel_check)
         if response.status_code != 200:
             raise GeminiVideoError(f"Gemini retornou HTTP {response.status_code}: {self._error_text(response)}")
         payload = response.json()
@@ -73,13 +75,15 @@ class GeminiVideoAnalyzer:
         parsed["model"] = self.model
         return parsed
 
-    def _generate_content(self, request_payload: dict, emit_progress=None):
+    def _generate_content(self, request_payload: dict, emit_progress=None, cancel_check=None):
         """Retry only transient API failures; the video upload is not repeated."""
         endpoint = f"{self.base_url}/v1beta/models/{self.model}:generateContent"
         retryable = {408, 429, 500, 502, 503, 504}
         max_attempts = 3
         last_response = None
         for attempt in range(1, max_attempts + 1):
+            if cancel_check:
+                cancel_check()
             response = self.session.post(endpoint, json=request_payload, timeout=600)
             last_response = response
             if response.status_code == 200:
@@ -92,12 +96,25 @@ class GeminiVideoAnalyzer:
                     f"{attempt + 1}/{max_attempts} com backoff...",
                     "warning",
                 )
-            time.sleep(min(2 ** (attempt - 1), 8) + random.uniform(0.0, 0.5))
+            self._sleep_with_cancel(min(2 ** (attempt - 1), 8) + random.uniform(0.0, 0.5), cancel_check)
         raise GeminiVideoError(
             f"Gemini retornou HTTP {last_response.status_code}: {self._error_text(last_response)}"
         )
 
-    def _upload_file(self, path: Path, mime_type: str, emit_progress=None) -> dict:
+    @staticmethod
+    def _sleep_with_cancel(seconds, cancel_check=None):
+        deadline = time.monotonic() + max(0.0, float(seconds))
+        while True:
+            if cancel_check:
+                cancel_check()
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return
+            time.sleep(min(0.5, remaining))
+
+    def _upload_file(self, path: Path, mime_type: str, emit_progress=None, cancel_check=None) -> dict:
+        if cancel_check:
+            cancel_check()
         size = path.stat().st_size
         start = self.session.post(
             f"{self.base_url}/upload/v1beta/files",
@@ -117,6 +134,8 @@ class GeminiVideoAnalyzer:
         if not upload_url:
             raise GeminiVideoError("Gemini não retornou URL de upload resumível")
 
+        if cancel_check:
+            cancel_check()
         with path.open("rb") as handle:
             upload = self.session.post(
                 upload_url,
@@ -129,16 +148,20 @@ class GeminiVideoAnalyzer:
                 data=handle,
                 timeout=1800,
             )
+        if cancel_check:
+            cancel_check()
         if upload.status_code not in {200, 201}:
             raise GeminiVideoError(f"Falha ao enviar vídeo: HTTP {upload.status_code}")
         if emit_progress:
             emit_progress("[Gemini] Upload concluído; aguardando processamento do arquivo...", "info")
         return upload.json().get("file", upload.json())
 
-    def _wait_until_active(self, file_name: str, emit_progress=None) -> None:
+    def _wait_until_active(self, file_name: str, emit_progress=None, cancel_check=None) -> None:
         if not file_name:
             raise GeminiVideoError("Gemini não informou o identificador do arquivo")
         for attempt in range(180):
+            if cancel_check:
+                cancel_check()
             result = self.session.get(f"{self.base_url}/v1beta/{file_name}", timeout=60)
             if result.status_code != 200:
                 raise GeminiVideoError(f"Falha ao consultar arquivo: HTTP {result.status_code}")
@@ -150,7 +173,7 @@ class GeminiVideoAnalyzer:
                 raise GeminiVideoError("Gemini falhou ao processar o vídeo")
             if emit_progress and attempt % 6 == 0:
                 emit_progress(f"[Gemini] Processando vídeo online ({attempt * 5}s)...", "info")
-            time.sleep(5)
+            self._sleep_with_cancel(5, cancel_check)
         raise GeminiVideoError("Tempo limite aguardando processamento do vídeo no Gemini")
 
     @staticmethod
@@ -204,6 +227,6 @@ Timestamps devem usar MM:SS. Gere segmentos suficientes para a seleção editori
             return response.text[:240]
 
 
-def analyze_video_with_gemini(video_path: str, api_key: str, editorial_context=None, user_context="", emit_progress=None) -> dict:
+def analyze_video_with_gemini(video_path: str, api_key: str, editorial_context=None, user_context="", emit_progress=None, cancel_check=None) -> dict:
     analyzer = GeminiVideoAnalyzer(api_key)
-    return analyzer.analyze(video_path, editorial_context, user_context, emit_progress)
+    return analyzer.analyze(video_path, editorial_context, user_context, emit_progress, cancel_check)

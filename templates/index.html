@@ -432,6 +432,12 @@
                 <div class="progress-bar-container" id="progressBarContainer" style="display:none">
                     <div class="progress-bar" id="progressBar"></div>
                 </div>
+                <div class="processing-controls" id="processingControls" style="display:none; margin:10px 0; align-items:center; gap:10px">
+                    <button class="btn btn-sm btn-danger" id="btnCancelOperation" type="button">
+                        <span class="material-icons-round">stop_circle</span> Parar operação
+                    </button>
+                    <span class="setting-hint" id="processingOperationStatus">Processamento em andamento.</span>
+                </div>
                 <div class="console-output" id="consoleOutput">
                     <div class="console-line info">[Sistema] Furia Clips pronto para processar videos.</div>
                 </div>

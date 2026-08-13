@@ -185,6 +185,11 @@ function handleStatusUpdate(data) {
             updateOpenFolderButton(state.outputFolder);
             loadMediaFiles();
             break;
+        case "cancelled":
+            hideProgressBar();
+            showToast(data.data?.message || "Operação cancelada.", "warning");
+            addConsoleLog("[Sistema] Operação cancelada com segurança.", "warning");
+            break;
         case "error":
             hideProgressBar();
             showToast(data.data.message || "Erro no processamento", "error");
@@ -208,7 +213,51 @@ function addConsoleLog(message, level = "info") {
     }
 }
 
+function showProcessingControls(label = "Processamento em andamento.") {
+    const controls = document.getElementById("processingControls");
+    const status = document.getElementById("processingOperationStatus");
+    const button = document.getElementById("btnCancelOperation");
+    if (controls) controls.style.display = "flex";
+    if (status) status.textContent = label;
+    if (button) button.disabled = false;
+}
+
+function hideProcessingControls() {
+    const controls = document.getElementById("processingControls");
+    const button = document.getElementById("btnCancelOperation");
+    if (controls) controls.style.display = "none";
+    if (button) button.disabled = false;
+}
+
+async function requestCancelOperation() {
+    const button = document.getElementById("btnCancelOperation");
+    const status = document.getElementById("processingOperationStatus");
+    if (button) button.disabled = true;
+    if (status) status.textContent = "Solicitando parada segura...";
+    addConsoleLog("[Sistema] Solicitação de parada enviada; aguardando a etapa segura.", "warning");
+    try {
+        const jobId = state.activeJob && ["queued", "running", "cancel_requested"].includes(state.activeJob.state)
+            ? state.activeJob.id
+            : null;
+        const response = await fetch("/api/process/cancel", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(jobId ? { job_id: jobId } : {}),
+        });
+        const data = await parseJsonResponse(response, "Cancelamento");
+        if (!response.ok || data.error) throw new Error(data.error || "Não foi possível solicitar o cancelamento");
+        if (status) status.textContent = "Parada solicitada; a operação será encerrada com segurança.";
+    } catch (error) {
+        if (button) button.disabled = false;
+        if (status) status.textContent = error.message;
+        showToast(error.message, "error");
+    }
+}
+
+document.getElementById("btnCancelOperation")?.addEventListener("click", requestCancelOperation);
+
 function showProgressBar() {
+    showProcessingControls();
     const container = document.getElementById("progressBarContainer");
     const bar = document.getElementById("progressBar");
     container.style.display = "block";
@@ -237,6 +286,9 @@ function handleJobUpdate(job) {
         bar.style.width = `${Math.max(2, Math.min(100, job.progress || 0))}%`;
         addConsoleLog(`[Job ${job.id.slice(0, 8)}] ${job.message || job.stage || job.state}`, "info");
     }
+    if (["queued", "running", "cancel_requested"].includes(job.state)) {
+        showProcessingControls(`[Job ${job.id.slice(0, 8)}] ${job.message || job.stage || "Processando"}`);
+    }
     if (job.state === "completed") {
         if (bar) bar.style.width = "100%";
         setTimeout(hideProgressBar, 250);
@@ -245,6 +297,7 @@ function handleJobUpdate(job) {
         showToast(job.error || "O job falhou", "error");
     } else if (job.state === "cancelled") {
         hideProgressBar();
+        hideProcessingControls();
         showToast("Processamento cancelado", "warning");
     }
 }
@@ -261,6 +314,7 @@ async function recoverActiveJobs() {
 }
 
 function hideProgressBar() {
+    hideProcessingControls();
     const container = document.getElementById("progressBarContainer");
     const bar = document.getElementById("progressBar");
     bar.style.width = "100%";

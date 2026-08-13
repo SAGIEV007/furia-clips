@@ -71,6 +71,7 @@ from modules.source_ingest import (
     validate_public_url,
 )
 from modules.job_manager import JobManager, JobCancelled
+from modules.cancellation import OperationCancelled
 from modules.batch_queue import build_manifest
 from modules.render_presets import list_presets
 
@@ -101,7 +102,27 @@ _ALLOWED_CORS = [
 socketio = SocketIO(app, cors_allowed_origins=_ALLOWED_CORS, async_mode="threading")
 
 processing_lock = threading.Lock()
-current_task = {"active": False, "cancel": False}
+current_task = {
+    "active": False,
+    "cancel": False,
+    "operation": "",
+    "started_at": None,
+}
+
+
+def check_current_task_cancel():
+    if current_task.get("cancel"):
+        raise OperationCancelled("Operação cancelada pelo usuário")
+
+
+def _set_legacy_task(operation, active=True):
+    current_task["active"] = active
+    current_task["operation"] = operation if active else ""
+    if active:
+        current_task["cancel"] = False
+        current_task["started_at"] = datetime.now().isoformat(timespec="seconds")
+    else:
+        current_task["started_at"] = None
 
 
 def emit_progress(message, level="info"):
@@ -179,10 +200,13 @@ def _probe_video_duration_seconds(video_path):
         return None
 
 
-def _transcribe_video_automatically(video_path, settings, emit_progress, transcript_fallback_path=None):
+def _transcribe_video_automatically(video_path, settings, emit_progress, transcript_fallback_path=None, cancel_check=None):
     """Try Gemini first, then public timestamps, and only then adaptive CPU Whisper."""
     emit_progress("[Transcrição] Prioridade: Gemini multimodal online; fontes timestampadas e Whisper CPU são fallback.", "info")
-    multimodal = _run_gemini_video_analysis(video_path, settings, {}, "", emit_progress)
+    if cancel_check:
+        cancel_check()
+    gemini_kwargs = {"cancel_check": cancel_check} if cancel_check else {}
+    multimodal = _run_gemini_video_analysis(video_path, settings, {}, "", emit_progress, **gemini_kwargs)
     transcription = _transcription_from_gemini_result(multimodal, settings.get("language", "pt"))
     if transcription:
         emit_progress("[Transcrição] Gemini forneceu timestamps; Whisper CPU não será iniciado.", "success")
@@ -232,7 +256,10 @@ def _transcribe_video_automatically(video_path, settings, emit_progress, transcr
         beam_size=settings.get("whisper_beam_size", 1),
         device=resolved_device,
     )
-    transcription = transcriber.transcribe(video_path, emit_progress=emit_progress)
+    transcribe_kwargs = {"emit_progress": emit_progress}
+    if cancel_check:
+        transcribe_kwargs["cancel_check"] = cancel_check
+    transcription = transcriber.transcribe(video_path, **transcribe_kwargs)
     transcription["source"] = "whisper"
     emit_progress(
         f"[Whisper] Motor: {transcriber._engine} em {transcriber.device}; "
@@ -274,7 +301,7 @@ def _transcription_from_request(data, duration=None):
     return None
 
 
-def _run_gemini_video_analysis(video_path, settings, editorial_context, user_context, emit_progress):
+def _run_gemini_video_analysis(video_path, settings, editorial_context, user_context, emit_progress, cancel_check=None):
     backend = str(settings.get("ai_backend", "gemini") or "gemini").lower()
     api_key = str(settings.get("gemini_api_key", "") or "").strip()
     if backend not in {"auto", "gemini"}:
@@ -291,9 +318,12 @@ def _run_gemini_video_analysis(video_path, settings, editorial_context, user_con
             editorial_context=editorial_context,
             user_context=user_context,
             emit_progress=emit_progress,
+            cancel_check=cancel_check,
         )
         emit_progress("[Gemini] Análise multimodal concluída; sinais de áudio, imagem e entrevista incorporados.", "success")
         return result
+    except OperationCancelled:
+        raise
     except Exception as exc:
         emit_progress(f"[Gemini] Análise multimodal não concluída; seguindo com sinais locais: {str(exc)[:220]}", "warning")
         return None
@@ -668,8 +698,7 @@ def api_source_import():
     with processing_lock:
         if current_task["active"]:
             return jsonify({"error": "Já existe um processamento em andamento"}), 409
-        current_task["active"] = True
-        current_task["cancel"] = False
+        _set_legacy_task("source_import", active=True)
 
     max_height = data.get("max_height", settings.get("source_max_height", 1080))
     auto_transcribe = bool(data.get("auto_transcribe", True))
@@ -678,12 +707,14 @@ def api_source_import():
 
     def task():
         try:
+            check_current_task_cancel()
             emit_progress("[Fonte] Preparando download de URL pública...", "info")
             result = download_public_video(
                 url,
                 destination,
                 max_height=max_height,
                 retries=settings.get("source_download_retries", 3),
+                cancel_check=check_current_task_cancel,
                 progress=lambda update: emit_progress(
                     (
                         f"[Download] {update.get('percent'):.1f}%"
@@ -708,7 +739,7 @@ def api_source_import():
                 )
                 if not gemini_configured:
                     emit_progress("[Transcrição] Gemini sem chave nesta instalação; procurando legenda pública timestampada antes do Whisper...", "info")
-                    subtitle_path = download_public_subtitles(url, destination)
+                    subtitle_path = download_public_subtitles(url, destination, cancel_check=check_current_task_cancel)
                     if subtitle_path:
                         emit_progress(f"[Transcrição] Legenda pública encontrada: {os.path.basename(subtitle_path)}", "success")
                 emit_progress("[Transcrição] Gerando timestamps automaticamente antes da análise...", "info")
@@ -718,6 +749,7 @@ def api_source_import():
                         settings,
                         emit_progress,
                         transcript_fallback_path=subtitle_path,
+                        cancel_check=check_current_task_cancel,
                     )
                     transcript_files = _save_transcription_artifacts(result_path, transcription)
                     emit_progress(
@@ -740,13 +772,17 @@ def api_source_import():
                 "subtitle_path": subtitle_path,
                 "auto_transcribe": auto_transcribe,
             }
+            check_current_task_cancel()
             emit_status("source_import_complete", event_data)
             emit_progress(f"[Fonte] Vídeo importado em {display_path}", "success")
+        except OperationCancelled as exc:
+            emit_progress(f"[Fonte] Operação cancelada: {exc}", "warning")
+            emit_status("cancelled", {"operation": "source_import", "message": str(exc)})
         except Exception as exc:
             emit_progress(f"[Fonte] Falha ao importar link: {str(exc)}", "error")
             emit_status("error", {"message": str(exc)})
         finally:
-            current_task["active"] = False
+            _set_legacy_task("", active=False)
 
     threading.Thread(target=task, daemon=True).start()
     return jsonify({"success": True, "message": "Importação e transcrição da fonte iniciadas", "destination_dir": destination})
@@ -861,14 +897,19 @@ def api_transcribe():
         return jsonify({"error": "Video nao encontrado"}), 404
 
     def task():
-        current_task["active"] = True
         try:
+            check_current_task_cancel()
             settings = get_all_settings()
             result = _transcription_from_request(data)
             if result:
                 emit_progress(f"[Transcrição manual] {result['segment_count']} segmentos importados; Whisper não será executado.", "success")
             else:
-                result = _transcribe_video_automatically(video_path, settings, emit_progress)
+                result = _transcribe_video_automatically(
+                    video_path,
+                    settings,
+                    emit_progress,
+                    cancel_check=check_current_task_cancel,
+                )
 
             if project_id:
                 save_transcription(
@@ -876,16 +917,22 @@ def api_transcribe():
                     result["language"], settings.get("whisper_model", "small")
                 )
 
+            check_current_task_cancel()
             emit_status("transcribe_complete", result)
             emit_progress("Transcricao concluida!", "success")
+        except OperationCancelled as exc:
+            emit_progress(f"[Transcrição] Operação cancelada: {exc}", "warning")
+            emit_status("cancelled", {"operation": "transcription", "message": str(exc)})
         except Exception as e:
             emit_progress(f"Erro na transcricao: {str(e)}", "error")
             emit_status("error", {"message": str(e)})
         finally:
-            current_task["active"] = False
+            _set_legacy_task("", active=False)
 
-    if current_task["active"]:
-        return jsonify({"error": "Ja existe um processamento em andamento"}), 409
+    with processing_lock:
+        if current_task["active"]:
+            return jsonify({"error": "Ja existe um processamento em andamento"}), 409
+        _set_legacy_task("transcription", active=True)
 
     threading.Thread(target=task, daemon=True).start()
     return jsonify({"success": True, "message": "Transcricao iniciada"})
@@ -928,7 +975,14 @@ def api_cut_shorts():
             transcription = _transcription_from_request(data)
             multimodal_result = None
             if not transcription:
-                multimodal_result = _run_gemini_video_analysis(video_path, settings, {}, user_context, emit_progress)
+                multimodal_result = _run_gemini_video_analysis(
+                    video_path,
+                    settings,
+                    {},
+                    user_context,
+                    emit_progress,
+                    cancel_check=ctx.check_cancel,
+                )
                 transcription = _transcription_from_gemini_result(multimodal_result, settings.get("language", "pt"))
             if transcription and transcription.get("source") == "manual":
                 emit_progress(f"[Transcrição manual] {transcription['segment_count']} segmentos importados; Whisper não será executado.", "success")
@@ -938,8 +992,15 @@ def api_cut_shorts():
                 transcriber = Transcriber(
                     model_name=settings.get("whisper_model", "small"),
                     language=settings.get("language", "pt"),
+                    word_timestamps=settings.get("whisper_word_timestamps", False),
+                    beam_size=settings.get("whisper_beam_size", 1),
+                    device=settings.get("whisper_device", "auto"),
                 )
-                transcription = transcriber.transcribe(video_path, emit_progress=emit_progress)
+                transcription = transcriber.transcribe(
+                    video_path,
+                    emit_progress=emit_progress,
+                    cancel_check=ctx.check_cancel,
+                )
                 emit_progress(f"[Whisper] Motor: {transcriber._engine}", "info")
 
             if project_id:
