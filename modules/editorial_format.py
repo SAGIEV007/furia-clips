@@ -13,6 +13,7 @@ from typing import Any
 
 KNOWN_FORMATS = {
     "talking_head",
+    "talking_head_grafico",
     "selfie_proximo",
     "entrevista",
     "podcast",
@@ -33,6 +34,7 @@ KNOWN_FORMATS = {
 }
 
 _PRESERVE_COMPOSITION = {
+    "talking_head_grafico",
     "entrevista",
     "podcast",
     "react",
@@ -98,6 +100,12 @@ def classify_editorial_format(clip: dict[str, Any] | None, text: str = "") -> di
 
     face_count = _number(data.get("face_count"))
     speaker_confidence = _number(data.get("speaker_confidence"))
+    has_graphic = any(
+        _truthy(data.get(key))
+        for key in ("graphic_overlay", "has_graphic_overlay", "chart_overlay", "has_graphic", "talking_head_graphic")
+    )
+    if has_graphic and (face_count is None or face_count == 1):
+        return _profile("talking_head_grafico", 0.80, "uma pessoa com gráfico/overlay documentado; preservar relação entre fala e arte")
     if face_count is not None and face_count > 1:
         return _profile("entrevista", 0.70, "mais de uma face detectada; composição deve ser preservada")
     if face_count == 1 and (speaker_confidence is None or speaker_confidence >= 0.75):

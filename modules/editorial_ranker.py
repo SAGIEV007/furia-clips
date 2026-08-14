@@ -222,7 +222,7 @@ class EditorialRanker:
         return {
             "viral_score": score,
             "editorial_potential_score": score,
-            "editorial_score_version": "v2-chapter-context-feedback" if feedback_adjustment and clip.get("editorial_chapter_available") else "v2-chapter-context" if clip.get("editorial_chapter_available") else "v1-feedback-calibrated" if feedback_adjustment else "v1-explainable",
+            "editorial_score_version": "v2-campaign-hook-evidence" if campaign_hub_prior["available"] else "v2-chapter-context-feedback" if feedback_adjustment and clip.get("editorial_chapter_available") else "v2-chapter-context" if clip.get("editorial_chapter_available") else "v1-feedback-calibrated" if feedback_adjustment else "v1-explainable",
             "topic_signature": topic_signature,
             "closure_type": closure_type,
             "breakdown": breakdown,
@@ -246,6 +246,9 @@ class EditorialRanker:
             "chapter_coherence_score": clip.get("chapter_coherence_score"),
             "qa_bridge": bool(clip.get("qa_bridge")),
             "campaign_hub_prior": campaign_hub_prior,
+            "hook_family": campaign_hub_prior["hook_family"],
+            "hook_evidence": list(campaign_hub_prior.get("hook_evidence") or []),
+            "hook_classification_confidence": campaign_hub_prior.get("hook_classification_confidence", 0.0),
             "reframe_policy": format_profile["reframe_policy"],
             "preserve_composition": format_profile["preserve_composition"],
             "review_flags": {
@@ -264,6 +267,8 @@ class EditorialRanker:
                 "duration_exception": bool(duration_preference["exception"]),
                 "campaign_hub_prior_available": bool(campaign_hub_prior["available"]),
                 "campaign_hub_hook_family": campaign_hub_prior["hook_family"],
+                "campaign_hub_hook_evidence": list(campaign_hub_prior.get("hook_evidence") or []),
+                "campaign_hub_hook_classification_confidence": campaign_hub_prior.get("hook_classification_confidence", 0.0),
                 "campaign_hub_sample_count": campaign_hub_prior["sample_count"],
             },
         }
