@@ -73,11 +73,13 @@ def _configure_persistent_module(monkeypatch, tmp_path):
     root = tmp_path / "FuriaClipsData"
     database_dir = root / "database"
     backup_dir = root / "backups"
+    transcripts_dir = root / "transcripts"
     db_path = database_dir / "editorial_learning.sqlite3"
     schema_path = root / "schema_version.json"
     for module in (config, persistent_data):
         monkeypatch.setattr(module, "DB_PATH", str(db_path))
         monkeypatch.setattr(module, "PERSISTENT_BACKUPS_DIR", str(backup_dir))
+        monkeypatch.setattr(module, "PERSISTENT_TRANSCRIPTS_DIR", str(transcripts_dir))
     monkeypatch.setattr(config, "PERSISTENT_DATA_DIR", str(root))
     monkeypatch.setattr(config, "PERSISTENT_DATABASE_DIR", str(database_dir))
     monkeypatch.setattr(config, "PERSISTENT_SCHEMA_PATH", str(schema_path))
@@ -109,11 +111,22 @@ def test_portable_backup_and_restore_preserve_editorial_decisions(monkeypatch, t
 
     _root, db_path, backup_dir = _configure_persistent_module(monkeypatch, tmp_path)
     db_path.parent.mkdir(parents=True)
+    transcript_dir = _root / "transcripts" / "live_hash"
+    transcript_dir.mkdir(parents=True)
+    (transcript_dir / "transcript.txt").write_text("00:00:00.000 contexto completo\n", encoding="utf-8")
+    (transcript_dir / "transcript.json").write_text('{"segments": []}', encoding="utf-8")
+    (transcript_dir / "metadata.json").write_text('{"source": "public_subtitle"}', encoding="utf-8")
     _create_editorial_schema(str(db_path), "Versão preservada")
 
     backup = persistent_data.create_editorial_backup()
     assert os.path.isfile(backup["path"])
     assert backup["summary"]["feedback_events"] == 1
+    assert backup["summary"]["archived_transcripts"] == 1
+    import zipfile
+    with zipfile.ZipFile(backup["path"]) as archive:
+        assert "transcripts/live_hash/transcript.txt" in archive.namelist()
+        assert "transcripts/live_hash/transcript.json" in archive.namelist()
+        assert "transcripts/live_hash/metadata.json" in archive.namelist()
 
     with sqlite3.connect(db_path) as connection:
         connection.execute("UPDATE projects SET name = 'Versão descartável'")
@@ -125,6 +138,7 @@ def test_portable_backup_and_restore_preserve_editorial_decisions(monkeypatch, t
     assert list(backup_dir.glob("furia-editorial-backup-*.zip"))
     with sqlite3.connect(db_path) as connection:
         assert connection.execute("SELECT name FROM projects").fetchone()[0] == "Versão preservada"
+    assert (transcript_dir / "transcript.txt").read_text(encoding="utf-8").startswith("00:00:00.000")
 
 
 def test_restore_rejects_non_editorial_zip(monkeypatch, tmp_path):

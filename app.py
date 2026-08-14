@@ -52,7 +52,7 @@ except ImportError:  # Optional dependency fallback for minimal local installs.
 
 from config import (
     BASE_DIR, WORKSPACE_DIR, UPLOAD_DIR, PROCESSED_DIR,
-    EXPORT_DIR, THUMBNAIL_DIR, ALLOWED_EXTENSIONS, MAX_UPLOAD_SIZE, DB_PATH
+    EXPORT_DIR, THUMBNAIL_DIR, ALLOWED_EXTENSIONS, MAX_UPLOAD_SIZE, DB_PATH, PERSISTENT_TRANSCRIPTS_DIR
 )
 from database import (
     init_db, get_all_settings, get_setting, set_setting,
@@ -66,6 +66,7 @@ from modules.security import UnsafePathError, safe_workspace_path, unique_storag
 from modules.native_dialogs import DialogError, choose_path, open_local_path
 from modules.transcript_parser import parse_transcript_text, normalize_segment_payload, parse_timestamp
 from modules.clip_adjustments import adjust_clip_bounds
+from modules.transcript_archive import archive_transcription, list_archived_transcriptions, validate_transcription
 from modules.source_ingest import (
     SourceIngestError,
     probe_public_url,
@@ -538,6 +539,37 @@ def api_editorial_data():
     return jsonify(get_editorial_data_summary())
 
 
+@app.route("/api/editorial/transcripts", methods=["GET"])
+def api_editorial_transcripts():
+    try:
+        limit = min(200, max(1, int(request.args.get("limit", 100))))
+    except (TypeError, ValueError):
+        limit = 100
+    return jsonify({
+        "transcripts": [
+            {
+                **item,
+                "download_text": f"/api/editorial/transcripts/{item['relative_dir']}/transcript.txt",
+                "download_json": f"/api/editorial/transcripts/{item['relative_dir']}/transcript.json",
+            }
+            for item in list_archived_transcriptions(limit)
+        ],
+        "persistent_dir": PERSISTENT_TRANSCRIPTS_DIR,
+    })
+
+
+@app.route("/api/editorial/transcripts/<path:relative_file>", methods=["GET"])
+def api_editorial_transcript_file(relative_file):
+    root = os.path.abspath(PERSISTENT_TRANSCRIPTS_DIR)
+    candidate = os.path.abspath(os.path.join(root, relative_file))
+    allowed = {"transcript.txt", "transcript.json", "metadata.json"}
+    if os.path.commonpath([root, candidate]) != root or os.path.basename(candidate) not in allowed:
+        return jsonify({"error": "Arquivo de transcrição inválido"}), 400
+    if not os.path.isfile(candidate):
+        return jsonify({"error": "Transcrição não encontrada"}), 404
+    return send_file(candidate, as_attachment=False, download_name=os.path.basename(candidate))
+
+
 @app.route("/api/editorial/backup", methods=["POST"])
 def api_editorial_backup():
     try:
@@ -862,8 +894,10 @@ def api_source_import():
             )
             result_path = os.path.abspath(result["path"])
             display_path = os.path.relpath(result_path, WORKSPACE_DIR) if _is_under(result_path, WORKSPACE_DIR) else result_path
+            project_id = create_project(result.get("title") or os.path.basename(result_path), result_path)
             transcription = None
             subtitle_path = None
+            transcript_archive = None
             if auto_transcribe:
                 gemini_configured = (
                     str(settings.get("ai_backend", "gemini") or "gemini").lower() in {"auto", "gemini"}
@@ -884,8 +918,28 @@ def api_source_import():
                         cancel_check=check_current_task_cancel,
                     )
                     transcript_files = _save_transcription_artifacts(result_path, transcription)
+                    transcript_source = "public_subtitle" if subtitle_path else str(transcription.get("source", "automatic"))
+                    transcript_archive = archive_transcription(
+                        transcription,
+                        source_video=result_path,
+                        source=transcript_source,
+                        source_artifact=subtitle_path or "",
+                        project_id=project_id,
+                        duration=result.get("duration"),
+                        archive_name=result.get("title") or os.path.basename(result_path),
+                    )
+                    save_transcription(
+                        project_id,
+                        transcription.get("segments", []),
+                        transcription.get("full_text", ""),
+                        transcription.get("language", "pt"),
+                        transcript_source,
+                    )
+                    transcription["quality"] = transcript_archive.get("quality", {})
+                    transcription["archive"] = transcript_archive
+                    transcript_files = {**transcript_files, "archive": transcript_archive}
                     emit_progress(
-                        f"[Transcrição] {transcription.get('segment_count', len(transcription.get('segments', [])))} segmentos prontos; a seleção poderá preservar pergunta e resposta.",
+                        f"[Transcrição] {transcription.get('segment_count', len(transcription.get('segments', [])))} segmentos prontos; arquivo persistente salvo para validação.",
                         "success",
                     )
                 except Exception as transcript_exc:
@@ -901,6 +955,8 @@ def api_source_import():
                 "destination_dir": destination,
                 "transcription": transcription,
                 "transcription_files": transcript_files,
+                "transcription_archive": transcript_archive,
+                "project_id": project_id,
                 "subtitle_path": subtitle_path,
                 "auto_transcribe": auto_transcribe,
             }

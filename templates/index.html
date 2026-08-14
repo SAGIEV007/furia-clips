@@ -160,8 +160,9 @@
 
                 <div class="setting-group ai-config" id="geminiConfig" style="display:none">
                     <label>Gemini API Key <span class="setting-hint">(opcional)</span></label>
-                    <input type="password" id="settingGeminiKey" class="setting-input" placeholder="Opcional — deixe vazio para usar o modo local">
-                    <small class="setting-hint">Só é necessária para análise online. Sem chave, o app tenta legendas públicas e depois Whisper CPU. Disponível no <a href="https://aistudio.google.com/apikeys" target="_blank">Google AI Studio</a>.</small>
+                    <input type="password" id="settingGeminiKey" class="setting-input" placeholder="Cole a chave apenas nesta instalação; ela não será exibida nem publicada">
+                    <div class="ai-key-status" id="geminiKeyStatus" aria-live="polite">Verificando se existe uma chave nesta instalação...</div>
+                    <small class="setting-hint">A chave é necessária para análise online. Sem ela, o app tenta legendas públicas e depois Whisper CPU. Ela deve ficar somente no `.env` ou banco local, nunca no GitHub. Disponível no <a href="https://aistudio.google.com/apikeys" target="_blank">Google AI Studio</a>.</small>
                     <label for="settingGeminiModel">Modelo Gemini <span class="setting-hint">(avançado)</span></label>
                     <input type="text" id="settingGeminiModel" class="setting-input" value="gemini-2.5-flash" placeholder="gemini-2.5-flash" autocomplete="off">
                     <small class="setting-hint">Usado tanto na análise multimodal quanto no ranking dos cortes. Mantenha o padrão salvo, salvo se sua conta tiver outro modelo compatível.</small>
@@ -445,6 +446,10 @@
                     <input id="editorialRestoreInput" type="file" accept=".zip,application/zip" hidden>
                 </div>
             </div>
+            <div class="transcript-archive-card" id="transcriptArchiveCard" aria-live="polite">
+                <div class="transcript-archive-head"><span class="material-icons-round">description</span><div><strong>Transcrições persistentes</strong><p id="transcriptArchiveSummary">As transcrições usadas pelo programa aparecerão aqui para validação.</p></div><button class="btn btn-sm" id="btnRefreshTranscriptArchive" type="button"><span class="material-icons-round">refresh</span> Atualizar</button></div>
+                <div class="transcript-archive-list" id="transcriptArchiveList"></div>
+            </div>
             <div class="operation-jobs" id="operationJobs" aria-live="polite"></div>
             <div class="project-library" aria-label="Biblioteca de lives recentes">
                 <div class="project-library-head"><h4><span class="material-icons-round">video_library</span> Lives recentes</h4><span id="projectLibrarySummary">Carregando projetos...</span></div>
@@ -509,6 +514,11 @@
                 </button>
             </div>
 
+            <div class="context-review-panel" id="contextReviewPanel" hidden aria-live="polite">
+                <div class="context-review-head"><div><span class="review-eyebrow"><span class="material-icons-round">fact_check</span> Revisão guiada</span><h4 id="contextReviewTitle">Revisão de contexto do clip</h4><p id="contextReviewMeta"></p></div><button class="btn btn-sm btn-icon" type="button" title="Fechar revisão" onclick="closeContextReview()"><span class="material-icons-round">close</span></button></div>
+                <div class="context-review-grid"><article><h5>Trecho usado no clip</h5><pre id="contextReviewExcerpt"></pre></article><article><h5>Transcrição completa disponível</h5><pre id="contextReviewFull"></pre></article></div>
+                <p class="context-review-help">Revisar contexto não aprova nem rejeita o corte. Ele salva o estado como “revisão necessária” e mostra o trecho junto do contexto completo para sua decisão.</p>
+            </div>
             <div class="results-grid" id="resultsGrid">
                 <!-- Results loaded dynamically -->
             </div>

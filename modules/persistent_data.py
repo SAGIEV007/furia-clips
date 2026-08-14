@@ -10,7 +10,7 @@ import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 
-from config import DB_PATH, PERSISTENT_BACKUPS_DIR, PERSISTENT_SCHEMA_PATH, get_persistent_data_status
+from config import DB_PATH, PERSISTENT_BACKUPS_DIR, PERSISTENT_SCHEMA_PATH, PERSISTENT_TRANSCRIPTS_DIR, get_persistent_data_status
 
 BACKUP_FORMAT_VERSION = 1
 MAX_RESTORE_BYTES = 2 * 1024 * 1024 * 1024  # 2 GB of uncompressed SQLite data.
@@ -62,7 +62,8 @@ def _validate_sqlite_database(path: str):
 def get_editorial_data_summary():
     """Return a non-sensitive, UI-ready summary of persistent editorial storage."""
     status = get_persistent_data_status()
-    summary = {**status, "integrity": "missing", "projects": 0, "clips": 0, "feedback_events": 0}
+    summary = {**status, "integrity": "missing", "projects": 0, "clips": 0, "feedback_events": 0, "archived_transcripts": 0}
+
     if not os.path.isfile(DB_PATH):
         return summary
     try:
@@ -74,6 +75,7 @@ def get_editorial_data_summary():
                 "projects": connection.execute("SELECT COUNT(*) FROM projects").fetchone()[0],
                 "clips": connection.execute("SELECT COUNT(*) FROM clips").fetchone()[0],
                 "feedback_events": connection.execute("SELECT COUNT(*) FROM clip_feedback").fetchone()[0],
+                "archived_transcripts": len(list(Path(PERSISTENT_TRANSCRIPTS_DIR).glob("*/metadata.json"))),
             })
         finally:
             connection.close()
@@ -102,6 +104,15 @@ def create_editorial_backup():
         }
         with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
             archive.write(snapshot_path, arcname=manifest["database_file"])
+            transcript_count = 0
+            transcript_root = Path(PERSISTENT_TRANSCRIPTS_DIR)
+            if transcript_root.is_dir():
+                for transcript_file in transcript_root.rglob("*"):
+                    if transcript_file.is_file() and not transcript_file.is_symlink():
+                        relative = transcript_file.relative_to(transcript_root).as_posix()
+                        archive.write(transcript_file, arcname=f"transcripts/{relative}")
+                        transcript_count += 1
+            manifest["transcript_file_count"] = transcript_count
             archive.writestr("manifest.json", json.dumps(manifest, ensure_ascii=False, indent=2))
             if os.path.isfile(PERSISTENT_SCHEMA_PATH):
                 archive.write(PERSISTENT_SCHEMA_PATH, arcname="schema_version.json")
@@ -162,6 +173,23 @@ def restore_editorial_backup(archive_path: str):
             replacement = destination_path.with_suffix(".restore.sqlite3")
             _sqlite_snapshot(candidate, str(replacement))
             os.replace(replacement, destination_path)
+
+            transcript_root = Path(PERSISTENT_TRANSCRIPTS_DIR).resolve()
+            transcript_root.mkdir(parents=True, exist_ok=True)
+            for member in archive.infolist():
+                if not member.filename.startswith("transcripts/") or member.is_dir():
+                    continue
+                relative = Path(member.filename.removeprefix("transcripts/") )
+                if relative.is_absolute() or ".." in relative.parts or relative.name not in {"transcript.txt", "transcript.json", "metadata.json"}:
+                    raise PersistentDataError("O backup contém um arquivo de transcrição inválido.")
+                target = (transcript_root / relative).resolve()
+                if os.path.commonpath([str(transcript_root), str(target)]) != str(transcript_root):
+                    raise PersistentDataError("O backup contém um caminho de transcrição inseguro.")
+                target.parent.mkdir(parents=True, exist_ok=True)
+                with archive.open(member, "r") as source, open(target, "wb") as destination_file:
+                    destination_file.write(source.read(MAX_RESTORE_BYTES + 1))
+                if target.stat().st_size > MAX_RESTORE_BYTES:
+                    raise PersistentDataError("Uma transcrição do backup excede o tamanho permitido.")
 
     return {
         "restored": True,

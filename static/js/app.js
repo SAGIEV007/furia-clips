@@ -19,6 +19,9 @@ const state = {
     operationJobs: [],
     operationProjects: [],
     manualTranscript: null,
+    manualTranscriptVideo: "",
+    transcriptArchive: null,
+    lastReviewAction: null,
     sourceUrl: "",
     sourceDownloadDir: "",
     sourceMaxHeight: 1080,
@@ -128,17 +131,25 @@ function handleStatusUpdate(data) {
             break;
         case "transcribe_complete":
             hideProgressBar();
-            if (data.data) state.manualTranscript = data.data;
+            if (data.data) {
+                state.manualTranscript = data.data;
+                state.manualTranscriptVideo = state.selectedVideo || "";
+                hydrateTranscriptEditor(data.data, data.data.archive_metadata || data.data.archive);
+            }
             showToast("Transcricao concluida!", "success");
             break;
         case "source_import_complete":
             hideProgressBar();
             state.sourceDownloadDir = data.data.destination_dir || state.sourceDownloadDir;
+            state.transcriptArchive = data.data.transcription_archive || data.data.transcription_files?.archive || null;
             if (data.data.transcription) {
                 state.manualTranscript = data.data.transcription;
+                state.manualTranscriptVideo = data.data.path || data.data.absolute_path || "";
+                hydrateTranscriptEditor(data.data.transcription, state.transcriptArchive);
                 const transcriptCount = data.data.transcription.segment_count || data.data.transcription.segments?.length || 0;
-                const transcriptFile = data.data.transcription_files?.text ? ` TXT salvo em ${data.data.transcription_files.text}` : "";
-                showSourceStatus(`Fonte importada e transcrição automática pronta: ${transcriptCount} segmentos.${transcriptFile}`, "success");
+                const transcriptFile = data.data.transcription_archive?.text || data.data.transcription_files?.archive?.text || data.data.transcription_files?.text;
+                const transcriptLabel = transcriptFile ? ` Arquivo persistente: ${transcriptFile}` : "";
+                showSourceStatus(`Fonte importada e transcrição automática pronta: ${transcriptCount} segmentos.${transcriptLabel}`, "success");
             } else {
                 showSourceStatus("Fonte importada; a transcrição automática não ficou disponível. Você pode clicar em Gerar do vídeo.", "warning");
             }
@@ -303,6 +314,7 @@ document.getElementById("btnCancelOperation")?.addEventListener("click", request
 document.getElementById("btnRefreshOperations")?.addEventListener("click", loadOperationDashboard);
 
 document.getElementById("btnEditorialBackup")?.addEventListener("click", requestEditorialBackup);
+document.getElementById("btnRefreshTranscriptArchive")?.addEventListener("click", loadTranscriptArchive);
 document.getElementById("btnEditorialRestore")?.addEventListener("click", () => document.getElementById("editorialRestoreInput")?.click());
 document.getElementById("editorialRestoreInput")?.addEventListener("change", restoreEditorialBackup);
 
@@ -548,6 +560,47 @@ async function loadEditorialData() {
     }
 }
 
+function transcriptQualityLabel(quality = {}) {
+    const label = quality.quality || "não validada";
+    const score = Number(quality.score);
+    return Number.isFinite(score) ? `${label} · ${score}/100` : label;
+}
+
+function renderTranscriptArchive(items = []) {
+    const list = document.getElementById("transcriptArchiveList");
+    const summary = document.getElementById("transcriptArchiveSummary");
+    if (!list || !summary) return;
+    if (!items.length) {
+        summary.textContent = "Nenhuma transcrição persistente foi arquivada ainda.";
+        list.innerHTML = "";
+        return;
+    }
+    summary.textContent = `${items.length} transcrição(ões) arquivada(s) fora da pasta do programa.`;
+    list.innerHTML = items.map(item => {
+        const quality = item.quality || {};
+        const warning = quality.quality !== "structurally_ok";
+        const source = escapeHtml(item.source || "automática");
+        const project = item.project_id ? `Projeto #${item.project_id}` : "sem projeto";
+        return `<div class="transcript-archive-item">
+            <div class="transcript-archive-meta"><strong>${escapeHtml(item.source_video || item.relative_dir || "Transcrição")}</strong><small>${source} · ${project} · ${Number(item.valid_segment_count || 0)} segmentos válidos</small></div>
+            <span class="transcript-quality ${warning ? "warning" : ""}">${escapeHtml(transcriptQualityLabel(quality))}</span>
+            <div class="transcript-archive-actions"><a class="btn btn-sm" href="${escapeHtml(item.download_text || "#")}" target="_blank" rel="noopener">TXT</a><a class="btn btn-sm" href="${escapeHtml(item.download_json || "#")}" target="_blank" rel="noopener">JSON</a></div>
+        </div>`;
+    }).join("");
+}
+
+async function loadTranscriptArchive() {
+    try {
+        const response = await fetch("/api/editorial/transcripts?limit=100");
+        const payload = await parseJsonResponse(response, "Arquivo de transcrições");
+        if (!response.ok) throw new Error(payload.error || "Não foi possível carregar as transcrições arquivadas");
+        renderTranscriptArchive(payload.transcripts || []);
+    } catch (error) {
+        const summary = document.getElementById("transcriptArchiveSummary");
+        if (summary) summary.textContent = `Arquivo de transcrições indisponível: ${error.message}`;
+    }
+}
+
 async function requestEditorialBackup() {
     const button = document.getElementById("btnEditorialBackup");
     if (button) button.disabled = true;
@@ -606,6 +659,7 @@ async function loadOperationDashboard() {
         loadEditorialData();
         loadDailyEditorialGoal();
         loadProjectLibrary();
+        loadTranscriptArchive();
         const active = state.operationJobs.find((job) => ["queued", "running", "cancel_requested"].includes(job.state));
         if (active) handleJobUpdate(active, { refreshDashboard: false });
     } catch (error) {
@@ -765,8 +819,11 @@ function selectVideo(item, sourceElement = null) {
     const changedVideo = state.selectedVideo && state.selectedVideo !== item.path;
     state.selectedVideo = item.path;
     state.selectedVideoName = item.name;
-    if (changedVideo) {
+    if (changedVideo && state.manualTranscriptVideo !== item.path) {
         state.manualTranscript = null;
+        state.transcriptArchive = null;
+        const input = document.getElementById("manualTranscriptInput");
+        if (input) input.value = "";
         const status = document.getElementById("transcriptStatus");
         if (status) {
             status.textContent = "Nenhuma transcrição manual carregada para este vídeo.";
@@ -1281,7 +1338,9 @@ function renderReviewCommandCenter() {
     document.getElementById("reviewPendingCount").textContent = stats.pending;
     document.getElementById("reviewApprovedCount").textContent = stats.approved;
     document.getElementById("reviewNeedsReviewCount").textContent = stats.needsReview;
-    document.getElementById("reviewOverviewText").textContent = `${source} identificou ${stats.total} candidatos. Revise primeiro os que mantêm ideia, evidência e conclusão no mesmo intervalo.`;
+    const decisionLabel = { approved: "aprovado", rejected: "rejeitado", needs_review: "marcado para revisar contexto" };
+    const latestDecision = state.lastReviewAction ? ` Última decisão: ${decisionLabel[state.lastReviewAction.action] || state.lastReviewAction.action}.` : "";
+    document.getElementById("reviewOverviewText").textContent = `${source} identificou ${stats.total} candidatos. Revise primeiro os que mantêm ideia, evidência e conclusão no mesmo intervalo.${latestDecision}`;
     document.getElementById("reviewQueueText").textContent = `${stats.reviewed} de ${stats.total} revisados`;
     document.getElementById("reviewQueueFill").style.width = `${reviewedPercent}%`;
     document.getElementById("reviewLayoutSummary").innerHTML = `
@@ -1524,7 +1583,7 @@ function renderResultsGrid() {
                 </div>
                 <div class="review-actions">
                     <button class="btn btn-sm btn-success" onclick="setClipReview(${originalIndex}, 'approved')"><span class="material-icons-round">check_circle</span>Aprovar</button>
-                    <button class="btn btn-sm btn-review-context" onclick="setClipReview(${originalIndex}, 'needs_review')"><span class="material-icons-round">visibility</span>Contexto</button>
+                    <button class="btn btn-sm btn-review-context" title="Não aprova nem rejeita; abre a transcrição completa e coloca o clip na fila de revisão." onclick="openContextReview(${originalIndex})"><span class="material-icons-round">visibility</span>Revisar contexto</button>
                     <button class="btn btn-sm btn-danger" onclick="setClipReview(${originalIndex}, 'rejected')"><span class="material-icons-round">close</span>Rejeitar</button>
                 </div>
             </div>`;
@@ -1580,6 +1639,49 @@ async function previewClipBoundary(index) {
     }
 }
 
+function transcriptSegmentsForClip(clip) {
+    const allSegments = Array.isArray(state.manualTranscript?.segments) ? state.manualTranscript.segments : [];
+    const fallback = Array.isArray(clip?.transcript_segments) ? clip.transcript_segments : (Array.isArray(clip?.segments) ? clip.segments : []);
+    const segments = allSegments.length ? allSegments : fallback;
+    const start = Number(clip?.start ?? clip?.start_time ?? 0);
+    const end = Number(clip?.end ?? clip?.end_time ?? start);
+    if (!segments.length) return { full: [], excerpt: [] };
+    const excerptIndexes = [];
+    segments.forEach((segment, index) => {
+        const segmentStart = Number(segment.start || 0);
+        const segmentEnd = Number(segment.end || segmentStart);
+        if (segmentEnd >= start && segmentStart <= end) excerptIndexes.push(index);
+    });
+    if (!excerptIndexes.length) return { full: segments, excerpt: segments.slice(0, 12) };
+    const first = Math.max(0, excerptIndexes[0] - 1);
+    const last = Math.min(segments.length, excerptIndexes[excerptIndexes.length - 1] + 2);
+    return { full: segments, excerpt: segments.slice(first, last) };
+}
+
+function openContextReview(index) {
+    const clip = state.clips[index];
+    if (!clip) return;
+    setClipReview(index, "needs_review");
+    const panel = document.getElementById("contextReviewPanel");
+    const title = document.getElementById("contextReviewTitle");
+    const meta = document.getElementById("contextReviewMeta");
+    const excerpt = document.getElementById("contextReviewExcerpt");
+    const full = document.getElementById("contextReviewFull");
+    if (!panel || !title || !meta || !excerpt || !full) return;
+    const transcript = transcriptSegmentsForClip(clip);
+    title.textContent = "Revisão de contexto do clip";
+    meta.textContent = `${clip.text || "Trecho sem transcrição"} · ${Number(clip.start || 0).toFixed(1)}s–${Number(clip.end || 0).toFixed(1)}s`;
+    excerpt.textContent = transcript.excerpt.length ? formatTranscriptForEditor({ segments: transcript.excerpt }) : "O trecho não possui transcrição timestampada disponível.";
+    full.textContent = transcript.full.length ? formatTranscriptForEditor({ segments: transcript.full }) : "A transcrição completa ainda não foi arquivada para este vídeo.";
+    panel.hidden = false;
+    panel.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function closeContextReview() {
+    const panel = document.getElementById("contextReviewPanel");
+    if (panel) panel.hidden = true;
+}
+
 async function setClipReview(index, action) {
     const clip = state.clips[index];
     if (!clip) return;
@@ -1601,6 +1703,9 @@ async function setClipReview(index, action) {
             rejected: "Clip rejeitado",
             needs_review: "Clip marcado para revisão de contexto",
         };
+        state.lastReviewAction = { action, clip_id: clip.clip_id || null, at: new Date().toISOString() };
+        renderReviewCommandCenter();
+        renderResultsGrid();
         showToast(messages[action] || "Feedback salvo", action === "approved" ? "success" : "warning");
         loadEditorialLearning();
     } catch (error) {
@@ -1749,6 +1854,33 @@ async function parseJsonResponse(response, context = "servidor") {
     } catch (error) {
         const preview = raw.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 180);
         throw new Error(`${context}: resposta inválida do servidor (HTTP ${response.status})${preview ? ` — ${preview}` : ""}`);
+    }
+}
+
+function formatTranscriptForEditor(transcription) {
+    const segments = Array.isArray(transcription?.segments) ? transcription.segments : [];
+    return segments.map(segment => {
+        const start = Number(segment.start || 0);
+        const hours = Math.floor(start / 3600).toString().padStart(2, "0");
+        const minutes = Math.floor((start % 3600) / 60).toString().padStart(2, "0");
+        const seconds = (start % 60).toFixed(3).padStart(6, "0");
+        return `${hours}:${minutes}:${seconds} ${String(segment.text || "").trim()}`.trim();
+    }).join("\n");
+}
+
+function hydrateTranscriptEditor(transcription, archive = null) {
+    state.manualTranscript = transcription;
+    state.transcriptArchive = archive || transcription?.archive_metadata || null;
+    const input = document.getElementById("manualTranscriptInput");
+    if (input) input.value = formatTranscriptForEditor(transcription);
+    const count = transcription?.segment_count || transcription?.segments?.length || 0;
+    const quality = transcription?.quality?.quality || transcription?.archive_metadata?.quality?.quality || "não validada semanticamente";
+    const qualityScore = transcription?.quality?.score || transcription?.archive_metadata?.quality?.score;
+    const suffix = Number.isFinite(Number(qualityScore)) ? ` Qualidade estrutural: ${qualityScore}/100 (${quality}).` : ` Qualidade: ${quality}.`;
+    const status = document.getElementById("transcriptStatus");
+    if (status) {
+        status.textContent = `Transcrição carregada na aba: ${count} segmentos.${suffix}`;
+        status.className = `source-status ${quality === "structurally_ok" ? "success" : "warning"}`;
     }
 }
 
@@ -2003,6 +2135,12 @@ function applySettings() {
         updateAiConfigVisibility(s.ai_backend);
     }
     if (s.ollama_model) document.getElementById("settingOllamaModel").value = s.ollama_model;
+    const geminiStatus = document.getElementById("geminiKeyStatus");
+    if (geminiStatus) {
+        const configured = Boolean(s.gemini_api_key_configured || s.gemini_api_key);
+        geminiStatus.textContent = configured ? "Gemini configurado nesta instalação; o valor permanece oculto." : "Gemini sem chave nesta instalação; o app usará legenda pública ou fallback local.";
+        geminiStatus.className = `ai-key-status ${configured ? "configured" : "missing"}`;
+    }
     if (s.gemini_api_key) document.getElementById("settingGeminiKey").value = s.gemini_api_key;
     if (s.gemini_model) document.getElementById("settingGeminiModel").value = s.gemini_model;
     if (s.claude_api_key) document.getElementById("settingClaudeKey").value = s.claude_api_key;
@@ -2061,7 +2199,9 @@ document.getElementById("settingAiBackend").addEventListener("change", (e) => {
 });
 
 document.getElementById("btnSaveSettings").addEventListener("click", async () => {
-    const settings = {
+            const typedGeminiKey = document.getElementById("settingGeminiKey").value.trim();
+        const settings = {
+
         whisper_model: document.getElementById("settingWhisperModel").value,
         cut_method: document.getElementById("settingCutMethod").value,
         cut_duration: parseInt(document.getElementById("settingCutDuration").value),
@@ -2075,7 +2215,9 @@ document.getElementById("btnSaveSettings").addEventListener("click", async () =>
         ai_backend: document.getElementById("settingAiBackend").value,
         ollama_model: document.getElementById("settingOllamaModel").value,
         gemini_model: document.getElementById("settingGeminiModel").value.trim(),
-        gemini_api_key: document.getElementById("settingGeminiKey").value,
+                    // Campo vazio preserva a chave local já configurada; nunca envia um placeholder mascarado.
+            ...(typedGeminiKey ? { gemini_api_key: typedGeminiKey } : {}),
+
         claude_api_key: document.getElementById("settingClaudeKey").value,
         output_dir: state.outputDir,
         source_download_dir: state.sourceDownloadDir,
@@ -2090,7 +2232,8 @@ document.getElementById("btnSaveSettings").addEventListener("click", async () =>
         });
         if (res.ok) {
             showToast("Configuracoes salvas!", "success");
-            state.settings = settings;
+            state.settings = { ...state.settings, ...settings, gemini_api_key_configured: Boolean(typedGeminiKey || state.settings.gemini_api_key_configured) };
+            applySettings();
         }
     } catch (e) {
         showToast("Erro ao salvar configuracoes", "error");
@@ -2286,6 +2429,7 @@ document.addEventListener("keydown", (e) => {
 document.addEventListener("DOMContentLoaded", () => {
     loadSettings();
     loadMediaFiles();
+    loadTranscriptArchive();
     recoverActiveJobs();
     // Check Ollama status on load
     socket.emit("check_ollama");
