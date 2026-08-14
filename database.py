@@ -713,11 +713,13 @@ def get_feedback_calibration(min_samples=12, min_per_outcome=3):
 
     The result becomes eligible only when there are enough approved and rejected
     clips. Pending and context-review items are intentionally excluded because
-    they are not final editorial verdicts.
+    they are not final editorial verdicts. Legacy clips may not contain
+    ``score_factors``; in that case we expose a bounded duration signal derived
+    from the reviewed intervals instead of pretending missing factors exist.
     """
     conn = get_db()
     rows = conn.execute(
-        """SELECT viral_score, score_factors, review_status
+        """SELECT viral_score, duration, score_factors, review_status
            FROM clips
            WHERE review_status IN ('approved', 'rejected')"""
     ).fetchall()
@@ -732,6 +734,7 @@ def get_feedback_calibration(min_samples=12, min_per_outcome=3):
             factors = {}
         groups[item["review_status"]].append({
             "score": float(item.get("viral_score") or 0),
+            "duration": max(0.0, float(item.get("duration") or 0)),
             "factors": {
                 key: float(value)
                 for key, value in factors.items()
@@ -763,6 +766,19 @@ def get_feedback_calibration(min_samples=12, min_per_outcome=3):
         for factor in sorted(common_factors)
     }
 
+    approved_duration = mean([item["duration"] for item in approved])
+    rejected_duration = mean([item["duration"] for item in rejected])
+    duration_gap = round(rejected_duration - approved_duration, 2)
+    # Duration is a preference only. Require a meaningful gap and cap the
+    # influence so an old, small editorial sample cannot override context.
+    duration_signal_usable = bool(
+        eligible and approved and rejected and abs(duration_gap) >= 3.0
+    )
+    if duration_signal_usable:
+        factor_deltas["duration_fit"] = round(
+            max(-25.0, min(25.0, duration_gap * 2.0)), 2
+        )
+
     return {
         "eligible": eligible,
         "sample_size": sample_size,
@@ -775,6 +791,19 @@ def get_feedback_calibration(min_samples=12, min_per_outcome=3):
             2,
         ),
         "factor_deltas": factor_deltas,
+        "duration_signal": {
+            "usable": duration_signal_usable,
+            "approved_mean_seconds": round(approved_duration, 2),
+            "rejected_mean_seconds": round(rejected_duration, 2),
+            "gap_seconds": duration_gap,
+            "interpretation": (
+                "aprovados tendem a ser mais curtos, sem transformar duração em limite"
+                if duration_signal_usable and duration_gap > 0
+                else "aprovados tendem a ser mais longos nesta amostra; usar apenas como sinal fraco"
+                if duration_signal_usable
+                else "amostra insuficiente ou diferença pequena para orientar duração"
+            ),
+        },
     }
 
 

@@ -566,9 +566,11 @@ def api_batch_rank():
         or data.get("campaign_hub_account")
         or (campaign_hub_snapshot or {}).get("default_account", "")
     )
+    feedback_calibration = get_feedback_calibration()
     ranker = ViralRanker(
         channel_context=str(data.get("channel_context") or ""),
         editorial_profile=str(data.get("editorial_profile") or "renan_santos_politics"),
+        feedback_calibration=feedback_calibration,
         campaign_hub_snapshot=campaign_hub_snapshot,
         campaign_hub_account=campaign_hub_account,
     )
@@ -2156,9 +2158,11 @@ def api_process_complete():
                     f"[Campaign Hub] Priors locais carregados para {campaign_hub_account or 'conta padrão'}; impacto limitado e explicável.",
                     "info",
                 )
+            feedback_calibration = get_feedback_calibration()
             ranker = ViralRanker(
                 channel_context=settings.get("channel_context", ""),
                 editorial_profile=settings.get("editorial_profile", "renan_santos_politics"),
+                feedback_calibration=feedback_calibration,
                 campaign_hub_snapshot=campaign_hub_snapshot,
                 campaign_hub_account=campaign_hub_account,
             )
