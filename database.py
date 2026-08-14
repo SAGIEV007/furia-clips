@@ -110,6 +110,30 @@ def init_db():
             mini_context TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
+
+        CREATE TABLE IF NOT EXISTS performance_snapshots (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            content_key TEXT NOT NULL,
+            platform TEXT NOT NULL,
+            format_id TEXT DEFAULT 'unknown',
+            published_at TIMESTAMP,
+            collected_at TIMESTAMP NOT NULL,
+            views INTEGER DEFAULT 0,
+            likes INTEGER DEFAULT 0,
+            comments INTEGER DEFAULT 0,
+            shares INTEGER DEFAULT 0,
+            saves INTEGER DEFAULT 0,
+            engagement_actions INTEGER DEFAULT 0,
+            engagement_rate REAL,
+            age_hours REAL,
+            view_velocity_per_hour REAL,
+            ranking_position INTEGER,
+            xp REAL,
+            collection_state TEXT DEFAULT 'observed',
+            source TEXT DEFAULT 'manual_or_authorized_export',
+            payload TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
     """)
 
     existing_columns = {
@@ -128,6 +152,7 @@ def init_db():
 
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_clips_editorial_key ON clips(project_id, editorial_key)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_headline_feedback_format ON headline_feedback(format_id, action)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_performance_content ON performance_snapshots(content_key, platform, collected_at)")
     missing_keys = cursor.execute(
         """SELECT clips.id, projects.source_video, clips.start_time, clips.end_time, clips.transcript
            FROM clips JOIN projects ON projects.id = clips.project_id
@@ -212,6 +237,122 @@ def get_headline_feedback_summary(limit=8):
     ]
     conn.close()
     return {"total": total, "selected": selected, "by_format": by_format, "examples": examples}
+
+
+def get_headline_learning_preferences(topic=""):
+    """Return aggregate local preferences, never the private text of prior choices."""
+    normalized_topic = str(topic or "").strip()[:80]
+    conn = get_db()
+    overall = {
+        row["format_id"]: row["count"]
+        for row in conn.execute(
+            """SELECT format_id, COUNT(*) AS count FROM headline_feedback
+               WHERE action = 'selected' GROUP BY format_id ORDER BY count DESC"""
+        ).fetchall()
+    }
+    topic_counts = {}
+    if normalized_topic:
+        topic_counts = {
+            row["format_id"]: row["count"]
+            for row in conn.execute(
+                """SELECT format_id, COUNT(*) AS count FROM headline_feedback
+                   WHERE action = 'selected' AND topic = ?
+                   GROUP BY format_id ORDER BY count DESC""",
+                (normalized_topic,),
+            ).fetchall()
+        }
+    selected = conn.execute(
+        "SELECT COUNT(*) AS count FROM headline_feedback WHERE action = 'selected'"
+    ).fetchone()["count"]
+    conn.close()
+    return {
+        "selected_count": int(selected or 0),
+        "overall_by_format": overall,
+        "topic_by_format": topic_counts,
+    }
+
+
+def save_performance_snapshot(snapshot, project_id=None):
+    """Persist one normalized, user-authorized performance observation."""
+    conn = get_db()
+    conn.execute(
+        """INSERT INTO performance_snapshots
+           (content_key, platform, format_id, published_at, collected_at, views,
+            likes, comments, shares, saves, engagement_actions, engagement_rate,
+            age_hours, view_velocity_per_hour, ranking_position, xp,
+            collection_state, source, payload)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (
+            str(snapshot.get("content_key", ""))[:180],
+            str(snapshot.get("platform", "other"))[:24],
+            str(snapshot.get("format_id", "unknown"))[:40],
+            snapshot.get("published_at"),
+            snapshot.get("collected_at"),
+            int(snapshot.get("views") or 0),
+            int(snapshot.get("likes") or 0),
+            int(snapshot.get("comments") or 0),
+            int(snapshot.get("shares") or 0),
+            int(snapshot.get("saves") or 0),
+            int(snapshot.get("engagement_actions") or 0),
+            snapshot.get("engagement_rate"),
+            snapshot.get("age_hours"),
+            snapshot.get("view_velocity_per_hour"),
+            snapshot.get("ranking_position"),
+            snapshot.get("xp"),
+            str(snapshot.get("collection_state", "observed"))[:40],
+            str(snapshot.get("source", "manual_or_authorized_export"))[:80],
+            json.dumps(snapshot, ensure_ascii=False),
+        ),
+    )
+    snapshot_id = conn.execute("SELECT last_insert_rowid() AS id").fetchone()["id"]
+    conn.commit()
+    conn.close()
+    return int(snapshot_id)
+
+
+def get_performance_snapshots(content_key=None, limit=100):
+    conn = get_db()
+    params = []
+    query = "SELECT * FROM performance_snapshots"
+    if content_key:
+        query += " WHERE content_key = ?"
+        params.append(str(content_key)[:180])
+    query += " ORDER BY collected_at DESC, id DESC LIMIT ?"
+    params.append(max(1, min(int(limit), 500)))
+    rows = [dict(row) for row in conn.execute(query, params).fetchall()]
+    conn.close()
+    return rows
+
+
+def get_performance_summary(format_id=None):
+    conn = get_db()
+    params = []
+    where = ""
+    if format_id:
+        where = " WHERE format_id = ?"
+        params.append(str(format_id)[:40])
+    row = conn.execute(
+        f"""SELECT COUNT(*) AS snapshots, COUNT(DISTINCT content_key) AS contents,
+                   SUM(views) AS views, AVG(engagement_rate) AS avg_engagement_rate,
+                   AVG(view_velocity_per_hour) AS avg_view_velocity_per_hour
+            FROM performance_snapshots{where}""",
+        params,
+    ).fetchone()
+    latest = conn.execute(
+        f"""SELECT platform, format_id, collection_state, collected_at
+            FROM performance_snapshots{where}
+            ORDER BY collected_at DESC, id DESC LIMIT 1""",
+        params,
+    ).fetchone()
+    conn.close()
+    return {
+        "snapshots": int(row["snapshots"] or 0),
+        "contents": int(row["contents"] or 0),
+        "views": int(row["views"] or 0),
+        "avg_engagement_rate": round(float(row["avg_engagement_rate"]), 6) if row["avg_engagement_rate"] is not None else None,
+        "avg_view_velocity_per_hour": round(float(row["avg_view_velocity_per_hour"]), 3) if row["avg_view_velocity_per_hour"] is not None else None,
+        "latest": dict(latest) if latest else None,
+    }
 
 
 def get_all_settings():

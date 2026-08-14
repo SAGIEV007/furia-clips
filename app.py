@@ -61,12 +61,14 @@ from database import (
     save_transcription, get_transcription, log_action,
     update_clip_editorial_score, save_clip_feedback, get_clip_feedback,
     update_clip_review_status, get_feedback_calibration, get_daily_editorial_progress,
-    save_headline_feedback, get_headline_feedback_summary
+    save_headline_feedback, get_headline_feedback_summary, get_headline_learning_preferences,
+    save_performance_snapshot, get_performance_snapshots, get_performance_summary
 )
 from modules.security import UnsafePathError, safe_workspace_path, unique_storage_name
 from modules.native_dialogs import DialogError, choose_path, open_local_path
 from modules.transcript_parser import parse_transcript_text, normalize_segment_payload, parse_timestamp
 from modules.clip_adjustments import adjust_clip_bounds
+from modules.performance_metrics import normalize_snapshot, metric_labels
 from modules.transcript_archive import archive_transcription, list_archived_transcriptions, validate_transcription
 from modules.source_ingest import (
     SourceIngestError,
@@ -1625,6 +1627,38 @@ def api_generate_seo():
     return jsonify({"success": True, "message": "Geracao de SEO iniciada"})
 
 
+@app.route("/api/performance/snapshots", methods=["POST"])
+def api_save_performance_snapshot():
+    """Persist metrics supplied by an authorized export or manual observation."""
+    data = request.get_json(silent=True) or {}
+    items = data.get("snapshots", data)
+    if isinstance(items, dict):
+        items = [items]
+    if not isinstance(items, list) or not items:
+        return jsonify({"success": False, "error": "Envie um snapshot ou uma lista de snapshots."}), 400
+    saved = []
+    try:
+        for item in items[:200]:
+            normalized = normalize_snapshot(item)
+            snapshot_id = save_performance_snapshot(normalized)
+            saved.append({"id": snapshot_id, **normalized, "labels": metric_labels(normalized)})
+        return jsonify({"success": True, "saved": saved, "summary": get_performance_summary()})
+    except ValueError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
+    except Exception as exc:
+        return jsonify({"success": False, "error": f"Não foi possível salvar a métrica: {exc}"}), 500
+
+
+@app.route("/api/performance/summary", methods=["GET"])
+def api_performance_summary():
+    format_id = request.args.get("format_id", "")
+    return jsonify({
+        "success": True,
+        "summary": get_performance_summary(format_id=format_id or None),
+        "snapshots": get_performance_snapshots(limit=50),
+    })
+
+
 @app.route("/api/headline-studio/analyze", methods=["POST"])
 def api_analyze_headline_studio():
     """Generate short artwork copy from an imported finished-cut transcript."""
@@ -1651,6 +1685,7 @@ def api_analyze_headline_studio():
             mini_context=mini_context,
             preferred_format=preferred_format,
             ai_backend=ai,
+            editorial_learning=get_headline_learning_preferences(),
         )
         return jsonify({"success": True, "studio": result})
     except ValueError as exc:
