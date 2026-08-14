@@ -69,11 +69,6 @@ class EditorialRankerTests(unittest.TestCase):
         self.assertLessEqual(len(ranked), 2)
         self.assertTrue(any("diversity" in clip["factors"] for clip in ranked))
 
-
-if __name__ == "__main__":
-    unittest.main()
-
-
     def test_same_topic_in_different_windows_receives_diversity_penalty(self):
         clips = [
             {
@@ -90,12 +85,18 @@ if __name__ == "__main__":
             },
         ]
         ranked = self.ranker.rank_clips(clips)
-        tax_clips = [clip for clip in ranked if "tributaria" in clip.get("topic_signature", "")]
-        security_clips = [clip for clip in ranked if "seguranca" in clip.get("topic_signature", "")]
+        tax_clips = [
+            clip for clip in ranked
+            if "empresa" in clip.get("text", "").lower()
+            and "imposto" in clip.get("text", "").lower()
+        ]
+        security_clips = [
+            clip for clip in ranked
+            if "segurança" in clip.get("text", "").lower()
+        ]
         self.assertLessEqual(len(tax_clips), 2)
         self.assertTrue(any(clip.get("diversity_penalty", 0) > 0 for clip in tax_clips))
         self.assertEqual(len(security_clips), 1)
-
 
     def test_cliffhanger_is_labeled_and_scores_below_equivalent_conclusion(self):
         cliffhanger = self.ranker.score_clip({
@@ -110,7 +111,6 @@ if __name__ == "__main__":
         self.assertEqual(conclusion["closure_type"], "conclusion")
         self.assertLess(cliffhanger["factors"]["completeness"], conclusion["factors"]["completeness"])
 
-
     def test_argument_structure_rewards_premise_reason_and_conclusion(self):
         argument = self.ranker.score_clip({
             "start": 0, "end": 35, "duration": 35,
@@ -122,3 +122,20 @@ if __name__ == "__main__":
         })
         self.assertGreater(argument["factors"]["argument_structure"], isolated["factors"]["argument_structure"])
         self.assertIn("argument_structure", argument["factors"])
+
+    def test_explicit_external_evidence_preserves_composition(self):
+        result = self.ranker.score_clip({
+            "start": 0,
+            "end": 42,
+            "duration": 42,
+            "text": "O vídeo mostra a prova e depois eu explico o que aconteceu.",
+            "visual_format": "evidencia_externa",
+        })
+        self.assertEqual(result["visual_format"], "evidencia_externa")
+        self.assertTrue(result["preserve_composition"])
+        self.assertEqual(result["reframe_policy"], "preservar_composicao")
+        self.assertTrue(result["review_flags"]["preserve_composition"])
+
+
+if __name__ == "__main__":
+    unittest.main()
