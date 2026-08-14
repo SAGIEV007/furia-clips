@@ -137,11 +137,36 @@ def _safe_member(archive: zipfile.ZipFile, member_name: str):
     return info
 
 
+def _read_or_infer_manifest(archive: zipfile.ZipFile):
+    """Read a native manifest or recognize a safe manual editorial export.
+
+    A manual export is accepted only when it has the canonical database member;
+    the SQLite integrity and required-table checks still run before replacement.
+    This supports user-selected folders copied from FuriaClipsData without
+    weakening path validation or allowing arbitrary archives.
+    """
+    try:
+        manifest = json.loads(archive.read("manifest.json").decode("utf-8"))
+    except (KeyError, UnicodeDecodeError, json.JSONDecodeError):
+        if "database/editorial_learning.sqlite3" not in archive.namelist():
+            raise PersistentDataError("O backup não possui manifesto válido nem banco editorial canônico.")
+        return {
+            "format": "furia-clips-editorial-backup",
+            "format_version": 0,
+            "manual_import": True,
+        }
+    if not isinstance(manifest, dict) or manifest.get("format") != "furia-clips-editorial-backup":
+        raise PersistentDataError("Este ZIP não foi criado pelo backup editorial do Furia Clips.")
+    return manifest
+
+
 def restore_editorial_backup(archive_path: str):
     """Validate a backup and atomically replace the persistent database.
 
-    The current database is backed up first. Callers must ensure no processing is
-    running before invoking this function.
+    The current database is backed up first. Callers must ensure no processing
+    is running before invoking this function. Native backups include a
+    manifest; manual exports with the canonical database path are also accepted
+    after the same SQLite, path and transcript validation.
     """
     if not archive_path or not os.path.isfile(archive_path):
         raise PersistentDataError("Arquivo de backup não encontrado.")
@@ -150,12 +175,7 @@ def restore_editorial_backup(archive_path: str):
 
     with zipfile.ZipFile(archive_path, "r") as archive:
         info = _safe_member(archive, "database/editorial_learning.sqlite3")
-        try:
-            manifest = json.loads(archive.read("manifest.json").decode("utf-8"))
-        except (KeyError, UnicodeDecodeError, json.JSONDecodeError) as exc:
-            raise PersistentDataError("O backup não possui manifesto válido.") from exc
-        if manifest.get("format") != "furia-clips-editorial-backup":
-            raise PersistentDataError("Este ZIP não foi criado pelo backup editorial do Furia Clips.")
+        manifest = _read_or_infer_manifest(archive)
 
         with tempfile.TemporaryDirectory(prefix="furia-restore-") as temp_dir:
             candidate = os.path.join(temp_dir, "editorial_learning.sqlite3")
@@ -193,6 +213,7 @@ def restore_editorial_backup(archive_path: str):
 
     return {
         "restored": True,
+        "backup_kind": "manual_import" if manifest.get("manual_import") else "native",
         "pre_restore_backup": pre_restore,
         "summary": get_editorial_data_summary(),
     }

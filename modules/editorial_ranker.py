@@ -209,6 +209,7 @@ class EditorialRanker:
             score = max(0, min(100, int(round(score + feedback_adjustment))) )
             factors["editor_feedback_alignment"] = round(50.0 + feedback_adjustment * 5.0, 1)
 
+        feedback_calibration = self._feedback_payload(feedback_adjustment)
         confidence = self._confidence(text, factors, duration)
         duration_preference = self._duration_preference(duration, factors)
         breakdown = {
@@ -246,6 +247,7 @@ class EditorialRanker:
             "chapter_coherence_score": clip.get("chapter_coherence_score"),
             "qa_bridge": bool(clip.get("qa_bridge")),
             "campaign_hub_prior": campaign_hub_prior,
+            "feedback_calibration": feedback_calibration,
             "hook_family": campaign_hub_prior["hook_family"],
             "hook_evidence": list(campaign_hub_prior.get("hook_evidence") or []),
             "hook_classification_confidence": campaign_hub_prior.get("hook_classification_confidence", 0.0),
@@ -270,6 +272,10 @@ class EditorialRanker:
                 "campaign_hub_hook_evidence": list(campaign_hub_prior.get("hook_evidence") or []),
                 "campaign_hub_hook_classification_confidence": campaign_hub_prior.get("hook_classification_confidence", 0.0),
                 "campaign_hub_sample_count": campaign_hub_prior["sample_count"],
+                "feedback_calibration_eligible": feedback_calibration["eligible"],
+                "feedback_sample_size": feedback_calibration["sample_size"],
+                "feedback_duration_signal_usable": feedback_calibration["duration_signal"]["usable"],
+                "feedback_duration_gap_seconds": feedback_calibration["duration_signal"]["gap_seconds"],
             },
         }
 
@@ -338,6 +344,24 @@ class EditorialRanker:
         top_terms = sorted(counts, key=lambda term: (-counts[term], term))[:3]
         editorial_type = str(political_signals.get("editorial_type") or "geral")
         return f"{editorial_type}:{'-'.join(top_terms)}" if top_terms else editorial_type
+
+    def _feedback_payload(self, adjustment: float) -> dict:
+        calibration = self.feedback_calibration if isinstance(self.feedback_calibration, dict) else {}
+        duration_signal = calibration.get("duration_signal") if isinstance(calibration.get("duration_signal"), dict) else {}
+        return {
+            "eligible": bool(calibration.get("eligible")),
+            "sample_size": int(calibration.get("sample_size", 0) or 0),
+            "approved_count": int(calibration.get("approved_count", 0) or 0),
+            "rejected_count": int(calibration.get("rejected_count", 0) or 0),
+            "adjustment": round(float(adjustment or 0.0), 2),
+            "duration_signal": {
+                "usable": bool(duration_signal.get("usable")),
+                "approved_mean_seconds": float(duration_signal.get("approved_mean_seconds", 0.0) or 0.0),
+                "rejected_mean_seconds": float(duration_signal.get("rejected_mean_seconds", 0.0) or 0.0),
+                "gap_seconds": float(duration_signal.get("gap_seconds", 0.0) or 0.0),
+                "interpretation": str(duration_signal.get("interpretation") or ""),
+            },
+        }
 
     def _feedback_adjustment(self, factors: dict) -> float:
         """Return a bounded adjustment only after enough final editor decisions.
