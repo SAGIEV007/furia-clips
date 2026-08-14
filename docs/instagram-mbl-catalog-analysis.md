@@ -466,3 +466,33 @@ Este Reel usa **contraste de identidade, testemunhal de ruptura e aliança polí
 | Alegações nominais de crime, corrupção ou facções | Marcar `needs_fact_review` e `needs_legal_review`; separar potencial de atenção de veracidade. |
 
 O relatório audiovisual completo está em `docs/instagram_mbl_local_audiovisual_Dayg4dyhvpA_2026-08-14.md`.
+
+## Rodada autenticada de catálogo — 14/08/2026
+
+A sessão autenticada abriu `https://www.instagram.com/renansantosmbl/reels/` e a grade mostrou 12 Reels com alcance na interface: `DZ7ZY6EtlNq` — 8,5M; `DXIQunmEQ9O` — 764K e 32,6K comentários; `DcBe7a9t7LA` — 683K; `Db_-iFVNz6g` — 1M; `Db_zbMhNfYJ` — 1,1M; `Db_VRDtNM9d` — 1,4M; `Db-0U1mt1UI` — 322K; `Db-mlJ7tC5k` — 396K; `Db9RrFrNHRL` — 863K; `Db9GlGatuQi` — 512K; `Db88Vu-Nmhu` — 630K; e `Db8fcmItfCw` — 972K.
+
+A grade fornece alcance e, em alguns casos, comentários, mas não entrega na própria grade o contexto editorial, duração ou transcrição completa. Esses números são sinais pós-publicação para coortes por formato, tema e idade; não substituem o score de seleção pré-publicação. Não foram salvas imagens, cookies, URLs assinadas ou conteúdo privado. A cobertura histórica total continua condicionada ao que a interface carregar e ao que puder ser verificado sem contornar restrições.
+
+## Rodada autenticada de catálogo — perfil reserva — 14/08/2026
+
+A sessão autenticada abriu `https://www.instagram.com/renansantosreserva/reels/` e mostrou 12 Reels com alcance na grade: `DcB5mV1PCg2` — 19,9K; `DcB2qfyipJk` — 3.778; `DcBxi03ET-L` — 4.004; `DcBsa3VBIrr` — 75,6K; `DcBlg0zjdNE` — 11,3K; `DcBg61QE06m` — 19,3K; `DcBdVrHElHR` — 9.581; `DcAL9ZSResM` — 169K; `Db_4A6IDX1O` — 154K; `Db_svcovjix` — 129K; `Db_qtXRgm1b` — 82,7K; e `Db_mfm5ihyd` — 16,8K.
+
+Visualmente, a grade reserva mistura peças de campanha/identidade com slogan e cartela, comentários de fala com headline, humor/bastidor e respostas a críticas. Essa diversidade reforça a taxonomia já consolidada: campanha institucional, confronto político, react/notícia, humor/bastidor e proposta pública precisam ser comparados dentro de coortes próprias. As contagens da grade servem para priorizar análise de amostras e registrar métricas observadas; não comprovam retenção, causalidade nem qualidade do corte.
+
+## Análise audiovisual pontual — Reel principal DZ7ZY6EtlNq
+
+A página do Reel exibiu `Original audio`, marcação `Edited · 7w`, caption `O que é o mundo por trás da propaganda do PT` e chamada `Siga @renansantosmbl`. A composição observada é vertical, com Renan em enquadramento próximo/médio, uma segunda pessoa em parte do vídeo, cartela ou texto destacado e legendas amarelas sobre a imagem. O vídeo também mostrou uma sequência visual de contexto social/eleitoral, não apenas um talking head estático.
+
+A interface exibiu 7.254 likes e comentários com sinais de reação, incluindo comentários de 8.098, 6.238 e 3.059 likes. Isso não é o mesmo que visualizações e não deve ser somado ao snapshot de views; pode ser registrado como `comments_visible`/`comment_like_signal` apenas quando a fonte autorizada o fornecer. A regra editorial extraída é que o hook pode ser uma pergunta ampla sobre o “mundo por trás” de uma propaganda, desde que o vídeo entregue evidência visual e uma conclusão atribuível. Para o Furia Clips, o candidato deve guardar separadamente `hook_text`, `caption`, `audio_source`, `edited_at` e sinais de reação observados; nenhum desses sinais deve gerar automaticamente uma alegação factual.
+
+## Análise audiovisual pontual — Reel reserva DcAL9ZSResM
+
+A página do Reel exibiu `Original audio`, publicação de `16h`, caption `Por favor, Flávio Bolsonaro, consegue me copiar nisso?` e hashtags `#renansantos`, `#política`, `#eleições2026`, `#partidomissão` e `#flaviobolsonaro`. A imagem mostra uma peça de resposta/comparação: uma captura de publicação externa com texto e identidade visual, ao lado de uma pessoa falando ao microfone, mais uma cartela superior que transforma a comparação em chamada direta. O formato é vertical e a composição depende da leitura simultânea do card e da reação; portanto, crop facial agressivo é inadequado.
+
+A interface exibiu comentários com 1.089, 592, 505 e 200 likes em comentários distintos, além de outros sinais menores. O caso sugere uma regra de edição: quando a força está em uma referência externa + reação + CTA, o candidato precisa preservar a evidência completa, identificar a origem visual e terminar na resposta/posição, não cortar apenas a fala. As hashtags podem ser registradas como metadado da observação, mas não serão usadas para gerar SEO ou headlines no Estúdio de Texto de Arte, conforme requisito do produto.
+
+## Rolagem incremental autenticada — perfil reserva — 14/08/2026
+
+Duas rolagens normais carregaram uma segunda janela de Reels do perfil reserva. A interface acrescentou os IDs `Db_jBIqj1nb` — 94,2K; `Db_foElAY3K` — 15,4K; `Db_fnFCDK8I` — 4.445; `Db_cM5TlApr` — 39,3K; `Db_aVwFEkfD` — 107K; `Db_Y07LFV7J` — 8.910; `Db_VUXqjnyO` — 9.609; `Db_R92njTCq` — 42,1K; `Db_OfZDjKMW` — 72,1K; `Db_LANvAgY6` — 11,6K; `Db_HmR1iOy1` — 12,3K; e `Db_F8qvE_Z_` — 183K. A grade visual carregada também mostrou cards com títulos brancos/amarelos, peças de palco/podcast, eventos, entrevistas e humor cotidiano, confirmando que o crop seguro precisa ser uma decisão por composição.
+
+Algumas contagens da primeira janela mudaram entre leituras, por exemplo `DcB5mV1PCg2` de 19,9K para 26,6K e `DcBsa3VBIrr` de 75,6K para 78,3K. Isso evidencia que snapshots de alcance são temporais e devem guardar `collected_at` e idade do conteúdo; nunca devem ser tratados como valor fixo ou usado para reordenar retroativamente o ranking editorial sem uma coorte definida.
