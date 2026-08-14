@@ -7,6 +7,9 @@ def test_normalize_snapshot_computes_observed_metrics_without_guessing_retention
             "content_key": "renan-0813",
             "platform": "instagram",
             "format_id": "square_alfinetei",
+            "account_key": "@renansantosmbl",
+            "observation_window": "week",
+            "region": "brasil",
             "published_at": "2026-08-13T10:00:00-03:00",
             "collected_at": "2026-08-14T10:00:00-03:00",
             "views": 10000,
@@ -22,6 +25,9 @@ def test_normalize_snapshot_computes_observed_metrics_without_guessing_retention
     assert snapshot["engagement_rate"] == 0.1
     assert snapshot["age_hours"] == 24.0
     assert snapshot["view_velocity_per_hour"] == 416.667
+    assert snapshot["account_key"] == "@renansantosmbl"
+    assert snapshot["observation_window"] == "week"
+    assert snapshot["region"] == "brasil"
     assert "retention" not in snapshot
 
 
