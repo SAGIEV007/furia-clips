@@ -196,7 +196,11 @@ def _resolve_media_input(requested):
 def _resolve_source_destination(requested, settings=None):
     settings = settings or get_all_settings()
     value = str(requested or settings.get("source_download_dir") or UPLOAD_DIR).strip()
-    target = os.path.abspath(os.path.expanduser(value))
+    if not value:
+        value = UPLOAD_DIR
+    target = os.path.abspath(os.path.expandvars(os.path.expanduser(value)))
+    if os.path.isfile(target):
+        raise OSError("O destino escolhido é um arquivo; selecione uma pasta para salvar o vídeo.")
     os.makedirs(target, exist_ok=True)
     return target
 

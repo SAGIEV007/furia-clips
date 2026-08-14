@@ -36,6 +36,20 @@ class AppSmokeTests(unittest.TestCase):
         response = self.client.get("/api/files?path=../")
         self.assertEqual(response.status_code, 403)
 
+    def test_source_destination_expands_environment_and_reuses_folder(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            with patch.dict(os.environ, {"FURIA_TEST_DOWNLOAD_DIR": tmp_dir}):
+                resolved = furia_app._resolve_source_destination("$FURIA_TEST_DOWNLOAD_DIR")
+            self.assertEqual(resolved, os.path.abspath(tmp_dir))
+
+    def test_source_destination_rejects_existing_file(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            file_path = os.path.join(tmp_dir, "video.mp4")
+            with open(file_path, "w", encoding="utf-8") as handle:
+                handle.write("placeholder")
+            with self.assertRaises(OSError):
+                furia_app._resolve_source_destination(file_path)
+
     def test_batch_rank_returns_quality_gated_portfolio(self):
         response = self.client.post(
             "/api/batch/rank",
