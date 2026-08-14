@@ -3303,3 +3303,18 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 .artwork-feedback-button .material-icons-round { font-size: 13px; }
 .artwork-feedback-button:hover { background: rgba(244, 200, 74, .15); border-color: var(--gold); }
 .artwork-feedback-button.saved { color: #10130d; background: #8ce39f; border-color: #8ce39f; }
+
+
+/* Orçamento visual explicado: ajuda a decidir se a tese cabe na arte antes de abrir o editor. */
+.artwork-layout-hint {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin: 0;
+    padding: 0 9px 9px;
+    color: #7f8d98;
+    font-size: 9px;
+    line-height: 1.2;
+    background: #10161c;
+}
+.artwork-layout-hint .material-icons-round { font-size: 12px; color: #d7aa45; }
