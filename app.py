@@ -57,10 +57,10 @@ from config import (
 from database import (
     init_db, get_all_settings, get_setting, set_setting,
     create_project, get_project, get_all_projects, update_project_status,
-    save_clip, get_clips, update_clip_seo, update_clip_thumbnail,
+    save_clip, get_clip, get_clips, update_clip_seo, update_clip_thumbnail,
     save_transcription, get_transcription, log_action,
     update_clip_editorial_score, save_clip_feedback, get_clip_feedback,
-    update_clip_review_status, get_feedback_calibration, get_daily_editorial_progress,
+    update_clip_review_status, save_clip_adjustment, get_feedback_calibration, get_daily_editorial_progress,
     save_headline_feedback, get_headline_feedback_summary, get_headline_learning_preferences,
     save_performance_snapshot, get_performance_snapshots, get_performance_summary
 )
@@ -68,6 +68,7 @@ from modules.security import UnsafePathError, safe_workspace_path, unique_storag
 from modules.native_dialogs import DialogError, choose_path, open_local_path
 from modules.transcript_parser import parse_transcript_text, normalize_segment_payload, parse_timestamp
 from modules.clip_adjustments import adjust_clip_bounds
+from modules.editorial_block import build_editorial_block
 from modules.performance_metrics import normalize_snapshot, metric_labels
 from modules.transcript_archive import archive_transcription, list_archived_transcriptions, validate_transcription
 from modules.source_ingest import (
@@ -543,6 +544,54 @@ def api_adjust_clip_bounds():
     except (TypeError, ValueError) as exc:
         return jsonify({"error": str(exc)}), 400
     return jsonify({"success": True, "clip": adjusted, "mutated": False})
+
+
+@app.route("/api/clips/<int:clip_id>/adjust", methods=["POST"])
+def api_persist_clip_adjustment(clip_id):
+    """Persist a validated temporal draft without changing the rendered file."""
+    data = request.get_json(silent=True) or {}
+    clip = get_clip(clip_id)
+    if not clip:
+        return jsonify({"error": "Clip não encontrado."}), 404
+    adjustment = data.get("adjustment") or data.get("clip") or {}
+    if not isinstance(adjustment, dict):
+        return jsonify({"error": "Informe um ajuste válido."}), 400
+    try:
+        normalized = adjust_clip_bounds(
+            {
+                "start": clip.get("start_time", 0),
+                "end": clip.get("end_time", 0),
+                "duration": clip.get("duration", 0),
+            },
+            start=adjustment.get("start"),
+            end=adjustment.get("end"),
+            transcript_segments=data.get("transcript_segments") or [],
+            duration=data.get("source_duration"),
+            snap_tolerance=data.get("snap_tolerance", 2.0),
+            min_duration=data.get("min_duration", 3.0),
+        )
+        normalized["original_start"] = float(clip.get("start_time", 0) or 0)
+        normalized["original_end"] = float(clip.get("end_time", 0) or 0)
+        normalized["render_status"] = "preview_only"
+        persisted = save_clip_adjustment(
+            clip_id,
+            normalized,
+            note=str(data.get("note", "") or "").strip(),
+        )
+    except (TypeError, ValueError) as exc:
+        return jsonify({"error": str(exc)}), 400
+    return jsonify({
+        "success": True,
+        "clip_id": clip_id,
+        "review_status": "needs_review",
+        "adjustment": persisted,
+        "original": {
+            "start": float(clip.get("start_time", 0) or 0),
+            "end": float(clip.get("end_time", 0) or 0),
+            "duration": float(clip.get("duration", 0) or 0),
+        },
+        "render_status": "preview_only",
+    })
 
 
 @app.route("/api/editorial/calibration", methods=["GET"])
@@ -1468,6 +1517,13 @@ def api_cut_shorts():
                     "speaker": clip_info.get("speaker", ""),
                     "speaker_confidence": clip_info.get("speaker_confidence"),
                     "overlap_suspected": clip_info.get("overlap_suspected", False),
+                    "editorial_block": build_editorial_block({
+                        **clip_info,
+                        "start": res.get("start"),
+                        "end": res.get("end"),
+                        "duration": res.get("duration"),
+                        "review_status": "pending",
+                    }),
                     "rank": res.get("rank", i + 1),
                     "clip_id": clip_id_by_index.get(i),
                     "framing": framing_by_index.get(i, {
@@ -1682,10 +1738,20 @@ def api_save_performance_snapshot():
 @app.route("/api/performance/summary", methods=["GET"])
 def api_performance_summary():
     format_id = request.args.get("format_id", "")
+    platform = request.args.get("platform", "")
+    observation_window = request.args.get("observation_window", "")
+    region = request.args.get("region", "")
+    filters = {
+        "format_id": format_id or None,
+        "platform": platform or None,
+        "observation_window": observation_window or None,
+        "region": region or None,
+    }
     return jsonify({
         "success": True,
-        "summary": get_performance_summary(format_id=format_id or None),
-        "snapshots": get_performance_snapshots(limit=50),
+        "filters": {key: value for key, value in filters.items() if value is not None},
+        "summary": get_performance_summary(**filters),
+        "snapshots": get_performance_snapshots(limit=50, **filters),
     })
 
 
@@ -2152,6 +2218,13 @@ def api_process_complete():
                     "speaker": clip_info.get("speaker", ""),
                     "speaker_confidence": clip_info.get("speaker_confidence"),
                     "overlap_suspected": clip_info.get("overlap_suspected", False),
+                    "editorial_block": build_editorial_block({
+                        **clip_info,
+                        "start": res.get("start"),
+                        "end": res.get("end"),
+                        "duration": res.get("duration"),
+                        "review_status": "pending",
+                    }),
                     "text": res.get("text", ""),
                     "seo": res.get("seo", {}),
                     "clip_id": res.get("clip_id"),

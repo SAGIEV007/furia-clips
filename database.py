@@ -150,9 +150,22 @@ def init_db():
         if column not in existing_columns:
             cursor.execute(statement)
 
+    snapshot_columns = {
+        row["name"] for row in cursor.execute("PRAGMA table_info(performance_snapshots)").fetchall()
+    }
+    snapshot_migrations = {
+        "account_key": "ALTER TABLE performance_snapshots ADD COLUMN account_key TEXT DEFAULT ''",
+        "observation_window": "ALTER TABLE performance_snapshots ADD COLUMN observation_window TEXT DEFAULT 'all'",
+        "region": "ALTER TABLE performance_snapshots ADD COLUMN region TEXT DEFAULT 'all'",
+    }
+    for column, statement in snapshot_migrations.items():
+        if column not in snapshot_columns:
+            cursor.execute(statement)
+
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_clips_editorial_key ON clips(project_id, editorial_key)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_headline_feedback_format ON headline_feedback(format_id, action)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_performance_content ON performance_snapshots(content_key, platform, collected_at)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_performance_cohort ON performance_snapshots(platform, format_id, observation_window, region)")
     missing_keys = cursor.execute(
         """SELECT clips.id, projects.source_video, clips.start_time, clips.end_time, clips.transcript
            FROM clips JOIN projects ON projects.id = clips.project_id
@@ -277,15 +290,19 @@ def save_performance_snapshot(snapshot, project_id=None):
     conn = get_db()
     conn.execute(
         """INSERT INTO performance_snapshots
-           (content_key, platform, format_id, published_at, collected_at, views,
+           (content_key, platform, format_id, account_key, observation_window, region,
+            published_at, collected_at, views,
             likes, comments, shares, saves, engagement_actions, engagement_rate,
             age_hours, view_velocity_per_hour, ranking_position, xp,
             collection_state, source, payload)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (
             str(snapshot.get("content_key", ""))[:180],
             str(snapshot.get("platform", "other"))[:24],
             str(snapshot.get("format_id", "unknown"))[:40],
+            str(snapshot.get("account_key", ""))[:180],
+            str(snapshot.get("observation_window", "all"))[:20],
+            str(snapshot.get("region", "all"))[:40],
             snapshot.get("published_at"),
             snapshot.get("collected_at"),
             int(snapshot.get("views") or 0),
@@ -310,13 +327,28 @@ def save_performance_snapshot(snapshot, project_id=None):
     return int(snapshot_id)
 
 
-def get_performance_snapshots(content_key=None, limit=100):
+def get_performance_snapshots(content_key=None, limit=100, *, platform=None, format_id=None, observation_window=None, region=None):
     conn = get_db()
     params = []
+    clauses = []
     query = "SELECT * FROM performance_snapshots"
     if content_key:
-        query += " WHERE content_key = ?"
+        clauses.append("content_key = ?")
         params.append(str(content_key)[:180])
+    if platform:
+        clauses.append("platform = ?")
+        params.append(str(platform)[:24])
+    if format_id:
+        clauses.append("format_id = ?")
+        params.append(str(format_id)[:40])
+    if observation_window:
+        clauses.append("observation_window = ?")
+        params.append(str(observation_window)[:20])
+    if region:
+        clauses.append("region = ?")
+        params.append(str(region)[:40])
+    if clauses:
+        query += " WHERE " + " AND ".join(clauses)
     query += " ORDER BY collected_at DESC, id DESC LIMIT ?"
     params.append(max(1, min(int(limit), 500)))
     rows = [dict(row) for row in conn.execute(query, params).fetchall()]
@@ -324,13 +356,23 @@ def get_performance_snapshots(content_key=None, limit=100):
     return rows
 
 
-def get_performance_summary(format_id=None):
+def get_performance_summary(format_id=None, *, platform=None, observation_window=None, region=None):
     conn = get_db()
     params = []
-    where = ""
+    clauses = []
     if format_id:
-        where = " WHERE format_id = ?"
+        clauses.append("format_id = ?")
         params.append(str(format_id)[:40])
+    if platform:
+        clauses.append("platform = ?")
+        params.append(str(platform)[:24])
+    if observation_window:
+        clauses.append("observation_window = ?")
+        params.append(str(observation_window)[:20])
+    if region:
+        clauses.append("region = ?")
+        params.append(str(region)[:40])
+    where = " WHERE " + " AND ".join(clauses) if clauses else ""
     row = conn.execute(
         f"""SELECT COUNT(*) AS snapshots, COUNT(DISTINCT content_key) AS contents,
                    SUM(views) AS views, AVG(engagement_rate) AS avg_engagement_rate,
@@ -458,7 +500,14 @@ def save_clip(project_id, file_path, start_time, end_time, duration,
 def get_clips(project_id):
     conn = get_db()
     rows = conn.execute(
-        "SELECT * FROM clips WHERE project_id = ? ORDER BY viral_score DESC",
+        """SELECT clips.*,
+                  (SELECT adjustments FROM clip_feedback
+                   WHERE clip_feedback.clip_id = clips.id
+                     AND clip_feedback.action = 'adjusted'
+                   ORDER BY clip_feedback.id DESC LIMIT 1) AS latest_adjustment
+           FROM clips
+           WHERE project_id = ?
+           ORDER BY viral_score DESC""",
         (project_id,)
     ).fetchall()
     conn.close()
@@ -475,6 +524,14 @@ def get_clips(project_id):
             except (TypeError, ValueError, json.JSONDecodeError):
                 pass
         clip["review_flags"] = review_flags
+        raw_adjustment = clip.get("latest_adjustment")
+        if raw_adjustment:
+            try:
+                clip["latest_adjustment"] = json.loads(raw_adjustment)
+            except (TypeError, ValueError, json.JSONDecodeError):
+                clip["latest_adjustment"] = None
+        else:
+            clip["latest_adjustment"] = None
         clips.append(clip)
     return clips
 
@@ -517,6 +574,10 @@ def save_clip_feedback(clip_id, action, adjustments=None, note=""):
     if action not in {"approved", "rejected", "needs_review", "adjusted", "rendered"}:
         raise ValueError("Ação de feedback inválida")
     conn = get_db()
+    clip_row = conn.execute("SELECT id FROM clips WHERE id = ?", (clip_id,)).fetchone()
+    if not clip_row:
+        conn.close()
+        raise ValueError("Clip não encontrado")
     status = action if action in {"approved", "rejected", "needs_review"} else "needs_review"
     conn.execute(
         "INSERT INTO clip_feedback (clip_id, action, adjustments, note) VALUES (?, ?, ?, ?)",
@@ -525,6 +586,32 @@ def save_clip_feedback(clip_id, action, adjustments=None, note=""):
     conn.execute("UPDATE clips SET review_status = ? WHERE id = ?", (status, clip_id))
     conn.commit()
     conn.close()
+
+
+def get_clip(clip_id):
+    """Return one persisted clip or ``None`` without applying a draft adjustment."""
+    conn = get_db()
+    row = conn.execute("SELECT * FROM clips WHERE id = ?", (clip_id,)).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def save_clip_adjustment(clip_id, adjustment, note=""):
+    """Persist a validated temporal draft as an editorial feedback event."""
+    if not isinstance(adjustment, dict):
+        raise ValueError("Ajuste inválido")
+    try:
+        start = float(adjustment["start"])
+        end = float(adjustment["end"])
+        duration = float(adjustment.get("duration", end - start))
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ValueError("Ajuste temporal inválido") from exc
+    if start < 0 or end <= start or duration <= 0:
+        raise ValueError("Os limites ajustados devem formar um intervalo positivo")
+    payload = dict(adjustment)
+    payload.update({"start": round(start, 3), "end": round(end, 3), "duration": round(duration, 3)})
+    save_clip_feedback(clip_id, "adjusted", adjustments=payload, note=note)
+    return payload
 
 
 def get_clip_feedback(clip_id):
