@@ -72,6 +72,30 @@ class AppSmokeTests(unittest.TestCase):
         response = self.client.post("/api/batch/rank", json={"candidates": {}})
         self.assertEqual(response.status_code, 400)
 
+    def test_clip_adjustment_endpoint_is_non_destructive(self):
+        response = self.client.post(
+            "/api/clips/adjust",
+            json={
+                "clip": {"start": 10, "end": 25, "duration": 15},
+                "start": 10.8,
+                "end": 24.2,
+                "transcript_segments": [
+                    {"start": 11.0, "end": 15.0},
+                    {"start": 18.0, "end": 24.0},
+                ],
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertTrue(payload["success"])
+        self.assertFalse(payload["mutated"])
+        self.assertEqual(payload["clip"]["start"], 11.0)
+        self.assertEqual(payload["clip"]["end"], 24.0)
+
+    def test_clip_adjustment_endpoint_rejects_invalid_clip(self):
+        response = self.client.post("/api/clips/adjust", json={"clip": []})
+        self.assertEqual(response.status_code, 400)
+
     def test_auto_ai_status_falls_back_to_local_nlp(self):
         with patch.object(furia_app.requests, "get", side_effect=RuntimeError("offline")):
             status = furia_app._check_ai_status({

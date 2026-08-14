@@ -65,6 +65,7 @@ from database import (
 from modules.security import UnsafePathError, safe_workspace_path, unique_storage_name
 from modules.native_dialogs import DialogError, choose_path, open_local_path
 from modules.transcript_parser import parse_transcript_text, normalize_segment_payload, parse_timestamp
+from modules.clip_adjustments import adjust_clip_bounds
 from modules.source_ingest import (
     SourceIngestError,
     probe_public_url,
@@ -493,6 +494,28 @@ def api_clip_feedback(clip_id):
         return jsonify({"success": True, "clip_id": clip_id, "review_status": action})
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
+
+
+@app.route("/api/clips/adjust", methods=["POST"])
+def api_adjust_clip_bounds():
+    """Preview safe clip boundary changes without mutating media or database."""
+    data = request.get_json(silent=True) or {}
+    clip = data.get("clip")
+    if not isinstance(clip, dict):
+        return jsonify({"error": "Informe um clip válido."}), 400
+    try:
+        adjusted = adjust_clip_bounds(
+            clip,
+            start=data.get("start"),
+            end=data.get("end"),
+            transcript_segments=data.get("transcript_segments"),
+            duration=data.get("duration"),
+            snap_tolerance=data.get("snap_tolerance", 2.0),
+            min_duration=data.get("min_duration", 3.0),
+        )
+    except (TypeError, ValueError) as exc:
+        return jsonify({"error": str(exc)}), 400
+    return jsonify({"success": True, "clip": adjusted, "mutated": False})
 
 
 @app.route("/api/editorial/calibration", methods=["GET"])
