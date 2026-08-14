@@ -49,6 +49,12 @@ class EditorialFormatTests(unittest.TestCase):
         self.assertEqual(result["visual_format"], "visual_meme")
         self.assertTrue(result["preserve_composition"])
 
+    def test_talking_head_graphic_preserves_relation_between_speaker_and_overlay(self):
+        result = classify_editorial_format({"face_count": 1, "graphic_overlay": True}, "A proposta é clara.")
+        self.assertEqual(result["visual_format"], "talking_head_grafico")
+        self.assertTrue(result["preserve_composition"])
+        self.assertEqual(result["reframe_policy"], "preservar_composicao")
+
     def test_unknown_format_does_not_claim_reframe_safety(self):
         result = classify_editorial_format({}, "Texto sem sinal visual estruturado.")
         self.assertEqual(result["visual_format"], "desconhecido")

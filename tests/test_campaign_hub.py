@@ -1,4 +1,4 @@
-from modules.campaign_hub import build_performance_prior, classify_hook, normalize_snapshot
+from modules.campaign_hub import build_performance_prior, classify_hook, classify_hook_details, normalize_snapshot
 from modules.editorial_ranker import EditorialRanker
 
 
@@ -56,4 +56,15 @@ def test_campaign_hub_prior_is_visible_but_bounded_in_ranker():
     assert result["campaign_hub_prior"]["available"] is True
     assert result["review_flags"]["campaign_hub_prior_available"] is True
     assert result["review_flags"]["campaign_hub_sample_count"] == 3
+    assert result["hook_family"] == "tese-provocativa"
+    assert result["hook_evidence"]
+    assert result["hook_classification_confidence"] >= 0.6
+    assert result["review_flags"]["campaign_hub_hook_family"] == "tese-provocativa"
     assert "campaign_hub_prior" in result["factors"]
+
+
+def test_hook_details_explain_explicit_thesis_before_generic_question():
+    details = classify_hook_details("Vamos mudar a gestão pública. Que Brasil vamos construir?")
+    assert details["family"] == "tese-provocativa"
+    assert details["evidence"]
+    assert details["basis"] == "regra_textual_explicita"
