@@ -29,16 +29,48 @@ const state = {
 
 // ─── WebSocket Connection ───
 
-const socket = io();
+const socket = io({
+    reconnection: true,
+    reconnectionAttempts: Infinity,
+    reconnectionDelay: 1000,
+    reconnectionDelayMax: 10000,
+    timeout: 20000,
+});
+let socketRecoveryNotice = false;
 
 socket.on("connect", () => {
+    const recovered = socketRecoveryNotice;
     state.connected = true;
-    addConsoleLog("[Sistema] Conectado ao servidor.", "success");
+    socketRecoveryNotice = false;
+    addConsoleLog(
+        recovered ? "[Sistema] Conexão restaurada; os jobs persistidos continuam disponíveis." : "[Sistema] Conectado ao servidor.",
+        "success",
+    );
 });
 
-socket.on("disconnect", () => {
+socket.on("disconnect", (reason) => {
     state.connected = false;
-    addConsoleLog("[Sistema] Desconectado do servidor.", "error");
+    if (reason === "io client disconnect") {
+        addConsoleLog("[Sistema] Desconectado pelo cliente.", "warning");
+        return;
+    }
+    if (!socketRecoveryNotice) {
+        socketRecoveryNotice = true;
+        addConsoleLog(
+            `[Sistema] Conexão interrompida (${reason || "motivo desconhecido"}); reconexão automática em andamento.`,
+            "warning",
+        );
+    }
+});
+
+socket.on("connect_error", (error) => {
+    if (!socketRecoveryNotice) {
+        socketRecoveryNotice = true;
+        addConsoleLog(
+            `[Sistema] Não foi possível manter o canal em tempo real (${error?.message || "erro de conexão"}); tentando novamente.`,
+            "warning",
+        );
+    }
 });
 
 socket.on("connected", (data) => {
@@ -164,16 +196,28 @@ function handleStatusUpdate(data) {
             });
             showToast(data.data.transcription ? "Vídeo e transcrição importados!" : "Vídeo do link importado!", "success");
             break;
-        case "cut_complete":
+        case "cut_complete": {
             hideProgressBar();
-            updateWorkspaceWorkflow("review", "Revisão pronta");
+            const completedClips = Array.isArray(data.data.clips) ? data.data.clips : [];
+            updateWorkspaceWorkflow("review", completedClips.length ? "Revisão pronta" : "Revisão requer atenção");
             state.selectionSource = data.data.selection_source || "nlp";
             state.outputFolder = data.data.output_folder || "";
-            showToast(`${data.data.clips.length} clips gerados e ranqueados!`, "success");
-            displayResults(data.data.clips, data.data.video_layout || null);
+            if (completedClips.length) {
+                showToast(`${completedClips.length} clips gerados e ranqueados!`, "success");
+            } else {
+                const rejection = (data.data.render_rejections || [])
+                    .flatMap(item => item.errors || [])
+                    .filter(Boolean)[0];
+                showToast(
+                    rejection ? `Nenhum clip válido: ${rejection}` : "Nenhum clip válido foi entregue; revise o diagnóstico do console.",
+                    "error",
+                );
+            }
+            displayResults(completedClips, data.data.video_layout || null);
             updateResultsModeBadge(state.selectionSource);
             updateOpenFolderButton(state.outputFolder);
             break;
+        }
         case "subtitles_complete":
             hideProgressBar();
             showToast("Legendas geradas com sucesso!", "success");
@@ -2445,9 +2489,26 @@ document.getElementById("btnChooseSourceDir")?.addEventListener("click", async (
     await chooseSourceDirectory();
 });
 
+function isPlaceholderSourceDirectory(value) {
+    const normalized = String(value || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/\s+/g, " ")
+        .trim()
+        .toLowerCase();
+    return [
+        "a pasta sera escolhida ao importar",
+        "a pasta sera escolhida ao baixar",
+        "escolha uma pasta",
+        "selecione uma pasta",
+        "pasta padrao",
+        "workspace/uploads",
+    ].includes(normalized);
+}
+
 async function ensureSourceDirectory() {
     const existing = String(state.sourceDownloadDir || "").trim();
-    if (existing) {
+    if (existing && !isPlaceholderSourceDirectory(existing)) {
         const label = document.getElementById("sourceDestinationText");
         if (label) label.textContent = existing;
         return existing;
@@ -2457,11 +2518,11 @@ async function ensureSourceDirectory() {
     // importing a source never opens the native picker twice in one workflow.
     const label = document.getElementById("sourceDestinationText");
     const rendered = String(label?.textContent || "").trim();
-    const placeholder = /^(escolha|selecion(e|ar)|pasta padrão|workspace\/uploads)/i;
-    if (rendered && !placeholder.test(rendered)) {
+    if (rendered && !isPlaceholderSourceDirectory(rendered)) {
         state.sourceDownloadDir = rendered;
         return rendered;
     }
+    state.sourceDownloadDir = "";
     return chooseSourceDirectory();
 }
 
@@ -2562,10 +2623,14 @@ function applySettings() {
         state.outputDir = s.output_dir;
         document.getElementById("outputDirText").textContent = s.output_dir || "workspace/exports (padrao)";
     }
-    if (s.source_download_dir) {
+    if (s.source_download_dir && !isPlaceholderSourceDirectory(s.source_download_dir)) {
         state.sourceDownloadDir = s.source_download_dir;
         const sourceLabel = document.getElementById("sourceDestinationText");
         if (sourceLabel) sourceLabel.textContent = s.source_download_dir;
+    } else {
+        state.sourceDownloadDir = "";
+        const sourceLabel = document.getElementById("sourceDestinationText");
+        if (sourceLabel) sourceLabel.textContent = "A pasta será escolhida ao importar";
     }
     if (s.source_max_height) {
         state.sourceMaxHeight = Math.min(1080, Number(s.source_max_height) || 1080);
