@@ -2165,7 +2165,11 @@ body {
 .result-card.review-rejected { opacity: .58; border-color: rgba(239,68,68,.42); }
 .result-card.review-needs_review { border-color: rgba(245,158,11,.7); box-shadow: 0 0 0 1px rgba(245,158,11,.1); }
 
-.review-state-chip { margin-left: auto; padding: 4px 8px; text-transform: capitalize; border: 1px solid var(--border); color: var(--text-secondary); background: rgba(255,255,255,.04); }
+.review-state-chip { margin-left: auto; padding: 4px 8px; text-transform: uppercase; letter-spacing: .04em; border: 1px solid var(--border); color: var(--text-secondary); background: rgba(255,255,255,.04); }
+.review-state-chip .material-icons-round { font-size: 14px; }
+.clip-review-timestamp { align-self: center; color: var(--text-muted); font-size: 10px; font-variant-numeric: tabular-nums; }
+.review-actions .btn.is-current { box-shadow: 0 0 0 2px rgba(255,255,255,.22), 0 5px 18px rgba(0,0,0,.2); font-weight: 700; }
+.review-actions .btn.is-current::after { content: " • atual"; font-size: 10px; opacity: .8; }
 .review-state-chip.approved { color: var(--success); border-color: rgba(68,207,108,.4); background: rgba(68,207,108,.1); }
 .review-state-chip.rejected { color: var(--error); border-color: rgba(239,68,68,.4); background: rgba(239,68,68,.1); }
 .review-state-chip.needs_review { color: var(--warning); border-color: rgba(245,158,11,.45); background: rgba(245,158,11,.1); }
