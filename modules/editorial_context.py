@@ -41,10 +41,20 @@ def analyze_transcript_context(transcription: dict, focus: str = "auto") -> dict
     enriched = []
     for segment in segments:
         text = str(segment.get("text", "")).strip()
+        speaker = str(segment.get("speaker", "") or "").strip()
+        raw_confidence = segment.get("speaker_confidence")
+        try:
+            speaker_confidence = max(0.0, min(1.0, float(raw_confidence))) if raw_confidence is not None else None
+        except (TypeError, ValueError):
+            speaker_confidence = None
+        overlap_suspected = bool(segment.get("overlap_suspected", False))
         enriched.append({
             **segment,
             "is_question": _is_question(text),
             "speaker_marker": _speaker_marker(text),
+            "speaker_label": speaker or None,
+            "speaker_confidence": speaker_confidence,
+            "overlap_suspected": overlap_suspected,
             "renan_reference": _contains_renan(text),
         })
 
@@ -52,6 +62,9 @@ def analyze_transcript_context(transcription: dict, focus: str = "auto") -> dict
     references = [s for s in enriched if s["renan_reference"]]
     interview_windows = _build_interview_windows(enriched)
     qa_candidates = _build_qa_candidates(enriched)
+    labeled_speakers = [s for s in enriched if s["speaker_label"]]
+    speaker_confidences = [s["speaker_confidence"] for s in labeled_speakers if s["speaker_confidence"] is not None]
+    overlap_count = sum(1 for s in enriched if s["overlap_suspected"])
     participant_confidence = min(0.95, 0.35 + min(0.45, len(references) * 0.03) + min(0.2, len(questions) * 0.01))
     if not references and not questions:
         participant_confidence = 0.2
@@ -76,6 +89,9 @@ def analyze_transcript_context(transcription: dict, focus: str = "auto") -> dict
         "signals": {
             "question_response_structure": bool(qa_candidates),
             "speaker_markers": sum(1 for s in enriched if s["speaker_marker"]),
+            "speaker_labeled_segments": len(labeled_speakers),
+            "speaker_confidence_mean": round(mean(speaker_confidences), 3) if speaker_confidences else None,
+            "overlap_count": overlap_count,
             "possible_overlap": _possible_overlap(enriched),
             "long_form": duration >= 3600,
         },
@@ -155,6 +171,8 @@ def _build_qa_candidates(segments: list[dict]) -> list[dict]:
 
 def _possible_overlap(segments: list[dict]) -> bool:
     for previous, current in zip(segments, segments[1:]):
+        if bool(previous.get("overlap_suspected")) or bool(current.get("overlap_suspected")):
+            return True
         if float(current.get("start", 0)) < float(previous.get("end", 0)) - 0.1:
             return True
     return False

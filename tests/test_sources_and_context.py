@@ -139,6 +139,29 @@ def test_editorial_context_can_force_generic_focus_even_with_renan_reference():
     assert context["focus"] == "generic_political"
 
 
+def test_editorial_context_preserves_optional_speaker_confidence_and_overlap():
+    transcription = {
+        "segments": [
+            {"start": 0.0, "end": 2.0, "text": "Você pode explicar a proposta?", "speaker": "mediador", "speaker_confidence": "0.82"},
+            {"start": 1.8, "end": 5.0, "text": "A proposta é reduzir a violência.", "speaker": "convidado", "speaker_confidence": 0.61, "overlap_suspected": True},
+        ]
+    }
+    context = analyze_transcript_context(transcription, focus="generic")
+    assert context["signals"]["speaker_labeled_segments"] == 2
+    assert context["signals"]["speaker_confidence_mean"] == 0.715
+    assert context["signals"]["overlap_count"] == 1
+    assert context["signals"]["possible_overlap"] is True
+
+
+def test_editorial_context_ignores_invalid_speaker_confidence():
+    transcription = {
+        "segments": [{"start": 0.0, "end": 3.0, "text": "A proposta é clara.", "speaker": "desconhecido", "speaker_confidence": "invalid"}]
+    }
+    context = analyze_transcript_context(transcription, focus="generic")
+    assert context["signals"]["speaker_labeled_segments"] == 1
+    assert context["signals"]["speaker_confidence_mean"] is None
+
+
 def test_download_stream_labels_distinguish_video_and_audio():
     from modules.source_ingest import _stream_label
 
