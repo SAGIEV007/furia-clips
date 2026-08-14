@@ -31,6 +31,23 @@ class PoliticalProfileTests(unittest.TestCase):
         self.assertGreater(result["evidence_density"], 50)
         self.assertGreater(result["context_match"], 50)
 
+    def test_flags_sensitive_named_allegations_without_blocking_candidate(self):
+        result = analyze_political_text(
+            "Flávio Bolsonaro cometeu crime de rachadinha e desviou dinheiro público.",
+            user_context="encontre denúncias políticas",
+        )
+        self.assertTrue(result["needs_fact_review"])
+        self.assertTrue(result["needs_legal_review"])
+        self.assertGreater(result["sensitive_claim_hits"], 0)
+        self.assertGreater(result["named_entity_count"], 0)
+
+    def test_does_not_flag_plain_proposal_as_sensitive_allegation(self):
+        result = analyze_political_text(
+            "A proposta é criar uma meta pública de segurança e publicar os dados todos os meses."
+        )
+        self.assertFalse(result["needs_fact_review"])
+        self.assertFalse(result["needs_legal_review"])
+
     def test_penalizes_unresolved_opening_context(self):
         resolved = analyze_political_text(
             "O STF publicou uma decisão ilegal e isso afeta a liberdade de expressão."
@@ -72,6 +89,19 @@ class PoliticalProfileTests(unittest.TestCase):
         self.assertIn("editorial_family_fit", result["factors"])
         self.assertIn(result["political_signals"]["editorial_family"], {"reacao", "humor", "conversa"})
         self.assertGreater(result["editorial_potential_score"], 0)
+
+    def test_ranker_exposes_sensitive_review_flags_separately_from_factors(self):
+        ranker = EditorialRanker(editorial_profile=PROFILE_NAME)
+        result = ranker.score_clip({
+            "start": 0,
+            "end": 35,
+            "duration": 35,
+            "text": "Flávio Bolsonaro cometeu crime de rachadinha e desviou dinheiro público.",
+        })
+        self.assertTrue(result["review_flags"]["needs_fact_review"])
+        self.assertTrue(result["review_flags"]["needs_legal_review"])
+        self.assertNotIn("needs_fact_review", result["factors"])
+        self.assertNotIn("needs_legal_review", result["factors"])
 
 
 if __name__ == "__main__":

@@ -61,6 +61,13 @@ MOBILIZATION_CUES = {
     "vamos pra cima", "junte-se", "inscreva-se", "espalhe", "mostre",
 }
 
+SENSITIVE_ALLEGATION_CUES = {
+    "corrupcao", "corrupto", "corrupta", "rachadinha", "lavagem de dinheiro",
+    "desviou", "desvio de dinheiro", "suborno", "crime", "criminoso", "faccao",
+    "faccoes", "milicia", "trafico", "calunia", "difamacao", "perseguicao",
+    "perseguido", "ligacao com faccao", "cometeu crime", "roubou",
+}
+
 HUMOR_CUES = {
     "kkkk", "haha", "hahaha", "la ele", "piada", "meme", "risada", "coringou",
     "brincadeira", "zoeira", "comedia", "engracado", "engracada", "ironico", "ironia",
@@ -148,6 +155,12 @@ def analyze_political_text(text: str, user_context: str = "", channel_context: s
     questions = raw.count("?")
     exclamations = raw.count("!")
     sentence_count = max(1, len([part for part in re.split(r"[.!?]+", raw) if part.strip()]))
+    sensitive_claim_hits = _count_cues(normalized, SENSITIVE_ALLEGATION_CUES)
+    named_entities = re.findall(
+        r"\b[A-ZÁÀÃÂÉÊÍÓÔÕÚÇ][\wÁÀÃÂÉÊÍÓÔÕÚÇ-]{2,}(?:\s+[A-ZÁÀÃÂÉÊÍÓÔÕÚÇ][\wÁÀÃÂÉÊÍÓÔÕÚÇ-]{2,})+\b",
+        raw,
+    )
+    named_entity_count = len(set(named_entities))
     ends_complete = raw.rstrip().endswith((".", "!", "?"))
     opening = " ".join(words[:4])
     opening_is_unresolved = any(
@@ -208,6 +221,10 @@ def analyze_political_text(text: str, user_context: str = "", channel_context: s
         "context_match": round(context_match, 1),
         "profile_fit": round(profile_fit, 1),
         "editorial_family_fit": editorial_family_fit,
+        "sensitive_claim_hits": float(sensitive_claim_hits),
+        "named_entity_count": float(named_entity_count),
+        "needs_fact_review": bool(sensitive_claim_hits),
+        "needs_legal_review": bool(sensitive_claim_hits and named_entity_count),
         "questions": float(questions),
         "exclamations": float(exclamations),
     }
@@ -250,6 +267,8 @@ def analyze_political_text(text: str, user_context: str = "", channel_context: s
         "proposal": proposal_hits,
         "evidence": evidence_hits,
         "mobilization": mobilization_hits,
+        "sensitive_claims": sensitive_claim_hits,
+        "named_entities": named_entity_count,
     }
     return scores
 

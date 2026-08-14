@@ -131,7 +131,9 @@ class EditorialRanker:
             factors.update({
                 key: value
                 for key, value in political_signals.items()
-                if isinstance(value, (int, float)) and key not in {"questions", "exclamations"}
+                if isinstance(value, (int, float))
+                and not isinstance(value, bool)
+                and key not in {"questions", "exclamations", "sensitive_claim_hits", "named_entity_count"}
             })
         weights = {
             "hook": 0.17,
@@ -190,6 +192,12 @@ class EditorialRanker:
             "political_profile": self.editorial_profile if political_signals else "",
             "political_editorial_type": political_signals.get("editorial_type", "") if political_signals else "",
             "political_signals": political_signals,
+            "review_flags": {
+                "needs_fact_review": bool(political_signals.get("needs_fact_review")),
+                "needs_legal_review": bool(political_signals.get("needs_legal_review")),
+                "sensitive_claim_hits": int(political_signals.get("sensitive_claim_hits", 0) or 0),
+                "named_entity_count": int(political_signals.get("named_entity_count", 0) or 0),
+            },
         }
 
     def _topic_signature(self, text: str, political_signals: dict) -> str:
