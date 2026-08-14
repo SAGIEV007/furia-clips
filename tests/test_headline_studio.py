@@ -154,3 +154,29 @@ def test_square_uses_short_speaker_attribution_only_when_editor_identifies_renan
     )
     generic_headline = generic["formats"][FORMAT_SQUARE]["suggestions"][0]["headline"]
     assert not generic_headline.startswith("RENAN:")
+
+
+def test_learning_can_calibrate_auto_format_only_after_meaningful_history():
+    learning = {
+        "selected_count": 4,
+        "overall_by_format": {"square_alfinetei": 4},
+        "topic_by_format": {},
+    }
+    learned = generate_artwork_copy(
+        "O Brasil escolheu o caminho arcaico para tratar as criptos.",
+        preferred_format="auto",
+        ai_backend=None,
+        editorial_learning=learning,
+    )
+    assert learned["recommended_format"] == FORMAT_SQUARE
+    assert learned["learning_applied"]["applied"] is True
+    assert learned["learning_applied"]["selected_count"] == 4
+
+    explicit = generate_artwork_copy(
+        "O Brasil escolheu o caminho arcaico para tratar as criptos.",
+        preferred_format=FORMAT_VERTICAL,
+        ai_backend=None,
+        editorial_learning=learning,
+    )
+    assert explicit["recommended_format"] == FORMAT_VERTICAL
+    assert explicit["learning_applied"]["applied"] is False
