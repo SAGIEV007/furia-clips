@@ -411,6 +411,30 @@
             <div class="headline-studio-results" id="headlineStudioResults" aria-live="polite" style="display:none"></div>
         </section>
 
+        <!-- Observed performance -->
+        <section class="section performance-metrics-section" id="performanceMetricsSection">
+            <div class="section-header">
+                <div>
+                    <h3><span class="material-icons-round">monitoring</span> Métricas observadas</h3>
+                    <p class="section-hint">Alcance real depois da publicação — não substitui o score editorial pré-publicação</p>
+                </div>
+                <span class="studio-status-pill"><span class="status-dot online"></span> Histórico local</span>
+            </div>
+            <div class="performance-metrics-grid">
+                <div>
+                    <label for="performanceMetricsInput">Snapshot autorizado ou anotação manual</label>
+                    <textarea id="performanceMetricsInput" class="context-input performance-metrics-input" rows="6" placeholder='Cole um JSON, por exemplo: {"content_key":"reel-0813","platform":"instagram","format_id":"square_alfinetei","views":10000,"likes":800,"comments":100,"shares":50,"saves":50}'></textarea>
+                    <p class="headline-studio-hint">O Furia Clips calcula views, variação, velocidade observada e engajamento informado. Não inventa retenção nem reproduz a fórmula privada de XP.</p>
+                </div>
+                <div class="performance-metrics-controls">
+                    <button class="btn btn-primary" id="btnSavePerformanceMetrics" type="button"><span class="material-icons-round">save</span> Salvar métricas</button>
+                    <button class="btn btn-outline" id="btnRefreshPerformanceMetrics" type="button"><span class="material-icons-round">refresh</span> Atualizar histórico</button>
+                    <div class="performance-metrics-status" id="performanceMetricsStatus">Nenhum snapshot observado nesta instalação.</div>
+                    <div class="performance-metrics-summary" id="performanceMetricsSummary" aria-live="polite"></div>
+                </div>
+            </div>
+        </section>
+
         <!-- Actions -->
         <section class="section" id="actionsSection">
             <div class="section-header">
