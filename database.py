@@ -263,7 +263,21 @@ def get_clips(project_id):
         (project_id,)
     ).fetchall()
     conn.close()
-    return [dict(r) for r in rows]
+    clips = []
+    for row in rows:
+        clip = dict(row)
+        review_flags = {}
+        raw_factors = clip.get("score_factors")
+        if raw_factors:
+            try:
+                factors = json.loads(raw_factors)
+                if isinstance(factors, dict) and isinstance(factors.get("_review_flags"), dict):
+                    review_flags = factors["_review_flags"]
+            except (TypeError, ValueError, json.JSONDecodeError):
+                pass
+        clip["review_flags"] = review_flags
+        clips.append(clip)
+    return clips
 
 
 def update_clip_seo(clip_id, titles, tags, description, hashtags):
@@ -277,12 +291,15 @@ def update_clip_seo(clip_id, titles, tags, description, hashtags):
     conn.close()
 
 
-def update_clip_editorial_score(clip_id, score, factors, confidence, version="v1-explainable"):
+def update_clip_editorial_score(clip_id, score, factors, confidence, version="v1-explainable", review_flags=None):
     conn = get_db()
+    score_payload = dict(factors or {})
+    if isinstance(review_flags, dict) and review_flags:
+        score_payload["_review_flags"] = review_flags
     conn.execute(
         """UPDATE clips SET viral_score = ?, score_factors = ?,
            score_confidence = ?, editorial_score_version = ? WHERE id = ?""",
-        (int(score), json.dumps(factors or {}), float(confidence or 0), version, clip_id)
+        (int(score), json.dumps(score_payload), float(confidence or 0), version, clip_id)
     )
     conn.commit()
     conn.close()

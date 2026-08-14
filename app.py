@@ -1835,6 +1835,7 @@ def api_process_complete():
                     clip_data.get("factors", {}),
                     clip_data.get("confidence", 0),
                     clip_data.get("editorial_score_version", "v1-explainable"),
+                    review_flags=clip_data.get("review_flags", {}),
                 )
 
             ctx.update(stage="subtitles", progress=86, message="Legendas processadas")

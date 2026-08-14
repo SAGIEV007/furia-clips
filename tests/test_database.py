@@ -29,6 +29,20 @@ class DatabaseMigrationTests(unittest.TestCase):
         self.assertEqual(clip["review_status"], "approved")
         self.assertEqual(database.get_clip_feedback(clip_id)[0]["action"], "approved")
 
+    def test_review_flags_survive_database_round_trip(self):
+        project_id = database.create_project("Persistência de alertas", "uploads/alertas.mp4")
+        clip_id = database.save_clip(project_id, "exports/alerta.mp4", 0, 20, 20, 82, True, 0, "Alegação nominal.")
+        database.update_clip_editorial_score(
+            clip_id,
+            82,
+            {"hook": 80, "context_completeness": 72},
+            0.78,
+            review_flags={"needs_fact_review": True, "needs_legal_review": True},
+        )
+        clip = database.get_clips(project_id)[0]
+        self.assertTrue(clip["review_flags"]["needs_fact_review"])
+        self.assertTrue(clip["review_flags"]["needs_legal_review"])
+
 
 if __name__ == "__main__":
     unittest.main()
