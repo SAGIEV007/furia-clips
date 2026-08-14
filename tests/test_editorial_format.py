@@ -33,6 +33,22 @@ class EditorialFormatTests(unittest.TestCase):
         self.assertFalse(result["preserve_composition"])
         self.assertEqual(result["reframe_policy"], "reframe_se_seguro")
 
+    def test_fake_tweet_panel_preserves_social_context(self):
+        result = classify_editorial_format({"fake_tweet": True, "has_split_screen": True})
+        self.assertEqual(result["visual_format"], "fake_tweet")
+        self.assertTrue(result["preserve_composition"])
+        self.assertEqual(result["reframe_policy"], "preservar_composicao")
+
+    def test_text_panel_preserves_embedded_headline(self):
+        result = classify_editorial_format({"has_text_panel": True})
+        self.assertEqual(result["visual_format"], "text_panel")
+        self.assertTrue(result["preserve_composition"])
+
+    def test_visual_meme_preserves_composite_evidence(self):
+        result = classify_editorial_format({"composite_art": True})
+        self.assertEqual(result["visual_format"], "visual_meme")
+        self.assertTrue(result["preserve_composition"])
+
     def test_unknown_format_does_not_claim_reframe_safety(self):
         result = classify_editorial_format({}, "Texto sem sinal visual estruturado.")
         self.assertEqual(result["visual_format"], "desconhecido")
