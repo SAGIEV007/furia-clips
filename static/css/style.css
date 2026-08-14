@@ -2655,6 +2655,30 @@ body {
     color: #fcd34d;
 }
 
+.clip-review-risk {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin: 0 0 7px 6px;
+    padding: 4px 8px;
+    border: 1px solid rgba(251, 191, 36, 0.45);
+    border-radius: 999px;
+    background: rgba(245, 158, 11, 0.1);
+    color: #fcd34d;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.clip-review-risk.legal {
+    border-color: rgba(248, 113, 113, 0.5);
+    background: rgba(239, 68, 68, 0.1);
+    color: #fca5a5;
+}
+
+.clip-review-risk .material-icons-round {
+    font-size: 12px;
+}
+
 .btn-boundary-toggle {
     margin: 8px 0;
     border-color: rgba(255, 215, 0, 0.35);
