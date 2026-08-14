@@ -438,3 +438,31 @@ Este Reel é um **manifesto/campanha de alta intensidade**, montado com discurso
 | Música orquestral e picos vocais | Registrar energia audiovisual; evitar que trilha ou volume dominate o score semântico. |
 
 O relatório audiovisual completo está em `docs/instagram_reserva_local_audiovisual_Db_VUXqjnyO_2026-08-14.md`.
+
+## Evidência audiovisual adicional — perfil principal `DbWxJ54hbKO`
+
+Este Reel combina **storytelling pessoal, lista episódica e prova visual em split-screen**. O hook numérico promete três episódios de sabotagem; o arco migra da experiência individual para uma oferta política. A montagem usa active speaker no quadro superior, imagens de apoio na base, legendas dinâmicas e trilha crescente. O padrão é relevante para seleção, mas acusações nominais contra pessoas ou instituições devem receber alerta de revisão factual/jurídica e não podem ser tratadas como verdade pelo ranking.
+
+| Sinal observado | Regra aplicável ao Furia Clips |
+| --- | --- |
+| Hook com número e promessa de lista | Bonificar curiosidade somente quando o candidato contém a lista ou uma conclusão, evitando cortar após a promessa. |
+| Active speaker + evidências visuais em split-screen | Classificar como `testemunhal_com_prova_visual`; proteger rosto, texto e imagem de apoio no reframe. |
+| Legendas com palavras de impacto e trilha crescente | Usar energia audiovisual como sinal secundário; não substituir completude semântica por volume ou música. |
+| Transição de denúncia pessoal para proposta eleitoral | Bonificar arco problema–exemplo–posicionamento quando o fecho estiver presente. |
+| Alegações sobre juiz, instituições ou dados econômicos | Marcar `needs_fact_review`/`needs_legal_review` quando houver entidade nominal e linguagem acusatória; não afirmar veracidade. |
+
+O relatório audiovisual completo está em `docs/instagram_mbl_local_audiovisual_DbWxJ54hbKO_2026-08-14.md`.
+
+## Evidência audiovisual adicional — perfil principal `Dayg4dyhvpA`
+
+Este Reel usa **contraste de identidade, testemunhal de ruptura e aliança política** como arco. O locutor permanece como âncora estável no topo, enquanto a metade inferior alterna manchetes, rostos e imagens de apoio. A energia é solene e pausada, com trilha crescente; portanto, o ranking não deve exigir gritos ou cortes frenéticos para reconhecer potencial. Alegações de crimes ou vínculos de terceiros devem produzir alerta de revisão factual/jurídica, não uma bonificação cega por controvérsia.
+
+| Sinal observado | Regra aplicável ao Furia Clips |
+| --- | --- |
+| Declaração inicial que une grupos políticos em conflito | Classificar como `contraste_de_identidade`; bonificar curiosidade quando a resolução da mudança de posição estiver no mesmo corte. |
+| Locutor estável no topo e B-roll/manchetes na base | Classificar como `active_speaker_anchor_broll`; preservar a âncora e a área inferior no plano de reframe. |
+| Tom solene com pausas sincronizadas | Reconhecer autoridade/clareza sem penalizar baixa energia; preservar pausas que precedem tese ou fecho. |
+| Crescendo da denúncia para aliança e CTA | Bonificar arco ruptura–justificativa–nova posição–chamada, desde que a chamada não seja o único conteúdo. |
+| Alegações nominais de crime, corrupção ou facções | Marcar `needs_fact_review` e `needs_legal_review`; separar potencial de atenção de veracidade. |
+
+O relatório audiovisual completo está em `docs/instagram_mbl_local_audiovisual_Dayg4dyhvpA_2026-08-14.md`.
