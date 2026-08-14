@@ -1374,6 +1374,9 @@ function renderResultsGrid() {
         const diversityPenalty = Math.round(Number(clip.diversity_penalty || 0));
         const closureType = String(clip.closure_type || "");
         const closureLabels = { conclusion: "conclusão", closed_statement: "frase fechada", cliffhanger: "continuidade", open: "fecho a revisar" };
+        const speakerLabel = String(clip.speaker || clip.speaker_role || "").trim();
+        const speakerConfidence = Number(clip.speaker_confidence);
+        const overlapSuspected = Boolean(clip.overlap_suspected || clip.speaker_overlap);
         const reviewStatus = reviewStatusOf(clip);
         const confidence = Math.round((clip.confidence || 0) * 100);
         const clipSource = clip.source || "nlp";
@@ -1417,6 +1420,7 @@ function renderResultsGrid() {
                 ${politicalType ? `<div style="font-size:12px; color:#f59e0b; margin-bottom:6px"><span class="material-icons-round" style="font-size:14px; vertical-align:middle">account_balance</span> Formato editorial: ${escapeHtml(politicalType)}</div>` : ''}
                 ${topicSignature ? `<div class="clip-topic-chip" title="Sinal lexical usado somente para diversificar o portfólio">Tema: ${escapeHtml(topicSignature.replace(':', ' · ').replaceAll('-', ', '))}</div>` : ''}
                 ${closureType ? `<div class="clip-closure-chip ${escapeHtml(closureType)}"><span class="material-icons-round">${closureType === 'conclusion' ? 'task_alt' : closureType === 'cliffhanger' ? 'hourglass_top' : 'subtitles'}</span> ${escapeHtml(closureLabels[closureType] || closureType)}</div>` : ''}
+                ${(speakerLabel || overlapSuspected || Number.isFinite(speakerConfidence)) ? `<div class="clip-speaker-note ${overlapSuspected ? 'warning' : ''}"><span class="material-icons-round">${overlapSuspected ? 'record_voice_over' : 'person'}</span> ${speakerLabel ? `Locutor: ${escapeHtml(speakerLabel)}` : 'Locutor não identificado'}${Number.isFinite(speakerConfidence) ? ` · ${Math.round(Math.max(0, Math.min(1, speakerConfidence)) * 100)}%` : ''}${overlapSuspected ? ' · possível sobreposição' : ''}</div>` : ''}
                 ${diversityPenalty >= 20 ? `<div class="clip-diversity-note"><span class="material-icons-round">filter_list</span> Similaridade com outro corte: ${diversityPenalty}%</div>` : ''}
                 <div class="result-duration">
                     <span class="material-icons-round" style="font-size:14px">schedule</span>
