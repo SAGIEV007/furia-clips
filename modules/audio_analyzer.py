@@ -18,7 +18,7 @@ class AudioAnalyzer:
             "-ar", str(self.sample_rate), "-ac", "1",
             tmp.name
         ]
-        subprocess.run(cmd, capture_output=True, text=True)
+        subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
         return tmp.name
 
     def analyze_energy(self, video_path, window_seconds=1.0, emit_progress=None):

@@ -15,6 +15,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from modules.cancellation import OperationCancelled
+from modules.media_validation import validate_media
 
 
 class SourceIngestError(RuntimeError):
@@ -299,6 +300,27 @@ def download_public_video(url: str, destination: str, progress=None, max_height:
 
     if not output.exists() or not output.is_file():
         raise SourceIngestError("O download terminou sem produzir um arquivo de vídeo.")
+
+    source_duration = info.get("duration") if isinstance(info, dict) else None
+    try:
+        expected_duration = float(source_duration) if source_duration else None
+    except (TypeError, ValueError):
+        expected_duration = None
+    validation = validate_media(
+        str(output),
+        expected_duration=expected_duration,
+        duration_tolerance=5.0,
+        require_audio=True,
+        require_video=True,
+    )
+    if not validation.valid:
+        try:
+            output.unlink(missing_ok=True)
+        except OSError:
+            pass
+        detail = "; ".join(validation.errors)
+        raise SourceIngestError(f"O arquivo baixado não passou na validação de mídia: {detail}")
+
     return {
         "path": str(output),
         "title": info.get("title", ""),

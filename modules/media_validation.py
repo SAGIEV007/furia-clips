@@ -64,7 +64,13 @@ def probe_media(path: str, timeout: int = 20) -> Dict[str, Any]:
         path,
     ]
     completed = subprocess.run(
-        command, capture_output=True, text=True, timeout=timeout, check=False
+        command,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=timeout,
+        check=False,
     )
     if completed.returncode != 0:
         detail = (completed.stderr or "falha desconhecida").strip()

@@ -21,7 +21,7 @@ class SilenceRemover:
             "-f", "null", "-"
         ]
 
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
         output = result.stderr
 
         silence_periods = []
@@ -120,7 +120,7 @@ class SilenceRemover:
         if emit_progress:
             emit_progress(f"Processando {n} segmentos de fala...")
 
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
 
         if result.returncode != 0:
             if emit_progress:
@@ -152,6 +152,6 @@ class SilenceRemover:
             "-show_format",
             video_path
         ]
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
         data = json.loads(result.stdout)
         return float(data["format"]["duration"])

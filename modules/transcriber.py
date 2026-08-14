@@ -68,21 +68,6 @@ class Transcriber:
 
         try:
             from faster_whisper import WhisperModel
-            self.device = self._detect_device()
-            self.compute_type = "float16" if self.device == "cuda" else "int8"
-            model_kwargs = {
-                "device": self.device,
-                "compute_type": self.compute_type,
-            }
-            if self.device == "cpu":
-                model_kwargs["cpu_threads"] = max(1, (os.cpu_count() or 4) - 1)
-            self.model = WhisperModel(self.model_name, **model_kwargs)
-            self._engine = "faster-whisper"
-            if emit_progress:
-                emit_progress(
-                    f"Modelo carregado: faster-whisper ({self.compute_type}) no {self.device.upper()}; "
-                    f"beam={self.beam_size}, word_timestamps={'on' if self.word_timestamps else 'off'}"
-                )
         except ImportError:
             if emit_progress:
                 emit_progress("faster-whisper nao encontrado. Usando openai-whisper como fallback...")
@@ -95,6 +80,43 @@ class Transcriber:
             self._engine = "openai-whisper"
             if emit_progress:
                 emit_progress(f"Modelo carregado: openai-whisper no {device}")
+            return
+
+        detected_device = self._detect_device()
+        device_candidates = [detected_device]
+        if detected_device == "cuda":
+            device_candidates.append("cpu")
+        load_errors = []
+        for device in device_candidates:
+            compute_candidates = ["float16", "int8_float16", "int8"] if device == "cuda" else ["int8", "int8_float32", "float32"]
+            for compute_type in compute_candidates:
+                model_kwargs = {
+                    "device": device,
+                    "compute_type": compute_type,
+                }
+                if device == "cpu":
+                    model_kwargs["cpu_threads"] = max(1, (os.cpu_count() or 4) - 1)
+                try:
+                    self.model = WhisperModel(self.model_name, **model_kwargs)
+                    self.device = device
+                    self.compute_type = compute_type
+                    self._engine = "faster-whisper"
+                    if emit_progress:
+                        emit_progress(
+                            f"Modelo carregado: faster-whisper ({self.compute_type}) no {self.device.upper()}; "
+                            f"beam={self.beam_size}, word_timestamps={'on' if self.word_timestamps else 'off'}"
+                        )
+                        if detected_device == "cuda" and device == "cpu":
+                            emit_progress(
+                                "[Whisper] CUDA detectada, mas o backend não aceitou os tipos disponíveis; usando CPU com configuração segura.",
+                                "warning",
+                            )
+                    return
+                except (OSError, RuntimeError, ValueError) as exc:
+                    load_errors.append(f"{device}/{compute_type}: {str(exc)[:160]}")
+
+        detail = " | ".join(load_errors[-4:])
+        raise RuntimeError(f"Não foi possível carregar faster-whisper com configuração segura. {detail}")
 
     def _probe_duration(self, video_path):
         ffprobe = shutil.which("ffprobe")
@@ -103,7 +125,7 @@ class Transcriber:
         try:
             result = subprocess.run(
                 [ffprobe, "-v", "error", "-show_entries", "format=duration", "-of", "default=nw=1:nk=1", video_path],
-                capture_output=True, text=True, timeout=15,
+                capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=15,
             )
             return float(result.stdout.strip()) if result.stdout.strip() else None
         except (OSError, ValueError, subprocess.SubprocessError):
@@ -118,7 +140,7 @@ class Transcriber:
 
             result = subprocess.run(
                 [ffprobe, "-v", "quiet", "-show_streams", "-select_streams", "a", video_path],
-                capture_output=True, text=True, timeout=15,
+                capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=15,
             )
             if "codec_type=audio" not in result.stdout:
                 if emit_progress:

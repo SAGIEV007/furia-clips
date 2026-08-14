@@ -19,7 +19,7 @@ class ThumbnailGenerator:
             "-q:v", "2",
             output_path
         ]
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
         return output_path if result.returncode == 0 else None
 
     def generate_thumbnail(self, video_path, time_seconds, text="",

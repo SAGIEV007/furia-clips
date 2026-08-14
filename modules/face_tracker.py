@@ -128,7 +128,7 @@ class FaceTracker:
                 "ffprobe", "-v", "quiet", "-print_format", "json",
                 "-show_streams", "-select_streams", "v:0", video_path
             ]
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+            result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=15)
             if result.returncode != 0:
                 return LAYOUT_UNKNOWN
 
@@ -173,7 +173,7 @@ class FaceTracker:
                 "ffprobe", "-v", "quiet", "-print_format", "json",
                 "-show_entries", "format=duration", video_path
             ]
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+            result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=10)
             if result.returncode != 0:
                 return False
 

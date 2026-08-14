@@ -13,6 +13,35 @@ class VideoCutter:
         self.method = method
         self.target_duration = target_duration
         self.preset = get_preset(preset) if isinstance(preset, str) else (preset or get_preset("shorts"))
+        self.last_rejections = []
+
+    def _validate_rendered_output(self, output_path, expected_duration, emit_progress=None):
+        validation = validate_media(
+            output_path,
+            expected_duration=max(0.1, float(expected_duration or 0)),
+            duration_tolerance=2.0,
+            require_audio=True,
+            require_video=True,
+        )
+        if validation.valid:
+            return True
+        self.last_rejections.append({
+            "path": output_path,
+            "errors": list(validation.errors),
+            "warnings": list(validation.warnings),
+        })
+        try:
+            if os.path.exists(output_path):
+                os.remove(output_path)
+        except OSError:
+            pass
+        if emit_progress:
+            emit_progress(
+                f"Renderização rejeitada para {os.path.basename(output_path)}: "
+                + "; ".join(validation.errors),
+                "error",
+            )
+        return False
 
     def get_video_info(self, video_path):
         cmd = [
@@ -21,8 +50,10 @@ class VideoCutter:
             "-show_format", "-show_streams",
             video_path
         ]
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        return json.loads(result.stdout)
+        result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
+        if result.returncode != 0:
+            raise RuntimeError((result.stderr or "ffprobe falhou").strip()[-500:])
+        return json.loads(result.stdout or "{}")
 
     def detect_scenes(self, video_path, threshold=27.0, emit_progress=None):
         if emit_progress:
@@ -33,7 +64,7 @@ class VideoCutter:
             "-vf", f"select='gt(scene,{threshold / 100.0})',showinfo",
             "-f", "null", "-"
         ]
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
 
         scene_changes = [0.0]
         stderr = result.stderr or ""
@@ -123,11 +154,14 @@ class VideoCutter:
             output_path
         ])
 
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
 
         if result.returncode != 0:
             if emit_progress:
                 emit_progress(f"Erro ao cortar: {result.stderr[-300:]}")
+            return None
+
+        if not self._validate_rendered_output(output_path, duration, emit_progress):
             return None
 
         if emit_progress:
@@ -177,12 +211,15 @@ class VideoCutter:
             output_path
         ]
 
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
 
         if result.returncode != 0:
             if emit_progress:
                 emit_progress(f"Erro ao cortar com face tracking: {result.stderr[-300:]}")
             return self.cut_clip(video_path, start_time, end_time, output_path, True, emit_progress)
+
+        if not self._validate_rendered_output(output_path, duration, emit_progress):
+            return None
 
         if emit_progress:
             emit_progress(f"Clip com face tracking criado: {os.path.basename(output_path)}")
@@ -210,6 +247,7 @@ class VideoCutter:
                   video_layout=None, preset=None, original_aspect_indices=None,
                   layout_plans=None):
         active_preset = get_preset(preset) if isinstance(preset, str) else (preset or self.preset)
+        self.last_rejections = []
         base_export = output_dir if output_dir and os.path.isabs(output_dir) else EXPORT_DIR
 
         # Create subfolder named after the video
