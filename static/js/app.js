@@ -1909,6 +1909,16 @@ async function ensureSourceDirectory() {
         if (label) label.textContent = existing;
         return existing;
     }
+
+    // Recover a path already rendered by settings or a previous selection so
+    // importing a source never opens the native picker twice in one workflow.
+    const label = document.getElementById("sourceDestinationText");
+    const rendered = String(label?.textContent || "").trim();
+    const placeholder = /^(escolha|selecion(e|ar)|pasta padrão|workspace\/uploads)/i;
+    if (rendered && !placeholder.test(rendered)) {
+        state.sourceDownloadDir = rendered;
+        return rendered;
+    }
     return chooseSourceDirectory();
 }
 
