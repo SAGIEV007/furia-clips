@@ -1547,6 +1547,34 @@ function renderResultsGrid() {
         const chapterCount = Number(clip.chapter_count || reviewFlags.chapter_count || 0);
         const chapterScore = Number(clip.chapter_coherence_score ?? reviewFlags.chapter_coherence_score);
         const chapterBridge = Boolean(clip.qa_bridge || reviewFlags.qa_bridge);
+        const durationSeconds = Number(clip.duration || ((clip.end || 0) - (clip.start || 0)) || 0);
+        const durationFit = Number(clip.duration_fit ?? factors.duration_fit);
+        const durationPreference = clip.duration_preference || {};
+        const durationStatus = String(durationPreference.status || reviewFlags.duration_preference || (
+            durationSeconds <= 180 ? "curto_preferencial" : "longo_para_revisao"
+        ));
+        const durationException = Boolean(durationPreference.exception || reviewFlags.duration_exception || durationStatus === "excecao_contextual");
+        const durationPolicyMeta = {
+            curto_preferencial: {
+                label: "Corte curto por preferência",
+                hint: "O menor intervalo autossuficiente foi priorizado; hook, contexto e fecho permanecem juntos.",
+                icon: "bolt",
+                className: "preferred",
+            },
+            excecao_contextual: {
+                label: "Exceção contextual acima de 3 min",
+                hint: "O corte foi mantido mais longo porque encurtar poderia remover pergunta, prova, argumento ou conclusão.",
+                icon: "account_tree",
+                className: "exception",
+            },
+            longo_para_revisao: {
+                label: "Acima da preferência de 3 min",
+                hint: "A duração não é proibida, mas vale revisar se o mesmo contexto pode ser preservado em menos tempo.",
+                icon: "schedule",
+                className: "review",
+            },
+        };
+        const durationMeta = durationPolicyMeta[durationStatus] || durationPolicyMeta.curto_preferencial;
         const campaignPrior = clip.campaign_hub_prior || {};
         const campaignPriorAvailable = Boolean(campaignPrior.available || reviewFlags.campaign_hub_prior_available);
         const campaignHookFamily = String(campaignPrior.hook_family || reviewFlags.campaign_hub_hook_family || "").trim();
@@ -1606,6 +1634,7 @@ function renderResultsGrid() {
                 ${campaignPriorAvailable ? `<div class="clip-performance-prior"><span class="material-icons-round">insights</span><span><b>Histórico observado:</b> hook ${escapeHtml(campaignHookFamily || 'não classificado')} · amostra ${Math.max(0, campaignSampleCount)} · influência limitada ao ranking</span></div>` : ''}
                 ${(needsFactReview || needsLegalReview) ? `<div class="clip-review-risk ${needsLegalReview ? 'legal' : ''}"><span class="material-icons-round">${needsLegalReview ? 'gavel' : 'fact_check'}</span> ${needsLegalReview ? 'Revisão factual e jurídica' : 'Revisão factual recomendada'}</div>` : ''}
                 ${topicSignature ? `<div class="clip-topic-chip" title="Sinal lexical usado somente para diversificar o portfólio">Tema: ${escapeHtml(topicSignature.replace(':', ' · ').replaceAll('-', ', '))}</div>` : ''}
+                ${durationStatus ? `<div class="clip-duration-policy ${durationMeta.className}" title="${escapeHtml(String(durationPreference.reason || durationMeta.hint))}"><span class="material-icons-round">${durationMeta.icon}</span><span><b>${escapeHtml(durationMeta.label)}</b>${Number.isFinite(durationFit) ? ` · brevidade ${Math.round(Math.max(0, Math.min(100, durationFit)))}%` : ''}${durationException ? ' · contexto excepcional preservado' : ''}</span></div>` : ''}
                 ${closureType ? `<div class="clip-closure-chip ${escapeHtml(closureType)}"><span class="material-icons-round">${closureType === 'conclusion' ? 'task_alt' : closureType === 'cliffhanger' ? 'hourglass_top' : 'subtitles'}</span> ${escapeHtml(closureLabels[closureType] || closureType)}</div>` : ''}
                 ${(speakerLabel || overlapSuspected || Number.isFinite(speakerConfidence)) ? `<div class="clip-speaker-note ${overlapSuspected ? 'warning' : ''}"><span class="material-icons-round">${overlapSuspected ? 'record_voice_over' : 'person'}</span> ${speakerLabel ? `Locutor: ${escapeHtml(speakerLabel)}` : 'Locutor não identificado'}${Number.isFinite(speakerConfidence) ? ` · ${Math.round(Math.max(0, Math.min(1, speakerConfidence)) * 100)}%` : ''}${overlapSuspected ? ' · possível sobreposição' : ''}</div>` : ''}
                 ${diversityPenalty >= 20 ? `<div class="clip-diversity-note"><span class="material-icons-round">filter_list</span> Similaridade com outro corte: ${diversityPenalty}%</div>` : ''}

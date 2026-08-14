@@ -1110,6 +1110,49 @@ body {
     margin-bottom: 10px;
 }
 
+.clip-duration-policy {
+    display: flex;
+    align-items: flex-start;
+    gap: 7px;
+    margin: 7px 0;
+    padding: 8px 10px;
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(255, 215, 0, 0.22);
+    background: rgba(255, 215, 0, 0.06);
+    color: var(--text-secondary);
+    font-size: 11px;
+    line-height: 1.4;
+}
+
+.clip-duration-policy .material-icons-round {
+    flex: 0 0 auto;
+    font-size: 16px;
+    color: var(--gold);
+}
+
+.clip-duration-policy b { color: var(--text-primary); }
+
+.clip-duration-policy.preferred {
+    border-color: rgba(68, 207, 108, 0.28);
+    background: rgba(68, 207, 108, 0.07);
+}
+
+.clip-duration-policy.preferred .material-icons-round { color: var(--success); }
+
+.clip-duration-policy.exception {
+    border-color: rgba(139, 92, 246, 0.42);
+    background: rgba(139, 92, 246, 0.10);
+}
+
+.clip-duration-policy.exception .material-icons-round { color: #a78bfa; }
+
+.clip-duration-policy.review {
+    border-color: rgba(245, 158, 11, 0.34);
+    background: rgba(245, 158, 11, 0.08);
+}
+
+.clip-duration-policy.review .material-icons-round { color: var(--warning); }
+
 .score-breakdown {
     display: flex;
     flex-direction: column;
