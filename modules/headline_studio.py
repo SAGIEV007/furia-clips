@@ -1,0 +1,380 @@
+"""Headline studio for short-form political video artwork.
+
+This module turns a finished-cut transcript into *text for the artwork*, not SEO
+metadata.  It keeps the three production formats used by the editor separate:
+vertical headline, square "Alfinetei" and simulated post.  Local suggestions are
+always available; an online model may improve wording but can never remove
+context, attribution or review warnings.
+"""
+
+from __future__ import annotations
+
+import json
+import re
+from dataclasses import dataclass
+from typing import Any
+
+from modules.political_profile import analyze_political_text, normalize
+from modules.transcript_parser import parse_transcript_text
+
+
+FORMAT_VERTICAL = "vertical_916"
+FORMAT_SQUARE = "square_alfinetei"
+FORMAT_TWEET = "fake_tweet"
+FORMAT_IDS = {FORMAT_VERTICAL, FORMAT_SQUARE, FORMAT_TWEET}
+
+FORMAT_PROFILES = {
+    FORMAT_VERTICAL: {
+        "label": "9:16 — headline central",
+        "description": "Texto preto em faixa amarela; destaque pontual branco em vermelho quando houver conflito explicitamente dito.",
+        "headline_limit": 58,
+        "eyebrow_limit": 18,
+    },
+    FORMAT_SQUARE: {
+        "label": "1:1 — Alfinetei",
+        "description": "Uma chamada curta no topo e headline branca, enxuta, em até três linhas. Não é uma descrição de publicação.",
+        "headline_limit": 64,
+        "eyebrow_limit": 18,
+    },
+    FORMAT_TWEET: {
+        "label": "Fake tweet — publicação simulada",
+        "description": "Texto em primeira pessoa somente quando ele estiver inequívoco no corte; revisar antes de atribuir a postagem ao perfil.",
+        "headline_limit": 180,
+        "eyebrow_limit": 0,
+    },
+}
+
+TOPIC_RULES = (
+    ("cripto", ("bitcoin", "cripto", "criptomoeda", "criptomoedas", "blockchain")),
+    ("segurança", ("segurança", "crime", "polícia", "policia", "violência", "violencia", "bandido")),
+    ("impostos", ("imposto", "tributo", "tributação", "tributacao", "iof", "taxa")),
+    ("economia", ("economia", "emprego", "salário", "salario", "inflação", "inflacao", "pobreza")),
+    ("liberdade", ("liberdade", "censura", "regular", "regulação", "regulacao", "estado")),
+    ("política", ("brasil", "governo", "presidente", "congresso", "stf", "eleição", "eleicao")),
+)
+
+ATTENTION_WORDS = ("ALERTA", "ARCAICO", "ABSURDO", "ATENÇÃO", "URGENTE", "IMPRESSIONANTE")
+
+
+@dataclass(frozen=True)
+class ArtworkSuggestion:
+    eyebrow: str
+    headline: str
+    emphasis: str = ""
+    accent: str = "none"
+    note: str = ""
+
+    def as_dict(self) -> dict[str, Any]:
+        profile = FORMAT_PROFILES.get(self.note, {})
+        return {
+            "eyebrow": self.eyebrow,
+            "headline": self.headline,
+            "headline_lines": _break_headline(self.headline),
+            "emphasis": self.emphasis,
+            "accent": self.accent,
+            "character_count": len(self.headline),
+        }
+
+
+def _compact(value: str, limit: int) -> str:
+    text = re.sub(r"\s+", " ", str(value or "")).strip(" .,:;–—-")
+    if len(text) <= limit:
+        return text
+    short = text[: limit + 1].rsplit(" ", 1)[0].strip()
+    return short or text[:limit].strip()
+
+
+def _break_headline(value: str, max_lines: int = 3) -> list[str]:
+    words = _compact(value, 96).split()
+    if not words:
+        return []
+    if len(words) <= 3:
+        return [" ".join(words)]
+    target = max(12, round(len(value) / min(max_lines, 3)))
+    lines: list[str] = []
+    current: list[str] = []
+    for word in words:
+        candidate = " ".join([*current, word])
+        if current and len(candidate) > target and len(lines) < max_lines - 1:
+            lines.append(" ".join(current))
+            current = [word]
+        else:
+            current.append(word)
+    if current:
+        lines.append(" ".join(current))
+    return lines[:max_lines]
+
+
+def _coerce_text(transcript: str) -> tuple[str, dict[str, Any]]:
+    raw = str(transcript or "").strip()
+    if not raw:
+        raise ValueError("Cole ou importe uma transcrição antes de gerar o texto de arte.")
+    try:
+        parsed = parse_transcript_text(raw)
+        return parsed["full_text"], {
+            "format": parsed.get("format", "timestamped"),
+            "segment_count": parsed.get("segment_count", 0),
+            "timestamped": True,
+        }
+    except ValueError:
+        # Finished edits often arrive as a clean text export without timestamps.
+        plain = re.sub(r"\s+", " ", raw).strip()
+        if len(plain.split()) < 4:
+            raise ValueError("A transcrição precisa ter ao menos uma frase curta para análise.")
+        return plain, {"format": "plain_text", "segment_count": 0, "timestamped": False}
+
+
+def _topic(text: str) -> str:
+    folded = normalize(text)
+    best = "política"
+    best_hits = -1
+    for label, terms in TOPIC_RULES:
+        hits = sum(1 for term in terms if term in folded)
+        if hits > best_hits:
+            best, best_hits = label, hits
+    return best
+
+
+def _attention_word(text: str, signals: dict[str, Any]) -> str:
+    folded = normalize(text)
+    if "arcaic" in folded:
+        return "ARCAICO"
+    if any(term in folded for term in ("urgente", "agora", "alerta")):
+        return "ALERTA"
+    if signals.get("conflict_or_stakes", 0) >= 55:
+        return "ABSURDO"
+    if signals.get("claim_strength", 0) >= 55:
+        return "ATENÇÃO"
+    return "IMPRESSIONANTE"
+
+
+def _claim_candidates(text: str, topic: str) -> list[str]:
+    folded = normalize(text)
+    candidates: list[str] = []
+    if "caminho arcaico" in folded:
+        candidates.append("BRASIL ESCOLHEU O CAMINHO ARCAICO")
+    if "com ou sem o estado" in folded or "vao ocorrer de qualquer forma" in folded:
+        candidates.append("AS CRIPTOS AVANÇAM COM OU SEM O ESTADO")
+    if "reserva de valor" in folded and topic == "cripto":
+        candidates.append("CRIPTOS SÃO O FUTURO DA RESERVA DE VALOR")
+    if "tribut" in folded and topic in {"cripto", "impostos"}:
+        candidates.append("RENAN CRITICA A TRIBUTAÇÃO DAS CRIPTOS")
+    if "estado" in folded and "amig" in folded:
+        candidates.append("O ESTADO VAI ACOLHER OU AFASTAR AS CRIPTOS?")
+    if "liberdade" in folded:
+        candidates.append("A LIBERDADE NÃO CABE EM MAIS CONTROLE")
+    if "seguran" in folded:
+        candidates.append("SEGURANÇA NÃO SE RESOLVE COM DISCURSO")
+    if "imposto" in folded or "tribut" in folded:
+        candidates.append("O BRASIL QUER TRIBUTAR O PRÓPRIO FUTURO?")
+    if not candidates:
+        label = topic.upper()
+        candidates.extend([
+            f"RENAN EXPLICA O IMPASSE DA {label}",
+            f"O BRASIL PRECISA DECIDIR O RUMO DA {label}",
+            f"A VERDADE INCÔMODA SOBRE {label}",
+        ])
+    unique: list[str] = []
+    for candidate in candidates:
+        item = _compact(candidate, 64).upper()
+        if item and item not in unique:
+            unique.append(item)
+    return unique[:4]
+
+
+def _safe_fake_tweet(text: str, topic: str, mini_context: str) -> list[str]:
+    folded = normalize(text)
+    lead = ""
+    if "caminho arcaico" in folded:
+        lead = "O Brasil escolheu o caminho arcaico ao lidar com as criptos."
+    elif "reserva de valor" in folded and topic == "cripto":
+        lead = "As criptos já são uma reserva de valor para as novas gerações."
+    elif "estado" in folded and "amig" in folded:
+        lead = "A pergunta é simples: o Estado será amigável ou hostil à inovação?"
+    else:
+        lead = f"O debate sobre {topic} precisa olhar para o futuro, não para o medo."
+    if mini_context:
+        lead = _compact(f"{lead} {mini_context}", 180)
+    return [_compact(lead, 180)]
+
+
+def _fallback_result(text: str, mini_context: str, preferred_format: str) -> dict[str, Any]:
+    signals = analyze_political_text(text, user_context=mini_context)
+    topic = _topic(text)
+    attention = _attention_word(text, signals)
+    claims = _claim_candidates(text, topic)
+    square = [
+        ArtworkSuggestion(attention, claim, emphasis="", accent="white", note=FORMAT_SQUARE).as_dict()
+        for claim in claims[:3]
+    ]
+    vertical = [
+        ArtworkSuggestion("", claim, emphasis=_compact(claim.split()[-1], 18), accent="red_on_white", note=FORMAT_VERTICAL).as_dict()
+        for claim in claims[:3]
+    ]
+    fake_tweet = [
+        {
+            "post_text": copy,
+            "character_count": len(copy),
+            "attribution_note": "Use como rascunho de publicação; confirme a redação final antes de atribuir ao perfil.",
+        }
+        for copy in _safe_fake_tweet(text, topic, mini_context)
+    ]
+
+    if preferred_format in FORMAT_IDS:
+        recommended = preferred_format
+    elif signals.get("claim_strength", 0) >= 45 and len(text.split()) >= 35:
+        recommended = FORMAT_SQUARE
+    elif signals.get("editorial_family") in {"reacao", "humor"}:
+        recommended = FORMAT_VERTICAL
+    else:
+        recommended = FORMAT_VERTICAL
+
+    is_complete = text.rstrip().endswith((".", "!", "?"))
+    review_flags = {
+        "needs_fact_review": bool(signals.get("needs_fact_review")),
+        "needs_legal_review": bool(signals.get("needs_legal_review")),
+        "transcript_ends_incomplete": not is_complete,
+    }
+    recommendation_reason = {
+        FORMAT_SQUARE: "A tese tem desenvolvimento suficiente para uma chamada curta no topo e uma headline branca em até três linhas.",
+        FORMAT_VERTICAL: "O argumento possui conflito ou contraste que funciona melhor como headline central de leitura imediata.",
+        FORMAT_TWEET: "O corte possui uma posição autoral que pode virar rascunho de publicação, desde que a atribuição final seja revisada.",
+    }[recommended]
+    return {
+        "recommended_format": recommended,
+        "recommendation_reason": recommendation_reason,
+        "topic": topic,
+        "attention_word": attention,
+        "formats": {
+            FORMAT_VERTICAL: {**FORMAT_PROFILES[FORMAT_VERTICAL], "suggestions": vertical},
+            FORMAT_SQUARE: {**FORMAT_PROFILES[FORMAT_SQUARE], "suggestions": square},
+            FORMAT_TWEET: {**FORMAT_PROFILES[FORMAT_TWEET], "suggestions": fake_tweet},
+        },
+        "review_flags": review_flags,
+        "analysis": {
+            "editorial_family": signals.get("editorial_family", "conversa"),
+            "context_completeness": signals.get("context_completeness", 0),
+            "claim_strength": signals.get("claim_strength", 0),
+            "conflict_or_stakes": signals.get("conflict_or_stakes", 0),
+        },
+        "generation_source": "editorial_fallback",
+    }
+
+
+def _extract_json(value: str) -> dict[str, Any] | None:
+    raw = str(value or "").strip()
+    if "```json" in raw:
+        raw = raw.split("```json", 1)[1].split("```", 1)[0]
+    elif "```" in raw:
+        raw = raw.split("```", 1)[1].split("```", 1)[0]
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        match = re.search(r"\{.*\}", raw, flags=re.S)
+        if not match:
+            return None
+        try:
+            return json.loads(match.group(0))
+        except json.JSONDecodeError:
+            return None
+
+
+def _merge_ai_suggestions(base: dict[str, Any], payload: dict[str, Any]) -> dict[str, Any]:
+    """Accept only short, compatible AI variations; deterministic safety stays intact."""
+    suggested = payload.get("formats") if isinstance(payload, dict) else None
+    if not isinstance(suggested, dict):
+        return base
+    for format_id in (FORMAT_VERTICAL, FORMAT_SQUARE):
+        variants = suggested.get(format_id)
+        if not isinstance(variants, list):
+            continue
+        accepted = []
+        for item in variants[:3]:
+            if not isinstance(item, dict):
+                continue
+            headline = _compact(str(item.get("headline", "")), FORMAT_PROFILES[format_id]["headline_limit"])
+            eyebrow = _compact(str(item.get("eyebrow", "")), FORMAT_PROFILES[format_id]["eyebrow_limit"])
+            if len(headline.split()) < 2:
+                continue
+            accepted.append({
+                "eyebrow": eyebrow.upper(),
+                "headline": headline.upper(),
+                "headline_lines": _break_headline(headline.upper()),
+                "emphasis": _compact(str(item.get("emphasis", "")), 18).upper(),
+                "accent": "red_on_white" if item.get("accent") == "red_on_white" else "white",
+                "character_count": len(headline),
+            })
+        if accepted:
+            base["formats"][format_id]["suggestions"] = accepted
+    tweets = suggested.get(FORMAT_TWEET)
+    if isinstance(tweets, list):
+        accepted_tweets = []
+        for item in tweets[:2]:
+            text = _compact(str(item.get("post_text", "")), FORMAT_PROFILES[FORMAT_TWEET]["headline_limit"])
+            if len(text.split()) >= 4:
+                accepted_tweets.append({
+                    "post_text": text,
+                    "character_count": len(text),
+                    "attribution_note": "Rascunho de publicação: revise a atribuição e a redação antes de usar o perfil.",
+                })
+        if accepted_tweets:
+            base["formats"][FORMAT_TWEET]["suggestions"] = accepted_tweets
+    requested = payload.get("recommended_format")
+    if requested in FORMAT_IDS:
+        base["recommended_format"] = requested
+    if isinstance(payload.get("recommendation_reason"), str):
+        base["recommendation_reason"] = _compact(payload["recommendation_reason"], 220)
+    base["generation_source"] = "ai_refined"
+    return base
+
+
+def generate_artwork_copy(
+    transcript: str,
+    mini_context: str = "",
+    preferred_format: str = "auto",
+    ai_backend: Any | None = None,
+    emit_progress=None,
+) -> dict[str, Any]:
+    """Generate short, format-aware artwork copy from a finished-cut transcript."""
+    text, transcript_meta = _coerce_text(transcript)
+    context = _compact(mini_context, 280)
+    preferred = preferred_format if preferred_format in FORMAT_IDS else "auto"
+    result = _fallback_result(text, context, preferred)
+    result["transcript"] = {
+        **transcript_meta,
+        "word_count": len(text.split()),
+        "excerpt": _compact(text, 280),
+    }
+    result["mini_context"] = context
+
+    if ai_backend is not None:
+        if emit_progress:
+            emit_progress("[Texto de arte] Refinando opções curtas pelo modo de IA configurado...", "info")
+        system = """Você é editor de vídeos políticos curtos no Brasil. Gere texto de ARTE, não SEO.
+Use somente ideias claramente presentes na transcrição. Intensifique o contraste sem inventar fatos, crimes, números, intenções ou acusações. Quando for opinião do orador, prefira atribuição como 'RENAN:' ou 'RENAN CRITICA'.
+A resposta deve ser somente JSON válido. Para 1:1 e 9:16, headline é curta, em caixa alta e sem descrição complementar. Respeite rigorosamente os limites informados."""
+        prompt = f"""TRANSCRIÇÃO DO CORTE:
+{text[:5000]}
+
+MINICONTEXTO DO EDITOR:
+{context or '(nenhum)'}
+
+Produza JSON neste formato:
+{{
+  "recommended_format": "vertical_916|square_alfinetei|fake_tweet",
+  "recommendation_reason": "motivo breve",
+  "formats": {{
+    "vertical_916": [{{"eyebrow":"", "headline":"até 58 caracteres", "emphasis":"até 18 caracteres", "accent":"white|red_on_white"}}],
+    "square_alfinetei": [{{"eyebrow":"até 18 caracteres", "headline":"até 64 caracteres", "emphasis":"", "accent":"white"}}],
+    "fake_tweet": [{{"post_text":"até 180 caracteres"}}]
+  }}
+}}
+Gere no máximo 3 alternativas por formato."""
+        try:
+            refined = _extract_json(ai_backend.generate(prompt, system, emit_progress))
+            if refined:
+                result = _merge_ai_suggestions(result, refined)
+        except Exception:
+            # A deterministic, explainable output is preferable to a failed screen.
+            pass
+    return result

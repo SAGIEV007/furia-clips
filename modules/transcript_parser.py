@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html
 import re
 from typing import Iterable
 
@@ -32,9 +33,62 @@ def parse_timestamp(value: str) -> float:
 
 
 def _clean_text(text: str) -> str:
+    text = html.unescape(text)
     text = re.sub(r"<\d{2}:\d{2}:\d{2}[\.,]\d{3}>\s*", "", text)
     text = re.sub(r"<[^>]+>", "", text)
+    # Auto-captions may encode speaker cues as literal arrows; this is not
+    # reliable diarization and should not pollute the editorial transcript.
+    text = re.sub(r"(?:^|\s)(?:>>|>)\s*", " ", text)
     return re.sub(r"\s+", " ", text).strip()
+
+
+def _word_tokens(text: str) -> list[str]:
+    return re.findall(r"\S+", _clean_text(text))
+
+
+def _progressive_delta(previous: str, current: str) -> str | None:
+    """Return newly revealed words from an overlapping caption, if confident."""
+    previous_words = _word_tokens(previous)
+    current_words = _word_tokens(current)
+    previous_folded = [word.lower() for word in previous_words]
+    current_folded = [word.lower() for word in current_words]
+    if not previous_words or not current_words:
+        return None
+    if previous_folded == current_folded:
+        return ""
+    if current_folded[: len(previous_folded)] == previous_folded and (
+        len(previous_words) >= 2 or len(current_words) > 1
+    ):
+        return " ".join(current_words[len(previous_words) :])
+    max_overlap = min(len(previous_words), len(current_words))
+    for overlap in range(max_overlap, 2, -1):
+        if previous_folded[-overlap:] == current_folded[:overlap]:
+            return " ".join(current_words[overlap:])
+    return None
+
+
+def _deduplicate_progressive_segments(segments: Iterable[dict]) -> list[dict]:
+    """Collapse rolling-window captions without dropping independent short replies."""
+    cleaned: list[dict] = []
+    for raw in segments:
+        item = dict(raw)
+        item["text"] = _clean_text(str(item.get("text", "")))
+        if not item["text"]:
+            continue
+        if not cleaned:
+            cleaned.append(item)
+            continue
+        previous = cleaned[-1]
+        delta = _progressive_delta(str(previous.get("text", "")), item["text"])
+        if delta is None:
+            cleaned.append(item)
+            continue
+        if item.get("end") is not None and previous.get("end") is not None:
+            previous["end"] = max(float(previous["end"]), float(item["end"]))
+        if delta:
+            item["text"] = _clean_text(delta)
+            cleaned.append(item)
+    return cleaned
 
 
 def _normalize(segments: Iterable[dict], duration: float | None = None) -> list[dict]:
@@ -82,7 +136,7 @@ def parse_transcript_text(text: str, duration: float | None = None) -> dict:
     else:
         segments = _parse_timestamp_lines(raw)
 
-    normalized = _normalize(segments, duration=duration)
+    normalized = _normalize(_deduplicate_progressive_segments(segments), duration=duration)
     if not normalized:
         raise ValueError("Nenhum segmento com timestamp reconhecível foi encontrado")
     return {
@@ -161,7 +215,7 @@ def detect_format(raw: str) -> str:
 
 
 def normalize_segment_payload(segments: Iterable[dict], duration: float | None = None) -> dict:
-    normalized = _normalize(segments, duration=duration)
+    normalized = _normalize(_deduplicate_progressive_segments(segments), duration=duration)
     if not normalized:
         raise ValueError("Nenhum segmento válido foi informado")
     return {
