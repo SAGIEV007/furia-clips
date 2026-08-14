@@ -557,12 +557,21 @@ def api_batch_rank():
         return jsonify({"error": "Cada candidato deve ser um objeto JSON"}), 400
 
     from modules.viral_ranker import ViralRanker
+    from modules.campaign_hub import load_snapshot
 
+    options = data.get("options") or {}
+    campaign_hub_snapshot = load_snapshot(options.get("campaign_hub_snapshot_path"))
+    campaign_hub_account = str(
+        options.get("campaign_hub_account")
+        or data.get("campaign_hub_account")
+        or (campaign_hub_snapshot or {}).get("default_account", "")
+    )
     ranker = ViralRanker(
         channel_context=str(data.get("channel_context") or ""),
         editorial_profile=str(data.get("editorial_profile") or "renan_santos_politics"),
+        campaign_hub_snapshot=campaign_hub_snapshot,
+        campaign_hub_account=campaign_hub_account,
     )
-    options = data.get("options") or {}
     try:
         portfolio = ranker.rank_daily_portfolio(
             candidates,
@@ -1449,7 +1458,18 @@ def api_cut_shorts():
                         if start <= float(change) <= end
                     ]
             from modules.viral_ranker import ViralRanker
+            from modules.campaign_hub import load_snapshot
             feedback_calibration = get_feedback_calibration()
+            campaign_hub_snapshot = load_snapshot(settings.get("campaign_hub_snapshot_path"))
+            campaign_hub_account = str(
+                settings.get("campaign_hub_account")
+                or (campaign_hub_snapshot or {}).get("default_account", "")
+            )
+            if campaign_hub_snapshot:
+                emit_progress(
+                    f"[Campaign Hub] Priors locais carregados para {campaign_hub_account or 'conta padrão'}; impacto limitado e explicável.",
+                    "info",
+                )
             if feedback_calibration.get("eligible"):
                 emit_progress(
                     f"[Feedback editorial] Calibração aplicada com {feedback_calibration['sample_size']} decisões finais.",
@@ -1464,6 +1484,8 @@ def api_cut_shorts():
                 channel_context=settings.get("channel_context", ""),
                 editorial_profile=settings.get("editorial_profile", "renan_santos_politics"),
                 feedback_calibration=feedback_calibration,
+                campaign_hub_snapshot=campaign_hub_snapshot,
+                campaign_hub_account=campaign_hub_account,
             )
             top_clips = ranker.rank_clips(
                 top_clips,
@@ -2086,12 +2108,25 @@ def api_process_complete():
             # ── Step 4: Rank and cut ──
             emit_progress("━━━ ETAPA 4/6: Ranqueando e Cortando ━━━", "info")
             from modules.viral_ranker import ViralRanker
+            from modules.campaign_hub import load_snapshot
             from modules.video_cutter import VideoCutter
             from modules.layout_planner import plan_layout
 
+            campaign_hub_snapshot = load_snapshot(settings.get("campaign_hub_snapshot_path"))
+            campaign_hub_account = str(
+                settings.get("campaign_hub_account")
+                or (campaign_hub_snapshot or {}).get("default_account", "")
+            )
+            if campaign_hub_snapshot:
+                emit_progress(
+                    f"[Campaign Hub] Priors locais carregados para {campaign_hub_account or 'conta padrão'}; impacto limitado e explicável.",
+                    "info",
+                )
             ranker = ViralRanker(
                 channel_context=settings.get("channel_context", ""),
                 editorial_profile=settings.get("editorial_profile", "renan_santos_politics"),
+                campaign_hub_snapshot=campaign_hub_snapshot,
+                campaign_hub_account=campaign_hub_account,
             )
             top_clips = ranker.rank_clips(
                 top_clips,
