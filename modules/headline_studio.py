@@ -29,18 +29,27 @@ FORMAT_PROFILES = {
         "description": "Texto preto em faixa amarela; destaque pontual branco em vermelho quando houver conflito explicitamente dito.",
         "headline_limit": 58,
         "eyebrow_limit": 18,
+        "max_lines": 3,
+        "ideal_line_chars": 19,
+        "copy_role": "headline central de leitura imediata",
     },
     FORMAT_SQUARE: {
         "label": "1:1 — Alfinetei",
         "description": "Uma chamada curta no topo e headline branca, enxuta, em até três linhas. Não é uma descrição de publicação.",
         "headline_limit": 64,
         "eyebrow_limit": 18,
+        "max_lines": 3,
+        "ideal_line_chars": 23,
+        "copy_role": "chamada superior curta e tese branca complementar",
     },
     FORMAT_TWEET: {
         "label": "Fake tweet — publicação simulada",
         "description": "Texto em primeira pessoa somente quando ele estiver inequívoco no corte; revisar antes de atribuir a postagem ao perfil.",
         "headline_limit": 180,
         "eyebrow_limit": 0,
+        "max_lines": 5,
+        "ideal_line_chars": 36,
+        "copy_role": "rascunho conciso de publicação atribuível após revisão",
     },
 }
 
@@ -66,13 +75,20 @@ class ArtworkSuggestion:
 
     def as_dict(self) -> dict[str, Any]:
         profile = FORMAT_PROFILES.get(self.note, {})
+        lines = _break_headline(
+            self.headline,
+            max_lines=int(profile.get("max_lines", 3)),
+            ideal_line_chars=int(profile.get("ideal_line_chars", 22)),
+        )
         return {
             "eyebrow": self.eyebrow,
             "headline": self.headline,
-            "headline_lines": _break_headline(self.headline),
+            "headline_lines": lines,
             "emphasis": self.emphasis,
             "accent": self.accent,
             "character_count": len(self.headline),
+            "word_count": len(self.headline.split()),
+            "layout_hint": f"até {profile.get('max_lines', 3)} linhas de cerca de {profile.get('ideal_line_chars', 22)} caracteres",
         }
 
 
@@ -84,25 +100,44 @@ def _compact(value: str, limit: int) -> str:
     return short or text[:limit].strip()
 
 
-def _break_headline(value: str, max_lines: int = 3) -> list[str]:
-    words = _compact(value, 96).split()
+def _break_headline(value: str, max_lines: int = 3, ideal_line_chars: int = 22) -> list[str]:
+    """Break artwork copy into balanced lines without silently truncating the claim."""
+    words = re.sub(r"\s+", " ", str(value or "")).strip().split()
     if not words:
         return []
     if len(words) <= 3:
         return [" ".join(words)]
-    target = max(12, round(len(value) / min(max_lines, 3)))
+
+    max_lines = max(1, int(max_lines))
+    # The mathematical target prevents the final line becoming a visual orphan;
+    # the profile target keeps the result close to the channel's reference layouts.
+    balanced_target = max(11, round(len(" ".join(words)) / max_lines))
+    target = max(11, min(int(ideal_line_chars), balanced_target + 4))
     lines: list[str] = []
     current: list[str] = []
     for word in words:
         candidate = " ".join([*current, word])
-        if current and len(candidate) > target and len(lines) < max_lines - 1:
+        remaining_words = len(words) - (sum(len(line.split()) for line in lines) + len(current))
+        remaining_lines = max_lines - len(lines)
+        should_wrap = (
+            current
+            and len(candidate) > target
+            and len(lines) < max_lines - 1
+            and remaining_words >= remaining_lines
+        )
+        if should_wrap:
             lines.append(" ".join(current))
             current = [word]
         else:
             current.append(word)
     if current:
         lines.append(" ".join(current))
-    return lines[:max_lines]
+
+    # In the rare case of a long claim, keep all its words in the final line.
+    # The caller can warn through layout_hint instead of turning a claim into a lie.
+    if len(lines) > max_lines:
+        lines = [*lines[: max_lines - 1], " ".join(lines[max_lines - 1 :])]
+    return lines
 
 
 def _coerce_text(transcript: str) -> tuple[str, dict[str, Any]]:
@@ -148,7 +183,15 @@ def _attention_word(text: str, signals: dict[str, Any]) -> str:
     return "IMPRESSIONANTE"
 
 
-def _claim_candidates(text: str, topic: str) -> list[str]:
+def _speaker_prefix(mini_context: str) -> str:
+    """Return a short, explicit attribution only when the editor supplied it."""
+    folded = normalize(mini_context)
+    if "renan santos" in folded or re.search(r"\brenan\b", folded):
+        return "RENAN:"
+    return ""
+
+
+def _claim_candidates(text: str, topic: str, speaker_prefix: str = "") -> list[str]:
     folded = normalize(text)
     candidates: list[str] = []
     if "caminho arcaico" in folded:
@@ -176,7 +219,10 @@ def _claim_candidates(text: str, topic: str) -> list[str]:
         ])
     unique: list[str] = []
     for candidate in candidates:
-        item = _compact(candidate, 64).upper()
+        candidate_folded = normalize(candidate)
+        already_attributed = candidate_folded.startswith("renan ") or candidate_folded.startswith("renan:")
+        attributed = f"{speaker_prefix} {candidate}".strip() if speaker_prefix and not already_attributed else candidate
+        item = _compact(attributed, 64).upper()
         if item and item not in unique:
             unique.append(item)
     return unique[:4]
@@ -202,7 +248,7 @@ def _fallback_result(text: str, mini_context: str, preferred_format: str) -> dic
     signals = analyze_political_text(text, user_context=mini_context)
     topic = _topic(text)
     attention = _attention_word(text, signals)
-    claims = _claim_candidates(text, topic)
+    claims = _claim_candidates(text, topic, speaker_prefix=_speaker_prefix(mini_context))
     square = [
         ArtworkSuggestion(attention, claim, emphasis="", accent="white", note=FORMAT_SQUARE).as_dict()
         for claim in claims[:3]
@@ -296,13 +342,21 @@ def _merge_ai_suggestions(base: dict[str, Any], payload: dict[str, Any]) -> dict
             eyebrow = _compact(str(item.get("eyebrow", "")), FORMAT_PROFILES[format_id]["eyebrow_limit"])
             if len(headline.split()) < 2:
                 continue
+            profile = FORMAT_PROFILES[format_id]
+            normalized_headline = headline.upper()
             accepted.append({
                 "eyebrow": eyebrow.upper(),
-                "headline": headline.upper(),
-                "headline_lines": _break_headline(headline.upper()),
+                "headline": normalized_headline,
+                "headline_lines": _break_headline(
+                    normalized_headline,
+                    max_lines=int(profile.get("max_lines", 3)),
+                    ideal_line_chars=int(profile.get("ideal_line_chars", 22)),
+                ),
                 "emphasis": _compact(str(item.get("emphasis", "")), 18).upper(),
                 "accent": "red_on_white" if item.get("accent") == "red_on_white" else "white",
                 "character_count": len(headline),
+                "word_count": len(headline.split()),
+                "layout_hint": f"até {profile.get('max_lines', 3)} linhas de cerca de {profile.get('ideal_line_chars', 22)} caracteres",
             })
         if accepted:
             base["formats"][format_id]["suggestions"] = accepted
