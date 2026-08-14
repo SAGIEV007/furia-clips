@@ -3505,7 +3505,8 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 }
 
 .clip-chapter-note,
-.clip-performance-prior {
+.clip-performance-prior,
+.clip-feedback-prior {
     display: flex;
     align-items: flex-start;
     gap: 8px;
@@ -3520,7 +3521,8 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 }
 
 .clip-chapter-note .material-icons-round,
-.clip-performance-prior .material-icons-round {
+.clip-performance-prior .material-icons-round,
+.clip-feedback-prior .material-icons-round {
     flex: 0 0 auto;
     margin-top: 1px;
     font-size: 15px;
@@ -3547,6 +3549,16 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
     color: #60a5fa;
 }
 
+.clip-feedback-prior {
+    border-left-color: rgba(244, 200, 74, .72);
+    color: #fff1b2;
+    background: rgba(244, 200, 74, .08);
+}
+
+.clip-feedback-prior .material-icons-round {
+    color: #f4c84a;
+}
+
 @media (max-width: 720px) {
     .clip-visual-format-note {
         font-size: 10px;
@@ -3554,7 +3566,8 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
     }
     .clip-visual-observation,
     .clip-chapter-note,
-    .clip-performance-prior {
+    .clip-performance-prior,
+    .clip-feedback-prior {
         font-size: 10px;
         padding: 6px 8px;
     }
