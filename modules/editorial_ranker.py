@@ -11,6 +11,7 @@ import re
 import unicodedata
 from typing import Iterable, Optional
 
+from .editorial_format import classify_editorial_format
 from .political_profile import PROFILE_NAME, analyze_political_text
 
 
@@ -109,6 +110,7 @@ class EditorialRanker:
         text = str(clip.get("text") or "").strip()
         duration = float(clip.get("duration") or max(1.0, float(clip.get("end", 0)) - float(clip.get("start", 0))))
         closure_type = self._closure_type(text)
+        format_profile = classify_editorial_format(clip, text)
         factors = {
             "hook": self._hook(text),
             "flow": self._flow(text, duration),
@@ -192,11 +194,17 @@ class EditorialRanker:
             "political_profile": self.editorial_profile if political_signals else "",
             "political_editorial_type": political_signals.get("editorial_type", "") if political_signals else "",
             "political_signals": political_signals,
+            "visual_format": format_profile["visual_format"],
+            "visual_format_confidence": format_profile["visual_format_confidence"],
+            "visual_format_reason": format_profile["visual_format_reason"],
+            "reframe_policy": format_profile["reframe_policy"],
+            "preserve_composition": format_profile["preserve_composition"],
             "review_flags": {
                 "needs_fact_review": bool(political_signals.get("needs_fact_review")),
                 "needs_legal_review": bool(political_signals.get("needs_legal_review")),
                 "sensitive_claim_hits": int(political_signals.get("sensitive_claim_hits", 0) or 0),
                 "named_entity_count": int(political_signals.get("named_entity_count", 0) or 0),
+                "preserve_composition": format_profile["preserve_composition"],
             },
         }
 

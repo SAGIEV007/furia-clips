@@ -38,6 +38,10 @@ def _family_key(clip: dict) -> str:
     )
 
 
+def _format_key(clip: dict) -> str:
+    return str(clip.get("visual_format") or clip.get("format_family") or "desconhecido")
+
+
 def _text_key(clip: dict) -> str:
     text = " ".join(str(clip.get("text") or "").lower().split())
     return text
@@ -114,6 +118,7 @@ def build_daily_portfolio(
     selected: list[dict] = []
     source_counts: Counter[str] = Counter()
     family_counts: Counter[str] = Counter()
+    format_counts: Counter[str] = Counter()
     deferred_by_family: list[dict] = []
 
     # First pass uses a round-robin over sources. This avoids letting one live
@@ -135,6 +140,7 @@ def build_daily_portfolio(
             selected.append(candidate)
             source_counts[source] += 1
             family_counts[family] += 1
+            format_counts[_format_key(candidate)] += 1
             remaining.remove(candidate)
             progress = True
         if not progress:
@@ -153,6 +159,7 @@ def build_daily_portfolio(
             selected.append(candidate)
             source_counts[source] += 1
             family_counts[_family_key(candidate)] += 1
+            format_counts[_format_key(candidate)] += 1
 
     selected.sort(
         key=lambda clip: (
@@ -165,6 +172,7 @@ def build_daily_portfolio(
         clip["daily_portfolio_rank"] = index
         clip["daily_portfolio_source"] = _source_key(clip)
         clip["daily_portfolio_family"] = _family_key(clip)
+        clip["daily_portfolio_format"] = _format_key(clip)
 
     if len(eligible) > len(selected):
         rejected["limite_do_portfolio"] += len(eligible) - len(selected)
@@ -181,6 +189,7 @@ def build_daily_portfolio(
             "quality_floor": min_score,
             "source_counts": dict(source_counts),
             "family_counts": dict(family_counts),
+            "format_counts": dict(format_counts),
             "rejections": dict(rejected),
             "status": "faixa_operacional_atingida" if target_min <= len(selected) <= max_clips else "material_insuficiente_ou_concentrado",
         },
