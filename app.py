@@ -435,6 +435,57 @@ def _transcription_from_gemini_result(result, language="pt"):
     return result
 
 
+def _timestamp_value(value):
+    if isinstance(value, (int, float)):
+        return float(value)
+    try:
+        return parse_timestamp(str(value or "0:00"))
+    except (TypeError, ValueError):
+        return None
+
+
+def _attach_multimodal_visual_observations(clips, multimodal):
+    """Attach the strongest overlapping Gemini visual observation to each clip."""
+    if not isinstance(multimodal, dict):
+        return clips
+    observations = multimodal.get("visual_observations")
+    if not isinstance(observations, list):
+        return clips
+    for clip in clips or []:
+        try:
+            clip_start = float(clip.get("start", 0))
+            clip_end = float(clip.get("end", clip_start))
+        except (TypeError, ValueError):
+            continue
+        ranked = []
+        for observation in observations:
+            if not isinstance(observation, dict):
+                continue
+            start = _timestamp_value(observation.get("start"))
+            end = _timestamp_value(observation.get("end"))
+            if start is None or end is None or end <= start:
+                continue
+            overlap = max(0.0, min(clip_end, end) - max(clip_start, start))
+            if overlap <= 0:
+                continue
+            try:
+                confidence = max(0.0, min(1.0, float(observation.get("confidence", 0) or 0)))
+            except (TypeError, ValueError):
+                confidence = 0.0
+            ranked.append((overlap * max(confidence, 0.25), overlap, observation))
+        if not ranked:
+            continue
+        _, _, observation = max(ranked, key=lambda item: (item[0], item[1]))
+        for key in ("visual_format", "text_panel", "fake_tweet", "social_post", "visual_meme", "split_screen", "external_evidence"):
+            if key in observation:
+                clip[key] = observation[key]
+        if observation.get("composition_note"):
+            clip["visual_observation"] = str(observation["composition_note"])[:400]
+        if observation.get("confidence") is not None:
+            clip["visual_observation_confidence"] = observation.get("confidence")
+    return clips
+
+
 def _enrich_editorial_context(video_path, settings, editorial_context, user_context, emit_progress, multimodal=None, allow_video_analysis=True):
     """Use Gemini multimodal analysis as optional enrichment, never as a hard dependency."""
     if multimodal is None and allow_video_analysis:
@@ -2028,6 +2079,7 @@ def api_process_complete():
                 settings=settings,
                 emit_progress=emit_progress,
             )
+            top_clips = _attach_multimodal_visual_observations(top_clips, multimodal_result)
             ctx.update(stage="candidate_generation", progress=55, message=f"{len(top_clips)} candidatos encontrados")
             ctx.check_cancel()
 
@@ -2083,6 +2135,11 @@ def api_process_complete():
                         layout_plan = plan_layout(
                             detected_layout=video_layout,
                             tracking_assessment=assessment,
+                            visual_format=clip.get("visual_format"),
+                            text_panel=bool(clip.get("text_panel")),
+                            fake_tweet=bool(clip.get("fake_tweet") or clip.get("social_post")),
+                            visual_meme=bool(clip.get("visual_meme")),
+                            external_evidence=bool(clip.get("external_evidence")),
                             target_aspect=target_aspect,
                         )
                         layout_plans[index] = layout_plan
@@ -2114,7 +2171,16 @@ def api_process_complete():
                     emit_progress(f"[Layout] {reason}; mantendo o quadro original.", "warning")
             else:
                 for index in range(len(top_clips)):
-                    layout_plan = plan_layout(detected_layout=video_layout, target_aspect=target_aspect)
+                    clip = top_clips[index]
+                    layout_plan = plan_layout(
+                        detected_layout=video_layout,
+                        visual_format=clip.get("visual_format"),
+                        text_panel=bool(clip.get("text_panel")),
+                        fake_tweet=bool(clip.get("fake_tweet") or clip.get("social_post")),
+                        visual_meme=bool(clip.get("visual_meme")),
+                        external_evidence=bool(clip.get("external_evidence")),
+                        target_aspect=target_aspect,
+                    )
                     layout_plans[index] = layout_plan
                     original_aspect_indices.add(index)
                     framing_by_index[index] = {
