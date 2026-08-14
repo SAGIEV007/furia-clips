@@ -1473,6 +1473,10 @@ function renderResultsGrid() {
         const sourceClass = clipSource === "gemini" ? "source-gemini" : (clipSource === "llm" ? "source-llm" : "source-nlp");
         const transcriptId = `transcript-${originalIndex}`;
         const layoutMeta = layoutMetaForClip(clip);
+        const editorialBlock = clip.editorial_block || {};
+        const blockTags = Array.isArray(editorialBlock.tags) ? editorialBlock.tags : [];
+        const latestAdjustment = clip.latest_adjustment || {};
+        const adjustmentState = clip.adjustment_state || (latestAdjustment.start != null ? "saved" : "");
 
         // Grade color helper
         const gradeColor = (grade) => {
@@ -1495,6 +1499,8 @@ function renderResultsGrid() {
                 <span class="clip-source-badge ${sourceClass}">${sourceLabel}</span>
                 ${politicalType ? `<span class="clip-source-badge source-editorial">${escapeHtml(politicalType)}</span>` : ''}
                 <span class="review-state-chip ${reviewStatus}">${reviewStatus === "needs_review" ? "revisar contexto" : reviewStatus === "pending" ? "na fila" : reviewStatus}</span>
+                ${adjustmentState === "saved" ? '<span class="clip-adjustment-chip saved"><span class="material-icons-round">save</span> ajuste salvo</span>' : ''}
+                ${adjustmentState === "preview" ? '<span class="clip-adjustment-chip preview"><span class="material-icons-round">preview</span> prévia</span>' : ''}
             </div>
 
             ${clip.title ? `<div class="result-title">${escapeHtml(clip.title)}</div>` : ''}
@@ -1513,16 +1519,24 @@ function renderResultsGrid() {
                 ${diversityPenalty >= 20 ? `<div class="clip-diversity-note"><span class="material-icons-round">filter_list</span> Similaridade com outro corte: ${diversityPenalty}%</div>` : ''}
                 <div class="result-duration">
                     <span class="material-icons-round" style="font-size:14px">schedule</span>
-                    ${formatTime(clip.start)} - ${formatTime(clip.end)} (${clip.duration.toFixed(1)}s)
+                    ${formatTime(clip.start)} - ${formatTime(clip.end)} (${Number(clip.duration || 0).toFixed(1)}s)
                 </div>
+                ${(editorialBlock.thesis || editorialBlock.context_summary || blockTags.length) ? `<div class="editorial-block-dossier">
+                    <div class="editorial-block-kicker"><span class="material-icons-round">inventory_2</span> Dossiê do bloco · ${escapeHtml(editorialBlock.state || "candidato")}</div>
+                    ${editorialBlock.thesis ? `<strong>${escapeHtml(editorialBlock.thesis)}</strong>` : ''}
+                    ${editorialBlock.context_summary ? `<p>${escapeHtml(editorialBlock.context_summary)}</p>` : ''}
+                    ${editorialBlock.moment_reason ? `<small><b>Momento:</b> ${escapeHtml(editorialBlock.moment_reason)}</small>` : ''}
+                    ${blockTags.length ? `<div class="editorial-block-tags">${blockTags.map((tag) => `<span>${escapeHtml(tag)}</span>`).join('')}</div>` : ''}
+                </div>` : ''}
                 <button class="btn btn-sm btn-boundary-toggle" onclick="toggleBoundaryEditor(${originalIndex})"><span class="material-icons-round">tune</span> Ajustar entrada/saída</button>
                 <div class="clip-boundary-editor" id="boundary-editor-${originalIndex}" hidden>
                     <div class="clip-boundary-fields">
                         <label>Entrada <input type="number" min="0" step="0.1" data-boundary-start="${originalIndex}" value="${Number(clip.start || 0).toFixed(1)}"></label>
                         <label>Saída <input type="number" min="0" step="0.1" data-boundary-end="${originalIndex}" value="${Number(clip.end || 0).toFixed(1)}"></label>
                         <button class="btn btn-sm btn-primary" onclick="previewClipBoundary(${originalIndex})"><span class="material-icons-round">preview</span> Pré-visualizar</button>
+                        <button class="btn btn-sm btn-success" onclick="persistClipBoundary(${originalIndex})" ${clip.clip_id ? "" : "disabled"}><span class="material-icons-round">save</span> Salvar ajuste</button>
                     </div>
-                    <small>O ajuste é não destrutivo: apenas atualiza a prévia deste candidato e nunca sobrescreve o vídeo original.</small>
+                    <small>Pré-visualizar só altera este card. Salvar ajuste registra a decisão fora do arquivo original; ainda não gera um novo MP4.</small>
                     <div class="clip-boundary-feedback" id="boundary-feedback-${originalIndex}" aria-live="polite"></div>
                 </div>
                 <div class="review-format-chip" title="${escapeHtml(layoutMeta.hint)}"><span class="material-icons-round">${escapeHtml(layoutMeta.icon)}</span>${escapeHtml(layoutMeta.label)}</div>
@@ -1655,10 +1669,70 @@ async function previewClipBoundary(index) {
         });
         const data = await parseJsonResponse(response, "Ajuste de limites");
         if (!response.ok || data.error) throw new Error(data.error || "Não foi possível ajustar os limites");
-        state.clips[index] = { ...clip, ...data.clip };
+        const originalBounds = clip.original_bounds || {
+            start: Number(clip.original_start ?? clip.start ?? 0),
+            end: Number(clip.original_end ?? clip.end ?? 0),
+            duration: Number(clip.original_duration ?? clip.duration ?? 0),
+        };
+        state.clips[index] = {
+            ...clip,
+            ...data.clip,
+            original_bounds: originalBounds,
+            adjustment_state: "preview",
+            latest_adjustment: { ...data.clip, render_status: "preview_only" },
+        };
         renderReviewCommandCenter();
         renderResultsGrid();
         showToast("Limites atualizados na prévia do candidato.", "success");
+    } catch (error) {
+        if (feedback) feedback.textContent = error.message;
+        showToast(error.message, "error");
+    }
+}
+
+async function persistClipBoundary(index) {
+    const clip = state.clips[index];
+    if (!clip) return;
+    const feedback = document.getElementById(`boundary-feedback-${index}`);
+    if (!clip.clip_id) {
+        if (feedback) feedback.textContent = "Este resultado ainda não possui um registro persistente.";
+        return;
+    }
+    const adjustment = clip.latest_adjustment || {
+        start: Number(clip.start),
+        end: Number(clip.end),
+        duration: Number(clip.duration),
+        boundary_adjustment: { source: "manual" },
+    };
+    if (!Number.isFinite(Number(adjustment.start)) || !Number.isFinite(Number(adjustment.end))) {
+        if (feedback) feedback.textContent = "Pré-visualize limites válidos antes de salvar.";
+        return;
+    }
+    if (feedback) feedback.textContent = "Salvando ajuste editorial...";
+    try {
+        const response = await fetch(`/api/clips/${clip.clip_id}/adjust`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                adjustment,
+                note: "Ajuste temporal salvo na revisão do editor.",
+                transcript_segments: clip.transcript_segments || clip.segments || [],
+            }),
+        });
+        const data = await parseJsonResponse(response, "Persistência do ajuste");
+        if (!response.ok || data.error) throw new Error(data.error || "Não foi possível salvar o ajuste");
+        state.clips[index] = {
+            ...clip,
+            start: data.adjustment.start,
+            end: data.adjustment.end,
+            duration: data.adjustment.duration,
+            latest_adjustment: data.adjustment,
+            adjustment_state: "saved",
+            review_status: data.review_status || "needs_review",
+        };
+        renderReviewCommandCenter();
+        renderResultsGrid();
+        showToast("Ajuste salvo no histórico editorial; o MP4 original foi preservado.", "success");
     } catch (error) {
         if (feedback) feedback.textContent = error.message;
         showToast(error.message, "error");
@@ -2156,12 +2230,23 @@ function renderPerformanceSummary(summary = {}) {
 
 async function loadPerformanceMetrics() {
     try {
-        const response = await fetch("/api/performance/summary");
+        const params = new URLSearchParams();
+        const filters = {
+            platform: document.getElementById("performanceMetricPlatform")?.value,
+            format_id: document.getElementById("performanceMetricFormat")?.value,
+            observation_window: document.getElementById("performanceMetricWindow")?.value,
+            region: document.getElementById("performanceMetricRegion")?.value,
+        };
+        Object.entries(filters).forEach(([key, value]) => { if (value) params.set(key, value); });
+        const response = await fetch(`/api/performance/summary${params.toString() ? `?${params}` : ""}`);
         const data = await parseJsonResponse(response, "Métricas observadas");
         if (!response.ok || !data.success) throw new Error(data.error || "não foi possível carregar o histórico");
         renderPerformanceSummary(data.summary || {});
         const status = document.getElementById("performanceMetricsStatus");
-        if (status) status.textContent = data.summary?.snapshots ? "Histórico local atualizado." : "Nenhum snapshot observado nesta instalação.";
+        const activeFilters = Object.keys(data.filters || {}).length;
+        if (status) status.textContent = data.summary?.snapshots
+            ? `${activeFilters ? "Coorte filtrada" : "Histórico local"} atualizado.`
+            : `${activeFilters ? "Nenhum snapshot nesta coorte" : "Nenhum snapshot observado nesta instalação."}`;
     } catch (error) {
         const status = document.getElementById("performanceMetricsStatus");
         if (status) status.textContent = `Métricas indisponíveis: ${error.message}`;
@@ -2186,7 +2271,7 @@ async function savePerformanceMetrics() {
         if (!response.ok || !data.success) throw new Error(data.error || "não foi possível salvar");
         if (status) status.textContent = `${data.saved.length} snapshot(s) salvo(s) localmente.`;
         input.value = "";
-        renderPerformanceSummary(data.summary || {});
+        await loadPerformanceMetrics();
     } catch (error) {
         if (status) status.textContent = `Falha nas métricas: ${error.message}`;
     }
@@ -2194,6 +2279,9 @@ async function savePerformanceMetrics() {
 
 document.getElementById("btnSavePerformanceMetrics")?.addEventListener("click", savePerformanceMetrics);
 document.getElementById("btnRefreshPerformanceMetrics")?.addEventListener("click", loadPerformanceMetrics);
+["performanceMetricPlatform", "performanceMetricFormat", "performanceMetricWindow", "performanceMetricRegion"].forEach((id) => {
+    document.getElementById(id)?.addEventListener("change", loadPerformanceMetrics);
+});
 loadPerformanceMetrics();
 
 document.getElementById("btnImportArtworkTranscript")?.addEventListener("click", () => {
