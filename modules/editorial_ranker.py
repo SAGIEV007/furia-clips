@@ -197,6 +197,8 @@ class EditorialRanker:
             "visual_format": format_profile["visual_format"],
             "visual_format_confidence": format_profile["visual_format_confidence"],
             "visual_format_reason": format_profile["visual_format_reason"],
+            "visual_observation": str(clip.get("visual_observation") or ""),
+            "visual_observation_confidence": clip.get("visual_observation_confidence"),
             "reframe_policy": format_profile["reframe_policy"],
             "preserve_composition": format_profile["preserve_composition"],
             "review_flags": {
@@ -205,6 +207,7 @@ class EditorialRanker:
                 "sensitive_claim_hits": int(political_signals.get("sensitive_claim_hits", 0) or 0),
                 "named_entity_count": int(political_signals.get("named_entity_count", 0) or 0),
                 "preserve_composition": format_profile["preserve_composition"],
+                "visual_observation_available": bool(clip.get("visual_observation")),
             },
         }
 

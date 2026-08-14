@@ -26,6 +26,9 @@ _LAYOUT_ALIASES = {
     "fullscreen": "text_card",
     "text_card": "text_card",
     "b_roll": "b_roll",
+    "text_panel": "text_panel",
+    "fake_tweet": "fake_tweet",
+    "visual_meme": "visual_meme",
     "institutional": "institutional",
     "campanha": "institutional",
     "unknown": "unknown",
@@ -111,6 +114,11 @@ def plan_layout(
     tracking_assessment: Mapping[str, Any] | None = None,
     speaker_confidence: float | None = None,
     active_speaker_confidence: float | None = None,
+    visual_format: str | None = None,
+    text_panel: bool = False,
+    fake_tweet: bool = False,
+    visual_meme: bool = False,
+    external_evidence: bool = False,
     target_aspect: str = "9:16",
     explicit_original: bool = False,
 ) -> dict[str, Any]:
@@ -141,6 +149,11 @@ def plan_layout(
         "has_text_card": bool(has_text_card),
         "has_b_roll": bool(has_b_roll),
         "institutional": bool(institutional),
+        "visual_format": _layout_label(visual_format),
+        "text_panel": bool(text_panel),
+        "fake_tweet": bool(fake_tweet),
+        "visual_meme": bool(visual_meme),
+        "external_evidence": bool(external_evidence),
         "dialogue_density": _clamp(dialogue_density),
         "tracking_confidence": tracking_score,
         "speaker_confidence": speaker_score,
@@ -160,6 +173,34 @@ def plan_layout(
             target_aspect=target,
             signals=signals,
             safe_area="full_frame",
+        )
+
+    visual_hint = _layout_label(visual_format)
+    if (
+        text_panel or fake_tweet or visual_meme or external_evidence
+        or visual_hint in {"text_panel", "fake_tweet", "visual_meme"}
+    ):
+        if fake_tweet or visual_hint == "fake_tweet":
+            family = "fake_tweet"
+        elif visual_meme or visual_hint == "visual_meme":
+            family = "visual_meme"
+        elif text_panel or visual_hint == "text_panel":
+            family = "text_panel"
+        else:
+            family = "visual_composition"
+        safe_area = "text_and_edges" if text_panel or visual_hint == "text_panel" else "full_frame"
+        return _base_result(
+            family=family,
+            output_aspect="original",
+            reframe_allowed=False,
+            confidence=0.90,
+            review_required=True,
+            reason_code="visual_composition_preserve",
+            reason="Painel, post social, arte composta ou evidência visual ocupa parte essencial do argumento; preserve o quadro inteiro antes de qualquer reframe.",
+            source_aspect=original_aspect,
+            target_aspect=target,
+            signals=signals,
+            safe_area=safe_area,
         )
 
     if institutional or family_hint == "institutional":

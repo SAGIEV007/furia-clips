@@ -195,11 +195,14 @@ Entregue apenas JSON neste formato:
   "speaker_observations": [{{"window": "MM:SS-MM:SS", "speaker_role": "Renan|mediador|convidado|desconhecido", "evidence": "...", "confidence": 0.0}}],
   "qa_moments": [{{"start": "MM:SS", "end": "MM:SS", "question_present": true, "answer_present": true, "renan_focus": true, "overlap_suspected": false, "reason": "...", "confidence": 0.0}}],
   "audio_visual_signals": [{{"start": "MM:SS", "end": "MM:SS", "signal": "pausa|sobreposicao|risos|aplausos|tensao|musica|mudanca_de_bloco|enquadramento", "note": "..."}}],
+  "visual_observations": [{{"start": "MM:SS", "end": "MM:SS", "visual_format": "talking_head|entrevista|podcast|react|split_screen|evidencia_externa|b_roll_argumentativo|palco|institucional|campanha|text_panel|fake_tweet|visual_meme|desconhecido", "has_text_panel": false, "fake_tweet": false, "social_post": false, "visual_meme": false, "split_screen": false, "external_evidence": false, "composition_note": "...", "confidence": 0.0}}],
   "limitations": ["..."],
   "analysis_confidence": 0.0
 }}
 
-Timestamps devem usar MM:SS. Gere segmentos suficientes para a seleção editorial, sem inventar falas. Não afirme reconhecimento perfeito de voz. Marque como desconhecido quando houver dúvida. Preserve a pergunta quando ela for necessária para entender a resposta."""
+Timestamps devem usar MM:SS. Gere segmentos suficientes para a seleção editorial, sem inventar falas. Não afirme reconhecimento perfeito de voz. Marque como desconhecido quando houver dúvida. Preserve a pergunta quando ela for necessária para entender a resposta.
+
+Para visual_observations, registre apenas sinais realmente visíveis no intervalo: painel de headline incorporado, post social/fake tweet, montagem/arte composta, split-screen, evidência externa ou palco. Não use o texto da transcrição como prova visual. Quando houver dúvida, use visual_format=desconhecido e confidence baixa. Composição com post, reação, entrevistado ou palco deve ser preservada; não recomende crop centrado em uma única face nesses casos."""
 
     @staticmethod
     def _extract_text(payload: dict) -> str:
