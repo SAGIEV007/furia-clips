@@ -18,6 +18,7 @@ DEFAULT_MAX_CLIPS = 50
 DEFAULT_TARGET_MIN = 39
 DEFAULT_MAX_PER_SOURCE = 8
 DEFAULT_MAX_PER_FAMILY = 14
+PREFERRED_MAX_DURATION = 180.0
 
 
 def _source_key(clip: dict) -> str:
@@ -94,7 +95,9 @@ def build_daily_portfolio(
     source_candidates.sort(
         key=lambda clip: (
             float(clip.get("editorial_potential_score", clip.get("viral_score", 0)) or 0),
+            float((clip.get("factors") or {}).get("duration_fit", clip.get("duration_fit", 50)) or 50),
             float(clip.get("confidence", 0) or 0),
+            -float(clip.get("duration", 0) or 0),
         ),
         reverse=True,
     )
@@ -164,7 +167,9 @@ def build_daily_portfolio(
     selected.sort(
         key=lambda clip: (
             float(clip.get("editorial_potential_score", clip.get("viral_score", 0)) or 0),
+            float((clip.get("factors") or {}).get("duration_fit", clip.get("duration_fit", 50)) or 50),
             float(clip.get("confidence", 0) or 0),
+            -float(clip.get("duration", 0) or 0),
         ),
         reverse=True,
     )
@@ -187,6 +192,8 @@ def build_daily_portfolio(
             "target_max": max_clips,
             "target_met": target_min <= len(selected) <= max_clips,
             "quality_floor": min_score,
+            "preferred_max_duration": PREFERRED_MAX_DURATION,
+            "duration_policy": "shorter_when_context_complete; contextual_exceptions_allowed",
             "source_counts": dict(source_counts),
             "family_counts": dict(family_counts),
             "format_counts": dict(format_counts),

@@ -48,6 +48,8 @@ MID_SENTENCE_STARTERS = {"e", "mas", "porem", "entao", "porque", "que", "ai", "o
 CONTINUITY_PATTERNS = ("acompanhe", "aguarde", "em breve", "novidades", "vou mostrar", "depois eu", "na proxima", "fique ligado")
 RESOLUTION_PATTERNS = ("portanto", "por isso", "entao", "a conclusao", "fica claro", "e isso", "essa e a verdade")
 ARGUMENT_MARKERS = ("porque", "portanto", "por isso", "significa", "se ", "entao", "logo", "portanto")
+PREFERRED_MAX_DURATION = 180.0
+
 
 
 class EditorialRanker:
@@ -79,7 +81,8 @@ class EditorialRanker:
         scored.sort(
             key=lambda clip: (
                 clip.get("editorial_potential_score", clip.get("viral_score", 0)),
-                clip.get("duration", 0),
+                (clip.get("factors") or {}).get("duration_fit", 50),
+                -float(clip.get("duration", 0) or 0),
             ),
             reverse=True,
         )
@@ -100,7 +103,12 @@ class EditorialRanker:
             selected.append(clip)
 
         selected.sort(
-            key=lambda clip: clip.get("editorial_potential_score", 0), reverse=True
+            key=lambda clip: (
+                clip.get("editorial_potential_score", 0),
+                (clip.get("factors") or {}).get("duration_fit", 50),
+                -float(clip.get("duration", 0) or 0),
+            ),
+            reverse=True,
         )
         return selected
 
@@ -133,6 +141,7 @@ class EditorialRanker:
             "completeness": self._completeness(text, closure_type),
             "editorial_family_fit": 50.0,
             "chapter_coherence": self._chapter_coherence(clip),
+            "duration_fit": self._duration_fit(duration),
             "campaign_hub_prior": campaign_hub_prior["observed_signal"],
         }
         political_signals = {}
@@ -179,6 +188,11 @@ class EditorialRanker:
         else:
             score = int(round(base_score))
 
+        # Shorter is preferred, but duration never overrides context and payoff.
+        # The preference is deliberately bounded so an exceptional long answer
+        # can still win when its editorial evidence is substantially stronger.
+        score += int(round((factors["duration_fit"] - 70.0) * 0.16))
+
         # Chapter coherence is a bounded, explainable adjustment layered on top
         # of the established score so legacy ranking remains comparable.
         if clip.get("editorial_chapter_available"):
@@ -196,6 +210,7 @@ class EditorialRanker:
             factors["editor_feedback_alignment"] = round(50.0 + feedback_adjustment * 5.0, 1)
 
         confidence = self._confidence(text, factors, duration)
+        duration_preference = self._duration_preference(duration, factors)
         breakdown = {
             "hook": self._grade(factors["hook"]),
             "flow": self._grade(factors["flow"]),
@@ -213,6 +228,8 @@ class EditorialRanker:
             "breakdown": breakdown,
             "factors": {key: round(value, 1) for key, value in factors.items()},
             "confidence": round(confidence, 2),
+            "duration_fit": factors["duration_fit"],
+            "duration_preference": duration_preference,
             "has_hook": factors["hook"] >= 55,
             "reason": clip.get("reason") or reason,
             "political_profile": self.editorial_profile if political_signals else "",
@@ -243,10 +260,59 @@ class EditorialRanker:
                 "chapter_count": int(clip.get("chapter_count", 0) or 0),
                 "qa_bridge": bool(clip.get("qa_bridge")),
                 "chapter_crosses_boundary": bool(clip.get("chapter_crosses_boundary")),
+                "duration_preference": duration_preference["status"],
+                "duration_exception": bool(duration_preference["exception"]),
                 "campaign_hub_prior_available": bool(campaign_hub_prior["available"]),
                 "campaign_hub_hook_family": campaign_hub_prior["hook_family"],
                 "campaign_hub_sample_count": campaign_hub_prior["sample_count"],
             },
+        }
+
+    def _duration_fit(self, duration: float) -> float:
+        """Score brevity as a preference, never as a hard duration quota.
+
+        Very short clips are not automatically ideal: the curve leaves room for
+        enough speech to establish a premise and payoff. After the preferred
+        ceiling, the score falls gradually instead of rejecting the candidate.
+        """
+        duration = max(0.0, float(duration or 0.0))
+        if duration < 8:
+            return 55.0
+        if duration <= 30:
+            return 100.0
+        if duration <= 60:
+            return 100.0 - (duration - 30.0) * 0.30
+        if duration <= 120:
+            return 91.0 - (duration - 60.0) * 0.25
+        if duration <= PREFERRED_MAX_DURATION:
+            return 76.0 - (duration - 120.0) * 0.30
+        return max(25.0, 58.0 - (duration - PREFERRED_MAX_DURATION) * 0.15)
+
+    def _duration_preference(self, duration: float, factors: dict) -> dict:
+        exception = bool(
+            duration > PREFERRED_MAX_DURATION
+            and factors.get("hook", 0) >= 65
+            and factors.get("completeness", 0) >= 78
+            and factors.get("argument_structure", 0) >= 60
+        )
+        if duration <= PREFERRED_MAX_DURATION:
+            status = "curto_preferencial"
+        elif exception:
+            status = "excecao_contextual"
+        else:
+            status = "longo_para_revisao"
+        return {
+            "status": status,
+            "preferred_max_seconds": int(PREFERRED_MAX_DURATION),
+            "shorter_is_preferred": True,
+            "exception": exception,
+            "reason": (
+                "menor intervalo autossuficiente priorizado"
+                if status == "curto_preferencial"
+                else "corte acima da preferência mantido por hook, argumento e completude"
+                if exception
+                else "duração acima da preferência; revisar se há contexto suficiente"
+            ),
         }
 
     def _topic_signature(self, text: str, political_signals: dict) -> str:
@@ -313,10 +379,8 @@ class EditorialRanker:
             score += 10
         if text.rstrip()[-1:] in ".!?":
             score += 15
-        if 20 <= duration <= 75:
-            score += 10
-        elif duration < 8 or duration > 180:
-            score -= 15
+        # Duration is scored separately by ``_duration_fit`` so flow measures
+        # narrative continuity rather than rewarding an arbitrary time window.
         first = _normalize(text).split()[:1]
         if first and first[0] in MID_SENTENCE_STARTERS:
             score -= 25
@@ -451,7 +515,7 @@ class EditorialRanker:
     def _confidence(self, text: str, factors: dict, duration: float) -> float:
         evidence = min(1.0, len(text.split()) / 35.0)
         consistency = 1.0 - (max(factors.values()) - min(factors.values())) / 200.0
-        duration_evidence = 1.0 if 10 <= duration <= 120 else 0.7
+        duration_evidence = 1.0 if 8 <= duration <= PREFERRED_MAX_DURATION else 0.78
         return max(0.0, min(1.0, 0.35 * evidence + 0.4 * consistency + 0.25 * duration_evidence))
 
     def _reason(self, factors: dict, context: str) -> str:
@@ -479,6 +543,7 @@ class EditorialRanker:
             "profile_fit": "aderência ao perfil do canal",
             "chapter_coherence": "coerência de capítulo e contexto temporal",
             "campaign_hub_prior": "observação histórica de hook no Campaign Hub",
+            "duration_fit": "brevidade preferencial sem cortar contexto",
         }
         ordered = sorted(factors.items(), key=lambda pair: pair[1], reverse=True)
         top = [labels[key] for key, value in ordered[:3] if value >= 60]

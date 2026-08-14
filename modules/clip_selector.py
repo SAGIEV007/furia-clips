@@ -16,6 +16,9 @@ from collections import Counter
 from .political_profile import PROFILE_NAME, build_political_prompt_fragment
 from .editorial_chapters import annotate_clip_with_chapters
 
+PREFERRED_MAX_DURATION = 180.0
+TECHNICAL_MAX_DURATION = 600.0
+
 # Portuguese filler words to detect
 FILLER_WORDS_PT = {
     "ne", "ne\u0301", "tipo", "ah", "eh", "e\u0301h", "enta\u0303o", "entao",
@@ -26,11 +29,21 @@ FILLER_WORDS_PT = {
 
 
 class ClipSelector:
-    def __init__(self, target_duration=45, max_clips=15, min_duration=20, max_duration=180):
+    def __init__(
+        self,
+        target_duration=45,
+        max_clips=15,
+        min_duration=8,
+        max_duration=TECHNICAL_MAX_DURATION,
+        preferred_max_duration=PREFERRED_MAX_DURATION,
+    ):
+        # ``target_duration`` remains for backward compatibility, but is only a
+        # soft stopping hint. Context and sentence completion always win.
         self.target_duration = target_duration
         self.max_clips = max_clips
         self.min_duration = min_duration
         self.max_duration = max_duration
+        self.preferred_max_duration = preferred_max_duration
 
     def select_clips(self, transcription, energy_profile=None, user_context="",
                      settings=None, emit_progress=None, scene_changes=None,
@@ -422,8 +435,10 @@ REGRAS CRITICAS:
    - Se nao tiver certeza de quem esta falando em um trecho, NAO inclua.
 
 5. DURACAO E SELECAO:
-   - Cada clip: 30 a 180 segundos. Prefira 45 a 120 segundos.
-   - Clips mais longos sao OTIMOS se o pensamento estiver completo e o conteudo justificar.
+   - NAO existe uma duracao fixa: encontre o menor trecho que contenha hook, contexto e payoff completos.
+   - Quanto mais curto, melhor, desde que o espectador entenda quem, o que e por que sem ter visto o video inteiro.
+   - Use 180 segundos como teto preferencial, nao como limite absoluto. Ultrapasse-o somente quando encurtar destruir a pergunta, a resposta, a prova, o argumento ou a conclusao.
+   - Nunca corte uma ideia apenas para caber em uma duracao. Um clip excepcionalmente contextualizado pode ser mais longo e deve ser marcado como excecao.
    - Selecione clips de PARTES DIFERENTES do video (diversidade temporal).
    - Prefira momentos com: opiniao forte, dado concreto, confronto, emocao, humor, reacao, historia, bastidor ou conversa descontraida.
    - Nao force tudo como politico. Escolha uma familia editorial: politico, humor, reacao, bastidor, descontraido ou conversa.
@@ -504,8 +519,8 @@ TRANSCRICAO COMPLETA ({len(blocks)} blocos, {self._format_time(blocks[-1]['end']
 
 {transcript_text}
 
-Combine blocos consecutivos para formar clips de 30-180 segundos com CONTEXTO COMPLETO.
-Lembre: cada clip deve ter inicio (contexto/pergunta), meio (desenvolvimento) e fim (conclusao do raciocinio).
+Combine apenas os blocos consecutivos necessarios para formar o menor clip com CONTEXTO COMPLETO.
+Lembre: cada clip deve ter inicio (contexto/pergunta), meio (desenvolvimento) e fim (conclusao do raciocinio); nao encurte nem estenda artificialmente.
 Retorne APENAS o array JSON. Nenhum texto antes ou depois."""
 
     # ═══════════════════════════════════════════════════
@@ -587,7 +602,7 @@ REGRAS OBRIGATORIAS:
 2. COMPLETO: O falante DEVE terminar sua frase e seu raciocinio. NUNCA corte no meio.
 3. FALANTE: Se o usuario pediu clips de uma pessoa especifica, SOMENTE inclua momentos dessa pessoa falando.
 4. DIVERSIDADE: Selecione clips de partes DIFERENTES do video.
-5. DURACAO: 30 a 180 segundos por clip. Clips longos sao OK se o conteudo justificar.
+5. DURACAO: Nao ha faixa fixa. Prefira o menor trecho autossuficiente; 180 segundos e apenas um teto preferencial. So ultrapasse esse teto se o contexto e o payoff exigirem.
 6. NOTAS: A = excelente (raro), B = bom (normal), C = fraco. NAO de A para tudo, seja critico.
 
 FORMATO — retorne APENAS JSON valido:
@@ -645,11 +660,12 @@ TRANSCRICAO (blocos {chunk_offset} a {chunk_offset + len(blocks) - 1} de {total_
 
 {transcript_text}
 
-Combine blocos consecutivos para clips de 30-180 segundos com contexto completo.
-Retorne APENAS o JSON."""
+Combine blocos consecutivos apenas ate o menor trecho com contexto completo e conclusao.
+Retorne APENAS o JSON.
+"""
 
     def _build_transcript_blocks(self, sentences):
-        """Group sentences into blocks of ~40-60 seconds for analysis."""
+        """Group sentences into compact editorial blocks for analysis."""
         blocks = []
         current_block_sentences = []
         current_start = None
@@ -662,8 +678,9 @@ Retorne APENAS o JSON."""
             current_block_sentences.append(sent)
             current_duration = sent["end"] - current_start
 
-            # Create a block every ~40-60 seconds for better context
-            if current_duration >= 40 or (sent["text"].strip()[-1:] in ".!?" and current_duration >= 25):
+            # Use smaller editorial blocks so a complete idea can remain short.
+            # The selector may still join blocks when the context requires it.
+            if current_duration >= 30 or (sent["text"].strip()[-1:] in ".!?" and current_duration >= 18):
                 block_text = " ".join(s["text"] for s in current_block_sentences)
                 blocks.append({
                     "index": len(blocks),
@@ -763,7 +780,8 @@ Retorne APENAS o JSON."""
             clip_end = valid_blocks[-1]["end"]
             clip_duration = clip_end - clip_start
 
-            # Validate duration
+            # Validate duration. The technical ceiling prevents malformed
+            # responses, while the editorial preference remains soft.
             if clip_duration < self.min_duration:
                 continue
             if clip_duration > self.max_duration:
@@ -805,6 +823,7 @@ Retorne APENAS o JSON."""
                     "energy": sel.get("energy", "B"),
                 },
                 "source": source,
+                "duration_preference": self._duration_label(clip_duration, sel),
             })
 
         return clips
@@ -974,14 +993,10 @@ Retorne APENAS o JSON."""
         if context_data:
             context_score = self._compute_context_score(text, context_data)
 
-        # Duration penalty (prefer 25-55s)
+        # Duration is a soft preference: shorter complete blocks are rewarded,
+        # while long blocks remain eligible when their context is stronger.
         duration = block["duration"]
-        if 25 <= duration <= 55:
-            duration_score = 10
-        elif duration < 15:
-            duration_score = -10
-        else:
-            duration_score = 0
+        duration_score = self._duration_score(duration)
 
         # Sentence completeness
         if block["text"].strip()[-1:] in ".!?":
@@ -993,6 +1008,28 @@ Retorne APENAS o JSON."""
                  + context_score + duration_score + completeness_score
                  - filler_penalty)
         return max(0, min(100, total))
+
+    def _duration_score(self, duration):
+        duration = max(0.0, float(duration or 0.0))
+        if duration < self.min_duration:
+            return -8
+        if duration <= 30:
+            return 10
+        if duration <= 60:
+            return 7
+        if duration <= 120:
+            return 2
+        if duration <= self.preferred_max_duration:
+            return -1
+        return -5
+
+    def _duration_label(self, duration, selection):
+        if duration <= self.preferred_max_duration:
+            return "curto_preferencial"
+        flow = str(selection.get("flow", "B")).upper()
+        if flow == "A":
+            return "excecao_contextual"
+        return "longo_para_revisao"
 
     def _compute_context_score(self, text, context_data):
         """Compute context relevance score."""
@@ -1016,8 +1053,9 @@ Retorne APENAS o JSON."""
         return min(60, score)
 
     def _build_clips_from_scored_blocks(self, scored_blocks, context_data=None):
-        """Build clips by combining consecutive blocks to reach target duration.
-        Enforces max_duration on ALL clips including single-block clips."""
+        """Build clips by joining only the blocks needed for context and payoff.
+        Enforces the technical ceiling on all clips without imposing a fixed length.
+        """
         clips = []
         used_indices = set()
 
@@ -1031,21 +1069,37 @@ Retorne APENAS o JSON."""
             clip_duration = start_block["duration"]
             clip_end_idx = start_idx
 
-            for next_idx in range(start_idx + 1, len(scored_blocks)):
-                if next_idx in used_indices:
-                    break
-                next_block = scored_blocks[next_idx][0]
-                new_duration = next_block["end"] - clip_blocks[0]["start"]
+            preferred_stop = min(float(self.target_duration or 45), 30.0)
+            start_is_complete = (
+                clip_duration >= self.min_duration
+                and clip_duration >= preferred_stop
+                and start_block["text"].rstrip().endswith((".", "!", "?"))
+            )
+            if not start_is_complete:
+                for next_idx in range(start_idx + 1, len(scored_blocks)):
+                    if next_idx in used_indices:
+                        break
+                    next_block = scored_blocks[next_idx][0]
+                    new_duration = next_block["end"] - clip_blocks[0]["start"]
 
-                if new_duration > self.max_duration:
-                    break
+                    if new_duration > self.max_duration:
+                        break
 
-                clip_blocks.append(next_block)
-                clip_duration = new_duration
-                clip_end_idx = next_idx
+                    clip_blocks.append(next_block)
+                    clip_duration = new_duration
+                    clip_end_idx = next_idx
 
-                if clip_duration >= self.target_duration:
-                    break
+                    # Stop at the first natural ending after the minimum useful
+                    # duration. The old target is only a soft hint for continuation.
+                    natural_end = " ".join(b["text"] for b in clip_blocks)
+                    if (
+                        clip_duration >= self.min_duration
+                        and clip_duration >= preferred_stop
+                        and natural_end.rstrip().endswith((".", "!", "?"))
+                    ):
+                        break
+                    if clip_duration >= self.target_duration:
+                        break
 
             if clip_duration < self.min_duration:
                 continue
@@ -1097,6 +1151,7 @@ Retorne APENAS o JSON."""
                     "energy": energy_grade,
                 },
                 "source": "nlp",
+                "duration_preference": self._duration_label(clip_duration, {"flow": flow_grade}),
             })
 
         return clips
