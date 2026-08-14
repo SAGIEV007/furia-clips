@@ -10,6 +10,7 @@ import secrets
 import tempfile
 import requests
 import re
+import unicodedata
 from datetime import datetime
 
 # Load .env file for Gemini API key and other settings
@@ -198,11 +199,28 @@ def _resolve_media_input(requested):
     return target
 
 
+def _is_source_destination_placeholder(value):
+    """Return True for UI placeholder text accidentally sent as a path."""
+    normalized = unicodedata.normalize("NFKD", str(value or ""))
+    normalized = "".join(char for char in normalized if not unicodedata.combining(char))
+    normalized = re.sub(r"\s+", " ", normalized).strip().lower()
+    return normalized in {
+        "a pasta sera escolhida ao importar",
+        "a pasta sera escolhida ao baixar",
+        "escolha uma pasta",
+        "selecione uma pasta",
+    }
+
+
 def _resolve_source_destination(requested, settings=None):
     settings = settings or get_all_settings()
-    value = str(requested or settings.get("source_download_dir") or UPLOAD_DIR).strip()
-    if not value:
-        value = UPLOAD_DIR
+    requested_value = str(requested or "").strip()
+    saved_value = str(settings.get("source_download_dir") or "").strip()
+    if _is_source_destination_placeholder(requested_value):
+        requested_value = ""
+    if _is_source_destination_placeholder(saved_value):
+        saved_value = ""
+    value = requested_value or saved_value or UPLOAD_DIR
     target = os.path.abspath(os.path.expandvars(os.path.expanduser(value)))
     if os.path.isfile(target):
         raise OSError("O destino escolhido é um arquivo; selecione uma pasta para salvar o vídeo.")
@@ -219,6 +237,8 @@ def _probe_video_duration_seconds(video_path):
             [ffprobe, "-v", "error", "-show_entries", "format=duration", "-of", "default=nw=1:nk=1", video_path],
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=15,
         )
         return float(result.stdout.strip()) if result.stdout.strip() else None
@@ -295,7 +315,8 @@ def _transcribe_video_automatically(video_path, settings, emit_progress, transcr
             "warning",
         )
     emit_progress(
-        f"[Whisper] Fallback local iniciado em {resolved_device.upper()} com modelo {model_name}. Você pode usar Parar operação com segurança.",
+        f"[Whisper] Fallback local preparado; dispositivo candidato {resolved_device.upper()} com modelo {model_name}. "
+        "A configuração final será confirmada ao carregar o motor.",
         "info",
     )
     transcriber = Transcriber(
@@ -1486,6 +1507,7 @@ def api_cut_shorts():
                 video_layout=video_layout,
                 layout_plans=layout_plans,
             )
+            render_rejections = list(getattr(cutter, "last_rejections", []))
 
             # Persist rendered clips so review decisions can calibrate future ranking.
             output_folder = ""
@@ -1538,10 +1560,22 @@ def api_cut_shorts():
                 "video_layout": video_layout,
                 "project_id": active_project_id,
                 "output_folder": output_folder,
+                "render_rejections": render_rejections,
             })
 
             source_label = "IA Inteligente" if selection_source == "llm" else "NLP Basico"
-            emit_progress(f"Corte completo! {len(results)} clips gerados via {source_label}.", "success")
+            if results:
+                emit_progress(f"Corte completo! {len(results)} clips gerados via {source_label}.", "success")
+            else:
+                detail = "; ".join(
+                    error
+                    for rejection in render_rejections
+                    for error in rejection.get("errors", [])
+                )
+                message = "Nenhum clip válido foi entregue; os arquivos rejeitados foram removidos."
+                if detail:
+                    message += f" Diagnóstico: {detail[:320]}"
+                emit_progress(message, "error")
             return {
                 "artifacts": [{
                     "type": "clips",
