@@ -38,6 +38,20 @@ O portfólio diário passa a registrar `daily_portfolio_format` e `format_counts
 
 Texto sozinho não é evidência suficiente para confirmar um formato visual. As heurísticas lexicais só desempatarão sinais estruturados; sem metadados de visão, o módulo permanece conservador. A classificação também não valida acusações, números, alegações jurídicas ou captions. Esses casos continuam sujeitos aos flags de revisão factual e jurídica já existentes.
 
+## Extensão baseada na janela pública de 14/08/2026
+
+A análise incremental dos dois perfis mostrou três sinais visuais que merecem rotas explícitas no classificador, sem alterar o score editorial por aparência.
+
+| Família | Evidência mínima | Política de enquadramento |
+| --- | --- | --- |
+| `text_panel` | Painel branco, amarelo ou vermelho com headline incorporada e fala/imagem em outro bloco | Preservar o painel e o conteúdo inferior; não recortar apenas a face |
+| `fake_tweet` | Publicação social, comentário de seguidor ou recorte de post usado como evidência/reação | Manter post, reação e relação de resposta no mesmo corte |
+| `visual_meme` | Arte composta, montagem ou imagem visual usada como punchline/evidência | Preservar a composição inteira; reframe somente após confirmação visual forte |
+
+Essas famílias foram adicionadas de forma determinística a `modules/editorial_format.py`, recebem `preservar_composicao` e aparecem com rótulos explicáveis no HUD. A decisão continua dependente de campos estruturados do pipeline; texto sozinho não inventa um formato audiovisual. A suíte passou de 165 para 168 testes aprovados após a inclusão das regressões.
+
+Os casos observados no perfil reserva também reforçam uma regra de produto: a ausência do rosto de Renan não elimina um candidato quando a tese é sustentada por footage externo, post social, palco, entrevistado ou arte. O sistema deve reduzir a confiança do reframe, preservar a composição e encaminhar a revisão humana quando a fala e a evidência visual precisarem permanecer juntas.
+
 ## Referências
 
 A base editorial consolidada e o catálogo incremental estão em [`instagram-mbl-catalog-analysis.md`](instagram-mbl-catalog-analysis.md). A auditoria autenticada do Criadores/Missão está em [`criadores-auditoria-2026-08-14.md`](criadores-auditoria-2026-08-14.md). A política de enquadramento anterior está em [`layout-planner-editorial-policy-2026-08-14.md`](layout-planner-editorial-policy-2026-08-14.md).
