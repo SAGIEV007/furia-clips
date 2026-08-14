@@ -2058,6 +2058,10 @@ function renderHeadlineStudioResults(studio) {
     const formats = studio.formats || {};
     const flags = studio.review_flags || {};
     const recommended = studio.recommended_format || "vertical_916";
+    const learning = studio.learning_applied || {};
+    const learningLabel = learning.applied
+        ? `aprendizado aplicado (${Number(learning.selected_count || 0)} escolha(s))`
+        : "aprendizado em coleta";
     const reviewChips = [
         flags.transcript_ends_incomplete ? '<span class="artwork-review-chip warning"><span class="material-icons-round">pending</span>final da transcrição incompleto</span>' : "",
         flags.needs_fact_review ? '<span class="artwork-review-chip"><span class="material-icons-round">fact_check</span>revisar afirmação factual</span>' : "",
@@ -2076,7 +2080,7 @@ function renderHeadlineStudioResults(studio) {
         <div class="artwork-format-result-head"><div><span class="artwork-format-kicker">${recommended === "fake_tweet" ? "FORMATO RECOMENDADO" : "ALTERNATIVA"}</span><h4>Fake tweet — rascunho de publicação</h4></div><span class="artwork-limit">Revisar antes de atribuir ao perfil</span></div>
         <div class="fake-tweet-options">${tweets.map(item => `<article class="fake-tweet-card"><p>${escapeHtml(item.post_text || "")}</p><footer><span>${Number(item.character_count || 0)} caracteres</span><div>${artworkCopyButton(item.post_text || "", "Copiar texto")}${artworkFeedbackButton("fake_tweet", item.post_text || "")}</div></footer></article>`).join("") || '<p class="artwork-empty">Sem alternativa disponível.</p>'}</div>
     </section>`;
-    container.innerHTML = `<div class="headline-studio-result-summary"><div><span class="artwork-format-kicker">LEITURA EDITORIAL</span><h4>${escapeHtml(artworkFormatLabels[recommended] || recommended)}</h4><p>${escapeHtml(studio.recommendation_reason || "")}</p></div><div class="artwork-analysis-metrics"><span>Tema: <strong>${escapeHtml(studio.topic || "geral")}</strong></span><span>Contexto: <strong>${Math.round(Number(studio.analysis?.context_completeness || 0))}/100</strong></span><span>Fonte: <strong>${studio.generation_source === "ai_refined" ? "IA + regras" : "regras editoriais"}</strong></span></div></div><div class="artwork-review-chips">${reviewChips || '<span class="artwork-review-chip safe"><span class="material-icons-round">verified</span>sem alerta lexical automático</span>'}</div><div class="artwork-format-results">${formatCards}${tweetCard}</div>`;
+    container.innerHTML = `<div class="headline-studio-result-summary"><div><span class="artwork-format-kicker">LEITURA EDITORIAL</span><h4>${escapeHtml(artworkFormatLabels[recommended] || recommended)}</h4><p>${escapeHtml(studio.recommendation_reason || "")}</p></div><div class="artwork-analysis-metrics"><span>Tema: <strong>${escapeHtml(studio.topic || "geral")}</strong></span><span>Contexto: <strong>${Math.round(Number(studio.analysis?.context_completeness || 0))}/100</strong></span><span>Fonte: <strong>${studio.generation_source === "ai_refined" ? "IA + regras" : "regras editoriais"}</strong></span><span>Preferência: <strong>${escapeHtml(learningLabel)}</strong></span></div></div><div class="artwork-review-chips">${reviewChips || '<span class="artwork-review-chip safe"><span class="material-icons-round">verified</span>sem alerta lexical automático</span>'}</div><div class="artwork-format-results">${formatCards}${tweetCard}</div>`;
     container.style.display = "block";
     container.querySelectorAll(".artwork-copy-button").forEach(button => {
         button.addEventListener("click", () => copyToClipboard(decodeURIComponent(button.dataset.artworkCopy || "")));
@@ -2140,6 +2144,57 @@ async function saveArtworkFeedback(button) {
 }
 
 loadHeadlineLearning();
+
+function renderPerformanceSummary(summary = {}) {
+    const target = document.getElementById("performanceMetricsSummary");
+    if (!target) return;
+    const formatNumber = (value) => new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 }).format(Number(value || 0));
+    const engagement = summary.avg_engagement_rate == null ? "—" : `${(Number(summary.avg_engagement_rate) * 100).toFixed(2).replace(".", ",")}%`;
+    const velocity = summary.avg_view_velocity_per_hour == null ? "—" : `${formatNumber(summary.avg_view_velocity_per_hour)}/h`;
+    target.innerHTML = `<div class="performance-metric"><span>Conteúdos</span><strong>${formatNumber(summary.contents)}</strong></div><div class="performance-metric"><span>Snapshots</span><strong>${formatNumber(summary.snapshots)}</strong></div><div class="performance-metric"><span>Views observadas</span><strong>${formatNumber(summary.views)}</strong></div><div class="performance-metric"><span>Engajamento informado</span><strong>${escapeHtml(engagement)}</strong></div><div class="performance-metric"><span>Velocidade média</span><strong>${escapeHtml(velocity)}</strong></div>`;
+}
+
+async function loadPerformanceMetrics() {
+    try {
+        const response = await fetch("/api/performance/summary");
+        const data = await parseJsonResponse(response, "Métricas observadas");
+        if (!response.ok || !data.success) throw new Error(data.error || "não foi possível carregar o histórico");
+        renderPerformanceSummary(data.summary || {});
+        const status = document.getElementById("performanceMetricsStatus");
+        if (status) status.textContent = data.summary?.snapshots ? "Histórico local atualizado." : "Nenhum snapshot observado nesta instalação.";
+    } catch (error) {
+        const status = document.getElementById("performanceMetricsStatus");
+        if (status) status.textContent = `Métricas indisponíveis: ${error.message}`;
+    }
+}
+
+async function savePerformanceMetrics() {
+    const input = document.getElementById("performanceMetricsInput");
+    const status = document.getElementById("performanceMetricsStatus");
+    if (!input?.value.trim()) {
+        if (status) status.textContent = "Cole um snapshot JSON antes de salvar.";
+        return;
+    }
+    try {
+        const payload = JSON.parse(input.value);
+        const response = await fetch("/api/performance/snapshots", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+        });
+        const data = await parseJsonResponse(response, "Salvar métricas");
+        if (!response.ok || !data.success) throw new Error(data.error || "não foi possível salvar");
+        if (status) status.textContent = `${data.saved.length} snapshot(s) salvo(s) localmente.`;
+        input.value = "";
+        renderPerformanceSummary(data.summary || {});
+    } catch (error) {
+        if (status) status.textContent = `Falha nas métricas: ${error.message}`;
+    }
+}
+
+document.getElementById("btnSavePerformanceMetrics")?.addEventListener("click", savePerformanceMetrics);
+document.getElementById("btnRefreshPerformanceMetrics")?.addEventListener("click", loadPerformanceMetrics);
+loadPerformanceMetrics();
 
 document.getElementById("btnImportArtworkTranscript")?.addEventListener("click", () => {
     document.getElementById("artworkTranscriptFileInput")?.click();
