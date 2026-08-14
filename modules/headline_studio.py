@@ -244,7 +244,29 @@ def _safe_fake_tweet(text: str, topic: str, mini_context: str) -> list[str]:
     return [_compact(lead, 180)]
 
 
-def _fallback_result(text: str, mini_context: str, preferred_format: str) -> dict[str, Any]:
+def _format_from_learning(editorial_learning: dict[str, Any] | None) -> tuple[str, int, str]:
+    """Use only aggregate editor choices once the local sample is meaningful."""
+    if not isinstance(editorial_learning, dict):
+        return "", 0, ""
+    topic_counts = editorial_learning.get("topic_by_format")
+    overall_counts = editorial_learning.get("overall_by_format")
+    if isinstance(topic_counts, dict) and topic_counts:
+        leader, count = max(topic_counts.items(), key=lambda item: int(item[1] or 0))
+        if leader in FORMAT_IDS and int(count or 0) >= 2:
+            return leader, int(count), "neste tema"
+    if isinstance(overall_counts, dict) and overall_counts:
+        leader, count = max(overall_counts.items(), key=lambda item: int(item[1] or 0))
+        if leader in FORMAT_IDS and int(count or 0) >= 4:
+            return leader, int(count), "no seu histórico geral"
+    return "", 0, ""
+
+
+def _fallback_result(
+    text: str,
+    mini_context: str,
+    preferred_format: str,
+    editorial_learning: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     signals = analyze_political_text(text, user_context=mini_context)
     topic = _topic(text)
     attention = _attention_word(text, signals)
@@ -266,8 +288,13 @@ def _fallback_result(text: str, mini_context: str, preferred_format: str) -> dic
         for copy in _safe_fake_tweet(text, topic, mini_context)
     ]
 
+    learning_format, learning_count, learning_scope = _format_from_learning(editorial_learning)
+    learning_applied = False
     if preferred_format in FORMAT_IDS:
         recommended = preferred_format
+    elif learning_format:
+        recommended = learning_format
+        learning_applied = True
     elif signals.get("claim_strength", 0) >= 45 and len(text.split()) >= 35:
         recommended = FORMAT_SQUARE
     elif signals.get("editorial_family") in {"reacao", "humor"}:
@@ -286,6 +313,11 @@ def _fallback_result(text: str, mini_context: str, preferred_format: str) -> dic
         FORMAT_VERTICAL: "O argumento possui conflito ou contraste que funciona melhor como headline central de leitura imediata.",
         FORMAT_TWEET: "O corte possui uma posição autoral que pode virar rascunho de publicação, desde que a atribuição final seja revisada.",
     }[recommended]
+    if learning_applied:
+        recommendation_reason = (
+            f"O formato foi priorizado por {learning_count} escolha(s) aprovada(s) {learning_scope}; "
+            "o texto continua sendo gerado a partir desta transcrição."
+        )
     return {
         "recommended_format": recommended,
         "recommendation_reason": recommendation_reason,
@@ -304,6 +336,12 @@ def _fallback_result(text: str, mini_context: str, preferred_format: str) -> dic
             "conflict_or_stakes": signals.get("conflict_or_stakes", 0),
         },
         "generation_source": "editorial_fallback",
+        "learning_applied": {
+            "applied": learning_applied,
+            "format_id": learning_format if learning_applied else "",
+            "selected_count": learning_count if learning_applied else 0,
+            "scope": learning_scope if learning_applied else "",
+        },
     }
 
 
@@ -388,12 +426,13 @@ def generate_artwork_copy(
     preferred_format: str = "auto",
     ai_backend: Any | None = None,
     emit_progress=None,
+    editorial_learning: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Generate short, format-aware artwork copy from a finished-cut transcript."""
     text, transcript_meta = _coerce_text(transcript)
     context = _compact(mini_context, 280)
     preferred = preferred_format if preferred_format in FORMAT_IDS else "auto"
-    result = _fallback_result(text, context, preferred)
+    result = _fallback_result(text, context, preferred, editorial_learning=editorial_learning)
     result["transcript"] = {
         **transcript_meta,
         "word_count": len(text.split()),
