@@ -1536,6 +1536,9 @@ function renderResultsGrid() {
             testemunhal: "testemunhal",
             unboxing: "unboxing",
             humor_bastidor: "humor / bastidor",
+            text_panel: "painel textual",
+            fake_tweet: "fake tweet / post social",
+            visual_meme: "meme / arte composta",
             desconhecido: "formato a revisar",
         };
         const preserveComposition = Boolean(clip.preserve_composition || reviewFlags.preserve_composition || clip.reframe_policy === "preservar_composicao");
