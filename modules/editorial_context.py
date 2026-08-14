@@ -10,6 +10,8 @@ from __future__ import annotations
 import re
 from statistics import mean
 
+from .editorial_chapters import build_editorial_chapters
+
 
 QUESTION_WORDS = {
     "como", "por que", "porque", "porquê", "qual", "quais", "quem", "quando",
@@ -62,6 +64,7 @@ def analyze_transcript_context(transcription: dict, focus: str = "auto") -> dict
     references = [s for s in enriched if s["renan_reference"]]
     interview_windows = _build_interview_windows(enriched)
     qa_candidates = _build_qa_candidates(enriched)
+    editorial_chapters = build_editorial_chapters(enriched, qa_candidates)
     labeled_speakers = [s for s in enriched if s["speaker_label"]]
     speaker_confidences = [s["speaker_confidence"] for s in labeled_speakers if s["speaker_confidence"] is not None]
     overlap_count = sum(1 for s in enriched if s["overlap_suspected"])
@@ -84,6 +87,9 @@ def analyze_transcript_context(transcription: dict, focus: str = "auto") -> dict
         "renan_reference_count": len(references),
         "interview_windows": interview_windows,
         "qa_candidates": qa_candidates,
+        "editorial_chapters": editorial_chapters,
+        "chapter_count": len(editorial_chapters),
+        "chapter_map_version": "v1-temporal-qa",
         "focus": focus_key,
         "participant_confidence": round(participant_confidence if renan_focus else min(participant_confidence, 0.55), 3),
         "signals": {
@@ -95,7 +101,7 @@ def analyze_transcript_context(transcription: dict, focus: str = "auto") -> dict
             "possible_overlap": _possible_overlap(enriched),
             "long_form": duration >= 3600,
         },
-        "description": _description(duration, len(questions), len(qa_candidates), participant_confidence, focus_label),
+        "description": _description(duration, len(questions), len(qa_candidates), participant_confidence, focus_label, len(editorial_chapters)),
     }
     return summary
 
@@ -178,11 +184,11 @@ def _possible_overlap(segments: list[dict]) -> bool:
     return False
 
 
-def _description(duration: float, question_count: int, qa_count: int, confidence: float, focus_label: str) -> str:
+def _description(duration: float, question_count: int, qa_count: int, confidence: float, focus_label: str, chapter_count: int = 0) -> str:
     hours = duration / 3600 if duration else 0
     size = "vídeo longo" if hours >= 1 else "vídeo curto/médio"
     return (
         f"Pré-análise: {size} com {question_count} perguntas detectadas e {qa_count} "
-        f"candidatos pergunta–resposta. O foco editorial é {focus_label}, "
+        f"candidatos pergunta–resposta e {chapter_count} capítulos editoriais. O foco editorial é {focus_label}, "
         f"com confiança inicial de {confidence:.0%}; confirme casos ambíguos na revisão."
     )

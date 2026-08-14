@@ -56,14 +56,18 @@ EMOTIONAL_WORDS_PT = [
 
 
 class ViralRanker:
-    def __init__(self, channel_context="", editorial_profile=PROFILE_NAME, feedback_calibration=None):
+    def __init__(self, channel_context="", editorial_profile=PROFILE_NAME, feedback_calibration=None, campaign_hub_snapshot=None, campaign_hub_account=None):
         self.channel_context = channel_context
         self.editorial_profile = editorial_profile or PROFILE_NAME
         self.feedback_calibration = feedback_calibration or {}
+        self.campaign_hub_snapshot = campaign_hub_snapshot
+        self.campaign_hub_account = campaign_hub_account
         self._editorial_ranker = EditorialRanker(
             channel_context,
             editorial_profile=self.editorial_profile,
             feedback_calibration=self.feedback_calibration,
+            campaign_hub_snapshot=self.campaign_hub_snapshot,
+            campaign_hub_account=self.campaign_hub_account,
         )
 
     def score_clip(self, clip):

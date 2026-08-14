@@ -14,6 +14,7 @@ import requests
 from collections import Counter
 
 from .political_profile import PROFILE_NAME, build_political_prompt_fragment
+from .editorial_chapters import annotate_clip_with_chapters
 
 # Portuguese filler words to detect
 FILLER_WORDS_PT = {
@@ -89,6 +90,11 @@ class ClipSelector:
 
         # Apply anti-overlap filter
         clips = self._remove_overlaps(clips)
+
+        # Preserve chapter evidence after scene and overlap normalization so every
+        # backend (Gemini, Ollama, and NLP) exposes the same review contract.
+        editorial_context = settings.get("editorial_context")
+        clips = [annotate_clip_with_chapters(clip, editorial_context) for clip in clips]
 
         # Limit to max_clips
         clips = clips[:self.max_clips]
@@ -476,6 +482,7 @@ Selecione clips que melhor atendam a esse pedido."""
         if editorial_context:
             windows = editorial_context.get("interview_windows", [])[:8]
             qa = editorial_context.get("qa_candidates", [])[:12]
+            chapters = editorial_context.get("editorial_chapters", [])[:24]
             editorial_instruction = f"""
 
 PRÉ-ANÁLISE EDITORIAL DETERMINÍSTICA:
@@ -483,7 +490,8 @@ PRÉ-ANÁLISE EDITORIAL DETERMINÍSTICA:
 Foco padrão: Renan Santos/MBL. Confiança inicial de participante: {editorial_context.get('participant_confidence', 0):.0%}.
 Janelas prováveis de entrevista: {windows}.
 Candidatos pergunta–resposta detectados: {qa}.
-Use esses sinais como orientação, não como prova. Quando houver dúvida sobre locutor ou sobreposição de fala, reduza a confiança ou rejeite.
+Mapa de capítulos temporais: {chapters}.
+Respeite os capítulos como blocos editoriais contíguos. Não combine blocos de capítulos separados sem uma ponte de fala clara. Quando a seleção for uma pergunta–resposta, inclua o capítulo inteiro ou a ponte completa; se houver dúvida sobre locutor ou sobreposição, reduza a confiança ou rejeite.
 """
 
         num_clips = min(15, max(5, len(blocks) // 4))
@@ -621,7 +629,12 @@ Selecione clips que atendam a esse pedido."""
 
         editorial_instruction = ""
         if editorial_context:
-            editorial_instruction = f"\nPRÉ-ANÁLISE: {editorial_context.get('description', '')}\n"
+            chapters = editorial_context.get("editorial_chapters", [])[:16]
+            editorial_instruction = (
+                f"\nPRÉ-ANÁLISE: {editorial_context.get('description', '')}\n"
+                f"CAPÍTULOS EDITORIAIS: {chapters}\n"
+                "Não atravesse capítulos desconectados; preserve perguntas e respostas no mesmo capítulo.\n"
+            )
 
         num_clips = min(8, max(3, len(blocks) // 3))
         return f"""Selecione os {num_clips} MELHORES momentos para clips curtos.

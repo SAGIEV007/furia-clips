@@ -13,6 +13,7 @@ from typing import Iterable, Optional
 
 from .editorial_format import classify_editorial_format
 from .political_profile import PROFILE_NAME, analyze_political_text
+from .campaign_hub import build_performance_prior
 
 
 HOOK_PATTERNS = [
@@ -55,10 +56,14 @@ class EditorialRanker:
         channel_context: str = "",
         editorial_profile: str = PROFILE_NAME,
         feedback_calibration: Optional[dict] = None,
+        campaign_hub_snapshot: Optional[dict] = None,
+        campaign_hub_account: Optional[str] = None,
     ):
         self.channel_context = channel_context or ""
         self.editorial_profile = editorial_profile or PROFILE_NAME
         self.feedback_calibration = feedback_calibration or {}
+        self.campaign_hub_snapshot = campaign_hub_snapshot
+        self.campaign_hub_account = campaign_hub_account
 
     def rank_clips(
         self,
@@ -111,6 +116,11 @@ class EditorialRanker:
         duration = float(clip.get("duration") or max(1.0, float(clip.get("end", 0)) - float(clip.get("start", 0))))
         closure_type = self._closure_type(text)
         format_profile = classify_editorial_format(clip, text)
+        campaign_hub_prior = build_performance_prior(
+            text,
+            account=self.campaign_hub_account,
+            snapshot=self.campaign_hub_snapshot,
+        )
         factors = {
             "hook": self._hook(text),
             "flow": self._flow(text, duration),
@@ -122,6 +132,8 @@ class EditorialRanker:
             "clarity": self._clarity(text),
             "completeness": self._completeness(text, closure_type),
             "editorial_family_fit": 50.0,
+            "chapter_coherence": self._chapter_coherence(clip),
+            "campaign_hub_prior": campaign_hub_prior["observed_signal"],
         }
         political_signals = {}
         if self.editorial_profile in (PROFILE_NAME, "politics", "political"):
@@ -166,6 +178,18 @@ class EditorialRanker:
                 score = int(round(base_score * 0.84 + political_signals.get("editorial_family_fit", 50.0) * 0.16))
         else:
             score = int(round(base_score))
+
+        # Chapter coherence is a bounded, explainable adjustment layered on top
+        # of the established score so legacy ranking remains comparable.
+        if clip.get("editorial_chapter_available"):
+            score += int(round((factors["chapter_coherence"] - 65.0) * 0.08))
+            if clip.get("chapter_crosses_boundary") and not clip.get("qa_bridge"):
+                score -= 2
+        if campaign_hub_prior["available"]:
+            # Post-publication evidence is intentionally bounded to +/- 2 points.
+            score += int(round((campaign_hub_prior["observed_signal"] - 50.0) * 0.12))
+        score = max(0, min(100, score))
+
         feedback_adjustment = self._feedback_adjustment(factors)
         if feedback_adjustment:
             score = max(0, min(100, int(round(score + feedback_adjustment))) )
@@ -183,7 +207,7 @@ class EditorialRanker:
         return {
             "viral_score": score,
             "editorial_potential_score": score,
-            "editorial_score_version": "v1-feedback-calibrated" if feedback_adjustment else "v1-explainable",
+            "editorial_score_version": "v2-chapter-context-feedback" if feedback_adjustment and clip.get("editorial_chapter_available") else "v2-chapter-context" if clip.get("editorial_chapter_available") else "v1-feedback-calibrated" if feedback_adjustment else "v1-explainable",
             "topic_signature": topic_signature,
             "closure_type": closure_type,
             "breakdown": breakdown,
@@ -199,6 +223,12 @@ class EditorialRanker:
             "visual_format_reason": format_profile["visual_format_reason"],
             "visual_observation": str(clip.get("visual_observation") or ""),
             "visual_observation_confidence": clip.get("visual_observation_confidence"),
+            "editorial_chapter_ids": list(clip.get("editorial_chapter_ids") or []),
+            "chapter_primary_id": clip.get("chapter_primary_id"),
+            "chapter_count": int(clip.get("chapter_count", 0) or 0),
+            "chapter_coherence_score": clip.get("chapter_coherence_score"),
+            "qa_bridge": bool(clip.get("qa_bridge")),
+            "campaign_hub_prior": campaign_hub_prior,
             "reframe_policy": format_profile["reframe_policy"],
             "preserve_composition": format_profile["preserve_composition"],
             "review_flags": {
@@ -208,6 +238,14 @@ class EditorialRanker:
                 "named_entity_count": int(political_signals.get("named_entity_count", 0) or 0),
                 "preserve_composition": format_profile["preserve_composition"],
                 "visual_observation_available": bool(clip.get("visual_observation")),
+                "editorial_chapter_available": bool(clip.get("editorial_chapter_available")),
+                "chapter_coherence_score": clip.get("chapter_coherence_score"),
+                "chapter_count": int(clip.get("chapter_count", 0) or 0),
+                "qa_bridge": bool(clip.get("qa_bridge")),
+                "chapter_crosses_boundary": bool(clip.get("chapter_crosses_boundary")),
+                "campaign_hub_prior_available": bool(campaign_hub_prior["available"]),
+                "campaign_hub_hook_family": campaign_hub_prior["hook_family"],
+                "campaign_hub_sample_count": campaign_hub_prior["sample_count"],
             },
         }
 
@@ -322,6 +360,12 @@ class EditorialRanker:
         matched = len(words & text_words)
         return min(100.0, 25.0 + (matched / len(words)) * 75.0)
 
+    def _chapter_coherence(self, clip: dict) -> float:
+        value = clip.get("chapter_coherence_score")
+        if isinstance(value, (int, float)):
+            return max(0.0, min(100.0, float(value)))
+        return 50.0
+
     def _visual_change_density(self, clip: dict) -> float:
         """Estimate visual rhythm only when the pipeline provides scene metadata."""
         for key in ("visual_change_density", "scene_change_density"):
@@ -433,6 +477,8 @@ class EditorialRanker:
             "political_editorial_fit": "aderência ao formato político",
             "editorial_family_fit": "aderência à família editorial",
             "profile_fit": "aderência ao perfil do canal",
+            "chapter_coherence": "coerência de capítulo e contexto temporal",
+            "campaign_hub_prior": "observação histórica de hook no Campaign Hub",
         }
         ordered = sorted(factors.items(), key=lambda pair: pair[1], reverse=True)
         top = [labels[key] for key, value in ordered[:3] if value >= 60]
