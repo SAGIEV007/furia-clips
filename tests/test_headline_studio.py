@@ -105,3 +105,52 @@ def test_headline_feedback_endpoint_saves_choice(monkeypatch):
     assert response.status_code == 200
     assert response.get_json()["learning"]["selected"] == 1
     assert received["args"][:2] == ("square_alfinetei", "O BRASIL ESCOLHEU O CAMINHO ARCAICO")
+
+
+def test_square_headline_keeps_claim_and_exposes_layout_budget():
+    result = generate_artwork_copy(
+        "O Brasil escolheu o caminho arcaico para tratar as criptos e afastar as novas gerações.",
+        mini_context="Comentário de Renan sobre criptoativos.",
+        preferred_format=FORMAT_SQUARE,
+        ai_backend=None,
+    )
+
+    suggestion = result["formats"][FORMAT_SQUARE]["suggestions"][0]
+    assert "CAMINHO ARCAICO" in suggestion["headline"]
+    assert len(suggestion["headline_lines"]) <= 3
+    assert suggestion["word_count"] == len(suggestion["headline"].split())
+    assert "até 3 linhas" in suggestion["layout_hint"]
+
+
+def test_vertical_headline_uses_a_tighter_line_budget_than_square():
+    result = generate_artwork_copy(
+        "O Estado precisa decidir se vai acolher ou afastar as criptos do Brasil.",
+        preferred_format=FORMAT_VERTICAL,
+        ai_backend=None,
+    )
+
+    vertical = result["formats"][FORMAT_VERTICAL]["suggestions"][0]
+    square = result["formats"][FORMAT_SQUARE]["suggestions"][0]
+    assert "cerca de 19 caracteres" in vertical["layout_hint"]
+    assert "cerca de 23 caracteres" in square["layout_hint"]
+
+
+def test_square_uses_short_speaker_attribution_only_when_editor_identifies_renan():
+    result = generate_artwork_copy(
+        "O Brasil escolheu o caminho arcaico para tratar as criptos.",
+        mini_context="Fala de Renan Santos sobre criptoativos.",
+        preferred_format=FORMAT_SQUARE,
+        ai_backend=None,
+    )
+    headline = result["formats"][FORMAT_SQUARE]["suggestions"][0]["headline"]
+    assert headline.startswith("RENAN:")
+    assert len(headline) <= 64
+
+    generic = generate_artwork_copy(
+        "O Brasil escolheu o caminho arcaico para tratar as criptos.",
+        mini_context="Comentário sobre criptoativos.",
+        preferred_format=FORMAT_SQUARE,
+        ai_backend=None,
+    )
+    generic_headline = generic["formats"][FORMAT_SQUARE]["suggestions"][0]["headline"]
+    assert not generic_headline.startswith("RENAN:")
