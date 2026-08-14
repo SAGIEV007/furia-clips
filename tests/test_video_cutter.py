@@ -89,3 +89,21 @@ def test_detect_scenes_handles_empty_stderr(monkeypatch):
         lambda *args, **kwargs: SimpleNamespace(stderr=None, returncode=0),
     )
     assert VideoCutter().detect_scenes("video.mp4") == [0.0]
+
+
+def test_invalid_render_is_removed_before_it_can_be_returned(tmp_path):
+    from modules.video_cutter import VideoCutter
+
+    invalid = tmp_path / "invalid.mp4"
+    invalid.write_bytes(b"not a media file")
+    events = []
+
+    result = VideoCutter()._validate_rendered_output(
+        str(invalid),
+        1.0,
+        emit_progress=lambda message, level="info": events.append((message, level)),
+    )
+
+    assert result is False
+    assert not invalid.exists()
+    assert any("Renderização rejeitada" in message for message, _ in events)

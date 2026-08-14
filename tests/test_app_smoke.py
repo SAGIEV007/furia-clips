@@ -50,6 +50,23 @@ class AppSmokeTests(unittest.TestCase):
             with self.assertRaises(OSError):
                 furia_app._resolve_source_destination(file_path)
 
+    def test_source_destination_ignores_ui_placeholder(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            resolved = furia_app._resolve_source_destination(
+                "A pasta será escolhida ao importar",
+                {"source_download_dir": tmp_dir},
+            )
+            self.assertEqual(resolved, os.path.abspath(tmp_dir))
+
+    def test_source_destination_ignores_persisted_placeholder(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            resolved = furia_app._resolve_source_destination(
+                "",
+                {"source_download_dir": "A pasta será escolhida ao importar"},
+            )
+            self.assertTrue(os.path.isdir(resolved))
+            self.assertNotIn("A pasta será escolhida ao importar", resolved)
+
     def test_batch_rank_returns_quality_gated_portfolio(self):
         response = self.client.post(
             "/api/batch/rank",
