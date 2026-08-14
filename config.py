@@ -135,6 +135,7 @@ DEFAULT_SETTINGS = {
     "silence_threshold": -35,
     "padding": 0.25,
     "language": "pt",
+    "transcription_source": "auto",
     "ai_correction": True,
     "ai_backend": "gemini",
     "ollama_model": "llama3.2:3b",

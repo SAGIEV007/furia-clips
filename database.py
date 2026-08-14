@@ -99,6 +99,17 @@ def init_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (clip_id) REFERENCES clips(id)
         );
+
+        CREATE TABLE IF NOT EXISTS headline_feedback (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            format_id TEXT NOT NULL,
+            artwork_text TEXT NOT NULL,
+            action TEXT NOT NULL DEFAULT 'selected',
+            topic TEXT,
+            transcript_excerpt TEXT,
+            mini_context TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
     """)
 
     existing_columns = {
@@ -116,6 +127,7 @@ def init_db():
             cursor.execute(statement)
 
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_clips_editorial_key ON clips(project_id, editorial_key)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_headline_feedback_format ON headline_feedback(format_id, action)")
     missing_keys = cursor.execute(
         """SELECT clips.id, projects.source_video, clips.start_time, clips.end_time, clips.transcript
            FROM clips JOIN projects ON projects.id = clips.project_id
@@ -154,6 +166,52 @@ def set_setting(key, value):
     )
     conn.commit()
     conn.close()
+
+
+def save_headline_feedback(format_id, artwork_text, action="selected", topic="", transcript_excerpt="", mini_context=""):
+    """Persist a local editorial decision without coupling it to a generated clip."""
+    conn = get_db()
+    conn.execute(
+        """INSERT INTO headline_feedback
+           (format_id, artwork_text, action, topic, transcript_excerpt, mini_context)
+           VALUES (?, ?, ?, ?, ?, ?)""",
+        (
+            str(format_id or "unknown")[:40],
+            str(artwork_text or "").strip()[:300],
+            str(action or "selected")[:24],
+            str(topic or "").strip()[:80],
+            str(transcript_excerpt or "").strip()[:600],
+            str(mini_context or "").strip()[:280],
+        ),
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_headline_feedback_summary(limit=8):
+    """Return a compact, non-secret summary for the headline studio HUD."""
+    conn = get_db()
+    total = conn.execute("SELECT COUNT(*) AS count FROM headline_feedback").fetchone()["count"]
+    selected = conn.execute(
+        "SELECT COUNT(*) AS count FROM headline_feedback WHERE action = 'selected'"
+    ).fetchone()["count"]
+    by_format = {
+        row["format_id"]: row["count"]
+        for row in conn.execute(
+            """SELECT format_id, COUNT(*) AS count FROM headline_feedback
+               WHERE action = 'selected' GROUP BY format_id ORDER BY count DESC"""
+        ).fetchall()
+    }
+    examples = [
+        dict(row)
+        for row in conn.execute(
+            """SELECT format_id, artwork_text, topic, created_at FROM headline_feedback
+               WHERE action = 'selected' ORDER BY id DESC LIMIT ?""",
+            (max(1, min(int(limit), 20)),),
+        ).fetchall()
+    ]
+    conn.close()
+    return {"total": total, "selected": selected, "by_format": by_format, "examples": examples}
 
 
 def get_all_settings():

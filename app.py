@@ -60,7 +60,8 @@ from database import (
     save_clip, get_clips, update_clip_seo, update_clip_thumbnail,
     save_transcription, get_transcription, log_action,
     update_clip_editorial_score, save_clip_feedback, get_clip_feedback,
-    update_clip_review_status, get_feedback_calibration, get_daily_editorial_progress
+    update_clip_review_status, get_feedback_calibration, get_daily_editorial_progress,
+    save_headline_feedback, get_headline_feedback_summary
 )
 from modules.security import UnsafePathError, safe_workspace_path, unique_storage_name
 from modules.native_dialogs import DialogError, choose_path, open_local_path
@@ -222,20 +223,34 @@ def _probe_video_duration_seconds(video_path):
         return None
 
 
+def _transcription_source_mode(settings):
+    mode = str((settings or {}).get("transcription_source", "auto") or "auto").strip().lower()
+    aliases = {"public_subtitles": "public_subtitle", "captions": "public_subtitle", "local_whisper": "whisper"}
+    return aliases.get(mode, mode) if mode in {"auto", "public_subtitle", "public_subtitles", "captions", "whisper", "local_whisper"} else "auto"
+
+
 def _transcribe_video_automatically(video_path, settings, emit_progress, transcript_fallback_path=None, cancel_check=None):
-    """Try Gemini first, then public timestamps, and only then adaptive CPU Whisper."""
-    emit_progress("[Transcrição] Prioridade: Gemini multimodal online; fontes timestampadas e Whisper CPU são fallback.", "info")
+    """Use the explicit source preference, preserving Gemini-first behavior in auto mode."""
+    mode = _transcription_source_mode(settings)
+    if mode == "whisper":
+        emit_progress("[Transcrição] Preferência: Whisper local forçado; Gemini e legenda pública serão ignorados.", "info")
+    elif mode == "public_subtitle":
+        emit_progress("[Transcrição] Preferência: legenda pública timestampada; Whisper será fallback se ela não existir.", "info")
+    else:
+        emit_progress("[Transcrição] Modo automático: Gemini multimodal online → legenda pública → Whisper CPU.", "info")
     if cancel_check:
         cancel_check()
-    gemini_kwargs = {"cancel_check": cancel_check} if cancel_check else {}
-    multimodal = _run_gemini_video_analysis(video_path, settings, {}, "", emit_progress, **gemini_kwargs)
-    transcription = _transcription_from_gemini_result(multimodal, settings.get("language", "pt"))
-    if transcription:
-        emit_progress("[Transcrição] Gemini forneceu timestamps; Whisper CPU não será iniciado.", "success")
-        transcription["source"] = "gemini_video"
-        return transcription
 
-    if transcript_fallback_path and os.path.isfile(transcript_fallback_path):
+    if mode == "auto":
+        gemini_kwargs = {"cancel_check": cancel_check} if cancel_check else {}
+        multimodal = _run_gemini_video_analysis(video_path, settings, {}, "", emit_progress, **gemini_kwargs)
+        transcription = _transcription_from_gemini_result(multimodal, settings.get("language", "pt"))
+        if transcription:
+            emit_progress("[Transcrição] Gemini forneceu timestamps; Whisper CPU não será iniciado.", "success")
+            transcription["source"] = "gemini_video"
+            return transcription
+
+    if mode != "whisper" and transcript_fallback_path and os.path.isfile(transcript_fallback_path):
         try:
             with open(transcript_fallback_path, "r", encoding="utf-8-sig") as handle:
                 transcription = parse_transcript_text(handle.read(), duration=None)
@@ -248,7 +263,12 @@ def _transcribe_video_automatically(video_path, settings, emit_progress, transcr
         except Exception as exc:
             emit_progress(f"[Transcrição] Legenda pública não pôde ser interpretada: {str(exc)[:180]}", "warning")
 
-    emit_progress("[Transcrição] Gemini/legenda pública não entregaram timestamps; iniciando fallback local faster-whisper.", "warning")
+    if mode == "public_subtitle":
+        emit_progress("[Transcrição] Legenda pública não disponível ou inválida; iniciando fallback local faster-whisper.", "warning")
+    elif mode == "whisper":
+        emit_progress("[Transcrição] Iniciando faster-whisper por solicitação do usuário.", "info")
+    else:
+        emit_progress("[Transcrição] Gemini/legenda pública não entregaram timestamps; iniciando fallback local faster-whisper.", "warning")
     from modules.transcriber import Transcriber
     requested_model = settings.get("whisper_model", "small")
     requested_device = settings.get("whisper_device", "auto")
@@ -899,20 +919,23 @@ def api_source_import():
             subtitle_path = None
             transcript_archive = None
             if auto_transcribe:
-                gemini_configured = (
-                    str(settings.get("ai_backend", "gemini") or "gemini").lower() in {"auto", "gemini"}
-                    and bool(str(settings.get("gemini_api_key", "") or "").strip())
-                )
-                if not gemini_configured:
-                    emit_progress("[Transcrição] Gemini sem chave nesta instalação; procurando legenda pública timestampada antes do Whisper...", "info")
+                transcription_mode = _transcription_source_mode({
+                    **settings,
+                    "transcription_source": data.get("transcription_source", settings.get("transcription_source", "auto")),
+                })
+                transcription_settings = {**settings, "transcription_source": transcription_mode}
+                if transcription_mode != "whisper":
+                    emit_progress("[Transcrição] Procurando legenda pública timestampada para a opção escolhida...", "info")
                     subtitle_path = download_public_subtitles(url, destination, cancel_check=check_current_task_cancel)
                     if subtitle_path:
                         emit_progress(f"[Transcrição] Legenda pública encontrada: {os.path.basename(subtitle_path)}", "success")
+                else:
+                    emit_progress("[Transcrição] Whisper local foi selecionado; a busca de legenda pública foi ignorada.", "info")
                 emit_progress("[Transcrição] Gerando timestamps automaticamente antes da análise...", "info")
                 try:
                     transcription = _transcribe_video_automatically(
                         result_path,
-                        settings,
+                        transcription_settings,
                         emit_progress,
                         transcript_fallback_path=subtitle_path,
                         cancel_check=check_current_task_cancel,
@@ -1093,6 +1116,7 @@ def api_transcribe():
         try:
             check_current_task_cancel()
             settings = get_all_settings()
+            settings = {**settings, "transcription_source": data.get("transcription_source", settings.get("transcription_source", "auto"))}
             result = _transcription_from_request(data)
             if result:
                 emit_progress(f"[Transcrição manual] {result['segment_count']} segmentos importados; Whisper não será executado.", "success")
@@ -1107,7 +1131,7 @@ def api_transcribe():
             if project_id:
                 save_transcription(
                     project_id, result["segments"], result["full_text"],
-                    result["language"], settings.get("whisper_model", "small")
+                    result["language"], result.get("source", settings.get("whisper_model", "small"))
                 )
 
             check_current_task_cancel()
@@ -1139,6 +1163,7 @@ def api_cut_shorts():
         return jsonify({"error": "Video não encontrado ou caminho inválido"}), 404
     project_id = data.get("project_id")
     use_face_tracking = data.get("face_tracking", True)
+    transcription_source = data.get("transcription_source")
     user_context = data.get("user_context", "")
     video_genre = data.get("video_genre", "")
 
@@ -1150,6 +1175,8 @@ def api_cut_shorts():
             ctx.update(stage="transcription", progress=5, message="Preparando transcrição e contexto")
             ctx.check_cancel()
             settings = get_all_settings()
+            if transcription_source:
+                settings = {**settings, "transcription_source": transcription_source}
             active_project_id = project_id
             if not active_project_id:
                 auto_project_name = os.path.splitext(os.path.basename(video_path))[0]
@@ -1173,7 +1200,15 @@ def api_cut_shorts():
             from modules.transcriber import Transcriber
             transcription = _transcription_from_request(data)
             multimodal_result = None
-            if not transcription:
+            selected_transcription_mode = _transcription_source_mode(settings)
+            if not transcription and selected_transcription_mode in {"whisper", "public_subtitle"}:
+                transcription = _transcribe_video_automatically(
+                    video_path,
+                    settings,
+                    emit_progress,
+                    cancel_check=ctx.check_cancel,
+                )
+            elif not transcription:
                 multimodal_result = _run_gemini_video_analysis(
                     video_path,
                     settings,
@@ -1590,6 +1625,69 @@ def api_generate_seo():
     return jsonify({"success": True, "message": "Geracao de SEO iniciada"})
 
 
+@app.route("/api/headline-studio/analyze", methods=["POST"])
+def api_analyze_headline_studio():
+    """Generate short artwork copy from an imported finished-cut transcript."""
+    data = request.get_json(silent=True) or {}
+    transcript = str(data.get("transcript", "") or "")
+    mini_context = str(data.get("mini_context", "") or "")
+    preferred_format = str(data.get("preferred_format", "auto") or "auto")
+    use_ai = bool(data.get("use_ai", True))
+    if not transcript.strip():
+        return jsonify({"success": False, "error": "Cole ou importe uma transcrição antes de gerar o texto de arte."}), 400
+    if len(transcript) > 60000:
+        return jsonify({"success": False, "error": "A transcrição excede o limite de 60.000 caracteres para esta análise."}), 400
+
+    try:
+        from modules.ai_backend import AIBackend
+        from modules.headline_studio import generate_artwork_copy
+
+        settings = get_all_settings()
+        ai = None
+        if use_ai:
+            ai = AIBackend(backend=settings.get("ai_backend", "ollama"), settings=settings)
+        result = generate_artwork_copy(
+            transcript,
+            mini_context=mini_context,
+            preferred_format=preferred_format,
+            ai_backend=ai,
+        )
+        return jsonify({"success": True, "studio": result})
+    except ValueError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
+    except Exception as exc:
+        return jsonify({"success": False, "error": f"Não foi possível analisar o texto de arte: {exc}"}), 500
+
+
+@app.route("/api/headline-studio/feedback", methods=["POST"])
+def api_save_headline_studio_feedback():
+    """Save a selected/rejected artwork-copy decision in local persistent data."""
+    data = request.get_json(silent=True) or {}
+    format_id = str(data.get("format_id", "") or "")
+    artwork_text = str(data.get("artwork_text", "") or "").strip()
+    action = str(data.get("action", "selected") or "selected")
+    if format_id not in {"vertical_916", "square_alfinetei", "fake_tweet"}:
+        return jsonify({"success": False, "error": "Formato editorial inválido."}), 400
+    if not artwork_text or len(artwork_text) > 300:
+        return jsonify({"success": False, "error": "Texto de arte inválido ou longo demais."}), 400
+    if action not in {"selected", "rejected"}:
+        return jsonify({"success": False, "error": "Ação editorial inválida."}), 400
+    save_headline_feedback(
+        format_id,
+        artwork_text,
+        action=action,
+        topic=str(data.get("topic", "") or ""),
+        transcript_excerpt=str(data.get("transcript_excerpt", "") or ""),
+        mini_context=str(data.get("mini_context", "") or ""),
+    )
+    return jsonify({"success": True, "learning": get_headline_feedback_summary()})
+
+
+@app.route("/api/headline-studio/learning", methods=["GET"])
+def api_headline_studio_learning():
+    return jsonify({"success": True, "learning": get_headline_feedback_summary()})
+
+
 @app.route("/api/process/thumbnail", methods=["POST"])
 def api_generate_thumbnail():
     data = request.get_json(silent=True) or {}
@@ -1647,6 +1745,7 @@ def api_process_complete():
         return jsonify({"error": "Video não encontrado ou caminho inválido"}), 404
     user_context = data.get("user_context", "")
     video_genre = data.get("video_genre", "")
+    transcription_source = data.get("transcription_source")
 
     if not os.path.exists(video_path):
         return jsonify({"error": "Video nao encontrado"}), 404
@@ -1655,6 +1754,8 @@ def api_process_complete():
         current_task["active"] = True
         try:
             settings = get_all_settings()
+            if transcription_source:
+                settings = {**settings, "transcription_source": transcription_source}
             ctx.update(stage="project", progress=3, message="Criando projeto")
             ctx.check_cancel()
             video_name = os.path.splitext(os.path.basename(video_path))[0]
@@ -1687,7 +1788,15 @@ def api_process_complete():
             from modules.transcriber import Transcriber
             transcription = _transcription_from_request(data)
             multimodal_result = None
-            if not transcription:
+            selected_transcription_mode = _transcription_source_mode(settings)
+            if not transcription and selected_transcription_mode in {"whisper", "public_subtitle"}:
+                transcription = _transcribe_video_automatically(
+                    working_video,
+                    settings,
+                    emit_progress,
+                    cancel_check=ctx.check_cancel,
+                )
+            elif not transcription:
                 multimodal_result = _run_gemini_video_analysis(
                     working_video,
                     settings,
@@ -1716,7 +1825,7 @@ def api_process_complete():
                 )
             save_transcription(
                 project_id, transcription["segments"], transcription["full_text"],
-                transcription["language"], settings.get("whisper_model", "small")
+                transcription["language"], transcription.get("source", settings.get("whisper_model", "small"))
             )
             from modules.editorial_context import analyze_transcript_context
             editorial_context = analyze_transcript_context(transcription, focus=settings.get("editorial_focus", "auto"))
