@@ -180,3 +180,82 @@ def test_learning_can_calibrate_auto_format_only_after_meaningful_history():
     )
     assert explicit["recommended_format"] == FORMAT_VERTICAL
     assert explicit["learning_applied"]["applied"] is False
+
+
+def test_headline_studio_endpoint_uses_persisted_clip_transcript(monkeypatch, tmp_path):
+    import database
+    import app as app_module
+
+    monkeypatch.setattr(database, "DB_PATH", str(tmp_path / "clip_headline.sqlite"))
+    database.init_db()
+    project_id = database.create_project("Entrevista", "uploads/entrevista.mp4")
+    clip_id = database.save_clip(
+        project_id,
+        "exports/corte.mp4",
+        12.0,
+        48.0,
+        36.0,
+        transcript="O Brasil precisa executar propostas concretas para melhorar a segurança.",
+    )
+
+    response = app_module.app.test_client().post(
+        "/api/headline-studio/analyze",
+        json={"clip_id": clip_id, "preferred_format": FORMAT_SQUARE, "use_ai": False},
+    )
+
+    payload = response.get_json()
+    assert response.status_code == 200
+    assert payload["studio"]["clip_id"] == clip_id
+    assert payload["studio"]["source_interval"] == {"start": 12.0, "end": 48.0}
+    assert payload["studio"]["transcript"]["word_count"] > 5
+
+
+def test_headline_feedback_keeps_clip_identity(monkeypatch, tmp_path):
+    import database
+    import app as app_module
+
+    monkeypatch.setattr(database, "DB_PATH", str(tmp_path / "clip_headline_feedback.sqlite"))
+    database.init_db()
+    project_id = database.create_project("Entrevista", "uploads/entrevista.mp4")
+    clip_id = database.save_clip(
+        project_id,
+        "exports/corte.mp4",
+        12.0,
+        48.0,
+        36.0,
+        transcript="A proposta precisa ter contexto e conclusão.",
+    )
+    clip = database.get_clip(clip_id)
+
+    response = app_module.app.test_client().post(
+        "/api/headline-studio/feedback",
+        json={
+            "clip_id": clip_id,
+            "format_id": FORMAT_SQUARE,
+            "artwork_text": "A PROPOSTA PRECISA TER CONCLUSÃO",
+            "action": "selected",
+            "transcript_excerpt": clip["transcript"],
+        },
+    )
+
+    assert response.status_code == 200
+    conn = database.get_db()
+    row = conn.execute(
+        "SELECT clip_id, editorial_key, source FROM headline_feedback ORDER BY id DESC LIMIT 1"
+    ).fetchone()
+    conn.close()
+    assert row["clip_id"] == clip_id
+    assert row["editorial_key"] == clip["editorial_key"]
+    assert row["source"] == "clip_headline_studio"
+
+
+def test_headline_studio_rejects_unknown_clip_id():
+    import app as app_module
+
+    response = app_module.app.test_client().post(
+        "/api/headline-studio/analyze",
+        json={"clip_id": 999999, "use_ai": False},
+    )
+
+    assert response.status_code == 404
+    assert "corte" in response.get_json()["error"].lower()
