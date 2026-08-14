@@ -26,6 +26,9 @@ KNOWN_FORMATS = {
     "testemunhal",
     "unboxing",
     "humor_bastidor",
+    "text_panel",
+    "fake_tweet",
+    "visual_meme",
     "desconhecido",
 }
 
@@ -41,6 +44,9 @@ _PRESERVE_COMPOSITION = {
     "campanha",
     "testemunhal",
     "unboxing",
+    "text_panel",
+    "fake_tweet",
+    "visual_meme",
     "desconhecido",
 }
 
@@ -62,6 +68,12 @@ def classify_editorial_format(clip: dict[str, Any] | None, text: str = "") -> di
         return _profile(explicit, 0.96, "formato declarado pela análise")
 
     normalized = _normalize(text)
+    if _truthy(data.get("fake_tweet")) or _truthy(data.get("social_post")) or _truthy(data.get("tweet_panel")):
+        return _profile("fake_tweet", 0.90, "post social ou fake tweet declarado pela análise")
+    if _truthy(data.get("visual_meme")) or _truthy(data.get("meme_art")) or _truthy(data.get("composite_art")):
+        return _profile("visual_meme", 0.86, "arte/meme composto declarado pela análise")
+    if _truthy(data.get("text_panel")) or _truthy(data.get("has_text_panel")) or _truthy(data.get("headline_panel")):
+        return _profile("text_panel", 0.82, "painel textual ou headline incorporada declarado pela análise")
     if _truthy(data.get("split_screen")) or _truthy(data.get("has_split_screen")):
         if _has_any(normalized, ("reag", "responde", "comentando", "noticia", "cctv")):
             return _profile("react", 0.86, "split-screen com sinais de reação ou evidência externa")
