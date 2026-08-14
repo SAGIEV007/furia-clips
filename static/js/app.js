@@ -1323,6 +1323,18 @@ function reviewStatusOf(clip) {
     return clip.review_status || "pending";
 }
 
+function reviewStatusMeta(status) {
+    const labels = {
+        pending: { label: "NA FILA", icon: "pending_actions", hint: "Aguardando sua decisão" },
+        approved: { label: "APROVADO", icon: "check_circle", hint: "Decisão salva no histórico editorial" },
+        rejected: { label: "REJEITADO", icon: "cancel", hint: "Retirado da seleção final" },
+        needs_review: { label: "REVISAR CONTEXTO", icon: "visibility", hint: "Separado para confirmar contexto" },
+        adjusted: { label: "AJUSTE SALVO", icon: "tune", hint: "Ajuste salvo; confirme novamente" },
+        rendered: { label: "RENDERIZADO", icon: "movie", hint: "Renderização validada" },
+    };
+    return labels[status] || labels.pending;
+}
+
 function reviewStats(clips = state.clips) {
     const all = Array.isArray(clips) ? clips : [];
     const count = (status) => all.filter((clip) => reviewStatusOf(clip) === status).length;
@@ -1486,6 +1498,7 @@ function renderResultsGrid() {
         const needsFactReview = Boolean(reviewFlags.needs_fact_review || reviewFlags.needsFactReview);
         const needsLegalReview = Boolean(reviewFlags.needs_legal_review || reviewFlags.needsLegalReview);
         const reviewStatus = reviewStatusOf(clip);
+        const reviewMeta = reviewStatusMeta(reviewStatus);
         const confidence = Math.round((clip.confidence || 0) * 100);
         const clipSource = clip.source || "nlp";
         const sourceLabels = { "gemini": "Gemini", "llm": "Ollama", "nlp": "NLP" };
@@ -1518,7 +1531,8 @@ function renderResultsGrid() {
                 ${clip.has_hook ? '<span class="hook-badge"><span class="material-icons-round" style="font-size:12px">flash_on</span> Gancho</span>' : ''}
                 <span class="clip-source-badge ${sourceClass}">${sourceLabel}</span>
                 ${politicalType ? `<span class="clip-source-badge source-editorial">${escapeHtml(politicalType)}</span>` : ''}
-                <span class="review-state-chip ${reviewStatus}">${reviewStatus === "needs_review" ? "revisar contexto" : reviewStatus === "pending" ? "na fila" : reviewStatus}</span>
+                <span class="review-state-chip ${reviewMeta.label === "APROVADO" ? "approved" : reviewMeta.label === "REJEITADO" ? "rejected" : reviewStatus}" title="${escapeHtml(reviewMeta.hint)}" aria-label="${escapeHtml(reviewMeta.hint)}"><span class="material-icons-round">${escapeHtml(reviewMeta.icon)}</span>${escapeHtml(reviewMeta.label)}</span>
+                ${clip.review_updated_at ? `<span class="clip-review-timestamp" title="Decisão registrada localmente">${new Date(clip.review_updated_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span>` : ''}
                 ${adjustmentState === "saved" ? '<span class="clip-adjustment-chip saved"><span class="material-icons-round">save</span> ajuste salvo</span>' : ''}
                 ${adjustmentState === "preview" ? '<span class="clip-adjustment-chip preview"><span class="material-icons-round">preview</span> prévia</span>' : ''}
             </div>
@@ -1642,10 +1656,10 @@ function renderResultsGrid() {
                         <span class="material-icons-round">image</span> Capa
                     </button>
                 </div>
-                <div class="review-actions">
-                    <button class="btn btn-sm btn-success" onclick="setClipReview(${originalIndex}, 'approved')"><span class="material-icons-round">check_circle</span>Aprovar</button>
-                    <button class="btn btn-sm btn-review-context" title="Não aprova nem rejeita; abre a transcrição completa e coloca o clip na fila de revisão." onclick="openContextReview(${originalIndex})"><span class="material-icons-round">visibility</span>Revisar contexto</button>
-                    <button class="btn btn-sm btn-danger" onclick="setClipReview(${originalIndex}, 'rejected')"><span class="material-icons-round">close</span>Rejeitar</button>
+                <div class="review-actions" aria-label="Decisão editorial">
+                    <button class="btn btn-sm btn-success ${reviewStatus === 'approved' ? 'is-current' : ''}" aria-pressed="${reviewStatus === 'approved'}" onclick="setClipReview(${originalIndex}, 'approved')"><span class="material-icons-round">check_circle</span>${reviewStatus === 'approved' ? 'Aprovado' : 'Aprovar'}</button>
+                    <button class="btn btn-sm btn-review-context ${reviewStatus === 'needs_review' ? 'is-current' : ''}" aria-pressed="${reviewStatus === 'needs_review'}" title="Não aprova nem rejeita; abre a transcrição completa e coloca o clip na fila de revisão." onclick="openContextReview(${originalIndex})"><span class="material-icons-round">visibility</span>${reviewStatus === 'needs_review' ? 'Contexto aberto' : 'Revisar contexto'}</button>
+                    <button class="btn btn-sm btn-danger ${reviewStatus === 'rejected' ? 'is-current' : ''}" aria-pressed="${reviewStatus === 'rejected'}" onclick="setClipReview(${originalIndex}, 'rejected')"><span class="material-icons-round">close</span>${reviewStatus === 'rejected' ? 'Rejeitado' : 'Rejeitar'}</button>
                 </div>
             </div>`;
 
@@ -1807,7 +1821,10 @@ async function setClipReview(index, action) {
     const clip = state.clips[index];
     if (!clip) return;
     const previousStatus = reviewStatusOf(clip);
+    const previousUpdatedAt = clip.review_updated_at;
+    const decisionAt = new Date().toISOString();
     clip.review_status = action;
+    clip.review_updated_at = decisionAt;
     renderReviewCommandCenter();
     renderResultsGrid();
     try {
@@ -1824,13 +1841,14 @@ async function setClipReview(index, action) {
             rejected: "Clip rejeitado",
             needs_review: "Clip marcado para revisão de contexto",
         };
-        state.lastReviewAction = { action, clip_id: clip.clip_id || null, at: new Date().toISOString() };
+        state.lastReviewAction = { action, clip_id: clip.clip_id || null, at: decisionAt };
         renderReviewCommandCenter();
         renderResultsGrid();
         showToast(messages[action] || "Feedback salvo", action === "approved" ? "success" : "warning");
         loadEditorialLearning();
     } catch (error) {
         clip.review_status = previousStatus;
+        clip.review_updated_at = previousUpdatedAt;
         renderReviewCommandCenter();
         renderResultsGrid();
         showToast("Não foi possível salvar o feedback", "error");
