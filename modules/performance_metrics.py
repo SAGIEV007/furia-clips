@@ -11,6 +11,8 @@ from typing import Any
 
 SUPPORTED_PLATFORMS = {"instagram", "youtube", "tiktok", "other"}
 SUPPORTED_FORMATS = {"vertical_916", "square_alfinetei", "fake_tweet", "unknown"}
+SUPPORTED_WINDOWS = {"today", "week", "month", "all"}
+SUPPORTED_REGIONS = {"brasil", "state", "city", "all"}
 
 
 def _number(value: Any, *, integer: bool = False, minimum: float = 0) -> int | float:
@@ -60,6 +62,13 @@ def normalize_snapshot(payload: dict[str, Any]) -> dict[str, Any]:
     format_id = str(payload.get("format_id", "unknown") or "unknown").strip()
     if format_id not in SUPPORTED_FORMATS:
         format_id = "unknown"
+    account_key = str(payload.get("account_key", "") or "").strip()[:180]
+    observation_window = str(payload.get("observation_window", "all") or "all").strip().lower()
+    if observation_window not in SUPPORTED_WINDOWS:
+        observation_window = "all"
+    region = str(payload.get("region", "all") or "all").strip().lower()[:40]
+    if region not in SUPPORTED_REGIONS:
+        region = "all"
     collected_at = _timestamp(payload.get("collected_at"), default_now=True)
     published_at = _timestamp(payload.get("published_at"))
     views = _number(payload.get("views"), integer=True)
@@ -75,6 +84,9 @@ def normalize_snapshot(payload: dict[str, Any]) -> dict[str, Any]:
         "content_key": content_key,
         "platform": platform,
         "format_id": format_id,
+        "account_key": account_key,
+        "observation_window": observation_window,
+        "region": region,
         "published_at": published_at,
         "collected_at": collected_at,
         "views": views,
