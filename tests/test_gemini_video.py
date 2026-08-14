@@ -8,6 +8,9 @@ def test_gemini_prompt_requests_timestamped_segments_and_audio_signals():
     )
     assert "transcript_segments" in prompt
     assert "audio_visual_signals" in prompt
+    assert "visual_observations" in prompt
+    assert "fake_tweet" in prompt
+    assert "visual_meme" in prompt
     assert "MM:SS" in prompt
     assert "priorize impostos" in prompt
 

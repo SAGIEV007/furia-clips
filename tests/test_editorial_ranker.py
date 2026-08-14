@@ -123,6 +123,23 @@ class EditorialRankerTests(unittest.TestCase):
         self.assertGreater(argument["factors"]["argument_structure"], isolated["factors"]["argument_structure"])
         self.assertIn("argument_structure", argument["factors"])
 
+    def test_multimodal_visual_observation_is_explained(self):
+        result = self.ranker.score_clip({
+            "start": 0,
+            "end": 42,
+            "duration": 42,
+            "text": "O post mostra a prova e a reação explica o contexto.",
+            "visual_format": "fake_tweet",
+            "fake_tweet": True,
+            "visual_observation": "post social e reação no mesmo quadro",
+            "visual_observation_confidence": 0.9,
+        })
+        self.assertEqual(result["visual_format"], "fake_tweet")
+        self.assertEqual(result["visual_observation"], "post social e reação no mesmo quadro")
+        self.assertEqual(result["visual_observation_confidence"], 0.9)
+        self.assertTrue(result["review_flags"]["visual_observation_available"])
+        self.assertTrue(result["preserve_composition"])
+
     def test_explicit_external_evidence_preserves_composition(self):
         result = self.ranker.score_clip({
             "start": 0,

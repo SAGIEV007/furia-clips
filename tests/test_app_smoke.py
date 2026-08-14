@@ -67,6 +67,27 @@ class AppSmokeTests(unittest.TestCase):
             self.assertTrue(os.path.isdir(resolved))
             self.assertNotIn("A pasta será escolhida ao importar", resolved)
 
+    def test_multimodal_visual_observation_attaches_by_overlap(self):
+        clips = [{"start": 20, "end": 55, "text": "fala"}]
+        result = furia_app._attach_multimodal_visual_observations(
+            clips,
+            {
+                "visual_observations": [
+                    {
+                        "start": "00:15",
+                        "end": "00:45",
+                        "visual_format": "fake_tweet",
+                        "fake_tweet": True,
+                        "composition_note": "post social e reação no mesmo quadro",
+                        "confidence": 0.9,
+                    }
+                ]
+            },
+        )
+        self.assertEqual(result[0]["visual_format"], "fake_tweet")
+        self.assertTrue(result[0]["fake_tweet"])
+        self.assertEqual(result[0]["visual_observation_confidence"], 0.9)
+
     def test_batch_rank_returns_quality_gated_portfolio(self):
         response = self.client.post(
             "/api/batch/rank",

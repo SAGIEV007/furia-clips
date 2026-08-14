@@ -49,6 +49,20 @@ def test_split_screen_protects_both_sides():
     assert result["safe_area"] == "multi_subject"
 
 
+def test_visual_panel_post_and_meme_preserve_original_composition():
+    panel = plan_layout(visual_format="text_panel", target_aspect="9:16")
+    post = plan_layout(fake_tweet=True, target_aspect="9:16")
+    meme = plan_layout(visual_meme=True, target_aspect="1:1")
+
+    assert panel["layout_family"] == "text_panel"
+    assert post["layout_family"] == "fake_tweet"
+    assert meme["layout_family"] == "visual_meme"
+    assert panel["reframe_allowed"] is False
+    assert post["reframe_allowed"] is False
+    assert meme["reframe_allowed"] is False
+    assert panel["reason_code"] == "visual_composition_preserve"
+
+
 def test_institutional_video_uses_visual_route():
     result = plan_layout(institutional=True, dialogue_density=0.04)
 
