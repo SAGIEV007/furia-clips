@@ -45,6 +45,35 @@ class VideoCutterTests(unittest.TestCase):
             )
             self.assertTrue(validation.valid, validation.as_dict())
 
+    def test_batch_layout_plan_can_force_original_composition(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            cutter = VideoCutter(preset="shorts")
+            results = cutter.batch_cut(
+                FIXTURE,
+                [{"start": 0.0, "end": 1.0, "duration": 1.0, "title": "split"}],
+                "layout_plan",
+                use_face_tracking=True,
+                face_positions_map={0: [
+                    {"time": 0.0, "center_x": 0.70, "confidence": 0.92},
+                    {"time": 0.5, "center_x": 0.71, "confidence": 0.91},
+                    {"time": 1.0, "center_x": 0.70, "confidence": 0.90},
+                ]},
+                output_dir=tempdir,
+                layout_plans={0: {
+                    "layout_family": "split_screen",
+                    "reframe_allowed": False,
+                    "reason": "preservar os dois interlocutores",
+                }},
+            )
+
+            self.assertEqual(len(results), 1)
+            self.assertEqual(results[0]["framing_mode"], "original_16_9")
+            self.assertEqual(
+                results[0]["layout_plan"]["reason"],
+                "preservar os dois interlocutores",
+            )
+            self.assertEqual(results[0]["preset"], "original_16:9")
+
 
 if __name__ == "__main__":
     unittest.main()
