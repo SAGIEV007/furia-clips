@@ -1544,6 +1544,41 @@ function renderResultsGrid() {
         const preserveComposition = Boolean(clip.preserve_composition || reviewFlags.preserve_composition || clip.reframe_policy === "preservar_composicao");
         const needsFactReview = Boolean(reviewFlags.needs_fact_review || reviewFlags.needsFactReview);
         const needsLegalReview = Boolean(reviewFlags.needs_legal_review || reviewFlags.needsLegalReview);
+        const chapterCount = Number(clip.chapter_count || reviewFlags.chapter_count || 0);
+        const chapterScore = Number(clip.chapter_coherence_score ?? reviewFlags.chapter_coherence_score);
+        const chapterBridge = Boolean(clip.qa_bridge || reviewFlags.qa_bridge);
+        const durationSeconds = Number(clip.duration || ((clip.end || 0) - (clip.start || 0)) || 0);
+        const durationFit = Number(clip.duration_fit ?? factors.duration_fit);
+        const durationPreference = clip.duration_preference || {};
+        const durationStatus = String(durationPreference.status || reviewFlags.duration_preference || (
+            durationSeconds <= 180 ? "curto_preferencial" : "longo_para_revisao"
+        ));
+        const durationException = Boolean(durationPreference.exception || reviewFlags.duration_exception || durationStatus === "excecao_contextual");
+        const durationPolicyMeta = {
+            curto_preferencial: {
+                label: "Corte curto por preferência",
+                hint: "O menor intervalo autossuficiente foi priorizado; hook, contexto e fecho permanecem juntos.",
+                icon: "bolt",
+                className: "preferred",
+            },
+            excecao_contextual: {
+                label: "Exceção contextual acima de 3 min",
+                hint: "O corte foi mantido mais longo porque encurtar poderia remover pergunta, prova, argumento ou conclusão.",
+                icon: "account_tree",
+                className: "exception",
+            },
+            longo_para_revisao: {
+                label: "Acima da preferência de 3 min",
+                hint: "A duração não é proibida, mas vale revisar se o mesmo contexto pode ser preservado em menos tempo.",
+                icon: "schedule",
+                className: "review",
+            },
+        };
+        const durationMeta = durationPolicyMeta[durationStatus] || durationPolicyMeta.curto_preferencial;
+        const campaignPrior = clip.campaign_hub_prior || {};
+        const campaignPriorAvailable = Boolean(campaignPrior.available || reviewFlags.campaign_hub_prior_available);
+        const campaignHookFamily = String(campaignPrior.hook_family || reviewFlags.campaign_hub_hook_family || "").trim();
+        const campaignSampleCount = Number(campaignPrior.sample_count || reviewFlags.campaign_hub_sample_count || 0);
         const reviewStatus = reviewStatusOf(clip);
         const reviewMeta = reviewStatusMeta(reviewStatus);
         const confidence = Math.round((clip.confidence || 0) * 100);
@@ -1557,6 +1592,7 @@ function renderResultsGrid() {
         const blockTags = Array.isArray(editorialBlock.tags) ? editorialBlock.tags : [];
         const latestAdjustment = clip.latest_adjustment || {};
         const adjustmentState = clip.adjustment_state || (latestAdjustment.start != null ? "saved" : "");
+        const clipTranscriptText = String(clip.text || clip.transcript || "");
 
         // Grade color helper
         const gradeColor = (grade) => {
@@ -1595,8 +1631,11 @@ function renderResultsGrid() {
                 ${politicalType ? `<div style="font-size:12px; color:#f59e0b; margin-bottom:6px"><span class="material-icons-round" style="font-size:14px; vertical-align:middle">account_balance</span> Formato editorial: ${escapeHtml(politicalType)}</div>` : ''}
                 ${visualFormat ? `<div class="clip-visual-format-note ${preserveComposition ? 'preserve' : ''}"><span class="material-icons-round">${preserveComposition ? 'aspect_ratio' : 'center_focus_strong'}</span><span><b>${escapeHtml(visualFormatLabels[visualFormat] || visualFormat)}</b> · ${preserveComposition ? 'preservar composição' : 'reframe somente se seguro'}${Number.isFinite(visualFormatConfidence) ? ` · ${Math.round(Math.max(0, Math.min(1, visualFormatConfidence)) * 100)}%` : ''}${clip.visual_format_reason ? ` — ${escapeHtml(String(clip.visual_format_reason))}` : ''}</span></div>` : ''}
                 ${clip.visual_observation ? `<div class="clip-visual-observation"><span class="material-icons-round">visibility</span><span><b>Evidência visual:</b> ${escapeHtml(String(clip.visual_observation))}${Number.isFinite(Number(clip.visual_observation_confidence)) ? ` · ${Math.round(Math.max(0, Math.min(1, Number(clip.visual_observation_confidence))) * 100)}% de confiança` : ''}</span></div>` : ''}
+                ${chapterCount > 0 ? `<div class="clip-chapter-note ${chapterScore < 60 ? 'warning' : ''}"><span class="material-icons-round">account_tree</span><span><b>Contexto temporal:</b> ${chapterCount} capítulo(s)${Number.isFinite(chapterScore) ? ` · coerência ${Math.round(Math.max(0, Math.min(100, chapterScore)))}%` : ''}${chapterBridge ? ' · ponte pergunta–resposta preservada' : chapterCount > 1 ? ' · atravessa capítulos; revisar continuidade' : ' · dentro do mesmo bloco'}</span></div>` : ''}
+                ${campaignPriorAvailable ? `<div class="clip-performance-prior"><span class="material-icons-round">insights</span><span><b>Histórico observado:</b> hook ${escapeHtml(campaignHookFamily || 'não classificado')} · amostra ${Math.max(0, campaignSampleCount)} · influência limitada ao ranking</span></div>` : ''}
                 ${(needsFactReview || needsLegalReview) ? `<div class="clip-review-risk ${needsLegalReview ? 'legal' : ''}"><span class="material-icons-round">${needsLegalReview ? 'gavel' : 'fact_check'}</span> ${needsLegalReview ? 'Revisão factual e jurídica' : 'Revisão factual recomendada'}</div>` : ''}
                 ${topicSignature ? `<div class="clip-topic-chip" title="Sinal lexical usado somente para diversificar o portfólio">Tema: ${escapeHtml(topicSignature.replace(':', ' · ').replaceAll('-', ', '))}</div>` : ''}
+                ${durationStatus ? `<div class="clip-duration-policy ${durationMeta.className}" title="${escapeHtml(String(durationPreference.reason || durationMeta.hint))}"><span class="material-icons-round">${durationMeta.icon}</span><span><b>${escapeHtml(durationMeta.label)}</b>${Number.isFinite(durationFit) ? ` · brevidade ${Math.round(Math.max(0, Math.min(100, durationFit)))}%` : ''}${durationException ? ' · contexto excepcional preservado' : ''}</span></div>` : ''}
                 ${closureType ? `<div class="clip-closure-chip ${escapeHtml(closureType)}"><span class="material-icons-round">${closureType === 'conclusion' ? 'task_alt' : closureType === 'cliffhanger' ? 'hourglass_top' : 'subtitles'}</span> ${escapeHtml(closureLabels[closureType] || closureType)}</div>` : ''}
                 ${(speakerLabel || overlapSuspected || Number.isFinite(speakerConfidence)) ? `<div class="clip-speaker-note ${overlapSuspected ? 'warning' : ''}"><span class="material-icons-round">${overlapSuspected ? 'record_voice_over' : 'person'}</span> ${speakerLabel ? `Locutor: ${escapeHtml(speakerLabel)}` : 'Locutor não identificado'}${Number.isFinite(speakerConfidence) ? ` · ${Math.round(Math.max(0, Math.min(1, speakerConfidence)) * 100)}%` : ''}${overlapSuspected ? ' · possível sobreposição' : ''}</div>` : ''}
                 ${diversityPenalty >= 20 ? `<div class="clip-diversity-note"><span class="material-icons-round">filter_list</span> Similaridade com outro corte: ${diversityPenalty}%</div>` : ''}
@@ -1703,6 +1742,35 @@ function renderResultsGrid() {
                     <button class="btn btn-sm" onclick="generateClipThumb(${originalIndex})">
                         <span class="material-icons-round">image</span> Capa
                     </button>
+                    <button class="btn btn-sm btn-headline-action" onclick="toggleClipHeadlineStudio(${originalIndex})">
+                        <span class="material-icons-round">title</span> Sugerir headline
+                    </button>
+                </div>
+                <div class="clip-headline-studio" id="clip-headline-studio-${originalIndex}" hidden>
+                    <div class="clip-headline-studio-header">
+                        <div><span class="artwork-format-kicker">ESTÚDIO DO CORTE</span><h4>Headline baseada neste intervalo</h4></div>
+                        <span class="clip-headline-source">Transcrição + contexto + formato</span>
+                    </div>
+                    <div class="clip-headline-studio-grid">
+                        <label>Transcrição do corte
+                            <textarea data-clip-headline-transcript rows="6" placeholder="A transcrição deste corte aparecerá aqui para revisão.">${escapeHtml(clipTranscriptText)}</textarea>
+                        </label>
+                        <div class="clip-headline-controls">
+                            <label>Formato de publicação
+                                <select data-clip-headline-format>
+                                    <option value="auto">Escolher por mim</option>
+                                    <option value="vertical_916">9:16 central</option>
+                                    <option value="square_alfinetei">1:1 Alfinetei</option>
+                                    <option value="fake_tweet">Fake tweet</option>
+                                </select>
+                            </label>
+                            <label>Minicontexto opcional
+                                <textarea data-clip-headline-context rows="3" maxlength="280" placeholder="Ex.: resposta de Renan sobre propostas econômicas.">${escapeHtml(clip.title || "")}</textarea>
+                            </label>
+                            <button class="btn btn-sm btn-primary" type="button" data-generate-clip-headline onclick="generateClipHeadline(${originalIndex})"><span class="material-icons-round">bolt</span> Gerar várias opções</button>
+                        </div>
+                    </div>
+                    <div class="clip-headline-results" id="clip-headline-results-${originalIndex}" aria-live="polite"><p class="clip-headline-feedback">Edite a transcrição se necessário e escolha o formato antes de gerar.</p></div>
                 </div>
                 <div class="review-actions" aria-label="Decisão editorial">
                     <button class="btn btn-sm btn-success ${reviewStatus === 'approved' ? 'is-current' : ''}" aria-pressed="${reviewStatus === 'approved'}" onclick="setClipReview(${originalIndex}, 'approved')"><span class="material-icons-round">check_circle</span>${reviewStatus === 'approved' ? 'Aprovado' : 'Aprovar'}</button>
@@ -2190,11 +2258,12 @@ function artworkCopyButton(value, label = "Copiar") {
     return `<button class="btn btn-sm btn-outline artwork-copy-button" type="button" data-artwork-copy="${encodeURIComponent(value)}"><span class="material-icons-round">content_copy</span>${label}</button>`;
 }
 
-function artworkFeedbackButton(format, value) {
-    return `<button class="btn btn-sm artwork-feedback-button" type="button" data-artwork-format="${escapeHtml(format)}" data-artwork-feedback="${encodeURIComponent(value)}"><span class="material-icons-round">bookmark_add</span>Escolher</button>`;
+function artworkFeedbackButton(format, value, clipIndex = null) {
+    const clipAttribute = Number.isInteger(clipIndex) ? ` data-artwork-clip-index="${clipIndex}"` : "";
+    return `<button class="btn btn-sm artwork-feedback-button" type="button" data-artwork-format="${escapeHtml(format)}" data-artwork-feedback="${encodeURIComponent(value)}"${clipAttribute}><span class="material-icons-round">bookmark_add</span>Escolher</button>`;
 }
 
-function renderArtworkHeadline(suggestion, format) {
+function renderArtworkHeadline(suggestion, format, clipIndex = null) {
     const eyebrow = escapeHtml(suggestion.eyebrow || "");
     const lines = Array.isArray(suggestion.headline_lines) && suggestion.headline_lines.length
         ? suggestion.headline_lines : [suggestion.headline || ""];
@@ -2207,13 +2276,14 @@ function renderArtworkHeadline(suggestion, format) {
             <div class="artwork-headline">${artwork}</div>
             ${emphasis ? `<div class="artwork-emphasis">Destaque sugerido: ${emphasis}</div>` : ""}
         </div>
-        <div class="artwork-suggestion-footer"><span>${Number(suggestion.character_count || headline.length)} caracteres · ${Number(suggestion.word_count || String(suggestion.headline || "").trim().split(/\s+/).filter(Boolean).length)} palavras</span><div>${artworkCopyButton(suggestion.headline || "", "Copiar headline")}${artworkFeedbackButton(format, suggestion.headline || "")}</div></div>
+        <div class="artwork-suggestion-footer"><span>${Number(suggestion.character_count || headline.length)} caracteres · ${Number(suggestion.word_count || String(suggestion.headline || "").trim().split(/\s+/).filter(Boolean).length)} palavras</span><div>${artworkCopyButton(suggestion.headline || "", "Copiar headline")}${artworkFeedbackButton(format, suggestion.headline || "", clipIndex)}</div></div>
         ${suggestion.layout_hint ? `<p class="artwork-layout-hint"><span class="material-icons-round">grid_view</span>${escapeHtml(suggestion.layout_hint)}</p>` : ""}
     </article>`;
 }
 
-function renderHeadlineStudioResults(studio) {
-    const container = document.getElementById("headlineStudioResults");
+function renderHeadlineStudioResults(studio, options = {}) {
+    const container = options.container || document.getElementById(options.containerId || "headlineStudioResults");
+    const clipIndex = Number.isInteger(options.clipIndex) ? options.clipIndex : null;
     if (!container) return;
     state.headlineStudio = studio;
     const formats = studio.formats || {};
@@ -2233,13 +2303,13 @@ function renderHeadlineStudioResults(studio) {
         const suggestions = Array.isArray(config.suggestions) ? config.suggestions : [];
         return `<section class="artwork-format-result ${format === recommended ? "recommended" : ""}">
             <div class="artwork-format-result-head"><div><span class="artwork-format-kicker">${format === recommended ? "FORMATO RECOMENDADO" : "ALTERNATIVA"}</span><h4>${escapeHtml(config.label || artworkFormatLabels[format])}</h4></div><span class="artwork-limit">${escapeHtml(config.description || "")}</span></div>
-            <div class="artwork-suggestion-grid">${suggestions.map(item => renderArtworkHeadline(item, format)).join("") || '<p class="artwork-empty">Sem alternativa disponível.</p>'}</div>
+            <div class="artwork-suggestion-grid">${suggestions.map(item => renderArtworkHeadline(item, format, clipIndex)).join("") || '<p class="artwork-empty">Sem alternativa disponível.</p>'}</div>
         </section>`;
     }).join("");
     const tweets = Array.isArray(formats.fake_tweet?.suggestions) ? formats.fake_tweet.suggestions : [];
     const tweetCard = `<section class="artwork-format-result fake-tweet ${recommended === "fake_tweet" ? "recommended" : ""}">
         <div class="artwork-format-result-head"><div><span class="artwork-format-kicker">${recommended === "fake_tweet" ? "FORMATO RECOMENDADO" : "ALTERNATIVA"}</span><h4>Fake tweet — rascunho de publicação</h4></div><span class="artwork-limit">Revisar antes de atribuir ao perfil</span></div>
-        <div class="fake-tweet-options">${tweets.map(item => `<article class="fake-tweet-card"><p>${escapeHtml(item.post_text || "")}</p><footer><span>${Number(item.character_count || 0)} caracteres</span><div>${artworkCopyButton(item.post_text || "", "Copiar texto")}${artworkFeedbackButton("fake_tweet", item.post_text || "")}</div></footer></article>`).join("") || '<p class="artwork-empty">Sem alternativa disponível.</p>'}</div>
+        <div class="fake-tweet-options">${tweets.map(item => `<article class="fake-tweet-card"><p>${escapeHtml(item.post_text || "")}</p><footer><span>${Number(item.character_count || 0)} caracteres</span><div>${artworkCopyButton(item.post_text || "", "Copiar texto")}${artworkFeedbackButton("fake_tweet", item.post_text || "", clipIndex)}</div></footer></article>`).join("") || '<p class="artwork-empty">Sem alternativa disponível.</p>'}</div>
     </section>`;
     container.innerHTML = `<div class="headline-studio-result-summary"><div><span class="artwork-format-kicker">LEITURA EDITORIAL</span><h4>${escapeHtml(artworkFormatLabels[recommended] || recommended)}</h4><p>${escapeHtml(studio.recommendation_reason || "")}</p></div><div class="artwork-analysis-metrics"><span>Tema: <strong>${escapeHtml(studio.topic || "geral")}</strong></span><span>Contexto: <strong>${Math.round(Number(studio.analysis?.context_completeness || 0))}/100</strong></span><span>Fonte: <strong>${studio.generation_source === "ai_refined" ? "IA + regras" : "regras editoriais"}</strong></span><span>Preferência: <strong>${escapeHtml(learningLabel)}</strong></span></div></div><div class="artwork-review-chips">${reviewChips || '<span class="artwork-review-chip safe"><span class="material-icons-round">verified</span>sem alerta lexical automático</span>'}</div><div class="artwork-format-results">${formatCards}${tweetCard}</div>`;
     container.style.display = "block";
@@ -2276,20 +2346,24 @@ async function loadHeadlineLearning() {
 async function saveArtworkFeedback(button) {
     const artworkText = decodeURIComponent(button.dataset.artworkFeedback || "");
     const formatId = button.dataset.artworkFormat || "";
+    const clipIndex = button.dataset.artworkClipIndex === undefined ? null : Number(button.dataset.artworkClipIndex);
     if (!artworkText || !formatId) return;
     button.disabled = true;
     try {
-        const studio = state.headlineStudio || {};
+        const clip = Number.isInteger(clipIndex) ? state.clips?.[clipIndex] : null;
+        const studio = clip?.headline_studio || state.headlineStudio || {};
         const response = await fetch("/api/headline-studio/feedback", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
+                clip_id: clip?.clip_id || clip?.id || null,
+                editorial_key: clip?.editorial_key || studio.editorial_key || "",
                 format_id: formatId,
                 artwork_text: artworkText,
                 action: "selected",
                 topic: studio.topic || "",
-                transcript_excerpt: studio.transcript?.excerpt || "",
-                mini_context: studio.mini_context || "",
+                transcript_excerpt: studio.transcript?.excerpt || clip?.text || "",
+                mini_context: studio.mini_context || clip?.title || "",
             }),
         });
         const data = await parseJsonResponse(response, "Aprendizado editorial");
@@ -2305,6 +2379,61 @@ async function saveArtworkFeedback(button) {
 }
 
 loadHeadlineLearning();
+
+function toggleClipHeadlineStudio(index) {
+    const panel = document.getElementById(`clip-headline-studio-${index}`);
+    if (!panel) return;
+    panel.hidden = !panel.hidden;
+    if (!panel.hidden) {
+        panel.querySelector("textarea")?.focus();
+    }
+}
+
+async function generateClipHeadline(index) {
+    const clip = state.clips?.[index];
+    const panel = document.getElementById(`clip-headline-studio-${index}`);
+    const results = document.getElementById(`clip-headline-results-${index}`);
+    const button = panel?.querySelector("[data-generate-clip-headline]");
+    const transcript = panel?.querySelector("[data-clip-headline-transcript]")?.value.trim() || "";
+    const miniContext = panel?.querySelector("[data-clip-headline-context]")?.value.trim() || "";
+    const preferredFormat = panel?.querySelector("[data-clip-headline-format]")?.value || "auto";
+    if (!clip || !panel || !results) return;
+    if (!transcript) {
+        results.innerHTML = '<div class="clip-headline-feedback error">Este corte não tem transcrição disponível. Cole a fala completa do intervalo antes de gerar.</div>';
+        return;
+    }
+    if (button) {
+        button.disabled = true;
+        button.classList.add("loading");
+    }
+    results.innerHTML = '<div class="clip-headline-feedback">Lendo a tese do corte e criando alternativas para os três formatos...</div>';
+    try {
+        const response = await fetch("/api/headline-studio/analyze", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                clip_id: clip.clip_id || clip.id || null,
+                transcript,
+                mini_context: miniContext,
+                preferred_format: preferredFormat,
+                use_ai: document.getElementById("artworkUseAi")?.checked !== false,
+            }),
+        });
+        const data = await parseJsonResponse(response, "Headline do corte");
+        if (!response.ok || !data.success) throw new Error(data.error || "Não foi possível gerar as headlines");
+        state.clips[index] = { ...clip, headline_studio: data.studio };
+        renderHeadlineStudioResults(data.studio, { container: results, clipIndex: index });
+        showToast("Sugestões de headline geradas para este corte.", "success");
+    } catch (error) {
+        results.innerHTML = `<div class="clip-headline-feedback error">${escapeHtml(error.message)}</div>`;
+        showToast("Não foi possível gerar a headline do corte.", "error");
+    } finally {
+        if (button) {
+            button.disabled = false;
+            button.classList.remove("loading");
+        }
+    }
+}
 
 function renderPerformanceSummary(summary = {}) {
     const target = document.getElementById("performanceMetricsSummary");
