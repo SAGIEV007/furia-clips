@@ -207,7 +207,8 @@ class VideoCutter:
 
     def batch_cut(self, video_path, cuts, project_name, use_face_tracking=False,
                   face_positions_map=None, emit_progress=None, output_dir=None,
-                  video_layout=None, preset=None, original_aspect_indices=None):
+                  video_layout=None, preset=None, original_aspect_indices=None,
+                  layout_plans=None):
         active_preset = get_preset(preset) if isinstance(preset, str) else (preset or self.preset)
         base_export = output_dir if output_dir and os.path.isabs(output_dir) else EXPORT_DIR
 
@@ -244,6 +245,10 @@ class VideoCutter:
             padded_start = max(0, cut["start"] - 0.3)
             padded_end = cut["end"] + 0.8
 
+            layout_plan = layout_plans.get(i) if isinstance(layout_plans, dict) else None
+            if layout_plan and layout_plan.get("reframe_allowed") is False:
+                original_aspect_indices.add(i)
+
             face_pos = face_positions_map.get(i, None) if face_positions_map else None
             can_reframe = use_face_tracking and bool(face_pos) and i not in original_aspect_indices
             if can_reframe:
@@ -260,7 +265,8 @@ class VideoCutter:
                 )
                 framing_mode = "original_16_9"
                 if emit_progress:
-                    emit_progress(f"[Layout] Clip {rank}: sem locutor confiável; saída original 16:9.", "info")
+                    reason = (layout_plan or {}).get("reason") or "sem locutor confiável"
+                    emit_progress(f"[Layout] Clip {rank}: {reason} Saída na proporção original.", "info")
             else:
                 result = self.cut_clip(
                     video_path, padded_start, padded_end,
@@ -301,6 +307,7 @@ class VideoCutter:
                     "validation": validation.as_dict(),
                     "preset": active_preset["aspect"] if render_vertical else "original_16:9",
                     "framing_mode": framing_mode,
+                    "layout_plan": dict(layout_plan) if isinstance(layout_plan, dict) else None,
                 })
 
         if emit_progress:
