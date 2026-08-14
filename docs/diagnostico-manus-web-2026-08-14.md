@@ -41,3 +41,9 @@ O fluxo de seleção tenta Gemini online quando há chave configurada, depois o 
 ## Contexto adicional da tarefa referenciada `U5Pcy9bJrUR2gafhlnPELD`
 
 A tarefa anterior confirma que o Manus Web/My Browser foi conectado e que o prompt de auditoria foi executado. Ela também registra uma limitação importante: a verificação visual tentou acessar um endereço local/temporário, mas esse endereço não ficou acessível no My Browser. Portanto, o navegador conectado pode ser útil para páginas públicas e sessões autenticadas, mas não comprova sozinho que o servidor Flask iniciado no notebook do usuário abriu no Opera GX ou que o explorador nativo de arquivos funcionou. Essa limitação deve continuar explícita nos relatórios.
+
+## Verificação posterior — 14/08/2026
+
+A branch local continua em `manus/rebuild-opus-parity`, no commit `ee5708f57cd707423a10483b141ed0e824f7f4cd`, e a rotina recorrente permanece ativa em intervalos de 28.800 segundos. Nesta sessão, a verificação remota por `gh` foi bloqueada porque o conector GitHub está desabilitado; a tentativa de `git ls-remote` também não pôde autenticar sem prompt. Não foi feito login, alteração de visibilidade, push ou contorno de autenticação. A visibilidade privada já havia sido confirmada em uma verificação anterior, mas não foi revalidada nesta sessão por essa limitação.
+
+A auditoria de segredos continua sem encontrar chaves rastreadas. A chave Gemini não foi publicada. O material enviado pelo usuário contém logs de execução, não a transcrição integral; a transcrição completa deverá ser fornecida como `.txt`, `.srt`, `.vtt` ou arquivo persistente para análise semântica.
