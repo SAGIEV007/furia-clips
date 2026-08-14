@@ -153,6 +153,29 @@ class EditorialRankerTests(unittest.TestCase):
         self.assertEqual(result["reframe_policy"], "preservar_composicao")
         self.assertTrue(result["review_flags"]["preserve_composition"])
 
+    def test_shorter_complete_clip_is_preferred_without_fixed_duration(self):
+        text = (
+            "Você sabia? Isso é absurdo! A prova está nos dados. "
+            "Por isso, fica claro que a proposta precisa ser revista."
+        )
+        short = self.ranker.score_clip({"start": 0, "end": 35, "duration": 35, "text": text})
+        long = self.ranker.score_clip({"start": 0, "end": 220, "duration": 220, "text": text})
+        self.assertEqual(short["duration_preference"]["status"], "curto_preferencial")
+        self.assertLess(short["duration_fit"], 101)
+        self.assertLess(long["duration_fit"], short["duration_fit"])
+        self.assertEqual(long["duration_preference"]["status"], "excecao_contextual")
+        self.assertTrue(long["review_flags"]["duration_exception"])
+
+    def test_duration_policy_is_explainable_in_review_flags(self):
+        result = self.ranker.score_clip({
+            "start": 0,
+            "end": 240,
+            "duration": 240,
+            "text": "Uma análise que ainda não terminou e precisa de revisão",
+        })
+        self.assertEqual(result["review_flags"]["duration_preference"], "longo_para_revisao")
+        self.assertFalse(result["review_flags"]["duration_exception"])
+
 
 if __name__ == "__main__":
     unittest.main()

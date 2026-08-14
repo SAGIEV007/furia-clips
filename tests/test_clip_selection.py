@@ -44,6 +44,27 @@ class ClipSelectionTests(unittest.TestCase):
         self.assertTrue(clips)
         self.assertTrue(all(clip["duration"] <= 30 for clip in clips))
 
+    def test_default_duration_policy_is_short_first_with_soft_ceiling(self):
+        selector = ClipSelector()
+        self.assertEqual(selector.min_duration, 8)
+        self.assertEqual(selector.preferred_max_duration, 180.0)
+        self.assertGreater(selector.max_duration, selector.preferred_max_duration)
+        self.assertGreater(selector._duration_score(25), selector._duration_score(210))
+
+    def test_gemini_prompt_does_not_impose_fixed_duration_range(self):
+        selector = ClipSelector()
+        prompt = selector._get_gemini_system_prompt()
+        self.assertIn("menor trecho", prompt)
+        self.assertIn("180 segundos como teto preferencial", prompt)
+        self.assertNotIn("30 a 180 segundos", prompt)
+
+    def test_ollama_prompt_does_not_impose_fixed_duration_range(self):
+        selector = ClipSelector()
+        prompt = selector._get_system_prompt()
+        self.assertIn("menor trecho autossuficiente", prompt)
+        self.assertIn("180 segundos", prompt)
+        self.assertNotIn("30 a 180 segundos por clip", prompt)
+
     def test_auto_backend_uses_nlp_without_gemini_key(self):
         transcription = {
             "segments": [
