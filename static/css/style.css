@@ -3403,3 +3403,42 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 .performance-cohort-toolbar select:focus { outline: none; border-color: rgba(255, 215, 0, .65); box-shadow: 0 0 0 2px rgba(255, 215, 0, .08); }
 @media (max-width: 840px) { .performance-cohort-toolbar { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 460px) { .performance-cohort-toolbar { grid-template-columns: 1fr; } }
+
+
+/* Formato audiovisual observado e política de enquadramento */
+.clip-visual-format-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin: 7px 0;
+    padding: 8px 10px;
+    border: 1px solid rgba(245, 158, 11, .26);
+    border-radius: 9px;
+    color: #f7d48a;
+    background: rgba(245, 158, 11, .08);
+    font-size: 11px;
+    line-height: 1.45;
+}
+
+.clip-visual-format-note .material-icons-round {
+    flex: 0 0 auto;
+    font-size: 16px;
+    color: #f59e0b;
+}
+
+.clip-visual-format-note.preserve {
+    border-color: rgba(96, 165, 250, .34);
+    color: #c7ddff;
+    background: rgba(59, 130, 246, .10);
+}
+
+.clip-visual-format-note.preserve .material-icons-round {
+    color: #60a5fa;
+}
+
+@media (max-width: 720px) {
+    .clip-visual-format-note {
+        font-size: 10px;
+        padding: 7px 8px;
+    }
+}
