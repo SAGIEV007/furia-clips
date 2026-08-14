@@ -2046,7 +2046,8 @@ function renderArtworkHeadline(suggestion, format) {
             <div class="artwork-headline">${artwork}</div>
             ${emphasis ? `<div class="artwork-emphasis">Destaque sugerido: ${emphasis}</div>` : ""}
         </div>
-        <div class="artwork-suggestion-footer"><span>${Number(suggestion.character_count || headline.length)} caracteres</span><div>${artworkCopyButton(suggestion.headline || "", "Copiar headline")}${artworkFeedbackButton(format, suggestion.headline || "")}</div></div>
+        <div class="artwork-suggestion-footer"><span>${Number(suggestion.character_count || headline.length)} caracteres · ${Number(suggestion.word_count || String(suggestion.headline || "").trim().split(/\s+/).filter(Boolean).length)} palavras</span><div>${artworkCopyButton(suggestion.headline || "", "Copiar headline")}${artworkFeedbackButton(format, suggestion.headline || "")}</div></div>
+        ${suggestion.layout_hint ? `<p class="artwork-layout-hint"><span class="material-icons-round">grid_view</span>${escapeHtml(suggestion.layout_hint)}</p>` : ""}
     </article>`;
 }
 
