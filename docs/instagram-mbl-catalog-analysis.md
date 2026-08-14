@@ -127,3 +127,258 @@ A rodada ampliou a base com formatos que não devem ser confundidos com o coment
 | Comentários polarizados | Usar como sinal de debate, nunca como prova suficiente de qualidade ou viralidade. |
 
 A principal consequência para o Furia Clips é que o ranking diário precisa distinguir **potencial de publicação** de **potencial de debate**. Uma peça pode gerar comentários pela controvérsia e ainda precisar de revisão factual, atribuição ou contexto. A central visual deve mostrar essa distinção e permitir que o editor aprove um corte de humor, campanha, economia ou react sem obrigá-lo a competir com um monólogo político no mesmo eixo.
+
+
+## Evidência audiovisual adicional — `DZ7ZY6EtlNq`
+
+A análise audiovisual local deste Reel identificou uma narrativa de **contraste entre realidade e propaganda**. O vídeo abre com uma imagem socialmente impactante, ancora o conflito com contexto territorial e político, usa pergunta–resposta para materializar o tema em uma família específica, retorna ao símbolo visual inicial e fecha com síntese política e identificação do autor. A leitura deve permanecer vinculada a este vídeo; ela não comprova padrão estatístico do conjunto inteiro.
+
+| Sinal observado | Regra aplicável ao Furia Clips |
+| --- | --- |
+| Gancho visual/moral nos primeiros segundos | Elevar prioridade de candidatos que iniciem com cena anômala ou consequência concreta, desde que a fala subsequente explique o contexto. |
+| Dados e entrevista de exposição | Detectar pares pergunta–resposta com números, idades, quantidades ou fatos verificáveis e preservar pergunta suficiente para a resposta não parecer solta. |
+| Split-screen narrador + evidência | Nunca aplicar reframe simples 9:16 nesse formato; classificar como `split_screen` e preservar a composição ou exigir revisão explícita. |
+| Retorno ao símbolo inicial | Valorizar fechamento que retoma a prova visual ou transforma o fato em tese, evitando encerrar apenas no meio da entrevista. |
+| Branding ao final | Considerar identificação/CTA como elemento de publicação, mas não permitir que ela compense falta de contexto ou conclusão editorial. |
+
+O relatório audiovisual completo está em `docs/instagram_mbl_local_audiovisual_DZ7ZY6EtlNq_2026-08-14.md`.
+
+
+## Evidência audiovisual adicional — `Db_VRDtNM9d`
+
+Este Reel é um formato de **selfie urgente / explicação de denúncia**. A abertura com expressão de transição, o ambiente de deslocamento, a tese de conflito, a promessa de prova técnica e o desafio público formam uma unidade curta de alta energia. O fechamento é um *cliffhanger*, não uma conclusão factual definitiva; por isso deve receber classificação diferente de um corte que resolve plenamente a pergunta.
+
+| Sinal observado | Regra aplicável ao Furia Clips |
+| --- | --- |
+| Close-up de uma face, gestos de pontuação e fala contínua | Permitir reframe 9:16 conservador quando a confiança de uma face estável for alta; preservar mãos e headline. |
+| Abertura “É o seguinte” + cenário de deslocamento | Considerar transição curta como hook quando a frase seguinte introduzir imediatamente um conflito específico; não pontuar a expressão isoladamente. |
+| Vocabulário de denúncia e prova técnica | Elevar relevância de `fraude`, `comprovar`, `logs`, `IP`, `acareação` e entidades nomeadas, mas marcar para revisão quando a acusação não trouxer atribuição suficiente. |
+| Urgência visual do ambiente | Usar deslocamento, câmera na mão e gestualidade como sinais auxiliares de energia, nunca como substitutos de tese e contexto. |
+| Fecho de promessa futura | Rotular como `cliffhanger`/`continuidade`; não contabilizar como conclusão forte sem uma consequência, resposta ou CTA editorial explícito. |
+
+O relatório audiovisual completo está em `docs/instagram_mbl_local_audiovisual_Db_VRDtNM9d_2026-08-14.md`.
+
+
+## Evidência audiovisual adicional — `Db-0U1mt1UI`
+
+Este Reel é um **corte de podcast com tese lógica de segurança pública**. Ele entra diretamente em uma premissa provocativa, desenvolve uma cadeia curta de argumento e fecha no conceito de “impunidade”. A estética preto e branco, o microfone visível, os *jump cuts*, a legenda de alto contraste e a trilha discreta reforçam seriedade e tensão, mas não devem ser confundidos com critério suficiente de seleção.
+
+| Sinal observado | Regra aplicável ao Furia Clips |
+| --- | --- |
+| Premissa binária seguida de justificativa | Valorizar estruturas `premissa → explicação → consequência` e `se/então` quando o raciocínio termina em uma frase semântica completa. |
+| Microfone e close/medium shot de podcast | Classificar como `podcast`; usar active-speaker/reframe apenas quando uma face for estável e não houver troca necessária de interlocutor. |
+| Alta densidade de fala e ênfase em conceitos | Usar palavras por segundo e energia tonal como sinais auxiliares; não aprovar automaticamente fala rápida sem unidade argumentativa. |
+| Conceito forte no fecho | Reconhecer conclusão por substantivo/ideia de impacto quando a frase fecha o argumento; isso é diferente de cliffhanger. |
+| P&B, legenda e música de tensão | Registrar como tratamento de publicação, não como sinal de que o trecho bruto é necessariamente forte. |
+
+O relatório audiovisual completo está em `docs/instagram_mbl_local_audiovisual_Db-0U1mt1UI_2026-08-14.md`.
+
+## Evidência audiovisual adicional — `Db-mlJ7tC5k`
+
+Este Reel demonstra um **corte de entrevista com arco explicativo completo**: pergunta provocativa, tese imediata, contexto social, diagnóstico e frase-síntese final. A edição alterna interlocutores e B-roll semanticamente alinhado à fala; há ainda manchetes como apoio de autoridade. Isso confirma que, em entrevistas longas, o melhor ponto de entrada pode ser a pergunta que torna a resposta inteligível, e não necessariamente a primeira frase do entrevistado.
+
+| Sinal observado | Regra aplicável ao Furia Clips |
+| --- | --- |
+| Pergunta curta seguida de tese (“o problema é X”) | Priorizar pares pergunta–resposta quando a pergunta define o objeto e a resposta traz uma posição clara; evitar perguntas sem resposta suficiente. |
+| Arco `problema → explicação → consequência` | Bonificar cortes com ao menos dois estágios argumentativos e um fecho sintético; a duração maior é aceitável quando cada estágio é necessário. |
+| Citação de dados, pesquisa ou manchete | Marcar como `apoio_de_evidência` para revisão editorial, sem tratar a presença de uma alegação como veracidade automática. |
+| Alternância de entrevistador, entrevistado e B-roll | Manter a composição/original quando há mais de um interlocutor ou apoio visual relevante; não forçar reframe vertical de uma única face. |
+| Frase final que resume a tese | Tratar como conclusão forte somente quando fecha o raciocínio iniciado no trecho, não apenas quando tem tom enfático. |
+
+O relatório audiovisual completo está em `docs/instagram_mbl_local_audiovisual_Db-mlJ7tC5k_2026-08-14.md`.
+
+## Evidência audiovisual adicional — `Db6qoCUBulc`
+
+Este Reel é uma **peça institucional de campanha dirigida por narrativa visual e desenho de som**, não um corte de fala. A estrutura vai de uma cena cotidiana de amizade ao choque de um disparo, silêncio, ausência de um jovem e mensagem estatística. A assinatura final identifica a peça como campanha. Portanto, um sistema de clipping não pode descartar automaticamente vídeos com pouca transcrição: deve classificá-los como `institucional` e submetê-los a uma rota de seleção visual própria.
+
+| Sinal observado | Regra aplicável ao Furia Clips |
+| --- | --- |
+| Sem discurso contínuo, mas com virada narrativa | Não usar baixa densidade de fala como rejeição automática em peças classificadas como `institucional`; exigir evidência visual e semântica de arco completo. |
+| Mudança abrupta de euforia para impacto, silêncio e sirene | Registrar contraste de áudio e mudança de cena como sinais de retenção, sem usar conteúdo violento como bonificação automática. |
+| Mesmo cenário com ausência visual de personagem | Priorizar continuidade visual com alteração significativa quando o trecho tiver mensagem inteligível; manter a proporção original. |
+| Estatística e apelo no texto em tela | Marcar como `texto_visual_relevante` e `revisar_afirmação`; a ferramenta deve preservar a arte e nunca declarar a informação como verificada. |
+| Assinatura final de campanha | Classificar como `campanha`/`institucional`, separando seu portfólio do ranking de entrevista e comentário político. |
+
+O relatório audiovisual completo está em `docs/instagram_mbl_local_audiovisual_Db6qoCUBulc_2026-08-14.md`.
+
+## Evidência audiovisual adicional — `Db88Vu-Nmhu`
+
+Este Reel usa o formato **evidência externa → reação política → proposta/assinatura**. Ele abre com imagens de câmera de segurança e áudio de vítima, corta para o comentário de Renan e fecha com identidade de campanha. O impacto é real como mecanismo de atenção, mas o ranking não deve confundir choque, vocabulário agressivo ou uma afirmação política com qualidade factual; esses elementos precisam ser exibidos como sinais de revisão.
+
+| Sinal observado | Regra aplicável ao Furia Clips |
+| --- | --- |
+| CCTV ou material externo antes do comentário | Classificar como `react`; preservar a transição entre prova visual e interpretação do orador. |
+| Grito, pedido de ajuda ou pico de áudio | Usar pico emocional para localizar o início, não para aprovar o trecho sem unidade semântica. |
+| Linguagem forte e contraste ideológico | Mostrar `conflito/ênfase` na revisão, mantendo penalidade de segurança contextual quando a afirmação não tem atribuição clara. |
+| B-roll de crime e proposta posterior | Preferir o arco `evidência → reação → explicação/proposta`; não terminar no choque inicial se o comentário for indispensável para o sentido. |
+| Assinatura ou slogan político | Marcar como `campanha` e separar do portfólio orgânico de entrevistas, evitando que CTA/branding domine a meta diária. |
+
+O relatório audiovisual completo está em `docs/instagram_mbl_local_audiovisual_Db88Vu-Nmhu_2026-08-14.md`.
+
+## Evidência audiovisual adicional — `Db8D9DxNnUX`
+
+Este Reel amplia o escopo do canal para um **corte de palco com pergunta da plateia, ironia, prova de campo e cobrança final**. Embora o foco seja Guto Zacarias, a estrutura é relevante para o modo político genérico: a pergunta externa estabelece o gancho, o orador responde com posicionamento, o B-roll de experiência própria sustenta a narrativa e a conclusão formula uma cobrança ou proposta.
+
+| Sinal observado | Regra aplicável ao Furia Clips |
+| --- | --- |
+| Pergunta da plateia/entrevistador abre o tópico | Preservar o enunciado da pergunta quando ele contém o conflito; não iniciar apenas na resposta se ela depender do contexto. |
+| Orador alterna ironia e cobrança | Detectar mudança de intenção/energia como marcador de progressão, não como aprovação isolada de palavras agressivas. |
+| B-roll de experiência própria | Classificar como `prova_de_campo`; favorecer a sequência pergunta → posição → evidência → cobrança/proposta. |
+| Palco, plateia e split-screen | Evitar crop agressivo; mãos, microfone e reação da plateia podem carregar o sentido. |
+| Frase final propositiva ou de cobrança | Bonificar conclusão quando ela fecha o arco e deixa uma ação/posição identificável. |
+
+O relatório audiovisual completo está em `docs/instagram_mbl_local_audiovisual_Db8D9DxNnUX_2026-08-14.md`.
+
+## Evidência audiovisual adicional — `Db8fcmItfCw`
+
+Este Reel é um **react econômico em split-screen** que parte de uma fala de telejornal, mostra a reação de Renan, desenvolve um contra-argumento, usa manchetes como apoio e termina com uma proposta política. A evidência confirma que um corte de react pode precisar de mais tempo do que um monólogo: o material externo dá o problema, a reação marca o conflito, os dados sustentam a resposta e a proposta fecha o arco.
+
+| Sinal observado | Regra aplicável ao Furia Clips |
+| --- | --- |
+| Autoridade externa abre o assunto | Identificar a fonte/trecho citado e preservar contexto suficiente para a reação não parecer gratuita. |
+| Split-screen com reação do protagonista | Classificar como `react`; manter a área da fonte e do rosto, sem reframe que elimine um dos lados. |
+| Opinião seguida de manchete/dado | Separar `opinião`, `evidência_citada` e `proposta`; aumentar prioridade quando o arco inclui os três, mas pedir revisão factual. |
+| Frase alarmante seguida de soluções | Evitar terminar apenas no alarmismo; preferir saída que apresenta proposta ou conclusão identificável. |
+| Branding e CTA no final | Não usar assinatura ou pedido de compartilhamento como substituto de conclusão; marcar como metadado de campanha. |
+
+O relatório audiovisual completo está em `docs/instagram_mbl_local_audiovisual_Db8fcmItfCw_2026-08-14.md`.
+
+## Evidência audiovisual adicional — `Db9GlGatuQi`
+
+Este Reel é uma **convocação institucional conduzida por música, montagem histórica, metáfora visual e CTA**. Não há fala contínua: o arco nasce do stop-scroll visual, da trajetória de Renan/MBL, da diferenciação entre passado e presente e de uma cartela final com data, hora e local. Ele deve ser reconhecido como `institucional`/`convocação`, não penalizado por ausência de transcript.
+
+| Sinal observado | Regra aplicável ao Furia Clips |
+| --- | --- |
+| Música conduz o ritmo e não há voz principal | Rota multimodal pode usar batidas, mudanças de plano, cartelas e arco visual; não exigir densidade textual de fala. |
+| Arquivo histórico em P&B e presente colorido | Proteger transições cromáticas e usar mudança de cena como unidade de montagem; não aplicar reframe que destrua o contraste temporal. |
+| Metáfora visual forte no primeiro segundo | Registrar `stop_scroll_visual` como sinal de atenção, mas exigir sequência compreensível antes de recomendar o corte. |
+| Protagonista reaparece ao longo da trajetória | Priorizar continuidade de identidade visual sem assumir que a pessoa é o único foco do trecho. |
+| Cartela final com data, hora e local | Preservar a tela de CTA integralmente e marcar como informação operacional que deve ser revisada antes da publicação. |
+
+O relatório audiovisual completo está em `docs/instagram_mbl_local_audiovisual_Db9GlGatuQi_2026-08-14.md`.
+
+## Evidência audiovisual adicional — `Db9RrFrNHRL`
+
+Este Reel combina **pergunta retórica, ocorrência policial, análise legal, comparação política, proposta e CTA**. O gancho une uma imagem incomum a uma pergunta que abre um mistério; a resposta evolui para números/lei e fecha com posição política. A presença de manchetes e artigos de lei aumenta a aparência de autoridade, mas torna indispensável marcar o trecho para revisão factual e jurídica, sem a ferramenta validar automaticamente a afirmação.
+
+| Sinal observado | Regra aplicável ao Furia Clips |
+| --- | --- |
+| Imagem incomum nos primeiros segundos + “você sabe por quê?” | Aumentar prioridade de candidatos com hook visual e pergunta retórica alinhados, preservando a resposta necessária ao mistério. |
+| Ocorrência externa seguida de comentário | Classificar como `react`/`segurança`; manter a transição ocorrência → interpretação → proposta, em vez de cortar apenas no choque. |
+| Número de pena, artigo ou logo de imprensa | Marcar `alegação_verificável` e `revisar_fonte`; a presença de um card não transforma o conteúdo em fato confirmado. |
+| Mudança de curiosidade para indignação | Usar mudança de energia como marcador de estrutura, não como bonificação isolada de retórica agressiva. |
+| Final com assinatura e CTA | Preservar apenas se a chamada fizer parte do pedido do editor; não permitir que o branding substitua a conclusão argumentativa. |
+
+O relatório audiovisual completo está em `docs/instagram_mbl_local_audiovisual_Db9RrFrNHRL_2026-08-14.md`.
+
+## Evidência audiovisual adicional — perfil reserva `Db-2Y0OFNtr`
+
+Este Reel do perfil reserva é um **corte de podcast de humanização e trajetória pessoal**. Uma manchete de vulnerabilidade abre o vídeo; a pergunta do entrevistador dá contexto; Renan responde de forma reflexiva, com pausas naturais, e o split-screen contrasta imagem institucional com o depoimento informal. O padrão confirma que cortes descontraídos e emocionais também pertencem ao portfólio, desde que tenham uma unidade narrativa clara.
+
+| Sinal observado | Regra aplicável ao Furia Clips |
+| --- | --- |
+| Pergunta do entrevistador sobre evolução pessoal | Preservar a pergunta quando ela define a jornada; selecionar respostas com memória, mudança e consequência emocional. |
+| Pausas naturais e emoção contida | Não remover todas as pausas: em confissões, a pausa pode ser evidência de sinceridade e parte do payoff. |
+| Split-screen entre imagem pública e podcast | Proteger a composição dos dois lados; classificar como `entrevista_humanização`, não como talking head simples. |
+| Headline “viralizou/emociona” e trilha de piano | Tratar headline e música como embalagem editorial; não pontuar apenas por palavras de viralidade ou trilha triste. |
+| Fecho aberto sobre fluxo/crescimento | Diferenciar reflexão aberta de cliffhanger de promessa; pode ser publicável como corte emocional quando a pergunta e a resposta formam unidade. |
+
+O relatório audiovisual completo está em `docs/instagram_reserva_local_audiovisual_Db-2Y0OFNtr_2026-08-14.md`.
+
+## Evidência audiovisual adicional — perfil reserva `Db-9SUJG2F8`
+
+Este Reel usa **contradição ideológica como hook**, formato de entrevista/podcast e um apoio visual fixo relacionado à figura pública discutida. A tese é desenvolvida com exemplos comparativos e o vídeo termina em card de mobilização. O padrão é útil para o modo político genérico, mas regras de edição como eliminar todas as pausas ou inserir sempre CTA não devem ser aplicadas automaticamente ao corte bruto.
+
+| Sinal observado | Regra aplicável ao Furia Clips |
+| --- | --- |
+| Título contradiz o senso comum do nicho | Detectar `contradição/gancho` e verificar se o áudio realmente explica a tese antes de elevar a prioridade. |
+| Objeto político em apoio visual + locutor | Preservar split-screen quando a referência visual é parte do argumento; não enquadrar apenas a face do locutor. |
+| Entrevista com precisão conceitual | Valorizar pergunta, definição e exemplos comparativos; não confundir tom intelectual com argumento completo. |
+| Jump cuts acelerados | Remover gordura com conservadorismo, preservando pausas que separam premissa, exemplo e conclusão. |
+| Card final de evento | Marcar como `mobilização`; preservar a cartela como saída somente quando a revisão autorizar o CTA. |
+
+O relatório audiovisual completo está em `docs/instagram_reserva_local_audiovisual_Db-9SUJG2F8_2026-08-14.md`.
+
+## Evidência audiovisual adicional — perfil reserva `Db_Ax9tmcFu`
+
+Este Reel é um **corte de podcast argumentativo com headline temática e composição de identidade**. O assunto é introduzido por uma tarja superior, enquanto o vídeo ativo ocupa um lado e imagens estáticas do protagonista ocupam o outro. O raciocínio percorre problema social, explicação, papel institucional e crítica final, terminando sem CTA. Isso reforça que uma unidade publicável pode começar no meio da fala quando uma headline fornece contexto suficiente.
+
+| Sinal observado | Regra aplicável ao Furia Clips |
+| --- | --- |
+| Headline fixa resume o tópico | Registrar `contexto_visual_de_headline`; permitir entrada no meio da fala somente se o texto realmente contextualizar o trecho. |
+| Problema → explicação → crítica | Bonificar arco argumentativo completo, com conclusão mesmo sem chamada para ação. |
+| Split-screen de identidade do protagonista | Preservar composição quando o painel lateral é parte da embalagem; não tratá-lo como sinal de active speaker. |
+| Jump cuts e trilha baixa | Reduzir gordura respeitando pausas argumentais; trilha é embalagem e não critério de completude. |
+| Fecho seco sem CTA | Considerar publicável quando o raciocínio fecha; não exigir assinatura, compartilhamento ou card final. |
+
+O relatório audiovisual completo está em `docs/instagram_reserva_local_audiovisual_Db_Ax9tmcFu_2026-08-14.md`.
+
+## Evidência audiovisual adicional — perfil reserva `Db_ENAyjO3R`
+
+Este Reel é um **corte de podcast de alta densidade sobre cultura, soft power e estratégia nacional**. Uma pergunta temática fornece o gancho; a resposta transforma um exemplo cultural em tese geopolítica e termina com proposta prática. O caso reforça que o ranking deve valorizar clareza e exemplos concretos mesmo em vocabulário sofisticado, sem reduzir a qualidade a palavras-chave políticas tradicionais.
+
+| Sinal observado | Regra aplicável ao Furia Clips |
+| --- | --- |
+| Pergunta simples abre tese complexa | Procurar a ponte `pergunta acessível → desenvolvimento conceitual → exemplo → proposta`, mantendo o tempo necessário para compreensão. |
+| Exemplos cotidianos tornam abstração concreta | Bonificar especificidade e exemplos quando eles sustentam a tese, não apenas quando aumentam a velocidade da fala. |
+| Entrevista com microfones e split-screen | Classificar como `podcast`; proteger os dois interlocutores e manter a proporção original quando a composição for parte da leitura. |
+| Trilha discreta e headline contextual | Tratar música/headline como suporte de retenção; não deixar que substituam a completude semântica. |
+| Fecho propositivo sobre futuro/ação | Valorizar conclusão que deixa uma proposta identificável, distinguindo-a de CTA publicitário. |
+
+O relatório audiovisual completo está em `docs/instagram_reserva_local_audiovisual_Db_ENAyjO3R_2026-08-14.md`.
+
+## Evidência audiovisual adicional — perfil reserva `Db_F8qvE_Z_`
+
+Este Reel é um **testemunhal/selfie com unboxing**, estruturado como vulnerabilidade emocional → justificativa → prova material. O início contrasta foto institucional com selfie chorando; depois a câmera passa para as mãos folheando um livro, mostrando capa, dedicatória, sumário, gráficos e propostas. É um formato de apoio orgânico e humanização, não um corte político falado convencional.
+
+| Sinal observado | Regra aplicável ao Furia Clips |
+| --- | --- |
+| Emoção autêntica seguida de explicação | Preservar pausas e mudanças de estado quando elas fazem parte do arco; não aplicar jump cuts agressivos por padrão. |
+| Selfie + objeto político/material impresso | Classificar como `testemunhal`/`unboxing`; manter mãos, rosto e produto quando ambos carregam o sentido. |
+| Exibição de capa, sumário, gráficos e dados | Marcar `material_visual_de_prova` e preservar planos de detalhe; a ferramenta não deve verificar nem endossar automaticamente as alegações do material. |
+| Trilha inspiracional e headline contextual | Tratar música e headline como embalagem de publicação, não como qualidade semântica. |
+| Fecho validando acabamento/conteúdo | Considerar conclusão quando a avaliação do objeto fecha o arco de demonstração, mesmo sem tese política explícita. |
+
+O relatório audiovisual completo está em `docs/instagram_reserva_local_audiovisual_Db_F8qvE_Z__2026-08-14.md`.
+
+## Evidência audiovisual adicional — perfil reserva `Db_HmR1iOy1`
+
+Este Reel é um **corte de podcast político com múltiplos participantes, B-roll temático e proposta final**. Uma frase de indignação abre o assunto; o raciocínio passa por causa, comparação e solução. A headline fornece contexto, enquanto a alternância entre participantes e imagens de sala de aula cria dinamismo. O formato confirma a importância de preservar pergunta/contraponto e não presumir que o locutor dominante seja o único enquadramento válido.
+
+| Sinal observado | Regra aplicável ao Furia Clips |
+| --- | --- |
+| Headline contextual + fala no meio da frase | Permitir entrada `in media res` quando a headline e a primeira frase formarem contexto suficiente; marcar dependência de contexto na revisão. |
+| Problema → causa → comparação → solução | Reforçar o sinal de estrutura argumentativa com etapas explícitas, especialmente em debates educacionais e políticas públicas. |
+| Múltiplos participantes + B-roll | Classificar como `entrevista_debate`; preservar interlocutores e imagens de apoio, evitando active-speaker estreito. |
+| Termos técnicos/jurídicos | Bonificar especificidade e clareza, mas marcar entidades normativas para revisão; vocabulário técnico não prova a afirmação. |
+| Fecho propositivo | Considerar conclusão forte quando a solução responde ao problema inicial sem depender de CTA. |
+
+O relatório audiovisual completo está em `docs/instagram_reserva_local_audiovisual_Db_HmR1iOy1_2026-08-14.md`.
+
+## Evidência audiovisual adicional — perfil reserva `Db_LANvAgY6`
+
+Este Reel é um **react enquadrado por cartela fixa**, no qual a fala principal vem de um telejornal e a interpretação política é delegada ao texto estático superior. O formato usa notícia violenta de terceiros como prova de contexto e deixa a “conclusão” implícita na promessa política visível. Isso é relevante para o Furia Clips porque mostra um caso em que o vídeo pode ser publicável sem comentário oral do protagonista, mas exige classificação própria e revisão editorial forte.
+
+| Sinal observado | Regra aplicável ao Furia Clips |
+| --- | --- |
+| Cartela superior fixa com slogan/posição + vídeo de terceiros abaixo | Classificar como `react_enquadrado` ou `curadoria_de_noticia`; preservar integralmente o layout composto. |
+| Fala vem de telejornal, não do protagonista | Não inferir autoria da argumentação pelo áudio; marcar claramente a fonte principal do discurso. |
+| Crime/violência serve como “prova do problema” | Priorizar somente quando houver contexto inteligível; o choque isolado não deve bastar para aprovação automática. |
+| Conclusão política implícita no texto, não no áudio | Marcar `conclusao_visual` e distinguir de conclusão argumentativa verbal; isso ajuda a não confundir slogan com raciocínio completo. |
+| Logos, GC e marcas de emissora | Preservar a origem visual como parte do sentido e marcar `fonte_terceira` para revisão antes de publicação. |
+
+O relatório audiovisual completo está em `docs/instagram_reserva_local_audiovisual_Db_LANvAgY6_2026-08-14.md`.
+
+## Evidência audiovisual adicional — perfil reserva `Db_OfZDjKMW`
+
+Este Reel é um **destaque de podcast/advocacy com pergunta de seguidor, explicação técnica e promessa de futuro**. O formato usa headline de confronto, split-screen de identidade, B-roll para concretizar economia, infraestrutura e segurança e um fecho de alta energia. É um bom exemplo de como simplificar conceitos complexos em consequências cotidianas, mas a ferramenta deve preservar a distinção entre proposta, previsão e fato verificado.
+
+| Sinal observado | Regra aplicável ao Furia Clips |
+| --- | --- |
+| Pergunta de seguidor lida no início | Preservar a pergunta quando ela é o desafio que organiza a resposta. |
+| Conceito técnico ligado a benefício cotidiano | Bonificar `tradução_concreta`: termo abstrato seguido de exemplo compreensível, mantendo a cadeia argumentativa. |
+| B-roll de entidade concreta mencionada | Registrar ponto de apoio visual e manter a proporção original quando o insert participa da explicação. |
+| Split-screen com retrato fixo | Proteger identidade e active speaker; não considerar o retrato estático como participante da fala. |
+| Fecho preditivo/retórico | Não tratar previsão ou promessa (“já está reeleito”, “revolução”) como conclusão factual; marcar `retórica_de_fecho` para revisão. |
+
+O relatório audiovisual completo está em `docs/instagram_reserva_local_audiovisual_Db_OfZDjKMW_2026-08-14.md`.

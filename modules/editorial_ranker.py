@@ -33,12 +33,19 @@ EMOTIONAL_TERMS = {
     "incrivel", "surreal", "chocante", "ridiculo", "tragedia", "desastre",
 }
 
+TOPIC_STOPWORDS = {
+    "a", "ao", "aos", "as", "com", "como", "da", "das", "de", "do", "dos", "e", "em", "ele", "ela", "esse", "esta", "eu", "foi", "isso", "ja", "mais", "na", "nas", "no", "nos", "o", "os", "ou", "para", "por", "pra", "que", "se", "sem", "ser", "sobre", "tem", "um", "uma", "vai", "voce", "voces",
+}
+
 FILLERS = {
     "ah", "eh", "tipo", "entao", "sabe", "basicamente", "na verdade",
     "ou seja", "entendeu", "digamos", "assim", "enfim", "bom", "olha",
 }
 
 MID_SENTENCE_STARTERS = {"e", "mas", "porem", "entao", "porque", "que", "ai", "ou", "nem"}
+CONTINUITY_PATTERNS = ("acompanhe", "aguarde", "em breve", "novidades", "vou mostrar", "depois eu", "na proxima", "fique ligado")
+RESOLUTION_PATTERNS = ("portanto", "por isso", "entao", "a conclusao", "fica claro", "e isso", "essa e a verdade")
+ARGUMENT_MARKERS = ("porque", "portanto", "por isso", "significa", "se ", "entao", "logo", "portanto")
 
 
 class EditorialRanker:
@@ -101,15 +108,17 @@ class EditorialRanker:
     def score_clip(self, clip: dict, *, user_context: str = "", energy_profile=None) -> dict:
         text = str(clip.get("text") or "").strip()
         duration = float(clip.get("duration") or max(1.0, float(clip.get("end", 0)) - float(clip.get("start", 0))))
+        closure_type = self._closure_type(text)
         factors = {
             "hook": self._hook(text),
             "flow": self._flow(text, duration),
             "value": self._value(text),
+            "argument_structure": self._argument_structure(text, closure_type),
             "context_match": self._context_match(text, user_context),
             "audio_energy": self._audio_energy(clip, energy_profile),
             "visual_change_density": self._visual_change_density(clip),
             "clarity": self._clarity(text),
-            "completeness": self._completeness(text),
+            "completeness": self._completeness(text, closure_type),
             "editorial_family_fit": 50.0,
         }
         political_signals = {}
@@ -127,7 +136,8 @@ class EditorialRanker:
         weights = {
             "hook": 0.17,
             "flow": 0.16,
-            "value": 0.14,
+            "value": 0.12,
+            "argument_structure": 0.07,
             "context_match": 0.13,
             "audio_energy": 0.10,
             "visual_change_density": 0.06,
@@ -165,10 +175,13 @@ class EditorialRanker:
             "energy": self._grade(factors["audio_energy"]),
         }
         reason = self._reason(factors, user_context)
+        topic_signature = self._topic_signature(text, political_signals)
         return {
             "viral_score": score,
             "editorial_potential_score": score,
             "editorial_score_version": "v1-feedback-calibrated" if feedback_adjustment else "v1-explainable",
+            "topic_signature": topic_signature,
+            "closure_type": closure_type,
             "breakdown": breakdown,
             "factors": {key: round(value, 1) for key, value in factors.items()},
             "confidence": round(confidence, 2),
@@ -178,6 +191,25 @@ class EditorialRanker:
             "political_editorial_type": political_signals.get("editorial_type", "") if political_signals else "",
             "political_signals": political_signals,
         }
+
+    def _topic_signature(self, text: str, political_signals: dict) -> str:
+        """Build a transparent lexical topic key for portfolio diversification.
+
+        This is intentionally a lightweight signal, not a claim of semantic
+        understanding. It combines the political/editorial type with the most
+        repeated meaningful terms so the UI and tests can audit its behavior.
+        """
+        normalized = _normalize(text)
+        terms = [
+            term for term in normalized.split()
+            if len(term) >= 4 and term not in TOPIC_STOPWORDS and not term.isdigit()
+        ]
+        counts = {}
+        for term in terms:
+            counts[term] = counts.get(term, 0) + 1
+        top_terms = sorted(counts, key=lambda term: (-counts[term], term))[:3]
+        editorial_type = str(political_signals.get("editorial_type") or "geral")
+        return f"{editorial_type}:{'-'.join(top_terms)}" if top_terms else editorial_type
 
     def _feedback_adjustment(self, factors: dict) -> float:
         """Return a bounded adjustment only after enough final editor decisions.
@@ -243,6 +275,19 @@ class EditorialRanker:
         score = 35 + min(25, emotional * 5) + min(20, numbers * 4) + unique_ratio * 15
         if "?" in text or "!" in text:
             score += 5
+        return max(0.0, min(100.0, score))
+
+    def _argument_structure(self, text: str, closure_type: str) -> float:
+        normalized = _normalize(text)
+        marker_count = sum(marker in normalized for marker in ARGUMENT_MARKERS)
+        sentence_count = len([part for part in re.split(r"[.!?]+", text) if part.strip()])
+        score = 35.0 + min(35.0, marker_count * 12.0)
+        if sentence_count >= 2:
+            score += 12.0
+        if closure_type == "conclusion":
+            score += 15.0
+        elif closure_type == "cliffhanger":
+            score -= 8.0
         return max(0.0, min(100.0, score))
 
     def _context_match(self, text: str, context: str) -> float:
@@ -311,7 +356,19 @@ class EditorialRanker:
                 filler_count += sum(word == filler for word in words)
         return max(0.0, min(100.0, 92.0 - (filler_count / len(words)) * 180.0))
 
-    def _completeness(self, text: str) -> float:
+    def _closure_type(self, text: str) -> str:
+        ending = _normalize(text)[-260:]
+        has_continuity = any(pattern in ending for pattern in CONTINUITY_PATTERNS)
+        has_resolution = any(pattern in ending for pattern in RESOLUTION_PATTERNS)
+        if has_continuity and not has_resolution:
+            return "cliffhanger"
+        if has_resolution:
+            return "conclusion"
+        if str(text or "").rstrip().endswith((".", "!", "?")):
+            return "closed_statement"
+        return "open"
+
+    def _completeness(self, text: str, closure_type: str = "open") -> float:
         score = 45.0
         if text.rstrip()[-1:] in ".!?":
             score += 35
@@ -320,6 +377,12 @@ class EditorialRanker:
         first = _normalize(text).split()[:1]
         if first and first[0] in MID_SENTENCE_STARTERS:
             score -= 30
+        # Cliffhangers may still be good updates, but they cannot be ranked as
+        # equally self-contained as a resolved statement or answer.
+        if closure_type == "cliffhanger":
+            score -= 12
+        elif closure_type == "conclusion":
+            score += 6
         return max(0.0, min(100.0, score))
 
     def _confidence(self, text: str, factors: dict, duration: float) -> float:
@@ -333,6 +396,7 @@ class EditorialRanker:
             "hook": "abertura forte",
             "flow": "fluxo coerente",
             "value": "valor informativo/emocional",
+            "argument_structure": "estrutura de argumento",
             "context_match": "aderência ao pedido",
             "context_completeness": "contexto autossuficiente",
             "audio_energy": "energia de áudio",
@@ -369,7 +433,10 @@ class EditorialRanker:
                 same_source = False
             overlap = _interval_overlap(clip, existing) if same_source else 0.0
             similarity = _text_similarity(clip.get("text", ""), existing.get("text", ""))
-            penalty = max(penalty, overlap * 100.0, similarity * 80.0)
+            topic_similarity = _topic_similarity(
+                clip.get("topic_signature", ""), existing.get("topic_signature", "")
+            ) if same_source else 0.0
+            penalty = max(penalty, overlap * 100.0, similarity * 80.0, topic_similarity * 48.0)
         return penalty
 
 
@@ -385,6 +452,17 @@ def _interval_overlap(first: dict, second: dict) -> float:
     first_duration = max(0.001, float(first.get("end", 0)) - float(first.get("start", 0)))
     second_duration = max(0.001, float(second.get("end", 0)) - float(second.get("start", 0)))
     return intersection / min(first_duration, second_duration)
+
+
+def _topic_similarity(first: str, second: str) -> float:
+    """Compare transparent topic signatures generated by ``_topic_signature``."""
+    left_type, _, left_terms = str(first or "").partition(":")
+    right_type, _, right_terms = str(second or "").partition(":")
+    left = {item for item in left_terms.split("-") if item}
+    right = {item for item in right_terms.split("-") if item}
+    lexical = len(left & right) / len(left | right) if left and right else 0.0
+    type_bonus = 0.15 if left_type and left_type == right_type and lexical >= 0.34 else 0.0
+    return min(1.0, lexical + type_bonus)
 
 
 def _text_similarity(first: str, second: str) -> float:

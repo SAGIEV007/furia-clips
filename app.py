@@ -7,6 +7,7 @@ import threading
 import subprocess
 import platform
 import secrets
+import tempfile
 import requests
 import re
 from datetime import datetime
@@ -59,7 +60,7 @@ from database import (
     save_clip, get_clips, update_clip_seo, update_clip_thumbnail,
     save_transcription, get_transcription, log_action,
     update_clip_editorial_score, save_clip_feedback, get_clip_feedback,
-    update_clip_review_status, get_feedback_calibration
+    update_clip_review_status, get_feedback_calibration, get_daily_editorial_progress
 )
 from modules.security import UnsafePathError, safe_workspace_path, unique_storage_name
 from modules.native_dialogs import DialogError, choose_path, open_local_path
@@ -75,6 +76,12 @@ from modules.job_manager import JobManager, JobCancelled
 from modules.cancellation import OperationCancelled
 from modules.batch_queue import build_manifest
 from modules.render_presets import list_presets
+from modules.persistent_data import (
+    PersistentDataError,
+    create_editorial_backup,
+    get_editorial_data_summary,
+    restore_editorial_backup,
+)
 
 # User-friendly error messages (Portuguese)
 ERROR_MESSAGES = {
@@ -491,6 +498,68 @@ def api_clip_feedback(clip_id):
 @app.route("/api/editorial/calibration", methods=["GET"])
 def api_editorial_calibration():
     return jsonify(get_feedback_calibration())
+
+
+@app.route("/api/editorial/daily-progress", methods=["GET"])
+def api_editorial_daily_progress():
+    return jsonify(get_daily_editorial_progress())
+
+
+@app.route("/api/editorial/data", methods=["GET"])
+def api_editorial_data():
+    """Expose persistent editorial-storage health without returning secrets."""
+    return jsonify(get_editorial_data_summary())
+
+
+@app.route("/api/editorial/backup", methods=["POST"])
+def api_editorial_backup():
+    try:
+        backup = create_editorial_backup()
+        return jsonify({
+            "success": True,
+            "filename": backup["filename"],
+            "size_bytes": backup["size_bytes"],
+            "summary": backup["summary"],
+        })
+    except PersistentDataError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+
+@app.route("/api/editorial/backup/<filename>", methods=["GET"])
+def api_download_editorial_backup(filename):
+    if os.path.basename(filename) != filename or not filename.startswith("furia-editorial-backup-") or not filename.endswith(".zip"):
+        return jsonify({"error": "Arquivo de backup inválido"}), 400
+    from config import PERSISTENT_BACKUPS_DIR
+    candidate = os.path.join(PERSISTENT_BACKUPS_DIR, filename)
+    if not os.path.isfile(candidate):
+        return jsonify({"error": "Backup não encontrado"}), 404
+    return send_file(candidate, as_attachment=True, download_name=filename)
+
+
+@app.route("/api/editorial/restore", methods=["POST"])
+def api_editorial_restore():
+    if current_task.get("active"):
+        return jsonify({"error": "Pare ou aguarde o processamento atual antes de restaurar dados editoriais."}), 409
+    uploaded = request.files.get("backup")
+    if not uploaded or not uploaded.filename:
+        return jsonify({"error": "Selecione um arquivo ZIP de backup editorial."}), 400
+    if not uploaded.filename.lower().endswith(".zip"):
+        return jsonify({"error": "Selecione um arquivo ZIP criado pelo Furia Clips."}), 400
+    from config import PERSISTENT_BACKUPS_DIR
+    temp_handle = tempfile.NamedTemporaryFile(prefix="restore-", suffix=".zip", dir=PERSISTENT_BACKUPS_DIR, delete=False)
+    temp_path = temp_handle.name
+    temp_handle.close()
+    try:
+        uploaded.save(temp_path)
+        result = restore_editorial_backup(temp_path)
+        return jsonify({"success": True, **result})
+    except PersistentDataError as exc:
+        return jsonify({"error": str(exc)}), 400
+    finally:
+        try:
+            os.unlink(temp_path)
+        except OSError:
+            pass
 
 
 # ─── Page Routes ───

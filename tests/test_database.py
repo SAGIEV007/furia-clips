@@ -32,3 +32,51 @@ class DatabaseMigrationTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+    def test_reprocessing_same_editorial_window_reuses_clip_and_feedback(self):
+        project_id = database.create_project("Live", "uploads/live-original.mp4")
+        first_id = database.save_clip(
+            project_id, "exports/clip-v1.mp4", 15.0, 55.0, 40.0, 72, True, 0, "Tese completa."
+        )
+        database.save_clip_feedback(first_id, "approved", note="Manter a conclusão")
+        second_id = database.save_clip(
+            project_id, "exports/clip-v2.mp4", 15.0, 55.0, 40.0, 79, True, 0, "  Tese   completa. "
+        )
+
+        self.assertEqual(first_id, second_id)
+        clips = database.get_clips(project_id)
+        self.assertEqual(len(clips), 1)
+        self.assertEqual(clips[0]["viral_score"], 79)
+        self.assertTrue(clips[0]["editorial_key"])
+        self.assertEqual(database.get_clip_feedback(second_id)[0]["action"], "approved")
+
+
+    def test_daily_progress_counts_only_approved_clips_toward_editorial_goal(self):
+        project_id = database.create_project("Meta diária", "uploads/meta.mp4")
+        approved = database.save_clip(project_id, "exports/aprovado.mp4", 0, 20, 20, 75, True, 0, "Aprovado")
+        pending = database.save_clip(project_id, "exports/pendente.mp4", 30, 50, 20, 70, True, 0, "Pendente")
+        review = database.save_clip(project_id, "exports/revisar.mp4", 60, 80, 20, 68, False, 0, "Revisar")
+        database.save_clip_feedback(approved, "approved")
+        database.save_clip_feedback(review, "needs_review")
+
+        progress = database.get_daily_editorial_progress(target_min=2, target_max=3)
+        self.assertEqual(progress["approved"], 1)
+        self.assertEqual(progress["pending"], 1)
+        self.assertEqual(progress["needs_review"], 1)
+        self.assertEqual(progress["review_queue"], 2)
+        self.assertEqual(progress["remaining_to_minimum"], 1)
+        self.assertFalse(progress["target_reached"])
+        self.assertNotEqual(approved, pending)
+
+
+    def test_project_library_exposes_clip_and_review_totals(self):
+        project_id = database.create_project("Biblioteca", "uploads/biblioteca.mp4")
+        approved = database.save_clip(project_id, "exports/a.mp4", 0, 15, 15, 70, True, 0, "A")
+        database.save_clip(project_id, "exports/b.mp4", 20, 35, 15, 65, False, 0, "B")
+        database.save_clip_feedback(approved, "approved")
+
+        project = next(item for item in database.get_all_projects() if item["id"] == project_id)
+        self.assertEqual(project["clip_count"], 2)
+        self.assertEqual(project["approved_count"], 1)
+        self.assertEqual(project["review_count"], 1)

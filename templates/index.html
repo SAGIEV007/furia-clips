@@ -418,12 +418,38 @@
                 <div class="operation-metric complete"><span class="material-icons-round">task_alt</span><div><strong id="operationCompletedCount">0</strong><span>concluídos</span></div></div>
                 <div class="operation-metric failed"><span class="material-icons-round">error_outline</span><div><strong id="operationAttentionCount">0</strong><span>exigem atenção</span></div></div>
             </div>
+            <div class="daily-editorial-goal" id="dailyEditorialGoal" aria-live="polite">
+                <span class="material-icons-round">flag</span>
+                <div class="daily-editorial-copy">
+                    <div class="daily-editorial-head"><strong id="dailyEditorialTitle">Meta diária editorial</strong><span id="dailyEditorialValue">0 / 39 aprovados</span></div>
+                    <p id="dailyEditorialText">Carregando decisões aprovadas e fila de revisão de hoje...</p>
+                    <div class="daily-editorial-progress"><div id="dailyEditorialProgressBar"></div></div>
+                </div>
+                <span class="daily-editorial-badge" id="dailyEditorialBadge">—</span>
+            </div>
             <div class="editorial-learning" id="editorialLearning" aria-live="polite">
                 <span class="material-icons-round">school</span>
                 <div><strong id="editorialLearningTitle">Aprendizado editorial</strong><p id="editorialLearningText">Carregando decisões de revisão...</p></div>
                 <span class="editorial-learning-badge" id="editorialLearningBadge">—</span>
             </div>
+            <div class="editorial-data-card" id="editorialDataCard" aria-live="polite">
+                <span class="material-icons-round">database</span>
+                <div class="editorial-data-copy">
+                    <strong id="editorialDataTitle">Dados editoriais persistentes</strong>
+                    <p id="editorialDataText">Verificando a proteção dos projetos, transcrições e decisões...</p>
+                </div>
+                <span class="editorial-data-badge" id="editorialDataBadge">—</span>
+                <div class="editorial-data-actions">
+                    <button class="btn btn-sm" id="btnEditorialBackup" type="button"><span class="material-icons-round">backup</span> Backup</button>
+                    <button class="btn btn-sm" id="btnEditorialRestore" type="button"><span class="material-icons-round">restore</span> Restaurar</button>
+                    <input id="editorialRestoreInput" type="file" accept=".zip,application/zip" hidden>
+                </div>
+            </div>
             <div class="operation-jobs" id="operationJobs" aria-live="polite"></div>
+            <div class="project-library" aria-label="Biblioteca de lives recentes">
+                <div class="project-library-head"><h4><span class="material-icons-round">video_library</span> Lives recentes</h4><span id="projectLibrarySummary">Carregando projetos...</span></div>
+                <div class="project-library-list" id="projectLibraryList"></div>
+            </div>
         </section>
 
         <!-- Results Panel -->

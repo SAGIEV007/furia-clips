@@ -1,6 +1,7 @@
 import sqlite3
 import json
 import os
+import hashlib
 from datetime import datetime
 from config import DB_PATH, DEFAULT_SETTINGS
 
@@ -10,6 +11,17 @@ def get_db():
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
     return conn
+
+
+def _editorial_clip_key(source_video, start_time, end_time, transcript):
+    """Return a stable identity independent of the rendered output filename."""
+    canonical = "|".join([
+        str(source_video or "").replace("\\\\", "/").strip().lower(),
+        f"{float(start_time or 0):.3f}",
+        f"{float(end_time or 0):.3f}",
+        " ".join(str(transcript or "").split()).lower(),
+    ])
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:32]
 
 
 def init_db():
@@ -50,6 +62,7 @@ def init_db():
             score_factors TEXT,
             score_confidence REAL DEFAULT 0,
             editorial_score_version TEXT,
+            editorial_key TEXT,
             review_status TEXT DEFAULT 'pending',
             status TEXT DEFAULT 'pending',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -95,11 +108,24 @@ def init_db():
         "score_factors": "ALTER TABLE clips ADD COLUMN score_factors TEXT",
         "score_confidence": "ALTER TABLE clips ADD COLUMN score_confidence REAL DEFAULT 0",
         "editorial_score_version": "ALTER TABLE clips ADD COLUMN editorial_score_version TEXT",
+        "editorial_key": "ALTER TABLE clips ADD COLUMN editorial_key TEXT",
         "review_status": "ALTER TABLE clips ADD COLUMN review_status TEXT DEFAULT 'pending'",
     }
     for column, statement in migrations.items():
         if column not in existing_columns:
             cursor.execute(statement)
+
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_clips_editorial_key ON clips(project_id, editorial_key)")
+    missing_keys = cursor.execute(
+        """SELECT clips.id, projects.source_video, clips.start_time, clips.end_time, clips.transcript
+           FROM clips JOIN projects ON projects.id = clips.project_id
+           WHERE clips.editorial_key IS NULL OR clips.editorial_key = ''"""
+    ).fetchall()
+    for row in missing_keys:
+        cursor.execute(
+            "UPDATE clips SET editorial_key = ? WHERE id = ?",
+            (_editorial_clip_key(row["source_video"], row["start_time"], row["end_time"], row["transcript"]), row["id"]),
+        )
 
     for key, value in DEFAULT_SETTINGS.items():
         cursor.execute(
@@ -177,7 +203,14 @@ def get_project(project_id):
 
 def get_all_projects():
     conn = get_db()
-    rows = conn.execute("SELECT * FROM projects ORDER BY created_at DESC").fetchall()
+    rows = conn.execute(
+        """SELECT projects.*,
+                  (SELECT COUNT(*) FROM clips WHERE clips.project_id = projects.id) AS clip_count,
+                  (SELECT COUNT(*) FROM clips WHERE clips.project_id = projects.id AND review_status = 'approved') AS approved_count,
+                  (SELECT COUNT(*) FROM clips WHERE clips.project_id = projects.id AND review_status IN ('pending', 'needs_review')) AS review_count
+           FROM projects
+           ORDER BY created_at DESC"""
+    ).fetchall()
     conn.close()
     return [dict(r) for r in rows]
 
@@ -195,14 +228,29 @@ def update_project_status(project_id, status):
 def save_clip(project_id, file_path, start_time, end_time, duration,
               viral_score=0, has_hook=False, emotional_intensity=0.0, transcript=""):
     conn = get_db()
-    cursor = conn.execute(
-        """INSERT INTO clips (project_id, file_path, start_time, end_time, duration,
-           viral_score, has_hook, emotional_intensity, transcript)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-        (project_id, file_path, start_time, end_time, duration,
-         viral_score, int(has_hook), emotional_intensity, transcript)
-    )
-    clip_id = cursor.lastrowid
+    source_row = conn.execute("SELECT source_video FROM projects WHERE id = ?", (project_id,)).fetchone()
+    source_video = source_row["source_video"] if source_row else ""
+    editorial_key = _editorial_clip_key(source_video, start_time, end_time, transcript)
+    existing = conn.execute(
+        "SELECT id FROM clips WHERE project_id = ? AND editorial_key = ? ORDER BY id LIMIT 1",
+        (project_id, editorial_key),
+    ).fetchone()
+    if existing:
+        clip_id = existing["id"]
+        conn.execute(
+            """UPDATE clips SET file_path = ?, start_time = ?, end_time = ?, duration = ?,
+               viral_score = ?, has_hook = ?, emotional_intensity = ?, transcript = ? WHERE id = ?""",
+            (file_path, start_time, end_time, duration, viral_score, int(has_hook), emotional_intensity, transcript, clip_id),
+        )
+    else:
+        cursor = conn.execute(
+            """INSERT INTO clips (project_id, file_path, start_time, end_time, duration,
+               viral_score, has_hook, emotional_intensity, transcript, editorial_key)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (project_id, file_path, start_time, end_time, duration,
+             viral_score, int(has_hook), emotional_intensity, transcript, editorial_key)
+        )
+        clip_id = cursor.lastrowid
     conn.commit()
     conn.close()
     return clip_id
@@ -394,4 +442,39 @@ def get_feedback_calibration(min_samples=12, min_per_outcome=3):
             2,
         ),
         "factor_deltas": factor_deltas,
+    }
+
+
+
+def get_daily_editorial_progress(target_min=39, target_max=50):
+    """Summarize today's review workflow from persisted clip decisions.
+
+    The dashboard deliberately counts only approved clips toward the publishing
+    target. Pending and context-review clips remain visible as a revision queue,
+    preventing the system from treating generated volume as completed work.
+    """
+    conn = get_db()
+    rows = conn.execute(
+        """SELECT review_status, COUNT(*) AS total
+           FROM clips
+           WHERE date(created_at, 'localtime') = date('now', 'localtime')
+           GROUP BY review_status"""
+    ).fetchall()
+    conn.close()
+    counts = {row["review_status"] or "pending": int(row["total"] or 0) for row in rows}
+    approved = counts.get("approved", 0)
+    pending = counts.get("pending", 0)
+    needs_review = counts.get("needs_review", 0)
+    rejected = counts.get("rejected", 0)
+    return {
+        "target_min": int(target_min),
+        "target_max": int(target_max),
+        "approved": approved,
+        "pending": pending,
+        "needs_review": needs_review,
+        "rejected": rejected,
+        "review_queue": pending + needs_review,
+        "remaining_to_minimum": max(0, int(target_min) - approved),
+        "progress_percent": round(min(100.0, approved / max(1, int(target_min)) * 100.0), 1),
+        "target_reached": approved >= int(target_min),
     }

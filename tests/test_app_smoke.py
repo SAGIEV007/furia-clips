@@ -87,3 +87,33 @@ class AppSmokeTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+    def test_editorial_data_endpoint_exposes_only_safe_summary(self):
+        with patch.object(furia_app, "get_editorial_data_summary", return_value={
+            "data_dir": "C:/Users/editor/FuriaClipsData",
+            "database_exists": True,
+            "integrity": "ok",
+            "projects": 2,
+            "clips": 6,
+            "feedback_events": 4,
+        }):
+            response = self.client.get("/api/editorial/data")
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertEqual(payload["integrity"], "ok")
+        self.assertNotIn("gemini_api_key", payload)
+
+    def test_editorial_backup_endpoint_returns_download_metadata(self):
+        with patch.object(furia_app, "create_editorial_backup", return_value={
+            "path": "C:/Users/editor/FuriaClipsData/backups/furia-editorial-backup-test.zip",
+            "filename": "furia-editorial-backup-test.zip",
+            "size_bytes": 512,
+            "summary": {"integrity": "ok"},
+        }):
+            response = self.client.post("/api/editorial/backup")
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertTrue(payload["success"])
+        self.assertEqual(payload["filename"], "furia-editorial-backup-test.zip")
+        self.assertNotIn("path", payload)

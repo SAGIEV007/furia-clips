@@ -72,3 +72,53 @@ class EditorialRankerTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+    def test_same_topic_in_different_windows_receives_diversity_penalty(self):
+        clips = [
+            {
+                "source_id": "live-1", "start": 0, "end": 35, "duration": 35,
+                "text": "A reforma tributária aumenta impostos e prejudica pequenas empresas. A proposta precisa ser revista.",
+            },
+            {
+                "source_id": "live-1", "start": 180, "end": 216, "duration": 36,
+                "text": "Pequenas empresas sofrem com os impostos da reforma tributária. Precisamos rever essa proposta.",
+            },
+            {
+                "source_id": "live-1", "start": 420, "end": 456, "duration": 36,
+                "text": "A segurança pública precisa de investigação eficiente e punição para criminosos violentos.",
+            },
+        ]
+        ranked = self.ranker.rank_clips(clips)
+        tax_clips = [clip for clip in ranked if "tributaria" in clip.get("topic_signature", "")]
+        security_clips = [clip for clip in ranked if "seguranca" in clip.get("topic_signature", "")]
+        self.assertLessEqual(len(tax_clips), 2)
+        self.assertTrue(any(clip.get("diversity_penalty", 0) > 0 for clip in tax_clips))
+        self.assertEqual(len(security_clips), 1)
+
+
+    def test_cliffhanger_is_labeled_and_scores_below_equivalent_conclusion(self):
+        cliffhanger = self.ranker.score_clip({
+            "start": 0, "end": 28, "duration": 28,
+            "text": "A prova está nos logs e nos IPs. Acompanhe porque amanhã vou mostrar todos os detalhes.",
+        })
+        conclusion = self.ranker.score_clip({
+            "start": 0, "end": 28, "duration": 28,
+            "text": "A prova está nos logs e nos IPs. Por isso, fica claro que a acusação precisa ser verificada publicamente.",
+        })
+        self.assertEqual(cliffhanger["closure_type"], "cliffhanger")
+        self.assertEqual(conclusion["closure_type"], "conclusion")
+        self.assertLess(cliffhanger["factors"]["completeness"], conclusion["factors"]["completeness"])
+
+
+    def test_argument_structure_rewards_premise_reason_and_conclusion(self):
+        argument = self.ranker.score_clip({
+            "start": 0, "end": 35, "duration": 35,
+            "text": "Se a investigação não tem consequência, significa impunidade. Por isso, a lei precisa ser aplicada com transparência.",
+        })
+        isolated = self.ranker.score_clip({
+            "start": 0, "end": 35, "duration": 35,
+            "text": "A lei precisa ser aplicada.",
+        })
+        self.assertGreater(argument["factors"]["argument_structure"], isolated["factors"]["argument_structure"])
+        self.assertIn("argument_structure", argument["factors"])

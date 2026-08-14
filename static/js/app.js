@@ -17,6 +17,7 @@ const state = {
     outputFolder: "",
     activeJob: null,
     operationJobs: [],
+    operationProjects: [],
     manualTranscript: null,
     sourceUrl: "",
     sourceDownloadDir: "",
@@ -301,6 +302,10 @@ async function requestCancelOperation() {
 document.getElementById("btnCancelOperation")?.addEventListener("click", requestCancelOperation);
 document.getElementById("btnRefreshOperations")?.addEventListener("click", loadOperationDashboard);
 
+document.getElementById("btnEditorialBackup")?.addEventListener("click", requestEditorialBackup);
+document.getElementById("btnEditorialRestore")?.addEventListener("click", () => document.getElementById("editorialRestoreInput")?.click());
+document.getElementById("editorialRestoreInput")?.addEventListener("change", restoreEditorialBackup);
+
 function showProgressBar() {
     showProcessingControls();
     const container = document.getElementById("progressBarContainer");
@@ -412,6 +417,184 @@ async function loadEditorialLearning() {
     }
 }
 
+function formatDataSize(bytes) {
+    const value = Number(bytes || 0);
+    if (!value) return "0 B";
+    const units = ["B", "KB", "MB", "GB"];
+    let index = 0;
+    let size = value;
+    while (size >= 1024 && index < units.length - 1) {
+        size /= 1024;
+        index += 1;
+    }
+    return `${size.toFixed(size >= 10 || index === 0 ? 0 : 1)} ${units[index]}`;
+}
+
+function renderEditorialData(data = {}) {
+    const card = document.getElementById("editorialDataCard");
+    const title = document.getElementById("editorialDataTitle");
+    const text = document.getElementById("editorialDataText");
+    const badge = document.getElementById("editorialDataBadge");
+    if (!card || !title || !text || !badge) return;
+    const healthy = data.integrity === "ok";
+    const pending = data.integrity === "missing";
+    badge.classList.toggle("attention", !healthy);
+    if (healthy) {
+        title.textContent = "Dados editoriais protegidos fora do programa";
+        text.textContent = `${Number(data.projects || 0)} projeto(s), ${Number(data.clips || 0)} clip(s) e ${Number(data.feedback_events || 0)} decisão(ões) ficam preservados mesmo ao atualizar a pasta do GitHub.`;
+        badge.textContent = "ÍNTEGRO";
+    } else if (pending) {
+        title.textContent = "Base editorial pronta para o primeiro projeto";
+        text.textContent = "As próximas decisões serão salvas em uma pasta de dados separada do código. Faça um backup após sua primeira revisão.";
+        badge.textContent = "PRONTO";
+    } else {
+        title.textContent = "Dados editoriais exigem atenção";
+        text.textContent = "Não foi possível confirmar a integridade agora. Crie um backup ou restaure uma cópia conhecida antes de atualizar o programa.";
+        badge.textContent = "REVISAR";
+    }
+}
+
+function renderDailyEditorialGoal(progress = {}) {
+    const panel = document.getElementById("dailyEditorialGoal");
+    const title = document.getElementById("dailyEditorialTitle");
+    const value = document.getElementById("dailyEditorialValue");
+    const text = document.getElementById("dailyEditorialText");
+    const bar = document.getElementById("dailyEditorialProgressBar");
+    const badge = document.getElementById("dailyEditorialBadge");
+    if (!panel || !title || !value || !text || !bar || !badge) return;
+    const minimum = Number(progress.target_min || 39);
+    const maximum = Number(progress.target_max || 50);
+    const approved = Number(progress.approved || 0);
+    const queue = Number(progress.review_queue || 0);
+    const remaining = Math.max(0, Number(progress.remaining_to_minimum ?? (minimum - approved)));
+    const reached = Boolean(progress.target_reached);
+    panel.classList.toggle("is-reached", reached);
+    value.textContent = `${approved} / ${minimum} aprovados`;
+    bar.style.width = `${Math.max(0, Math.min(100, Number(progress.progress_percent || 0)))}%`;
+    if (reached) {
+        title.textContent = "Meta mínima diária atingida";
+        text.textContent = `${approved} cortes aprovados; a faixa operacional continua até ${maximum}. ${queue ? `${queue} ainda aguardam revisão.` : ""}`.trim();
+        badge.textContent = "META ATINGIDA";
+    } else {
+        title.textContent = "Meta diária editorial";
+        text.textContent = `${remaining} aprovação(ões) faltam para a meta mínima. ${queue ? `${queue} corte(s) aguardam sua revisão.` : "Processe uma live para criar candidatos."}`;
+        badge.textContent = `${approved}/${minimum}`;
+    }
+}
+
+function renderProjectLibrary(projects = state.operationProjects || []) {
+    const list = Array.isArray(projects) ? projects : [];
+    const container = document.getElementById("projectLibraryList");
+    const summary = document.getElementById("projectLibrarySummary");
+    if (!container || !summary) return;
+    summary.textContent = list.length ? `${list.length} projeto(s) preservados neste computador` : "Nenhuma live processada ainda";
+    if (!list.length) {
+        container.innerHTML = '<div class="project-library-empty">Cada live processada aparecerá aqui com seus candidatos, aprovações e pendências de revisão.</div>';
+        return;
+    }
+    container.innerHTML = list.slice(0, 6).map((project) => {
+        const name = escapeHtml(String(project.name || "Live sem nome"));
+        const status = escapeHtml(String(project.status || "pending").replaceAll("_", " "));
+        const clips = Number(project.clip_count || 0);
+        const approved = Number(project.approved_count || 0);
+        const review = Number(project.review_count || 0);
+        return `<article class="project-library-item" title="${name}">
+            <div class="project-library-name">${name}</div>
+            <div class="project-library-meta"><span>${clips} clips</span><span><b>${approved}</b> aprovados</span><span>${review} revisar</span></div>
+            <span class="project-library-status">${status}</span>
+        </article>`;
+    }).join("");
+}
+
+async function loadProjectLibrary() {
+    try {
+        const response = await fetch("/api/projects");
+        const payload = await parseJsonResponse(response, "Biblioteca de lives");
+        if (!response.ok || !Array.isArray(payload)) throw new Error("Não foi possível carregar os projetos");
+        state.operationProjects = payload;
+        renderProjectLibrary(payload);
+    } catch (error) {
+        const summary = document.getElementById("projectLibrarySummary");
+        if (summary) summary.textContent = "Biblioteca indisponível no momento";
+    }
+}
+
+async function loadDailyEditorialGoal() {
+    try {
+        const response = await fetch("/api/editorial/daily-progress");
+        const payload = await parseJsonResponse(response, "Meta diária editorial");
+        if (!response.ok) throw new Error(payload.error || "Não foi possível carregar a meta diária");
+        renderDailyEditorialGoal(payload);
+    } catch (error) {
+        const text = document.getElementById("dailyEditorialText");
+        if (text) text.textContent = "A meta diária será atualizada quando houver decisões editoriais registradas.";
+    }
+}
+
+async function loadEditorialData() {
+    try {
+        const response = await fetch("/api/editorial/data");
+        const payload = await parseJsonResponse(response, "Dados editoriais");
+        if (!response.ok) throw new Error(payload.error || "Não foi possível verificar os dados editoriais");
+        renderEditorialData(payload);
+    } catch (error) {
+        const text = document.getElementById("editorialDataText");
+        const badge = document.getElementById("editorialDataBadge");
+        if (text) text.textContent = "A verificação local ficará disponível quando o servidor responder.";
+        if (badge) {
+            badge.textContent = "INDISPONÍVEL";
+            badge.classList.add("attention");
+        }
+    }
+}
+
+async function requestEditorialBackup() {
+    const button = document.getElementById("btnEditorialBackup");
+    if (button) button.disabled = true;
+    try {
+        const response = await fetch("/api/editorial/backup", { method: "POST" });
+        const payload = await parseJsonResponse(response, "Backup editorial");
+        if (!response.ok || !payload.success) throw new Error(payload.error || "Não foi possível criar o backup");
+        window.location.assign(`/api/editorial/backup/${encodeURIComponent(payload.filename)}`);
+        showToast(`Backup criado (${formatDataSize(payload.size_bytes)}). Guarde o arquivo fora da pasta do programa.`, "success");
+        renderEditorialData(payload.summary || {});
+    } catch (error) {
+        showToast(error.message || "Não foi possível criar o backup editorial", "error");
+    } finally {
+        if (button) button.disabled = false;
+    }
+}
+
+async function restoreEditorialBackup(event) {
+    const input = event.target;
+    const file = input?.files?.[0];
+    if (!file) return;
+    const confirmed = window.confirm(
+        "Restaurar substitui a base editorial atual. O Furia Clips criará um backup de segurança antes da troca. Continuar?"
+    );
+    if (!confirmed) {
+        input.value = "";
+        return;
+    }
+    const button = document.getElementById("btnEditorialRestore");
+    if (button) button.disabled = true;
+    try {
+        const formData = new FormData();
+        formData.append("backup", file);
+        const response = await fetch("/api/editorial/restore", { method: "POST", body: formData });
+        const payload = await parseJsonResponse(response, "Restauração editorial");
+        if (!response.ok || !payload.success) throw new Error(payload.error || "Não foi possível restaurar o backup");
+        renderEditorialData(payload.summary || {});
+        showToast("Dados editoriais restaurados. O backup anterior foi preservado automaticamente.", "success");
+        await loadOperationDashboard();
+    } catch (error) {
+        showToast(error.message || "Não foi possível restaurar o backup", "error");
+    } finally {
+        input.value = "";
+        if (button) button.disabled = false;
+    }
+}
+
 async function loadOperationDashboard() {
     try {
         const response = await fetch("/api/jobs?limit=12");
@@ -420,6 +603,9 @@ async function loadOperationDashboard() {
         state.operationJobs = Array.isArray(payload.jobs) ? payload.jobs : [];
         renderOperationDashboard();
         loadEditorialLearning();
+        loadEditorialData();
+        loadDailyEditorialGoal();
+        loadProjectLibrary();
         const active = state.operationJobs.find((job) => ["queued", "running", "cancel_requested"].includes(job.state));
         if (active) handleJobUpdate(active, { refreshDashboard: false });
     } catch (error) {
@@ -1184,6 +1370,10 @@ function renderResultsGrid() {
         const breakdown = clip.breakdown || {};
         const factors = clip.factors || {};
         const politicalType = clip.political_editorial_type || "";
+        const topicSignature = String(clip.topic_signature || "");
+        const diversityPenalty = Math.round(Number(clip.diversity_penalty || 0));
+        const closureType = String(clip.closure_type || "");
+        const closureLabels = { conclusion: "conclusão", closed_statement: "frase fechada", cliffhanger: "continuidade", open: "fecho a revisar" };
         const reviewStatus = reviewStatusOf(clip);
         const confidence = Math.round((clip.confidence || 0) * 100);
         const clipSource = clip.source || "nlp";
@@ -1225,6 +1415,9 @@ function renderResultsGrid() {
             </div>
             <div class="result-info">
                 ${politicalType ? `<div style="font-size:12px; color:#f59e0b; margin-bottom:6px"><span class="material-icons-round" style="font-size:14px; vertical-align:middle">account_balance</span> Formato editorial: ${escapeHtml(politicalType)}</div>` : ''}
+                ${topicSignature ? `<div class="clip-topic-chip" title="Sinal lexical usado somente para diversificar o portfólio">Tema: ${escapeHtml(topicSignature.replace(':', ' · ').replaceAll('-', ', '))}</div>` : ''}
+                ${closureType ? `<div class="clip-closure-chip ${escapeHtml(closureType)}"><span class="material-icons-round">${closureType === 'conclusion' ? 'task_alt' : closureType === 'cliffhanger' ? 'hourglass_top' : 'subtitles'}</span> ${escapeHtml(closureLabels[closureType] || closureType)}</div>` : ''}
+                ${diversityPenalty >= 20 ? `<div class="clip-diversity-note"><span class="material-icons-round">filter_list</span> Similaridade com outro corte: ${diversityPenalty}%</div>` : ''}
                 <div class="result-duration">
                     <span class="material-icons-round" style="font-size:14px">schedule</span>
                     ${formatTime(clip.start)} - ${formatTime(clip.end)} (${clip.duration.toFixed(1)}s)

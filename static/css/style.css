@@ -2301,3 +2301,332 @@ body {
 .editorial-learning.is-active { border-color: rgba(68,207,108,.36); background: linear-gradient(90deg, rgba(68,207,108,.09), rgba(255,215,0,.045)); }
 .editorial-learning.is-active > .material-icons-round { color: var(--success); background: rgba(68,207,108,.13); }
 .editorial-learning.is-active .editorial-learning-badge { color: var(--success); border-color: rgba(68,207,108,.36); background: rgba(68,207,108,.1); }
+
+
+/* Dados editoriais persistentes: sobrevivem à atualização do código. */
+.editorial-data-card {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 14px;
+    margin-top: 12px;
+    padding: 16px 18px;
+    border: 1px solid rgba(45, 212, 191, 0.32);
+    border-radius: 14px;
+    background: linear-gradient(120deg, rgba(15, 118, 110, 0.13), rgba(15, 23, 42, 0.72));
+}
+
+.editorial-data-card > .material-icons-round {
+    color: #5eead4;
+    font-size: 25px;
+}
+
+.editorial-data-copy {
+    min-width: 0;
+}
+
+.editorial-data-copy strong {
+    color: #ecfeff;
+    display: block;
+    font-size: 0.94rem;
+}
+
+.editorial-data-copy p {
+    color: var(--text-secondary);
+    margin: 3px 0 0;
+    font-size: 0.82rem;
+    line-height: 1.35;
+}
+
+.editorial-data-badge {
+    border: 1px solid rgba(94, 234, 212, 0.35);
+    border-radius: 999px;
+    color: #99f6e4;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 5px 9px;
+    white-space: nowrap;
+}
+
+.editorial-data-badge.attention {
+    border-color: rgba(251, 191, 36, 0.5);
+    color: #fcd34d;
+}
+
+.editorial-data-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.editorial-data-actions .btn {
+    white-space: nowrap;
+}
+
+@media (max-width: 760px) {
+    .editorial-data-card {
+        grid-template-columns: auto minmax(0, 1fr);
+    }
+
+    .editorial-data-badge,
+    .editorial-data-actions {
+        grid-column: 1 / -1;
+    }
+
+    .editorial-data-actions {
+        justify-content: stretch;
+    }
+
+    .editorial-data-actions .btn {
+        flex: 1;
+    }
+}
+
+
+/* Sinais transparentes de diversidade editorial nos cards de revisão. */
+.clip-topic-chip {
+    display: inline-flex;
+    max-width: 100%;
+    align-items: center;
+    margin: 0 0 7px;
+    padding: 4px 8px;
+    border: 1px solid rgba(96, 165, 250, 0.3);
+    border-radius: 999px;
+    background: rgba(59, 130, 246, 0.1);
+    color: #bfdbfe;
+    font-size: 10px;
+    line-height: 1.2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.clip-diversity-note {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin: 0 0 8px 7px;
+    color: #fcd34d;
+    font-size: 10px;
+}
+
+.clip-diversity-note .material-icons-round {
+    font-size: 13px;
+}
+
+
+/* Meta diária: aprovações efetivas, não apenas clips gerados. */
+.daily-editorial-goal {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 13px;
+    margin-top: 12px;
+    padding: 15px 17px;
+    border: 1px solid rgba(250, 204, 21, 0.3);
+    border-radius: 14px;
+    background: linear-gradient(115deg, rgba(202, 138, 4, 0.13), rgba(24, 24, 27, 0.84));
+}
+
+.daily-editorial-goal > .material-icons-round {
+    color: var(--gold);
+    font-size: 24px;
+}
+
+.daily-editorial-copy {
+    min-width: 0;
+}
+
+.daily-editorial-head {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 8px;
+    color: var(--text-primary);
+    font-size: 0.88rem;
+}
+
+.daily-editorial-head span {
+    color: #fde68a;
+    font-weight: 700;
+}
+
+.daily-editorial-copy p {
+    margin: 4px 0 9px;
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+}
+
+.daily-editorial-progress {
+    height: 7px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.daily-editorial-progress > div {
+    width: 0;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #f59e0b, #facc15);
+    box-shadow: 0 0 14px rgba(250, 204, 21, 0.35);
+    transition: width 0.35s ease;
+}
+
+.daily-editorial-badge {
+    border: 1px solid rgba(250, 204, 21, 0.4);
+    border-radius: 999px;
+    color: #fef08a;
+    font-size: 0.72rem;
+    font-weight: 800;
+    padding: 5px 9px;
+    white-space: nowrap;
+}
+
+.daily-editorial-goal.is-reached {
+    border-color: rgba(74, 222, 128, 0.45);
+    background: linear-gradient(115deg, rgba(22, 163, 74, 0.15), rgba(24, 24, 27, 0.84));
+}
+
+.daily-editorial-goal.is-reached .daily-editorial-badge {
+    border-color: rgba(74, 222, 128, 0.5);
+    color: #86efac;
+}
+
+@media (max-width: 640px) {
+    .daily-editorial-goal {
+        grid-template-columns: auto minmax(0, 1fr);
+    }
+
+    .daily-editorial-badge {
+        grid-column: 1 / -1;
+        justify-self: start;
+    }
+}
+
+
+/* Biblioteca visual de lives e decisões persistentes. */
+.project-library {
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+}
+
+.project-library-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.project-library-head h4 {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    color: var(--text-primary);
+    font-size: 0.88rem;
+}
+
+.project-library-head h4 .material-icons-round {
+    color: var(--gold);
+    font-size: 18px;
+}
+
+.project-library-head > span {
+    color: var(--text-muted);
+    font-size: 0.72rem;
+}
+
+.project-library-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 10px;
+}
+
+.project-library-item {
+    min-width: 0;
+    padding: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 11px;
+    background: rgba(255, 255, 255, 0.025);
+}
+
+.project-library-name {
+    overflow: hidden;
+    color: var(--text-primary);
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.project-library-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    margin-top: 8px;
+    color: var(--text-secondary);
+    font-size: 0.7rem;
+}
+
+.project-library-meta b {
+    color: #86efac;
+    font-weight: 700;
+}
+
+.project-library-status {
+    display: inline-flex;
+    width: fit-content;
+    margin-top: 8px;
+    padding: 3px 7px;
+    border-radius: 999px;
+    background: rgba(59, 130, 246, 0.12);
+    color: #bfdbfe;
+    font-size: 0.64rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.project-library-empty {
+    grid-column: 1 / -1;
+    padding: 13px;
+    border: 1px dashed var(--border-light);
+    border-radius: 10px;
+    color: var(--text-muted);
+    font-size: 0.77rem;
+    text-align: center;
+}
+
+
+.clip-closure-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    margin: 0 0 7px 6px;
+    padding: 4px 7px;
+    border: 1px solid rgba(203, 213, 225, 0.24);
+    border-radius: 999px;
+    color: #cbd5e1;
+    font-size: 10px;
+    line-height: 1.2;
+}
+
+.clip-closure-chip .material-icons-round {
+    font-size: 12px;
+}
+
+.clip-closure-chip.conclusion {
+    border-color: rgba(74, 222, 128, 0.42);
+    background: rgba(34, 197, 94, 0.1);
+    color: #86efac;
+}
+
+.clip-closure-chip.cliffhanger,
+.clip-closure-chip.open {
+    border-color: rgba(251, 191, 36, 0.42);
+    background: rgba(245, 158, 11, 0.1);
+    color: #fcd34d;
+}

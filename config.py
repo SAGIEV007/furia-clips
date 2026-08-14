@@ -1,5 +1,7 @@
-import os
 import json
+import os
+import sqlite3
+from datetime import datetime, timezone
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 WORKSPACE_DIR = os.path.join(BASE_DIR, "workspace")
@@ -7,11 +9,118 @@ UPLOAD_DIR = os.path.join(WORKSPACE_DIR, "uploads")
 PROCESSED_DIR = os.path.join(WORKSPACE_DIR, "processed")
 EXPORT_DIR = os.path.join(WORKSPACE_DIR, "exports")
 THUMBNAIL_DIR = os.path.join(WORKSPACE_DIR, "thumbnails")
-DATA_DIR = os.path.join(BASE_DIR, "data")
-DB_PATH = os.path.join(DATA_DIR, "furia_clips.db")
 
-for d in [WORKSPACE_DIR, UPLOAD_DIR, PROCESSED_DIR, EXPORT_DIR, THUMBNAIL_DIR, DATA_DIR]:
-    os.makedirs(d, exist_ok=True)
+# Dados editoriais pertencem ao usuário, não ao checkout do GitHub. Assim, uma
+# atualização que substitua a pasta do programa não apaga decisões, projetos,
+# transcrições, calibração ou fila persistente. A variável permite que equipes
+# usem outro disco, OneDrive ou um diretório compartilhado deliberadamente.
+PERSISTENT_DATA_SCHEMA_VERSION = 1
+LEGACY_DATA_DIR = os.path.join(BASE_DIR, "data")
+LEGACY_DB_PATH = os.path.join(LEGACY_DATA_DIR, "furia_clips.db")
+
+
+def _resolve_persistent_data_dir():
+    configured = str(os.environ.get("FURIA_CLIPS_DATA_DIR", "") or "").strip()
+    if configured:
+        return os.path.abspath(os.path.expanduser(configured))
+    return os.path.join(os.path.expanduser("~"), "FuriaClipsData")
+
+
+PERSISTENT_DATA_DIR = _resolve_persistent_data_dir()
+PERSISTENT_DATABASE_DIR = os.path.join(PERSISTENT_DATA_DIR, "database")
+PERSISTENT_PROJECTS_DIR = os.path.join(PERSISTENT_DATA_DIR, "projects")
+PERSISTENT_TRANSCRIPTS_DIR = os.path.join(PERSISTENT_DATA_DIR, "transcripts")
+PERSISTENT_ANALYSES_DIR = os.path.join(PERSISTENT_DATA_DIR, "analyses")
+PERSISTENT_DECISIONS_DIR = os.path.join(PERSISTENT_DATA_DIR, "clip_decisions")
+PERSISTENT_EXPORTS_DIR = os.path.join(PERSISTENT_DATA_DIR, "exports")
+PERSISTENT_BACKUPS_DIR = os.path.join(PERSISTENT_DATA_DIR, "backups")
+PERSISTENT_MEDIA_INDEX_DIR = os.path.join(PERSISTENT_DATA_DIR, "media_index")
+PERSISTENT_SCHEMA_PATH = os.path.join(PERSISTENT_DATA_DIR, "schema_version.json")
+
+# Mantém DATA_DIR como alias de compatibilidade para os módulos existentes.
+DATA_DIR = PERSISTENT_DATABASE_DIR
+DB_PATH = os.path.join(PERSISTENT_DATABASE_DIR, "editorial_learning.sqlite3")
+
+
+def _sqlite_snapshot(source_path, destination_path):
+    """Create a consistent SQLite copy, including changes held in WAL mode."""
+    source = sqlite3.connect(source_path)
+    destination = sqlite3.connect(destination_path)
+    try:
+        source.backup(destination)
+    finally:
+        destination.close()
+        source.close()
+
+
+def _write_persistent_schema_metadata(migrated_from=None):
+    metadata = {
+        "schema_version": PERSISTENT_DATA_SCHEMA_VERSION,
+        "data_dir": PERSISTENT_DATA_DIR,
+        "database": os.path.basename(DB_PATH),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    if migrated_from:
+        metadata["migrated_from"] = migrated_from
+    elif os.path.isfile(PERSISTENT_SCHEMA_PATH):
+        try:
+            with open(PERSISTENT_SCHEMA_PATH, "r", encoding="utf-8") as handle:
+                previous = json.load(handle)
+            metadata["created_at"] = previous.get("created_at")
+            metadata["migrated_from"] = previous.get("migrated_from")
+        except (OSError, ValueError, TypeError):
+            pass
+    metadata["created_at"] = metadata.get("created_at") or metadata["updated_at"]
+    with open(PERSISTENT_SCHEMA_PATH, "w", encoding="utf-8") as handle:
+        json.dump(metadata, handle, ensure_ascii=False, indent=2)
+
+
+def _ensure_persistent_data_layout():
+    directories = [
+        WORKSPACE_DIR,
+        UPLOAD_DIR,
+        PROCESSED_DIR,
+        EXPORT_DIR,
+        THUMBNAIL_DIR,
+        PERSISTENT_DATA_DIR,
+        PERSISTENT_DATABASE_DIR,
+        PERSISTENT_PROJECTS_DIR,
+        PERSISTENT_TRANSCRIPTS_DIR,
+        PERSISTENT_ANALYSES_DIR,
+        PERSISTENT_DECISIONS_DIR,
+        PERSISTENT_EXPORTS_DIR,
+        PERSISTENT_BACKUPS_DIR,
+        PERSISTENT_MEDIA_INDEX_DIR,
+    ]
+    for directory in directories:
+        os.makedirs(directory, exist_ok=True)
+
+    # Migra uma instalação anterior sem destruir a cópia existente dentro do
+    # repositório. O snapshot preserva alterações ainda presentes no WAL.
+    if not os.path.exists(DB_PATH) and os.path.isfile(LEGACY_DB_PATH):
+        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        migration_snapshot = os.path.join(PERSISTENT_BACKUPS_DIR, f"legacy-furia-clips-{timestamp}.sqlite3")
+        _sqlite_snapshot(LEGACY_DB_PATH, DB_PATH)
+        _sqlite_snapshot(LEGACY_DB_PATH, migration_snapshot)
+        _write_persistent_schema_metadata(migrated_from=LEGACY_DB_PATH)
+    else:
+        _write_persistent_schema_metadata()
+
+
+def get_persistent_data_status():
+    """Expose non-sensitive storage health for the UI and support diagnostics."""
+    return {
+        "data_dir": PERSISTENT_DATA_DIR,
+        "database_path": DB_PATH,
+        "backup_dir": PERSISTENT_BACKUPS_DIR,
+        "database_exists": os.path.isfile(DB_PATH),
+        "legacy_database_detected": os.path.isfile(LEGACY_DB_PATH),
+        "using_custom_data_dir": bool(str(os.environ.get("FURIA_CLIPS_DATA_DIR", "") or "").strip()),
+        "schema_version": PERSISTENT_DATA_SCHEMA_VERSION,
+    }
+
+
+_ensure_persistent_data_layout()
 
 DEFAULT_SETTINGS = {
     "whisper_model": "small",
