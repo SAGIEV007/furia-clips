@@ -1426,6 +1426,16 @@ function renderResultsGrid() {
                     <span class="material-icons-round" style="font-size:14px">schedule</span>
                     ${formatTime(clip.start)} - ${formatTime(clip.end)} (${clip.duration.toFixed(1)}s)
                 </div>
+                <button class="btn btn-sm btn-boundary-toggle" onclick="toggleBoundaryEditor(${originalIndex})"><span class="material-icons-round">tune</span> Ajustar entrada/saída</button>
+                <div class="clip-boundary-editor" id="boundary-editor-${originalIndex}" hidden>
+                    <div class="clip-boundary-fields">
+                        <label>Entrada <input type="number" min="0" step="0.1" data-boundary-start="${originalIndex}" value="${Number(clip.start || 0).toFixed(1)}"></label>
+                        <label>Saída <input type="number" min="0" step="0.1" data-boundary-end="${originalIndex}" value="${Number(clip.end || 0).toFixed(1)}"></label>
+                        <button class="btn btn-sm btn-primary" onclick="previewClipBoundary(${originalIndex})"><span class="material-icons-round">preview</span> Pré-visualizar</button>
+                    </div>
+                    <small>O ajuste é não destrutivo: apenas atualiza a prévia deste candidato e nunca sobrescreve o vídeo original.</small>
+                    <div class="clip-boundary-feedback" id="boundary-feedback-${originalIndex}" aria-live="polite"></div>
+                </div>
                 <div class="review-format-chip" title="${escapeHtml(layoutMeta.hint)}"><span class="material-icons-round">${escapeHtml(layoutMeta.icon)}</span>${escapeHtml(layoutMeta.label)}</div>
                 <div class="clip-storyline" aria-label="Jornada editorial do corte">
                     <div class="clip-storyline-header"><span>Jornada editorial</span><span>${clip.has_hook ? "gancho identificado" : "abertura a revisar"}</span></div>
@@ -1520,6 +1530,49 @@ function renderResultsGrid() {
 
     if (clips.length === 0) {
         grid.innerHTML = `<div class="review-empty-state"><span class="material-icons-round">filter_alt_off</span><strong>Nenhum corte nesta fila</strong><p>Altere o filtro para revisar os outros candidatos.</p></div>`;
+    }
+}
+
+function toggleBoundaryEditor(index) {
+    const editor = document.getElementById(`boundary-editor-${index}`);
+    if (!editor) return;
+    editor.hidden = !editor.hidden;
+}
+
+async function previewClipBoundary(index) {
+    const clip = state.clips[index];
+    if (!clip) return;
+    const startInput = document.querySelector(`[data-boundary-start="${index}"]`);
+    const endInput = document.querySelector(`[data-boundary-end="${index}"]`);
+    const feedback = document.getElementById(`boundary-feedback-${index}`);
+    const start = Number(startInput?.value);
+    const end = Number(endInput?.value);
+    if (!Number.isFinite(start) || !Number.isFinite(end)) {
+        if (feedback) feedback.textContent = "Informe entrada e saída válidas.";
+        return;
+    }
+    if (feedback) feedback.textContent = "Calculando limites seguros...";
+    try {
+        const response = await fetch("/api/clips/adjust", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                clip,
+                start,
+                end,
+                duration: clip.source_duration || clip.video_duration || null,
+                transcript_segments: clip.transcript_segments || clip.segments || [],
+            }),
+        });
+        const data = await parseJsonResponse(response, "Ajuste de limites");
+        if (!response.ok || data.error) throw new Error(data.error || "Não foi possível ajustar os limites");
+        state.clips[index] = { ...clip, ...data.clip };
+        renderReviewCommandCenter();
+        renderResultsGrid();
+        showToast("Limites atualizados na prévia do candidato.", "success");
+    } catch (error) {
+        if (feedback) feedback.textContent = error.message;
+        showToast(error.message, "error");
     }
 }
 

@@ -2654,3 +2654,56 @@ body {
     background: rgba(245, 158, 11, 0.1);
     color: #fcd34d;
 }
+
+.btn-boundary-toggle {
+    margin: 8px 0;
+    border-color: rgba(255, 215, 0, 0.35);
+    color: var(--gold-light);
+}
+
+.clip-boundary-editor {
+    margin: 0 0 12px;
+    padding: 10px;
+    border: 1px solid rgba(255, 215, 0, 0.2);
+    border-radius: var(--radius-sm);
+    background: rgba(255, 215, 0, 0.04);
+}
+
+.clip-boundary-fields {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: 8px;
+}
+
+.clip-boundary-fields label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    color: var(--text-secondary);
+    font-size: 10px;
+    font-weight: 600;
+}
+
+.clip-boundary-fields input {
+    width: 88px;
+    padding: 6px 8px;
+    border: 1px solid var(--border-light);
+    border-radius: 6px;
+    background: var(--bg-input);
+    color: var(--text-primary);
+    font: inherit;
+}
+
+.clip-boundary-editor small,
+.clip-boundary-feedback {
+    display: block;
+    margin-top: 8px;
+    color: var(--text-muted);
+    font-size: 10px;
+    line-height: 1.4;
+}
+
+.clip-boundary-feedback {
+    color: var(--gold-light);
+}
