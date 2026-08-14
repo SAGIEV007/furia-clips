@@ -471,10 +471,17 @@ function renderEditorialLearning(calibration = {}) {
     if (!panel || !title || !text || !badge) return;
     const sample = Number(calibration.sample_size || 0);
     const minimum = Number(calibration.minimum_sample_size || 12);
+    const approved = Number(calibration.approved_count || 0);
+    const rejected = Number(calibration.rejected_count || 0);
+    const durationSignal = calibration.duration_signal || {};
+    const durationGap = Number(durationSignal.gap_seconds || 0);
     panel.classList.toggle("is-active", Boolean(calibration.eligible));
     if (calibration.eligible) {
         title.textContent = "Calibração editorial ativa";
-        text.textContent = `${sample} decisões finais já ajudam a ajustar o ranking de forma limitada e explicável.`;
+        const durationNote = durationSignal.usable && Math.abs(durationGap) >= 0.1
+            ? ` A amostra indica preferência por cortes ${durationGap > 0 ? 'mais curtos' : 'mais longos'} em ${Math.abs(durationGap).toFixed(1)}s, como sinal fraco.`
+            : " A duração continua sendo apenas uma preferência contextual.";
+        text.textContent = `${sample} decisões finais (${approved} aprovadas e ${rejected} rejeitadas) ajustam o ranking de forma limitada e explicável.${durationNote}`;
         badge.textContent = "ATIVA";
     } else {
         const remaining = Math.max(0, minimum - sample);
@@ -1579,6 +1586,11 @@ function renderResultsGrid() {
         const campaignPriorAvailable = Boolean(campaignPrior.available || reviewFlags.campaign_hub_prior_available);
         const campaignHookFamily = String(campaignPrior.hook_family || reviewFlags.campaign_hub_hook_family || "").trim();
         const campaignSampleCount = Number(campaignPrior.sample_count || reviewFlags.campaign_hub_sample_count || 0);
+        const feedbackCalibration = clip.feedback_calibration || {};
+        const feedbackDurationSignal = feedbackCalibration.duration_signal || {};
+        const feedbackCalibrationAvailable = Boolean(feedbackCalibration.eligible || reviewFlags.feedback_calibration_eligible);
+        const feedbackSampleSize = Number(feedbackCalibration.sample_size || reviewFlags.feedback_sample_size || 0);
+        const feedbackDurationGap = Number(feedbackDurationSignal.gap_seconds ?? reviewFlags.feedback_duration_gap_seconds ?? 0);
         const reviewStatus = reviewStatusOf(clip);
         const reviewMeta = reviewStatusMeta(reviewStatus);
         const confidence = Math.round((clip.confidence || 0) * 100);
@@ -1633,6 +1645,7 @@ function renderResultsGrid() {
                 ${clip.visual_observation ? `<div class="clip-visual-observation"><span class="material-icons-round">visibility</span><span><b>Evidência visual:</b> ${escapeHtml(String(clip.visual_observation))}${Number.isFinite(Number(clip.visual_observation_confidence)) ? ` · ${Math.round(Math.max(0, Math.min(1, Number(clip.visual_observation_confidence))) * 100)}% de confiança` : ''}</span></div>` : ''}
                 ${chapterCount > 0 ? `<div class="clip-chapter-note ${chapterScore < 60 ? 'warning' : ''}"><span class="material-icons-round">account_tree</span><span><b>Contexto temporal:</b> ${chapterCount} capítulo(s)${Number.isFinite(chapterScore) ? ` · coerência ${Math.round(Math.max(0, Math.min(100, chapterScore)))}%` : ''}${chapterBridge ? ' · ponte pergunta–resposta preservada' : chapterCount > 1 ? ' · atravessa capítulos; revisar continuidade' : ' · dentro do mesmo bloco'}</span></div>` : ''}
                 ${campaignPriorAvailable ? `<div class="clip-performance-prior"><span class="material-icons-round">insights</span><span><b>Histórico observado:</b> hook ${escapeHtml(campaignHookFamily || 'não classificado')} · amostra ${Math.max(0, campaignSampleCount)} · influência limitada ao ranking</span></div>` : ''}
+                ${feedbackCalibrationAvailable ? `<div class="clip-feedback-prior"><span class="material-icons-round">tune</span><span><b>Feedback editorial aplicado:</b> ${Math.max(0, feedbackSampleSize)} decisões finais${Math.abs(feedbackDurationGap) >= 0.1 ? ` · aprovados ${feedbackDurationGap > 0 ? 'tendem a ser mais curtos' : 'tiveram duração média maior'} em ${Math.abs(feedbackDurationGap).toFixed(1)}s` : ''} · influência limitada</span></div>` : ''}
                 ${(needsFactReview || needsLegalReview) ? `<div class="clip-review-risk ${needsLegalReview ? 'legal' : ''}"><span class="material-icons-round">${needsLegalReview ? 'gavel' : 'fact_check'}</span> ${needsLegalReview ? 'Revisão factual e jurídica' : 'Revisão factual recomendada'}</div>` : ''}
                 ${topicSignature ? `<div class="clip-topic-chip" title="Sinal lexical usado somente para diversificar o portfólio">Tema: ${escapeHtml(topicSignature.replace(':', ' · ').replaceAll('-', ', '))}</div>` : ''}
                 ${durationStatus ? `<div class="clip-duration-policy ${durationMeta.className}" title="${escapeHtml(String(durationPreference.reason || durationMeta.hint))}"><span class="material-icons-round">${durationMeta.icon}</span><span><b>${escapeHtml(durationMeta.label)}</b>${Number.isFinite(durationFit) ? ` · brevidade ${Math.round(Math.max(0, Math.min(100, durationFit)))}%` : ''}${durationException ? ' · contexto excepcional preservado' : ''}</span></div>` : ''}
