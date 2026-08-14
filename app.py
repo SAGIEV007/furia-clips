@@ -80,7 +80,7 @@ from modules.source_ingest import (
 from modules.job_manager import JobManager, JobCancelled
 from modules.cancellation import OperationCancelled
 from modules.batch_queue import build_manifest
-from modules.render_presets import list_presets
+from modules.render_presets import get_preset, list_presets
 from modules.persistent_data import (
     PersistentDataError,
     create_editorial_backup,
@@ -1356,6 +1356,7 @@ def api_cut_shorts():
             # Step 5: Cut clips with confidence-gated speaker framing
             emit_progress("=== ETAPA 5/5: Cortando Clips ===", "info")
             from modules.video_cutter import VideoCutter
+            from modules.layout_planner import plan_layout
             cutter = VideoCutter(
                 method="intelligent",
                 target_duration=settings.get("cut_duration", 45),
@@ -1365,6 +1366,8 @@ def api_cut_shorts():
             face_positions_map = {}
             original_aspect_indices = set()
             framing_by_index = {}
+            layout_plans = {}
+            target_aspect = get_preset(settings.get("render_preset", "shorts"))["aspect"]
             if tracker and video_layout not in {"debate", "unknown", "fullscreen"}:
                 try:
                     emit_progress("[Layout] Detectando o locutor para enquadramento automático...", "info")
@@ -1373,28 +1376,54 @@ def api_cut_shorts():
                         start = float(clip.get("start", 0))
                         end = float(clip.get("end", start))
                         assessment = tracker.assess_segment_tracking(all_face_positions, start, end)
-                        if assessment.get("confident"):
-                            face_positions_map[index] = assessment["positions"]
-                            framing_by_index[index] = {
-                                "mode": "reframe_9_16",
-                                "reason": "locutor estável identificado com confiança",
-                            }
-                            emit_progress(f"[Layout] Clip {index + 1}: locutor estável; reframe 9:16 ativado.", "success")
+                        layout_plan = plan_layout(
+                            detected_layout=video_layout,
+                            tracking_assessment=assessment,
+                            target_aspect=target_aspect,
+                        )
+                        layout_plans[index] = layout_plan
+                        framing_mode = "reframe_9_16" if layout_plan.get("reframe_allowed") else "original"
+                        framing_by_index[index] = {
+                            "mode": framing_mode,
+                            "reason": layout_plan["reason"],
+                            "layout_family": layout_plan["layout_family"],
+                            "confidence": layout_plan["confidence"],
+                            "review_required": layout_plan["review_required"],
+                        }
+                        if layout_plan.get("reframe_allowed"):
+                            face_positions_map[index] = assessment.get("positions", [])
+                            emit_progress(f"[Layout] Clip {index + 1}: {layout_plan['reason']} Reframe {target_aspect} ativado.", "success")
                         else:
-                            reason = assessment.get("reason", "confiança insuficiente para rastrear o locutor")
                             original_aspect_indices.add(index)
-                            framing_by_index[index] = {"mode": "original", "reason": reason}
-                            emit_progress(f"[Layout] Clip {index + 1}: {reason}; mantendo 16:9.", "info")
+                            emit_progress(f"[Layout] Clip {index + 1}: {layout_plan['reason']}", "info")
                 except Exception as exc:
                     original_aspect_indices.update(range(len(top_clips)))
                     reason = f"rastreamento indisponível: {str(exc)[:180]}"
-                    framing_by_index.update({index: {"mode": "original", "reason": reason} for index in range(len(top_clips))})
+                    for index in range(len(top_clips)):
+                        layout_plan = plan_layout(detected_layout="unknown", target_aspect=target_aspect)
+                        layout_plans[index] = {**layout_plan, "reason": reason, "reason_code": "tracking_unavailable"}
+                        framing_by_index[index] = {
+                            "mode": "original",
+                            "reason": reason,
+                            "layout_family": layout_plan["layout_family"],
+                            "confidence": layout_plan["confidence"],
+                            "review_required": True,
+                        }
                     emit_progress(f"[Layout] Rastreamento não disponível: {str(exc)[:180]}. Mantendo 16:9.", "warning")
             else:
-                original_aspect_indices.update(range(len(top_clips)))
                 reason = "múltiplos locutores ou layout sem segurança para reframe"
-                framing_by_index.update({index: {"mode": "original", "reason": reason} for index in range(len(top_clips))})
-                emit_progress("[Layout] Entrevista com múltiplos locutores ou layout indefinido; mantendo o original 16:9.", "info")
+                for index in range(len(top_clips)):
+                    layout_plan = plan_layout(detected_layout=video_layout, target_aspect=target_aspect)
+                    layout_plans[index] = layout_plan
+                    original_aspect_indices.add(index)
+                    framing_by_index[index] = {
+                        "mode": "original",
+                        "reason": layout_plan["reason"] or reason,
+                        "layout_family": layout_plan["layout_family"],
+                        "confidence": layout_plan["confidence"],
+                        "review_required": layout_plan["review_required"],
+                    }
+                emit_progress("[Layout] Composição ambígua ou multi-sujeito; preservando o quadro original.", "info")
 
             project_name = os.path.splitext(os.path.basename(video_path))[0]
             output_dir = settings.get("output_dir", "") or ""
@@ -1406,6 +1435,7 @@ def api_cut_shorts():
                 emit_progress=emit_progress,
                 output_dir=output_dir if output_dir else None,
                 video_layout=video_layout,
+                layout_plans=layout_plans,
             )
 
             # Persist rendered clips so review decisions can calibrate future ranking.
@@ -1905,6 +1935,7 @@ def api_process_complete():
             emit_progress("━━━ ETAPA 4/6: Ranqueando e Cortando ━━━", "info")
             from modules.viral_ranker import ViralRanker
             from modules.video_cutter import VideoCutter
+            from modules.layout_planner import plan_layout
 
             ranker = ViralRanker(
                 channel_context=settings.get("channel_context", ""),
@@ -1930,6 +1961,7 @@ def api_process_complete():
             face_positions_map = {}
             original_aspect_indices = set()
             framing_by_index = {}
+            layout_plans = {}
             try:
                 from modules.face_tracker import FaceTracker
                 tracker = FaceTracker()
@@ -1940,6 +1972,7 @@ def api_process_complete():
             except Exception as exc:
                 emit_progress(f"Face tracking indisponível: {str(exc)}", "warning")
 
+            target_aspect = get_preset(settings.get("render_preset", "shorts"))["aspect"]
             if tracker and video_layout not in {"debate", "unknown", "fullscreen"}:
                 try:
                     emit_progress("[Layout] Avaliando estabilidade do locutor para reframe...", "info")
@@ -1947,26 +1980,50 @@ def api_process_complete():
                     all_faces = tracker.detect_faces_in_video(video_path, sample_interval=2.0, emit_progress=emit_progress)
                     for index, clip in enumerate(top_clips):
                         assessment = tracker.assess_segment_tracking(all_faces, clip["start"], clip["end"])
-                        if assessment.get("confident"):
-                            face_positions_map[index] = assessment["positions"]
-                            framing_by_index[index] = {
-                                "mode": "reframe_9_16",
-                                "reason": "locutor estável identificado com confiança",
-                            }
+                        layout_plan = plan_layout(
+                            detected_layout=video_layout,
+                            tracking_assessment=assessment,
+                            target_aspect=target_aspect,
+                        )
+                        layout_plans[index] = layout_plan
+                        framing_by_index[index] = {
+                            "mode": "reframe_9_16" if layout_plan.get("reframe_allowed") else "original",
+                            "reason": layout_plan["reason"],
+                            "layout_family": layout_plan["layout_family"],
+                            "confidence": layout_plan["confidence"],
+                            "review_required": layout_plan["review_required"],
+                        }
+                        if layout_plan.get("reframe_allowed"):
+                            face_positions_map[index] = assessment.get("positions", [])
                         else:
-                            reason = assessment.get("reason", "confiança insuficiente para rastrear o locutor")
                             original_aspect_indices.add(index)
-                            framing_by_index[index] = {"mode": "original", "reason": reason}
                     ctx.check_cancel()
                 except Exception as exc:
                     original_aspect_indices.update(range(len(top_clips)))
                     reason = f"rastreamento indisponível: {str(exc)[:180]}"
-                    framing_by_index.update({index: {"mode": "original", "reason": reason} for index in range(len(top_clips))})
+                    for index in range(len(top_clips)):
+                        layout_plan = plan_layout(detected_layout="unknown", target_aspect=target_aspect)
+                        layout_plans[index] = {**layout_plan, "reason": reason, "reason_code": "tracking_unavailable"}
+                        framing_by_index[index] = {
+                            "mode": "original",
+                            "reason": reason,
+                            "layout_family": layout_plan["layout_family"],
+                            "confidence": layout_plan["confidence"],
+                            "review_required": True,
+                        }
                     emit_progress(f"[Layout] {reason}; mantendo o quadro original.", "warning")
             else:
-                original_aspect_indices.update(range(len(top_clips)))
-                reason = "múltiplos locutores ou layout sem segurança para reframe"
-                framing_by_index.update({index: {"mode": "original", "reason": reason} for index in range(len(top_clips))})
+                for index in range(len(top_clips)):
+                    layout_plan = plan_layout(detected_layout=video_layout, target_aspect=target_aspect)
+                    layout_plans[index] = layout_plan
+                    original_aspect_indices.add(index)
+                    framing_by_index[index] = {
+                        "mode": "original",
+                        "reason": layout_plan["reason"],
+                        "layout_family": layout_plan["layout_family"],
+                        "confidence": layout_plan["confidence"],
+                        "review_required": layout_plan["review_required"],
+                    }
                 emit_progress("[Layout] Composição preservada: múltiplos locutores ou layout ambíguo.", "info")
 
             output_dir = settings.get("output_dir", "") or ""
@@ -1978,6 +2035,7 @@ def api_process_complete():
                 emit_progress=emit_progress,
                 output_dir=output_dir if output_dir else None,
                 video_layout=video_layout,
+                layout_plans=layout_plans,
             )
             ctx.update(stage="rendering", progress=72, message=f"{len(results)} clips renderizados")
             ctx.check_cancel()
