@@ -153,3 +153,29 @@ def test_restore_rejects_non_editorial_zip(monkeypatch, tmp_path):
     import pytest
     with pytest.raises(persistent_data.PersistentDataError):
         persistent_data.restore_editorial_backup(str(invalid))
+
+
+def test_manual_editorial_zip_without_manifest_is_imported_safely(monkeypatch, tmp_path):
+    import modules.persistent_data as persistent_data
+    import zipfile
+
+    root, db_path, backup_dir = _configure_persistent_module(monkeypatch, tmp_path)
+    db_path.parent.mkdir(parents=True)
+    source_db = tmp_path / "manual-source.sqlite3"
+    _create_editorial_schema(str(source_db), "Importação manual")
+    transcript_dir = root / "manual-transcripts"
+    transcript_dir.mkdir(parents=True)
+    archive_path = backup_dir / "manual-export.zip"
+    backup_dir.mkdir(parents=True)
+    with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        archive.write(source_db, "database/editorial_learning.sqlite3")
+        archive.writestr("transcripts/manual/transcript.txt", "00:00:00.000 decisão preservada\n")
+        archive.writestr("transcripts/manual/metadata.json", '{"source":"manual"}')
+
+    restored = persistent_data.restore_editorial_backup(str(archive_path))
+
+    assert restored["restored"] is True
+    assert restored["backup_kind"] == "manual_import"
+    with sqlite3.connect(db_path) as connection:
+        assert connection.execute("SELECT name FROM projects").fetchone()[0] == "Importação manual"
+    assert (root / "transcripts" / "manual" / "transcript.txt").exists()
