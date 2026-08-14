@@ -166,6 +166,7 @@ function handleStatusUpdate(data) {
             break;
         case "cut_complete":
             hideProgressBar();
+            updateWorkspaceWorkflow("review", "Revisão pronta");
             state.selectionSource = data.data.selection_source || "nlp";
             state.outputFolder = data.data.output_folder || "";
             showToast(`${data.data.clips.length} clips gerados e ranqueados!`, "success");
@@ -192,6 +193,7 @@ function handleStatusUpdate(data) {
             break;
         case "complete_done":
             hideProgressBar();
+            updateWorkspaceWorkflow("review", "Revisão pronta");
             state.outputFolder = data.data.output_dir || "";
             showToast(`Processo completo! ${data.data.total_clips} clips gerados e ranqueados.`, "success");
             displayResults(data.data.clips, data.data.video_layout || null);
@@ -200,11 +202,13 @@ function handleStatusUpdate(data) {
             break;
         case "cancelled":
             hideProgressBar();
+            updateWorkspaceWorkflow("source", "Operação pausada");
             showToast(data.data?.message || "Operação cancelada.", "warning");
             addConsoleLog("[Sistema] Operação cancelada com segurança.", "warning");
             break;
         case "error":
             hideProgressBar();
+            updateWorkspaceWorkflow("source", "Atenção necessária");
             showToast(data.data.message || "Erro no processamento", "error");
             break;
     }
@@ -252,12 +256,29 @@ function hideProcessingControls() {
     if (button) button.disabled = false;
 }
 
+function updateWorkspaceWorkflow(stage = "source", stateLabel = "") {
+    const order = ["source", "analysis", "review", "learning"];
+    const index = Math.max(0, order.indexOf(stage));
+    document.querySelectorAll(".workflow-step").forEach((step, stepIndex) => {
+        step.classList.toggle("active", stepIndex === index);
+        step.classList.toggle("complete", stepIndex < index);
+    });
+    const state = document.getElementById("workspaceState");
+    if (state) {
+        const label = state.querySelector("span:last-child");
+        if (label && stateLabel) label.textContent = stateLabel;
+        state.classList.toggle("is-busy", stage === "analysis");
+        state.classList.toggle("is-review", stage === "review");
+    }
+}
+
 function resetProcessingJourney() {
     document.querySelectorAll("[data-process-step]").forEach((step) => {
         step.classList.remove("active", "complete", "error");
     });
     const source = document.querySelector('[data-process-step="source"]');
     if (source) source.classList.add("active");
+    updateWorkspaceWorkflow("source", "Pronto para analisar");
 }
 
 function updateProcessingJourney(message = "", level = "info") {
@@ -274,6 +295,8 @@ function updateProcessingJourney(message = "", level = "info") {
     if (!current) return;
 
     const currentIndex = stages.indexOf(current);
+    const workspaceStage = current === "source" ? "source" : "analysis";
+    updateWorkspaceWorkflow(workspaceStage, current === "source" ? "Preparando fonte" : "Analisando contexto");
     stages.forEach((stage, index) => {
         const element = document.querySelector(`[data-process-step="${stage}"]`);
         if (!element) return;
@@ -453,11 +476,11 @@ function renderEditorialData(data = {}) {
     badge.classList.toggle("attention", !healthy);
     if (healthy) {
         title.textContent = "Dados editoriais protegidos fora do programa";
-        text.textContent = `${Number(data.projects || 0)} projeto(s), ${Number(data.clips || 0)} clip(s) e ${Number(data.feedback_events || 0)} decisão(ões) ficam preservados mesmo ao atualizar a pasta do GitHub.`;
+        text.textContent = `${Number(data.projects || 0)} projeto(s), ${Number(data.clips || 0)} clip(s) e ${Number(data.feedback_events || 0)} aprovação(ões)/rejeição(ões) ficam preservados fora do GitHub; o ZIP também inclui transcrições e ajustes.`;
         badge.textContent = "ÍNTEGRO";
     } else if (pending) {
         title.textContent = "Base editorial pronta para o primeiro projeto";
-        text.textContent = "As próximas decisões serão salvas em uma pasta de dados separada do código. Faça um backup após sua primeira revisão.";
+        text.textContent = "As próximas aprovações/rejeições serão salvas fora do código. O backup ZIP inclui decisões, transcrições e ajustes; crie um após sua primeira revisão.";
         badge.textContent = "PRONTO";
     } else {
         title.textContent = "Dados editoriais exigem atenção";
@@ -1036,6 +1059,7 @@ document.getElementById("actionCut").querySelector(".btn-action").addEventListen
             face_tracking: true,
             user_context: userContext,
             video_genre: videoGenre,
+            transcription_source: document.getElementById("settingTranscriptionSource")?.value || "auto",
             ...(state.manualTranscript ? {
                 transcript_segments: state.manualTranscript.segments,
                 transcript_language: state.manualTranscript.language || "pt",
@@ -1050,8 +1074,9 @@ document.getElementById("actionCut").querySelector(".btn-action").addEventListen
     }
 });
 
-document.getElementById("actionSeo").querySelector(".btn-action").addEventListener("click", async () => {
-    showToast("Use o 'Processo Completo' ou gere SEO a partir de um clip nos resultados", "info");
+document.getElementById("actionArtwork")?.querySelector(".btn-action")?.addEventListener("click", () => {
+    document.getElementById("headlineStudioSection")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    document.getElementById("artworkTranscriptInput")?.focus({ preventScroll: true });
 });
 
 document.getElementById("actionThumbnail").querySelector(".btn-action").addEventListener("click", () => {
@@ -1074,6 +1099,7 @@ document.getElementById("actionComplete").querySelector(".btn-action").addEventL
             output_dir: state.outputDir || "",
             user_context: userContext,
             video_genre: videoGenreComplete,
+            transcription_source: document.getElementById("settingTranscriptionSource")?.value || "auto",
             ...(state.manualTranscript ? {
                 transcript_segments: state.manualTranscript.segments,
                 transcript_language: state.manualTranscript.language || "pt",
@@ -1966,6 +1992,7 @@ document.getElementById("btnGenerateTranscript")?.addEventListener("click", asyn
             body: JSON.stringify({
                 video_path: state.selectedVideo,
                 transcript_language: document.getElementById("settingLanguage")?.value || "pt",
+                transcription_source: document.getElementById("settingTranscriptionSource")?.value || "auto",
             }),
         });
         const data = await parseJsonResponse(res, "Transcrição automática");
@@ -1975,6 +2002,203 @@ document.getElementById("btnGenerateTranscript")?.addEventListener("click", asyn
         hideProgressBar();
         showSourceStatus(error.message, "error");
         showToast(error.message, "error");
+    }
+});
+
+// ─── Artwork Headline Studio ───
+
+const artworkFormatLabels = {
+    auto: "Escolher por mim",
+    vertical_916: "9:16 — headline central",
+    square_alfinetei: "1:1 — Alfinetei",
+    fake_tweet: "Fake tweet — publicação simulada",
+};
+
+function selectedArtworkFormat() {
+    return document.querySelector('input[name="artworkFormat"]:checked')?.value || "auto";
+}
+
+function setHeadlineStudioStatus(message, type = "") {
+    const status = document.getElementById("headlineStudioStatus");
+    if (!status) return;
+    status.textContent = message;
+    status.className = `headline-studio-status ${type}`.trim();
+}
+
+function artworkCopyButton(value, label = "Copiar") {
+    return `<button class="btn btn-sm btn-outline artwork-copy-button" type="button" data-artwork-copy="${encodeURIComponent(value)}"><span class="material-icons-round">content_copy</span>${label}</button>`;
+}
+
+function artworkFeedbackButton(format, value) {
+    return `<button class="btn btn-sm artwork-feedback-button" type="button" data-artwork-format="${escapeHtml(format)}" data-artwork-feedback="${encodeURIComponent(value)}"><span class="material-icons-round">bookmark_add</span>Escolher</button>`;
+}
+
+function renderArtworkHeadline(suggestion, format) {
+    const eyebrow = escapeHtml(suggestion.eyebrow || "");
+    const lines = Array.isArray(suggestion.headline_lines) && suggestion.headline_lines.length
+        ? suggestion.headline_lines : [suggestion.headline || ""];
+    const headline = escapeHtml(suggestion.headline || "");
+    const emphasis = escapeHtml(suggestion.emphasis || "");
+    const artwork = lines.map(line => `<span>${escapeHtml(line)}</span>`).join("");
+    return `<article class="artwork-suggestion-card ${format}">
+        <div class="artwork-preview ${suggestion.accent === "red_on_white" ? "has-red-accent" : ""}">
+            ${eyebrow ? `<div class="artwork-eyebrow">${eyebrow}</div>` : ""}
+            <div class="artwork-headline">${artwork}</div>
+            ${emphasis ? `<div class="artwork-emphasis">Destaque sugerido: ${emphasis}</div>` : ""}
+        </div>
+        <div class="artwork-suggestion-footer"><span>${Number(suggestion.character_count || headline.length)} caracteres</span><div>${artworkCopyButton(suggestion.headline || "", "Copiar headline")}${artworkFeedbackButton(format, suggestion.headline || "")}</div></div>
+    </article>`;
+}
+
+function renderHeadlineStudioResults(studio) {
+    const container = document.getElementById("headlineStudioResults");
+    if (!container) return;
+    state.headlineStudio = studio;
+    const formats = studio.formats || {};
+    const flags = studio.review_flags || {};
+    const recommended = studio.recommended_format || "vertical_916";
+    const reviewChips = [
+        flags.transcript_ends_incomplete ? '<span class="artwork-review-chip warning"><span class="material-icons-round">pending</span>final da transcrição incompleto</span>' : "",
+        flags.needs_fact_review ? '<span class="artwork-review-chip"><span class="material-icons-round">fact_check</span>revisar afirmação factual</span>' : "",
+        flags.needs_legal_review ? '<span class="artwork-review-chip legal"><span class="material-icons-round">gavel</span>revisar formulação jurídica</span>' : "",
+    ].filter(Boolean).join("");
+    const formatCards = ["vertical_916", "square_alfinetei"].map(format => {
+        const config = formats[format] || {};
+        const suggestions = Array.isArray(config.suggestions) ? config.suggestions : [];
+        return `<section class="artwork-format-result ${format === recommended ? "recommended" : ""}">
+            <div class="artwork-format-result-head"><div><span class="artwork-format-kicker">${format === recommended ? "FORMATO RECOMENDADO" : "ALTERNATIVA"}</span><h4>${escapeHtml(config.label || artworkFormatLabels[format])}</h4></div><span class="artwork-limit">${escapeHtml(config.description || "")}</span></div>
+            <div class="artwork-suggestion-grid">${suggestions.map(item => renderArtworkHeadline(item, format)).join("") || '<p class="artwork-empty">Sem alternativa disponível.</p>'}</div>
+        </section>`;
+    }).join("");
+    const tweets = Array.isArray(formats.fake_tweet?.suggestions) ? formats.fake_tweet.suggestions : [];
+    const tweetCard = `<section class="artwork-format-result fake-tweet ${recommended === "fake_tweet" ? "recommended" : ""}">
+        <div class="artwork-format-result-head"><div><span class="artwork-format-kicker">${recommended === "fake_tweet" ? "FORMATO RECOMENDADO" : "ALTERNATIVA"}</span><h4>Fake tweet — rascunho de publicação</h4></div><span class="artwork-limit">Revisar antes de atribuir ao perfil</span></div>
+        <div class="fake-tweet-options">${tweets.map(item => `<article class="fake-tweet-card"><p>${escapeHtml(item.post_text || "")}</p><footer><span>${Number(item.character_count || 0)} caracteres</span><div>${artworkCopyButton(item.post_text || "", "Copiar texto")}${artworkFeedbackButton("fake_tweet", item.post_text || "")}</div></footer></article>`).join("") || '<p class="artwork-empty">Sem alternativa disponível.</p>'}</div>
+    </section>`;
+    container.innerHTML = `<div class="headline-studio-result-summary"><div><span class="artwork-format-kicker">LEITURA EDITORIAL</span><h4>${escapeHtml(artworkFormatLabels[recommended] || recommended)}</h4><p>${escapeHtml(studio.recommendation_reason || "")}</p></div><div class="artwork-analysis-metrics"><span>Tema: <strong>${escapeHtml(studio.topic || "geral")}</strong></span><span>Contexto: <strong>${Math.round(Number(studio.analysis?.context_completeness || 0))}/100</strong></span><span>Fonte: <strong>${studio.generation_source === "ai_refined" ? "IA + regras" : "regras editoriais"}</strong></span></div></div><div class="artwork-review-chips">${reviewChips || '<span class="artwork-review-chip safe"><span class="material-icons-round">verified</span>sem alerta lexical automático</span>'}</div><div class="artwork-format-results">${formatCards}${tweetCard}</div>`;
+    container.style.display = "block";
+    container.querySelectorAll(".artwork-copy-button").forEach(button => {
+        button.addEventListener("click", () => copyToClipboard(decodeURIComponent(button.dataset.artworkCopy || "")));
+    });
+    container.querySelectorAll(".artwork-feedback-button").forEach(button => {
+        button.addEventListener("click", () => saveArtworkFeedback(button));
+    });
+}
+
+function renderHeadlineLearning(learning = {}) {
+    const target = document.getElementById("headlineLearningStatus");
+    if (!target) return;
+    const selected = Number(learning.selected || 0);
+    const formats = learning.by_format || {};
+    const detail = Object.entries(formats).map(([format, count]) => `${artworkFormatLabels[format] || format}: ${count}`).join(" · ");
+    target.textContent = selected
+        ? `${selected} escolha(s) de texto de arte salvas neste computador.${detail ? ` ${detail}.` : ""}`
+        : "Suas escolhas de headline ficarão salvas neste computador e calibrarão as próximas sugestões.";
+}
+
+async function loadHeadlineLearning() {
+    try {
+        const response = await fetch("/api/headline-studio/learning");
+        const data = await parseJsonResponse(response, "Aprendizado editorial");
+        if (response.ok && data.success) renderHeadlineLearning(data.learning);
+    } catch (_) {
+        const target = document.getElementById("headlineLearningStatus");
+        if (target) target.textContent = "O aprendizado editorial ficará disponível após a primeira escolha salva.";
+    }
+}
+
+async function saveArtworkFeedback(button) {
+    const artworkText = decodeURIComponent(button.dataset.artworkFeedback || "");
+    const formatId = button.dataset.artworkFormat || "";
+    if (!artworkText || !formatId) return;
+    button.disabled = true;
+    try {
+        const studio = state.headlineStudio || {};
+        const response = await fetch("/api/headline-studio/feedback", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                format_id: formatId,
+                artwork_text: artworkText,
+                action: "selected",
+                topic: studio.topic || "",
+                transcript_excerpt: studio.transcript?.excerpt || "",
+                mini_context: studio.mini_context || "",
+            }),
+        });
+        const data = await parseJsonResponse(response, "Aprendizado editorial");
+        if (!response.ok || !data.success) throw new Error(data.error || "Não foi possível salvar a escolha");
+        button.classList.add("saved");
+        button.innerHTML = '<span class="material-icons-round">bookmark_added</span>Escolhido';
+        renderHeadlineLearning(data.learning);
+        showToast("Escolha salva no aprendizado editorial.", "success");
+    } catch (error) {
+        button.disabled = false;
+        showToast(error.message, "error");
+    }
+}
+
+loadHeadlineLearning();
+
+document.getElementById("btnImportArtworkTranscript")?.addEventListener("click", () => {
+    document.getElementById("artworkTranscriptFileInput")?.click();
+});
+
+document.getElementById("artworkTranscriptFileInput")?.addEventListener("change", async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+        const text = await file.text();
+        const input = document.getElementById("artworkTranscriptInput");
+        if (input) input.value = text;
+        setHeadlineStudioStatus(`${file.name} carregado. Revise ou gere os textos de arte.`, "success");
+    } catch (error) {
+        setHeadlineStudioStatus(`Falha ao ler o arquivo: ${error.message}`, "error");
+    }
+});
+
+document.getElementById("btnUseLoadedTranscript")?.addEventListener("click", () => {
+    if (!state.manualTranscript) {
+        setHeadlineStudioStatus("Nenhuma transcrição carregada na fonte. Importe um TXT/SRT/VTT ou cole o texto acima.", "warning");
+        return;
+    }
+    const input = document.getElementById("artworkTranscriptInput");
+    if (input) input.value = formatTranscriptForEditor(state.manualTranscript) || state.manualTranscript.full_text || "";
+    setHeadlineStudioStatus("A transcrição já carregada foi copiada para o estúdio de texto de arte.", "success");
+});
+
+document.getElementById("btnGenerateArtworkCopy")?.addEventListener("click", async () => {
+    const transcript = document.getElementById("artworkTranscriptInput")?.value.trim();
+    const miniContext = document.getElementById("artworkMiniContext")?.value.trim() || "";
+    if (!transcript) {
+        setHeadlineStudioStatus("Cole ou importe uma transcrição antes de gerar o texto de arte.", "error");
+        return;
+    }
+    const button = document.getElementById("btnGenerateArtworkCopy");
+    button.disabled = true;
+    button.classList.add("loading");
+    setHeadlineStudioStatus("Lendo a tese do corte e criando alternativas curtas...", "");
+    try {
+        const response = await fetch("/api/headline-studio/analyze", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                transcript,
+                mini_context: miniContext,
+                preferred_format: selectedArtworkFormat(),
+                use_ai: document.getElementById("artworkUseAi")?.checked !== false,
+            }),
+        });
+        const data = await parseJsonResponse(response, "Texto de arte");
+        if (!response.ok || !data.success) throw new Error(data.error || "Não foi possível gerar o texto de arte");
+        renderHeadlineStudioResults(data.studio);
+        setHeadlineStudioStatus("Textos de arte prontos. Copie uma opção e ajuste apenas o necessário.", "success");
+    } catch (error) {
+        setHeadlineStudioStatus(error.message, "error");
+        showToast("Não foi possível gerar os textos de arte.", "error");
+    } finally {
+        button.disabled = false;
+        button.classList.remove("loading");
     }
 });
 
@@ -2080,7 +2304,13 @@ document.getElementById("btnImportSource")?.addEventListener("click", async () =
         const res = await fetch("/api/source/import", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ url, destination_dir: destination, max_height: maxHeight, auto_transcribe: autoTranscribe }),
+            body: JSON.stringify({
+                url,
+                destination_dir: destination,
+                max_height: maxHeight,
+                auto_transcribe: autoTranscribe,
+                transcription_source: document.getElementById("settingTranscriptionSource")?.value || "auto",
+            }),
         });
         const data = await parseJsonResponse(res, "Importação da fonte");
         if (!res.ok || !data.success) throw new Error(data.error || "Não foi possível iniciar a importação");
@@ -2127,6 +2357,7 @@ function applySettings() {
         document.getElementById("silenceValue").textContent = s.min_silence_duration + "s";
     }
     if (s.language) document.getElementById("settingLanguage").value = s.language;
+    if (s.transcription_source) document.getElementById("settingTranscriptionSource").value = s.transcription_source;
     if (s.ai_correction != null) {
         document.getElementById("settingAiCorrection").dataset.active = s.ai_correction;
     }
@@ -2211,6 +2442,7 @@ document.getElementById("btnSaveSettings").addEventListener("click", async () =>
         min_silence_duration: parseFloat(document.getElementById("settingSilenceDuration").value),
         padding: 0.25,
         language: document.getElementById("settingLanguage").value,
+        transcription_source: document.getElementById("settingTranscriptionSource").value,
         ai_correction: document.getElementById("settingAiCorrection").dataset.active === "true",
         ai_backend: document.getElementById("settingAiBackend").value,
         ollama_model: document.getElementById("settingOllamaModel").value,
