@@ -1870,6 +1870,20 @@ def api_analyze_headline_studio():
     mini_context = str(data.get("mini_context", "") or "")
     preferred_format = str(data.get("preferred_format", "auto") or "auto")
     use_ai = bool(data.get("use_ai", True))
+    clip_id = data.get("clip_id")
+    clip = None
+    if clip_id not in (None, ""):
+        try:
+            clip_id = int(clip_id)
+        except (TypeError, ValueError):
+            return jsonify({"success": False, "error": "Identificador de corte inválido."}), 400
+        clip = get_clip(clip_id)
+        if not clip:
+            return jsonify({"success": False, "error": "Corte não encontrado no backup local."}), 404
+        if not transcript.strip():
+            transcript = str(clip.get("transcript") or "")
+        if not mini_context.strip():
+            mini_context = str(clip.get("title") or "")
     if not transcript.strip():
         return jsonify({"success": False, "error": "Cole ou importe uma transcrição antes de gerar o texto de arte."}), 400
     if len(transcript) > 60000:
@@ -1890,6 +1904,12 @@ def api_analyze_headline_studio():
             ai_backend=ai,
             editorial_learning=get_headline_learning_preferences(),
         )
+        result["clip_id"] = clip_id
+        result["editorial_key"] = str((clip or {}).get("editorial_key") or "")
+        result["source_interval"] = {
+            "start": float((clip or {}).get("start_time", 0) or 0),
+            "end": float((clip or {}).get("end_time", 0) or 0),
+        } if clip else None
         return jsonify({"success": True, "studio": result})
     except ValueError as exc:
         return jsonify({"success": False, "error": str(exc)}), 400
@@ -1904,6 +1924,17 @@ def api_save_headline_studio_feedback():
     format_id = str(data.get("format_id", "") or "")
     artwork_text = str(data.get("artwork_text", "") or "").strip()
     action = str(data.get("action", "selected") or "selected")
+    clip_id = data.get("clip_id")
+    editorial_key = str(data.get("editorial_key", "") or "")
+    if clip_id not in (None, ""):
+        try:
+            clip_id = int(clip_id)
+        except (TypeError, ValueError):
+            return jsonify({"success": False, "error": "Identificador de corte inválido."}), 400
+        clip = get_clip(clip_id)
+        if not clip:
+            return jsonify({"success": False, "error": "Corte não encontrado no backup local."}), 404
+        editorial_key = editorial_key or str(clip.get("editorial_key") or "")
     if format_id not in {"vertical_916", "square_alfinetei", "fake_tweet"}:
         return jsonify({"success": False, "error": "Formato editorial inválido."}), 400
     if not artwork_text or len(artwork_text) > 300:
@@ -1917,6 +1948,9 @@ def api_save_headline_studio_feedback():
         topic=str(data.get("topic", "") or ""),
         transcript_excerpt=str(data.get("transcript_excerpt", "") or ""),
         mini_context=str(data.get("mini_context", "") or ""),
+        clip_id=clip_id,
+        editorial_key=editorial_key,
+        source="clip_headline_studio" if clip_id else "headline_studio",
     )
     return jsonify({"success": True, "learning": get_headline_feedback_summary()})
 

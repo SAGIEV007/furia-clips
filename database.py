@@ -102,13 +102,17 @@ def init_db():
 
         CREATE TABLE IF NOT EXISTS headline_feedback (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            clip_id INTEGER,
+            editorial_key TEXT,
             format_id TEXT NOT NULL,
             artwork_text TEXT NOT NULL,
             action TEXT NOT NULL DEFAULT 'selected',
             topic TEXT,
             transcript_excerpt TEXT,
             mini_context TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            source TEXT DEFAULT 'headline_studio',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (clip_id) REFERENCES clips(id)
         );
 
         CREATE TABLE IF NOT EXISTS performance_snapshots (
@@ -146,8 +150,19 @@ def init_db():
         "editorial_key": "ALTER TABLE clips ADD COLUMN editorial_key TEXT",
         "review_status": "ALTER TABLE clips ADD COLUMN review_status TEXT DEFAULT 'pending'",
     }
+    headline_columns = {
+        row["name"] for row in cursor.execute("PRAGMA table_info(headline_feedback)").fetchall()
+    }
+    headline_migrations = {
+        "clip_id": "ALTER TABLE headline_feedback ADD COLUMN clip_id INTEGER",
+        "editorial_key": "ALTER TABLE headline_feedback ADD COLUMN editorial_key TEXT",
+        "source": "ALTER TABLE headline_feedback ADD COLUMN source TEXT DEFAULT 'headline_studio'",
+    }
     for column, statement in migrations.items():
         if column not in existing_columns:
+            cursor.execute(statement)
+    for column, statement in headline_migrations.items():
+        if column not in headline_columns:
             cursor.execute(statement)
 
     snapshot_columns = {
@@ -164,6 +179,7 @@ def init_db():
 
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_clips_editorial_key ON clips(project_id, editorial_key)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_headline_feedback_format ON headline_feedback(format_id, action)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_headline_feedback_clip ON headline_feedback(clip_id, created_at)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_performance_content ON performance_snapshots(content_key, platform, collected_at)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_performance_cohort ON performance_snapshots(platform, format_id, observation_window, region)")
     missing_keys = cursor.execute(
@@ -206,20 +222,34 @@ def set_setting(key, value):
     conn.close()
 
 
-def save_headline_feedback(format_id, artwork_text, action="selected", topic="", transcript_excerpt="", mini_context=""):
-    """Persist a local editorial decision without coupling it to a generated clip."""
+def save_headline_feedback(
+    format_id,
+    artwork_text,
+    action="selected",
+    topic="",
+    transcript_excerpt="",
+    mini_context="",
+    clip_id=None,
+    editorial_key="",
+    source="headline_studio",
+):
+    """Persist a headline decision, optionally linked to the exact generated clip."""
     conn = get_db()
     conn.execute(
         """INSERT INTO headline_feedback
-           (format_id, artwork_text, action, topic, transcript_excerpt, mini_context)
-           VALUES (?, ?, ?, ?, ?, ?)""",
+           (clip_id, editorial_key, format_id, artwork_text, action, topic,
+            transcript_excerpt, mini_context, source)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (
+            int(clip_id) if clip_id not in (None, "") else None,
+            str(editorial_key or "").strip()[:80],
             str(format_id or "unknown")[:40],
             str(artwork_text or "").strip()[:300],
             str(action or "selected")[:24],
             str(topic or "").strip()[:80],
             str(transcript_excerpt or "").strip()[:600],
             str(mini_context or "").strip()[:280],
+            str(source or "headline_studio")[:40],
         ),
     )
     conn.commit()
