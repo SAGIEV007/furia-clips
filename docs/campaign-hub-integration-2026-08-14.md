@@ -23,3 +23,12 @@ O backup persistente contém os dados de performance e análise em `~/FuriaClips
 ## Limitações conhecidas
 
 A busca semântica pode recuperar transcrições ruidosas ou sociais, e a superfície QA-gated do Acervo pode não conter os Reels do Instagram. O snapshot atual é uma amostra de alto desempenho, não um censo integral nem uma regra causal. A expansão correta é continuar coletando snapshots por conta, plataforma, hook e janela temporal, sempre preservando `n`, intervalo e proveniência.
+
+
+## Atualização do ciclo 22:20 — hooks explicáveis e snapshot v2
+
+O adapter agora expõe `classify_hook_details`, além da função legada `classify_hook`. O resultado inclui `hook_family`, `hook_evidence` e `hook_classification_confidence`, com regras textuais determinísticas que priorizam sinais explícitos de tese, news peg, acusação, revelação, curiosity gap e desafio ao espectador antes de um ponto de interrogação genérico. Esses campos explicam a leitura do texto; não afirmam que um hook é verdadeiro, nem substituem a análise audiovisual.
+
+O ranqueador replica essa evidência no payload e em `review_flags`, sem aumentar o teto de influência histórica de `campaign_hub_prior`. A versão do score identifica quando a observação histórica estava disponível. O snapshot externo foi atualizado para a versão `2026-08-14-mcp-observed-v2` com os 12 top posts revalidados de cada conta, mantendo as baselines separadas.
+
+O classificador visual também reconhece `talking_head_grafico` quando a análise fornece um overlay/gráfico associado a uma face estável. A política é preservar a composição, pois cortar o gráfico pode remover a evidência que dá sentido à fala. Isso complementa, sem substituir, as famílias já preservadas `fake_tweet`, `text_panel`, `split_screen`, `evidencia_externa` e demais composições documentadas.
