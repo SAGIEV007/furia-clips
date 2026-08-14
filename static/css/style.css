@@ -3440,9 +3440,34 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
     color: #60a5fa;
 }
 
+.clip-visual-observation {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin: 6px 0 8px;
+    padding: 7px 10px;
+    border-left: 3px solid rgba(167, 139, 250, .72);
+    border-radius: 7px;
+    color: #dcd4ff;
+    background: rgba(139, 92, 246, .09);
+    font-size: 10.5px;
+    line-height: 1.4;
+}
+
+.clip-visual-observation .material-icons-round {
+    flex: 0 0 auto;
+    margin-top: 1px;
+    font-size: 15px;
+    color: #a78bfa;
+}
+
 @media (max-width: 720px) {
     .clip-visual-format-note {
         font-size: 10px;
         padding: 7px 8px;
+    }
+    .clip-visual-observation {
+        font-size: 10px;
+        padding: 6px 8px;
     }
 }
