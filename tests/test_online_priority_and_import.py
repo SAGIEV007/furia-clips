@@ -105,6 +105,64 @@ def test_public_subtitle_fallback_prevents_cpu_whisper(monkeypatch, tmp_path):
     assert result["segment_count"] == 1
 
 
+def test_public_subtitle_preference_skips_gemini(monkeypatch, tmp_path):
+    import app as app_module
+
+    subtitle = tmp_path / "source.pt.vtt"
+    subtitle.write_text("WEBVTT\n\n00:00:01.000 --> 00:00:02.000\nLegenda preferida.\n", encoding="utf-8")
+
+    def forbidden_gemini(*args, **kwargs):
+        raise AssertionError("Gemini não deveria ser chamado com legenda pública preferencial")
+
+    monkeypatch.setattr(app_module, "_run_gemini_video_analysis", forbidden_gemini)
+
+    class ForbiddenWhisper:
+        def __init__(self, *args, **kwargs):
+            raise AssertionError("Whisper não deveria ser chamado com VTT público válido")
+
+    monkeypatch.setattr("modules.transcriber.Transcriber", ForbiddenWhisper)
+    result = app_module._transcribe_video_automatically(
+        str(tmp_path / "video.mp4"),
+        {"transcription_source": "public_subtitle", "language": "pt"},
+        lambda *args: None,
+        transcript_fallback_path=str(subtitle),
+    )
+    assert result["source"] == "public_subtitles"
+    assert result["segments"][0]["text"] == "Legenda preferida."
+
+
+def test_whisper_preference_skips_gemini_and_public_subtitles(monkeypatch, tmp_path):
+    import app as app_module
+
+    def forbidden_gemini(*args, **kwargs):
+        raise AssertionError("Gemini não deveria ser chamado com Whisper forçado")
+
+    monkeypatch.setattr(app_module, "_run_gemini_video_analysis", forbidden_gemini)
+
+    class FakeWhisper:
+        _engine = "faster-whisper"
+        device = "cpu"
+
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def _detect_device(self):
+            return "cpu"
+
+        def transcribe(self, video_path, emit_progress=None):
+            return {"segments": [{"start": 0, "end": 1, "text": "Whisper escolhido"}], "full_text": "Whisper escolhido", "language": "pt", "segment_count": 1}
+
+    monkeypatch.setattr("modules.transcriber.Transcriber", FakeWhisper)
+    result = app_module._transcribe_video_automatically(
+        str(tmp_path / "video.mp4"),
+        {"transcription_source": "whisper", "language": "pt"},
+        lambda *args: None,
+        transcript_fallback_path=str(tmp_path / "ignored.vtt"),
+    )
+    assert result["source"] == "whisper"
+    assert result["segments"][0]["text"] == "Whisper escolhido"
+
+
 def test_long_cpu_video_uses_fast_model_for_discovery(monkeypatch, tmp_path):
     import app as app_module
 

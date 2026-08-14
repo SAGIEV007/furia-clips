@@ -111,6 +111,35 @@ def test_public_source_403_is_actionable():
     assert "yt-dlp" in message
 
 
+def test_parser_collapses_progressive_public_caption_windows_and_decodes_entities():
+    text = (
+        "00:00:01.000 Boa tarde, senhoras e senhores. Sejam\n"
+        "00:00:02.000 Boa tarde, senhoras e senhores. Sejam bem-vindos\n"
+        "00:00:03.000 bem-vindos ao programa. &gt;&gt; Pode.\n"
+    )
+    result = parse_transcript_text(text)
+    assert result["segment_count"] == 3
+    assert [segment["text"] for segment in result["segments"]] == [
+        "Boa tarde, senhoras e senhores. Sejam",
+        "bem-vindos",
+        "ao programa. Pode.",
+    ]
+    assert "&gt;" not in result["full_text"]
+
+
+def test_parser_does_not_drop_independent_short_reply():
+    result = parse_transcript_text(
+        "00:00:01.000 Você vem amanhã?\n"
+        "00:00:02.000 Sim.\n"
+        "00:00:03.000 A conversa continua."
+    )
+    assert [segment["text"] for segment in result["segments"]] == [
+        "Você vem amanhã?",
+        "Sim.",
+        "A conversa continua.",
+    ]
+
+
 def test_parse_inline_timestamps_and_expand_single_segment_duration():
     inline = "00:00:00.000 Primeiro trecho completo. 00:00:12.000 Segundo trecho completo."
     parsed = parse_transcript_text(inline, duration=30)
