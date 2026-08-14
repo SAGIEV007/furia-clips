@@ -107,6 +107,16 @@
                 </div>
 
                 <div class="setting-group">
+                    <label>Fonte da Transcricao</label>
+                    <select id="settingTranscriptionSource" class="setting-select">
+                        <option value="auto" selected>Automático: Gemini → legenda → Whisper</option>
+                        <option value="public_subtitle">Preferir legenda encontrada → Whisper</option>
+                        <option value="whisper">Forçar Whisper local</option>
+                    </select>
+                    <small class="setting-hint">Transcrição manual sempre tem prioridade. Use Whisper quando quiser uma nova leitura do áudio, mesmo que exista legenda pública.</small>
+                </div>
+
+                <div class="setting-group">
                     <label>Genero do Video</label>
                     <select id="settingVideoGenre" class="setting-select">
                         <option value="" selected>Automatico (detectar)</option>
@@ -216,12 +226,28 @@
     <main class="main-content">
         <!-- Header -->
         <header class="main-header">
-            <h2>Dashboard de Edicao</h2>
-            <p>Importe um video e escolha a operacao desejada</p>
-            <button class="btn btn-help" id="btnHelp">
-                <span class="material-icons-round">help</span> Ajuda
-            </button>
+            <div class="main-header-copy">
+                <div class="eyebrow"><span class="eyebrow-mark"></span> FURIA WORKSPACE <span class="eyebrow-divider">/</span> ESTAÇÃO EDITORIAL</div>
+                <h2>Clipping com critério.</h2>
+                <p>Transforme uma live em cortes revisáveis, ranqueados e prontos para decisão.</p>
+            </div>
+            <div class="main-header-actions">
+                <div class="workspace-state" id="workspaceState"><span class="status-dot online"></span><span>Pronto para analisar</span></div>
+                <button class="btn btn-help" id="btnHelp">
+                    <span class="material-icons-round">help</span> Ajuda
+                </button>
+            </div>
         </header>
+
+        <nav class="workflow-steps" aria-label="Fluxo editorial">
+            <div class="workflow-step active"><span class="workflow-index">01</span><span><strong>Fonte</strong><small>Importar e validar</small></span></div>
+            <span class="workflow-connector"></span>
+            <div class="workflow-step"><span class="workflow-index">02</span><span><strong>Análise</strong><small>Contexto e seleção</small></span></div>
+            <span class="workflow-connector"></span>
+            <div class="workflow-step"><span class="workflow-index">03</span><span><strong>Revisão</strong><small>Aprovar ou rejeitar</small></span></div>
+            <span class="workflow-connector"></span>
+            <div class="workflow-step"><span class="workflow-index">04</span><span><strong>Aprendizado</strong><small>Calibrar o ranking</small></span></div>
+        </nav>
 
         <!-- Media Library (like CapCut) -->
         <section class="section" id="mediaLibrarySection">
@@ -342,6 +368,49 @@
             </div>
         </section>
 
+        <!-- Headline Studio -->
+        <section class="section headline-studio-section" id="headlineStudioSection">
+            <div class="section-header">
+                <div>
+                    <h3><span class="material-icons-round">format_quote</span> Estúdio de Texto de Arte</h3>
+                    <p class="section-hint">Headline curta para 9:16, 1:1 Alfinetei ou publicação simulada</p>
+                </div>
+                <span class="studio-status-pill"><span class="status-dot online"></span> Base editorial Renan/MBL</span>
+            </div>
+            <div class="headline-studio-intro">
+                <span class="material-icons-round">auto_awesome</span>
+                <p>Importe a legenda de um corte pronto ou cole a fala. A ferramenta extrai a tese e cria texto <strong>para a arte</strong> — sem SEO, hashtags ou descrição de publicação.</p>
+            </div>
+            <div class="headline-studio-grid">
+                <div class="headline-studio-inputs">
+                    <label for="artworkTranscriptInput">Transcrição do corte pronto</label>
+                    <textarea id="artworkTranscriptInput" class="context-input artwork-transcript-input" rows="8" placeholder="Cole aqui um TXT, SRT ou VTT. Ex.: a tese principal, a fala e a conclusão do corte."></textarea>
+                    <div class="source-actions">
+                        <input type="file" id="artworkTranscriptFileInput" accept=".txt,.srt,.vtt" style="display:none">
+                        <button class="btn btn-sm btn-outline" id="btnImportArtworkTranscript" type="button"><span class="material-icons-round">folder_open</span> Importar TXT/SRT/VTT</button>
+                        <button class="btn btn-sm btn-outline" id="btnUseLoadedTranscript" type="button"><span class="material-icons-round">description</span> Usar transcrição carregada</button>
+                    </div>
+                    <label for="artworkMiniContext">Minicontexto opcional</label>
+                    <textarea id="artworkMiniContext" class="context-input" rows="3" maxlength="280" placeholder="Ex.: Renan critica a tributação de criptoativos; quero uma chamada forte, mas sem acusação factual nova."></textarea>
+                    <p class="headline-studio-hint">Use o minicontexto para informar intenção, personagem ou enquadramento. Ele não substitui o que foi dito no corte.</p>
+                </div>
+                <div class="headline-studio-controls">
+                    <span class="studio-control-label">Formato de publicação</span>
+                    <div class="artwork-format-options" role="radiogroup" aria-label="Formato de texto de arte">
+                        <label class="artwork-format-option"><input type="radio" name="artworkFormat" value="auto" checked><span><strong>Escolher por mim</strong><small>Recomenda o formato mais adequado</small></span></label>
+                        <label class="artwork-format-option"><input type="radio" name="artworkFormat" value="vertical_916"><span><strong>9:16 central</strong><small>Amarelo + preto, com destaque vermelho opcional</small></span></label>
+                        <label class="artwork-format-option"><input type="radio" name="artworkFormat" value="square_alfinetei"><span><strong>1:1 Alfinetei</strong><small>Chamada superior + headline branca curta</small></span></label>
+                        <label class="artwork-format-option"><input type="radio" name="artworkFormat" value="fake_tweet"><span><strong>Fake tweet</strong><small>Rascunho de publicação atribuível após revisão</small></span></label>
+                    </div>
+                    <label class="headline-ai-toggle"><input type="checkbox" id="artworkUseAi" checked> Refinar com a IA configurada quando disponível</label>
+                    <button class="btn btn-primary headline-studio-generate" id="btnGenerateArtworkCopy" type="button"><span class="material-icons-round">bolt</span> Criar textos de arte</button>
+                    <div class="headline-studio-status" id="headlineStudioStatus">Pronto para receber a transcrição de um corte finalizado.</div>
+                    <div class="headline-learning-status" id="headlineLearningStatus">Carregando aprendizado editorial local...</div>
+                </div>
+            </div>
+            <div class="headline-studio-results" id="headlineStudioResults" aria-live="polite" style="display:none"></div>
+        </section>
+
         <!-- Actions -->
         <section class="section" id="actionsSection">
             <div class="section-header">
@@ -376,13 +445,13 @@
                     <button class="btn btn-action">Cortar e Ranquear</button>
                 </div>
 
-                <div class="action-card" id="actionSeo" data-action="seo">
+                <div class="action-card" id="actionArtwork" data-action="artwork">
                     <div class="action-icon" style="background: linear-gradient(135deg, #F59E0B, #D97706)">
-                        <span class="material-icons-round">trending_up</span>
+                        <span class="material-icons-round">format_quote</span>
                     </div>
-                    <h4>Gerar Conteudo SEO</h4>
-                    <p>Titulos, tags, descricao e hashtags via IA</p>
-                    <button class="btn btn-action">Gerar Conteudo</button>
+                    <h4>Texto de Arte</h4>
+                    <p>Headlines curtas para 9:16, 1:1 e fake tweet a partir da transcrição</p>
+                    <button class="btn btn-action">Abrir Estúdio</button>
                 </div>
 
                 <div class="action-card" id="actionThumbnail" data-action="thumbnail">
