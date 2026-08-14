@@ -39,6 +39,23 @@ logs/
 .manus-publication-log.txt
 video_*_analysis_*.md
 
+# Local research, media audits, and generated evidence
+workspace/instagram_*/
+workspace/audit_*/
+workspace/google-*/
+workspace/llm-models-live.json
+workspace/ux-preview*.log
+docs/audit-*
+docs/drive-*
+docs/instagram-api-catalog.json
+docs/instagram-profile-access-*
+docs/instagram-reserva-public.html
+docs/instagram-reserva-ytdlp-catalog.tsv
+docs/instagram_mbl_sample_analysis.json
+docs/instagram_reserva_analysis/
+docs/instagram_reserva_transcripts/
+docs/instagram-reels-catalog.json
+
 # OS
 .DS_Store
 Thumbs.db
