@@ -3318,3 +3318,19 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
     background: #10161c;
 }
 .artwork-layout-hint .material-icons-round { font-size: 12px; color: #d7aa45; }
+
+
+/* Métricas observadas: histórico de alcance separado do potencial editorial. */
+.performance-metrics-section { border-color: rgba(105, 184, 214, .18); }
+.performance-metrics-grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(260px, .75fr); gap: 16px; }
+.performance-metrics-grid > div:first-child, .performance-metrics-controls { padding: 15px; border: 1px solid rgba(160, 180, 196, .13); border-radius: 13px; background: rgba(5, 9, 13, .34); }
+.performance-metrics-grid label { display: block; margin-bottom: 8px; color: #d5e0e7; font-size: 11px; font-weight: 750; }
+.performance-metrics-input { min-height: 132px; resize: vertical; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 11px; }
+.performance-metrics-controls { display: flex; flex-direction: column; gap: 10px; }
+.performance-metrics-controls .btn { justify-content: center; }
+.performance-metrics-status { color: #8d9ca7; font-size: 10px; line-height: 1.4; min-height: 28px; }
+.performance-metrics-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+.performance-metric { display: flex; flex-direction: column; gap: 3px; padding: 9px; border: 1px solid rgba(105, 184, 214, .16); border-radius: 9px; background: rgba(105, 184, 214, .05); }
+.performance-metric span { color: #7f8f9b; font-size: 9px; }
+.performance-metric strong { color: #dcecf2; font-size: 13px; }
+@media (max-width: 840px) { .performance-metrics-grid { grid-template-columns: 1fr; } }
