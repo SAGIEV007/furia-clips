@@ -1463,6 +1463,26 @@ function renderResultsGrid() {
         const speakerConfidence = Number(clip.speaker_confidence);
         const overlapSuspected = Boolean(clip.overlap_suspected || clip.speaker_overlap);
         const reviewFlags = clip.review_flags || {};
+        const visualFormat = String(clip.visual_format || clip.format_family || "").trim();
+        const visualFormatConfidence = Number(clip.visual_format_confidence);
+        const visualFormatLabels = {
+            talking_head: "talking head",
+            selfie_proximo: "selfie próximo",
+            entrevista: "entrevista",
+            podcast: "podcast",
+            react: "react / evidência",
+            split_screen: "split-screen",
+            evidencia_externa: "evidência externa",
+            b_roll_argumentativo: "B-roll argumentativo",
+            palco: "palco",
+            institucional: "institucional",
+            campanha: "campanha",
+            testemunhal: "testemunhal",
+            unboxing: "unboxing",
+            humor_bastidor: "humor / bastidor",
+            desconhecido: "formato a revisar",
+        };
+        const preserveComposition = Boolean(clip.preserve_composition || reviewFlags.preserve_composition || clip.reframe_policy === "preservar_composicao");
         const needsFactReview = Boolean(reviewFlags.needs_fact_review || reviewFlags.needsFactReview);
         const needsLegalReview = Boolean(reviewFlags.needs_legal_review || reviewFlags.needsLegalReview);
         const reviewStatus = reviewStatusOf(clip);
@@ -1512,6 +1532,7 @@ function renderResultsGrid() {
             </div>
             <div class="result-info">
                 ${politicalType ? `<div style="font-size:12px; color:#f59e0b; margin-bottom:6px"><span class="material-icons-round" style="font-size:14px; vertical-align:middle">account_balance</span> Formato editorial: ${escapeHtml(politicalType)}</div>` : ''}
+                ${visualFormat ? `<div class="clip-visual-format-note ${preserveComposition ? 'preserve' : ''}"><span class="material-icons-round">${preserveComposition ? 'aspect_ratio' : 'center_focus_strong'}</span><span><b>${escapeHtml(visualFormatLabels[visualFormat] || visualFormat)}</b> · ${preserveComposition ? 'preservar composição' : 'reframe somente se seguro'}${Number.isFinite(visualFormatConfidence) ? ` · ${Math.round(Math.max(0, Math.min(1, visualFormatConfidence)) * 100)}%` : ''}${clip.visual_format_reason ? ` — ${escapeHtml(String(clip.visual_format_reason))}` : ''}</span></div>` : ''}
                 ${(needsFactReview || needsLegalReview) ? `<div class="clip-review-risk ${needsLegalReview ? 'legal' : ''}"><span class="material-icons-round">${needsLegalReview ? 'gavel' : 'fact_check'}</span> ${needsLegalReview ? 'Revisão factual e jurídica' : 'Revisão factual recomendada'}</div>` : ''}
                 ${topicSignature ? `<div class="clip-topic-chip" title="Sinal lexical usado somente para diversificar o portfólio">Tema: ${escapeHtml(topicSignature.replace(':', ' · ').replaceAll('-', ', '))}</div>` : ''}
                 ${closureType ? `<div class="clip-closure-chip ${escapeHtml(closureType)}"><span class="material-icons-round">${closureType === 'conclusion' ? 'task_alt' : closureType === 'cliffhanger' ? 'hourglass_top' : 'subtitles'}</span> ${escapeHtml(closureLabels[closureType] || closureType)}</div>` : ''}
