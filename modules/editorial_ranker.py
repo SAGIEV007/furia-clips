@@ -208,6 +208,22 @@ class EditorialRanker:
         if campaign_hub_prior["available"]:
             # Post-publication evidence is intentionally bounded to +/- 2 points.
             score += int(round((campaign_hub_prior["observed_signal"] - 50.0) * 0.12))
+        context_contract = any(
+            key in clip
+            for key in (
+                "starts_mid_sentence", "question_detected", "question_answer_complete",
+                "evidence_present", "payoff_complete", "context_complete",
+            )
+        )
+        technical_gate = self._technical_gate(clip, factors, political_signals)
+        score -= technical_gate["penalty"]
+        if context_contract:
+            if not clip.get("context_complete") and not clip.get("qa_bridge"):
+                score = min(score, 74)
+            if clip.get("overlap_suspected"):
+                score = min(score, 62)
+            elif clip.get("timing_ambiguous"):
+                score = min(score, 70)
         score = max(0, min(100, score))
 
         feedback_adjustment = self._feedback_adjustment(factors)
@@ -226,13 +242,6 @@ class EditorialRanker:
         }
         reason = self._reason(factors, user_context)
         topic_signature = self._topic_signature(text, political_signals)
-        context_contract = any(
-            key in clip
-            for key in (
-                "starts_mid_sentence", "question_detected", "question_answer_complete",
-                "evidence_present", "payoff_complete", "context_complete",
-            )
-        )
         score_version = (
             "v3-context-gates-feedback" if feedback_adjustment and context_contract
             else "v3-context-gates" if context_contract
@@ -271,9 +280,11 @@ class EditorialRanker:
             "chapter_count": int(clip.get("chapter_count", 0) or 0),
             "chapter_coherence_score": clip.get("chapter_coherence_score"),
             "qa_bridge": bool(clip.get("qa_bridge")),
+            "speaker_turn_valid": clip.get("speaker_turn_valid"),
             "campaign_hub_prior": campaign_hub_prior,
             "instagram_pattern_prior": instagram_pattern_prior,
             "feedback_calibration": feedback_calibration,
+            "technical_gate": technical_gate,
             "hook_family": campaign_hub_prior["hook_family"],
             "hook_evidence": list(campaign_hub_prior.get("hook_evidence") or []),
             "hook_classification_confidence": campaign_hub_prior.get("hook_classification_confidence", 0.0),
@@ -299,6 +310,11 @@ class EditorialRanker:
                 "evidence_present": bool(clip.get("evidence_present")),
                 "payoff_complete": bool(clip.get("payoff_complete")),
                 "context_complete": bool(clip.get("context_complete")),
+                "overlap_suspected": bool(clip.get("overlap_suspected")),
+                "timing_ambiguous": bool(clip.get("timing_ambiguous")),
+                "speaker_turn_valid": clip.get("speaker_turn_valid"),
+                "technical_gate_status": technical_gate["status"],
+                "technical_gate_reasons": list(technical_gate["reasons"]),
                 "campaign_hub_prior_available": bool(campaign_hub_prior["available"]),
                 "campaign_hub_hook_family": campaign_hub_prior["hook_family"],
                 "instagram_pattern_prior_available": bool(instagram_pattern_prior["available"]),
@@ -312,6 +328,68 @@ class EditorialRanker:
                 "feedback_duration_signal_usable": feedback_calibration["duration_signal"]["usable"],
                 "feedback_duration_gap_seconds": feedback_calibration["duration_signal"]["gap_seconds"],
             },
+        }
+
+    def _technical_gate(self, clip: dict, factors: dict, political_signals: Optional[dict] = None) -> dict:
+        """Apply bounded, explainable penalties for technical uncertainty."""
+        reasons = []
+        penalty = 0
+        contract_keys = {
+            "starts_mid_sentence", "question_detected", "question_answer_complete",
+            "evidence_present", "payoff_complete", "context_complete",
+            "overlap_suspected", "timing_ambiguous", "speaker_turn_valid",
+        }
+        has_contract = any(key in clip for key in contract_keys)
+        inferred_context = bool(
+            factors.get("context_completeness", 50) >= 70
+            or factors.get("completeness", 50) >= 75
+        )
+        context_complete = bool(clip.get("context_complete")) if "context_complete" in clip else inferred_context
+        payoff_complete = bool(clip.get("payoff_complete")) if "payoff_complete" in clip else bool(factors.get("completeness", 50) >= 75)
+        question_detected = bool(clip.get("question_detected")) if "question_detected" in clip else False
+        qa_bridge = bool(clip.get("qa_bridge")) if "qa_bridge" in clip else False
+        starts_mid_sentence = bool(clip.get("starts_mid_sentence"))
+        overlap_suspected = bool(clip.get("overlap_suspected"))
+        timing_ambiguous = bool(clip.get("timing_ambiguous"))
+        political_signals = political_signals if isinstance(political_signals, dict) else {}
+        sensitive_claim_hits = int(political_signals.get("sensitive_claim_hits", 0) or 0)
+        explicit_context_contract = any(
+            key in clip for key in ("context_complete", "evidence_present", "payoff_complete")
+        )
+
+        if starts_mid_sentence:
+            penalty += 14
+            reasons.append("início possivelmente no meio da frase")
+        if overlap_suspected:
+            penalty += 22
+            reasons.append("sobreposição de fala ou timestamps")
+        if timing_ambiguous:
+            penalty += 10
+            reasons.append("timestamps inferidos com baixa confiança")
+        if has_contract and question_detected and not qa_bridge:
+            penalty += 10
+            reasons.append("pergunta detectada sem ponte pergunta–resposta validada")
+        if has_contract and not payoff_complete:
+            penalty += 12
+            reasons.append("payoff ou fechamento não confirmado")
+        if clip.get("speaker_turn_valid") is False:
+            penalty += 18
+            reasons.append("troca de locutor incompatível")
+        if has_contract and not context_complete and len(_normalize(str(clip.get("text") or "")).split()) < 12:
+            penalty += 8
+            reasons.append("pouca evidência textual para contexto autossuficiente")
+        if sensitive_claim_hits and explicit_context_contract and (not context_complete or not bool(clip.get("evidence_present"))):
+            penalty += 10
+            reasons.append("alegação sensível sem contexto ou evidência explícitos")
+        status = "clean" if not reasons else "review" if penalty < 30 else "weak"
+        return {
+            "status": status,
+            "penalty": min(42, penalty),
+            "reasons": reasons,
+            "context_gate": context_complete,
+            "payoff_gate": payoff_complete,
+            "timing_gate": not (timing_ambiguous or overlap_suspected),
+            "contract_available": has_contract,
         }
 
     def _duration_fit(self, duration: float) -> float:
