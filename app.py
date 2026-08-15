@@ -13,20 +13,30 @@ import re
 import unicodedata
 from datetime import datetime
 
-# Load .env file for Gemini API key and other settings
+# Load local environment files. The persistent file lives outside the checkout
+# so replacing the GitHub folder does not remove the Gemini configuration.
+_PROJECT_ENV_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+_PERSISTENT_ROOT = os.environ.get("FURIA_CLIPS_DATA_DIR") or os.path.join(
+    os.path.expanduser("~"), "FuriaClipsData"
+)
+_PERSISTENT_ENV_PATH = os.environ.get("FURIA_CLIPS_ENV_FILE") or os.path.join(
+    os.path.abspath(os.path.expanduser(_PERSISTENT_ROOT)), "config", "local.env"
+)
+_ENV_PATHS = [_PERSISTENT_ENV_PATH, _PROJECT_ENV_PATH]
 try:
     from dotenv import load_dotenv
-    load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
+    for _env_path in _ENV_PATHS:
+        load_dotenv(_env_path, override=False)
 except ImportError:
-    # python-dotenv not installed — load .env manually
-    _env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
-    if os.path.exists(_env_path):
-        with open(_env_path, "r") as _ef:
-            for _line in _ef:
-                _line = _line.strip()
-                if _line and not _line.startswith("#") and "=" in _line:
-                    _k, _v = _line.split("=", 1)
-                    os.environ.setdefault(_k.strip(), _v.strip())
+    # python-dotenv not installed — load local files manually
+    for _env_path in _ENV_PATHS:
+        if os.path.exists(_env_path):
+            with open(_env_path, "r", encoding="utf-8") as _ef:
+                for _line in _ef:
+                    _line = _line.strip()
+                    if _line and not _line.startswith("#") and "=" in _line:
+                        _k, _v = _line.split("=", 1)
+                        os.environ.setdefault(_k.strip(), _v.strip())
 
 from flask import Flask, render_template, request, jsonify, send_from_directory, send_file
 try:
@@ -53,7 +63,7 @@ except ImportError:  # Optional dependency fallback for minimal local installs.
 
 from config import (
     BASE_DIR, WORKSPACE_DIR, UPLOAD_DIR, PROCESSED_DIR,
-    EXPORT_DIR, THUMBNAIL_DIR, ALLOWED_EXTENSIONS, MAX_UPLOAD_SIZE, DB_PATH, PERSISTENT_TRANSCRIPTS_DIR
+    EXPORT_DIR, THUMBNAIL_DIR, ALLOWED_EXTENSIONS, MAX_UPLOAD_SIZE, DB_PATH, PERSISTENT_DATA_DIR, PERSISTENT_TRANSCRIPTS_DIR
 )
 from database import (
     init_db, get_all_settings, get_setting, set_setting,
@@ -264,7 +274,12 @@ def _transcribe_video_automatically(video_path, settings, emit_progress, transcr
     if cancel_check:
         cancel_check()
 
-    if mode == "auto":
+    if mode == "auto" and transcript_fallback_path and os.path.isfile(transcript_fallback_path):
+        emit_progress(
+            "[Transcrição] Legenda pública timestampada já disponível; Gemini multimodal foi ignorado para evitar duplicidade e limite de tokens.",
+            "info",
+        )
+    elif mode == "auto":
         gemini_kwargs = {"cancel_check": cancel_check} if cancel_check else {}
         multimodal = _run_gemini_video_analysis(video_path, settings, {}, "", emit_progress, **gemini_kwargs)
         transcription = _transcription_from_gemini_result(multimodal, settings.get("language", "pt"))
@@ -322,8 +337,8 @@ def _transcribe_video_automatically(video_path, settings, emit_progress, transcr
     transcriber = Transcriber(
         model_name=model_name,
         language=settings.get("language", "pt"),
-        word_timestamps=settings.get("whisper_word_timestamps", False),
-        beam_size=settings.get("whisper_beam_size", 1),
+        word_timestamps=settings.get("whisper_word_timestamps", True),
+        beam_size=settings.get("whisper_beam_size", 5),
         device=resolved_device,
     )
     transcribe_kwargs = {"emit_progress": emit_progress}
@@ -843,8 +858,11 @@ def api_save_settings():
 
 
 def _save_key_to_env(key_name, key_value):
-    """Save an API key to the .env file."""
-    env_file = os.path.join(BASE_DIR, ".env")
+    """Save an API key outside the checkout so it survives upgrades."""
+    env_file = os.environ.get("FURIA_CLIPS_ENV_FILE") or os.path.join(
+        PERSISTENT_DATA_DIR, "config", "local.env"
+    )
+    os.makedirs(os.path.dirname(env_file), exist_ok=True)
     lines = []
     found = False
 
@@ -1061,7 +1079,44 @@ def api_source_import():
             transcription = None
             subtitle_path = None
             transcript_archive = None
-            if auto_transcribe:
+            transcript_files = {}
+            manual_payload = data.get("manual_transcript")
+            manual_segments = manual_payload.get("segments") if isinstance(manual_payload, dict) else data.get("transcript_segments")
+            manual_language = (
+                manual_payload.get("language", "pt")
+                if isinstance(manual_payload, dict)
+                else data.get("transcript_language", "pt")
+            )
+            if isinstance(manual_segments, list) and manual_segments:
+                transcription = normalize_segment_payload(manual_segments, duration=result.get("duration"))
+                transcription["language"] = manual_language or "pt"
+                transcription["source"] = "manual_confirmed"
+                transcript_source = "manual_confirmed"
+                emit_progress(
+                    f"[Transcrição manual] {transcription.get('segment_count', len(transcription.get('segments', [])))} segmentos confirmados; busca pública, Gemini e Whisper foram ignorados.",
+                    "success",
+                )
+                transcript_files = _save_transcription_artifacts(result_path, transcription)
+                transcript_archive = archive_transcription(
+                    transcription,
+                    source_video=result_path,
+                    source=transcript_source,
+                    source_artifact="manual-confirmed",
+                    project_id=project_id,
+                    duration=result.get("duration"),
+                    archive_name=result.get("title") or os.path.basename(result_path),
+                )
+                save_transcription(
+                    project_id,
+                    transcription.get("segments", []),
+                    transcription.get("full_text", ""),
+                    transcription.get("language", "pt"),
+                    transcript_source,
+                )
+                transcription["quality"] = transcript_archive.get("quality", {})
+                transcription["archive"] = transcript_archive
+                transcript_files = {**transcript_files, "archive": transcript_archive}
+            elif auto_transcribe:
                 transcription_mode = _transcription_source_mode({
                     **settings,
                     "transcription_source": data.get("transcription_source", settings.get("transcription_source", "auto")),
@@ -1111,8 +1166,6 @@ def api_source_import():
                 except Exception as transcript_exc:
                     transcript_files = {}
                     emit_progress(f"[Transcrição] Falha na geração automática; o vídeo continua disponível: {str(transcript_exc)[:220]}", "warning")
-            else:
-                transcript_files = {}
 
             event_data = {
                 **result,
@@ -1139,7 +1192,14 @@ def api_source_import():
             _set_legacy_task("", active=False)
 
     threading.Thread(target=task, daemon=True).start()
-    return jsonify({"success": True, "message": "Importação e transcrição da fonte iniciadas", "destination_dir": destination})
+    manual_requested = isinstance(data.get("manual_transcript"), dict) or bool(data.get("transcript_segments"))
+    if manual_requested:
+        message = "Download iniciado; a transcrição manual confirmada será reutilizada."
+    elif auto_transcribe:
+        message = "Download e transcrição da fonte iniciados."
+    else:
+        message = "Download da fonte iniciado sem transcrição."
+    return jsonify({"success": True, "message": message, "destination_dir": destination})
 
 
 @app.route("/api/transcript/parse", methods=["POST"])
@@ -1369,8 +1429,8 @@ def api_cut_shorts():
                 transcriber = Transcriber(
                     model_name=settings.get("whisper_model", "small"),
                     language=settings.get("language", "pt"),
-                    word_timestamps=settings.get("whisper_word_timestamps", False),
-                    beam_size=settings.get("whisper_beam_size", 1),
+                    word_timestamps=settings.get("whisper_word_timestamps", True),
+                    beam_size=settings.get("whisper_beam_size", 5),
                     device=settings.get("whisper_device", "auto"),
                 )
                 transcription = transcriber.transcribe(
@@ -2097,8 +2157,8 @@ def api_process_complete():
                 transcriber = Transcriber(
                     model_name=settings.get("whisper_model", "small"),
                     language=settings.get("language", "pt"),
-                    word_timestamps=settings.get("whisper_word_timestamps", False),
-                    beam_size=settings.get("whisper_beam_size", 1),
+                    word_timestamps=settings.get("whisper_word_timestamps", True),
+                    beam_size=settings.get("whisper_beam_size", 5),
                     device=settings.get("whisper_device", "auto"),
                 )
                 transcription = transcriber.transcribe(

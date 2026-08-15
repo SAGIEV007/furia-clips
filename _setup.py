@@ -30,24 +30,50 @@ def check_ffmpeg():
         return False
 
 
+def _persistent_env_path():
+    configured = os.environ.get("FURIA_CLIPS_ENV_FILE", "").strip()
+    if configured:
+        return os.path.abspath(os.path.expanduser(configured))
+    data_dir = os.environ.get("FURIA_CLIPS_DATA_DIR", "").strip() or os.path.join(
+        os.path.expanduser("~"), "FuriaClipsData"
+    )
+    return os.path.join(os.path.abspath(os.path.expanduser(data_dir)), "config", "local.env")
+
+
+def _read_gemini_key(env_file):
+    if not os.path.exists(env_file):
+        return ""
+    try:
+        with open(env_file, "r", encoding="utf-8") as handle:
+            for line in handle:
+                line = line.strip()
+                if line.startswith("GEMINI_API_KEY="):
+                    return line.split("=", 1)[1].strip()
+    except OSError:
+        return ""
+    return ""
+
+
 def check_gemini_key():
-    """Check for Gemini API key in env or .env file."""
-    # Check env var first
-    api_key = os.environ.get("GEMINI_API_KEY", "")
+    """Check environment and persistent/project env files without prompting unnecessarily."""
+    api_key = os.environ.get("GEMINI_API_KEY", "").strip()
     if api_key:
         print("[OK] Gemini API key encontrada (variavel de ambiente)")
         _save_gemini_key_to_env(api_key)
         return True
 
-    # Check .env file
-    env_file = os.path.join(os.path.dirname(__file__), ".env")
-    if os.path.exists(env_file):
-        with open(env_file, "r") as f:
-            for line in f:
-                line = line.strip()
-                if line.startswith("GEMINI_API_KEY=") and len(line) > 15:
-                    print("[OK] Gemini API key encontrada (.env)")
-                    return True
+    persistent_key = _read_gemini_key(_persistent_env_path())
+    if persistent_key:
+        os.environ["GEMINI_API_KEY"] = persistent_key
+        print("[OK] Gemini API key encontrada (FuriaClipsData persistente)")
+        return True
+
+    project_env = os.path.join(os.path.dirname(__file__), ".env")
+    project_key = _read_gemini_key(project_env)
+    if project_key:
+        os.environ["GEMINI_API_KEY"] = project_key
+        print("[OK] Gemini API key encontrada (.env local)")
+        return True
 
     return False
 
@@ -86,14 +112,15 @@ def prompt_gemini_key():
 
 
 def _save_gemini_key_to_env(api_key):
-    """Save Gemini API key to .env file."""
-    env_file = os.path.join(os.path.dirname(__file__), ".env")
+    """Save Gemini API key outside the checkout so upgrades do not remove it."""
+    env_file = _persistent_env_path()
+    os.makedirs(os.path.dirname(env_file), exist_ok=True)
     lines = []
     found = False
 
     if os.path.exists(env_file):
-        with open(env_file, "r") as f:
-            for line in f:
+        with open(env_file, "r", encoding="utf-8") as handle:
+            for line in handle:
                 if line.strip().startswith("GEMINI_API_KEY="):
                     lines.append(f"GEMINI_API_KEY={api_key}\n")
                     found = True
@@ -103,8 +130,8 @@ def _save_gemini_key_to_env(api_key):
     if not found:
         lines.append(f"GEMINI_API_KEY={api_key}\n")
 
-    with open(env_file, "w") as f:
-        f.writelines(lines)
+    with open(env_file, "w", encoding="utf-8") as handle:
+        handle.writelines(lines)
 
 
 def check_ollama():
