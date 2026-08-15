@@ -84,6 +84,17 @@ def analyze_transcript_context(
     labeled_speakers = [s for s in enriched if s["speaker_label"]]
     speaker_confidences = [s["speaker_confidence"] for s in labeled_speakers if s["speaker_confidence"] is not None]
     overlap_count = sum(1 for s in enriched if s["overlap_suspected"])
+    speaker_detection = {
+        "status": "validated" if labeled_speakers else "not_available",
+        "labeled_segment_count": len(labeled_speakers),
+        "confidence_mean": round(mean(speaker_confidences), 3) if speaker_confidences else None,
+        "review_required": not bool(labeled_speakers),
+        "message": (
+            "Locutor(es) identificados por marcadores/diarização."
+            if labeled_speakers
+            else "A transcrição não contém diarização; perguntas e respostas foram inferidas, mas o locutor deve ser confirmado no vídeo."
+        ),
+    }
     participant_confidence = min(0.95, 0.35 + min(0.45, len(references) * 0.03) + min(0.2, len(questions) * 0.01))
     if not references and not questions:
         participant_confidence = 0.2
@@ -110,8 +121,10 @@ def analyze_transcript_context(
         "chapter_map_version": "v1-temporal-qa",
         "focus": focus_key,
         "participant_confidence": round(participant_confidence if renan_focus else min(participant_confidence, 0.55), 3),
+        "speaker_detection": speaker_detection,
         "signals": {
             "question_response_structure": bool(qa_candidates),
+            "speaker_detection_status": speaker_detection["status"],
             "speaker_markers": sum(1 for s in enriched if s["speaker_marker"]),
             "speaker_labeled_segments": len(labeled_speakers),
             "speaker_confidence_mean": round(mean(speaker_confidences), 3) if speaker_confidences else None,

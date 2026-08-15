@@ -1729,7 +1729,11 @@ function renderEditorialContextPreview(context = {}) {
     const windows = Array.isArray(context.interview_windows) ? context.interview_windows.length : 0;
     const hooks = Array.isArray(context.hook_candidates) ? context.hook_candidates.slice(0, 5) : [];
     const quality = context.transcription_quality || {};
+    const speakerDetection = context.speaker_detection || {};
     const mode = context.analysis_mode === "transcript_plus_video" ? "transcrição + vídeo/áudio" : "transcrição";
+    const speakerMarkup = speakerDetection.status === "validated"
+        ? `<span class="context-speaker-status validated">locutor(es) marcado(s)</span>`
+        : `<span class="context-speaker-status review" title="${escapeHtml(speakerDetection.message || "Locutor não validado")}">locutor não diarizado · confirmar no vídeo</span>`;
     const hookMarkup = hooks.length
         ? `<div class="context-hook-list"><div class="context-hook-heading"><span class="material-icons-round">bolt</span><strong>Hooks potenciais para revisar</strong><small>Não são promessa de viralização; confirme imagem, voz e payoff.</small></div>${hooks.map((hook, index) => {
             const start = Number(hook.start || 0);
@@ -1740,7 +1744,7 @@ function renderEditorialContextPreview(context = {}) {
         }).join("")}</div>`
         : `<div class="context-hook-empty"><span class="material-icons-round">search_off</span><span>Nenhum hook textual robusto foi isolado; o editor pode revisar a transcrição por capítulos.</span></div>`;
     result.hidden = false;
-    result.innerHTML = `<div class="context-result-summary"><strong>${escapeHtml(context.description || "Contexto editorial analisado.")}</strong><div class="context-result-facts"><span>${escapeHtml(mode)}</span><span>${qa} pergunta(s)–resposta</span><span>${chapters} capítulo(s)</span><span>${windows} janela(s) de entrevista</span><span>${Number(quality.segment_count || 0)} segmentos · ${escapeHtml(quality.status || "qualidade não validada")}</span></div></div>${hookMarkup}`;
+    result.innerHTML = `<div class="context-result-summary"><strong>${escapeHtml(context.description || "Contexto editorial analisado.")}</strong><div class="context-result-facts"><span>${escapeHtml(mode)}</span><span>${qa} pergunta(s)–resposta</span><span>${chapters} capítulo(s)</span><span>${windows} janela(s) de entrevista</span><span>${Number(quality.segment_count || 0)} segmentos · ${escapeHtml(quality.status || "qualidade não validada")}</span>${speakerMarkup}</div></div>${hookMarkup}`;
 }
 
 async function pollEditorialContextJob(jobId, button, status) {
