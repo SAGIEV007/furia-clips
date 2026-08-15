@@ -19,7 +19,8 @@ from .instagram_editorial_priors import build_editorial_pattern_prior
 
 HOOK_PATTERNS = [
     r"voce\s+sabia",
-    r"presta\s+atencao",
+    r"presta\s+(muita\s+)?atencao",
+    r"leia\s+de\s+novo",
     r"olha\s+(isso|so)",
     r"a\s+verdade\s+(e|eh)",
     r"ninguem\s+te\s+(conta|fala|diz)",
@@ -27,6 +28,9 @@ HOOK_PATTERNS = [
     r"a\s+questao\s+e",
     r"eu\s+vou\s+te\s+(falar|dizer|contar)",
     r"(absurdo|vergonha|mentira|bomba|urgente|chocante)",
+    r"qual\s+(e|é)\s+(o\s+)?nosso\s+maior\s+inimigo",
+    r"que\s+brasil\s+vou\s+pegar",
+    r"eles\s+nao\s+querem\s+que\s+voce\s+veja",
 ]
 
 EMOTIONAL_TERMS = {
