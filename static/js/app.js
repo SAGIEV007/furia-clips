@@ -2148,7 +2148,12 @@ async function previewClipBoundary(index) {
         if (feedback) feedback.textContent = "Informe entrada e saída válidas.";
         return;
     }
-        if (end <= start) {
+    const sourceDuration = Number(clip.source_duration ?? clip.video_duration ?? clip.duration);
+    if (Number.isFinite(sourceDuration) && sourceDuration > 0 && (start < 0 || end > sourceDuration)) {
+        if (feedback) feedback.textContent = `Os limites precisam ficar entre 0:00 e ${formatTime(sourceDuration)}.`;
+        return;
+    }
+    if (end <= start) {
             if (feedback) feedback.textContent = "A saída precisa ser maior que a entrada.";
             return;
         }
