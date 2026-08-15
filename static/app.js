@@ -14,6 +14,7 @@ const state = {
     ollamaStatus: "checking",
     processingMode: "unknown",
     selectionSource: "unknown",
+    candidateDiagnostics: {},
     outputFolder: "",
     activeJob: null,
     operationJobs: [],
@@ -113,6 +114,8 @@ socket.on("ai_status", (data) => {
 
 socket.on("selection_mode", (data) => {
     state.selectionSource = data.source;
+    state.candidateDiagnostics = data.candidate_diagnostics || {};
+    renderCandidateVolumeNotice(state.candidateDiagnostics);
 });
 
 function updateOllamaStatusBadge(data) {
@@ -208,6 +211,7 @@ function handleStatusUpdate(data) {
             const completedClips = Array.isArray(data.data.clips) ? data.data.clips : [];
             updateWorkspaceWorkflow("review", completedClips.length ? "Revisão pronta" : "Revisão requer atenção");
             state.selectionSource = data.data.selection_source || "nlp";
+            state.candidateDiagnostics = data.data.candidate_diagnostics || state.candidateDiagnostics || {};
             state.outputFolder = data.data.output_folder || "";
             if (completedClips.length) {
                 showToast(`${completedClips.length} clips gerados e ranqueados!`, "success");
@@ -221,6 +225,7 @@ function handleStatusUpdate(data) {
                 );
             }
             renderEditorialAudit(data.data.editorial_audit, data.data.audit_mode || "standard");
+            renderCandidateVolumeNotice(state.candidateDiagnostics);
             displayResults(completedClips, data.data.video_layout || null);
             updateResultsModeBadge(state.selectionSource);
             updateOpenFolderButton(state.outputFolder);
@@ -2243,6 +2248,33 @@ function updateResultsModeBadge(source) {
         badge.classList.add("mode-nlp");
         badge.textContent = "NLP Basico";
     }
+}
+
+function renderCandidateVolumeNotice(diagnostics = {}) {
+    const notice = document.getElementById("candidateVolumeNotice");
+    if (!notice) return;
+    const expected = Number(diagnostics.expected_count || 0);
+    const primary = Number(diagnostics.primary_count || 0);
+    const fallback = Number(diagnostics.fallback_count || 0);
+    const finalCount = Number(diagnostics.final_count || 0);
+    if (!expected && !primary && !finalCount) {
+        notice.hidden = true;
+        notice.textContent = "";
+        return;
+    }
+    notice.hidden = false;
+    notice.className = "candidate-volume-notice";
+    if (fallback > 0) {
+        notice.classList.add("fallback");
+        notice.innerHTML = `<span class="material-icons-round">alt_route</span><span>Pool ampliado com segurança: ${primary} candidato(s) da fonte principal + ${fallback} alternativa(s) locais. Revise todos; os gates de contexto permaneceram ativos.</span>`;
+        return;
+    }
+    if (expected && finalCount < expected) {
+        notice.classList.add("warning");
+        notice.innerHTML = `<span class="material-icons-round">info</span><span>${finalCount} candidato(s) chegaram à revisão; a referência estrutural era ${expected}. O vídeo pode ter pouco material autossuficiente ou gates editoriais rigorosos.</span>`;
+        return;
+    }
+    notice.innerHTML = `<span class="material-icons-round">check_circle</span><span>Pool editorial adequado: ${finalCount} candidato(s) distintos chegaram à revisão.</span>`;
 }
 
 // --- Open Folder Button ---

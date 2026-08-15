@@ -2236,6 +2236,24 @@ body {
 .review-metric.needs-review > .material-icons-round { color: var(--warning); background: rgba(245,158,11,.12); }
 .review-metric.pending > .material-icons-round { color: var(--info); background: rgba(59,130,246,.12); }
 
+.candidate-volume-notice {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-top: 13px;
+    padding: 10px 12px;
+    border: 1px solid rgba(68, 207, 108, .22);
+    border-radius: 10px;
+    color: #c9ecd2;
+    background: rgba(68, 207, 108, .07);
+    font-size: 11px;
+    line-height: 1.45;
+}
+.candidate-volume-notice .material-icons-round { flex: 0 0 auto; color: var(--success); font-size: 17px; }
+.candidate-volume-notice.warning { border-color: rgba(245, 158, 11, .28); color: #f7d99b; background: rgba(245, 158, 11, .08); }
+.candidate-volume-notice.warning .material-icons-round { color: var(--warning); }
+.candidate-volume-notice.fallback { border-color: rgba(105, 184, 214, .28); color: #c9e9f3; background: rgba(105, 184, 214, .08); }
+.candidate-volume-notice.fallback .material-icons-round { color: var(--info); }
 .review-queue-progress { margin-top: 15px; }
 .review-queue-label { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 7px; color: var(--text-secondary); font-size: 11px; }
 .review-queue-label strong { color: var(--text-primary); font-size: 11px; }
@@ -2293,6 +2311,7 @@ body {
 
 @media (max-width: 520px) {
     .review-command-center { padding: 15px; }
+    .candidate-volume-notice { font-size: 10px; }
     .review-metrics { gap: 8px; }
     .review-metric { padding: 10px; gap: 8px; }
     .review-metric > .material-icons-round { width: 29px; height: 29px; font-size: 17px; }
