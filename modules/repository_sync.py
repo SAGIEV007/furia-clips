@@ -110,6 +110,7 @@ def _feedback_snapshot_metadata(repo: Path) -> dict[str, Any]:
     metadata = {
         "feedback_snapshot_present": target.is_file(),
         "feedback_snapshot_valid": False,
+        "feedback_snapshot_consistent": False,
         "feedback_snapshot_records": 0,
         "feedback_snapshot_version": None,
         "feedback_snapshot_generated_at": None,
@@ -123,11 +124,25 @@ def _feedback_snapshot_metadata(repo: Path) -> dict[str, Any]:
     if not isinstance(payload, dict) or payload.get("format") != SYNC_FORMAT:
         return metadata
     records = payload.get("records")
+    try:
+        version = int(payload.get("format_version") or 0) or None
+    except (TypeError, ValueError):
+        version = None
+    records_count = len(records) if isinstance(records, list) else 0
+    declared_count = payload.get("record_count")
+    count_consistent = True
+    if declared_count is not None:
+        try:
+            count_consistent = int(declared_count) == records_count
+        except (TypeError, ValueError):
+            count_consistent = False
+    valid = isinstance(records, list) and version == SYNC_FORMAT_VERSION and count_consistent
     metadata.update(
         {
-            "feedback_snapshot_valid": isinstance(records, list),
-            "feedback_snapshot_records": len(records) if isinstance(records, list) else 0,
-            "feedback_snapshot_version": int(payload.get("format_version") or 0) or None,
+            "feedback_snapshot_valid": valid,
+            "feedback_snapshot_consistent": count_consistent,
+            "feedback_snapshot_records": records_count,
+            "feedback_snapshot_version": version,
             "feedback_snapshot_generated_at": str(payload.get("generated_at") or "")[:40] or None,
         }
     )
