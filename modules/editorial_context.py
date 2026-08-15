@@ -310,6 +310,10 @@ def detect_hook_candidates(
         if text[:1].islower() or re.search(r"(?:,|\bpor|\be|\bmas|\bque|\bde)$", normalized):
             score -= 10
             reasons.append("frase começa ou termina fragmentada")
+        speaker_label = str(segment.get("speaker_label") or segment.get("speaker") or "").strip()
+        speaker_confidence = segment.get("speaker_confidence")
+        speaker_known = bool(speaker_label) or bool(segment.get("speaker_marker"))
+        speaker_uncertain = not speaker_known or (isinstance(speaker_confidence, (int, float)) and float(speaker_confidence) < 0.65)
         if bool(segment.get("overlap_suspected")):
             score -= 14
             reasons.append("sobreposição de falas exige revisão")
@@ -384,6 +388,8 @@ def detect_hook_candidates(
             "reason": "; ".join(reasons[:4]),
             "payoff_confirmed": payoff,
             "needs_visual_review": bool(segment.get("overlap_suspected")),
+            "needs_speaker_review": bool(_is_question(text) and speaker_uncertain),
+            "speaker_review_reason": "pergunta sem diarização confiável" if _is_question(text) and speaker_uncertain else "",
             "audio_signal": audio_signal,
             "campaign_hub_prior": prior,
         })
