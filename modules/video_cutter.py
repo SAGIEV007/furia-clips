@@ -347,7 +347,7 @@ class VideoCutter:
                     "output_folder": export_dir,
                     "framing_mode": framing_mode,
                     "framing_reason": framing_reason,
-                    "framing_confidence": (layout_plan or {}).get("confidence"),
+                    "framing_confidence": (layout_plan or {}).get("confidence") if framing_mode in {"face_tracking", "original_16_9"} else None,
                     "validation": validation.as_dict(),
                     "preset": active_preset["aspect"] if render_vertical else "original_16:9",
                     "layout_plan": dict(layout_plan) if isinstance(layout_plan, dict) else None,
