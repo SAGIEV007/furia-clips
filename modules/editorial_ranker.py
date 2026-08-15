@@ -148,6 +148,7 @@ class EditorialRanker:
             "context_quality": self._context_quality(clip, text, closure_type),
             "speaker_boundary": self._speaker_boundary_score(clip),
             "qa_boundary": self._qa_boundary_score(clip),
+            "contextual_hook_alignment": self._contextual_hook_alignment(clip),
             "editorial_family_fit": 50.0,
             "instagram_pattern_prior": instagram_pattern_prior["signal"],
             "chapter_coherence": self._chapter_coherence(clip),
@@ -219,6 +220,7 @@ class EditorialRanker:
         score += int(round(
             (factors["speaker_boundary"] - 50.0) * 0.04
             + (factors["qa_boundary"] - 50.0) * 0.04
+            + (factors["contextual_hook_alignment"] - 50.0) * 0.05
         ))
         context_contract = any(
             key in clip
@@ -264,8 +266,10 @@ class EditorialRanker:
             "value": self._grade(factors["value"]),
             "energy": self._grade(factors["audio_energy"]),
             "speaker_boundary": self._grade(factors["speaker_boundary"]),
-            "qa_boundary": self._grade(factors["qa_boundary"]),
-        }
+                            "qa_boundary": self._grade(factors["qa_boundary"]),
+                "contextual_hook": self._grade(factors["contextual_hook_alignment"]),
+            }
+
         reason = self._reason(factors, user_context)
         topic_signature = self._topic_signature(text, political_signals)
         score_version = (
@@ -309,6 +313,7 @@ class EditorialRanker:
             "speaker_turn_valid": clip.get("speaker_turn_valid"),
             "speaker_boundary_score": factors["speaker_boundary"],
             "qa_boundary_score": factors["qa_boundary"],
+            "contextual_hook_alignment": factors["contextual_hook_alignment"],
             "campaign_hub_prior": campaign_hub_prior,
             "instagram_pattern_prior": instagram_pattern_prior,
             "feedback_calibration": feedback_calibration,
@@ -344,6 +349,7 @@ class EditorialRanker:
                 "speaker_review_required": bool(clip.get("needs_speaker_review")) or clip.get("speaker_turn_valid") is None,
                 "speaker_boundary_score": factors["speaker_boundary"],
                 "qa_boundary_score": factors["qa_boundary"],
+                "contextual_hook_alignment": factors["contextual_hook_alignment"],
                 "technical_gate_status": technical_gate["status"],
                 "technical_gate_reasons": list(technical_gate["reasons"]),
                 "campaign_hub_prior_available": bool(campaign_hub_prior["available"]),
@@ -380,6 +386,18 @@ class EditorialRanker:
         if clip.get("question_detected"):
             return 42.0 if clip.get("needs_speaker_review") else 58.0
         return 55.0
+
+    def _contextual_hook_alignment(self, clip: dict) -> float:
+        hook = clip.get("contextual_hook")
+        if not isinstance(hook, dict) or not str(hook.get("hook_text") or "").strip():
+            return 50.0
+        try:
+            hook_score = max(0.0, min(100.0, float(hook.get("score", 50) or 50)))
+            distance = max(0.0, float(clip.get("hook_distance_seconds", 0) or 0))
+        except (TypeError, ValueError):
+            return 50.0
+        proximity = max(0.0, min(1.0, 1.0 - distance / 12.0))
+        return round(50.0 + (hook_score - 50.0) * 0.55 * proximity, 1)
 
     def _technical_gate(self, clip: dict, factors: dict, political_signals: Optional[dict] = None) -> dict:
         """Apply bounded, explainable penalties for technical uncertainty."""
@@ -798,6 +816,7 @@ class EditorialRanker:
             "context_quality": "contexto autossuficiente e payoff",
             "speaker_boundary": "fronteira de locutor",
             "qa_boundary": "ponte pergunta–resposta",
+            "contextual_hook_alignment": "alinhamento ao hook contextual",
         }
         ordered = sorted(factors.items(), key=lambda pair: pair[1], reverse=True)
         top = [labels[key] for key, value in ordered[:3] if value >= 60]
