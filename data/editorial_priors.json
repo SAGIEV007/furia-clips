@@ -1,6 +1,6 @@
 {
   "schema_version": "editorial-priors-v1-aggregate-only",
-  "generated_at": "2026-08-15T02:44:23.779911+00:00",
+  "generated_at": "2026-08-15T04:22:46.526292+00:00",
   "source_label": "Campaign Hub aggregate observations",
   "default_account": "@renansantosmbl",
   "privacy_contract": {
@@ -106,12 +106,12 @@
       },
       {
         "family": "event_mobilization",
-        "observations": 3,
+        "observations": 4,
         "mean_views": 341000.0,
         "median_views": 341000.0,
         "view_observation_count": 1,
         "preserve_composition_rate": 1.0,
-        "mean_annotation_confidence": 0.79
+        "mean_annotation_confidence": 0.828
       },
       {
         "family": "debate_with_reaction",
@@ -720,6 +720,10 @@
         "observations": 1
       },
       {
+        "layout": "vertical_documentary_card",
+        "observations": 1
+      },
+      {
         "layout": "vertical_face_plus_lower_evidence",
         "observations": 1
       },
@@ -836,7 +840,7 @@
         "observations": 1
       }
     ],
-    "record_count": 70
+    "record_count": 71
   },
   "observed_patterns": [
     {
