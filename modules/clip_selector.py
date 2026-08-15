@@ -11,6 +11,7 @@ import json
 import re
 import math
 import requests
+from difflib import SequenceMatcher
 from collections import Counter
 
 from .political_profile import PROFILE_NAME, build_political_prompt_fragment
@@ -190,67 +191,96 @@ class ClipSelector:
         return names
 
     def _build_sentences(self, segments):
-        """Group transcription segments into natural sentences based on punctuation and pauses.
-        Caps sentence length at 30s to prevent mega-blocks."""
+        """Group transcript segments while preserving technical metadata.
+
+        Caps sentence length at 30s, but carries speaker labels, overlap flags,
+        timing confidence and source segment ids into every editorial block.
+        """
         sentences = []
         current_text = ""
         current_start = None
         current_end = None
+        current_segments = []
         last_end = 0
-        MAX_SENTENCE_DURATION = 30  # Force split at 30s to keep blocks manageable
+        MAX_SENTENCE_DURATION = 30
 
-        for seg in segments:
-            pause_before = seg["start"] - last_end if last_end > 0 else 0
-
-            if pause_before > 0.8 and current_text:
-                sentences.append({
-                    "text": current_text.strip(),
-                    "start": current_start,
-                    "end": current_end,
-                    "duration": current_end - current_start,
-                })
+        def flush():
+            nonlocal current_text, current_start, current_end, current_segments
+            if not current_text.strip() or current_start is None or current_end is None:
                 current_text = ""
                 current_start = None
-
-            if current_start is None:
-                current_start = seg["start"]
-
-            current_text += " " + seg["text"]
-            current_end = seg["end"]
-            last_end = seg["end"]
-
-            # Force split if sentence exceeds max duration
-            current_duration = current_end - current_start
-            if current_duration >= MAX_SENTENCE_DURATION:
-                sentences.append({
-                    "text": current_text.strip(),
-                    "start": current_start,
-                    "end": current_end,
-                    "duration": current_duration,
-                })
-                current_text = ""
-                current_start = None
-                continue
-
-            text_stripped = current_text.strip()
-            if text_stripped and text_stripped[-1] in ".!?" and len(text_stripped.split()) >= 5:
-                sentences.append({
-                    "text": text_stripped,
-                    "start": current_start,
-                    "end": current_end,
-                    "duration": current_end - current_start,
-                })
-                current_text = ""
-                current_start = None
-
-        if current_text.strip():
+                current_end = None
+                current_segments = []
+                return
+            speakers = [
+                str(item.get("speaker") or "").strip()
+                for item in current_segments
+                if str(item.get("speaker") or "").strip()
+            ]
+            unique_speakers = list(dict.fromkeys(speakers))
+            confidences = []
+            for item in current_segments:
+                try:
+                    confidences.append(float(item.get("speaker_confidence")))
+                except (TypeError, ValueError):
+                    continue
+            timing_confidences = []
+            for item in current_segments:
+                try:
+                    timing_confidences.append(float(item.get("timing_confidence")))
+                except (TypeError, ValueError):
+                    continue
             sentences.append({
                 "text": current_text.strip(),
                 "start": current_start,
                 "end": current_end,
                 "duration": current_end - current_start,
+                "speaker": unique_speakers[0] if len(unique_speakers) == 1 else "",
+                "speakers": unique_speakers,
+                "speaker_change_detected": len(unique_speakers) > 1,
+                "speaker_confidence": min(confidences) if confidences else None,
+                "overlap_suspected": any(bool(item.get("overlap_suspected")) for item in current_segments),
+                "timing_ambiguous": any(
+                    float(item.get("timing_confidence", 1.0) or 1.0) < 0.6
+                    for item in current_segments
+                    if item.get("timing_confidence") is not None
+                ) or any(bool(item.get("overlap_suspected")) for item in current_segments),
+                "timing_confidence": min(timing_confidences) if timing_confidences else None,
+                "segment_ids": [item.get("id") for item in current_segments if item.get("id") is not None],
             })
+            current_text = ""
+            current_start = None
+            current_end = None
+            current_segments = []
 
+        for seg in segments:
+            start = float(seg.get("start", 0.0))
+            end = float(seg.get("end", start))
+            if start < 0 or end <= start:
+                continue
+            pause_before = start - last_end if last_end > 0 else 0
+
+            if pause_before > 0.8 and current_text:
+                flush()
+
+            if current_start is None:
+                current_start = start
+
+            current_text += " " + str(seg.get("text", ""))
+            current_end = end
+            current_segments.append(seg)
+            last_end = end
+
+            current_duration = current_end - current_start
+            if current_duration >= MAX_SENTENCE_DURATION:
+                flush()
+                continue
+
+            text_stripped = current_text.strip()
+            if text_stripped and text_stripped[-1] in ".!?" and len(text_stripped.split()) >= 5:
+                flush()
+
+        flush()
         return sentences
 
     # ═══════════════════════════════════════════════════
@@ -691,30 +721,46 @@ Retorne APENAS o JSON.
             # The selector may still join blocks when the context requires it.
             if current_duration >= 30 or (sent["text"].strip()[-1:] in ".!?" and current_duration >= 18):
                 block_text = " ".join(s["text"] for s in current_block_sentences)
-                blocks.append({
-                    "index": len(blocks),
-                    "start": current_start,
-                    "end": sent["end"],
-                    "duration": round(current_duration, 1),
-                    "text": block_text.strip(),
-                    "sentences": current_block_sentences.copy(),
-                })
+                blocks.append(self._make_editorial_block(
+                    len(blocks), current_start, sent["end"], block_text, current_block_sentences
+                ))
                 current_block_sentences = []
                 current_start = None
                 current_duration = 0
 
         if current_block_sentences:
             block_text = " ".join(s["text"] for s in current_block_sentences)
-            blocks.append({
-                "index": len(blocks),
-                "start": current_start,
-                "end": current_block_sentences[-1]["end"],
-                "duration": round(current_block_sentences[-1]["end"] - current_start, 1),
-                "text": block_text.strip(),
-                "sentences": current_block_sentences.copy(),
-            })
+            blocks.append(self._make_editorial_block(
+                len(blocks), current_start, current_block_sentences[-1]["end"],
+                block_text, current_block_sentences
+            ))
 
         return blocks
+
+    def _make_editorial_block(self, index, start, end, block_text, sentences):
+        speakers = []
+        for sentence in sentences:
+            for speaker in sentence.get("speakers", []):
+                if speaker and speaker not in speakers:
+                    speakers.append(speaker)
+        return {
+            "index": index,
+            "start": start,
+            "end": end,
+            "duration": round(end - start, 1),
+            "text": block_text.strip(),
+            "sentences": sentences.copy(),
+            "speaker": speakers[0] if len(speakers) == 1 else "",
+            "speakers": speakers,
+            "speaker_change_detected": len(speakers) > 1,
+            "overlap_suspected": any(bool(sentence.get("overlap_suspected")) for sentence in sentences),
+            "speaker_turn_valid": not any(bool(sentence.get("overlap_suspected")) for sentence in sentences),
+            "timing_ambiguous": any(bool(sentence.get("timing_ambiguous")) for sentence in sentences),
+            "timing_confidence": min(
+                [float(sentence["timing_confidence"]) for sentence in sentences if sentence.get("timing_confidence") is not None]
+                or [1.0]
+            ),
+        }
 
     def _parse_llm_response(self, response_text, sentences, all_blocks, chunk_offset, source="llm"):
         """Parse LLM/Gemini JSON response into clip data with timestamps."""
@@ -766,24 +812,55 @@ Retorne APENAS o JSON.
             if not isinstance(sel, dict):
                 continue
 
-            block_indices = sel.get("blocks", [])
-            if not block_indices:
+            raw_indices = sel.get("blocks", [])
+            if not isinstance(raw_indices, (list, tuple)) or not raw_indices:
+                continue
+            try:
+                block_indices = [int(index) for index in raw_indices]
+            except (TypeError, ValueError):
+                continue
+            if len(set(block_indices)) != len(block_indices):
                 continue
 
-            # Handle both 0-indexed and 1-indexed block references
-            # Check if any index exceeds our block count (likely 1-indexed)
-            max_idx = max(block_indices) if block_indices else 0
-            if max_idx >= len(all_blocks) and min(block_indices) >= 1:
-                # Likely 1-indexed, convert to 0-indexed
-                block_indices = [i - 1 for i in block_indices]
+            zero_based_valid = all(0 <= index < len(all_blocks) for index in block_indices)
+            one_based_valid = all(1 <= index <= len(all_blocks) for index in block_indices)
+            # Our prompt exposes zero-based `BLOCO` indices. Only switch to
+            # one-based when zero-based mapping is impossible, avoiding the old
+            # silent off-by-one error for responses such as [1, 2].
+            if not zero_based_valid and one_based_valid:
+                block_indices = [index - 1 for index in block_indices]
+            elif not zero_based_valid:
+                continue
 
-            # Map block indices to actual timestamps
-            valid_blocks = [
-                all_blocks[i] for i in block_indices
-                if 0 <= i < len(all_blocks)
-            ]
+            ordered_indices = sorted(block_indices)
+            if ordered_indices != list(range(ordered_indices[0], ordered_indices[-1] + 1)):
+                # A model that skips a block skipped context; do not publish it.
+                continue
+            block_indices = ordered_indices
+            valid_blocks = [all_blocks[index] for index in block_indices]
             if not valid_blocks:
                 continue
+
+            metadata = {
+                "overlap_suspected": any(bool(block.get("overlap_suspected")) for block in valid_blocks),
+                "timing_ambiguous": any(bool(block.get("timing_ambiguous")) for block in valid_blocks),
+                "speaker_turn_valid": all(block.get("speaker_turn_valid", True) is not False for block in valid_blocks),
+                "timing_confidence": min(
+                    [float(block.get("timing_confidence")) for block in valid_blocks if block.get("timing_confidence") is not None]
+                    or [1.0]
+                ),
+            }
+            preliminary_text = " ".join(block["text"] for block in valid_blocks)
+            preliminary_flags = self._editorial_flags(preliminary_text, metadata)
+            if preliminary_flags["starts_mid_sentence"] and block_indices[0] > 0:
+                previous = all_blocks[block_indices[0] - 1]
+                gap = float(valid_blocks[0]["start"]) - float(previous["end"])
+                joined_duration = float(valid_blocks[-1]["end"]) - float(previous["start"])
+                if gap <= 2.5 and joined_duration <= self.max_duration:
+                    valid_blocks.insert(0, previous)
+                    block_indices.insert(0, block_indices[0] - 1)
+                    metadata["overlap_suspected"] = metadata["overlap_suspected"] or bool(previous.get("overlap_suspected"))
+                    metadata["timing_ambiguous"] = metadata["timing_ambiguous"] or bool(previous.get("timing_ambiguous"))
 
             clip_start = valid_blocks[0]["start"]
             clip_end = valid_blocks[-1]["end"]
@@ -798,6 +875,11 @@ Retorne APENAS o JSON.
                 clip_duration = self.max_duration
 
             clip_text = " ".join(b["text"] for b in valid_blocks)
+            technical_flags = self._editorial_flags(clip_text, metadata)
+            if technical_flags["overlap_suspected"] or technical_flags["timing_ambiguous"]:
+                # Ambiguous timing remains reviewable but should not be treated
+                # as a clean candidate by the model response parser.
+                sel["technical_review_required"] = True
 
             # Score scale: A=90, B=55, C=25 (wide spread for real differentiation)
             grade_to_score = {"A": 90, "B": 55, "C": 25}
@@ -815,7 +897,7 @@ Retorne APENAS o JSON.
             )
 
             clips.append({
-                **self._editorial_flags(clip_text),
+                **technical_flags,
                 "start": clip_start,
                 "end": clip_end,
                 "duration": round(clip_duration, 3),
@@ -1062,9 +1144,10 @@ Retorne APENAS o JSON.
             return min(80, score)
         return min(60, score)
 
-    def _editorial_flags(self, text):
-        """Return conservative, explainable gates shared by every selection backend."""
+    def _editorial_flags(self, text, metadata=None):
+        """Return conservative, explainable gates shared by every backend."""
         raw = str(text or "").strip()
+        metadata = metadata if isinstance(metadata, dict) else {}
         normalized = raw.lower()
         words = re.findall(r"[\wÀ-ÿ-]+", normalized)
         first_word = words[0] if words else ""
@@ -1072,13 +1155,28 @@ Retorne APENAS o JSON.
         starts_mid_sentence = first_word in continuation_starters
         has_question = "?" in raw or first_word in {"como", "por", "porque", "qual", "quais", "quem", "quando", "onde"}
         question_index = raw.find("?")
-        response_words = len(re.findall(r"[\wÀ-ÿ-]+", raw[question_index + 1:])) if question_index >= 0 else 0
-        question_answer_complete = bool(has_question and response_words >= 8)
-        has_evidence = any(term in normalized for term in EVIDENCE_TERMS_PT)
+        response_text = raw[question_index + 1:] if question_index >= 0 else ""
+        response_words = len(re.findall(r"[\wÀ-ÿ-]+", response_text))
+        response_closed = response_text.strip().endswith((".", "!", "?"))
+        question_answer_complete = bool(
+            has_question and response_words >= 8 and (response_closed or response_words >= 14)
+        )
+        normalized_words = set(re.findall(r"[\wÀ-ÿ-]+", normalized))
+        has_evidence = bool(normalized_words & {term.lower() for term in EVIDENCE_TERMS_PT})
         ends_closed = raw.endswith((".", "!", "?"))
         cliffhanger = any(pattern in normalized[-220:] for pattern in ("em breve", "depois eu", "na proxima", "fique ligado", "vou mostrar"))
         payoff_complete = bool(ends_closed and not cliffhanger)
-        context_complete = bool(not starts_mid_sentence and payoff_complete and len(words) >= 12)
+        overlap_suspected = bool(metadata.get("overlap_suspected"))
+        timing_ambiguous = bool(metadata.get("timing_ambiguous"))
+        speaker_turn_valid = metadata.get("speaker_turn_valid")
+        context_complete = bool(
+            not starts_mid_sentence
+            and payoff_complete
+            and len(words) >= 12
+            and not overlap_suspected
+            and not timing_ambiguous
+            and speaker_turn_valid is not False
+        )
         return {
             "starts_mid_sentence": starts_mid_sentence,
             "question_detected": has_question,
@@ -1086,7 +1184,16 @@ Retorne APENAS o JSON.
             "evidence_present": has_evidence,
             "payoff_complete": payoff_complete,
             "context_complete": context_complete,
-            "qa_bridge": question_answer_complete,
+            "qa_bridge": bool(
+                question_answer_complete
+                and not overlap_suspected
+                and not timing_ambiguous
+                and speaker_turn_valid is not False
+            ),
+            "speaker_turn_valid": speaker_turn_valid,
+            "overlap_suspected": overlap_suspected,
+            "timing_ambiguous": timing_ambiguous,
+            "timing_confidence": metadata.get("timing_confidence"),
         }
 
     def _build_clips_from_scored_blocks(self, scored_blocks, context_data=None):
@@ -1109,7 +1216,7 @@ Retorne APENAS o JSON.
             # Whisper blocks can begin with a continuation after a pause. Recover
             # the adjacent context when it is safe instead of publishing an abrupt start.
             if (
-                self._editorial_flags(start_block.get("text", "")).get("starts_mid_sentence")
+                self._editorial_flags(start_block.get("text", ""), start_block).get("starts_mid_sentence")
                 and start_idx > 0
                 and (start_idx - 1) not in used_indices
             ):
@@ -1162,6 +1269,18 @@ Retorne APENAS o JSON.
             clip_text = " ".join(b["text"] for b in clip_blocks)
             clip_start = clip_blocks[0]["start"]
             clip_end = clip_blocks[-1]["end"]
+            clip_flags = self._editorial_flags(
+                clip_text,
+                {
+                    "overlap_suspected": any(bool(block.get("overlap_suspected")) for block in clip_blocks),
+                    "timing_ambiguous": any(bool(block.get("timing_ambiguous")) for block in clip_blocks),
+                    "speaker_turn_valid": all(block.get("speaker_turn_valid", True) is not False for block in clip_blocks),
+                    "timing_confidence": min(
+                        [float(block.get("timing_confidence")) for block in clip_blocks if block.get("timing_confidence") is not None]
+                        or [1.0]
+                    ),
+                },
+            )
 
             # ENFORCE max_duration — truncate if clip exceeds limit
             if clip_end - clip_start > self.max_duration:
@@ -1173,11 +1292,24 @@ Retorne APENAS o JSON.
             avg_score = sum(scored_blocks[i][1] for i in range(start_idx, clip_end_idx + 1)) / (clip_end_idx - start_idx + 1)
 
             hook_grade = "A" if start_score > 75 else ("B" if start_score > 50 else "C")
-            flow_grade = "A" if clip_text.strip()[-1:] in ".!?" else "B"
+            flow_grade = "A" if clip_flags["context_complete"] else ("B" if clip_flags["payoff_complete"] else "C")
             value_grade = "A" if avg_score > 70 else ("B" if avg_score > 50 else "C")
             energy_grade = "B"
 
             viral_score = int(avg_score)
+            if not clip_flags["context_complete"]:
+                viral_score -= 10
+            if clip_flags["starts_mid_sentence"]:
+                viral_score -= 12
+            if clip_flags["question_detected"] and not clip_flags["qa_bridge"]:
+                viral_score -= 10
+            if not clip_flags["payoff_complete"]:
+                viral_score -= 12
+            if clip_flags["overlap_suspected"]:
+                viral_score -= 16
+            if clip_flags["timing_ambiguous"]:
+                viral_score -= 8
+            viral_score = max(0, min(100, viral_score))
 
             title = self._generate_simple_title(clip_text)
 
@@ -1188,7 +1320,7 @@ Retorne APENAS o JSON.
                     reason = f"Contem mencao a: {', '.join(matched_names)}"
 
             clips.append({
-                **self._editorial_flags(clip_text),
+                **clip_flags,
                 "start": clip_start,
                 "end": clip_end,
                 "duration": round(clip_duration, 3),
@@ -1256,22 +1388,52 @@ Retorne APENAS o JSON.
         return adjusted
 
     def _remove_overlaps(self, clips):
-        """Remove clips that overlap more than 30% with higher-scored clips."""
+        """Remove temporal overlaps and near-duplicate candidates deterministically."""
         if not clips:
             return []
 
+        ordered = sorted(
+            clips,
+            key=lambda clip: (
+                float(clip.get("editorial_potential_score", clip.get("viral_score", 0)) or 0),
+                float(clip.get("confidence", 0) or 0),
+                -float(clip.get("duration", 0) or 0),
+            ),
+            reverse=True,
+        )
         selected = []
-        for clip in clips:
-            overlaps = False
+        for clip in ordered:
+            duplicate = False
             for existing in selected:
                 overlap = self._calculate_overlap(clip, existing)
+                text_similarity = self._text_similarity(clip.get("text", ""), existing.get("text", ""))
                 if overlap > 0.30:
-                    overlaps = True
+                    duplicate = True
                     break
-            if not overlaps:
+                # Repeated wording in adjacent candidate windows is usually a
+                # rolling-caption duplicate. Require high lexical and sequence
+                # similarity so short common political phrases survive.
+                if text_similarity >= 0.90:
+                    duplicate = True
+                    break
+            if not duplicate:
                 selected.append(clip)
 
         return selected
+
+    def _text_similarity(self, first, second):
+        def normalize(value):
+            return re.sub(r"[^a-z0-9à-ÿ ]+", " ", str(value or "").lower()).strip()
+
+        left = normalize(first)
+        right = normalize(second)
+        if not left or not right:
+            return 0.0
+        left_words = set(left.split())
+        right_words = set(right.split())
+        lexical = len(left_words & right_words) / max(1, len(left_words | right_words))
+        sequence = SequenceMatcher(None, left, right).ratio()
+        return max(lexical, sequence)
 
     def _calculate_overlap(self, clip_a, clip_b):
         """Calculate overlap ratio between two clips."""
