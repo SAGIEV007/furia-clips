@@ -13,6 +13,21 @@ import re
 import unicodedata
 from datetime import datetime
 
+
+def _coerce_bool(value, default=False):
+    """Interpret JSON and form-style booleans consistently at API boundaries."""
+    if value is None:
+        return bool(default)
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    normalized = str(value).strip().lower()
+    if not normalized:
+        return bool(default)
+    return normalized not in {"0", "false", "no", "off", "disabled", "nao", "não"}
+
+
 # Load local environment files. The persistent file lives outside the checkout
 # so replacing the GitHub folder does not remove the Gemini configuration.
 _PROJECT_ENV_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
@@ -1611,7 +1626,7 @@ def api_cut_shorts():
     if not video_path:
         return jsonify({"error": "Video não encontrado ou caminho inválido"}), 404
     project_id = data.get("project_id")
-    use_face_tracking = data.get("face_tracking", True)
+    use_face_tracking = _coerce_bool(data.get("face_tracking"), default=True)
     transcription_source = data.get("transcription_source")
     user_context = str(data.get("user_context", "") or "").strip()
     video_genre = data.get("video_genre", "")

@@ -238,3 +238,13 @@ def test_multimodal_visual_observation_is_capped_without_identity_validation():
     )
     assert result[0]["visual_observation_confidence"] == 0.35
     assert result[0]["visual_observation_review_required"] is True
+
+
+def test_coerce_bool_handles_json_and_form_style_values():
+    assert furia_app._coerce_bool(True) is True
+    assert furia_app._coerce_bool(False) is False
+    assert furia_app._coerce_bool("false") is False
+    assert furia_app._coerce_bool("0") is False
+    assert furia_app._coerce_bool("off") is False
+    assert furia_app._coerce_bool("true") is True
+    assert furia_app._coerce_bool(None, default=True) is True
