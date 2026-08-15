@@ -137,7 +137,7 @@ DEFAULT_SETTINGS = {
     "language": "pt",
     "transcription_source": "auto",
     "ai_correction": True,
-    "ai_backend": "gemini",
+    "ai_backend": "auto",
     "ollama_model": "llama3.2:3b",
     "ollama_url": "http://localhost:11434",
     "claude_api_key": "",
