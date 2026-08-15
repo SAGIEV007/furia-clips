@@ -1,6 +1,6 @@
 {
   "schema_version": "editorial-priors-v1-aggregate-only",
-  "generated_at": "2026-08-15T01:03:03.251732+00:00",
+  "generated_at": "2026-08-15T01:11:50.891776+00:00",
   "source_label": "Campaign Hub aggregate observations",
   "default_account": "@renansantosmbl",
   "privacy_contract": {
@@ -97,11 +97,11 @@
     "family_priors": [
       {
         "family": "reaction_external_evidence",
-        "observations": 4,
-        "mean_views": 797500.0,
-        "median_views": 830500.0,
+        "observations": 6,
+        "mean_views": 531666.7,
+        "median_views": 445000.0,
         "preserve_composition_rate": 1.0,
-        "mean_annotation_confidence": 0.915
+        "mean_annotation_confidence": 0.91
       },
       {
         "family": "debate_with_reaction",
@@ -110,6 +110,14 @@
         "median_views": 691500.0,
         "preserve_composition_rate": 1.0,
         "mean_annotation_confidence": 0.945
+      },
+      {
+        "family": "event_mobilization",
+        "observations": 2,
+        "mean_views": 170500.0,
+        "median_views": 170500.0,
+        "preserve_composition_rate": 1.0,
+        "mean_annotation_confidence": 0.73
       },
       {
         "family": "conversation_social",
@@ -150,14 +158,6 @@
         "median_views": 405000.0,
         "preserve_composition_rate": 1.0,
         "mean_annotation_confidence": 0.87
-      },
-      {
-        "family": "event_mobilization",
-        "observations": 1,
-        "mean_views": 341000.0,
-        "median_views": 341000.0,
-        "preserve_composition_rate": 1.0,
-        "mean_annotation_confidence": 0.84
       },
       {
         "family": "podcast_monochrome",
@@ -358,6 +358,62 @@
         "median_views": 574.0,
         "preserve_composition_rate": 1.0,
         "mean_annotation_confidence": 0.9
+      },
+      {
+        "family": "official_statement",
+        "observations": 1,
+        "mean_views": 0.0,
+        "median_views": 0.0,
+        "preserve_composition_rate": 1.0,
+        "mean_annotation_confidence": 0.91
+      },
+      {
+        "family": "political_diagnosis_question",
+        "observations": 1,
+        "mean_views": 0.0,
+        "median_views": 0.0,
+        "preserve_composition_rate": 1.0,
+        "mean_annotation_confidence": 0.9
+      },
+      {
+        "family": "public_policy_visual_explainer",
+        "observations": 1,
+        "mean_views": 0.0,
+        "median_views": 0.0,
+        "preserve_composition_rate": 1.0,
+        "mean_annotation_confidence": 0.91
+      },
+      {
+        "family": "reaction_electoral_poll",
+        "observations": 1,
+        "mean_views": 0.0,
+        "median_views": 0.0,
+        "preserve_composition_rate": 1.0,
+        "mean_annotation_confidence": 0.95
+      },
+      {
+        "family": "sensitive_personal_evidence",
+        "observations": 1,
+        "mean_views": 0.0,
+        "median_views": 0.0,
+        "preserve_composition_rate": 1.0,
+        "mean_annotation_confidence": 0.96
+      },
+      {
+        "family": "social_documentary_political_contrast",
+        "observations": 1,
+        "mean_views": 0.0,
+        "median_views": 0.0,
+        "preserve_composition_rate": 1.0,
+        "mean_annotation_confidence": 0.93
+      },
+      {
+        "family": "step_by_step_explanation",
+        "observations": 1,
+        "mean_views": 0.0,
+        "median_views": 0.0,
+        "preserve_composition_rate": 1.0,
+        "mean_annotation_confidence": 0.93
       }
     ],
     "layout_priors": [
@@ -378,6 +434,10 @@
         "observations": 2
       },
       {
+        "layout": "event_stage_talking_head",
+        "observations": 1
+      },
+      {
         "layout": "graphic_stage_and_chart",
         "observations": 1
       },
@@ -394,6 +454,18 @@
         "observations": 1
       },
       {
+        "layout": "screenshot_plus_talking_head",
+        "observations": 1
+      },
+      {
+        "layout": "selfie_plus_document_overlay",
+        "observations": 1
+      },
+      {
+        "layout": "selfie_plus_sensitive_text_overlay",
+        "observations": 1
+      },
+      {
         "layout": "social_post_to_tv",
         "observations": 1
       },
@@ -402,11 +474,23 @@
         "observations": 1
       },
       {
+        "layout": "talking_head_plus_black_red_banner",
+        "observations": 1
+      },
+      {
+        "layout": "talking_head_plus_social_scene",
+        "observations": 1
+      },
+      {
         "layout": "text_post_plus_tv_commentator",
         "observations": 1
       },
       {
         "layout": "text_post_to_commentator",
+        "observations": 1
+      },
+      {
+        "layout": "tv_interview_plus_map",
         "observations": 1
       },
       {
@@ -430,6 +514,10 @@
         "observations": 1
       },
       {
+        "layout": "vertical_selfie_talking_head",
+        "observations": 1
+      },
+      {
         "layout": "vertical_split_brand_and_face",
         "observations": 1
       },
@@ -450,11 +538,19 @@
         "observations": 1
       },
       {
+        "layout": "vertical_talking_head_plus_montage",
+        "observations": 1
+      },
+      {
         "layout": "vertical_talking_head_support_insert",
         "observations": 1
       },
       {
         "layout": "vertical_talking_head_with_broll",
+        "observations": 1
+      },
+      {
+        "layout": "vertical_talking_head_with_text",
         "observations": 1
       },
       {
@@ -470,7 +566,7 @@
         "observations": 1
       }
     ],
-    "record_count": 37
+    "record_count": 47
   },
   "observed_patterns": [
     {
