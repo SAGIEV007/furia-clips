@@ -14,6 +14,7 @@ const state = {
     ollamaStatus: "checking",
     processingMode: "unknown",
     selectionSource: "unknown",
+    candidateDiagnostics: {},
     outputFolder: "",
     activeJob: null,
     operationJobs: [],
@@ -28,6 +29,10 @@ const state = {
     sourceImportActive: false,
     operationDashboardLoading: false,
     lastJobConsoleKey: "",
+    repositorySync: null,
+    repositorySyncBusy: false,
+    faceTracking: true,
+    previewToken: 0,
 };
 
 // ─── WebSocket Connection ───
@@ -109,6 +114,8 @@ socket.on("ai_status", (data) => {
 
 socket.on("selection_mode", (data) => {
     state.selectionSource = data.source;
+    state.candidateDiagnostics = data.candidate_diagnostics || {};
+    renderCandidateVolumeNotice(state.candidateDiagnostics);
 });
 
 function updateOllamaStatusBadge(data) {
@@ -204,6 +211,7 @@ function handleStatusUpdate(data) {
             const completedClips = Array.isArray(data.data.clips) ? data.data.clips : [];
             updateWorkspaceWorkflow("review", completedClips.length ? "Revisão pronta" : "Revisão requer atenção");
             state.selectionSource = data.data.selection_source || "nlp";
+            state.candidateDiagnostics = data.data.candidate_diagnostics || state.candidateDiagnostics || {};
             state.outputFolder = data.data.output_folder || "";
             if (completedClips.length) {
                 showToast(`${completedClips.length} clips gerados e ranqueados!`, "success");
@@ -216,6 +224,8 @@ function handleStatusUpdate(data) {
                     "error",
                 );
             }
+            renderEditorialAudit(data.data.editorial_audit, data.data.audit_mode || "standard");
+            renderCandidateVolumeNotice(state.candidateDiagnostics);
             displayResults(completedClips, data.data.video_layout || null);
             updateResultsModeBadge(state.selectionSource);
             updateOpenFolderButton(state.outputFolder);
@@ -387,6 +397,9 @@ document.getElementById("btnEditorialBackup")?.addEventListener("click", request
 document.getElementById("btnRefreshTranscriptArchive")?.addEventListener("click", loadTranscriptArchive);
 document.getElementById("btnEditorialRestore")?.addEventListener("click", () => document.getElementById("editorialRestoreInput")?.click());
 document.getElementById("editorialRestoreInput")?.addEventListener("change", restoreEditorialBackup);
+document.getElementById("btnRepositoryCheck")?.addEventListener("click", () => checkRepositorySync(true));
+document.getElementById("btnRepositoryUpdate")?.addEventListener("click", () => runRepositorySync("update"));
+document.getElementById("btnRepositoryPushFeedback")?.addEventListener("click", () => runRepositorySync("push_feedback"));
 
 function showProgressBar() {
     showProcessingControls();
@@ -728,6 +741,104 @@ async function restoreEditorialBackup(event) {
     }
 }
 
+function setRepositorySyncStatus(message, level = "info") {
+    const element = document.getElementById("repositorySyncStatus");
+    if (!element) return;
+    element.textContent = message;
+    element.dataset.level = level;
+}
+
+function setRepositorySyncButtonsDisabled(disabled) {
+    ["btnRepositoryCheck", "btnRepositoryUpdate", "btnRepositoryPushFeedback"].forEach((id) => {
+        const button = document.getElementById(id);
+        if (button) button.disabled = disabled;
+    });
+}
+
+async function fetchRepositoryJson(url, options = {}, timeoutMs = 15000) {
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+    try {
+        return await fetch(url, { ...options, signal: controller.signal });
+    } catch (error) {
+        if (error?.name === "AbortError") {
+            throw new Error("A verificação demorou mais de 15 segundos. O servidor local ou o Git pode estar ocupado; tente novamente.");
+        }
+        throw error;
+    } finally {
+        window.clearTimeout(timeout);
+    }
+}
+
+function renderRepositorySyncState(payload) {
+    const snapshotPath = String(payload.feedback_snapshot_path || "data/editorial_feedback_snapshot.json");
+    const codeDirty = Array.isArray(payload.code_dirty_files)
+        ? payload.code_dirty_files
+        : (payload.dirty_files || []).filter((item) => item !== snapshotPath);
+    if (payload.update_available) {
+        setRepositorySyncStatus(`Código novo disponível na branch ${payload.branch}. Faça backup e use “Atualizar programa”.`, "warning");
+    } else if (codeDirty.length) {
+        setRepositorySyncStatus(`Atualização bloqueada: há ${codeDirty.length} alteração(ões) locais de código. Faça backup ou preserve-as antes.`, "warning");
+    } else if (payload.feedback_snapshot_dirty) {
+        setRepositorySyncStatus("Feedback local pendente de envio. Use “Enviar feedback ao GitHub”; ele não bloqueia a atualização do código.", "info");
+    } else {
+        setRepositorySyncStatus(`Código sincronizado · ${String(payload.local_sha || "local").slice(0, 7)} · feedback protegido`, "success");
+    }
+}
+
+async function checkRepositorySync(fetchRemote = true) {
+    setRepositorySyncStatus(fetchRemote ? "Consultando o GitHub…" : "Lendo o estado local…", "info");
+    try {
+        const response = await fetchRepositoryJson(`/api/repository/status?fetch=${fetchRemote ? "1" : "0"}`);
+        const payload = await parseJsonResponse(response, "Estado da atualização");
+        if (!response.ok || payload.success === false) throw new Error(payload.error || "Não foi possível verificar o programa");
+        state.repositorySync = payload;
+        renderRepositorySyncState(payload);
+        return payload;
+    } catch (error) {
+        setRepositorySyncStatus(error.message || "Não foi possível verificar a atualização.", "error");
+        return null;
+    }
+}
+
+async function runRepositorySync(action) {
+    if (state.repositorySyncBusy) return;
+    state.repositorySyncBusy = true;
+    setRepositorySyncButtonsDisabled(true);
+    try {
+        if (action === "update") {
+            setRepositorySyncStatus("Criando backup de segurança e baixando a atualização...", "info");
+        } else if (action === "push_feedback") {
+            setRepositorySyncStatus("Preparando somente o snapshot sanitizado de feedback...", "info");
+        }
+        const response = await fetchRepositoryJson("/api/repository/sync", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action }),
+        }, action === "update" ? 90000 : 30000);
+        const payload = await parseJsonResponse(response, "Sincronização do programa");
+        if (!response.ok || payload.success === false) throw new Error(payload.error || "A sincronização não foi concluída");
+        state.repositorySync = payload;
+        renderRepositorySyncState(payload);
+        setRepositorySyncStatus(payload.message || "Sincronização concluída.", "success");
+        if (action === "update" && payload.updated) {
+            showToast("Atualização aplicada. Feche e abra o run.bat novamente para carregar o novo código.", "success");
+            addConsoleLog("[Sincronização] Código atualizado por fast-forward; backup de segurança preservado.", "success");
+        } else if (action === "push_feedback") {
+            showToast(payload.published ? "Feedback sanitizado sincronizado no GitHub." : "Feedback já estava sincronizado.", "success");
+            addConsoleLog("[Sincronização] Nenhum vídeo, transcrição ou chave foi enviado; somente decisões editoriais agregadas.", "info");
+        }
+        return payload;
+    } catch (error) {
+        setRepositorySyncStatus(error.message || "Sincronização não concluída.", "error");
+        showToast(error.message || "Sincronização não concluída.", "error");
+        return null;
+    } finally {
+        state.repositorySyncBusy = false;
+        setRepositorySyncButtonsDisabled(false);
+    }
+}
+
 async function loadOperationDashboard() {
     if (state.operationDashboardLoading) return;
     state.operationDashboardLoading = true;
@@ -751,6 +862,8 @@ async function loadOperationDashboard() {
         state.operationDashboardLoading = false;
     }
 }
+
+checkRepositorySync(false);
 
 function handleJobUpdate(job, options = {}) {
     state.activeJob = job;
@@ -904,6 +1017,10 @@ function truncateName(name, max) {
 // ─── Video Selection & Preview ───
 
 function selectVideo(item, sourceElement = null) {
+    if (!item || !item.path) {
+        showToast("Não foi possível selecionar este vídeo: caminho inválido.", "error");
+        return;
+    }
     const changedVideo = state.selectedVideo && state.selectedVideo !== item.path;
     const transcriptBelongsToItem = state.manualTranscript && state.manualTranscriptVideo === item.path;
     state.selectedVideo = item.path;
@@ -943,8 +1060,10 @@ function selectVideo(item, sourceElement = null) {
     if (sourceElement?.classList) sourceElement.classList.add("selected");
 
     // Show video preview
-    showVideoPreview(item);
-
+        showVideoPreview(item);
+    if (changedVideo && state.activeJob && ["queued", "running", "cancel_requested"].includes(state.activeJob.state)) {
+        addConsoleLog("[Sistema] A nova seleção foi liberada; a tarefa anterior continua na fila persistente.", "info");
+    }
     addConsoleLog(`[Sistema] Video selecionado: ${item.name}`, "info");
     showToast(`Video selecionado: ${truncateName(item.name, 30)}`, "success");
 }
@@ -955,27 +1074,57 @@ async function openOutputFolderForVideo() {
         showToast("Nenhum vídeo selecionado.", "warning");
         return;
     }
-    const folderPath = videoPath.replace(/[\\/][^\\/]+$/, "");
+    const normalized = String(videoPath).replaceAll("\\", "/").replace(/\/+$/, "");
+    const separator = normalized.lastIndexOf("/");
+    let folderPath = separator >= 0 ? normalized.slice(0, separator) : "";
+    if (/^[A-Za-z]:$/.test(folderPath)) folderPath += "/";
+    if (!folderPath) {
+        showToast("A pasta deste vídeo não pôde ser identificada.", "warning");
+        return;
+    }
     await openOutputFolder(folderPath);
 }
-
 function showVideoPreview(item) {
     const section = document.getElementById("videoPreviewSection");
     const video = document.getElementById("videoPreview");
     const source = document.getElementById("videoPreviewSource");
     const nameEl = document.getElementById("previewVideoName");
-
+    const status = document.getElementById("videoPreviewStatus");
+    if (!section || !video || !source || !item?.path) return;
+    const token = ++state.previewToken;
     section.style.display = "block";
-    nameEl.textContent = item.name;
+    nameEl.textContent = item.name || "Vídeo selecionado";
+    if (status) {
+        status.textContent = "Carregando mídia…";
+        status.className = "preview-status loading";
+    }
+    video.pause();
+    video.removeAttribute("src");
+    source.removeAttribute("src");
+    video.load();
+    const onMetadata = () => {
+        if (token !== state.previewToken) return;
+        const duration = Number.isFinite(video.duration) ? formatTime(video.duration) : "—";
+        const resolution = video.videoWidth && video.videoHeight ? `${video.videoWidth}x${video.videoHeight}` : "—";
+        document.getElementById("videoDuration").textContent = `Duração: ${duration}`;
+        document.getElementById("videoResolution").textContent = `Resolução: ${resolution}`;
+        if (status) {
+            status.textContent = "Mídia pronta";
+            status.className = "preview-status ready";
+        }
+    };
+    const onError = () => {
+        if (token !== state.previewToken) return;
+        if (status) {
+            status.textContent = "Não foi possível carregar este arquivo";
+            status.className = "preview-status error";
+        }
+        addConsoleLog(`[Preview] Falha ao carregar ${item.name || "o vídeo"}. Verifique se o arquivo ainda existe e tente selecioná-lo novamente.`, "warning");
+    };
+    video.addEventListener("loadedmetadata", onMetadata, { once: true });
+    video.addEventListener("error", onError, { once: true });
     source.src = mediaUrlForPath(item.path);
     video.load();
-
-    video.addEventListener("loadedmetadata", () => {
-        const dur = formatTime(video.duration);
-        const res = `${video.videoWidth}x${video.videoHeight}`;
-        document.getElementById("videoDuration").textContent = `Duracao: ${dur}`;
-        document.getElementById("videoResolution").textContent = `Resolucao: ${res}`;
-    }, { once: true });
 }
 
 function deselectVideo() {
@@ -1052,33 +1201,82 @@ async function uploadFile(file) {
     }
 }
 
-// Drag and drop on media library
+function isArtworkTranscriptFile(file) {
+    return Boolean(file?.name && /\.(txt|srt|vtt)$/i.test(file.name));
+}
+
+async function importArtworkTranscriptFile(file) {
+    if (!file || !isArtworkTranscriptFile(file)) return false;
+    try {
+        const text = await file.text();
+        const input = document.getElementById("artworkTranscriptInput");
+        if (!input || !text.trim()) throw new Error("o arquivo está vazio");
+        input.value = text;
+        document.getElementById("headlineStudioSection")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        setHeadlineStudioStatus(`${file.name} importado automaticamente. Revise a transcrição e escolha o formato antes de gerar.`, "success");
+        addConsoleLog(`[Estúdio] ${file.name} importado por arrastar e soltar.`, "success");
+        showToast("Transcrição importada no Estúdio de Texto de Arte.", "success");
+        return true;
+    } catch (error) {
+        setHeadlineStudioStatus(`Não foi possível importar ${file.name}: ${error.message}`, "error");
+        showToast("Falha ao importar a legenda.", "error");
+        return false;
+    }
+}
+
+const artworkTranscriptDropTarget = document.getElementById("artworkTranscriptDropTarget");
+if (artworkTranscriptDropTarget) {
+    artworkTranscriptDropTarget.addEventListener("dragover", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        artworkTranscriptDropTarget.classList.add("drag-over");
+        if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
+    });
+    artworkTranscriptDropTarget.addEventListener("dragleave", (event) => {
+        if (!artworkTranscriptDropTarget.contains(event.relatedTarget)) artworkTranscriptDropTarget.classList.remove("drag-over");
+    });
+    artworkTranscriptDropTarget.addEventListener("drop", async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        artworkTranscriptDropTarget.classList.remove("drag-over");
+        const files = Array.from(event.dataTransfer?.files || []);
+        const transcript = files.find(isArtworkTranscriptFile);
+        if (transcript) {
+            await importArtworkTranscriptFile(transcript);
+        } else if (files.length) {
+            setHeadlineStudioStatus("Solte um TXT, SRT ou VTT nesta área. Para importar vídeos, use a Biblioteca de mídia acima.", "warning");
+        }
+    });
+}
+
+// Drag and drop on media library: vídeos são enviados à biblioteca; legendas vão direto ao Estúdio.
 const mediaDropZone = document.getElementById("mediaDropZone");
 const mediaSection = document.getElementById("mediaLibrarySection");
 
-[mediaDropZone, mediaSection].forEach(el => {
+[mediaDropZone, mediaSection].filter(Boolean).forEach(el => {
     el.addEventListener("dragover", (e) => {
         e.preventDefault();
-        mediaDropZone.classList.add("drag-over");
+        mediaDropZone?.classList.add("drag-over");
     });
-    el.addEventListener("dragleave", () => {
-        mediaDropZone.classList.remove("drag-over");
+    el.addEventListener("dragleave", (e) => {
+        if (!el.contains(e.relatedTarget)) mediaDropZone?.classList.remove("drag-over");
     });
     el.addEventListener("drop", async (e) => {
         e.preventDefault();
-        mediaDropZone.classList.remove("drag-over");
-        const files = e.dataTransfer.files;
+        e.stopPropagation();
+        mediaDropZone?.classList.remove("drag-over");
+        const files = Array.from(e.dataTransfer?.files || []);
         for (const file of files) {
-            await uploadFile(file);
+            if (isArtworkTranscriptFile(file)) await importArtworkTranscriptFile(file);
+            else await uploadFile(file);
         }
-        await loadMediaFiles();
-        // Auto-select
-        setTimeout(() => {
-            const cards = document.querySelectorAll(".media-card");
-            if (cards.length > 0 && !state.selectedVideo) {
-                cards[cards.length - 1].click();
-            }
-        }, 100);
+        if (files.some((file) => !isArtworkTranscriptFile(file))) {
+            await loadMediaFiles();
+            setTimeout(() => {
+                const cards = document.querySelectorAll(".media-card");
+                if (cards.length > 0 && !state.selectedVideo) cards[cards.length - 1].click();
+            }, 100);
+        }
     });
 });
 
@@ -1108,14 +1306,28 @@ document.getElementById("actionSilence").querySelector(".btn-action").addEventLi
     });
 });
 
-document.getElementById("actionCut").querySelector(".btn-action").addEventListener("click", async () => {
+function openCutOptionsModal() {
     if (!requireVideo()) return;
+    const modal = document.getElementById("cutOptionsModal");
+    if (!modal) return;
+    const name = document.getElementById("cutOptionsVideoName");
+    if (name) name.textContent = state.selectedVideoName || "vídeo selecionado";
+    const enabled = document.getElementById("faceTrackingEnabled");
+    if (enabled) enabled.checked = state.faceTracking !== false;
+    modal.classList.add("active");
+}
+function closeCutOptionsModal() {
+    document.getElementById("cutOptionsModal")?.classList.remove("active");
+}
+async function startSmartCut() {
+    closeCutOptionsModal();
+    if (!requireVideo()) return;
+    state.faceTracking = Boolean(document.getElementById("faceTrackingEnabled")?.checked);
     const userContext = document.getElementById("userContextInput").value.trim();
     addConsoleLog("[Acao] Iniciando corte inteligente de shorts...", "info");
+    addConsoleLog(`[Enquadramento] Facetracking ${state.faceTracking ? "ativado" : "desativado"}; o fallback mantém a proporção original quando necessário.`, "info");
     if (userContext) addConsoleLog(`[Contexto] "${userContext}"`, "info");
     const videoGenre = document.getElementById("settingVideoGenre").value;
-
-    // Auto-save Gemini key before processing (in case user pasted but didn't click Save)
     const geminiKey = document.getElementById("settingGeminiKey").value.trim();
     const aiBackend = document.getElementById("settingAiBackend").value;
     if (geminiKey.length > 10 || aiBackend) {
@@ -1129,16 +1341,17 @@ document.getElementById("actionCut").querySelector(".btn-action").addEventListen
             }),
         });
     }
-
     const response = await fetch("/api/process/cut", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
             video_path: state.selectedVideo,
-            face_tracking: true,
+            face_tracking: state.faceTracking,
             user_context: userContext,
             video_genre: videoGenre,
             transcription_source: document.getElementById("settingTranscriptionSource")?.value || "auto",
+            audit_mode: document.getElementById("settingAuditMode")?.value || "standard",
+            preferred_format: document.getElementById("settingPreferredFormat")?.value || "auto",
             ...(state.manualTranscript ? {
                 transcript_segments: state.manualTranscript.segments,
                 transcript_language: state.manualTranscript.language || "pt",
@@ -1151,7 +1364,11 @@ document.getElementById("actionCut").querySelector(".btn-action").addEventListen
         state.activeJob = { id: started.job_id, state: started.state || "queued" };
         showProcessingControls("Corte adicionado à fila persistente.");
     }
-});
+}
+document.getElementById("actionCut").querySelector(".btn-action").addEventListener("click", openCutOptionsModal);
+document.getElementById("btnStartSmartCut")?.addEventListener("click", startSmartCut);
+document.getElementById("btnCloseCutOptions")?.addEventListener("click", closeCutOptionsModal);
+document.getElementById("btnCloseCutOptionsSecondary")?.addEventListener("click", closeCutOptionsModal);
 
 document.getElementById("actionArtwork")?.querySelector(".btn-action")?.addEventListener("click", () => {
     document.getElementById("headlineStudioSection")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -1365,12 +1582,14 @@ function saveOutputDir() {
 function mediaUrlForPath(path) {
     if (!path) return "";
     const value = String(path).replaceAll("\\", "/");
-    if (value.startsWith("/workspace/")) return value;
-    if (value.startsWith("workspace/")) return `/${value}`;
+    if (value.startsWith("/workspace/") || value.startsWith("workspace/")) {
+        const relative = value.replace(/^\/+workspace\//, "").replace(/^workspace\//, "");
+        return `/workspace/${relative.split("/").filter(Boolean).map(encodeURIComponent).join("/")}`;
+    }
     if (/^[A-Za-z]:\//.test(value) || value.startsWith("/")) {
         return `/api/output_file?path=${encodeURIComponent(path)}`;
     }
-    return `/workspace/${value.replace(/^\\+/, "")}`;
+    return `/workspace/${value.split("/").filter(Boolean).map(encodeURIComponent).join("/")}`;
 }
 
 function escapeHtml(value) {
@@ -1385,6 +1604,46 @@ function escapeHtml(value) {
 
 function mediaUrlForClip(clip) {
     return mediaUrlForPath(clip.subtitled_path || clip.path);
+}
+
+const editorialFormatLabels = {
+    vertical_916: "9:16 — headline central",
+    square_alfinetei: "1:1 — Alfinetei",
+    fake_tweet: "Fake tweet",
+};
+
+function renderEditorialAudit(audit, mode = "standard") {
+    const element = document.getElementById("editorialAuditSummary");
+    if (!element) return;
+    if (!audit || typeof audit !== "object") {
+        element.style.display = "none";
+        element.innerHTML = "";
+        return;
+    }
+    const flags = audit.review_flags || {};
+    const analysis = audit.analysis || {};
+    const warnings = [
+        flags.needs_fact_review ? "Revisão factual" : "",
+        flags.needs_legal_review ? "Revisão jurídica" : "",
+        flags.transcript_ends_incomplete ? "Transcrição termina incompleta" : "",
+    ].filter(Boolean);
+    const warningHtml = warnings.length
+        ? `<span class="audit-warning"><span class="material-icons-round">warning</span>${escapeHtml(warnings.join(" · "))}</span>`
+        : `<span class="audit-ok"><span class="material-icons-round">verified</span>Sem alerta estrutural automático</span>`;
+    element.innerHTML = `
+        <div class="audit-result-head">
+            <span class="material-icons-round">fact_check</span>
+            <div><strong>Auditoria ${mode === "full" ? "completa" : "editorial"}</strong><small>Qualidade editorial separada do potencial observado</small></div>
+            <span class="audit-format-badge">${escapeHtml(editorialFormatLabels[audit.recommended_format] || "Formato a revisar")}</span>
+        </div>
+        <p class="audit-result-reason">${escapeHtml(audit.recommendation_reason || "Formato recomendado pelos sinais editoriais disponíveis.")}</p>
+        <div class="audit-result-signals">
+            <span>Contexto <b>${Number(analysis.context_completeness || 0)}/100</b></span>
+            <span>Tese <b>${Number(analysis.claim_strength || 0)}/100</b></span>
+            <span>Conflito <b>${Number(analysis.conflict_or_stakes || 0)}/100</b></span>
+            ${warningHtml}
+        </div>`;
+    element.style.display = "block";
 }
 
 function displayResults(clips, videoLayout = null) {
@@ -1626,6 +1885,10 @@ function renderResultsGrid() {
         const sourceLabels = { "gemini": "Gemini", "llm": "Ollama", "nlp": "NLP" };
         const sourceLabel = sourceLabels[clipSource] || "NLP";
         const sourceClass = clipSource === "gemini" ? "source-gemini" : (clipSource === "llm" ? "source-llm" : "source-nlp");
+        const candidateOrigin = String(clip.candidate_origin || "local_primary");
+        const candidateOriginLabel = String(clip.candidate_origin_label || "Origem local registrada");
+        const candidateOriginNote = String(clip.candidate_origin_note || "Origem registrada para transparência da revisão.");
+        const originClass = candidateOrigin === "local_fallback" ? "candidate-origin-fallback" : "candidate-origin-primary";
         const transcriptId = `transcript-${originalIndex}`;
         const layoutMeta = layoutMetaForClip(clip);
         const editorialBlock = clip.editorial_block || {};
@@ -1668,6 +1931,7 @@ function renderResultsGrid() {
                 </div>
                 ${clip.has_hook ? '<span class="hook-badge"><span class="material-icons-round" style="font-size:12px">flash_on</span> Gancho</span>' : ''}
                 <span class="clip-source-badge ${sourceClass}">${sourceLabel}</span>
+                <span class="candidate-origin-badge ${originClass}" title="${escapeHtml(candidateOriginNote)}"><span class="material-icons-round">${candidateOrigin === "local_fallback" ? "alt_route" : "verified"}</span>${escapeHtml(candidateOriginLabel)}</span>
                 ${politicalType ? `<span class="clip-source-badge source-editorial">${escapeHtml(politicalType)}</span>` : ''}
                 <span class="review-state-chip ${reviewMeta.label === "APROVADO" ? "approved" : reviewMeta.label === "REJEITADO" ? "rejected" : reviewStatus}" title="${escapeHtml(reviewMeta.hint)}" aria-label="${escapeHtml(reviewMeta.hint)}"><span class="material-icons-round">${escapeHtml(reviewMeta.icon)}</span>${escapeHtml(reviewMeta.label)}</span>
                 ${clip.review_updated_at ? `<span class="clip-review-timestamp" title="Decisão registrada localmente">${new Date(clip.review_updated_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span>` : ''}
@@ -1706,7 +1970,7 @@ function renderResultsGrid() {
                     ${editorialBlock.moment_reason ? `<small><b>Momento:</b> ${escapeHtml(editorialBlock.moment_reason)}</small>` : ''}
                     ${blockTags.length ? `<div class="editorial-block-tags">${blockTags.map((tag) => `<span>${escapeHtml(tag)}</span>`).join('')}</div>` : ''}
                 </div>` : ''}
-                <button class="btn btn-sm btn-boundary-toggle" onclick="toggleBoundaryEditor(${originalIndex})"><span class="material-icons-round">tune</span> Ajustar entrada/saída</button>
+                <button class="btn btn-sm btn-boundary-toggle" onclick="toggleBoundaryEditor(${originalIndex})" title="Remover falas desnecessárias antes ou depois do trecho"><span class="material-icons-round">content_cut</span> Cortar fala antes/depois</button>
                 <div class="clip-boundary-editor" id="boundary-editor-${originalIndex}" hidden>
                     <div class="clip-boundary-fields">
                         <label>Entrada <input type="number" min="0" step="0.1" data-boundary-start="${originalIndex}" value="${Number(clip.start || 0).toFixed(1)}"></label>
@@ -1714,7 +1978,7 @@ function renderResultsGrid() {
                         <button class="btn btn-sm btn-primary" onclick="previewClipBoundary(${originalIndex})"><span class="material-icons-round">preview</span> Pré-visualizar</button>
                         <button class="btn btn-sm btn-success" onclick="persistClipBoundary(${originalIndex})" ${clip.clip_id ? "" : "disabled"}><span class="material-icons-round">save</span> Salvar ajuste</button>
                     </div>
-                    <small>Pré-visualizar só altera este card. Salvar ajuste registra a decisão fora do arquivo original; ainda não gera um novo MP4.</small>
+                    <small><b>Como usar:</b> Entrada = primeiro segundo útil; saída = último segundo útil. “Pré-visualizar” atualiza somente este card e mantém o arquivo original. “Salvar ajuste” registra a decisão para o próximo render; não cria um MP4 novo nesta etapa.</small>
                     <div class="clip-boundary-feedback" id="boundary-feedback-${originalIndex}" aria-live="polite"></div>
                 </div>
                 <div class="review-format-chip" title="${escapeHtml(layoutMeta.hint)}"><span class="material-icons-round">${escapeHtml(layoutMeta.icon)}</span>${escapeHtml(layoutMeta.label)}</div>
@@ -1862,7 +2126,11 @@ async function previewClipBoundary(index) {
         if (feedback) feedback.textContent = "Informe entrada e saída válidas.";
         return;
     }
-    if (feedback) feedback.textContent = "Calculando limites seguros...";
+        if (end <= start) {
+            if (feedback) feedback.textContent = "A saída precisa ser maior que a entrada.";
+            return;
+        }
+        if (feedback) feedback.textContent = "Localizando limites seguros e removendo sobras de fala...";
     try {
         const response = await fetch("/api/clips/adjust", {
             method: "POST",
@@ -1891,7 +2159,8 @@ async function previewClipBoundary(index) {
         };
         renderReviewCommandCenter();
         renderResultsGrid();
-        showToast("Limites atualizados na prévia do candidato.", "success");
+        if (feedback) feedback.textContent = `Prévia aplicada: ${formatTime(data.clip.start)}–${formatTime(data.clip.end)}. Revise o vídeo e salve somente se estiver limpo.`;
+        showToast("Prévia limpa aplicada; confira o começo e o fim do corte.", "success");
     } catch (error) {
         if (feedback) feedback.textContent = error.message;
         showToast(error.message, "error");
@@ -1923,7 +2192,7 @@ async function persistClipBoundary(index) {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 adjustment,
-                note: "Ajuste temporal salvo na revisão do editor.",
+                note: "Corte limpo: removidas falas desnecessárias antes/depois do trecho.",
                 transcript_segments: clip.transcript_segments || clip.segments || [],
             }),
         });
@@ -2010,10 +2279,22 @@ async function setClipReview(index, action) {
     renderResultsGrid();
     try {
         if (clip.clip_id) {
+            const reviewMetadata = {
+                candidate_origin: String(clip.candidate_origin || ""),
+                selection_source: String(clip.selection_source || state.selectionSource || ""),
+                confidence: Number(clip.confidence || 0),
+            };
+            const feedbackAdjustments = { _review_metadata: reviewMetadata };
             const response = await fetch(`/api/clips/${clip.clip_id}/feedback`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ action, reason_code: reasonCode, quality_tags: qualityTags, note: reasonCode ? `Motivo editorial: ${reasonCode}` : "" }),
+                body: JSON.stringify({
+                    action,
+                    adjustments: feedbackAdjustments,
+                    reason_code: reasonCode,
+                    quality_tags: qualityTags,
+                    note: reasonCode ? `Motivo editorial: ${reasonCode}` : "",
+                }),
             });
             feedbackData = await parseJsonResponse(response, "Feedback editorial");
             if (!response.ok) throw new Error(feedbackData.error || "feedback rejected");
@@ -2067,6 +2348,39 @@ function updateResultsModeBadge(source) {
     }
 }
 
+function renderCandidateVolumeNotice(diagnostics = {}) {
+    const notice = document.getElementById("candidateVolumeNotice");
+    if (!notice) return;
+    const expected = Number(diagnostics.expected_count || 0);
+    const primary = Number(diagnostics.primary_count || 0);
+    const fallback = Number(diagnostics.fallback_count || 0);
+    const discarded = Number(diagnostics.fallback_discarded_count || 0);
+    const discardedOverlap = Number(diagnostics.fallback_discarded_overlap || 0);
+    const discardedSimilarity = Number(diagnostics.fallback_discarded_similarity || 0);
+    const finalCount = Number(diagnostics.final_count || 0);
+    if (!expected && !primary && !finalCount) {
+        notice.hidden = true;
+        notice.textContent = "";
+        return;
+    }
+    notice.hidden = false;
+    notice.className = "candidate-volume-notice";
+    if (fallback > 0) {
+        notice.classList.add("fallback");
+        const discardedNote = discarded > 0
+            ? ` ${discarded} alternativa(s) foram descartadas por redundância${discardedOverlap > 0 ? ` (${discardedOverlap} por sobreposição` : " ("}${discardedSimilarity > 0 ? `${discardedOverlap > 0 ? ", " : ""}${discardedSimilarity} por repetição textual` : ""}).`
+            : " Nenhuma alternativa foi descartada por redundância.";
+        notice.innerHTML = `<span class="material-icons-round">alt_route</span><span>Pool ampliado com segurança: ${primary} candidato(s) da fonte principal + ${fallback} alternativa(s) locais.${discardedNote} Os gates de contexto permaneceram ativos.</span>`;
+        return;
+    }
+    if (expected && finalCount < expected) {
+        notice.classList.add("warning");
+        notice.innerHTML = `<span class="material-icons-round">info</span><span>${finalCount} candidato(s) chegaram à revisão; a referência estrutural era ${expected}. O vídeo pode ter pouco material autossuficiente ou gates editoriais rigorosos.</span>`;
+        return;
+    }
+    notice.innerHTML = `<span class="material-icons-round">check_circle</span><span>Pool editorial adequado: ${finalCount} candidato(s) distintos chegaram à revisão.</span>`;
+}
+
 // --- Open Folder Button ---
 
 function updateOpenFolderButton(folderPath) {
@@ -2081,20 +2395,24 @@ function updateOpenFolderButton(folderPath) {
 }
 
 async function openOutputFolder(folderPath) {
+    if (!folderPath) {
+        showToast("Pasta não informada.", "warning");
+        return;
+    }
     try {
         const res = await fetch("/api/open_folder", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ path: folderPath }),
         });
-        const data = await res.json();
-        if (data.success) {
-            showToast("Pasta aberta!", "success");
-        } else {
-            showToast(data.error || "Nao foi possivel abrir a pasta", "warning");
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success) {
+            throw new Error(data.error || `Servidor recusou a abertura (${res.status})`);
         }
+        showToast("Pasta aberta!", "success");
     } catch (e) {
-        showToast("Erro ao abrir pasta", "error");
+        addConsoleLog(`[Pasta] ${e.message || "Falha ao abrir pasta"}`, "warning");
+        showToast(e.message || "Erro ao abrir pasta", "error");
     }
 }
 
@@ -2563,13 +2881,20 @@ async function savePerformanceMetrics() {
     }
 }
 
+const performanceToggle = document.getElementById("btnTogglePerformanceMetrics");
+const performanceBody = document.getElementById("performanceMetricsBody");
+performanceToggle?.addEventListener("click", async () => {
+    const willOpen = Boolean(performanceBody?.hidden);
+    if (performanceBody) performanceBody.hidden = !willOpen;
+    performanceToggle.setAttribute("aria-expanded", String(willOpen));
+    performanceToggle.innerHTML = `<span class="material-icons-round">${willOpen ? "expand_less" : "expand_more"}</span> ${willOpen ? "Fechar histórico" : "Abrir histórico"}`;
+    if (willOpen) await loadPerformanceMetrics();
+});
 document.getElementById("btnSavePerformanceMetrics")?.addEventListener("click", savePerformanceMetrics);
 document.getElementById("btnRefreshPerformanceMetrics")?.addEventListener("click", loadPerformanceMetrics);
 ["performanceMetricPlatform", "performanceMetricFormat", "performanceMetricWindow", "performanceMetricRegion"].forEach((id) => {
     document.getElementById(id)?.addEventListener("change", loadPerformanceMetrics);
 });
-loadPerformanceMetrics();
-
 document.getElementById("btnImportArtworkTranscript")?.addEventListener("click", () => {
     document.getElementById("artworkTranscriptFileInput")?.click();
 });
@@ -2630,6 +2955,23 @@ document.getElementById("btnGenerateArtworkCopy")?.addEventListener("click", asy
         button.disabled = false;
         button.classList.remove("loading");
     }
+});
+
+document.getElementById("btnOpenTactiq")?.addEventListener("click", () => {
+    const input = document.getElementById("sourceUrlInput");
+    const url = normalizePublicUrlInput(input?.value);
+    if (!url) {
+        showSourceStatus("Informe primeiro uma URL pública do YouTube para abrir a transcrição assistida.", "error");
+        return;
+    }
+    if (!/youtube\.com|youtu\.be/i.test(url)) {
+        showSourceStatus("O Tactiq assistido aceita links do YouTube; para outras fontes, use a transcrição pública ou o Whisper.", "warning");
+        return;
+    }
+    const tactiqUrl = `https://tactiq.io/tools/youtube-transcript?yt=${encodeURIComponent(url)}`;
+    window.open(tactiqUrl, "_blank", "noopener,noreferrer");
+    showSourceStatus("Tactiq aberto em uma nova aba. Copie ou baixe a transcrição e importe o TXT/SRT/VTT na aba Transcrição; o programa não faz scraping da página.", "success");
+    addConsoleLog("[Tactiq] Transcrição assistida aberta; importe o arquivo ou cole o texto para validar timestamps antes do corte.", "info");
 });
 
 document.getElementById("btnProbeSource")?.addEventListener("click", async () => {
