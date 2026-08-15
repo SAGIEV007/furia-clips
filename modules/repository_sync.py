@@ -187,6 +187,9 @@ def get_repository_status(repo_path: str | None = None, fetch: bool = False) -> 
     local_sha = _head(repo, "HEAD")
     remote_sha = _head(repo, f"origin/{branch}")
     dirty = _status_files(repo)
+    snapshot_relative = SNAPSHOT_RELATIVE_PATH.as_posix()
+    feedback_snapshot_dirty = snapshot_relative in dirty
+    code_dirty_files = [item for item in dirty if item != snapshot_relative]
     update_available = bool(remote_sha and local_sha and remote_sha != local_sha)
     return {
         "success": True,
@@ -198,7 +201,9 @@ def get_repository_status(repo_path: str | None = None, fetch: bool = False) -> 
         "remote_sha": remote_sha,
         "update_available": update_available,
         "dirty_files": dirty,
-        "feedback_snapshot_path": SNAPSHOT_RELATIVE_PATH.as_posix(),
+        "code_dirty_files": code_dirty_files,
+        "feedback_snapshot_dirty": feedback_snapshot_dirty,
+        "feedback_snapshot_path": snapshot_relative,
     }
 
 
@@ -235,9 +240,9 @@ def push_feedback_snapshot(repo_path: str | None = None) -> dict[str, Any]:
     status = get_repository_status(str(repo), fetch=True)
     if status["current_branch"] != branch:
         raise RepositorySyncError(f"O checkout está na branch '{status['current_branch'] or 'desconhecida'}', não em '{branch}'.")
-    dirty = [item for item in status["dirty_files"] if item != SNAPSHOT_RELATIVE_PATH.as_posix()]
+    dirty = list(status.get("code_dirty_files") or [])
     if dirty:
-        raise RepositorySyncError("Há alterações locais fora do snapshot de feedback; nenhuma publicação foi feita.")
+        raise RepositorySyncError("Há alterações locais fora do snapshot de feedback; nenhuma publicação foi feita: " + ", ".join(dirty[:5]))
     if status.get("update_available"):
         raise RepositorySyncError("A branch remota recebeu mudanças. Atualize o programa antes de publicar o feedback local.")
     snapshot = write_feedback_snapshot(str(repo))
@@ -250,7 +255,8 @@ def push_feedback_snapshot(repo_path: str | None = None) -> dict[str, Any]:
         timeout=30,
     )
     if staged.returncode == 0:
-        return {**status, **snapshot, "published": False, "message": "O snapshot de feedback já estava sincronizado."}
+        refreshed = get_repository_status(str(repo), fetch=False)
+        return {**refreshed, **snapshot, "published": False, "message": "O snapshot de feedback já estava sincronizado."}
     _run_git(repo, "commit", "-m", "chore: sync editorial feedback", timeout=60)
     _run_git(repo, "push", "origin", branch, timeout=120)
     return {**get_repository_status(str(repo), fetch=False), **snapshot, "published": True, "message": "Feedback editorial sanitizado publicado."}

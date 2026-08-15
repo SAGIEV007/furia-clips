@@ -55,11 +55,12 @@ FORMAT_PROFILES = {
 
 TOPIC_RULES = (
     ("cripto", ("bitcoin", "cripto", "criptomoeda", "criptomoedas", "blockchain")),
-    ("segurança", ("segurança", "crime", "polícia", "policia", "violência", "violencia", "bandido")),
+    ("emendas", ("emenda", "emendas", "parlamentar", "parlamentares", "orçamento", "orcamento", "indicadores")),
+    ("segurança", ("segurança", "seguranca", "crime", "polícia", "policia", "violência", "violencia", "bandido")),
     ("impostos", ("imposto", "tributo", "tributação", "tributacao", "iof", "taxa")),
     ("economia", ("economia", "emprego", "salário", "salario", "inflação", "inflacao", "pobreza")),
     ("liberdade", ("liberdade", "censura", "regular", "regulação", "regulacao", "estado")),
-    ("política", ("brasil", "governo", "presidente", "congresso", "stf", "eleição", "eleicao")),
+    ("política", ("brasil", "governo", "presidente", "congresso", "stf", "eleição", "eleicao", "política", "politica")),
 )
 
 ATTENTION_WORDS = ("ALERTA", "ARCAICO", "ABSURDO", "ATENÇÃO", "URGENTE", "IMPRESSIONANTE")
@@ -160,14 +161,42 @@ def _coerce_text(transcript: str) -> tuple[str, dict[str, Any]]:
 
 
 def _topic(text: str) -> str:
+    """Choose the strongest evidenced topic, not the first substring match."""
     folded = normalize(text)
+    tokens = set(re.findall(r"[a-z0-9]+", folded))
     best = "política"
-    best_hits = -1
+    best_hits = 0
+    best_evidence: list[str] = []
     for label, terms in TOPIC_RULES:
-        hits = sum(1 for term in terms if term in folded)
-        if hits > best_hits:
-            best, best_hits = label, hits
+        evidence = []
+        for term in terms:
+            normalized_term = normalize(term)
+            if not normalized_term:
+                continue
+            if " " in normalized_term:
+                present = normalized_term in folded
+            else:
+                present = normalized_term in tokens
+            if present:
+                evidence.append(normalized_term)
+        if len(evidence) > best_hits:
+            best, best_hits, best_evidence = label, len(evidence), evidence
     return best
+
+
+def _topic_evidence(text: str, topic: str) -> list[str]:
+    folded = normalize(text)
+    tokens = set(re.findall(r"[a-z0-9]+", folded))
+    for label, terms in TOPIC_RULES:
+        if label != topic:
+            continue
+        evidence = []
+        for term in terms:
+            normalized_term = normalize(term)
+            if (" " in normalized_term and normalized_term in folded) or (" " not in normalized_term and normalized_term in tokens):
+                evidence.append(normalized_term)
+        return evidence[:6]
+    return []
 
 
 def _attention_word(text: str, signals: dict[str, Any]) -> str:
@@ -208,6 +237,15 @@ def _claim_candidates(text: str, topic: str, speaker_prefix: str = "") -> list[s
         candidates.append("A LIBERDADE NÃO CABE EM MAIS CONTROLE")
     if "seguran" in folded:
         candidates.append("SEGURANÇA NÃO SE RESOLVE COM DISCURSO")
+    if "emenda" in folded or "emendas" in folded:
+        if "flavio dino" in folded and "jornalista" in folded:
+            candidates.append("FLÁVIO DINO E A CONTRADIÇÃO DAS EMENDAS")
+        if "politica publica" in folded or "indicador" in folded or "resultado" in folded:
+            candidates.append("EMENDAS PRECISAM ENTREGAR RESULTADOS")
+        if "parlamentar" in folded and "orcamento" in folded:
+            candidates.append("EMENDA NÃO PODE VIRAR ORÇAMENTO DE PARLAMENTAR")
+        if "agua potavel" in folded and "praca" in folded:
+            candidates.append("SEM ÁGUA, NÃO TEM PRAÇA")
     if "imposto" in folded or "tribut" in folded:
         candidates.append("O BRASIL QUER TRIBUTAR O PRÓPRIO FUTURO?")
     if not candidates:
@@ -322,6 +360,7 @@ def _fallback_result(
         "recommended_format": recommended,
         "recommendation_reason": recommendation_reason,
         "topic": topic,
+        "topic_evidence": _topic_evidence(text, topic),
         "attention_word": attention,
         "formats": {
             FORMAT_VERTICAL: {**FORMAT_PROFILES[FORMAT_VERTICAL], "suggestions": vertical},
@@ -363,8 +402,16 @@ def _extract_json(value: str) -> dict[str, Any] | None:
             return None
 
 
-def _merge_ai_suggestions(base: dict[str, Any], payload: dict[str, Any]) -> dict[str, Any]:
-    """Accept only short, compatible AI variations; deterministic safety stays intact."""
+def _suggestion_has_evidence(value: str, source_text: str) -> bool:
+    source_tokens = set(re.findall(r"[a-z0-9]+", normalize(source_text)))
+    suggestion_tokens = [token for token in re.findall(r"[a-z0-9]+", normalize(value)) if len(token) >= 5]
+    stopwords = {"sobre", "depois", "agora", "brasil", "verdade", "precisa", "explica", "debate", "rumo"}
+    meaningful = [token for token in suggestion_tokens if token not in stopwords]
+    return bool(meaningful and any(token in source_tokens for token in meaningful))
+
+
+def _merge_ai_suggestions(base: dict[str, Any], payload: dict[str, Any], source_text: str = "") -> dict[str, Any]:
+    """Accept only short, evidence-backed AI variations; deterministic safety stays intact."""
     suggested = payload.get("formats") if isinstance(payload, dict) else None
     if not isinstance(suggested, dict):
         return base
@@ -381,6 +428,8 @@ def _merge_ai_suggestions(base: dict[str, Any], payload: dict[str, Any]) -> dict
             if len(headline.split()) < 2:
                 continue
             profile = FORMAT_PROFILES[format_id]
+            if source_text and not _suggestion_has_evidence(headline, source_text):
+                continue
             normalized_headline = headline.upper()
             accepted.append({
                 "eyebrow": eyebrow.upper(),
@@ -403,7 +452,7 @@ def _merge_ai_suggestions(base: dict[str, Any], payload: dict[str, Any]) -> dict
         accepted_tweets = []
         for item in tweets[:2]:
             text = _compact(str(item.get("post_text", "")), FORMAT_PROFILES[FORMAT_TWEET]["headline_limit"])
-            if len(text.split()) >= 4:
+            if len(text.split()) >= 4 and (not source_text or _suggestion_has_evidence(text, source_text)):
                 accepted_tweets.append({
                     "post_text": text,
                     "character_count": len(text),
@@ -466,7 +515,7 @@ Gere no máximo 3 alternativas por formato."""
         try:
             refined = _extract_json(ai_backend.generate(prompt, system, emit_progress))
             if refined:
-                result = _merge_ai_suggestions(result, refined)
+                result = _merge_ai_suggestions(result, refined, source_text=text)
         except Exception:
             # A deterministic, explainable output is preferable to a failed screen.
             pass

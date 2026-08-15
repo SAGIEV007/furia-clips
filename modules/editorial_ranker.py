@@ -230,12 +230,24 @@ class EditorialRanker:
                 score = min(score, 70)
         score = max(0, min(100, score))
 
-        feedback_adjustment = self._feedback_adjustment(factors)
+        candidate_origin = str(clip.get("candidate_origin") or "")
+        candidate_confidence = clip.get("confidence")
+        if not isinstance(candidate_confidence, (int, float)):
+            candidate_confidence = clip.get("score_confidence")
+        feedback_adjustment = self._feedback_adjustment(
+            factors,
+            candidate_origin=candidate_origin,
+            candidate_confidence=candidate_confidence,
+        )
         if feedback_adjustment:
             score = max(0, min(100, int(round(score + feedback_adjustment))) )
             factors["editor_feedback_alignment"] = round(50.0 + feedback_adjustment * 5.0, 1)
 
-        feedback_calibration = self._feedback_payload(feedback_adjustment)
+        feedback_calibration = self._feedback_payload(
+            feedback_adjustment,
+            candidate_origin=candidate_origin,
+            candidate_confidence=candidate_confidence,
+        )
         confidence = self._confidence(text, factors, duration)
         duration_preference = self._duration_preference(duration, factors)
         breakdown = {
@@ -462,15 +474,35 @@ class EditorialRanker:
         editorial_type = str(political_signals.get("editorial_type") or "geral")
         return f"{editorial_type}:{'-'.join(top_terms)}" if top_terms else editorial_type
 
-    def _feedback_payload(self, adjustment: float) -> dict:
+    def _feedback_payload(self, adjustment: float, *, candidate_origin="", candidate_confidence=None) -> dict:
         calibration = self.feedback_calibration if isinstance(self.feedback_calibration, dict) else {}
         duration_signal = calibration.get("duration_signal") if isinstance(calibration.get("duration_signal"), dict) else {}
+        origin_deltas = calibration.get("candidate_origin_deltas") if isinstance(calibration.get("candidate_origin_deltas"), dict) else {}
+        origin_delta = origin_deltas.get(str(candidate_origin or ""), 0.0)
+        try:
+            origin_delta = float(origin_delta)
+        except (TypeError, ValueError):
+            origin_delta = 0.0
+        try:
+            normalized_confidence = max(0.0, min(1.0, float(candidate_confidence)))
+        except (TypeError, ValueError):
+            normalized_confidence = 0.75
+        origin_adjustment = origin_delta * 0.075 * (0.5 + normalized_confidence * 0.5)
         return {
             "eligible": bool(calibration.get("eligible")),
             "sample_size": int(calibration.get("sample_size", 0) or 0),
             "approved_count": int(calibration.get("approved_count", 0) or 0),
             "rejected_count": int(calibration.get("rejected_count", 0) or 0),
             "adjustment": round(float(adjustment or 0.0), 2),
+            "candidate_origin": str(candidate_origin or ""),
+            "candidate_origin_delta": round(origin_delta, 2),
+            "candidate_origin_adjustment": round(origin_adjustment, 2),
+            "candidate_origin_confidence": round(normalized_confidence, 3),
+            "origin_calibration_eligible": bool(
+                calibration.get("origin_calibration", {}).get("eligible")
+                if isinstance(calibration.get("origin_calibration"), dict)
+                else False
+            ),
             "duration_signal": {
                 "usable": bool(duration_signal.get("usable")),
                 "approved_mean_seconds": float(duration_signal.get("approved_mean_seconds", 0.0) or 0.0),
@@ -480,11 +512,12 @@ class EditorialRanker:
             },
         }
 
-    def _feedback_adjustment(self, factors: dict) -> float:
-        """Return a bounded adjustment only after enough final editor decisions.
+    def _feedback_adjustment(self, factors: dict, *, candidate_origin="", candidate_confidence=None) -> float:
+        """Return a bounded factor adjustment plus a weak, source-level signal.
 
-        Factor deltas compare approved and rejected clips. The adjustment stays
-        within +/- 6 points so model and editorial signals remain dominant.
+        Factor deltas compare approved and rejected clips. Origin deltas are
+        smoothed approval-rate lifts and can contribute at most 1.5 points before
+        the global +/- 6 point cap, so provenance never overrides context gates.
         """
         calibration = self.feedback_calibration
         if not calibration.get("eligible"):
@@ -499,9 +532,23 @@ class EditorialRanker:
                 continue
             direction = 1.0 if delta > 0 else -1.0
             contributions.append(direction * ((float(value) - 50.0) / 50.0) * min(abs(float(delta)), 25.0))
-        if not contributions:
-            return 0.0
-        return max(-6.0, min(6.0, sum(contributions) / len(contributions) * 0.35))
+        factor_adjustment = (
+            sum(contributions) / len(contributions) * 0.35
+            if contributions
+            else 0.0
+        )
+        origin_deltas = calibration.get("candidate_origin_deltas") or {}
+        origin_delta = origin_deltas.get(str(candidate_origin or ""), 0.0)
+        try:
+            origin_delta = float(origin_delta)
+        except (TypeError, ValueError):
+            origin_delta = 0.0
+        try:
+            confidence = max(0.0, min(1.0, float(candidate_confidence)))
+        except (TypeError, ValueError):
+            confidence = 0.75
+        origin_adjustment = origin_delta * 0.075 * (0.5 + confidence * 0.5)
+        return max(-6.0, min(6.0, factor_adjustment + origin_adjustment))
 
     def _hook(self, text: str) -> float:
         normalized = _normalize(text)
