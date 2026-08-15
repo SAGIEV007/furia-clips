@@ -31,6 +31,11 @@ FILLER_WORDS_PT = {
 CONTINUATION_STARTERS_PT = {
     "e", "mas", "porem", "porém", "porque", "que", "ai", "aí", "entao", "então", "ou", "nem",
 }
+CONTEXT_REFERENCE_STARTERS_PT = {
+    "isso", "isto", "aquilo", "esse", "essa", "esses", "essas", "aquele", "aquela",
+    "aqueles", "aquelas", "ele", "ela", "eles", "elas", "nesse", "nessa", "nisso",
+    "com isso", "por isso",
+}
 EVIDENCE_TERMS_PT = {
     "dado", "dados", "numero", "número", "numeros", "números", "pesquisa", "pesquisas",
     "registro", "registros", "email", "emails", "e-mail", "fonte", "prova", "provas",
@@ -1315,6 +1320,9 @@ Retorne APENAS o JSON.
         first_word = words[0] if words else ""
         continuation_starters = {item.lower() for item in CONTINUATION_STARTERS_PT}
         starts_mid_sentence = first_word in continuation_starters
+        first_two_words = " ".join(words[:2]) if len(words) >= 2 else first_word
+        reference_starters = {item.lower() for item in CONTEXT_REFERENCE_STARTERS_PT}
+        starts_with_context_reference = first_word in reference_starters or first_two_words in reference_starters
         has_question = "?" in raw or first_word in {"como", "por", "porque", "qual", "quais", "quem", "quando", "onde"}
         question_index = raw.find("?")
         response_text = raw[question_index + 1:] if question_index >= 0 else ""
@@ -1338,6 +1346,7 @@ Retorne APENAS o JSON.
         speaker_turn_valid = metadata.get("speaker_turn_valid")
         context_complete = bool(
             not starts_mid_sentence
+            and not starts_with_context_reference
             and payoff_complete
             and len(words) >= 12
             and not overlap_suspected
@@ -1346,6 +1355,7 @@ Retorne APENAS o JSON.
         )
         return {
             "starts_mid_sentence": starts_mid_sentence,
+            "starts_with_context_reference": starts_with_context_reference,
             "question_detected": has_question,
             "question_answer_complete": question_answer_complete,
             "evidence_present": has_evidence,
@@ -1381,10 +1391,12 @@ Retorne APENAS o JSON.
             clip_duration = start_block["duration"]
             clip_end_idx = start_idx
 
-            # Whisper blocks can begin with a continuation after a pause. Recover
-            # the adjacent context when it is safe instead of publishing an abrupt start.
+            # Whisper blocks can begin with a continuation or an unresolved
+            # reference after a pause. Recover adjacent context when safe instead
+            # of publishing an abrupt start such as “isso aconteceu...”.
+            opening_flags = self._editorial_flags(start_block.get("text", ""), start_block)
             if (
-                self._editorial_flags(start_block.get("text", ""), start_block).get("starts_mid_sentence")
+                (opening_flags.get("starts_mid_sentence") or opening_flags.get("starts_with_context_reference"))
                 and start_idx > 0
                 and (start_idx - 1) not in used_indices
             ):

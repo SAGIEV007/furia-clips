@@ -135,3 +135,10 @@ class ClipSelectionTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+    def test_context_gate_rejects_unresolved_reference_at_opening(self):
+        flags = self.selector._editorial_flags(
+            "Isso destruiu a vida de muitas pessoas e revelou um problema grave de responsabilidade pública."
+        )
+        self.assertTrue(flags["starts_with_context_reference"])
+        self.assertFalse(flags["context_complete"])
