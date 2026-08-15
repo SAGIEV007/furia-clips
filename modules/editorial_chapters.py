@@ -107,6 +107,8 @@ def annotate_clip_with_chapters(clip: dict, editorial_context: dict | None) -> d
         result.setdefault("editorial_chapter_ids", [])
         result.setdefault("chapter_count", 0)
         result.setdefault("qa_bridge", False)
+        result.setdefault("qa_boundary_basis", None)
+        result.setdefault("qa_boundary_review_required", False)
         _attach_nearest_hook(result, hook_candidates)
         return result
 
@@ -123,6 +125,8 @@ def annotate_clip_with_chapters(clip: dict, editorial_context: dict | None) -> d
 
     ids = [chapter["id"] for chapter, _ in overlaps]
     qa_bridge = False
+    qa_boundary_basis = None
+    qa_boundary_review_required = False
     for candidate in (editorial_context or {}).get("qa_candidates", []):
         qa_start = float(candidate.get("start", 0) or 0)
         qa_end = float(candidate.get("end", qa_start) or qa_start)
@@ -131,6 +135,8 @@ def annotate_clip_with_chapters(clip: dict, editorial_context: dict | None) -> d
         coverage = _interval_coverage(start, end, qa_start, qa_end)
         if start <= qa_start + 2.5 and end >= qa_end - 2.5 and coverage >= 0.72:
             qa_bridge = True
+            qa_boundary_basis = str(candidate.get("boundary_basis") or "sem_diarização")
+            qa_boundary_review_required = bool(candidate.get("needs_speaker_review") or candidate.get("overlap_suspected"))
             break
 
     if not overlaps:
@@ -157,6 +163,8 @@ def annotate_clip_with_chapters(clip: dict, editorial_context: dict | None) -> d
         "chapter_coherence_score": round(max(0.0, min(100.0, coherence)), 1),
         "chapter_crosses_boundary": len(ids) > 1,
         "qa_bridge": qa_bridge,
+        "qa_boundary_basis": qa_boundary_basis,
+        "qa_boundary_review_required": qa_boundary_review_required,
         "chapter_topics": [chapter.get("label", "") for chapter, _ in overlaps],
     })
     _attach_nearest_hook(result, hook_candidates)

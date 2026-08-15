@@ -2143,6 +2143,15 @@ function renderResultsGrid() {
         const chapterCount = Number(clip.chapter_count || reviewFlags.chapter_count || 0);
         const chapterScore = Number(clip.chapter_coherence_score ?? reviewFlags.chapter_coherence_score);
         const chapterBridge = Boolean(clip.qa_bridge || reviewFlags.qa_bridge);
+        const qaBoundaryBasis = String(clip.qa_boundary_basis || reviewFlags.qa_boundary_basis || "").trim();
+        const qaBoundaryReviewRequired = Boolean(clip.qa_boundary_review_required || reviewFlags.qa_boundary_review_required);
+        const qaBoundaryLabels = {
+            mudanca_de_locutor: "mudança de locutor",
+            marcador_de_locutor: "marcador de locutor",
+            segunda_troca_de_locutor: "segunda troca de locutor",
+            sem_diarizacao: "sem diarização confiável",
+        };
+        const qaBoundaryLabel = qaBoundaryLabels[qaBoundaryBasis] || qaBoundaryBasis.replaceAll("_", " ");
         const durationSeconds = Number(clip.duration || ((clip.end || 0) - (clip.start || 0)) || 0);
         const durationFit = Number(clip.duration_fit ?? factors.duration_fit);
         const durationPreference = clip.duration_preference || {};
@@ -2275,7 +2284,7 @@ function renderResultsGrid() {
                 ${politicalType ? `<div style="font-size:12px; color:#f59e0b; margin-bottom:6px"><span class="material-icons-round" style="font-size:14px; vertical-align:middle">account_balance</span> Formato editorial: ${escapeHtml(politicalType)}</div>` : ''}
                 ${visualFormat ? `<div class="clip-visual-format-note ${preserveComposition ? 'preserve' : ''}"><span class="material-icons-round">${preserveComposition ? 'aspect_ratio' : 'center_focus_strong'}</span><span><b>${escapeHtml(visualFormatLabels[visualFormat] || visualFormat)}</b> · ${preserveComposition ? 'preservar composição' : 'reframe somente se seguro'}${Number.isFinite(visualFormatConfidence) ? ` · ${Math.round(Math.max(0, Math.min(1, visualFormatConfidence)) * 100)}%` : ''}${clip.visual_format_reason ? ` — ${escapeHtml(String(clip.visual_format_reason))}` : ''}</span></div>` : ''}
                 ${clip.visual_observation ? `<div class="clip-visual-observation"><span class="material-icons-round">visibility</span><span><b>Evidência visual:</b> ${escapeHtml(String(clip.visual_observation))}${Number.isFinite(Number(clip.visual_observation_confidence)) ? ` · ${Math.round(Math.max(0, Math.min(1, Number(clip.visual_observation_confidence))) * 100)}% de confiança` : ''}</span></div>` : ''}
-                ${chapterCount > 0 ? `<div class="clip-chapter-note ${chapterScore < 60 ? 'warning' : ''}"><span class="material-icons-round">account_tree</span><span><b>Contexto temporal:</b> ${chapterCount} capítulo(s)${Number.isFinite(chapterScore) ? ` · coerência ${Math.round(Math.max(0, Math.min(100, chapterScore)))}%` : ''}${chapterBridge ? ' · ponte pergunta–resposta preservada' : chapterCount > 1 ? ' · atravessa capítulos; revisar continuidade' : ' · dentro do mesmo bloco'}</span></div>` : ''}
+                ${chapterCount > 0 ? `<div class="clip-chapter-note ${chapterScore < 60 ? 'warning' : ''}"><span class="material-icons-round">account_tree</span><span><b>Contexto temporal:</b> ${chapterCount} capítulo(s)${Number.isFinite(chapterScore) ? ` · coerência ${Math.round(Math.max(0, Math.min(100, chapterScore)))}%` : ''}${chapterBridge ? ' · ponte pergunta–resposta preservada' : chapterCount > 1 ? ' · atravessa capítulos; revisar continuidade' : ' · dentro do mesmo bloco'}${qaBoundaryBasis ? ` · fronteira: ${escapeHtml(qaBoundaryLabel)}${qaBoundaryReviewRequired ? ' · confirmar locutor' : ''}` : ''}</span></div>` : ''}
                 ${campaignPriorAvailable ? `<div class="clip-performance-prior"><span class="material-icons-round">insights</span><span><b>Histórico observado:</b> hook ${escapeHtml(campaignHookFamily || 'não classificado')} · amostra ${Math.max(0, campaignSampleCount)} · influência limitada ao ranking</span></div>` : ''}
                 ${transcriptionReviewRequired ? `<div class="clip-review-risk"><span class="material-icons-round">history_edu</span><span><b>Transcrição para revisão:</b> ${escapeHtml(transcriptionReviewReason)}${transcriptionCoverageStatus ? ` · status ${escapeHtml(transcriptionCoverageStatus)}` : ''}</span></div>` : ''}
                 ${contextualHookAvailable ? `<div class="clip-hook-provenance ${contextualHookReview ? 'review' : ''}"><span class="material-icons-round">bolt</span><span><b>Hook contextual:</b> ${escapeHtml(String(contextualHook.family || 'não classificado'))} · ${Number(contextualHook.score || 0).toFixed(1)}/100${contextualHook.payoff_confirmed ? ' · payoff próximo' : ' · payoff a confirmar'}${contextualHookReview ? ` · ${escapeHtml(contextualHookReviewHint)}` : ''}<br><q>${escapeHtml(String(contextualHook.hook_text || ''))}</q></span></div>` : ''}

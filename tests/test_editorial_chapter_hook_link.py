@@ -42,3 +42,22 @@ def test_clip_without_context_keeps_legacy_defaults():
 
     assert result["contextual_hook"] is None
     assert result["hook_review_required"] is False
+
+
+def test_clip_exposes_qa_boundary_basis_for_review():
+    context = {
+        "editorial_chapters": [{"id": "chapter-1", "index": 0, "start": 0.0, "end": 60.0, "end": 60.0, "label": "pergunta e resposta"}],
+        "hook_candidates": [],
+        "qa_candidates": [{
+            "start": 10.0,
+            "end": 40.0,
+            "boundary_basis": "segunda_troca_de_locutor",
+            "needs_speaker_review": True,
+            "overlap_suspected": False,
+        }],
+    }
+    result = annotate_clip_with_chapters({"start": 9.0, "end": 41.0}, context)
+
+    assert result["qa_bridge"] is True
+    assert result["qa_boundary_basis"] == "segunda_troca_de_locutor"
+    assert result["qa_boundary_review_required"] is True
