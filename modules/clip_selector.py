@@ -158,6 +158,29 @@ class ClipSelector:
         # backend (Gemini, Ollama, and NLP) exposes the same review contract.
         editorial_context = settings.get("editorial_context")
         clips = [annotate_clip_with_chapters(clip, editorial_context) for clip in clips]
+        fallback_used = bool(self._candidate_diagnostics.get("fallback_used"))
+        for clip in clips:
+            source = str(clip.get("source") or "nlp").lower()
+            if source == "gemini":
+                origin = "gemini_primary"
+                origin_label = "Gemini — seleção primária"
+            elif source == "llm":
+                origin = "ollama_primary"
+                origin_label = "Ollama — seleção primária"
+            elif fallback_used:
+                origin = "local_fallback"
+                origin_label = "NLP local — alternativa de cobertura"
+            else:
+                origin = "local_primary"
+                origin_label = "NLP local — seleção primária"
+            clip["candidate_origin"] = origin
+            clip["candidate_origin_label"] = origin_label
+            clip["candidate_origin_note"] = (
+                "Alternativa acrescentada porque a fonte primária devolveu um pool curto; "
+                "não substitui a avaliação editorial humana."
+                if origin == "local_fallback"
+                else "Origem registrada para transparência da revisão."
+            )
 
         # Limit to max_clips
         clips = clips[:self.max_clips]
