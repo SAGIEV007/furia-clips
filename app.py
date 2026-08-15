@@ -103,6 +103,7 @@ from modules.repository_sync import (
     RepositorySyncError,
     get_repository_status,
     push_feedback_snapshot,
+    restore_feedback_snapshot,
     update_from_github,
 )
 
@@ -878,6 +879,8 @@ def api_repository_sync():
             return jsonify(result)
         if action in {"push_feedback", "sync_feedback"}:
             return jsonify(push_feedback_snapshot())
+        if action in {"restore_feedback", "import_feedback"}:
+            return jsonify(restore_feedback_snapshot())
         return jsonify({"success": False, "error": "Ação de sincronização desconhecida."}), 400
     except (RepositorySyncError, PersistentDataError) as exc:
         return jsonify({"success": False, "error": str(exc)}), 400

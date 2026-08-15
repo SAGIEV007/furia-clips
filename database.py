@@ -699,6 +699,109 @@ def save_clip_feedback(clip_id, action, adjustments=None, note="", reason_code="
     conn.close()
 
 
+def restore_feedback_snapshot(records):
+    """Replay sanitized final decisions into matching local clips, idempotently.
+
+    The repository snapshot carries no local clip id, so ``editorial_key`` is the
+    portable identity. A local decision with a newer timestamp always wins.
+    """
+    if not isinstance(records, list):
+        raise ValueError("Snapshot de feedback inválido: records deve ser uma lista")
+    final_actions = {"approved", "rejected", "needs_review"}
+    counters = {
+        "records_seen": len(records),
+        "imported": 0,
+        "already_current": 0,
+        "skipped_older": 0,
+        "unmatched": 0,
+        "invalid": 0,
+    }
+
+    def parse_timestamp(value):
+        text = str(value or "").strip()
+        if not text:
+            return None
+        try:
+            parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+        except (TypeError, ValueError):
+            return None
+        if parsed.tzinfo:
+            parsed = parsed.astimezone().replace(tzinfo=None)
+        return parsed
+
+    conn = get_db()
+    try:
+        for record in records:
+            if not isinstance(record, dict):
+                counters["invalid"] += 1
+                continue
+            editorial_key = str(record.get("editorial_key") or "").strip()[:80]
+            action = str(record.get("action") or "").strip()[:24]
+            if not editorial_key or action not in final_actions:
+                counters["invalid"] += 1
+                continue
+            reason_code = str(record.get("reason_code") or "").strip()[:48]
+            tags = []
+            raw_tags = record.get("quality_tags")
+            if isinstance(raw_tags, list):
+                for tag in raw_tags:
+                    normalized = str(tag or "").strip()[:48]
+                    if normalized and normalized not in tags:
+                        tags.append(normalized)
+            tags = tags[:12]
+            incoming_timestamp = parse_timestamp(record.get("created_at"))
+            clip = conn.execute(
+                "SELECT id FROM clips WHERE editorial_key = ? ORDER BY id DESC LIMIT 1",
+                (editorial_key,),
+            ).fetchone()
+            if not clip:
+                counters["unmatched"] += 1
+                continue
+            latest = conn.execute(
+                """SELECT action, reason_code, quality_tags, created_at
+                     FROM clip_feedback
+                    WHERE clip_id = ? AND action IN ('approved', 'rejected', 'needs_review')
+                    ORDER BY id DESC LIMIT 1""",
+                (clip["id"],),
+            ).fetchone()
+            if latest:
+                try:
+                    current_tags = json.loads(latest["quality_tags"] or "[]")
+                except (TypeError, ValueError, json.JSONDecodeError):
+                    current_tags = []
+                current_tags = current_tags if isinstance(current_tags, list) else []
+                current_timestamp = parse_timestamp(latest["created_at"])
+                if (
+                    latest["action"] == action
+                    and latest["reason_code"] == reason_code
+                    and current_tags == tags
+                ):
+                    counters["already_current"] += 1
+                    continue
+                if incoming_timestamp and current_timestamp and incoming_timestamp <= current_timestamp:
+                    counters["skipped_older"] += 1
+                    continue
+            conn.execute(
+                """INSERT INTO clip_feedback
+                   (clip_id, action, adjustments, note, reason_code, quality_tags)
+                   VALUES (?, ?, ?, ?, ?, ?)""",
+                (
+                    clip["id"],
+                    action,
+                    json.dumps({}, ensure_ascii=False),
+                    "Restaurado do snapshot editorial sanitizado.",
+                    reason_code,
+                    json.dumps(tags, ensure_ascii=False),
+                ),
+            )
+            conn.execute("UPDATE clips SET review_status = ? WHERE id = ?", (action, clip["id"]))
+            counters["imported"] += 1
+        conn.commit()
+    finally:
+        conn.close()
+    return counters
+
+
 def get_clip(clip_id):
     """Return one persisted clip or ``None`` without applying a draft adjustment."""
     conn = get_db()
