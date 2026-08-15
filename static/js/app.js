@@ -1736,7 +1736,7 @@ function renderEditorialContextPreview(context = {}) {
             const end = Number(hook.end || hook.hook_end || start);
             const score = Number(hook.score || 0).toFixed(1);
             const review = hook.needs_visual_review ? " · revisar sobreposição" : "";
-            return `<article class="context-hook-card"><div class="context-hook-card-head"><strong>#${index + 1} · ${escapeHtml(hook.family || "outro")}</strong><span>${formatTime(start)}–${formatTime(end)} · ${score}/100</span></div><p>${escapeHtml(hook.reason || "Sinal contextual detectado.")}</p><small>${hook.payoff_confirmed ? "Payoff próximo detectado" : "Payoff ainda precisa de validação"}${review}</small></article>`;
+            return `<article class="context-hook-card"><div class="context-hook-card-head"><strong>#${index + 1} · ${escapeHtml(hook.family || "outro")}</strong><span>${formatTime(start)}–${formatTime(end)} · ${score}/100</span></div><blockquote>${escapeHtml(hook.hook_text || "Fala de abertura não disponível.")}</blockquote><p>${escapeHtml(hook.reason || "Sinal contextual detectado.")}</p><small>${hook.payoff_confirmed ? "Payoff próximo detectado" : "Payoff ainda precisa de validação"}${review}</small></article>`;
         }).join("")}</div>`
         : `<div class="context-hook-empty"><span class="material-icons-round">search_off</span><span>Nenhum hook textual robusto foi isolado; o editor pode revisar a transcrição por capítulos.</span></div>`;
     result.hidden = false;

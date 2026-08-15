@@ -253,6 +253,16 @@ def detect_hook_candidates(
         if start <= 35:
             score += 5
             reasons.append("entrada precoce no bloco")
+        setup_cue = bool(re.search(
+            r"\b(c[aâ]mera|p[uú]lpito|montou|arrumar|testar|microfone|som|desculpa|risadas|meus queridos|t[aá] na c[aâ]mera)\b",
+            normalized,
+        ))
+        if setup_cue:
+            score -= 24
+            reasons.append("bastidor ou preparação, não tese final")
+        if text[:1].islower() or re.search(r"(?:,|\bpor|\be|\bmas|\bque|\bde)$", normalized):
+            score -= 10
+            reasons.append("frase começa ou termina fragmentada")
         if bool(segment.get("overlap_suspected")):
             score -= 14
             reasons.append("sobreposição de falas exige revisão")
@@ -270,10 +280,15 @@ def detect_hook_candidates(
             if following_end - start >= 32:
                 break
         payoff_text = " ".join(str(item.get("text", "") or "") for item in lookahead).lower()
-        payoff = bool(re.search(
-            r"\b(portanto|por isso|logo|a solu[cç][aã]o|o ponto [eé]|isso significa|na pr[aá]tica|resultado|conclus[aã]o|resposta)\b",
+        explicit_payoff = bool(re.search(
+            r"\b(portanto|por isso|logo|a solu[cç][aã]o|o ponto [eé]|isso significa|na pr[aá]tica|resultado|conclus[aã]o|resposta|basta apenas|essa [eé] a ideia)\b",
             payoff_text,
-        )) or len(lookahead) >= 3
+        ))
+        contentful_lookahead = [item for item in lookahead if len(str(item.get("text", "") or "").split()) >= 5]
+        payoff = explicit_payoff or (
+            len(contentful_lookahead) >= 2
+            and bool(re.search(r"\b\d+(?:[,.]\d+)?\s*%?\b|\bproposta\w*\b|\btese\b|\bproblema\b", payoff_text))
+        )
         if payoff:
             score += 14
             reasons.append("há fechamento ou desenvolvimento próximo")
@@ -287,6 +302,17 @@ def detect_hook_candidates(
                 payoff_end = max(end, min(start + 58.0, float(lookahead[-1].get("end", end) or end)))
             except (TypeError, ValueError):
                 payoff_end = end
+        opening_start = max(0.0, start - 1.5)
+        opening_text = text
+        if index > 0:
+            previous_text = str(segments[index - 1].get("text", "") or "").strip()
+            previous_end = re.sub(r"[.!?]+$", "", previous_text.lower()).strip()
+            if re.search(r"(?:\bde|\bda|\bdo|\bna|\bno|\bem|\bpor|\bcom|\bque|\bcomo|\be|\bmas)$", previous_end):
+                try:
+                    opening_start = max(0.0, float(segments[index - 1].get("start", start) or start) - 1.5)
+                except (TypeError, ValueError):
+                    opening_start = max(0.0, start - 1.5)
+                opening_text = f"{previous_text} {text}".strip()
         prior = None
         if build_performance_prior and snapshot:
             prior = build_performance_prior(text, account=account, snapshot=snapshot)
@@ -298,11 +324,13 @@ def detect_hook_candidates(
         score = max(0.0, min(100.0, score))
         candidates.append({
             "segment_index": index,
-            "start": round(max(0.0, start - 1.5), 3),
+            "start": round(opening_start, 3),
             "end": round(payoff_end, 3),
             "hook_start": round(start, 3),
             "hook_end": round(min(payoff_end, start + 12.0), 3),
             "family": family,
+            "hook_text": opening_text[:240],
+            "context_excerpt": " ".join([opening_text] + [str(item.get("text", "") or "").strip() for item in lookahead[:3]])[:420],
             "score": round(score, 1),
             "confidence": round(min(0.98, max(0.2, float(details.get("confidence", 0.35)) * 0.7 + (0.2 if payoff else 0))), 2),
             "evidence": list(dict.fromkeys(evidence))[:6],

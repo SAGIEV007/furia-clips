@@ -3826,6 +3826,7 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 .context-hook-card { padding: 10px 11px; border: 1px solid rgba(245,197,66,.18); border-radius: 11px; background: rgba(255,255,255,.035); }
 .context-hook-card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: #f7d77d; font-size: 11px; }
 .context-hook-card-head span { color: #b9c8da; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.context-hook-card blockquote { margin: 7px 0 5px; padding-left: 8px; border-left: 2px solid rgba(245,197,66,.55); color: #f3f6fb; font-size: 12px; line-height: 1.38; }
 .context-hook-card p { margin: 5px 0 3px; color: #d8e1ed; font-size: 11px; line-height: 1.35; }
 .context-hook-card small { color: #8294a1; font-size: 10px; }
 .context-hook-empty { display: flex; align-items: center; gap: 7px; margin-top: 10px; color: var(--text-muted, #aab3c5); font-size: 11px; }

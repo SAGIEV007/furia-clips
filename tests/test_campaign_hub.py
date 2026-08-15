@@ -72,6 +72,26 @@ def test_hook_candidates_expose_timestamped_payoff_and_selected_account_prior():
     assert top["campaign_hub_prior"]["available"] is True
 
 
+def test_hook_detector_rejects_setup_chatter_and_recovers_fragmented_question():
+    setup_candidates = detect_hook_candidates([
+        {"start": 0, "end": 3, "text": "Quem montou a câmera?"},
+        {"start": 3, "end": 6, "text": "Diferente como púlpito?"},
+        {"start": 6, "end": 12, "text": "Agora vamos falar da proposta concreta."},
+    ], limit=3)
+
+    assert setup_candidates
+    assert all("câmera" not in item["hook_text"].lower() for item in setup_candidates[:2])
+
+    boundary_candidates = detect_hook_candidates([
+        {"start": 20, "end": 23, "text": "A discussão é de"},
+        {"start": 23, "end": 28, "text": "qual é a proposta concreta?"},
+        {"start": 28, "end": 36, "text": "Por isso, a resposta precisa ser objetiva."},
+    ], limit=3)
+    fragmented = next(item for item in boundary_candidates if "proposta concreta" in item["hook_text"].lower())
+    assert fragmented["start"] == 18.5
+    assert fragmented["payoff_confirmed"] is True
+
+
 def test_snapshot_rejects_unknown_accounts_and_keeps_supported_data():
     snapshot = normalize_snapshot({
         "accounts": {
