@@ -439,10 +439,16 @@
             <div class="section-header">
                 <div>
                     <h3><span class="material-icons-round">monitoring</span> Métricas observadas</h3>
-                    <p class="section-hint">Registra resultados reais depois da publicação; serve para calibrar o aprendizado local, não para substituir os gates de contexto nem inventar previsões.</p>
+                    <p class="section-hint">Histórico opcional pós-publicação. Não decide cortes nem substitui a revisão editorial.</p>
                 </div>
-                <span class="studio-status-pill"><span class="status-dot online"></span> Histórico local</span>
+                <div class="performance-section-actions">
+                    <span class="studio-status-pill"><span class="status-dot online"></span> Histórico local</span>
+                    <button class="btn btn-sm btn-outline performance-collapse-toggle" id="btnTogglePerformanceMetrics" type="button" aria-expanded="false" aria-controls="performanceMetricsBody">
+                        <span class="material-icons-round">expand_more</span> Abrir histórico
+                    </button>
+                </div>
             </div>
+            <div class="performance-metrics-body" id="performanceMetricsBody" hidden>
             <div class="performance-cohort-toolbar" aria-label="Filtros da coorte observada">
                 <label>Plataforma
                     <select id="performanceMetricPlatform">
@@ -490,9 +496,9 @@
                     <div class="performance-metrics-status" id="performanceMetricsStatus">Nenhum snapshot observado nesta instalação.</div>
                     <div class="performance-metrics-summary" id="performanceMetricsSummary" aria-live="polite"></div>
                 </div>
+                        </div>
             </div>
         </section>
-
         <!-- Actions -->
         <section class="section" id="actionsSection">
             <div class="section-header">
