@@ -149,6 +149,7 @@ class EditorialRanker:
             "speaker_boundary": self._speaker_boundary_score(clip),
             "qa_boundary": self._qa_boundary_score(clip),
             "contextual_hook_alignment": self._contextual_hook_alignment(clip),
+            "feedback_reason_alignment": self._feedback_reason_alignment(clip),
             "editorial_family_fit": 50.0,
             "instagram_pattern_prior": instagram_pattern_prior["signal"],
             "chapter_coherence": self._chapter_coherence(clip),
@@ -221,6 +222,7 @@ class EditorialRanker:
             (factors["speaker_boundary"] - 50.0) * 0.04
             + (factors["qa_boundary"] - 50.0) * 0.04
             + (factors["contextual_hook_alignment"] - 50.0) * 0.05
+            + (factors["feedback_reason_alignment"] - 50.0) * 0.03
         ))
         context_contract = any(
             key in clip
@@ -268,6 +270,7 @@ class EditorialRanker:
             "speaker_boundary": self._grade(factors["speaker_boundary"]),
                             "qa_boundary": self._grade(factors["qa_boundary"]),
                 "contextual_hook": self._grade(factors["contextual_hook_alignment"]),
+                "feedback_reason": self._grade(factors["feedback_reason_alignment"]),
             }
 
         reason = self._reason(factors, user_context)
@@ -314,6 +317,7 @@ class EditorialRanker:
             "speaker_boundary_score": factors["speaker_boundary"],
             "qa_boundary_score": factors["qa_boundary"],
             "contextual_hook_alignment": factors["contextual_hook_alignment"],
+            "feedback_reason_alignment": factors["feedback_reason_alignment"],
             "campaign_hub_prior": campaign_hub_prior,
             "instagram_pattern_prior": instagram_pattern_prior,
             "feedback_calibration": feedback_calibration,
@@ -350,6 +354,7 @@ class EditorialRanker:
                 "speaker_boundary_score": factors["speaker_boundary"],
                 "qa_boundary_score": factors["qa_boundary"],
                 "contextual_hook_alignment": factors["contextual_hook_alignment"],
+                "feedback_reason_alignment": factors["feedback_reason_alignment"],
                 "technical_gate_status": technical_gate["status"],
                 "technical_gate_reasons": list(technical_gate["reasons"]),
                 "campaign_hub_prior_available": bool(campaign_hub_prior["available"]),
@@ -386,6 +391,28 @@ class EditorialRanker:
         if clip.get("question_detected"):
             return 42.0 if clip.get("needs_speaker_review") else 58.0
         return 55.0
+
+    def _feedback_reason_alignment(self, clip: dict) -> float:
+        calibration = self.feedback_calibration if isinstance(self.feedback_calibration, dict) else {}
+        coverage = calibration.get("reason_coverage") if isinstance(calibration.get("reason_coverage"), dict) else {}
+        if not calibration.get("eligible") or not coverage:
+            return 50.0
+        categories = coverage.get("categories") if isinstance(coverage.get("categories"), dict) else {}
+        if clip.get("overlap_suspected") or clip.get("speaker_turn_valid") is False:
+            category = "speaker_audio"
+        elif clip.get("duration", 0) > PREFERRED_MAX_DURATION:
+            category = "duration"
+        elif clip.get("question_detected") or clip.get("context_complete") or clip.get("payoff_complete"):
+            category = "context_payoff"
+        else:
+            category = "hook"
+        item = categories.get(category) if isinstance(categories.get(category), dict) else {}
+        total = int(item.get("total", 0) or 0)
+        if total < 3:
+            return 50.0
+        approved = int(item.get("approved", 0) or 0)
+        share = max(0.0, min(1.0, approved / total))
+        return round(25.0 + share * 50.0, 1)
 
     def _contextual_hook_alignment(self, clip: dict) -> float:
         hook = clip.get("contextual_hook")
@@ -817,6 +844,7 @@ class EditorialRanker:
             "speaker_boundary": "fronteira de locutor",
             "qa_boundary": "ponte pergunta–resposta",
             "contextual_hook_alignment": "alinhamento ao hook contextual",
+            "feedback_reason_alignment": "calibração por motivo editorial",
         }
         ordered = sorted(factors.items(), key=lambda pair: pair[1], reverse=True)
         top = [labels[key] for key, value in ordered[:3] if value >= 60]

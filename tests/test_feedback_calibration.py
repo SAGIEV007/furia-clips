@@ -43,6 +43,35 @@ def test_feedback_reason_coverage_exposes_context_categories_without_reclassific
     assert "decisões sem motivo" in coverage["interpretation"]
 
 
+def test_ranker_uses_reason_category_as_bounded_context_signal():
+    calibration = {
+        "eligible": True,
+        "reason_coverage": {
+            "categories": {
+                "context_payoff": {"approved": 8, "rejected": 2, "total": 10},
+                "hook": {"approved": 2, "rejected": 8, "total": 10},
+                "speaker_audio": {"approved": 0, "rejected": 0, "total": 0},
+                "duration": {"approved": 0, "rejected": 0, "total": 0},
+            }
+        },
+    }
+    ranker = EditorialRanker(feedback_calibration=calibration)
+    context_clip = ranker.score_clip({
+        "text": "A verdade é que isso precisa mudar. A conclusão é clara.",
+        "duration": 35,
+        "question_detected": True,
+        "context_complete": True,
+        "payoff_complete": True,
+    })
+    hook_clip = ranker.score_clip({
+        "text": "Uma fala curta e direta.",
+        "duration": 35,
+    })
+
+    assert context_clip["factors"]["feedback_reason_alignment"] > hook_clip["factors"]["feedback_reason_alignment"]
+    assert abs(context_clip["viral_score"] - hook_clip["viral_score"]) <= 100
+
+
 def test_feedback_calibration_requires_final_decision_volume(monkeypatch, tmp_path):
     _build_feedback_history(monkeypatch, tmp_path, approved_count=2, rejected_count=2)
 
