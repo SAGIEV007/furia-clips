@@ -2009,12 +2009,23 @@ body {
     line-height: 1.5;
 }
 
-.source-actions, .source-link-row {
+.source-actions, .source-link-row, .source-link-actions {
     display: flex;
     gap: 8px;
     align-items: center;
     flex-wrap: wrap;
     margin-top: 10px;
+}
+
+.source-link-actions {
+    justify-content: flex-end;
+}
+
+.source-help-inline {
+    flex: 1 1 320px;
+    color: var(--text-secondary);
+    font-size: 12px;
+    line-height: 1.4;
 }
 
 .source-link-row .setting-input {
@@ -3610,3 +3621,51 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
     .clip-headline-studio-header { flex-direction: column; gap: 5px; }
     .clip-headline-source { text-align: left; }
 }
+
+/* Structured editorial feedback — appended to preserve compatibility with the existing refresh layer. */
+.clip-feedback-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 12px 0 8px;
+    padding: 9px 11px;
+    border: 1px solid rgba(245, 158, 11, .18);
+    border-radius: 12px;
+    background: linear-gradient(135deg, rgba(245, 158, 11, .08), rgba(255,255,255,.025));
+}
+.clip-feedback-controls label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-muted, #a8b0be);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .02em;
+    white-space: nowrap;
+}
+.clip-feedback-controls label .material-icons-round {
+    color: #f59e0b;
+    font-size: 16px;
+}
+.clip-feedback-controls select {
+    min-width: 220px;
+    max-width: 100%;
+    padding: 7px 10px;
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 8px;
+    color: var(--text-primary, #f8fafc);
+    background: rgba(15, 23, 42, .76);
+    font-size: 12px;
+    outline: none;
+}
+.clip-feedback-controls select:focus-visible {
+    border-color: #f59e0b;
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, .16);
+}
+@media (max-width: 640px) {
+    .clip-feedback-controls { align-items: stretch; flex-direction: column; gap: 7px; }
+    .clip-feedback-controls select { min-width: 0; width: 100%; }
+}
+.clip-review-risk { border-left-width: 3px; }
+.result-card.review-approved .clip-feedback-controls { border-color: rgba(34,197,94,.22); }
+.result-card.review-rejected .clip-feedback-controls { border-color: rgba(239,68,68,.22); }
