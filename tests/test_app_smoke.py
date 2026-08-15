@@ -219,6 +219,9 @@ def test_multimodal_visual_observation_rejects_mismatched_source():
         },
     )
     assert "visual_format" not in result[0]
+    assert result[0]["multimodal_identity_status"] == "mismatch"
+    assert result[0]["visual_observation_review_required"] is True
+    assert "incompatível" in result[0]["visual_observation_review_reason"]
 
 
 def test_multimodal_visual_observation_is_capped_without_identity_validation():

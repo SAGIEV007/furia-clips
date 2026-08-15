@@ -628,8 +628,6 @@ def _attach_multimodal_visual_observations(clips, multimodal):
     if not isinstance(multimodal, dict):
         return clips
     identity_status = str(multimodal.get("source_identity_status", "unverified") or "unverified").lower()
-    if identity_status == "mismatch":
-        return clips
     try:
         identity_confidence = max(0.0, min(1.0, float(multimodal.get("source_identity_confidence", 0) or 0)))
     except (TypeError, ValueError):
@@ -637,8 +635,14 @@ def _attach_multimodal_visual_observations(clips, multimodal):
     max_visual_confidence = 1.0 if identity_status == "validated" and identity_confidence >= 0.65 else 0.35
     observations = multimodal.get("visual_observations")
     if not isinstance(observations, list):
-        return clips
+        observations = []
     for clip in clips or []:
+        clip["multimodal_identity_status"] = identity_status
+        clip["multimodal_identity_confidence"] = identity_confidence
+        if identity_status == "mismatch":
+            clip["visual_observation_review_required"] = True
+            clip["visual_observation_review_reason"] = "observações visuais recusadas: fonte multimodal incompatível"
+            continue
         try:
             clip_start = float(clip.get("start", 0))
             clip_end = float(clip.get("end", clip_start))
@@ -2990,6 +2994,10 @@ def api_process_complete():
                     "speaker": clip_info.get("speaker", ""),
                     "speaker_confidence": clip_info.get("speaker_confidence"),
                     "overlap_suspected": clip_info.get("overlap_suspected", False),
+                    "multimodal_identity_status": clip_info.get("multimodal_identity_status", ""),
+                    "multimodal_identity_confidence": clip_info.get("multimodal_identity_confidence"),
+                    "visual_observation_review_required": bool(clip_info.get("visual_observation_review_required")),
+                    "visual_observation_review_reason": clip_info.get("visual_observation_review_reason", ""),
                     "editorial_block": build_editorial_block({
                         **clip_info,
                         "start": res.get("start"),
