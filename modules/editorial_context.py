@@ -353,12 +353,30 @@ def detect_hook_candidates(
     candidates.sort(key=lambda item: (float(item.get("score", 0)), bool(item.get("payoff_confirmed"))), reverse=True)
     selected = []
     for candidate in candidates:
-        if any(max(candidate["start"], previous["start"]) < min(candidate["end"], previous["end"]) - 2 for previous in selected):
+        if any(
+            max(candidate["start"], previous["start"]) < min(candidate["end"], previous["end"]) - 2
+            or _hook_text_similarity(candidate.get("hook_text", ""), previous.get("hook_text", "")) >= 0.72
+            for previous in selected
+        ):
             continue
         selected.append(candidate)
         if len(selected) >= max_items:
             break
     return selected
+
+
+def _hook_text_similarity(left: str, right: str) -> float:
+    """Return a conservative token Jaccard score for repeated hook wording."""
+    stopwords = {"a", "o", "e", "de", "do", "da", "que", "em", "um", "uma", "para", "por", "com", "na", "no", "nos", "nas"}
+    tokenize = lambda value: {
+        token for token in re.findall(r"[a-záàãâéêíóôõúç0-9]+", str(value or "").lower())
+        if len(token) >= 3 and token not in stopwords
+    }
+    left_tokens = tokenize(left)
+    right_tokens = tokenize(right)
+    if not left_tokens or not right_tokens:
+        return 0.0
+    return len(left_tokens & right_tokens) / max(1, len(left_tokens | right_tokens))
 
 
 def _audio_signal_for_window(energy_profile: list[dict] | None, start: float, end: float) -> dict:

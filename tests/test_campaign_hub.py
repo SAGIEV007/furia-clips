@@ -109,6 +109,18 @@ def test_hook_detector_uses_existing_energy_profile_as_explainable_signal():
     assert "energia" in candidates[0]["reason"]
 
 
+def test_hook_detector_suppresses_semantically_repeated_openings():
+    candidates = detect_hook_candidates([
+        {"start": 10, "end": 16, "text": "Vamos defender a proposta concreta para segurança pública."},
+        {"start": 16, "end": 25, "text": "Por isso, a resposta precisa ser objetiva."},
+        {"start": 100, "end": 106, "text": "Vamos defender a proposta concreta para segurança pública."},
+        {"start": 106, "end": 115, "text": "Por isso, a resposta precisa ser objetiva."},
+    ], limit=5)
+
+    repeated = [item for item in candidates if "proposta concreta" in item["hook_text"].lower()]
+    assert len(repeated) == 1
+
+
 def test_snapshot_rejects_unknown_accounts_and_keeps_supported_data():
     snapshot = normalize_snapshot({
         "accounts": {
