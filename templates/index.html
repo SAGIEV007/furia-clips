@@ -313,6 +313,11 @@
                     <button class="btn btn-sm btn-primary" id="btnApplyTranscript" type="button"><span class="material-icons-round">check</span> Usar transcrição</button>
                 </div>
                 <div class="source-status" id="transcriptStatus">Nenhuma transcrição manual carregada.</div>
+                <div class="transcript-archive-toolbar">
+                    <button class="btn btn-sm btn-outline" id="btnLoadTranscriptArchive" type="button"><span class="material-icons-round">inventory_2</span> Ver transcrições salvas</button>
+                    <span class="source-help-inline" id="transcriptArchivePath">O arquivo persistente fica fora do checkout.</span>
+                </div>
+                <div class="transcript-archive-list" id="transcriptArchiveList" hidden></div>
             </div>
                         <div class="source-panel" id="sourcePanelLink" style="display:none">
                  <p class="source-help">Use uma URL pública, preferencialmente do YouTube. O programa baixa vídeo e áudio até 1080p e usa a transcrição manual já confirmada quando ela estiver disponível.</p>

@@ -2863,6 +2863,46 @@ function hydrateTranscriptEditor(transcription, archive = null) {
     }
 }
 
+function renderTranscriptArchiveList(items = [], persistentDir = "") {
+    const list = document.getElementById("transcriptArchiveList");
+    const pathLabel = document.getElementById("transcriptArchivePath");
+    if (pathLabel) pathLabel.textContent = persistentDir ? `Pasta persistente: ${persistentDir}` : "Pasta persistente ainda não criada.";
+    if (!list) return;
+    list.hidden = false;
+    if (!items.length) {
+        list.innerHTML = '<div class="transcript-archive-empty">Nenhuma transcrição arquivada ainda. Gere, importe ou confirme uma transcrição para criar o primeiro registro.</div>';
+        return;
+    }
+    list.innerHTML = items.map(item => {
+        const quality = item.quality || {};
+        const sourceVideo = String(item.source_video || "").split(/[\\\\/]/).pop() || "fonte não identificada";
+        const label = quality.score !== undefined ? `${Number(quality.score).toFixed(0)}/100 · ${quality.quality || "revisar"}` : "qualidade não validada";
+        const source = String(item.source || "automatic").replace(/_/g, " ");
+        return `<article class="transcript-archive-item"><div><strong>${escapeHtml(sourceVideo)}</strong><small>${escapeHtml(source)} · ${escapeHtml(label)} · ${Number(item.quality?.segment_count || 0)} segmentos</small></div><div class="transcript-archive-links"><a class="btn btn-sm btn-outline" href="${escapeHtml(item.download_text || "#")}" target="_blank" rel="noopener">TXT</a><a class="btn btn-sm btn-outline" href="${escapeHtml(item.download_json || "#")}" target="_blank" rel="noopener">JSON</a></div></article>`;
+    }).join("");
+}
+
+async function loadTranscriptArchive() {
+    const button = document.getElementById("btnLoadTranscriptArchive");
+    if (button) button.disabled = true;
+    try {
+        const response = await fetch("/api/editorial/transcripts?limit=30");
+        const data = await parseJsonResponse(response, "Arquivo de transcrições");
+        if (!response.ok) throw new Error(data.error || "Não foi possível consultar o arquivo");
+        renderTranscriptArchiveList(data.transcripts || [], data.persistent_dir || "");
+    } catch (error) {
+        const list = document.getElementById("transcriptArchiveList");
+        if (list) {
+            list.hidden = false;
+            list.innerHTML = `<div class="transcript-archive-empty error">${escapeHtml(error.message || "Não foi possível consultar o arquivo")}</div>`;
+        }
+    } finally {
+        if (button) button.disabled = false;
+    }
+}
+
+document.getElementById("btnLoadTranscriptArchive")?.addEventListener("click", loadTranscriptArchive);
+
 function showSourceStatus(message, type = "") {
     const transcriptStatus = document.getElementById("transcriptStatus");
     const sourceStatus = document.getElementById("sourceStatus");
