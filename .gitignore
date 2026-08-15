@@ -24,6 +24,9 @@ data/*.db
 !workspace/thumbnails/.gitkeep
 !data/.gitkeep
 
+# Optional runtime models (downloaded and SHA-256 verified by the launcher)
+models/*.tflite
+
 # Secrets
 .env
 

@@ -20,6 +20,24 @@ class FaceTracker:
         self._last_detected_face_count = 0
         self._unavailable_reason = None
 
+    def close(self):
+        detector = self.detector
+        self.detector = None
+        self._available = None
+        if detector is not None and hasattr(detector, "close"):
+            try:
+                detector.close()
+            except Exception:
+                # MediaPipe Tasks can be partially torn down during interpreter
+                # shutdown; cleanup must never mask the actual processing result.
+                pass
+
+    def __del__(self):
+        try:
+            self.close()
+        except Exception:
+            pass
+
     def _ensure_detector(self):
         if self._available is False:
             return False

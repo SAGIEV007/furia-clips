@@ -96,3 +96,10 @@ def test_model_path_resolves_models_directory(monkeypatch, tmp_path):
     monkeypatch.setattr(face_tracker_module, "__file__", str(module_root / "face_tracker.py"))
 
     assert FaceTracker()._get_model_path() == str(model_file)
+
+
+def test_tracker_close_is_idempotent():
+    tracker = FaceTracker()
+    tracker.close()
+    tracker.close()
+    assert tracker.detector is None

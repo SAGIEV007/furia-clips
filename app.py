@@ -1755,6 +1755,9 @@ def api_cut_shorts():
                 )
             except Exception as e:
                 emit_progress(f"Deteccao de layout indisponivel: {str(e)}", "warning")
+            finally:
+                if tracker is not None:
+                    tracker.close()
 
             # Scene change detection
             try:
@@ -2821,6 +2824,9 @@ def api_process_complete():
                         "review_required": layout_plan["review_required"],
                     }
                 emit_progress("[Layout] Composição preservada: múltiplos locutores ou layout ambíguo.", "info")
+
+            if tracker is not None:
+                tracker.close()
 
             output_dir = settings.get("output_dir", "") or ""
             results = cutter.batch_cut(

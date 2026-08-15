@@ -52,7 +52,13 @@ if "%NEEDS_BOOTSTRAP%"=="1" (
 call :validate_runtime
 if errorlevel 1 goto :bootstrap_failed
 
+call :log "Verificando modelo facial opcional do MediaPipe."
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\ensure_face_model.ps1" -ProjectRoot "%~dp0"
+set "FACE_MODEL_CODE=!ERRORLEVEL!"
+call :log "Preparação do modelo facial terminou com codigo !FACE_MODEL_CODE!"
+
 for %%Q in ("!FFPROBE_EXE!") do set "FFPROBE_DIR=%%~dpQ"
+
 set "PATH=!FFMPEG_DIR!;!FFPROBE_DIR!;%PATH%"
 
 call :log "Executando setup Python: !PYTHON_EXE!"
