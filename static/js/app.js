@@ -152,11 +152,12 @@ function updateOllamaStatusBadge(data) {
         modeIcon.textContent = "cloud";
         modeLabel.textContent = "Gemini Flash";
     } else if (backend === "gemini" && !data.connected) {
+        const withoutKey = data.status === "no_key";
         dot.classList.add("offline");
-        label.textContent = data.mode_label || "Gemini Offline";
+        label.textContent = withoutKey ? "Gemini sem chave · NLP local ativo" : (data.mode_label || "Gemini Offline");
         modeIndicator.classList.add("nlp-mode");
-        modeIcon.textContent = "cloud_off";
-        modeLabel.textContent = "Gemini Offline";
+        modeIcon.textContent = withoutKey ? "text_fields" : "cloud_off";
+        modeLabel.textContent = withoutKey ? "NLP local" : "Gemini Offline";
     } else if (data.connected) {
         dot.classList.add("connected");
         label.textContent = "Ollama Conectado";
