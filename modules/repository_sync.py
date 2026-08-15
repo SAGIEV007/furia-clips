@@ -154,13 +154,24 @@ def build_feedback_snapshot() -> dict[str, Any]:
     connection = get_db()
     try:
         rows = connection.execute(
-            """SELECT c.editorial_key, c.start_time, c.end_time, c.duration,
-                      c.viral_score, c.editorial_score_version,
-                      f.action, f.reason_code, f.quality_tags, f.adjustments, f.created_at
-                 FROM clip_feedback AS f
-                 JOIN clips AS c ON c.id = f.clip_id
-                WHERE COALESCE(c.editorial_key, '') <> ''
-                ORDER BY f.id ASC"""
+            """WITH ranked_feedback AS (
+                    SELECT c.editorial_key, c.start_time, c.end_time, c.duration,
+                           c.viral_score, c.editorial_score_version,
+                           f.action, f.reason_code, f.quality_tags, f.adjustments, f.created_at,
+                           ROW_NUMBER() OVER (
+                               PARTITION BY f.clip_id
+                               ORDER BY f.id DESC
+                           ) AS feedback_rank
+                      FROM clip_feedback AS f
+                      JOIN clips AS c ON c.id = f.clip_id
+                     WHERE COALESCE(c.editorial_key, '') <> ''
+                )
+                SELECT editorial_key, start_time, end_time, duration,
+                       viral_score, editorial_score_version,
+                       action, reason_code, quality_tags, adjustments, created_at
+                  FROM ranked_feedback
+                 WHERE feedback_rank = 1
+                 ORDER BY editorial_key ASC, start_time ASC"""
         ).fetchall()
     finally:
         connection.close()
