@@ -106,3 +106,89 @@ def test_legacy_feedback_uses_bounded_duration_signal(monkeypatch, tmp_path):
     assert short["feedback_calibration"]["duration_signal"]["usable"] is True
     assert abs(short["feedback_calibration"]["adjustment"]) <= 6
     assert abs(long["feedback_calibration"]["adjustment"]) <= 6
+
+
+def _build_origin_feedback_history(monkeypatch, tmp_path):
+    test_db = tmp_path / "furia_origin_calibration.sqlite"
+    monkeypatch.setattr(database, "DB_PATH", str(test_db))
+    database.init_db()
+    project_id = database.create_project("Calibração por origem", "workspace/uploads/origin.mp4")
+    records = (
+        [("gemini_primary", True)] * 6
+        + [("gemini_primary", False)] * 2
+        + [("local_fallback", True)] * 2
+        + [("local_fallback", False)] * 6
+    )
+    for index, (origin, approved) in enumerate(records):
+        clip_id = database.save_clip(
+            project_id,
+            f"workspace/exports/origin-{index}.mp4",
+            index * 30.0,
+            index * 30.0 + 35.0,
+            35.0,
+            viral_score=82 if approved else 38,
+        )
+        database.update_clip_editorial_score(
+            clip_id,
+            82 if approved else 38,
+            {"hook": 82 if approved else 34, "flow": 74 if approved else 40},
+            confidence=0.85,
+            review_metadata={
+                "candidate_origin": origin,
+                "selection_source": "gemini" if origin == "gemini_primary" else "local",
+                "confidence": 0.85,
+            },
+        )
+        database.update_clip_review_status(clip_id, "approved" if approved else "rejected")
+
+
+def test_feedback_calibration_exposes_balanced_origin_deltas(monkeypatch, tmp_path):
+    _build_origin_feedback_history(monkeypatch, tmp_path)
+
+    calibration = database.get_feedback_calibration()
+
+    assert calibration["eligible"] is True
+    assert calibration["candidate_origin_deltas"]["gemini_primary"] > 0
+    assert calibration["candidate_origin_deltas"]["local_fallback"] < 0
+    assert calibration["origin_calibration"]["eligible"] is True
+    assert all(item["sample_size"] >= 4 for item in calibration["origin_calibration"]["origins"])
+
+
+def test_ranker_applies_origin_signal_as_bounded_confidence_aware_adjustment(monkeypatch, tmp_path):
+    _build_origin_feedback_history(monkeypatch, tmp_path)
+    calibration = database.get_feedback_calibration()
+    ranker = EditorialRanker(feedback_calibration=calibration)
+    base = {
+        "text": "A verdade é que isso precisa mudar agora. A conclusão é clara.",
+        "duration": 35,
+        "audio_energy": 80,
+        "confidence": 0.9,
+    }
+
+    primary = ranker.score_clip({**base, "candidate_origin": "gemini_primary"})
+    fallback = ranker.score_clip({**base, "candidate_origin": "local_fallback"})
+
+    assert primary["feedback_calibration"]["candidate_origin_adjustment"] > 0
+    assert fallback["feedback_calibration"]["candidate_origin_adjustment"] < 0
+    assert primary["feedback_calibration"]["candidate_origin_confidence"] == 0.9
+    assert primary["viral_score"] > fallback["viral_score"]
+    assert abs(primary["feedback_calibration"]["adjustment"]) <= 6
+    assert abs(fallback["feedback_calibration"]["adjustment"]) <= 6
+
+
+def test_origin_signal_requires_balanced_origin_sample(monkeypatch, tmp_path):
+    _build_feedback_history(monkeypatch, tmp_path, approved_count=6, rejected_count=6)
+    calibration = database.get_feedback_calibration()
+
+    assert calibration["candidate_origin_deltas"] == {}
+    assert calibration["origin_calibration"]["eligible"] is False
+    assert calibration["origin_calibration"]["origins"] == []
+
+    ranker = EditorialRanker(feedback_calibration=calibration)
+    scored = ranker.score_clip({
+        "text": "A verdade é que isso precisa mudar agora.",
+        "duration": 35,
+        "candidate_origin": "local_fallback",
+        "confidence": 0.9,
+    })
+    assert scored["feedback_calibration"]["candidate_origin_adjustment"] == 0.0

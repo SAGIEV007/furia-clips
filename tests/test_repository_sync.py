@@ -3,8 +3,14 @@ import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
+from subprocess import CompletedProcess
 
-from modules.repository_sync import SNAPSHOT_RELATIVE_PATH, build_feedback_snapshot, write_feedback_snapshot
+from modules.repository_sync import (
+    SNAPSHOT_RELATIVE_PATH,
+    build_feedback_snapshot,
+    get_repository_status,
+    write_feedback_snapshot,
+)
 
 
 class _FakeConnection:
@@ -39,6 +45,27 @@ class RepositorySyncTests(unittest.TestCase):
         self.assertNotIn("transcript", record)
         self.assertNotIn("source_video", record)
         self.assertNotIn("api_key", json.dumps(payload))
+
+    def test_repository_status_separates_feedback_snapshot_from_code_changes(self):
+        def fake_git(_repo, *args, **kwargs):
+            command = tuple(args)
+            outputs = {
+                ("branch", "--show-current"): "manus/rebuild-opus-parity\n",
+                ("rev-parse", "HEAD"): "local123\n",
+                ("rev-parse", "origin/manus/rebuild-opus-parity"): "local123\n",
+                ("status", "--porcelain=v1"): " M data/editorial_feedback_snapshot.json\n",
+            }
+            return CompletedProcess(["git", *args], 0, outputs.get(command, ""), "")
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = Path(temp_dir)
+            (repo / ".git").mkdir()
+            with patch("modules.repository_sync._run_git", side_effect=fake_git):
+                status = get_repository_status(str(repo), fetch=False)
+
+        self.assertEqual(status["code_dirty_files"], [])
+        self.assertTrue(status["feedback_snapshot_dirty"])
+        self.assertFalse(status["update_available"])
 
     def test_snapshot_writer_does_not_write_outside_checkout(self):
         with tempfile.TemporaryDirectory() as temp_dir:

@@ -259,3 +259,20 @@ def test_headline_studio_rejects_unknown_clip_id():
 
     assert response.status_code == 404
     assert "corte" in response.get_json()["error"].lower()
+
+
+EMENDAS_TRANSCRIPT = """Hoje o deputado precisa de cada vez mais emendas. O Flávio Dino combate penduricalhos, mas também está perseguindo jornalista. As emendas devem ser vinculadas a políticas públicas que aumentam indicadores, como o fornecimento de água potável, em vez de praças mal feitas."""
+
+
+def test_headline_topic_follows_transcript_evidence_instead_of_generic_security_label():
+    result = generate_artwork_copy(
+        EMENDAS_TRANSCRIPT,
+        preferred_format=FORMAT_VERTICAL,
+        ai_backend=None,
+    )
+
+    assert result["topic"] == "emendas"
+    assert any(item.startswith("emenda") for item in result["topic_evidence"])
+    headlines = [item["headline"] for item in result["formats"][FORMAT_VERTICAL]["suggestions"]]
+    assert any("EMEND" in headline or "FLÁVIO DINO" in headline for headline in headlines)
+    assert all("SEGURANÇA" not in headline for headline in headlines)
