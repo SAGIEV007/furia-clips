@@ -65,6 +65,22 @@ class ClipSelectionTests(unittest.TestCase):
         self.assertIn("180 segundos", prompt)
         self.assertNotIn("30 a 180 segundos por clip", prompt)
 
+    def test_payoff_gate_rejects_linguistically_open_ending(self):
+        weak = self.selector._editorial_flags(
+            "A proposta parecia resolver o problema, porque."
+        )
+        self.assertFalse(weak["payoff_complete"])
+        self.assertTrue(weak["payoff_weak_ending"])
+        self.assertFalse(weak["context_complete"])
+
+    def test_payoff_gate_keeps_explicit_conclusion(self):
+        complete = self.selector._editorial_flags(
+            "A proposta resolve o problema porque reduz o custo e protege o cidadão."
+        )
+        self.assertTrue(complete["payoff_complete"])
+        self.assertFalse(complete["payoff_weak_ending"])
+        self.assertTrue(complete["context_complete"])
+
     def test_auto_backend_uses_nlp_without_gemini_key(self):
         transcription = {
             "segments": [

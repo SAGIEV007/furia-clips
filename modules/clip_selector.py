@@ -36,6 +36,10 @@ EVIDENCE_TERMS_PT = {
     "registro", "registros", "email", "emails", "e-mail", "fonte", "prova", "provas",
     "documento", "documentos", "exemplo", "exemplos", "lei", "artigo", "segundo",
 }
+WEAK_PAYOFF_ENDINGS_PT = {
+    "porque", "mas", "porém", "porem", "se", "quando", "que", "como", "embora",
+    "então", "entao", "portanto", "logo", "ou seja",
+}
 
 
 class ClipSelector:
@@ -1298,8 +1302,13 @@ Retorne APENAS o JSON.
         normalized_words = set(re.findall(r"[\wÀ-ÿ-]+", normalized))
         has_evidence = bool(normalized_words & {term.lower() for term in EVIDENCE_TERMS_PT})
         ends_closed = raw.endswith((".", "!", "?"))
+        tail_words = re.findall(r"[\wÀ-ÿ-]+", normalized)
+        tail = tail_words[-2:] if tail_words else []
+        weak_payoff_ending = bool(tail and tail[-1] in WEAK_PAYOFF_ENDINGS_PT)
+        if len(tail) >= 2 and " ".join(tail[-2:]) in WEAK_PAYOFF_ENDINGS_PT:
+            weak_payoff_ending = True
         cliffhanger = any(pattern in normalized[-220:] for pattern in ("em breve", "depois eu", "na proxima", "fique ligado", "vou mostrar"))
-        payoff_complete = bool(ends_closed and not cliffhanger)
+        payoff_complete = bool(ends_closed and not cliffhanger and not weak_payoff_ending)
         overlap_suspected = bool(metadata.get("overlap_suspected"))
         timing_ambiguous = bool(metadata.get("timing_ambiguous"))
         speaker_turn_valid = metadata.get("speaker_turn_valid")
@@ -1317,6 +1326,7 @@ Retorne APENAS o JSON.
             "question_answer_complete": question_answer_complete,
             "evidence_present": has_evidence,
             "payoff_complete": payoff_complete,
+            "payoff_weak_ending": weak_payoff_ending,
             "context_complete": context_complete,
             "qa_bridge": bool(
                 question_answer_complete
