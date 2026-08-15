@@ -2110,6 +2110,7 @@ function renderResultsGrid() {
         const topicSignature = String(clip.topic_signature || "");
         const diversityPenalty = Math.round(Number(clip.diversity_penalty || 0));
         const diversityReason = String(clip.diversity_reason || "").trim();
+        const reviewFlags = clip.review_flags || {};
         const contextReferenceFlag = Boolean(clip.starts_with_context_reference || reviewFlags.starts_with_context_reference);
         const weakPayoffFlag = Boolean(clip.payoff_weak_ending || reviewFlags.payoff_weak_ending);
         const closureType = String(clip.closure_type || "");
@@ -2117,7 +2118,6 @@ function renderResultsGrid() {
         const speakerLabel = String(clip.speaker || clip.speaker_role || "").trim();
         const speakerConfidence = Number(clip.speaker_confidence);
         const overlapSuspected = Boolean(clip.overlap_suspected || clip.speaker_overlap);
-        const reviewFlags = clip.review_flags || {};
         const visualFormat = String(clip.visual_format || clip.format_family || "").trim();
         const visualFormatConfidence = Number(clip.visual_format_confidence);
         const multimodalIdentityStatus = String(clip.multimodal_identity_status || reviewFlags.multimodal_identity_status || "").trim().toLowerCase();
