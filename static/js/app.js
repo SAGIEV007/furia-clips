@@ -400,6 +400,7 @@ document.getElementById("editorialRestoreInput")?.addEventListener("change", res
 document.getElementById("btnRepositoryCheck")?.addEventListener("click", () => checkRepositorySync(true));
 document.getElementById("btnRepositoryUpdate")?.addEventListener("click", () => runRepositorySync("update"));
 document.getElementById("btnRepositoryPushFeedback")?.addEventListener("click", () => runRepositorySync("push_feedback"));
+document.getElementById("btnRepositoryRestoreFeedback")?.addEventListener("click", () => runRepositorySync("restore_feedback"));
 
 function showProgressBar() {
     showProcessingControls();
@@ -757,7 +758,7 @@ function setRepositorySyncStatus(message, level = "info") {
 }
 
 function setRepositorySyncButtonsDisabled(disabled) {
-    ["btnRepositoryCheck", "btnRepositoryUpdate", "btnRepositoryPushFeedback"].forEach((id) => {
+    ["btnRepositoryCheck", "btnRepositoryUpdate", "btnRepositoryPushFeedback", "btnRepositoryRestoreFeedback"].forEach((id) => {
         const button = document.getElementById(id);
         if (button) button.disabled = disabled;
     });
@@ -824,6 +825,8 @@ async function runRepositorySync(action) {
             setRepositorySyncStatus("Criando backup de segurança e baixando a atualização...", "info");
         } else if (action === "push_feedback") {
             setRepositorySyncStatus("Preparando somente o snapshot sanitizado de feedback...", "info");
+        } else if (action === "restore_feedback") {
+            setRepositorySyncStatus("Validando o snapshot e reconciliando decisões neste notebook...", "info");
         }
         const response = await fetchRepositoryJson("/api/repository/sync", {
             method: "POST",
@@ -835,14 +838,23 @@ async function runRepositorySync(action) {
         state.repositorySync = payload;
         // Keep the detailed state rendered above: it distinguishes code freshness,
         // local code changes, and feedback pending instead of hiding it behind a
-        // generic success message.
-        renderRepositorySyncState(payload);
+        // generic success message. Restore refreshes the local status below because
+        // its response is a reconciliation summary, not a repository-status payload.
+        if (action !== "restore_feedback") renderRepositorySyncState(payload);
         if (action === "update" && payload.updated) {
             showToast("Atualização aplicada. Feche e abra o run.bat novamente para carregar o novo código.", "success");
             addConsoleLog("[Sincronização] Código atualizado por fast-forward; backup de segurança preservado.", "success");
         } else if (action === "push_feedback") {
             showToast(payload.published ? "Feedback sanitizado sincronizado no GitHub." : "Feedback já estava sincronizado.", "success");
             addConsoleLog("[Sincronização] Nenhum vídeo, transcrição ou chave foi enviado; somente decisões editoriais agregadas.", "info");
+        } else if (action === "restore_feedback") {
+            const imported = Number(payload.imported || 0);
+            const current = Number(payload.already_current || 0);
+            const unmatched = Number(payload.unmatched || 0);
+            const stale = Number(payload.skipped_older || 0);
+            showToast(`Feedback reconciliado: ${imported} importado(s), ${current} já atual(is).`, "success");
+            addConsoleLog(`[Sincronização] Snapshot sanitizado reconciliado: ${imported} importado(s), ${current} já atual(is), ${stale} antigo(s), ${unmatched} sem correspondência.`, "info");
+            await checkRepositorySync(false);
         }
         return payload;
     } catch (error) {
