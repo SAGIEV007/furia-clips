@@ -1,6 +1,6 @@
 {
   "schema_version": "editorial-priors-v1-aggregate-only",
-  "generated_at": "2026-08-15T02:41:45.766619+00:00",
+  "generated_at": "2026-08-15T02:44:23.779911+00:00",
   "source_label": "Campaign Hub aggregate observations",
   "default_account": "@renansantosmbl",
   "privacy_contract": {
@@ -98,16 +98,18 @@
       {
         "family": "reaction_external_evidence",
         "observations": 10,
-        "mean_views": 319000.0,
-        "median_views": 0.0,
+        "mean_views": 797500.0,
+        "median_views": 830500.0,
+        "view_observation_count": 4,
         "preserve_composition_rate": 1.0,
         "mean_annotation_confidence": 0.895
       },
       {
         "family": "event_mobilization",
         "observations": 3,
-        "mean_views": 113666.7,
-        "median_views": 0.0,
+        "mean_views": 341000.0,
+        "median_views": 341000.0,
+        "view_observation_count": 1,
         "preserve_composition_rate": 1.0,
         "mean_annotation_confidence": 0.79
       },
@@ -116,6 +118,7 @@
         "observations": 2,
         "mean_views": 691500.0,
         "median_views": 691500.0,
+        "view_observation_count": 2,
         "preserve_composition_rate": 1.0,
         "mean_annotation_confidence": 0.945
       },
@@ -124,6 +127,7 @@
         "observations": 1,
         "mean_views": 1000000.0,
         "median_views": 1000000.0,
+        "view_observation_count": 1,
         "preserve_composition_rate": 1.0,
         "mean_annotation_confidence": 0.84
       },
@@ -132,6 +136,7 @@
         "observations": 1,
         "mean_views": 858000.0,
         "median_views": 858000.0,
+        "view_observation_count": 1,
         "preserve_composition_rate": 1.0,
         "mean_annotation_confidence": 0.93
       },
@@ -140,6 +145,7 @@
         "observations": 1,
         "mean_views": 590000.0,
         "median_views": 590000.0,
+        "view_observation_count": 1,
         "preserve_composition_rate": 1.0,
         "mean_annotation_confidence": 0.86
       },
@@ -148,6 +154,7 @@
         "observations": 1,
         "mean_views": 556000.0,
         "median_views": 556000.0,
+        "view_observation_count": 1,
         "preserve_composition_rate": 0.0,
         "mean_annotation_confidence": 0.82
       },
@@ -156,6 +163,7 @@
         "observations": 1,
         "mean_views": 405000.0,
         "median_views": 405000.0,
+        "view_observation_count": 1,
         "preserve_composition_rate": 1.0,
         "mean_annotation_confidence": 0.87
       },
@@ -164,6 +172,7 @@
         "observations": 1,
         "mean_views": 333000.0,
         "median_views": 333000.0,
+        "view_observation_count": 1,
         "preserve_composition_rate": 0.0,
         "mean_annotation_confidence": 0.88
       },
@@ -172,6 +181,7 @@
         "observations": 1,
         "mean_views": 202000.0,
         "median_views": 202000.0,
+        "view_observation_count": 1,
         "preserve_composition_rate": 1.0,
         "mean_annotation_confidence": 0.92
       },
@@ -180,6 +190,7 @@
         "observations": 1,
         "mean_views": 187000.0,
         "median_views": 187000.0,
+        "view_observation_count": 1,
         "preserve_composition_rate": 1.0,
         "mean_annotation_confidence": 0.91
       },
@@ -188,6 +199,7 @@
         "observations": 1,
         "mean_views": 179000.0,
         "median_views": 179000.0,
+        "view_observation_count": 1,
         "preserve_composition_rate": 1.0,
         "mean_annotation_confidence": 0.95
       },
@@ -196,6 +208,7 @@
         "observations": 1,
         "mean_views": 138000.0,
         "median_views": 138000.0,
+        "view_observation_count": 1,
         "preserve_composition_rate": 1.0,
         "mean_annotation_confidence": 0.94
       },
@@ -204,6 +217,7 @@
         "observations": 1,
         "mean_views": 129000.0,
         "median_views": 129000.0,
+        "view_observation_count": 1,
         "preserve_composition_rate": 1.0,
         "mean_annotation_confidence": 0.94
       },
@@ -212,6 +226,7 @@
         "observations": 1,
         "mean_views": 108000.0,
         "median_views": 108000.0,
+        "view_observation_count": 1,
         "preserve_composition_rate": 1.0,
         "mean_annotation_confidence": 0.87
       },
@@ -220,6 +235,7 @@
         "observations": 1,
         "mean_views": 98400.0,
         "median_views": 98400.0,
+        "view_observation_count": 1,
         "preserve_composition_rate": 1.0,
         "mean_annotation_confidence": 0.91
       },
@@ -228,6 +244,7 @@
         "observations": 1,
         "mean_views": 85200.0,
         "median_views": 85200.0,
+        "view_observation_count": 1,
         "preserve_composition_rate": 1.0,
         "mean_annotation_confidence": 0.9
       },
@@ -236,6 +253,7 @@
         "observations": 1,
         "mean_views": 70100.0,
         "median_views": 70100.0,
+        "view_observation_count": 1,
         "preserve_composition_rate": 1.0,
         "mean_annotation_confidence": 0.84
       },
@@ -244,6 +262,7 @@
         "observations": 1,
         "mean_views": 44400.0,
         "median_views": 44400.0,
+        "view_observation_count": 1,
         "preserve_composition_rate": 1.0,
         "mean_annotation_confidence": 0.93
       },
@@ -252,6 +271,7 @@
         "observations": 1,
         "mean_views": 43300.0,
         "median_views": 43300.0,
+        "view_observation_count": 1,
         "preserve_composition_rate": 1.0,
         "mean_annotation_confidence": 0.91
       },
@@ -260,6 +280,7 @@
         "observations": 1,
         "mean_views": 27300.0,
         "median_views": 27300.0,
+        "view_observation_count": 1,
         "preserve_composition_rate": 1.0,
         "mean_annotation_confidence": 0.96
       },
@@ -268,6 +289,7 @@
         "observations": 1,
         "mean_views": 18600.0,
         "median_views": 18600.0,
+        "view_observation_count": 1,
         "preserve_composition_rate": 1.0,
         "mean_annotation_confidence": 0.92
       },
@@ -276,6 +298,7 @@
         "observations": 1,
         "mean_views": 17200.0,
         "median_views": 17200.0,
+        "view_observation_count": 1,
         "preserve_composition_rate": 1.0,
         "mean_annotation_confidence": 0.92
       },
@@ -284,6 +307,7 @@
         "observations": 1,
         "mean_views": 16800.0,
         "median_views": 16800.0,
+        "view_observation_count": 1,
         "preserve_composition_rate": 1.0,
         "mean_annotation_confidence": 0.86
       },
@@ -292,6 +316,7 @@
         "observations": 1,
         "mean_views": 11300.0,
         "median_views": 11300.0,
+        "view_observation_count": 1,
         "preserve_composition_rate": 1.0,
         "mean_annotation_confidence": 0.92
       },
@@ -300,6 +325,7 @@
         "observations": 1,
         "mean_views": 10900.0,
         "median_views": 10900.0,
+        "view_observation_count": 1,
         "preserve_composition_rate": 1.0,
         "mean_annotation_confidence": 0.93
       },
@@ -308,6 +334,7 @@
         "observations": 1,
         "mean_views": 9696.0,
         "median_views": 9696.0,
+        "view_observation_count": 1,
         "preserve_composition_rate": 1.0,
         "mean_annotation_confidence": 0.9
       },
@@ -316,6 +343,7 @@
         "observations": 1,
         "mean_views": 7948.0,
         "median_views": 7948.0,
+        "view_observation_count": 1,
         "preserve_composition_rate": 1.0,
         "mean_annotation_confidence": 0.9
       },
@@ -324,6 +352,7 @@
         "observations": 1,
         "mean_views": 7127.0,
         "median_views": 7127.0,
+        "view_observation_count": 1,
         "preserve_composition_rate": 1.0,
         "mean_annotation_confidence": 0.87
       },
@@ -332,6 +361,7 @@
         "observations": 1,
         "mean_views": 6882.0,
         "median_views": 6882.0,
+        "view_observation_count": 1,
         "preserve_composition_rate": 1.0,
         "mean_annotation_confidence": 0.86
       },
@@ -340,6 +370,7 @@
         "observations": 1,
         "mean_views": 5935.0,
         "median_views": 5935.0,
+        "view_observation_count": 1,
         "preserve_composition_rate": 1.0,
         "mean_annotation_confidence": 0.9
       },
@@ -348,6 +379,7 @@
         "observations": 1,
         "mean_views": 4784.0,
         "median_views": 4784.0,
+        "view_observation_count": 1,
         "preserve_composition_rate": 1.0,
         "mean_annotation_confidence": 0.9
       },
@@ -356,206 +388,232 @@
         "observations": 1,
         "mean_views": 574.0,
         "median_views": 574.0,
+        "view_observation_count": 1,
         "preserve_composition_rate": 1.0,
         "mean_annotation_confidence": 0.9
       },
       {
         "family": "ally_statement",
         "observations": 1,
-        "mean_views": 0.0,
-        "median_views": 0.0,
+        "mean_views": 0,
+        "median_views": 0,
+        "view_observation_count": 0,
         "preserve_composition_rate": 1.0,
         "mean_annotation_confidence": 0.87
       },
       {
         "family": "cultural_accusation",
         "observations": 1,
-        "mean_views": 0.0,
-        "median_views": 0.0,
+        "mean_views": 0,
+        "median_views": 0,
+        "view_observation_count": 0,
         "preserve_composition_rate": 1.0,
         "mean_annotation_confidence": 0.88
       },
       {
         "family": "culture_image_question",
         "observations": 1,
-        "mean_views": 0.0,
-        "median_views": 0.0,
+        "mean_views": 0,
+        "median_views": 0,
+        "view_observation_count": 0,
         "preserve_composition_rate": 1.0,
         "mean_annotation_confidence": 0.89
       },
       {
         "family": "curiosity_gap",
         "observations": 1,
-        "mean_views": 0.0,
-        "median_views": 0.0,
+        "mean_views": 0,
+        "median_views": 0,
+        "view_observation_count": 0,
         "preserve_composition_rate": 1.0,
         "mean_annotation_confidence": 0.92
       },
       {
         "family": "descontraido",
         "observations": 1,
-        "mean_views": 0.0,
-        "median_views": 0.0,
+        "mean_views": 0,
+        "median_views": 0,
+        "view_observation_count": 0,
         "preserve_composition_rate": 1.0,
         "mean_annotation_confidence": 0.85
       },
       {
         "family": "education_defense",
         "observations": 1,
-        "mean_views": 0.0,
-        "median_views": 0.0,
+        "mean_views": 0,
+        "median_views": 0,
+        "view_observation_count": 0,
         "preserve_composition_rate": 1.0,
         "mean_annotation_confidence": 0.9
       },
       {
         "family": "education_paternity_thesis",
         "observations": 1,
-        "mean_views": 0.0,
-        "median_views": 0.0,
+        "mean_views": 0,
+        "median_views": 0,
+        "view_observation_count": 0,
         "preserve_composition_rate": 1.0,
         "mean_annotation_confidence": 0.86
       },
       {
         "family": "emotional_growth_statement",
         "observations": 1,
-        "mean_views": 0.0,
-        "median_views": 0.0,
+        "mean_views": 0,
+        "median_views": 0,
+        "view_observation_count": 0,
         "preserve_composition_rate": 1.0,
         "mean_annotation_confidence": 0.9
       },
       {
         "family": "event_speech",
         "observations": 1,
-        "mean_views": 0.0,
-        "median_views": 0.0,
+        "mean_views": 0,
+        "median_views": 0,
+        "view_observation_count": 0,
         "preserve_composition_rate": 1.0,
         "mean_annotation_confidence": 0.86
       },
       {
         "family": "ideological_label_debate",
         "observations": 1,
-        "mean_views": 0.0,
-        "median_views": 0.0,
+        "mean_views": 0,
+        "median_views": 0,
+        "view_observation_count": 0,
         "preserve_composition_rate": 1.0,
         "mean_annotation_confidence": 0.89
       },
       {
         "family": "interview_event",
         "observations": 1,
-        "mean_views": 0.0,
-        "median_views": 0.0,
+        "mean_views": 0,
+        "median_views": 0,
+        "view_observation_count": 0,
         "preserve_composition_rate": 1.0,
         "mean_annotation_confidence": 0.87
       },
       {
         "family": "interview_split_screen",
         "observations": 1,
-        "mean_views": 0.0,
-        "median_views": 0.0,
+        "mean_views": 0,
+        "median_views": 0,
+        "view_observation_count": 0,
         "preserve_composition_rate": 1.0,
         "mean_annotation_confidence": 0.86
       },
       {
         "family": "official_statement",
         "observations": 1,
-        "mean_views": 0.0,
-        "median_views": 0.0,
+        "mean_views": 0,
+        "median_views": 0,
+        "view_observation_count": 0,
         "preserve_composition_rate": 1.0,
         "mean_annotation_confidence": 0.91
       },
       {
         "family": "podcast_question_answer",
         "observations": 1,
-        "mean_views": 0.0,
-        "median_views": 0.0,
+        "mean_views": 0,
+        "median_views": 0,
+        "view_observation_count": 0,
         "preserve_composition_rate": 1.0,
         "mean_annotation_confidence": 0.92
       },
       {
         "family": "political_contrast",
         "observations": 1,
-        "mean_views": 0.0,
-        "median_views": 0.0,
+        "mean_views": 0,
+        "median_views": 0,
+        "view_observation_count": 0,
         "preserve_composition_rate": 1.0,
         "mean_annotation_confidence": 0.9
       },
       {
         "family": "political_diagnosis_question",
         "observations": 1,
-        "mean_views": 0.0,
-        "median_views": 0.0,
+        "mean_views": 0,
+        "median_views": 0,
+        "view_observation_count": 0,
         "preserve_composition_rate": 1.0,
         "mean_annotation_confidence": 0.9
       },
       {
         "family": "public_policy_visual_explainer",
         "observations": 1,
-        "mean_views": 0.0,
-        "median_views": 0.0,
+        "mean_views": 0,
+        "median_views": 0,
+        "view_observation_count": 0,
         "preserve_composition_rate": 1.0,
         "mean_annotation_confidence": 0.91
       },
       {
         "family": "punitive_positioning",
         "observations": 1,
-        "mean_views": 0.0,
-        "median_views": 0.0,
+        "mean_views": 0,
+        "median_views": 0,
+        "view_observation_count": 0,
         "preserve_composition_rate": 1.0,
         "mean_annotation_confidence": 0.9
       },
       {
         "family": "punitive_thesis",
         "observations": 1,
-        "mean_views": 0.0,
-        "median_views": 0.0,
+        "mean_views": 0,
+        "median_views": 0,
+        "view_observation_count": 0,
         "preserve_composition_rate": 1.0,
         "mean_annotation_confidence": 0.91
       },
       {
         "family": "reaction_electoral_poll",
         "observations": 1,
-        "mean_views": 0.0,
-        "median_views": 0.0,
+        "mean_views": 0,
+        "median_views": 0,
+        "view_observation_count": 0,
         "preserve_composition_rate": 1.0,
         "mean_annotation_confidence": 0.95
       },
       {
         "family": "sensitive_personal_evidence",
         "observations": 1,
-        "mean_views": 0.0,
-        "median_views": 0.0,
+        "mean_views": 0,
+        "median_views": 0,
+        "view_observation_count": 0,
         "preserve_composition_rate": 1.0,
         "mean_annotation_confidence": 0.96
       },
       {
         "family": "slogan_origin_explanation",
         "observations": 1,
-        "mean_views": 0.0,
-        "median_views": 0.0,
+        "mean_views": 0,
+        "median_views": 0,
+        "view_observation_count": 0,
         "preserve_composition_rate": 1.0,
         "mean_annotation_confidence": 0.9
       },
       {
         "family": "social_documentary_political_contrast",
         "observations": 1,
-        "mean_views": 0.0,
-        "median_views": 0.0,
+        "mean_views": 0,
+        "median_views": 0,
+        "view_observation_count": 0,
         "preserve_composition_rate": 1.0,
         "mean_annotation_confidence": 0.93
       },
       {
         "family": "step_by_step_explanation",
         "observations": 1,
-        "mean_views": 0.0,
-        "median_views": 0.0,
+        "mean_views": 0,
+        "median_views": 0,
+        "view_observation_count": 0,
         "preserve_composition_rate": 1.0,
         "mean_annotation_confidence": 0.93
       },
       {
         "family": "supporter_social_proof",
         "observations": 1,
-        "mean_views": 0.0,
-        "median_views": 0.0,
+        "mean_views": 0,
+        "median_views": 0,
+        "view_observation_count": 0,
         "preserve_composition_rate": 1.0,
         "mean_annotation_confidence": 0.9
       }
