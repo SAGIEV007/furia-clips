@@ -6,6 +6,42 @@ from datetime import datetime
 from config import DB_PATH, DEFAULT_SETTINGS
 
 
+_ALLOWED_CANDIDATE_ORIGINS = {
+    "gemini_primary",
+    "ollama_primary",
+    "local_primary",
+    "local_fallback",
+}
+_ALLOWED_SELECTION_SOURCES = {"gemini", "llm", "nlp", "local"}
+
+
+def _normalize_review_provenance(value):
+    """Keep only bounded, non-sensitive origin fields for local calibration."""
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except json.JSONDecodeError:
+            return {}
+    if not isinstance(value, dict):
+        return {}
+    if isinstance(value.get("_review_metadata"), dict):
+        value = value["_review_metadata"]
+    result = {}
+    origin = str(value.get("candidate_origin") or "").strip()[:40]
+    if origin in _ALLOWED_CANDIDATE_ORIGINS:
+        result["candidate_origin"] = origin
+    source = str(value.get("selection_source") or "").strip()[:24]
+    if source in _ALLOWED_SELECTION_SOURCES:
+        result["selection_source"] = source
+    try:
+        confidence = float(value.get("confidence"))
+    except (TypeError, ValueError):
+        confidence = None
+    if confidence is not None:
+        result["confidence"] = round(max(0.0, min(1.0, confidence)), 3)
+    return result
+
+
 def get_db():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
@@ -603,11 +639,14 @@ def update_clip_seo(clip_id, titles, tags, description, hashtags):
     conn.close()
 
 
-def update_clip_editorial_score(clip_id, score, factors, confidence, version="v1-explainable", review_flags=None):
+def update_clip_editorial_score(clip_id, score, factors, confidence, version="v1-explainable", review_flags=None, review_metadata=None):
     conn = get_db()
     score_payload = dict(factors or {})
     if isinstance(review_flags, dict) and review_flags:
         score_payload["_review_flags"] = review_flags
+    normalized_metadata = _normalize_review_provenance(review_metadata)
+    if normalized_metadata:
+        score_payload["_review_metadata"] = normalized_metadata
     conn.execute(
         """UPDATE clips SET viral_score = ?, score_factors = ?,
            score_confidence = ?, editorial_score_version = ? WHERE id = ?""",
@@ -795,6 +834,7 @@ def get_feedback_calibration(min_samples=12, min_per_outcome=3):
                 for key, value in factors.items()
                 if isinstance(value, (int, float))
             },
+            "provenance": _normalize_review_provenance(factors),
         })
 
     approved = groups["approved"]
@@ -841,6 +881,56 @@ def get_feedback_calibration(min_samples=12, min_per_outcome=3):
             max(-25.0, min(25.0, duration_gap * 2.0)), 2
         )
 
+    # Origin is a source-quality signal, not a replacement for editorial evidence.
+    # Require both outcomes per origin so one lucky approval cannot bias the ranker.
+    origin_groups = {}
+    for outcome in ("approved", "rejected"):
+        for item in groups[outcome]:
+            origin = str(item.get("provenance", {}).get("candidate_origin") or "")
+            if not origin:
+                continue
+            group = origin_groups.setdefault(origin, {"approved": 0, "rejected": 0})
+            group[outcome] += 1
+    global_approval_rate = round(
+        (len(approved) + 1) / (sample_size + 2),
+        4,
+    ) if sample_size else 0.0
+    candidate_origin_deltas = {}
+    origin_calibration = []
+    for origin in sorted(origin_groups):
+        counts = origin_groups[origin]
+        origin_sample = counts["approved"] + counts["rejected"]
+        origin_rate = round(
+            (counts["approved"] + 1) / (origin_sample + 2),
+            4,
+        ) if origin_sample else 0.0
+        enough_origin_data = bool(
+            eligible
+            and origin_sample >= 4
+            and counts["approved"] >= 2
+            and counts["rejected"] >= 2
+        )
+        lift_points = round((origin_rate - global_approval_rate) * 100.0, 2)
+        bounded_lift = round(max(-20.0, min(20.0, lift_points)), 2) if enough_origin_data else 0.0
+        if enough_origin_data:
+            candidate_origin_deltas[origin] = bounded_lift
+        origin_calibration.append({
+            "candidate_origin": origin,
+            "approved_count": counts["approved"],
+            "rejected_count": counts["rejected"],
+            "sample_size": origin_sample,
+            "approval_rate": origin_rate,
+            "lift_points": bounded_lift,
+            "eligible": enough_origin_data,
+            "interpretation": (
+                "origem com sinal equilibrado; ajuste limitado aplicado"
+                if enough_origin_data and bounded_lift
+                else "origem equilibrada sem diferença relevante nesta amostra"
+                if enough_origin_data
+                else "amostra insuficiente para calibrar por origem"
+            ),
+        })
+
     return {
         "eligible": eligible,
         "sample_size": sample_size,
@@ -853,6 +943,14 @@ def get_feedback_calibration(min_samples=12, min_per_outcome=3):
             2,
         ),
         "factor_deltas": factor_deltas,
+        "candidate_origin_deltas": candidate_origin_deltas,
+        "origin_calibration": {
+            "eligible": bool(candidate_origin_deltas),
+            "global_approval_rate": global_approval_rate,
+            "minimum_origin_sample_size": 4,
+            "minimum_origin_per_outcome": 2,
+            "origins": origin_calibration,
+        },
         "reason_counts": reason_counts,
         "top_rejection_reasons": [
             {"reason": reason, "count": count}

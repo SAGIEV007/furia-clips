@@ -1822,6 +1822,19 @@ def api_cut_shorts():
                     0,
                     res.get("text", "")
                 )
+                update_clip_editorial_score(
+                    clip_id_by_index[i],
+                    clip_data.get("editorial_potential_score", clip_data.get("viral_score", 0)),
+                    clip_data.get("factors", {}),
+                    clip_data.get("confidence", 0),
+                    clip_data.get("editorial_score_version", "v1-explainable"),
+                    review_flags=clip_data.get("review_flags", {}),
+                    review_metadata={
+                        "candidate_origin": clip_data.get("candidate_origin"),
+                        "selection_source": selection_source,
+                        "confidence": clip_data.get("confidence", 0),
+                    },
+                )
                 if not output_folder:
                     output_folder = res.get("output_folder", "")
 
@@ -2566,6 +2579,11 @@ def api_process_complete():
                     clip_data.get("confidence", 0),
                     clip_data.get("editorial_score_version", "v1-explainable"),
                     review_flags=clip_data.get("review_flags", {}),
+                    review_metadata={
+                        "candidate_origin": clip_data.get("candidate_origin"),
+                        "selection_source": settings.get("ai_backend", "local"),
+                        "confidence": clip_data.get("confidence", 0),
+                    },
                 )
 
             ctx.update(stage="subtitles", progress=86, message="Legendas processadas")
