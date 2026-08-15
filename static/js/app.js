@@ -98,6 +98,13 @@ socket.on("job_update", (job) => {
     handleJobUpdate(job);
 });
 
+socket.on("editorial_context_complete", (data) => {
+    state.editorialContext = data?.context || null;
+    renderEditorialContextPreview(state.editorialContext || {});
+    const status = document.getElementById("contextAnalysisStatus");
+    if (status) status.textContent = "Contexto pronto. O próximo corte poderá usar esta leitura como referência.";
+});
+
 // ─── Ollama Status ───
 
 socket.on("ollama_status", (data) => {
@@ -757,11 +764,29 @@ function setRepositorySyncStatus(message, level = "info") {
     element.dataset.level = level;
 }
 
+function syncRepositoryRestoreAvailability() {
+    const button = document.getElementById("btnRepositoryRestoreFeedback");
+    if (!button) return;
+    if (state.repositorySyncBusy) {
+        button.disabled = true;
+        return;
+    }
+    const payload = state.repositorySync || {};
+    const available = Boolean(payload.feedback_snapshot_present && payload.feedback_snapshot_valid);
+    button.disabled = !available;
+    button.title = available
+        ? "Reconciliar no banco local as decisões finais existentes no snapshot deste checkout"
+        : (payload.feedback_snapshot_present
+            ? "O snapshot local não passou na validação; envie um snapshot válido antes de restaurar"
+            : "Nenhum snapshot válido neste checkout; use “Enviar feedback ao GitHub” em outro notebook primeiro");
+}
+
 function setRepositorySyncButtonsDisabled(disabled) {
     ["btnRepositoryCheck", "btnRepositoryUpdate", "btnRepositoryPushFeedback", "btnRepositoryRestoreFeedback"].forEach((id) => {
         const button = document.getElementById(id);
         if (button) button.disabled = disabled;
     });
+    if (!disabled) syncRepositoryRestoreAvailability();
 }
 
 async function fetchRepositoryJson(url, options = {}, timeoutMs = 15000) {
@@ -790,6 +815,7 @@ function renderRepositorySyncState(payload) {
     const snapshotLabel = snapshotPresent
         ? (snapshotValid ? `${snapshotRecords} decisão(ões) no snapshot` : "snapshot inválido; revisão necessária")
         : "snapshot ainda não criado";
+    syncRepositoryRestoreAvailability();
     if (payload.update_available) {
         setRepositorySyncStatus(`Código novo disponível na branch ${payload.branch}. Faça backup e use “Atualizar programa”. · ${snapshotLabel}`, "warning");
     } else if (codeDirty.length) {
@@ -1619,6 +1645,116 @@ function saveOutputDir() {
     showToast("Pasta de saida atualizada!", "success");
 }
 
+function selectedVideoPathForRequest() {
+    return typeof state.selectedVideo === "string" ? state.selectedVideo : (state.selectedVideo?.path || "");
+}
+
+async function openConfiguredDownloadsFolder() {
+    try {
+        const response = await fetch("/api/open_folder", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ path: state.outputDir || "" }),
+        });
+        const data = await parseJsonResponse(response, "Pasta de downloads");
+        if (!response.ok || data.error) throw new Error(data.error || "Não foi possível abrir a pasta de downloads");
+        showToast("Pasta de downloads aberta.", "success");
+    } catch (error) {
+        showToast(error.message, "error");
+    }
+}
+
+document.getElementById("btnOpenDownloadsDir")?.addEventListener("click", openConfiguredDownloadsFolder);
+document.getElementById("btnCopyConsoleLog")?.addEventListener("click", async () => {
+    const text = document.getElementById("consoleOutput")?.innerText?.trim() || "";
+    if (!text) {
+        showToast("Ainda não há log para copiar.", "warning");
+        return;
+    }
+    try {
+        await navigator.clipboard.writeText(text);
+        showToast("Log completo copiado.", "success");
+    } catch (error) {
+        showToast("Não foi possível copiar o log automaticamente.", "error");
+    }
+});
+
+function renderEditorialContextPreview(context = {}) {
+    const result = document.getElementById("contextAnalysisResult");
+    if (!result) return;
+    const qa = Array.isArray(context.qa_candidates) ? context.qa_candidates.length : 0;
+    const chapters = Array.isArray(context.editorial_chapters) ? context.editorial_chapters.length : 0;
+    const windows = Array.isArray(context.interview_windows) ? context.interview_windows.length : 0;
+    const quality = context.transcription_quality || {};
+    const mode = context.analysis_mode === "transcript_plus_video" ? "transcrição + vídeo/áudio" : "transcrição";
+    result.hidden = false;
+    result.innerHTML = `<div class="context-result-summary"><strong>${escapeHtml(context.description || "Contexto editorial analisado.")}</strong><div class="context-result-facts"><span>${escapeHtml(mode)}</span><span>${qa} pergunta(s)–resposta</span><span>${chapters} capítulo(s)</span><span>${windows} janela(s) de entrevista</span><span>${Number(quality.segment_count || 0)} segmentos · ${escapeHtml(quality.status || "qualidade não validada")}</span></div></div>`;
+}
+
+async function pollEditorialContextJob(jobId, button, status) {
+    const started = Date.now();
+    while (Date.now() - started < 20 * 60 * 1000) {
+        await new Promise(resolve => setTimeout(resolve, 1200));
+        const response = await fetch(`/api/jobs/${encodeURIComponent(jobId)}`);
+        const job = await parseJsonResponse(response, "Status da análise de contexto");
+        if (!response.ok) throw new Error(job.error || "Não foi possível consultar a análise");
+        if (job.message && status) status.textContent = job.message;
+        if (job.state === "completed") {
+            const artifact = Array.isArray(job.artifacts) ? job.artifacts.find(item => item?.type === "editorial_context") : null;
+            state.editorialContext = artifact?.context || null;
+            renderEditorialContextPreview(state.editorialContext || {});
+            if (status) status.textContent = "Contexto pronto. O próximo corte poderá usar esta leitura como referência.";
+            return;
+        }
+        if (job.state === "failed" || job.state === "cancelled") {
+            throw new Error(job.error || job.message || "A análise de contexto não foi concluída.");
+        }
+    }
+    throw new Error("A análise de contexto excedeu o tempo esperado; verifique o console.");
+}
+
+document.getElementById("btnAnalyzeEditorialContext")?.addEventListener("click", async () => {
+    const videoPath = selectedVideoPathForRequest();
+    const status = document.getElementById("contextAnalysisStatus");
+    const button = document.getElementById("btnAnalyzeEditorialContext");
+    if (!videoPath) {
+        if (status) status.textContent = "Selecione um vídeo antes de analisar o contexto.";
+        showToast("Selecione um vídeo primeiro.", "warning");
+        return;
+    }
+    const transcript = state.manualTranscript ? formatTranscriptForEditor(state.manualTranscript) : (document.getElementById("manualTranscriptInput")?.value.trim() || "");
+    button.disabled = true;
+    button.classList.add("loading");
+    if (status) status.textContent = "Preparando análise integral...";
+    addConsoleLog("[Contexto] Análise integral antes do corte solicitada.", "info");
+    try {
+        const response = await fetch("/api/editorial/context", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                video_path: videoPath,
+                project_id: state.selectedProjectId || state.currentProjectId || null,
+                transcript_text: transcript,
+                transcript_language: document.getElementById("settingLanguage")?.value || "pt",
+                user_context: document.getElementById("userContextInput")?.value.trim() || "",
+                analyze_video: document.getElementById("contextAnalyzeVideo")?.checked !== false,
+            }),
+        });
+        const data = await parseJsonResponse(response, "Análise de contexto");
+        if (!response.ok || !data.success) throw new Error(data.error || "Não foi possível iniciar a análise de contexto");
+        await pollEditorialContextJob(data.job_id, button, status);
+        addConsoleLog("[Contexto] Dossiê integral concluído e exibido no painel.", "success");
+        showToast("Contexto analisado antes do corte.", "success");
+    } catch (error) {
+        if (status) status.textContent = error.message;
+        addConsoleLog(`[Contexto] ${error.message}`, "error");
+        showToast(error.message, "error");
+    } finally {
+        button.disabled = false;
+        button.classList.remove("loading");
+    }
+});
+
 // ─── Results Display ───
 
 function mediaUrlForPath(path) {
@@ -2086,34 +2222,12 @@ function renderResultsGrid() {
                     <div class="clip-transcript-content">${escapeHtml(clip.text)}</div>
                 </div>` : ''}
 
-                ${titles.length > 0 ? `
-                <div class="result-seo">
-                    <h5><span class="material-icons-round" style="font-size:14px">title</span> Titulos Sugeridos</h5>
-                    ${titles.slice(0, 3).map(t => `<div class="seo-title" onclick="copyToClipboard(this.textContent)">${escapeHtml(t)}</div>`).join('')}
-                </div>` : ''}
-
-                ${tags.length > 0 ? `
-                <div class="seo-tags">
-                    ${tags.slice(0, 10).map(t => `<span class="seo-tag" onclick="copyToClipboard(this.textContent)">${escapeHtml(t)}</span>`).join('')}
-                </div>` : ''}
-
-                ${hashtags.length > 0 ? `
-                <div class="seo-hashtags">
-                    ${hashtags.slice(0, 8).map(h => `<span class="seo-hashtag">${escapeHtml(h)}</span>`).join('')}
-                </div>` : ''}
-
                 <div class="result-actions">
                     <button class="btn btn-sm btn-primary" onclick="downloadClip(${originalIndex})">
-                        <span class="material-icons-round">download</span> Baixar
-                    </button>
-                    <button class="btn btn-sm" onclick="generateClipSeo(${originalIndex})">
-                        <span class="material-icons-round">auto_awesome</span> SEO
-                    </button>
-                    <button class="btn btn-sm" onclick="generateClipThumb(${originalIndex})">
-                        <span class="material-icons-round">image</span> Capa
+                        <span class="material-icons-round">download</span> Baixar corte
                     </button>
                     <button class="btn btn-sm btn-headline-action" onclick="toggleClipHeadlineStudio(${originalIndex})">
-                        <span class="material-icons-round">title</span> Sugerir headline
+                        <span class="material-icons-round">title</span> Headline do corte
                     </button>
                 </div>
                 <div class="clip-headline-studio" id="clip-headline-studio-${originalIndex}" hidden>
@@ -2137,7 +2251,7 @@ function renderResultsGrid() {
                             <label>Minicontexto opcional
                                 <textarea data-clip-headline-context rows="3" maxlength="280" placeholder="Ex.: resposta de Renan sobre propostas econômicas.">${escapeHtml(clip.title || "")}</textarea>
                             </label>
-                            <button class="btn btn-sm btn-primary" type="button" data-generate-clip-headline onclick="generateClipHeadline(${originalIndex})"><span class="material-icons-round">bolt</span> Gerar várias opções</button>
+                            <button class="btn btn-sm btn-primary" type="button" data-generate-clip-headline onclick="generateClipHeadline(${originalIndex})"><span class="material-icons-round">bolt</span> Gerar headline deste formato</button>
                         </div>
                     </div>
                     <div class="clip-headline-results" id="clip-headline-results-${originalIndex}" aria-live="polite"><p class="clip-headline-feedback">Edite a transcrição se necessário e escolha o formato antes de gerar.</p></div>
@@ -2747,7 +2861,9 @@ function renderHeadlineStudioResults(studio, options = {}) {
         flags.needs_fact_review ? '<span class="artwork-review-chip"><span class="material-icons-round">fact_check</span>revisar afirmação factual</span>' : "",
         flags.needs_legal_review ? '<span class="artwork-review-chip legal"><span class="material-icons-round">gavel</span>revisar formulação jurídica</span>' : "",
     ].filter(Boolean).join("");
-    const formatCards = ["vertical_916", "square_alfinetei"].map(format => {
+    const selectedFormat = studio.generated_format || recommended;
+    const availableFormats = [selectedFormat].filter(format => ["vertical_916", "square_alfinetei"].includes(format));
+    const formatCards = availableFormats.map(format => {
         const config = formats[format] || {};
         const suggestions = Array.isArray(config.suggestions) ? config.suggestions : [];
         return `<section class="artwork-format-result ${format === recommended ? "recommended" : ""}">
@@ -2756,11 +2872,12 @@ function renderHeadlineStudioResults(studio, options = {}) {
         </section>`;
     }).join("");
     const tweets = Array.isArray(formats.fake_tweet?.suggestions) ? formats.fake_tweet.suggestions : [];
-    const tweetCard = `<section class="artwork-format-result fake-tweet ${recommended === "fake_tweet" ? "recommended" : ""}">
+    const tweetCard = formats.fake_tweet ? `<section class="artwork-format-result fake-tweet ${recommended === "fake_tweet" ? "recommended" : ""}">
         <div class="artwork-format-result-head"><div><span class="artwork-format-kicker">${recommended === "fake_tweet" ? "FORMATO RECOMENDADO" : "ALTERNATIVA"}</span><h4>Fake tweet — rascunho de publicação</h4></div><span class="artwork-limit">Revisar antes de atribuir ao perfil</span></div>
-        <div class="fake-tweet-options">${tweets.map(item => `<article class="fake-tweet-card"><p>${escapeHtml(item.post_text || "")}</p><footer><span>${Number(item.character_count || 0)} caracteres</span><div>${artworkCopyButton(item.post_text || "", "Copiar texto")}${artworkFeedbackButton("fake_tweet", item.post_text || "", clipIndex)}</div></footer></article>`).join("") || '<p class="artwork-empty">Sem alternativa disponível.</p>'}</div>
-    </section>`;
-    container.innerHTML = `<div class="headline-studio-result-summary"><div><span class="artwork-format-kicker">LEITURA EDITORIAL</span><h4>${escapeHtml(artworkFormatLabels[recommended] || recommended)}</h4><p>${escapeHtml(studio.recommendation_reason || "")}</p></div><div class="artwork-analysis-metrics"><span>Tema: <strong>${escapeHtml(studio.topic || "geral")}</strong></span><span>Contexto: <strong>${Math.round(Number(studio.analysis?.context_completeness || 0))}/100</strong></span><span>Fonte: <strong>${studio.generation_source === "ai_refined" ? "IA + regras" : "regras editoriais"}</strong></span><span>Preferência: <strong>${escapeHtml(learningLabel)}</strong></span></div></div><div class="artwork-review-chips">${reviewChips || '<span class="artwork-review-chip safe"><span class="material-icons-round">verified</span>sem alerta lexical automático</span>'}</div><div class="artwork-format-results">${formatCards}${tweetCard}</div>`;
+        <div class="fake-tweet-options">${tweets.map(item => `<article class="fake-tweet-card"><p>${escapeHtml(item.post_text || "")}</p><footer><span>${Number(item.character_count || 0)} caracteres</span><div>${artworkCopyButton(item.post_text || "", "Copiar texto")}${artworkFeedbackButton("fake_tweet", item.post_text || "", clipIndex)}</div></footer></article>`).join("") || '<p class="artwork-empty">Sem alternativa disponível.</p>'}        </div>
+    </section>` : "";
+    container.innerHTML = `<div class="headline-studio-result-summary">
+<div><span class="artwork-format-kicker">LEITURA EDITORIAL</span><h4>${escapeHtml(artworkFormatLabels[recommended] || recommended)}</h4><p>${escapeHtml(studio.recommendation_reason || "")}</p></div><div class="artwork-analysis-metrics"><span>Tema: <strong>${escapeHtml(studio.topic || "geral")}</strong></span><span>Contexto: <strong>${Math.round(Number(studio.analysis?.context_completeness || 0))}/100</strong></span><span>Fonte: <strong>${studio.generation_source === "ai_refined" ? "IA + regras" : "regras editoriais"}</strong></span><span>Preferência: <strong>${escapeHtml(learningLabel)}</strong></span></div></div><div class="artwork-review-chips">${reviewChips || '<span class="artwork-review-chip safe"><span class="material-icons-round">verified</span>sem alerta lexical automático</span>'}</div><div class="artwork-format-results">${formatCards}${tweetCard}</div>`;
     container.style.display = "block";
     container.querySelectorAll(".artwork-copy-button").forEach(button => {
         button.addEventListener("click", () => copyToClipboard(decodeURIComponent(button.dataset.artworkCopy || "")));
@@ -2855,7 +2972,7 @@ async function generateClipHeadline(index) {
         button.disabled = true;
         button.classList.add("loading");
     }
-    results.innerHTML = '<div class="clip-headline-feedback">Lendo a tese do corte e criando alternativas para os três formatos...</div>';
+    results.innerHTML = `<div class="clip-headline-feedback">Lendo a tese do corte e criando alternativas para ${preferredFormat === "auto" ? "o formato recomendado" : "o formato selecionado"}...</div>`;
     try {
         const response = await fetch("/api/headline-studio/analyze", {
             method: "POST",
@@ -2872,6 +2989,7 @@ async function generateClipHeadline(index) {
         if (!response.ok || !data.success) throw new Error(data.error || "Não foi possível gerar as headlines");
         state.clips[index] = { ...clip, headline_studio: data.studio };
         renderHeadlineStudioResults(data.studio, { container: results, clipIndex: index });
+        if (button) button.innerHTML = '<span class="material-icons-round">refresh</span> Regenerar com novo contexto';
         showToast("Sugestões de headline geradas para este corte.", "success");
     } catch (error) {
         results.innerHTML = `<div class="clip-headline-feedback error">${escapeHtml(error.message)}</div>`;
