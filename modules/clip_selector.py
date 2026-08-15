@@ -27,6 +27,15 @@ FILLER_WORDS_PT = {
     "quer dizer", "pois e\u0301", "pois e", "ta", "ta\u0301", "cara",
 }
 
+CONTINUATION_STARTERS_PT = {
+    "e", "mas", "porem", "porém", "porque", "que", "ai", "aí", "entao", "então", "ou", "nem",
+}
+EVIDENCE_TERMS_PT = {
+    "dado", "dados", "numero", "número", "numeros", "números", "pesquisa", "pesquisas",
+    "registro", "registros", "email", "emails", "e-mail", "fonte", "prova", "provas",
+    "documento", "documentos", "exemplo", "exemplos", "lei", "artigo", "segundo",
+}
+
 
 class ClipSelector:
     def __init__(
@@ -806,6 +815,7 @@ Retorne APENAS o JSON.
             )
 
             clips.append({
+                **self._editorial_flags(clip_text),
                 "start": clip_start,
                 "end": clip_end,
                 "duration": round(clip_duration, 3),
@@ -1052,6 +1062,33 @@ Retorne APENAS o JSON.
             return min(80, score)
         return min(60, score)
 
+    def _editorial_flags(self, text):
+        """Return conservative, explainable gates shared by every selection backend."""
+        raw = str(text or "").strip()
+        normalized = raw.lower()
+        words = re.findall(r"[\wÀ-ÿ-]+", normalized)
+        first_word = words[0] if words else ""
+        continuation_starters = {item.lower() for item in CONTINUATION_STARTERS_PT}
+        starts_mid_sentence = first_word in continuation_starters
+        has_question = "?" in raw or first_word in {"como", "por", "porque", "qual", "quais", "quem", "quando", "onde"}
+        question_index = raw.find("?")
+        response_words = len(re.findall(r"[\wÀ-ÿ-]+", raw[question_index + 1:])) if question_index >= 0 else 0
+        question_answer_complete = bool(has_question and response_words >= 8)
+        has_evidence = any(term in normalized for term in EVIDENCE_TERMS_PT)
+        ends_closed = raw.endswith((".", "!", "?"))
+        cliffhanger = any(pattern in normalized[-220:] for pattern in ("em breve", "depois eu", "na proxima", "fique ligado", "vou mostrar"))
+        payoff_complete = bool(ends_closed and not cliffhanger)
+        context_complete = bool(not starts_mid_sentence and payoff_complete and len(words) >= 12)
+        return {
+            "starts_mid_sentence": starts_mid_sentence,
+            "question_detected": has_question,
+            "question_answer_complete": question_answer_complete,
+            "evidence_present": has_evidence,
+            "payoff_complete": payoff_complete,
+            "context_complete": context_complete,
+            "qa_bridge": question_answer_complete,
+        }
+
     def _build_clips_from_scored_blocks(self, scored_blocks, context_data=None):
         """Build clips by joining only the blocks needed for context and payoff.
         Enforces the technical ceiling on all clips without imposing a fixed length.
@@ -1068,6 +1105,21 @@ Retorne APENAS o JSON.
             clip_blocks = [start_block]
             clip_duration = start_block["duration"]
             clip_end_idx = start_idx
+
+            # Whisper blocks can begin with a continuation after a pause. Recover
+            # the adjacent context when it is safe instead of publishing an abrupt start.
+            if (
+                self._editorial_flags(start_block.get("text", "")).get("starts_mid_sentence")
+                and start_idx > 0
+                and (start_idx - 1) not in used_indices
+            ):
+                previous_block = scored_blocks[start_idx - 1][0]
+                gap = float(start_block.get("start", 0)) - float(previous_block.get("end", 0))
+                joined_duration = float(start_block.get("end", 0)) - float(previous_block.get("start", 0))
+                if gap <= 2.5 and joined_duration <= self.max_duration:
+                    clip_blocks.insert(0, previous_block)
+                    clip_duration = joined_duration
+                    start_idx -= 1
 
             preferred_stop = min(float(self.target_duration or 45), 30.0)
             start_is_complete = (
@@ -1136,6 +1188,7 @@ Retorne APENAS o JSON.
                     reason = f"Contem mencao a: {', '.join(matched_names)}"
 
             clips.append({
+                **self._editorial_flags(clip_text),
                 "start": clip_start,
                 "end": clip_end,
                 "duration": round(clip_duration, 3),

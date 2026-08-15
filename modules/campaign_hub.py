@@ -18,6 +18,7 @@ from typing import Any
 
 
 DEFAULT_SNAPSHOT_PATH = Path.home() / "FuriaClipsData" / "campaign_hub" / "profile.json"
+PACKAGED_SNAPSHOT_PATH = Path(__file__).resolve().parents[1] / "data" / "editorial_priors.json"
 SUPPORTED_ACCOUNTS = {"@renansantosmbl", "@renansantosreserva", "@partidomissao"}
 
 # Rules are intentionally descriptive rather than generative. They expose why a
@@ -54,13 +55,18 @@ _HOOK_RULES = (
 
 
 def load_snapshot(path: str | os.PathLike[str] | None = None) -> dict[str, Any] | None:
-    """Load a user-owned snapshot; return None for absent or invalid data."""
-    candidate = Path(path or os.environ.get("FURIA_CAMPAIGN_HUB_SNAPSHOT", DEFAULT_SNAPSHOT_PATH)).expanduser()
-    try:
-        payload = json.loads(candidate.read_text(encoding="utf-8"))
-    except (FileNotFoundError, OSError, UnicodeDecodeError, json.JSONDecodeError):
-        return None
-    return normalize_snapshot(payload)
+    """Load a user snapshot, falling back to aggregate priors shipped with the app."""
+    explicit = path or os.environ.get("FURIA_CAMPAIGN_HUB_SNAPSHOT")
+    candidates = [Path(explicit).expanduser()] if explicit else [DEFAULT_SNAPSHOT_PATH, PACKAGED_SNAPSHOT_PATH]
+    for candidate in candidates:
+        try:
+            payload = json.loads(candidate.read_text(encoding="utf-8"))
+        except (FileNotFoundError, OSError, UnicodeDecodeError, json.JSONDecodeError):
+            continue
+        normalized = normalize_snapshot(payload)
+        if normalized:
+            return normalized
+    return None
 
 
 def normalize_snapshot(payload: Any) -> dict[str, Any] | None:
@@ -75,7 +81,8 @@ def normalize_snapshot(payload: Any) -> dict[str, Any] | None:
         if account_key not in SUPPORTED_ACCOUNTS or not isinstance(raw, dict):
             continue
         observations = []
-        for item in raw.get("hook_observations", []):
+        raw_observations = raw.get("hook_observations", [])
+        for item in raw_observations:
             if not isinstance(item, dict):
                 continue
             hook = str(item.get("hook") or "").strip().lower()
@@ -85,6 +92,21 @@ def normalize_snapshot(payload: Any) -> dict[str, Any] | None:
                 continue
             if hook and ratio >= 0:
                 observations.append({"hook": hook[:80], "ratio": ratio})
+        # Aggregate-only packs expose mean/max and observation count instead of
+        # post-level rows. Reconstruct bounded pseudo-observations solely so the
+        # existing conservative prior logic can consume the portable format.
+        if not observations:
+            for item in raw.get("hook_priors", []):
+                if not isinstance(item, dict):
+                    continue
+                hook = str(item.get("hook") or "").strip().lower()
+                try:
+                    ratio = float(item.get("mean_ratio", 0) or 0)
+                    count = max(1, min(20, int(item.get("observations", 1) or 1)))
+                except (TypeError, ValueError):
+                    continue
+                if hook and ratio >= 0:
+                    observations.extend({"hook": hook[:80], "ratio": ratio} for _ in range(count))
         normalized_accounts[account_key] = {
             "platform": str(raw.get("platform", "instagram") or "instagram").lower(),
             "hook_observations": observations[:1000],

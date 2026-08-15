@@ -14,6 +14,7 @@ from typing import Iterable, Optional
 from .editorial_format import classify_editorial_format
 from .political_profile import PROFILE_NAME, analyze_political_text
 from .campaign_hub import build_performance_prior
+from .instagram_editorial_priors import build_editorial_pattern_prior
 
 
 HOOK_PATTERNS = [
@@ -129,6 +130,7 @@ class EditorialRanker:
             account=self.campaign_hub_account,
             snapshot=self.campaign_hub_snapshot,
         )
+        instagram_pattern_prior = build_editorial_pattern_prior(text, clip)
         factors = {
             "hook": self._hook(text),
             "flow": self._flow(text, duration),
@@ -139,7 +141,9 @@ class EditorialRanker:
             "visual_change_density": self._visual_change_density(clip),
             "clarity": self._clarity(text),
             "completeness": self._completeness(text, closure_type),
+            "context_quality": self._context_quality(clip, text, closure_type),
             "editorial_family_fit": 50.0,
+            "instagram_pattern_prior": instagram_pattern_prior["signal"],
             "chapter_coherence": self._chapter_coherence(clip),
             "duration_fit": self._duration_fit(duration),
             "campaign_hub_prior": campaign_hub_prior["observed_signal"],
@@ -167,8 +171,10 @@ class EditorialRanker:
             "audio_energy": 0.10,
             "visual_change_density": 0.06,
             "clarity": 0.08,
-            "completeness": 0.12,
-            "editorial_family_fit": 0.04,
+            "completeness": 0.10,
+            "context_quality": 0.10,
+            "editorial_family_fit": 0.02,
+            "instagram_pattern_prior": 0.04,
         }
         if not user_context:
             weights["context_match"] = 0.0
@@ -220,12 +226,31 @@ class EditorialRanker:
         }
         reason = self._reason(factors, user_context)
         topic_signature = self._topic_signature(text, political_signals)
+        context_contract = any(
+            key in clip
+            for key in (
+                "starts_mid_sentence", "question_detected", "question_answer_complete",
+                "evidence_present", "payoff_complete", "context_complete",
+            )
+        )
+        score_version = (
+            "v3-context-gates-feedback" if feedback_adjustment and context_contract
+            else "v3-context-gates" if context_contract
+            else "v1-feedback-calibrated" if feedback_adjustment
+            else "v1-explainable"
+        )
         return {
             "viral_score": score,
             "editorial_potential_score": score,
-            "editorial_score_version": "v2-campaign-hook-evidence" if campaign_hub_prior["available"] else "v2-chapter-context-feedback" if feedback_adjustment and clip.get("editorial_chapter_available") else "v2-chapter-context" if clip.get("editorial_chapter_available") else "v1-feedback-calibrated" if feedback_adjustment else "v1-explainable",
+            "editorial_score_version": score_version,
             "topic_signature": topic_signature,
             "closure_type": closure_type,
+            "starts_mid_sentence": bool(clip.get("starts_mid_sentence")),
+            "question_detected": bool(clip.get("question_detected")),
+            "question_answer_complete": bool(clip.get("question_answer_complete")),
+            "evidence_present": bool(clip.get("evidence_present")),
+            "payoff_complete": bool(clip.get("payoff_complete")),
+            "context_complete": bool(clip.get("context_complete")),
             "breakdown": breakdown,
             "factors": {key: round(value, 1) for key, value in factors.items()},
             "confidence": round(confidence, 2),
@@ -247,6 +272,7 @@ class EditorialRanker:
             "chapter_coherence_score": clip.get("chapter_coherence_score"),
             "qa_bridge": bool(clip.get("qa_bridge")),
             "campaign_hub_prior": campaign_hub_prior,
+            "instagram_pattern_prior": instagram_pattern_prior,
             "feedback_calibration": feedback_calibration,
             "hook_family": campaign_hub_prior["hook_family"],
             "hook_evidence": list(campaign_hub_prior.get("hook_evidence") or []),
@@ -267,8 +293,17 @@ class EditorialRanker:
                 "chapter_crosses_boundary": bool(clip.get("chapter_crosses_boundary")),
                 "duration_preference": duration_preference["status"],
                 "duration_exception": bool(duration_preference["exception"]),
+                "starts_mid_sentence": bool(clip.get("starts_mid_sentence")),
+                "question_detected": bool(clip.get("question_detected")),
+                "question_answer_complete": bool(clip.get("question_answer_complete")),
+                "evidence_present": bool(clip.get("evidence_present")),
+                "payoff_complete": bool(clip.get("payoff_complete")),
+                "context_complete": bool(clip.get("context_complete")),
                 "campaign_hub_prior_available": bool(campaign_hub_prior["available"]),
                 "campaign_hub_hook_family": campaign_hub_prior["hook_family"],
+                "instagram_pattern_prior_available": bool(instagram_pattern_prior["available"]),
+                "instagram_pattern_family": instagram_pattern_prior["family"],
+                "instagram_pattern_sample_count": instagram_pattern_prior["sample_count"],
                 "campaign_hub_hook_evidence": list(campaign_hub_prior.get("hook_evidence") or []),
                 "campaign_hub_hook_classification_confidence": campaign_hub_prior.get("hook_classification_confidence", 0.0),
                 "campaign_hub_sample_count": campaign_hub_prior["sample_count"],
@@ -541,11 +576,34 @@ class EditorialRanker:
             score += 6
         return max(0.0, min(100.0, score))
 
+    def _context_quality(self, clip: dict, text: str, closure_type: str) -> float:
+        """Score whether the candidate can stand alone without hiding uncertainty."""
+        flags = clip if isinstance(clip, dict) else {}
+        score = 50.0
+        if flags.get("context_complete"):
+            score += 18.0
+        if flags.get("starts_mid_sentence"):
+            score -= 28.0
+        if flags.get("question_answer_complete") or flags.get("qa_bridge"):
+            score += 14.0
+        elif flags.get("question_detected"):
+            score -= 4.0
+        if flags.get("evidence_present"):
+            score += 6.0
+        if flags.get("payoff_complete") or closure_type in {"conclusion", "closed_statement"}:
+            score += 12.0
+        if closure_type == "cliffhanger":
+            score -= 18.0
+        if len(_normalize(text).split()) < 12:
+            score -= 12.0
+        return max(0.0, min(100.0, score))
+
     def _confidence(self, text: str, factors: dict, duration: float) -> float:
         evidence = min(1.0, len(text.split()) / 35.0)
         consistency = 1.0 - (max(factors.values()) - min(factors.values())) / 200.0
         duration_evidence = 1.0 if 8 <= duration <= PREFERRED_MAX_DURATION else 0.78
-        return max(0.0, min(1.0, 0.35 * evidence + 0.4 * consistency + 0.25 * duration_evidence))
+        context_evidence = max(0.35, min(1.0, float(factors.get("context_quality", 50.0)) / 100.0))
+        return max(0.0, min(1.0, 0.30 * evidence + 0.30 * consistency + 0.20 * duration_evidence + 0.20 * context_evidence))
 
     def _reason(self, factors: dict, context: str) -> str:
         labels = {
@@ -573,6 +631,7 @@ class EditorialRanker:
             "chapter_coherence": "coerência de capítulo e contexto temporal",
             "campaign_hub_prior": "observação histórica de hook no Campaign Hub",
             "duration_fit": "brevidade preferencial sem cortar contexto",
+            "context_quality": "contexto autossuficiente e payoff",
         }
         ordered = sorted(factors.items(), key=lambda pair: pair[1], reverse=True)
         top = [labels[key] for key, value in ordered[:3] if value >= 60]
