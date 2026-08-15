@@ -827,8 +827,10 @@ async function runRepositorySync(action) {
         const payload = await parseJsonResponse(response, "Sincronização do programa");
         if (!response.ok || payload.success === false) throw new Error(payload.error || "A sincronização não foi concluída");
         state.repositorySync = payload;
+        // Keep the detailed state rendered above: it distinguishes code freshness,
+        // local code changes, and feedback pending instead of hiding it behind a
+        // generic success message.
         renderRepositorySyncState(payload);
-        setRepositorySyncStatus(payload.message || "Sincronização concluída.", "success");
         if (action === "update" && payload.updated) {
             showToast("Atualização aplicada. Feche e abra o run.bat novamente para carregar o novo código.", "success");
             addConsoleLog("[Sincronização] Código atualizado por fast-forward; backup de segurança preservado.", "success");
