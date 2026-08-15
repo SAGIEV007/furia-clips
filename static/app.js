@@ -218,6 +218,7 @@ function handleStatusUpdate(data) {
                     "error",
                 );
             }
+            renderEditorialAudit(data.data.editorial_audit, data.data.audit_mode || "standard");
             displayResults(completedClips, data.data.video_layout || null);
             updateResultsModeBadge(state.selectionSource);
             updateOpenFolderButton(state.outputFolder);
@@ -1217,6 +1218,8 @@ document.getElementById("actionCut").querySelector(".btn-action").addEventListen
             user_context: userContext,
             video_genre: videoGenre,
             transcription_source: document.getElementById("settingTranscriptionSource")?.value || "auto",
+            audit_mode: document.getElementById("settingAuditMode")?.value || "standard",
+            preferred_format: document.getElementById("settingPreferredFormat")?.value || "auto",
             ...(state.manualTranscript ? {
                 transcript_segments: state.manualTranscript.segments,
                 transcript_language: state.manualTranscript.language || "pt",
@@ -1463,6 +1466,46 @@ function escapeHtml(value) {
 
 function mediaUrlForClip(clip) {
     return mediaUrlForPath(clip.subtitled_path || clip.path);
+}
+
+const editorialFormatLabels = {
+    vertical_916: "9:16 — headline central",
+    square_alfinetei: "1:1 — Alfinetei",
+    fake_tweet: "Fake tweet",
+};
+
+function renderEditorialAudit(audit, mode = "standard") {
+    const element = document.getElementById("editorialAuditSummary");
+    if (!element) return;
+    if (!audit || typeof audit !== "object") {
+        element.style.display = "none";
+        element.innerHTML = "";
+        return;
+    }
+    const flags = audit.review_flags || {};
+    const analysis = audit.analysis || {};
+    const warnings = [
+        flags.needs_fact_review ? "Revisão factual" : "",
+        flags.needs_legal_review ? "Revisão jurídica" : "",
+        flags.transcript_ends_incomplete ? "Transcrição termina incompleta" : "",
+    ].filter(Boolean);
+    const warningHtml = warnings.length
+        ? `<span class="audit-warning"><span class="material-icons-round">warning</span>${escapeHtml(warnings.join(" · "))}</span>`
+        : `<span class="audit-ok"><span class="material-icons-round">verified</span>Sem alerta estrutural automático</span>`;
+    element.innerHTML = `
+        <div class="audit-result-head">
+            <span class="material-icons-round">fact_check</span>
+            <div><strong>Auditoria ${mode === "full" ? "completa" : "editorial"}</strong><small>Qualidade editorial separada do potencial observado</small></div>
+            <span class="audit-format-badge">${escapeHtml(editorialFormatLabels[audit.recommended_format] || "Formato a revisar")}</span>
+        </div>
+        <p class="audit-result-reason">${escapeHtml(audit.recommendation_reason || "Formato recomendado pelos sinais editoriais disponíveis.")}</p>
+        <div class="audit-result-signals">
+            <span>Contexto <b>${Number(analysis.context_completeness || 0)}/100</b></span>
+            <span>Tese <b>${Number(analysis.claim_strength || 0)}/100</b></span>
+            <span>Conflito <b>${Number(analysis.conflict_or_stakes || 0)}/100</b></span>
+            ${warningHtml}
+        </div>`;
+    element.style.display = "block";
 }
 
 function displayResults(clips, videoLayout = null) {
@@ -2708,6 +2751,23 @@ document.getElementById("btnGenerateArtworkCopy")?.addEventListener("click", asy
         button.disabled = false;
         button.classList.remove("loading");
     }
+});
+
+document.getElementById("btnOpenTactiq")?.addEventListener("click", () => {
+    const input = document.getElementById("sourceUrlInput");
+    const url = normalizePublicUrlInput(input?.value);
+    if (!url) {
+        showSourceStatus("Informe primeiro uma URL pública do YouTube para abrir a transcrição assistida.", "error");
+        return;
+    }
+    if (!/youtube\.com|youtu\.be/i.test(url)) {
+        showSourceStatus("O Tactiq assistido aceita links do YouTube; para outras fontes, use a transcrição pública ou o Whisper.", "warning");
+        return;
+    }
+    const tactiqUrl = `https://tactiq.io/tools/youtube-transcript?yt=${encodeURIComponent(url)}`;
+    window.open(tactiqUrl, "_blank", "noopener,noreferrer");
+    showSourceStatus("Tactiq aberto em uma nova aba. Copie ou baixe a transcrição e importe o TXT/SRT/VTT na aba Transcrição; o programa não faz scraping da página.", "success");
+    addConsoleLog("[Tactiq] Transcrição assistida aberta; importe o arquivo ou cole o texto para validar timestamps antes do corte.", "info");
 });
 
 document.getElementById("btnProbeSource")?.addEventListener("click", async () => {
