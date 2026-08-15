@@ -198,6 +198,7 @@ def detect_hook_candidates(
     *,
     snapshot: dict | None = None,
     account: str | None = None,
+    energy_profile: list[dict] | None = None,
     limit: int = 12,
 ) -> list[dict]:
     """Suggest timestamped hook openings without claiming virality.
@@ -253,6 +254,14 @@ def detect_hook_candidates(
         if start <= 35:
             score += 5
             reasons.append("entrada precoce no bloco")
+        audio_signal = _audio_signal_for_window(energy_profile, start, end)
+        if audio_signal["available"]:
+            if audio_signal["contrast"] >= 0.16 or audio_signal["peak"] >= 0.78:
+                score += 7
+                reasons.append("ênfase de voz/energia detectada")
+            elif audio_signal["mean"] <= 0.18:
+                score -= 5
+                reasons.append("energia baixa; confirmar inteligibilidade")
         setup_cue = bool(re.search(
             r"\b(c[aâ]mera|p[uú]lpito|montou|arrumar|testar|microfone|som|desculpa|risadas|meus queridos|t[aá] na c[aâ]mera)\b",
             normalized,
@@ -337,6 +346,7 @@ def detect_hook_candidates(
             "reason": "; ".join(reasons[:4]),
             "payoff_confirmed": payoff,
             "needs_visual_review": bool(segment.get("overlap_suspected")),
+            "audio_signal": audio_signal,
             "campaign_hub_prior": prior,
         })
 
@@ -349,6 +359,35 @@ def detect_hook_candidates(
         if len(selected) >= max_items:
             break
     return selected
+
+
+def _audio_signal_for_window(energy_profile: list[dict] | None, start: float, end: float) -> dict:
+    """Summarize local RMS energy around a candidate without storing audio."""
+    if not isinstance(energy_profile, list) or not energy_profile:
+        return {"available": False, "mean": None, "peak": None, "contrast": None}
+    entries = []
+    baseline_entries = []
+    midpoint = (start + end) / 2.0
+    for item in energy_profile:
+        try:
+            timestamp = float(item.get("time", 0) or 0)
+            normalized = max(0.0, min(1.0, float(item.get("energy_normalized", 0) or 0)))
+        except (TypeError, ValueError):
+            continue
+        if start - 1.5 <= timestamp <= end:
+            entries.append(normalized)
+        if midpoint - 30 <= timestamp <= midpoint - 5:
+            baseline_entries.append(normalized)
+    if not entries:
+        return {"available": False, "mean": None, "peak": None, "contrast": None}
+    mean_value = sum(entries) / len(entries)
+    baseline = sum(baseline_entries) / len(baseline_entries) if baseline_entries else mean_value
+    return {
+        "available": True,
+        "mean": round(mean_value, 3),
+        "peak": round(max(entries), 3),
+        "contrast": round(mean_value - baseline, 3),
+    }
 
 
 def _possible_overlap(segments: list[dict]) -> bool:

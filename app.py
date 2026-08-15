@@ -1686,6 +1686,18 @@ def api_cut_shorts():
 
             analyzer = AudioAnalyzer()
             energy_profile = analyzer.analyze_energy(video_path, emit_progress=emit_progress)
+            try:
+                from modules.editorial_context import detect_hook_candidates
+                from modules.campaign_hub import load_snapshot
+                context_snapshot = load_snapshot(settings.get("campaign_hub_snapshot_path"))
+                settings.setdefault("editorial_context", {})["hook_candidates"] = detect_hook_candidates(
+                    transcription.get("segments", []),
+                    snapshot=context_snapshot,
+                    account=settings.get("campaign_hub_account", "@renansantosmbl"),
+                    energy_profile=energy_profile,
+                )
+            except Exception as exc:
+                emit_progress(f"[Contexto] Hooks com áudio não disponíveis; mantendo sinais textuais: {str(exc)[:140]}", "warning")
 
             coverage_plan = _selection_coverage_plan(data.get("video_path", video_path), video_duration)
             if coverage_plan["previous_clip_fingerprints"]:
@@ -2514,6 +2526,18 @@ def api_process_complete():
 
             analyzer = AudioAnalyzer()
             energy_profile = analyzer.analyze_energy(working_video, emit_progress=emit_progress)
+            try:
+                from modules.editorial_context import detect_hook_candidates
+                from modules.campaign_hub import load_snapshot
+                context_snapshot = load_snapshot(settings.get("campaign_hub_snapshot_path"))
+                settings.setdefault("editorial_context", {})["hook_candidates"] = detect_hook_candidates(
+                    transcription.get("segments", []),
+                    snapshot=context_snapshot,
+                    account=settings.get("campaign_hub_account", "@renansantosmbl"),
+                    energy_profile=energy_profile,
+                )
+            except Exception as exc:
+                emit_progress(f"[Contexto] Hooks com áudio não disponíveis; mantendo sinais textuais: {str(exc)[:140]}", "warning")
 
             coverage_plan = _selection_coverage_plan(data.get("video_path", video_path), video_duration)
             if coverage_plan["previous_clip_fingerprints"]:

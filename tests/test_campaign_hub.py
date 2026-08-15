@@ -92,6 +92,23 @@ def test_hook_detector_rejects_setup_chatter_and_recovers_fragmented_question():
     assert fragmented["payoff_confirmed"] is True
 
 
+def test_hook_detector_uses_existing_energy_profile_as_explainable_signal():
+    candidates = detect_hook_candidates([
+        {"start": 10, "end": 14, "text": "Vamos apresentar a proposta concreta."},
+        {"start": 14, "end": 21, "text": "Por isso, a resposta começa agora."},
+    ], energy_profile=[
+        {"time": 0, "energy_normalized": 0.20},
+        {"time": 10, "energy_normalized": 0.95},
+        {"time": 11, "energy_normalized": 0.90},
+        {"time": 14, "energy_normalized": 0.88},
+    ], limit=2)
+
+    assert candidates
+    assert candidates[0]["audio_signal"]["available"] is True
+    assert candidates[0]["audio_signal"]["peak"] >= 0.88
+    assert "energia" in candidates[0]["reason"]
+
+
 def test_snapshot_rejects_unknown_accounts_and_keeps_supported_data():
     snapshot = normalize_snapshot({
         "accounts": {
