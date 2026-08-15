@@ -164,7 +164,8 @@ def build_feedback_snapshot() -> dict[str, Any]:
                            ) AS feedback_rank
                       FROM clip_feedback AS f
                       JOIN clips AS c ON c.id = f.clip_id
-                     WHERE COALESCE(c.editorial_key, '') <> ''
+                     WHERE f.action IN ('approved', 'rejected', 'needs_review')
+                       AND COALESCE(c.editorial_key, '') <> ''
                 )
                 SELECT editorial_key, start_time, end_time, duration,
                        viral_score, editorial_score_version,
