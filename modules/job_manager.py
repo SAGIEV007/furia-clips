@@ -240,5 +240,38 @@ class JobManager:
         connection.close()
         return [self._row_to_dict(row) for row in rows]
 
+    def reconcile_stale(self, max_age_seconds: float = 12 * 60 * 60) -> list[dict]:
+        """Mark orphaned jobs as failed after a conservative inactivity window.
+
+        A process restart can leave a SQLite job in ``running`` even though no
+        worker exists anymore. Only jobs whose ``updated_at`` is older than the
+        configured window are recovered; active long-running jobs keep their
+        state because progress/heartbeat updates refresh that timestamp.
+        """
+        cutoff = datetime.now(timezone.utc).timestamp() - max(60.0, float(max_age_seconds))
+        connection = self._connect()
+        rows = connection.execute(
+            "SELECT id, updated_at FROM jobs WHERE state IN ('running', 'cancel_requested')"
+        ).fetchall()
+        connection.close()
+        recovered = []
+        for row in rows:
+            try:
+                updated_at = datetime.fromisoformat(str(row["updated_at"])).timestamp()
+            except (TypeError, ValueError, KeyError):
+                updated_at = 0.0
+            if updated_at > cutoff:
+                continue
+            recovered.append(
+                self.update(
+                    row["id"],
+                    state="failed",
+                    stage="stale_recovered",
+                    message="Job interrompido sem worker ativo; marcado como falho na recuperação.",
+                    error="stale_job_recovered",
+                )
+            )
+        return recovered
+
     def shutdown(self):
         self.executor.shutdown(wait=False, cancel_futures=False)
