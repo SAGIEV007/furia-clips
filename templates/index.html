@@ -407,7 +407,10 @@
             <div class="headline-studio-grid">
                 <div class="headline-studio-inputs">
                     <label for="artworkTranscriptInput">Transcrição do corte pronto</label>
-                    <textarea id="artworkTranscriptInput" class="context-input artwork-transcript-input" rows="8" placeholder="Cole aqui um TXT, SRT ou VTT. Ex.: a tese principal, a fala e a conclusão do corte."></textarea>
+                    <div class="artwork-transcript-drop-target" id="artworkTranscriptDropTarget">
+                        <textarea id="artworkTranscriptInput" class="context-input artwork-transcript-input" rows="8" placeholder="Cole aqui um TXT, SRT ou VTT. Ex.: a tese principal, a fala e a conclusão do corte."></textarea>
+                        <div class="artwork-drop-hint"><span class="material-icons-round">upload_file</span><span>Arraste um TXT, SRT ou VTT para esta área; a transcrição será importada automaticamente.</span></div>
+                    </div>
                     <div class="source-actions">
                         <input type="file" id="artworkTranscriptFileInput" accept=".txt,.srt,.vtt" style="display:none">
                         <button class="btn btn-sm btn-outline" id="btnImportArtworkTranscript" type="button"><span class="material-icons-round">folder_open</span> Importar TXT/SRT/VTT</button>
@@ -603,10 +606,11 @@
                     <input id="editorialRestoreInput" type="file" accept=".zip,application/zip" hidden>
                 </div>
                 <div class="repository-sync-actions" aria-label="Sincronização segura do programa">
-                    <button class="btn btn-sm" id="btnRepositoryCheck" type="button"><span class="material-icons-round">cloud_sync</span> Verificar atualização</button>
-                    <button class="btn btn-sm btn-outline" id="btnRepositoryUpdate" type="button"><span class="material-icons-round">system_update_alt</span> Atualizar programa</button>
-                    <button class="btn btn-sm btn-outline" id="btnRepositoryPushFeedback" type="button"><span class="material-icons-round">publish</span> Sincronizar feedback</button>
-                    <span class="repository-sync-status" id="repositorySyncStatus">Verificando o estado do programa...</span>
+                    <div class="repository-sync-heading"><span class="material-icons-round">sync_alt</span><span><strong>Atualização e aprendizado entre computadores</strong><small>Código vem do GitHub; somente decisões aprovadas/rejeitadas, sem vídeo, transcrição ou chave, podem voltar.</small></span></div>
+                    <button class="btn btn-sm" id="btnRepositoryCheck" type="button" title="Consultar se há uma versão nova no GitHub"><span class="material-icons-round">cloud_sync</span> Verificar GitHub</button>
+                    <button class="btn btn-sm btn-outline" id="btnRepositoryUpdate" type="button" title="Criar backup e baixar somente o código novo"><span class="material-icons-round">system_update_alt</span> Baixar atualização</button>
+                    <button class="btn btn-sm btn-outline" id="btnRepositoryPushFeedback" type="button" title="Enviar apenas o snapshot sanitizado de decisões editoriais"><span class="material-icons-round">cloud_upload</span> Enviar feedback ao GitHub</button>
+                    <span class="repository-sync-status" id="repositorySyncStatus" role="status" aria-live="polite">Lendo o estado local…</span>
                 </div>
             </div>
             <div class="transcript-archive-card" id="transcriptArchiveCard" aria-live="polite">
