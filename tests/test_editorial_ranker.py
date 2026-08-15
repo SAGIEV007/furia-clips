@@ -265,3 +265,23 @@ def test_context_quality_penalizes_abrupt_start_and_unresolved_question():
         })
         assert result["review_flags"]["starts_with_context_reference"] is True
         assert result["review_flags"]["payoff_weak_ending"] is True
+
+
+    def test_partial_transcription_caps_score_confidence_and_explains_gate(self):
+        base = {
+            "start": 0, "end": 24, "duration": 24,
+            "text": "A proposta concreta muda o debate e termina com uma resposta completa.",
+            "context_complete": True,
+            "payoff_complete": True,
+            "evidence_present": True,
+        }
+        complete = self.ranker.score_clip(base)
+        partial = self.ranker.score_clip({
+            **base,
+            "transcription_review_required": True,
+            "transcription_coverage_status": "partial",
+        })
+        assert partial["viral_score"] < complete["viral_score"]
+        assert partial["confidence"] <= 0.74
+        assert "cobertura parcial da transcrição" in partial["technical_gate"]["reasons"]
+        assert partial["review_flags"]["transcription_review_required"] is True

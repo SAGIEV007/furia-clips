@@ -262,6 +262,8 @@ class EditorialRanker:
             candidate_confidence=candidate_confidence,
         )
         confidence = self._confidence(text, factors, duration)
+        if clip.get("transcription_review_required"):
+            confidence = min(confidence, 0.74 if str(clip.get("transcription_coverage_status", "")).lower() == "partial" else 0.68)
         duration_preference = self._duration_preference(duration, factors)
         breakdown = {
             "hook": self._grade(factors["hook"]),
@@ -294,6 +296,10 @@ class EditorialRanker:
             "evidence_present": bool(clip.get("evidence_present")),
             "payoff_complete": bool(clip.get("payoff_complete")),
             "context_complete": bool(clip.get("context_complete")),
+            "starts_with_context_reference": bool(clip.get("starts_with_context_reference")),
+            "payoff_weak_ending": bool(clip.get("payoff_weak_ending")),
+            "transcription_review_required": bool(clip.get("transcription_review_required")),
+            "transcription_coverage_status": str(clip.get("transcription_coverage_status", "") or ""),
             "breakdown": breakdown,
             "factors": {key: round(value, 1) for key, value in factors.items()},
             "confidence": round(confidence, 2),
@@ -456,6 +462,8 @@ class EditorialRanker:
         starts_mid_sentence = bool(clip.get("starts_mid_sentence"))
         overlap_suspected = bool(clip.get("overlap_suspected"))
         timing_ambiguous = bool(clip.get("timing_ambiguous"))
+        transcription_review_required = bool(clip.get("transcription_review_required"))
+        transcription_coverage_status = str(clip.get("transcription_coverage_status", "") or "").strip().lower()
         political_signals = political_signals if isinstance(political_signals, dict) else {}
         sensitive_claim_hits = int(political_signals.get("sensitive_claim_hits", 0) or 0)
         explicit_context_contract = any(
@@ -471,6 +479,13 @@ class EditorialRanker:
         if timing_ambiguous:
             penalty += 10
             reasons.append("timestamps inferidos com baixa confiança")
+        if transcription_review_required:
+            coverage_penalty = 8 if transcription_coverage_status == "partial" else 10
+            penalty += coverage_penalty
+            reasons.append(
+                "cobertura parcial da transcrição" if transcription_coverage_status == "partial"
+                else "identidade temporal da transcrição não validada"
+            )
         if has_contract and question_detected and not qa_bridge:
             penalty += 10
             reasons.append("pergunta detectada sem ponte pergunta–resposta validada")
