@@ -1242,13 +1242,26 @@ Retorne APENAS o JSON.
             if overlap > 0:
                 best_hook = max(best_hook, min(8.0, float(hook.get("score", 0) or 0) * 0.08))
         qa_bonus = 0.0
+        qa_context_gap = 0.0
         for candidate in editorial_context.get("qa_candidates", []) or []:
             qa_start = float(candidate.get("start", 0) or 0)
             qa_end = float(candidate.get("end", qa_start) or qa_start)
-            if max(0.0, min(end, qa_end) - max(start, qa_start)) > 0:
-                qa_bonus = 3.0 if candidate.get("speaker_boundary") else 1.5
-                break
-        return round(min(10.0, best_hook + qa_bonus), 2)
+            overlap = max(0.0, min(end, qa_end) - max(start, qa_start))
+            if overlap <= 0:
+                continue
+            needs_question = bool(candidate.get("needs_question"))
+            preserves_question = start <= qa_start + 2.5
+            preserves_response = end >= qa_end - 2.5
+            if needs_question and not preserves_question:
+                # Do not reward a response-only window as a complete Q&A clip.
+                qa_context_gap = max(qa_context_gap, 2.5)
+                continue
+            if needs_question and not preserves_response:
+                qa_context_gap = max(qa_context_gap, 1.5)
+                continue
+            qa_bonus = 3.0 if candidate.get("speaker_boundary") else 1.5
+            break
+        return round(max(-4.0, min(10.0, best_hook + qa_bonus - qa_context_gap)), 2)
 
     def _duration_score(self, duration):
         duration = max(0.0, float(duration or 0.0))

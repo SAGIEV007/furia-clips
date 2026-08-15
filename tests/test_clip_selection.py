@@ -81,6 +81,18 @@ class ClipSelectionTests(unittest.TestCase):
         self.assertFalse(complete["payoff_weak_ending"])
         self.assertTrue(complete["context_complete"])
 
+    def test_dossier_qa_bonus_requires_question_and_response_window(self):
+        context = {"qa_candidates": [{"start": 20.0, "end": 58.0, "needs_question": True, "speaker_boundary": True}]}
+        response_only = self.selector._dossier_context_score(
+            {"start": 34.0, "end": 58.0}, context
+        )
+        complete_qa = self.selector._dossier_context_score(
+            {"start": 19.0, "end": 58.0}, context
+        )
+        self.assertLess(response_only, complete_qa)
+        self.assertEqual(response_only, -2.5)
+        self.assertEqual(complete_qa, 3.0)
+
     def test_auto_backend_uses_nlp_without_gemini_key(self):
         transcription = {
             "segments": [
