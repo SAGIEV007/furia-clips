@@ -72,6 +72,8 @@ class AppSmokeTests(unittest.TestCase):
         result = furia_app._attach_multimodal_visual_observations(
             clips,
             {
+                "source_identity_status": "validated",
+                "source_identity_confidence": 0.9,
                 "visual_observations": [
                     {
                         "start": "00:15",
@@ -203,3 +205,33 @@ if __name__ == "__main__":
                 content = handle.read()
             self.assertIn("GEMINI_API_KEY=test-only-secret", content)
             self.assertNotIn(os.path.join(furia_app.BASE_DIR, ".env"), env_path)
+
+
+def test_multimodal_visual_observation_rejects_mismatched_source():
+    clips = [{"start": 20, "end": 55, "text": "fala"}]
+    result = furia_app._attach_multimodal_visual_observations(
+        clips,
+        {
+            "source_identity_status": "mismatch",
+            "visual_observations": [{
+                "start": "00:15", "end": "00:45", "visual_format": "fake_tweet", "confidence": 0.99,
+            }],
+        },
+    )
+    assert "visual_format" not in result[0]
+
+
+def test_multimodal_visual_observation_is_capped_without_identity_validation():
+    clips = [{"start": 20, "end": 55, "text": "fala"}]
+    result = furia_app._attach_multimodal_visual_observations(
+        clips,
+        {
+            "source_identity_status": "unverified",
+            "source_identity_confidence": 0.2,
+            "visual_observations": [{
+                "start": "00:15", "end": "00:45", "visual_format": "entrevista", "confidence": 0.99,
+            }],
+        },
+    )
+    assert result[0]["visual_observation_confidence"] == 0.35
+    assert result[0]["visual_observation_review_required"] is True

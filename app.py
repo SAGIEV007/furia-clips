@@ -544,10 +544,15 @@ def _run_gemini_video_analysis(video_path, settings, editorial_context, user_con
         return None
     try:
         from modules.gemini_video import analyze_video_with_gemini
+        enriched_context = {
+            **(editorial_context if isinstance(editorial_context, dict) else {}),
+            "source_file_name": os.path.basename(video_path),
+            "multimodal_expected_focus": (editorial_context or {}).get("focus", "participante principal / contexto político") if isinstance(editorial_context, dict) else "participante principal / contexto político",
+        }
         result = analyze_video_with_gemini(
             video_path,
             api_key,
-            editorial_context=editorial_context,
+            editorial_context=enriched_context,
             user_context=user_context,
             emit_progress=emit_progress,
             cancel_check=cancel_check,
@@ -609,6 +614,14 @@ def _attach_multimodal_visual_observations(clips, multimodal):
     """Attach the strongest overlapping Gemini visual observation to each clip."""
     if not isinstance(multimodal, dict):
         return clips
+    identity_status = str(multimodal.get("source_identity_status", "unverified") or "unverified").lower()
+    if identity_status == "mismatch":
+        return clips
+    try:
+        identity_confidence = max(0.0, min(1.0, float(multimodal.get("source_identity_confidence", 0) or 0)))
+    except (TypeError, ValueError):
+        identity_confidence = 0.0
+    max_visual_confidence = 1.0 if identity_status == "validated" and identity_confidence >= 0.65 else 0.35
     observations = multimodal.get("visual_observations")
     if not isinstance(observations, list):
         return clips
@@ -630,7 +643,7 @@ def _attach_multimodal_visual_observations(clips, multimodal):
             if overlap <= 0:
                 continue
             try:
-                confidence = max(0.0, min(1.0, float(observation.get("confidence", 0) or 0)))
+                confidence = max(0.0, min(max_visual_confidence, float(observation.get("confidence", 0) or 0)))
             except (TypeError, ValueError):
                 confidence = 0.0
             ranked.append((overlap * max(confidence, 0.25), overlap, observation))
@@ -643,7 +656,10 @@ def _attach_multimodal_visual_observations(clips, multimodal):
         if observation.get("composition_note"):
             clip["visual_observation"] = str(observation["composition_note"])[:400]
         if observation.get("confidence") is not None:
-            clip["visual_observation_confidence"] = observation.get("confidence")
+            clip["visual_observation_confidence"] = min(max_visual_confidence, float(observation.get("confidence") or 0))
+        if identity_status != "validated":
+            clip["visual_observation_review_required"] = True
+            clip["visual_observation_review_reason"] = "identidade da fonte multimodal não validada"
     return clips
 
 

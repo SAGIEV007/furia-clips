@@ -73,6 +73,15 @@ class GeminiVideoAnalyzer:
             raise GeminiVideoError("Resposta multimodal fora do formato esperado")
         parsed["source"] = "gemini_video"
         parsed["model"] = self.model
+        identity = parsed.get("source_identity") if isinstance(parsed.get("source_identity"), dict) else {}
+        raw_status = str(identity.get("status") or "unverified").strip().lower()
+        status_aliases = {"validated": "validated", "confirmed": "validated", "match": "validated", "mismatch": "mismatch", "wrong_source": "mismatch", "uncertain": "unverified", "unknown": "unverified"}
+        parsed["source_identity_status"] = status_aliases.get(raw_status, "unverified")
+        try:
+            parsed["source_identity_confidence"] = max(0.0, min(1.0, float(identity.get("confidence", 0) or 0)))
+        except (TypeError, ValueError):
+            parsed["source_identity_confidence"] = 0.0
+        parsed["multimodal_evidence_policy"] = "auxiliary_until_identity_validated"
         return parsed
 
     def _generate_content(self, request_payload: dict, emit_progress=None, cancel_check=None):
@@ -181,6 +190,9 @@ class GeminiVideoAnalyzer:
         return f"""Você é um analista audiovisual e editor sênior de cortes políticos do Renan Santos/MBL.
 Analise o vídeo inteiro usando áudio e imagem, sem inventar fatos externos. O objetivo é preparar uma etapa posterior de corte, não escrever legendas.
 
+Identidade esperada da fonte e do foco editorial:
+{json.dumps({'source_file_name': editorial_context.get('source_file_name', ''), 'expected_focus': editorial_context.get('focus', 'participante principal / contexto político')}, ensure_ascii=False)}
+
 Contexto determinístico já extraído da transcrição:
 {json.dumps(editorial_context, ensure_ascii=False)[:12000]}
 
@@ -189,6 +201,7 @@ Instrução opcional do editor:
 
 Entregue apenas JSON neste formato:
 {{
+  "source_identity": {{"status": "validated|mismatch|unverified", "observed_title_or_program": "...", "primary_subject": "...", "evidence": "...", "confidence": 0.0}},
   "global_description": "descrição objetiva do programa, entrevista e assuntos",
   "transcript_segments": [{{"start": "MM:SS", "end": "MM:SS", "text": "fala literal ou fiel ao áudio", "speaker": "Renan|mediador|convidado|desconhecido", "is_question": false}}],
   "focus_windows": [{{"start": "MM:SS", "end": "MM:SS", "reason": "...", "confidence": 0.0}}],
@@ -200,7 +213,7 @@ Entregue apenas JSON neste formato:
   "analysis_confidence": 0.0
 }}
 
-Timestamps devem usar MM:SS. Gere segmentos suficientes para a seleção editorial, sem inventar falas. Não afirme reconhecimento perfeito de voz. Marque como desconhecido quando houver dúvida. Preserve a pergunta quando ela for necessária para entender a resposta.
+Timestamps devem usar MM:SS. Gere segmentos suficientes para a seleção editorial, sem inventar falas. Não afirme reconhecimento perfeito de voz. Marque como desconhecido quando houver dúvida. Preserve a pergunta quando ela for necessária para entender a resposta. Antes de usar qualquer observação visual como evidência, compare o programa e o sujeito observados com a identidade esperada; se não puder confirmar, use source_identity.status=unverified. Se identificar fonte incompatível, use mismatch e não trate o restante como evidência de treinamento.
 
 Para visual_observations, registre apenas sinais realmente visíveis no intervalo: painel de headline incorporado, post social/fake tweet, montagem/arte composta, split-screen, evidência externa ou palco. Não use o texto da transcrição como prova visual. Quando houver dúvida, use visual_format=desconhecido e confidence baixa. Composição com post, reação, entrevistado ou palco deve ser preservada; não recomende crop centrado em uma única face nesses casos."""
 
