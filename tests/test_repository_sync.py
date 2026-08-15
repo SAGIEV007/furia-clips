@@ -24,16 +24,18 @@ class _FakeConnection:
 class RepositorySyncTests(unittest.TestCase):
     def test_feedback_snapshot_is_sanitized_and_stable(self):
         rows = [
-            ("editorial-key", 12.3456, 42.9876, 30.642, 88, "v3", "approved", "contexto", '["hook", "completo"]', "2026-08-15 00:00:00"),
+            ("editorial-key", 12.3456, 42.9876, 30.642, 88, "v3", "approved", "contexto", '["hook", "completo"]', '{"_review_metadata": {"candidate_origin": "gemini_primary", "selection_source": "gemini", "confidence": 0.91}, "text": "não exportar"}', "2026-08-15 00:00:00"),
         ]
         with patch("modules.repository_sync.get_db", return_value=_FakeConnection(rows)):
             payload = build_feedback_snapshot()
         self.assertEqual(payload["format"], "furia-clips-editorial-feedback")
+        self.assertEqual(payload["format_version"], 2)
         self.assertEqual(payload["record_count"], 1)
         record = payload["records"][0]
         self.assertEqual(record["editorial_key"], "editorial-key")
         self.assertEqual(record["action"], "approved")
         self.assertEqual(record["quality_tags"], ["hook", "completo"])
+        self.assertEqual(record["review_metadata"], {"candidate_origin": "gemini_primary", "selection_source": "gemini", "confidence": 0.91})
         self.assertNotIn("transcript", record)
         self.assertNotIn("source_video", record)
         self.assertNotIn("api_key", json.dumps(payload))
