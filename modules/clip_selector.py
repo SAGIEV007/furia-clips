@@ -43,7 +43,7 @@ EVIDENCE_TERMS_PT = {
 }
 WEAK_PAYOFF_ENDINGS_PT = {
     "porque", "mas", "porém", "porem", "se", "quando", "que", "como", "embora",
-    "então", "entao", "portanto", "logo", "ou seja",
+    "então", "entao", "portanto", "logo", "ou seja", "por isso", "dessa forma", "com isso",
 }
 
 

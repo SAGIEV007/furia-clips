@@ -142,3 +142,10 @@ if __name__ == "__main__":
         )
         self.assertTrue(flags["starts_with_context_reference"])
         self.assertFalse(flags["context_complete"])
+
+    def test_payoff_gate_rejects_connective_ending_without_conclusion(self):
+        weak = self.selector._editorial_flags(
+            "A proposta resolveria o problema e protegeria o cidadão, por isso."
+        )
+        self.assertTrue(weak["payoff_weak_ending"])
+        self.assertFalse(weak["payoff_complete"])
