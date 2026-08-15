@@ -146,6 +146,8 @@ class EditorialRanker:
             "clarity": self._clarity(text),
             "completeness": self._completeness(text, closure_type),
             "context_quality": self._context_quality(clip, text, closure_type),
+            "speaker_boundary": self._speaker_boundary_score(clip),
+            "qa_boundary": self._qa_boundary_score(clip),
             "editorial_family_fit": 50.0,
             "instagram_pattern_prior": instagram_pattern_prior["signal"],
             "chapter_coherence": self._chapter_coherence(clip),
@@ -212,6 +214,12 @@ class EditorialRanker:
         if campaign_hub_prior["available"]:
             # Post-publication evidence is intentionally bounded to +/- 2 points.
             score += int(round((campaign_hub_prior["observed_signal"] - 50.0) * 0.12))
+        # Speaker and Q&A boundaries are tie-breakers, never substitutes for
+        # context, payoff or technical gates. Combined impact is <= 4 points.
+        score += int(round(
+            (factors["speaker_boundary"] - 50.0) * 0.04
+            + (factors["qa_boundary"] - 50.0) * 0.04
+        ))
         context_contract = any(
             key in clip
             for key in (
@@ -255,6 +263,8 @@ class EditorialRanker:
             "flow": self._grade(factors["flow"]),
             "value": self._grade(factors["value"]),
             "energy": self._grade(factors["audio_energy"]),
+            "speaker_boundary": self._grade(factors["speaker_boundary"]),
+            "qa_boundary": self._grade(factors["qa_boundary"]),
         }
         reason = self._reason(factors, user_context)
         topic_signature = self._topic_signature(text, political_signals)
@@ -297,6 +307,8 @@ class EditorialRanker:
             "chapter_coherence_score": clip.get("chapter_coherence_score"),
             "qa_bridge": bool(clip.get("qa_bridge")),
             "speaker_turn_valid": clip.get("speaker_turn_valid"),
+            "speaker_boundary_score": factors["speaker_boundary"],
+            "qa_boundary_score": factors["qa_boundary"],
             "campaign_hub_prior": campaign_hub_prior,
             "instagram_pattern_prior": instagram_pattern_prior,
             "feedback_calibration": feedback_calibration,
@@ -329,6 +341,9 @@ class EditorialRanker:
                 "overlap_suspected": bool(clip.get("overlap_suspected")),
                 "timing_ambiguous": bool(clip.get("timing_ambiguous")),
                 "speaker_turn_valid": clip.get("speaker_turn_valid"),
+                "speaker_review_required": bool(clip.get("needs_speaker_review")) or clip.get("speaker_turn_valid") is None,
+                "speaker_boundary_score": factors["speaker_boundary"],
+                "qa_boundary_score": factors["qa_boundary"],
                 "technical_gate_status": technical_gate["status"],
                 "technical_gate_reasons": list(technical_gate["reasons"]),
                 "campaign_hub_prior_available": bool(campaign_hub_prior["available"]),
@@ -345,6 +360,26 @@ class EditorialRanker:
                 "feedback_duration_gap_seconds": feedback_calibration["duration_signal"]["gap_seconds"],
             },
         }
+
+    def _speaker_boundary_score(self, clip: dict) -> float:
+        if clip.get("speaker_turn_valid") is False:
+            return 25.0
+        confidence = clip.get("speaker_confidence")
+        if isinstance(confidence, (int, float)):
+            normalized = max(0.0, min(1.0, float(confidence)))
+            return round(45.0 + normalized * 45.0, 1)
+        if clip.get("speaker_change_detected") or clip.get("speaker_boundary"):
+            return 82.0
+        return 50.0
+
+    def _qa_boundary_score(self, clip: dict) -> float:
+        if clip.get("qa_bridge"):
+            return 90.0
+        if clip.get("question_answer_complete"):
+            return 78.0
+        if clip.get("question_detected"):
+            return 42.0 if clip.get("needs_speaker_review") else 58.0
+        return 55.0
 
     def _technical_gate(self, clip: dict, factors: dict, political_signals: Optional[dict] = None) -> dict:
         """Apply bounded, explainable penalties for technical uncertainty."""
@@ -761,6 +796,8 @@ class EditorialRanker:
             "campaign_hub_prior": "observação histórica de hook no Campaign Hub",
             "duration_fit": "brevidade preferencial sem cortar contexto",
             "context_quality": "contexto autossuficiente e payoff",
+            "speaker_boundary": "fronteira de locutor",
+            "qa_boundary": "ponte pergunta–resposta",
         }
         ordered = sorted(factors.items(), key=lambda pair: pair[1], reverse=True)
         top = [labels[key] for key, value in ordered[:3] if value >= 60]
