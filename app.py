@@ -1671,7 +1671,7 @@ def api_cut_shorts():
             framing_by_index = {}
             layout_plans = {}
             target_aspect = get_preset(settings.get("render_preset", "shorts"))["aspect"]
-            if tracker and video_layout not in {"debate", "unknown", "fullscreen"}:
+            if use_face_tracking and tracker and video_layout not in {"debate", "unknown", "fullscreen"}:
                 try:
                     emit_progress("[Layout] Detectando o locutor para enquadramento automático...", "info")
                     all_face_positions = tracker.detect_faces_in_video(video_path, sample_interval=2.0, emit_progress=emit_progress)
@@ -2359,7 +2359,7 @@ def api_process_complete():
                 emit_progress(f"Face tracking indisponível: {str(exc)}", "warning")
 
             target_aspect = get_preset(settings.get("render_preset", "shorts"))["aspect"]
-            if tracker and video_layout not in {"debate", "unknown", "fullscreen"}:
+            if use_face_tracking and tracker and video_layout not in {"debate", "unknown", "fullscreen"}:
                 try:
                     emit_progress("[Layout] Avaliando estabilidade do locutor para reframe...", "info")
                     ctx.check_cancel()
