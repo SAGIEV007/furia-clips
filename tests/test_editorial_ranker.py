@@ -237,3 +237,20 @@ def test_context_quality_penalizes_abrupt_start_and_unresolved_question():
             "tema editorial semelhante",
             "intervalo temporal sobreposto",
         }
+
+
+    def test_context_quality_penalizes_unresolved_reference_opening(self):
+        complete = self.ranker.score_clip({
+            "start": 0, "end": 25, "duration": 25,
+            "text": "A operação expôs dados sigilosos da família e precisa ser responsabilizada.",
+            "context_complete": True,
+            "payoff_complete": True,
+        })
+        unresolved = self.ranker.score_clip({
+            "start": 0, "end": 25, "duration": 25,
+            "text": "Isso expôs dados sigilosos da família e precisa ser responsabilizado.",
+            "starts_with_context_reference": True,
+            "context_complete": False,
+            "payoff_complete": True,
+        })
+        assert complete["factors"]["context_quality"] > unresolved["factors"]["context_quality"]

@@ -800,6 +800,8 @@ class EditorialRanker:
             score += 18.0
         if flags.get("starts_mid_sentence"):
             score -= 28.0
+        if flags.get("starts_with_context_reference"):
+            score -= 22.0
         if flags.get("question_answer_complete") or flags.get("qa_bridge"):
             score += 14.0
         elif flags.get("question_detected"):
