@@ -49,6 +49,31 @@ def get_db():
     return conn
 
 
+def _source_signature(source_video):
+    """Return a lightweight content signature for local media when available.
+
+    It samples the beginning and end of the file instead of hashing a multi-hour
+    video in full. Empty signatures remain supported for legacy projects and
+    non-local sources.
+    """
+    path = str(source_video or "").strip()
+    if not path or not os.path.isfile(path):
+        return ""
+    try:
+        stat = os.stat(path)
+        sample_size = 1024 * 1024
+        digest = hashlib.sha256()
+        digest.update(str(stat.st_size).encode("ascii"))
+        with open(path, "rb") as handle:
+            digest.update(handle.read(sample_size))
+            if stat.st_size > sample_size:
+                handle.seek(max(0, stat.st_size - sample_size))
+                digest.update(handle.read(sample_size))
+        return digest.hexdigest()[:32]
+    except (OSError, ValueError):
+        return ""
+
+
 def _editorial_clip_key(source_video, start_time, end_time, transcript):
     """Return a stable identity independent of the rendered output filename."""
     canonical = "|".join([
@@ -74,6 +99,7 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
             source_video TEXT NOT NULL,
+            source_signature TEXT DEFAULT '',
             status TEXT DEFAULT 'pending',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -181,6 +207,16 @@ def init_db():
     existing_columns = {
         row["name"] for row in cursor.execute("PRAGMA table_info(clips)").fetchall()
     }
+    project_columns = {
+        row["name"] for row in cursor.execute("PRAGMA table_info(projects)").fetchall()
+    }
+    project_migrations = {
+        "source_signature": "ALTER TABLE projects ADD COLUMN source_signature TEXT DEFAULT ''",
+    }
+    for column, statement in project_migrations.items():
+        if column not in project_columns:
+            cursor.execute(statement)
+
     migrations = {
         "score_factors": "ALTER TABLE clips ADD COLUMN score_factors TEXT",
         "score_confidence": "ALTER TABLE clips ADD COLUMN score_confidence REAL DEFAULT 0",
@@ -210,6 +246,13 @@ def init_db():
     for column, statement in migrations.items():
         if column not in existing_columns:
             cursor.execute(statement)
+    legacy_sources = cursor.execute(
+        "SELECT id, source_video FROM projects WHERE source_signature IS NULL OR source_signature = ''"
+    ).fetchall()
+    for source_row in legacy_sources:
+        signature = _source_signature(source_row["source_video"])
+        if signature:
+            cursor.execute("UPDATE projects SET source_signature = ? WHERE id = ?", (signature, source_row["id"]))
     for column, statement in headline_migrations.items():
         if column not in headline_columns:
             cursor.execute(statement)
@@ -502,11 +545,12 @@ def get_all_settings():
     return settings
 
 
-def create_project(name, source_video):
+def create_project(name, source_video, source_signature=None):
     conn = get_db()
+    signature = _source_signature(source_video) if source_signature is None else str(source_signature or "")[:64]
     cursor = conn.execute(
-        "INSERT INTO projects (name, source_video, status) VALUES (?, ?, 'pending')",
-        (name, source_video)
+        "INSERT INTO projects (name, source_video, source_signature, status) VALUES (?, ?, ?, 'pending')",
+        (name, source_video, signature)
     )
     project_id = cursor.lastrowid
     conn.commit()
@@ -559,13 +603,15 @@ def get_existing_clip_fingerprints(source_video=""):
     conn = get_db()
     rows = conn.execute(
         """SELECT clips.start_time, clips.end_time, clips.duration,
-                         clips.transcript, clips.review_status, clips.editorial_key
+                         clips.transcript, clips.review_status, clips.editorial_key,
+                         projects.source_signature
            FROM clips
            JOIN projects ON projects.id = clips.project_id
           WHERE lower(replace(projects.source_video, char(92), '/')) LIKE ?""",
         (f"%/{source_basename}",),
     ).fetchall()
     conn.close()
+    current_signature = _source_signature(source_video)
     fingerprints = []
     for row in rows:
         try:
@@ -575,6 +621,9 @@ def get_existing_clip_fingerprints(source_video=""):
             continue
         if end <= start:
             continue
+        stored_signature = str(row[6] or "")
+        if current_signature and stored_signature and stored_signature != current_signature:
+            continue
         fingerprints.append({
             "start": round(start, 3),
             "end": round(end, 3),
@@ -582,6 +631,7 @@ def get_existing_clip_fingerprints(source_video=""):
             "text": " ".join(str(row[3] or "").split()),
             "review_status": str(row[4] or "pending"),
             "editorial_key": str(row[5] or "")[:64],
+            "source_signature": stored_signature,
         })
     return fingerprints
 
