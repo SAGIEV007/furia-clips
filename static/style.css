@@ -2008,6 +2008,33 @@ body {
     color: #000;
 }
 
+.candidate-origin-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    max-width: 190px;
+    padding: 3px 7px;
+    border: 1px solid rgba(255, 255, 255, .16);
+    border-radius: 999px;
+    color: var(--text-secondary);
+    background: rgba(255, 255, 255, .06);
+    font-size: 9px;
+    font-weight: 700;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    vertical-align: middle;
+}
+.candidate-origin-badge .material-icons-round { font-size: 12px; }
+.candidate-origin-badge.candidate-origin-fallback {
+    border-color: rgba(105, 184, 214, .45);
+    color: #c9e9f3;
+    background: rgba(105, 184, 214, .12);
+}
+.candidate-origin-badge.candidate-origin-fallback .material-icons-round { color: var(--info); }
+.candidate-origin-badge.candidate-origin-primary .material-icons-round { color: var(--success); }
+
 /* Source intake: upload, manual transcript and public URL */
 .source-tabs {
     display: flex;

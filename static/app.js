@@ -1809,6 +1809,10 @@ function renderResultsGrid() {
         const sourceLabels = { "gemini": "Gemini", "llm": "Ollama", "nlp": "NLP" };
         const sourceLabel = sourceLabels[clipSource] || "NLP";
         const sourceClass = clipSource === "gemini" ? "source-gemini" : (clipSource === "llm" ? "source-llm" : "source-nlp");
+        const candidateOrigin = String(clip.candidate_origin || "local_primary");
+        const candidateOriginLabel = String(clip.candidate_origin_label || "Origem local registrada");
+        const candidateOriginNote = String(clip.candidate_origin_note || "Origem registrada para transparência da revisão.");
+        const originClass = candidateOrigin === "local_fallback" ? "candidate-origin-fallback" : "candidate-origin-primary";
         const transcriptId = `transcript-${originalIndex}`;
         const layoutMeta = layoutMetaForClip(clip);
         const editorialBlock = clip.editorial_block || {};
@@ -1851,6 +1855,7 @@ function renderResultsGrid() {
                 </div>
                 ${clip.has_hook ? '<span class="hook-badge"><span class="material-icons-round" style="font-size:12px">flash_on</span> Gancho</span>' : ''}
                 <span class="clip-source-badge ${sourceClass}">${sourceLabel}</span>
+                <span class="candidate-origin-badge ${originClass}" title="${escapeHtml(candidateOriginNote)}"><span class="material-icons-round">${candidateOrigin === "local_fallback" ? "alt_route" : "verified"}</span>${escapeHtml(candidateOriginLabel)}</span>
                 ${politicalType ? `<span class="clip-source-badge source-editorial">${escapeHtml(politicalType)}</span>` : ''}
                 <span class="review-state-chip ${reviewMeta.label === "APROVADO" ? "approved" : reviewMeta.label === "REJEITADO" ? "rejected" : reviewStatus}" title="${escapeHtml(reviewMeta.hint)}" aria-label="${escapeHtml(reviewMeta.hint)}"><span class="material-icons-round">${escapeHtml(reviewMeta.icon)}</span>${escapeHtml(reviewMeta.label)}</span>
                 ${clip.review_updated_at ? `<span class="clip-review-timestamp" title="Decisão registrada localmente">${new Date(clip.review_updated_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span>` : ''}
