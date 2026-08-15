@@ -21,7 +21,7 @@ from database import get_db
 
 
 SYNC_FORMAT = "furia-clips-editorial-feedback"
-SYNC_FORMAT_VERSION = 1
+SYNC_FORMAT_VERSION = 2
 DEFAULT_BRANCH = "manus/rebuild-opus-parity"
 SNAPSHOT_RELATIVE_PATH = Path("data") / "editorial_feedback_snapshot.json"
 
@@ -78,6 +78,32 @@ def _quality_tags(value: Any) -> list[str]:
     return [str(item).strip()[:48] for item in value if str(item).strip()][:12]
 
 
+def _review_metadata(value: Any) -> dict[str, Any]:
+    """Allowlist non-sensitive provenance fields from a feedback adjustment."""
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except json.JSONDecodeError:
+            value = {}
+    if not isinstance(value, dict):
+        return {}
+    metadata = value.get("_review_metadata") if isinstance(value.get("_review_metadata"), dict) else value
+    result: dict[str, Any] = {}
+    origin = str(metadata.get("candidate_origin") or "").strip()[:40]
+    if origin in {"gemini_primary", "ollama_primary", "local_primary", "local_fallback"}:
+        result["candidate_origin"] = origin
+    source = str(metadata.get("selection_source") or "").strip()[:24]
+    if source in {"gemini", "llm", "nlp", "local"}:
+        result["selection_source"] = source
+    try:
+        confidence = float(metadata.get("confidence"))
+    except (TypeError, ValueError):
+        confidence = None
+    if confidence is not None and 0 <= confidence <= 1:
+        result["confidence"] = round(confidence, 4)
+    return result
+
+
 def build_feedback_snapshot() -> dict[str, Any]:
     """Build a portable, non-sensitive projection of final editorial decisions."""
     connection = get_db()
@@ -85,7 +111,7 @@ def build_feedback_snapshot() -> dict[str, Any]:
         rows = connection.execute(
             """SELECT c.editorial_key, c.start_time, c.end_time, c.duration,
                       c.viral_score, c.editorial_score_version,
-                      f.action, f.reason_code, f.quality_tags, f.created_at
+                      f.action, f.reason_code, f.quality_tags, f.adjustments, f.created_at
                  FROM clip_feedback AS f
                  JOIN clips AS c ON c.id = f.clip_id
                 WHERE COALESCE(c.editorial_key, '') <> ''
@@ -107,7 +133,8 @@ def build_feedback_snapshot() -> dict[str, Any]:
                 "action": str(row[6] or "")[:24],
                 "reason_code": str(row[7] or "")[:48],
                 "quality_tags": _quality_tags(row[8]),
-                "created_at": str(row[9] or "")[:40],
+                "review_metadata": _review_metadata(row[9]),
+                "created_at": str(row[10] or "")[:40],
             }
         )
     return {
