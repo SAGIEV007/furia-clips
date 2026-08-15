@@ -84,6 +84,46 @@ if __name__ == "__main__":
         self.assertNotEqual(approved, pending)
 
 
+    def test_restore_feedback_snapshot_by_editorial_key_is_idempotent(self):
+        project_id = database.create_project("Restauração", "uploads/restauracao.mp4")
+        clip_id = database.save_clip(
+            project_id, "exports/restauracao.mp4", 5, 25, 20, 70, True, 0, "Contexto completo."
+        )
+        clip = database.get_clip(clip_id)
+        record = {
+            "editorial_key": clip["editorial_key"],
+            "action": "approved",
+            "reason_code": "contexto_completo",
+            "quality_tags": ["hook", "completo"],
+            "created_at": "2026-08-15T00:00:00+00:00",
+        }
+
+        first = database.restore_feedback_snapshot([record])
+        second = database.restore_feedback_snapshot([record])
+
+        self.assertEqual(first["imported"], 1)
+        self.assertEqual(second["already_current"], 1)
+        self.assertEqual(database.get_clip(clip_id)["review_status"], "approved")
+        self.assertEqual(database.get_clip_feedback(clip_id)[0]["reason_code"], "contexto_completo")
+
+    def test_restore_feedback_snapshot_does_not_overwrite_newer_local_decision(self):
+        project_id = database.create_project("Restauração recente", "uploads/recente.mp4")
+        clip_id = database.save_clip(project_id, "exports/recente.mp4", 0, 12, 12, 60, False, 0, "Decisão local.")
+        clip = database.get_clip(clip_id)
+        database.save_clip_feedback(clip_id, "rejected", reason_code="sem_contexto")
+        old_record = {
+            "editorial_key": clip["editorial_key"],
+            "action": "approved",
+            "reason_code": "contexto_completo",
+            "quality_tags": [],
+            "created_at": "2000-01-01T00:00:00+00:00",
+        }
+
+        result = database.restore_feedback_snapshot([old_record])
+
+        self.assertEqual(result["skipped_older"], 1)
+        self.assertEqual(database.get_clip(clip_id)["review_status"], "rejected")
+
     def test_project_library_exposes_clip_and_review_totals(self):
         project_id = database.create_project("Biblioteca", "uploads/biblioteca.mp4")
         approved = database.save_clip(project_id, "exports/a.mp4", 0, 15, 15, 70, True, 0, "A")
