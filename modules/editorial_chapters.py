@@ -98,13 +98,16 @@ def build_editorial_chapters(
 def annotate_clip_with_chapters(clip: dict, editorial_context: dict | None) -> dict:
     """Attach chapter evidence to a clip without changing its timestamps."""
     result = dict(clip or {})
-    chapters = (editorial_context or {}).get("editorial_chapters", [])
+    context = editorial_context or {}
+    chapters = context.get("editorial_chapters", [])
+    hook_candidates = context.get("hook_candidates", [])
     if not chapters:
         result.setdefault("editorial_chapter_available", False)
         result.setdefault("chapter_coherence_score", None)
         result.setdefault("editorial_chapter_ids", [])
         result.setdefault("chapter_count", 0)
         result.setdefault("qa_bridge", False)
+        _attach_nearest_hook(result, hook_candidates)
         return result
 
     start = float(result.get("start", 0) or 0)
@@ -156,7 +159,45 @@ def annotate_clip_with_chapters(clip: dict, editorial_context: dict | None) -> d
         "qa_bridge": qa_bridge,
         "chapter_topics": [chapter.get("label", "") for chapter, _ in overlaps],
     })
+    _attach_nearest_hook(result, hook_candidates)
     return result
+
+
+def _attach_nearest_hook(clip: dict, hook_candidates: list[dict] | None) -> None:
+    """Attach only the closest hook evidence; never change clip timestamps."""
+    if not isinstance(hook_candidates, list) or not hook_candidates:
+        clip.setdefault("contextual_hook", None)
+        clip.setdefault("hook_review_required", False)
+        return
+    start = float(clip.get("start", 0) or 0)
+    end = float(clip.get("end", start) or start)
+    ranked = []
+    for candidate in hook_candidates:
+        try:
+            hook_start = float(candidate.get("start", 0) or 0)
+            hook_end = float(candidate.get("end", hook_start) or hook_start)
+        except (TypeError, ValueError):
+            continue
+        overlap = _interval_overlap(start, end, hook_start, hook_end)
+        distance = 0.0 if overlap > 0 else min(abs(start - hook_end), abs(hook_start - end))
+        ranked.append((0 if overlap > 0 else 1, distance, -float(candidate.get("score", 0) or 0), candidate))
+    if not ranked:
+        clip.setdefault("contextual_hook", None)
+        clip.setdefault("hook_review_required", False)
+        return
+    _, distance, _, candidate = sorted(ranked, key=lambda item: item[:3])[0]
+    clip["contextual_hook"] = {
+        "family": candidate.get("family", "outro"),
+        "hook_text": candidate.get("hook_text", ""),
+        "score": candidate.get("score", 0),
+        "start": candidate.get("start", 0),
+        "end": candidate.get("end", 0),
+        "payoff_confirmed": bool(candidate.get("payoff_confirmed")),
+        "audio_signal": candidate.get("audio_signal") or {"available": False},
+        "campaign_hub_prior": candidate.get("campaign_hub_prior"),
+    }
+    clip["hook_distance_seconds"] = round(float(distance), 3)
+    clip["hook_review_required"] = bool(candidate.get("needs_visual_review") or candidate.get("needs_speaker_review"))
 
 
 def _normalize_segments(segments: list[dict]) -> list[dict]:
