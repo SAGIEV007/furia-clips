@@ -2745,13 +2745,20 @@ async function savePerformanceMetrics() {
     }
 }
 
+const performanceToggle = document.getElementById("btnTogglePerformanceMetrics");
+const performanceBody = document.getElementById("performanceMetricsBody");
+performanceToggle?.addEventListener("click", async () => {
+    const willOpen = Boolean(performanceBody?.hidden);
+    if (performanceBody) performanceBody.hidden = !willOpen;
+    performanceToggle.setAttribute("aria-expanded", String(willOpen));
+    performanceToggle.innerHTML = `<span class="material-icons-round">${willOpen ? "expand_less" : "expand_more"}</span> ${willOpen ? "Fechar histórico" : "Abrir histórico"}`;
+    if (willOpen) await loadPerformanceMetrics();
+});
 document.getElementById("btnSavePerformanceMetrics")?.addEventListener("click", savePerformanceMetrics);
 document.getElementById("btnRefreshPerformanceMetrics")?.addEventListener("click", loadPerformanceMetrics);
 ["performanceMetricPlatform", "performanceMetricFormat", "performanceMetricWindow", "performanceMetricRegion"].forEach((id) => {
     document.getElementById(id)?.addEventListener("change", loadPerformanceMetrics);
 });
-loadPerformanceMetrics();
-
 document.getElementById("btnImportArtworkTranscript")?.addEventListener("click", () => {
     document.getElementById("artworkTranscriptFileInput")?.click();
 });
