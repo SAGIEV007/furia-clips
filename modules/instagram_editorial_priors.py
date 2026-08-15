@@ -26,6 +26,20 @@ def _safe_float(value: Any, default: float = 0.0) -> float:
         return default
 
 
+def _observed_view_count(record: dict) -> float | None:
+    """Return a real view count, never a fallback derived from other counters."""
+    raw = record.get("views")
+    if raw is None or raw == "":
+        return None
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(value) or value < 0:
+        return None
+    return value
+
+
 def _load_json(path: Path) -> dict | None:
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
@@ -61,7 +75,7 @@ def _aggregate_records(records: list[dict]) -> dict:
     family_priors = []
     layout_counts: dict[str, int] = {}
     for family, items in groups.items():
-        views = [max(0.0, _safe_float(item.get("views"))) for item in items]
+        views = [view for item in items if (view := _observed_view_count(item)) is not None]
         confidences = [max(0.0, min(1.0, _safe_float(item.get("confidence"), 0.5))) for item in items]
         preserve_count = sum(1 for item in items if str(item.get("layout_policy", "")).startswith("preserve"))
         for item in items:
@@ -72,6 +86,7 @@ def _aggregate_records(records: list[dict]) -> dict:
             "observations": len(items),
             "mean_views": round(mean(views), 1) if views else 0,
             "median_views": round(median(views), 1) if views else 0,
+            "view_observation_count": len(views),
             "preserve_composition_rate": round(preserve_count / len(items), 3),
             "mean_annotation_confidence": round(mean(confidences), 3) if confidences else 0,
         })
