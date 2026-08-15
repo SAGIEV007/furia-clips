@@ -494,6 +494,7 @@ function renderEditorialLearning(calibration = {}) {
     const title = document.getElementById("editorialLearningTitle");
     const text = document.getElementById("editorialLearningText");
     const badge = document.getElementById("editorialLearningBadge");
+    const coverageTarget = document.getElementById("editorialLearningCoverage");
     if (!panel || !title || !text || !badge) return;
     const sample = Number(calibration.sample_size || 0);
     const minimum = Number(calibration.minimum_sample_size || 12);
@@ -502,6 +503,23 @@ function renderEditorialLearning(calibration = {}) {
     const durationSignal = calibration.duration_signal || {};
     const durationGap = Number(durationSignal.gap_seconds || 0);
     const topRejection = Array.isArray(calibration.top_rejection_reasons) ? calibration.top_rejection_reasons[0] : null;
+    const coverageCategories = calibration.reason_coverage?.categories || {};
+    const coverageLabels = {
+        hook: "Hook",
+        context_payoff: "Contexto/payoff",
+        speaker_audio: "Locutor/áudio",
+        duration: "Duração",
+        framing: "Enquadramento",
+    };
+    if (coverageTarget) {
+        const coverageEntries = Object.entries(coverageLabels).map(([key, label]) => {
+            const item = coverageCategories[key] || {};
+            const total = Number(item.total || 0);
+            const usable = Boolean(item.usable);
+            return `<span class="editorial-learning-coverage-chip ${usable ? "usable" : "insufficient"}" title="${usable ? "Amostra suficiente para este sinal" : "Ainda sem amostra suficiente para calibrar"}"><b>${escapeHtml(label)}</b> ${total} ${usable ? "utilizável" : "insuficiente"}</span>`;
+        });
+        coverageTarget.innerHTML = `<span class="editorial-learning-coverage-label">Cobertura dos motivos:</span>${coverageEntries.join("")}`;
+    }
     panel.classList.toggle("is-active", Boolean(calibration.eligible));
     if (calibration.eligible) {
         title.textContent = "Calibração editorial ativa";
