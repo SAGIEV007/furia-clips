@@ -2179,8 +2179,11 @@ async function previewClipBoundary(index) {
         };
         renderReviewCommandCenter();
         renderResultsGrid();
-        if (feedback) feedback.textContent = `Prévia aplicada: ${formatTime(data.clip.start)}–${formatTime(data.clip.end)}. Revise o vídeo e salve somente se estiver limpo.`;
-        showToast("Prévia limpa aplicada; confira o começo e o fim do corte.", "success");
+        const removedBefore = Math.max(0, Number(data.clip.start || 0) - Number(originalBounds.start || 0));
+        const removedAfter = Math.max(0, Number(originalBounds.end || 0) - Number(data.clip.end || 0));
+        const removalSummary = `Removeu ${removedBefore.toFixed(1)}s antes e ${removedAfter.toFixed(1)}s depois`;
+        if (feedback) feedback.textContent = `Prévia aplicada: ${formatTime(data.clip.start)}–${formatTime(data.clip.end)}. ${removalSummary}. Nada foi salvo ainda; revise o vídeo e clique em “Salvar ajuste” somente se estiver limpo.`;
+        showToast(`Prévia limpa aplicada. ${removalSummary}.`, "success");
     } catch (error) {
         if (feedback) feedback.textContent = error.message;
         showToast(error.message, "error");
