@@ -170,9 +170,9 @@
 
                 <div class="setting-group ai-config" id="geminiConfig" style="display:none">
                     <label>Gemini API Key <span class="setting-hint">(opcional)</span></label>
-                    <input type="password" id="settingGeminiKey" class="setting-input" placeholder="Cole a chave apenas nesta instalação; ela não será exibida nem publicada">
-                    <div class="ai-key-status" id="geminiKeyStatus" aria-live="polite">Verificando se existe uma chave nesta instalação...</div>
-                    <small class="setting-hint">A chave é necessária para análise online. Sem ela, o app tenta legendas públicas e depois Whisper CPU. Ela deve ficar somente no `.env` ou banco local, nunca no GitHub. Disponível no <a href="https://aistudio.google.com/apikeys" target="_blank">Google AI Studio</a>.</small>
+                    <input type="password" id="settingGeminiKey" class="setting-input" placeholder="Cole a chave; ela será salva fora do checkout">
+                    <div class="ai-key-status" id="geminiKeyStatus" aria-live="polite">Verificando se existe uma chave persistente...</div>
+                    <small class="setting-hint">A chave é salva em `FuriaClipsData/config/local.env`, fora do GitHub. Para dois notebooks, use a mesma pasta de dados sincronizada ou copie esse arquivo uma vez para o segundo computador. Disponível no <a href="https://aistudio.google.com/apikeys" target="_blank">Google AI Studio</a>.</small>
                     <label for="settingGeminiModel">Modelo Gemini <span class="setting-hint">(avançado)</span></label>
                     <input type="text" id="settingGeminiModel" class="setting-input" value="gemini-2.5-flash" placeholder="gemini-2.5-flash" autocomplete="off">
                     <small class="setting-hint">Usado tanto na análise multimodal quanto no ranking dos cortes. Mantenha o padrão salvo, salvo se sua conta tiver outro modelo compatível.</small>
@@ -299,11 +299,14 @@
                 <div class="source-status" id="transcriptStatus">Nenhuma transcrição manual carregada.</div>
             </div>
                         <div class="source-panel" id="sourcePanelLink" style="display:none">
-                 <p class="source-help">Use uma URL pública, preferencialmente do YouTube. O programa escolhe a melhor combinação de vídeo e áudio até 1080p, abre uma janela para você definir a pasta final e gera a transcrição timestampada automaticamente.</p>
+                 <p class="source-help">Use uma URL pública, preferencialmente do YouTube. O programa baixa vídeo e áudio até 1080p e usa a transcrição manual já confirmada quando ela estiver disponível.</p>
                  <div class="source-link-row">
                      <input type="url" id="sourceUrlInput" class="setting-input" placeholder="https://www.youtube.com/watch?v=...">
                      <button class="btn btn-sm btn-outline" id="btnProbeSource" type="button"><span class="material-icons-round">search</span> Verificar</button>
-                     <button class="btn btn-sm btn-primary" id="btnImportSource" type="button"><span class="material-icons-round">cloud_download</span> Importar e transcrever</button>
+                 </div>
+                 <div class="source-link-actions">
+                     <button class="btn btn-sm btn-outline" id="btnDownloadSource" type="button"><span class="material-icons-round">download</span> Baixar somente</button>
+                     <button class="btn btn-sm btn-primary" id="btnDownloadTranscribeSource" type="button"><span class="material-icons-round">cloud_download</span> Baixar e transcrever</button>
                  </div>
                  <div class="source-download-options">
                      <div class="source-destination-row">
@@ -312,7 +315,7 @@
                          <button class="btn btn-sm btn-outline" id="btnChooseSourceDir" type="button"><span class="material-icons-round">folder_open</span> Escolher pasta</button>
                      </div>
                      <div class="source-option-row">
-                         <label class="source-checkbox"><input type="checkbox" id="sourceAutoTranscribe" checked> Gerar transcrição automaticamente</label>
+                         <span class="source-help-inline">“Baixar e transcrever” respeita a transcrição manual confirmada e só usa Gemini/legenda/Whisper quando ela não existir.</span>
                          <label class="source-quality-label" for="sourceMaxHeight">Qualidade máxima
                              <select id="sourceMaxHeight" class="setting-select">
                                  <option value="1080" selected>1080p</option>
@@ -416,7 +419,7 @@
             <div class="section-header">
                 <div>
                     <h3><span class="material-icons-round">monitoring</span> Métricas observadas</h3>
-                    <p class="section-hint">Alcance real depois da publicação — não substitui o score editorial pré-publicação</p>
+                    <p class="section-hint">Registra resultados reais depois da publicação; serve para calibrar o aprendizado local, não para substituir os gates de contexto nem inventar previsões.</p>
                 </div>
                 <span class="studio-status-pill"><span class="status-dot online"></span> Histórico local</span>
             </div>
@@ -459,7 +462,7 @@
                 <div>
                     <label for="performanceMetricsInput">Snapshot autorizado ou anotação manual</label>
                     <textarea id="performanceMetricsInput" class="context-input performance-metrics-input" rows="6" placeholder='Cole um JSON, por exemplo: {"content_key":"reel-0813","platform":"instagram","format_id":"square_alfinetei","account_key":"@renansantosmbl","observation_window":"week","region":"brasil","views":10000,"likes":800,"comments":100,"shares":50,"saves":50}'></textarea>
-                    <p class="headline-studio-hint">O Furia Clips calcula views, variação, velocidade observada e engajamento informado. Não inventa retenção nem reproduz a fórmula privada de XP.</p>
+                    <p class="headline-studio-hint">Você cola um snapshot autorizado ou anotação manual. O Furia Clips calcula views, variação, velocidade observada e engajamento informado. Não inventa retenção, não lê dados privados automaticamente e não reproduz a fórmula de XP.</p>
                 </div>
                 <div class="performance-metrics-controls">
                     <button class="btn btn-primary" id="btnSavePerformanceMetrics" type="button"><span class="material-icons-round">save</span> Salvar métricas</button>
