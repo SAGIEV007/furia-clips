@@ -2202,6 +2202,8 @@ def api_analyze_editorial_context():
                     cancel_check=ctx.check_cancel,
                 )
                 enriched["analysis_mode"] = "transcript_plus_local_audio"
+            except (OperationCancelled, JobCancelled):
+                raise
             except Exception as local_exc:
                 progress(f"[Contexto] Auditoria local de áudio não concluída; mantendo sinais textuais: {str(local_exc)[:180]}", "warning", 78)
         enriched["transcription_quality"] = {
