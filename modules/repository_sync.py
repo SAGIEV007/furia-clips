@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Any
 
 from config import BASE_DIR
-from database import get_db
+from database import get_db, restore_feedback_snapshot as restore_local_feedback_snapshot
 
 
 SYNC_FORMAT = "furia-clips-editorial-feedback"
@@ -147,6 +147,41 @@ def _feedback_snapshot_metadata(repo: Path) -> dict[str, Any]:
         }
     )
     return metadata
+
+
+def restore_feedback_snapshot(repo_path: str | None = None) -> dict[str, Any]:
+    """Restore only sanitized final decisions from the checked-out snapshot."""
+    repo = _repo_path(repo_path)
+    target = repo / SNAPSHOT_RELATIVE_PATH
+    if not target.is_file():
+        raise RepositorySyncError("Nenhum snapshot sanitizado de feedback foi encontrado no checkout.")
+    try:
+        payload = json.loads(target.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise RepositorySyncError("O snapshot de feedback está ausente ou corrompido.") from exc
+    records = payload.get("records") if isinstance(payload, dict) else None
+    try:
+        declared_count = int(payload.get("record_count")) if isinstance(payload, dict) else -1
+        version = int(payload.get("format_version")) if isinstance(payload, dict) else -1
+    except (TypeError, ValueError) as exc:
+        raise RepositorySyncError("O snapshot de feedback possui metadados inválidos.") from exc
+    if (
+        not isinstance(payload, dict)
+        or payload.get("format") != SYNC_FORMAT
+        or version != SYNC_FORMAT_VERSION
+        or not isinstance(records, list)
+        or declared_count != len(records)
+        or any(not isinstance(record, dict) for record in records)
+    ):
+        raise RepositorySyncError("O snapshot de feedback não passou na validação de integridade.")
+    result = restore_local_feedback_snapshot(records)
+    return {
+        "success": True,
+        "feedback_snapshot_path": SNAPSHOT_RELATIVE_PATH.as_posix(),
+        "feedback_snapshot_version": version,
+        **result,
+        "message": "Decisões sanitizadas reconciliadas com os clips locais; nenhum texto privado foi importado.",
+    }
 
 
 def build_feedback_snapshot() -> dict[str, Any]:
