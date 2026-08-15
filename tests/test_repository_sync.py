@@ -95,6 +95,7 @@ class RepositorySyncTests(unittest.TestCase):
                         "format_version": 2,
                         "generated_at": "2026-08-15T05:00:00+00:00",
                         "records": [{"action": "approved"}, {"action": "rejected"}],
+                        "record_count": 2,
                     }
                 ),
                 encoding="utf-8",
@@ -102,6 +103,7 @@ class RepositorySyncTests(unittest.TestCase):
             metadata = _feedback_snapshot_metadata(repo)
         self.assertTrue(metadata["feedback_snapshot_present"])
         self.assertTrue(metadata["feedback_snapshot_valid"])
+        self.assertTrue(metadata["feedback_snapshot_consistent"])
         self.assertEqual(metadata["feedback_snapshot_records"], 2)
         self.assertEqual(metadata["feedback_snapshot_version"], 2)
         self.assertEqual(metadata["feedback_snapshot_generated_at"], "2026-08-15T05:00:00+00:00")
@@ -115,7 +117,30 @@ class RepositorySyncTests(unittest.TestCase):
             metadata = _feedback_snapshot_metadata(repo)
         self.assertTrue(metadata["feedback_snapshot_present"])
         self.assertFalse(metadata["feedback_snapshot_valid"])
+        self.assertFalse(metadata["feedback_snapshot_consistent"])
         self.assertEqual(metadata["feedback_snapshot_records"], 0)
+
+    def test_feedback_snapshot_with_wrong_count_is_not_valid(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = Path(temp_dir)
+            target = repo / SNAPSHOT_RELATIVE_PATH
+            target.parent.mkdir(parents=True)
+            target.write_text(
+                json.dumps(
+                    {
+                        "format": SYNC_FORMAT,
+                        "format_version": 2,
+                        "record_count": 7,
+                        "records": [{"action": "approved"}],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            metadata = _feedback_snapshot_metadata(repo)
+        self.assertTrue(metadata["feedback_snapshot_present"])
+        self.assertFalse(metadata["feedback_snapshot_valid"])
+        self.assertFalse(metadata["feedback_snapshot_consistent"])
+        self.assertEqual(metadata["feedback_snapshot_records"], 1)
 
 
 if __name__ == "__main__":
