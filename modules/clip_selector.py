@@ -54,6 +54,14 @@ class ClipSelector:
         self.min_duration = min_duration
         self.max_duration = max_duration
         self.preferred_max_duration = preferred_max_duration
+        self._candidate_diagnostics = {
+            "expected_count": 0,
+            "primary_count": 0,
+            "fallback_count": 0,
+            "final_count": 0,
+            "fallback_used": False,
+            "reason": "not_evaluated",
+        }
 
     def select_clips(self, transcription, energy_profile=None, user_context="",
                      settings=None, emit_progress=None, scene_changes=None,
@@ -107,6 +115,38 @@ class ClipSelector:
                 sentences, energy_profile, user_context, emit_progress
             )
 
+        expected_count = self._expected_candidate_count(sentences)
+        primary_clips = list(clips or [])
+        self._candidate_diagnostics = {
+            "expected_count": expected_count,
+            "primary_count": len(primary_clips),
+            "fallback_count": 0,
+            "final_count": 0,
+            "fallback_used": False,
+            "reason": "short_source" if expected_count == 0 else ("adequate_pool" if len(primary_clips) >= expected_count else "primary_pool_thin"),
+        }
+        if primary_clips and expected_count and len(primary_clips) < expected_count:
+            fallback_clips = self._select_with_nlp(
+                sentences, energy_profile, user_context, emit_progress
+            ) or []
+            if fallback_clips:
+                primary_keys = {(round(float(item.get("start", 0)), 3), round(float(item.get("end", 0)), 3)) for item in primary_clips}
+                additions = [
+                    item for item in fallback_clips
+                    if (round(float(item.get("start", 0)), 3), round(float(item.get("end", 0)), 3)) not in primary_keys
+                ]
+                clips = primary_clips + additions
+                self._candidate_diagnostics.update({
+                    "fallback_count": len(additions),
+                    "fallback_used": bool(additions),
+                })
+                if additions and emit_progress:
+                    emit_progress(
+                        f"[Fallback editorial] A fonte principal retornou {len(primary_clips)} candidatos; "
+                        f"foram acrescentadas {len(additions)} alternativas locais para revisão, sem relaxar os gates.",
+                        "warning",
+                    )
+
         # Filter clips at scene boundaries if available
         if scene_changes:
             clips = self._adjust_to_scene_boundaries(clips, scene_changes)
@@ -121,6 +161,7 @@ class ClipSelector:
 
         # Limit to max_clips
         clips = clips[:self.max_clips]
+        self._candidate_diagnostics["final_count"] = len(clips)
 
         if emit_progress:
             source_labels = {"gemini": "Gemini Flash", "llm": "IA (Ollama)", "nlp": "NLP basico"}
@@ -131,6 +172,24 @@ class ClipSelector:
 
     def get_selection_source(self):
         return self._selection_source or "nlp"
+
+    def get_candidate_diagnostics(self):
+        """Return explainable candidate-volume diagnostics for the review UI."""
+        return dict(self._candidate_diagnostics)
+
+    def _expected_candidate_count(self, sentences):
+        """Estimate a review pool size without turning the daily goal into a quota."""
+        if not sentences:
+            return 0
+        try:
+            span = max(0.0, float(sentences[-1].get("end", 0)) - float(sentences[0].get("start", 0)))
+        except (TypeError, ValueError):
+            span = 0.0
+        if span < 120 or len(sentences) < 8:
+            return 0
+        duration_based = int(span // 300) + 2
+        structure_based = int(len(sentences) // 24) + 2
+        return min(max(3, duration_based, structure_based), max(3, min(self.max_clips, 8)))
 
     def _extract_context_keywords(self, user_context):
         """Extract meaningful keywords from user context for display."""
