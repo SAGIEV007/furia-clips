@@ -104,6 +104,36 @@ def _review_metadata(value: Any) -> dict[str, Any]:
     return result
 
 
+def _feedback_snapshot_metadata(repo: Path) -> dict[str, Any]:
+    """Read only non-sensitive snapshot metadata for transparent cross-device status."""
+    target = repo / SNAPSHOT_RELATIVE_PATH
+    metadata = {
+        "feedback_snapshot_present": target.is_file(),
+        "feedback_snapshot_valid": False,
+        "feedback_snapshot_records": 0,
+        "feedback_snapshot_version": None,
+        "feedback_snapshot_generated_at": None,
+    }
+    if not target.is_file():
+        return metadata
+    try:
+        payload = json.loads(target.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return metadata
+    if not isinstance(payload, dict) or payload.get("format") != SYNC_FORMAT:
+        return metadata
+    records = payload.get("records")
+    metadata.update(
+        {
+            "feedback_snapshot_valid": isinstance(records, list),
+            "feedback_snapshot_records": len(records) if isinstance(records, list) else 0,
+            "feedback_snapshot_version": int(payload.get("format_version") or 0) or None,
+            "feedback_snapshot_generated_at": str(payload.get("generated_at") or "")[:40] or None,
+        }
+    )
+    return metadata
+
+
 def build_feedback_snapshot() -> dict[str, Any]:
     """Build a portable, non-sensitive projection of final editorial decisions."""
     connection = get_db()
@@ -204,6 +234,7 @@ def get_repository_status(repo_path: str | None = None, fetch: bool = False) -> 
         "code_dirty_files": code_dirty_files,
         "feedback_snapshot_dirty": feedback_snapshot_dirty,
         "feedback_snapshot_path": snapshot_relative,
+        **_feedback_snapshot_metadata(repo),
     }
 
 
