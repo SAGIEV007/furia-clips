@@ -69,7 +69,7 @@ from database import (
     init_db, get_all_settings, get_setting, set_setting,
     create_project, get_project, get_all_projects, update_project_status,
     save_clip, get_clip, get_clips, update_clip_seo, update_clip_thumbnail,
-    save_transcription, get_transcription, log_action,
+    get_existing_clip_fingerprints, save_transcription, get_transcription, log_action,
     update_clip_editorial_score, save_clip_feedback, get_clip_feedback,
     update_clip_review_status, save_clip_adjustment, get_feedback_calibration, get_daily_editorial_progress,
     save_headline_feedback, get_headline_feedback_summary, get_headline_learning_preferences,
@@ -267,6 +267,17 @@ def _probe_video_duration_seconds(video_path):
         return float(result.stdout.strip()) if result.stdout.strip() else None
     except (OSError, ValueError, subprocess.SubprocessError):
         return None
+
+
+def _selection_coverage_plan(source_video, video_duration):
+    """Build a local-only plan for adaptive candidate coverage and deduplication."""
+    fingerprints = get_existing_clip_fingerprints(source_video)
+    try:
+        span = max(0.0, float(video_duration or 0.0))
+    except (TypeError, ValueError):
+        span = 0.0
+    max_clips = min(36, max(15, int(span // 240) + 6)) if span >= 120 else 15
+    return {"previous_clip_fingerprints": fingerprints, "adaptive_max_clips": max_clips}
 
 
 def _transcription_source_mode(settings):
@@ -1515,7 +1526,7 @@ def api_cut_shorts():
             if user_context:
                 emit_progress(f'[Contexto] Prompt do usuario: "{user_context[:100]}..."' if len(user_context) > 100 else f'[Contexto] Prompt do usuario: "{user_context}"', "info")
             else:
-                emit_progress("[Contexto] Nenhum contexto definido. Cortes serao genericos.", "warning")
+                emit_progress("[Contexto] Nenhum prompt manual; o Furia vai analisar transcrição, perguntas, capítulos, áudio e sinais visuais antes de selecionar.", "info")
 
             # Step 1: Transcribe or import the canonical manual transcript
             emit_progress("=== ETAPA 1/5: Transcricao e contexto ===", "info")
@@ -1655,9 +1666,21 @@ def api_cut_shorts():
             analyzer = AudioAnalyzer()
             energy_profile = analyzer.analyze_energy(video_path, emit_progress=emit_progress)
 
+            coverage_plan = _selection_coverage_plan(data.get("video_path", video_path), video_duration)
+            if coverage_plan["previous_clip_fingerprints"]:
+                emit_progress(
+                    f"[Deduplicação] {len(coverage_plan['previous_clip_fingerprints'])} intervalos já gerados para esta fonte serão evitados.",
+                    "info",
+                )
+            settings.update(coverage_plan)
+            emit_progress(
+                f"[Cobertura] Até {coverage_plan['adaptive_max_clips']} candidatos nesta execução; "
+                "qualidade, contexto e diversidade continuam prioritários.",
+                "info",
+            )
             selector = ClipSelector(
                 target_duration=settings.get("cut_duration", 45),
-                max_clips=15,
+                max_clips=coverage_plan["adaptive_max_clips"],
                 min_duration=20,
                 max_duration=180,
             )
@@ -1943,6 +1966,96 @@ def api_cut_shorts():
         "job_id": job["id"],
         "state": job["state"],
     })
+
+
+@app.route("/api/editorial/context", methods=["POST"])
+def api_analyze_editorial_context():
+    """Analyze the full source before cutting and return an explainable editorial dossier."""
+    data = request.get_json(silent=True) or {}
+    video_path = _resolve_media_input(data.get("video_path", ""))
+    if not video_path:
+        return jsonify({"error": "Video não encontrado ou caminho inválido"}), 404
+    if not os.path.exists(video_path):
+        return jsonify({"error": "Video não encontrado"}), 404
+    project_id = data.get("project_id")
+    user_context = str(data.get("user_context", "") or "").strip()
+    analyze_video = bool(data.get("analyze_video", True))
+
+    def task(ctx):
+        def progress(message, level="info", percentage=None):
+            current = int(percentage if percentage is not None else 10)
+            ctx.update(stage="editorial_context", progress=current, message=str(message))
+            socketio.emit("progress", {"message": str(message), "level": level, "job_id": ctx.job_id})
+
+        settings = get_all_settings()
+        if user_context:
+            settings["editorial_context_prompt"] = user_context
+        video_duration = _probe_video_duration_seconds(video_path)
+        progress("[Contexto] Preparando a análise integral da fonte...", "info", 5)
+        ctx.check_cancel()
+        transcription = _transcription_from_request(data, duration=video_duration)
+        if not transcription and project_id:
+            transcription = get_transcription(project_id)
+        multimodal_result = None
+        if not transcription:
+            progress("[Contexto] Não há transcrição confirmada; Gemini tentará gerar a leitura temporal.", "info", 18)
+            multimodal_result = _run_gemini_video_analysis(
+                video_path, settings, {}, user_context, progress, cancel_check=ctx.check_cancel
+            )
+            transcription = _transcription_from_gemini_result(multimodal_result, settings.get("language", "pt"))
+        if not transcription:
+            raise ValueError("Não foi possível obter uma transcrição para analisar o contexto.")
+        coverage = _transcription_coverage_report(transcription, video_duration)
+        transcription["coverage"] = coverage
+        progress(
+            f"[Contexto] Transcrição disponível: {transcription.get('segment_count', len(transcription.get('segments', [])))} segmentos; "
+            f"cobertura {coverage.get('status', 'não verificada') }.",
+            "success",
+            35,
+        )
+        ctx.check_cancel()
+        from modules.editorial_context import analyze_transcript_context
+        editorial_context = analyze_transcript_context(transcription, focus=settings.get("editorial_focus", "auto"))
+        progress("[Contexto] Identificando tese, perguntas, capítulos e possíveis payoffs...", "info", 55)
+        if analyze_video and multimodal_result is None:
+            progress("[Contexto] Escutando e observando a fonte para validar o cenário, tom e participantes...", "info", 62)
+            multimodal_result = _run_gemini_video_analysis(
+                video_path, settings, editorial_context, user_context, progress, cancel_check=ctx.check_cancel
+            )
+        enriched = _enrich_editorial_context(
+            video_path,
+            settings,
+            editorial_context,
+            user_context,
+            progress,
+            multimodal=multimodal_result,
+            allow_video_analysis=False,
+        )
+        enriched["transcription_quality"] = {
+            "status": coverage.get("status", "unknown"),
+            "segment_count": len(transcription.get("segments", [])),
+            "last_timestamp": coverage.get("last_timestamp"),
+            "video_duration_seconds": coverage.get("video_duration_seconds"),
+        }
+        enriched["analysis_mode"] = "transcript_plus_video" if multimodal_result else "transcript_only"
+        if project_id:
+            save_transcription(
+                project_id,
+                transcription.get("segments", []),
+                transcription.get("full_text", ""),
+                transcription.get("language", settings.get("language", "pt")),
+                transcription.get("source", "editorial_context"),
+            )
+        artifacts = [{"type": "editorial_context", "context": enriched}]
+        ctx.update(stage="editorial_context", progress=100, message="Contexto integral concluído", artifacts=artifacts)
+        socketio.emit("editorial_context_complete", {"context": enriched, "job_id": ctx.job_id})
+        return {"artifacts": artifacts}
+
+    with processing_lock:
+        # O JobManager já serializa os workers; o estado legado não é alterado
+        # aqui para que uma exceção de análise não deixe a interface travada.
+        job = job_manager.submit("editorial_context", task, project_id=project_id)
+    return jsonify({"success": True, "message": "Análise de contexto iniciada", "job_id": job["id"], "state": job["state"]})
 
 
 @app.route("/api/process/subtitles", methods=["POST"])
@@ -2373,9 +2486,21 @@ def api_process_complete():
             analyzer = AudioAnalyzer()
             energy_profile = analyzer.analyze_energy(working_video, emit_progress=emit_progress)
 
+            coverage_plan = _selection_coverage_plan(data.get("video_path", video_path), video_duration)
+            if coverage_plan["previous_clip_fingerprints"]:
+                emit_progress(
+                    f"[Deduplicação] {len(coverage_plan['previous_clip_fingerprints'])} intervalos já gerados para esta fonte serão evitados.",
+                    "info",
+                )
+            settings.update(coverage_plan)
+            emit_progress(
+                f"[Cobertura] Até {coverage_plan['adaptive_max_clips']} candidatos nesta execução; "
+                "qualidade, contexto e diversidade continuam prioritários.",
+                "info",
+            )
             selector = ClipSelector(
                 target_duration=settings.get("cut_duration", 45),
-                max_clips=15,
+                max_clips=coverage_plan["adaptive_max_clips"],
                 min_duration=20,
                 max_duration=180,
             )

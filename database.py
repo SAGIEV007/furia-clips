@@ -545,6 +545,47 @@ def update_project_status(project_id, status):
     conn.close()
 
 
+def get_existing_clip_fingerprints(source_video=""):
+    """Return stable local fingerprints used to avoid repeating a source interval.
+
+    The lookup is intentionally local-only. It compares the normalized basename of
+    the source so reruns from another checkout/path can still recognize clips from
+    the same downloaded video, while no transcript text leaves the local database.
+    """
+    source_text = str(source_video or "").replace("\\\\", "/").strip().lower()
+    source_basename = source_text.rsplit("/", 1)[-1]
+    if not source_basename:
+        return []
+    conn = get_db()
+    rows = conn.execute(
+        """SELECT clips.start_time, clips.end_time, clips.duration,
+                         clips.transcript, clips.review_status, clips.editorial_key
+           FROM clips
+           JOIN projects ON projects.id = clips.project_id
+          WHERE lower(replace(projects.source_video, char(92), '/')) LIKE ?""",
+        (f"%/{source_basename}",),
+    ).fetchall()
+    conn.close()
+    fingerprints = []
+    for row in rows:
+        try:
+            start = float(row[0] or 0)
+            end = float(row[1] or 0)
+        except (TypeError, ValueError):
+            continue
+        if end <= start:
+            continue
+        fingerprints.append({
+            "start": round(start, 3),
+            "end": round(end, 3),
+            "duration": round(float(row[2] or end - start), 3),
+            "text": " ".join(str(row[3] or "").split()),
+            "review_status": str(row[4] or "pending"),
+            "editorial_key": str(row[5] or "")[:64],
+        })
+    return fingerprints
+
+
 def save_clip(project_id, file_path, start_time, end_time, duration,
               viral_score=0, has_hook=False, emotional_intensity=0.0, transcript=""):
     conn = get_db()
