@@ -1425,8 +1425,14 @@ def api_cut_shorts():
     project_id = data.get("project_id")
     use_face_tracking = data.get("face_tracking", True)
     transcription_source = data.get("transcription_source")
-    user_context = data.get("user_context", "")
+    user_context = str(data.get("user_context", "") or "").strip()
     video_genre = data.get("video_genre", "")
+    audit_mode = str(data.get("audit_mode", "standard") or "standard").strip().lower()
+    if audit_mode not in {"fast", "standard", "full"}:
+        audit_mode = "standard"
+    preferred_format = str(data.get("preferred_format", "auto") or "auto").strip().lower()
+    if preferred_format not in {"auto", "vertical_916", "square_alfinetei", "fake_tweet"}:
+        preferred_format = "auto"
 
     if not os.path.exists(video_path):
         return jsonify({"error": "Video nao encontrado"}), 404
@@ -1515,6 +1521,31 @@ def api_cut_shorts():
                 allow_video_analysis=allow_followup_video_analysis,
             )
             settings["editorial_context"] = editorial_context
+            settings["audit_mode"] = audit_mode
+            settings["preferred_format"] = preferred_format
+            editorial_audit = None
+            if audit_mode in {"standard", "full"}:
+                try:
+                    from modules.headline_studio import generate_artwork_copy
+                    editorial_audit = generate_artwork_copy(
+                        transcription.get("full_text", ""),
+                        mini_context=user_context,
+                        preferred_format=preferred_format,
+                        ai_backend=None,
+                        emit_progress=None,
+                        editorial_learning=get_headline_learning_preferences(),
+                    )
+                    emit_progress(
+                        f"[Auditoria editorial] Formato recomendado: {editorial_audit.get('recommended_format', 'auto')}; "
+                        f"completude {editorial_audit.get('analysis', {}).get('context_completeness', 0)}/100.",
+                        "info",
+                    )
+                    if audit_mode == "full":
+                        flags = editorial_audit.get("review_flags", {})
+                        if flags.get("needs_fact_review") or flags.get("needs_legal_review"):
+                            emit_progress("[Auditoria editorial] Há alegações que exigem revisão factual/jurídica humana antes da publicação.", "warning")
+                except Exception as exc:
+                    emit_progress(f"[Auditoria editorial] Não concluída; o ranking principal continua ativo: {str(exc)[:160]}", "warning")
 
             ctx.update(stage="video_analysis", progress=28, message="Analisando layout e cenas")
             ctx.check_cancel()
@@ -1763,6 +1794,9 @@ def api_cut_shorts():
                 "project_id": active_project_id,
                 "output_folder": output_folder,
                 "render_rejections": render_rejections,
+                "editorial_audit": editorial_audit,
+                "audit_mode": audit_mode,
+                "preferred_format": preferred_format,
             })
 
             source_label = "IA Inteligente" if selection_source == "llm" else "NLP Basico"
