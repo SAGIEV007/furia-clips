@@ -2565,7 +2565,7 @@ def api_process_complete():
             ctx.update(stage="project", progress=3, message="Criando projeto")
             ctx.check_cancel()
             video_name = os.path.splitext(os.path.basename(video_path))[0]
-            project_id = create_project(video_name, data.get("video_path", ""))
+            project_id = create_project(video_name, video_path)
 
             # ── Step 1: Remove silence ──
             emit_progress("━━━ ETAPA 1/6: Removendo Silencio ━━━", "info")

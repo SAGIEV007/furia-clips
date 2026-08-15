@@ -134,3 +134,26 @@ if __name__ == "__main__":
         self.assertEqual(project["clip_count"], 2)
         self.assertEqual(project["approved_count"], 1)
         self.assertEqual(project["review_count"], 1)
+
+
+    def test_source_signature_separates_same_basename_from_different_files(self):
+        first_path = os.path.join(self.tempdir.name, "notebook-a", "entrevista.mp4")
+        second_path = os.path.join(self.tempdir.name, "notebook-b", "entrevista.mp4")
+        os.makedirs(os.path.dirname(first_path), exist_ok=True)
+        os.makedirs(os.path.dirname(second_path), exist_ok=True)
+        with open(first_path, "wb") as handle:
+            handle.write(b"fonte-a" * 2048)
+        with open(second_path, "wb") as handle:
+            handle.write(b"fonte-b" * 2048)
+
+        first_project = database.create_project("Fonte A", first_path)
+        database.save_clip(first_project, "exports/a.mp4", 10, 25, 15, 70, True, 0, "Trecho da fonte A")
+        second_project = database.create_project("Fonte B", second_path)
+        database.save_clip(second_project, "exports/b.mp4", 10, 25, 15, 70, True, 0, "Trecho da fonte B")
+
+        second_fingerprints = database.get_existing_clip_fingerprints(second_path)
+
+        assert database.get_project(first_project)["source_signature"]
+        assert database.get_project(second_project)["source_signature"]
+        assert len(second_fingerprints) == 1
+        assert second_fingerprints[0]["text"] == "Trecho da fonte B"
