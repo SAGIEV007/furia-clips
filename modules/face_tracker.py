@@ -18,6 +18,7 @@ class FaceTracker:
         self._layout = LAYOUT_UNKNOWN
         self._face_count_history = []
         self._last_detected_face_count = 0
+        self._unavailable_reason = None
 
     def _ensure_detector(self):
         if self._available is False:
@@ -27,30 +28,48 @@ class FaceTracker:
 
         try:
             import mediapipe as mp
-            # Different mediapipe versions have different APIs
-            if hasattr(mp, 'solutions') and hasattr(mp.solutions, 'face_detection'):
+            # MediaPipe Legacy (0.10.x): keep support for the installed solutions API.
+            if hasattr(mp, "solutions") and hasattr(mp.solutions, "face_detection"):
                 self.detector = mp.solutions.face_detection.FaceDetection(
                     model_selection=1, min_detection_confidence=0.5
                 )
                 self._available = True
+                self._unavailable_reason = None
                 return True
-            elif hasattr(mp, 'FaceDetector'):
-                # Newer mediapipe API (0.10.8+)
-                base_options = mp.tasks.BaseOptions(
-                    model_asset_path=self._get_model_path()
-                )
-                options = mp.tasks.vision.FaceDetectorOptions(
+
+            # MediaPipe Tasks API: the previous implementation checked mp.FaceDetector,
+            # but the detector actually lives at mp.tasks.vision.FaceDetector.
+            tasks = getattr(mp, "tasks", None)
+            vision = getattr(tasks, "vision", None)
+            detector_factory = getattr(vision, "FaceDetector", None)
+            if detector_factory is not None:
+                model_path = self._get_model_path()
+                if not model_path:
+                    self._available = False
+                    self._unavailable_reason = (
+                        "o modelo facial do MediaPipe Tasks não está instalado em models/"
+                    )
+                    return False
+                base_options = tasks.BaseOptions(model_asset_path=model_path)
+                options = vision.FaceDetectorOptions(
                     base_options=base_options,
-                    min_detection_confidence=0.5
+                    min_detection_confidence=0.5,
                 )
-                self.detector = mp.tasks.vision.FaceDetector.create_from_options(options)
+                self.detector = detector_factory.create_from_options(options)
                 self._available = True
+                self._unavailable_reason = None
                 return True
-            else:
-                self._available = False
-                return False
-        except (ImportError, AttributeError, Exception):
+
             self._available = False
+            self._unavailable_reason = "a instalação do MediaPipe não expõe uma API de detecção compatível"
+            return False
+        except ImportError:
+            self._available = False
+            self._unavailable_reason = "MediaPipe não está instalado"
+            return False
+        except Exception as exc:
+            self._available = False
+            self._unavailable_reason = f"falha ao inicializar o MediaPipe ({type(exc).__name__})"
             return False
 
     def _get_model_path(self):
@@ -295,7 +314,11 @@ class FaceTracker:
     def detect_faces_in_video(self, video_path, sample_interval=2.0, emit_progress=None):
         if not self._ensure_detector():
             if emit_progress:
-                emit_progress("Face tracking nao disponivel. Usando crop centralizado.", "warning")
+                reason = self._unavailable_reason or "detector indisponível"
+                emit_progress(
+                    f"Face tracking não disponível: {reason}. Usando enquadramento seguro.",
+                    "warning",
+                )
             return []
 
         try:
