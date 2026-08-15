@@ -106,3 +106,19 @@ class PoliticalProfileTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+    def test_sensitive_claim_without_context_or_evidence_enters_technical_review(self):
+        ranker = EditorialRanker(editorial_profile=PROFILE_NAME)
+        result = ranker.score_clip({
+            "start": 0,
+            "end": 35,
+            "duration": 35,
+            "text": "Flávio Bolsonaro cometeu crime e desviou dinheiro público.",
+            "context_complete": False,
+            "evidence_present": False,
+            "payoff_complete": True,
+        })
+        self.assertGreaterEqual(result["technical_gate"]["penalty"], 10)
+        self.assertIn("alegação sensível sem contexto ou evidência explícitos", result["technical_gate"]["reasons"])
+        self.assertIn(result["technical_gate"]["status"], {"review", "weak"})
