@@ -212,6 +212,9 @@
                     <button class="btn btn-sm btn-outline" id="btnChangeOutputDir" style="margin-top:8px; width:100%">
                         <span class="material-icons-round">edit</span> Alterar Pasta de Saida
                     </button>
+                    <button class="btn btn-sm btn-outline" id="btnOpenDownloadsDir" style="margin-top:8px; width:100%">
+                        <span class="material-icons-round">folder_open</span> Abrir Pasta de Downloads
+                    </button>
                 </div>
             </div>
 
@@ -370,6 +373,18 @@
                     <button class="context-chip" data-context="Frases de efeito com gancho inicial e conclusao forte">Frases de efeito</button>
                     <button class="context-chip" data-context="Momentos de mobilizacao, campanha e chamada para acao depois de uma ideia clara">Mobilizacao</button>
                 </div>
+                <div class="context-analysis-controls" id="contextAnalysisControls" aria-label="Análise integral antes do corte">
+                    <div class="context-analysis-copy">
+                        <strong><span class="material-icons-round">manage_search</span> Analisar o vídeo antes de cortar</strong>
+                        <p>Gera um dossiê com tese, perguntas, capítulos, participantes, sinais de áudio e possíveis payoffs. O prompt manual continua opcional.</p>
+                    </div>
+                    <div class="context-analysis-actions">
+                        <label class="context-analysis-toggle"><input type="checkbox" id="contextAnalyzeVideo" checked> Incluir leitura audiovisual pelo Gemini quando disponível</label>
+                        <button class="btn btn-sm btn-primary" id="btnAnalyzeEditorialContext" type="button"><span class="material-icons-round">psychology</span> Analisar contexto</button>
+                    </div>
+                    <div class="context-analysis-status" id="contextAnalysisStatus" role="status" aria-live="polite">Ainda não analisado nesta sessão.</div>
+                    <div class="context-analysis-result" id="contextAnalysisResult" hidden></div>
+                </div>
                 <div class="editorial-audit-controls" aria-label="Auditoria editorial e formato sugerido">
                     <label>Profundidade da análise
                         <select id="settingAuditMode" class="setting-select">
@@ -438,7 +453,7 @@
         </section>
 
         <!-- Observed performance -->
-        <section class="section performance-metrics-section" id="performanceMetricsSection">
+        <section class="section performance-metrics-section non-core-panel" id="performanceMetricsSection" hidden>
             <div class="section-header">
                 <div>
                     <h3><span class="material-icons-round">monitoring</span> Métricas observadas</h3>
@@ -545,7 +560,7 @@
                     <button class="btn btn-action">Abrir Estúdio</button>
                 </div>
 
-                <div class="action-card" id="actionThumbnail" data-action="thumbnail">
+                <div class="action-card non-core-panel" id="actionThumbnail" data-action="thumbnail" hidden>
                     <div class="action-icon" style="background: linear-gradient(135deg, #EC4899, #BE185D)">
                         <span class="material-icons-round">image</span>
                     </div>
@@ -614,12 +629,12 @@
                     <span class="repository-sync-status" id="repositorySyncStatus" role="status" aria-live="polite">Lendo o estado local…</span>
                 </div>
             </div>
-            <div class="transcript-archive-card" id="transcriptArchiveCard" aria-live="polite">
+            <div class="transcript-archive-card non-core-panel" id="transcriptArchiveCard" aria-live="polite" hidden>
                 <div class="transcript-archive-head"><span class="material-icons-round">description</span><div><strong>Transcrições persistentes</strong><p id="transcriptArchiveSummary">As transcrições usadas pelo programa aparecerão aqui para validação.</p></div><button class="btn btn-sm" id="btnRefreshTranscriptArchive" type="button"><span class="material-icons-round">refresh</span> Atualizar</button></div>
                 <div class="transcript-archive-list" id="transcriptArchiveList"></div>
             </div>
             <div class="operation-jobs" id="operationJobs" aria-live="polite"></div>
-            <div class="project-library" aria-label="Biblioteca de lives recentes">
+            <div class="project-library non-core-panel" aria-label="Biblioteca de sessões anteriores" hidden>
                 <div class="project-library-head"><h4><span class="material-icons-round">video_library</span> Lives recentes</h4><span id="projectLibrarySummary">Carregando projetos...</span></div>
                 <div class="project-library-list" id="projectLibraryList"></div>
             </div>
@@ -698,7 +713,7 @@
         <section class="section" id="consoleSection">
             <div class="section-header collapsible" id="consoleToggle">
                 <h3><span class="material-icons-round">terminal</span> Console de Processamento</h3>
-                <span class="material-icons-round toggle-icon">expand_more</span>
+                <div class="console-header-actions"><button class="btn btn-sm btn-outline" id="btnCopyConsoleLog" type="button" title="Copiar o log completo"><span class="material-icons-round">content_copy</span> Copiar log</button><span class="material-icons-round toggle-icon">expand_more</span></div>
             </div>
             <div class="console-content" id="consoleContent">
                 <div class="progress-bar-container" id="progressBarContainer" style="display:none">
