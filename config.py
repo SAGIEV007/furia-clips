@@ -168,6 +168,7 @@ DEFAULT_SETTINGS = {
     "source_download_dir": "",
     "source_max_height": 1080,
     "source_download_retries": 3,
+    "generate_seo_metadata": False,
 }
 
 ALLOWED_EXTENSIONS = {".mp4", ".mkv", ".avi", ".mov", ".webm", ".flv", ".wmv"}

@@ -2926,37 +2926,40 @@ def api_process_complete():
             ctx.update(stage="subtitles", progress=86, message="Legendas processadas")
             ctx.check_cancel()
 
-            # ── Step 6: Generate SEO content ──
-            emit_progress("━━━ ETAPA 6/6: Gerando Conteudo SEO ━━━", "info")
-            from modules.ai_backend import AIBackend
-            ai = AIBackend(
-                backend=settings.get("ai_backend", "ollama"),
-                settings=settings,
-            )
+            # ── Step 6/6: Optional publication metadata ──
+            if settings.get("generate_seo_metadata", False):
+                emit_progress("━━━ ETAPA 6/6: Gerando metadados opcionais ━━━", "info")
+                from modules.ai_backend import AIBackend
+                ai = AIBackend(
+                    backend=settings.get("ai_backend", "ollama"),
+                    settings=settings,
+                )
 
-            for res in results:
-                ctx.check_cancel()
-                text = res.get("text", "")
-                if text and res.get("clip_id"):
-                    try:
-                        seo = ai.generate_seo_content(
-                            text,
-                            channel_context=settings.get("channel_context", ""),
-                            emit_progress=emit_progress,
-                        )
-                        if seo:
-                            update_clip_seo(
-                                res["clip_id"],
-                                seo.get("titles", []),
-                                seo.get("tags", []),
-                                seo.get("description", ""),
-                                seo.get("hashtags", []),
+                for res in results:
+                    ctx.check_cancel()
+                    text = res.get("text", "")
+                    if text and res.get("clip_id"):
+                        try:
+                            seo = ai.generate_seo_content(
+                                text,
+                                channel_context=settings.get("channel_context", ""),
+                                emit_progress=emit_progress,
                             )
-                            res["seo"] = seo
-                    except Exception as e:
-                        emit_progress(f"Erro SEO clip {res.get('clip_id')}: {str(e)}", "warning")
-
-            ctx.update(stage="seo", progress=96, message="Metadados SEO processados")
+                            if seo:
+                                update_clip_seo(
+                                    res["clip_id"],
+                                    seo.get("titles", []),
+                                    seo.get("tags", []),
+                                    seo.get("description", ""),
+                                    seo.get("hashtags", []),
+                                )
+                                res["seo"] = seo
+                        except Exception as e:
+                            emit_progress(f"Erro nos metadados opcionais do clip {res.get('clip_id')}: {str(e)}", "warning")
+                ctx.update(stage="optional_metadata", progress=96, message="Metadados opcionais processados")
+            else:
+                emit_progress("━━━ ETAPA 6/6: Metadados de publicação desativados; fluxo focado em edição ━━━", "info")
+                ctx.update(stage="editing_complete", progress=96, message="Fluxo de edição concluído")
             ctx.check_cancel()
             update_project_status(project_id, "completed")
 
