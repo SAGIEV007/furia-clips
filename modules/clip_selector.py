@@ -34,7 +34,7 @@ CONTINUATION_STARTERS_PT = {
 CONTEXT_REFERENCE_STARTERS_PT = {
     "isso", "isto", "aquilo", "esse", "essa", "esses", "essas", "aquele", "aquela",
     "aqueles", "aquelas", "ele", "ela", "eles", "elas", "nesse", "nessa", "nisso",
-    "com isso", "por isso",
+    "com isso", "por isso", "foi ali", "foi aí", "foi ai", "foi quando",
 }
 EVIDENCE_TERMS_PT = {
     "dado", "dados", "numero", "número", "numeros", "números", "pesquisa", "pesquisas",
@@ -1071,7 +1071,11 @@ Retorne APENAS o JSON.
             score = self._nlp_score_block(block, user_context, energy_profile, context_data, editorial_context)
             scored_blocks.append((block, score))
 
-        clips = self._build_clips_from_scored_blocks(scored_blocks, context_data)
+        clips = self._build_clips_from_scored_blocks(
+            scored_blocks,
+            context_data,
+            editorial_context=editorial_context,
+        )
 
         # SPEAKER FILTERING: When names are specified, EXCLUDE clips without them
         if context_data and context_data["names"]:
@@ -1374,7 +1378,7 @@ Retorne APENAS o JSON.
             "timing_confidence": metadata.get("timing_confidence"),
         }
 
-    def _build_clips_from_scored_blocks(self, scored_blocks, context_data=None):
+    def _build_clips_from_scored_blocks(self, scored_blocks, context_data=None, editorial_context=None):
         """Build clips by joining only the blocks needed for context and payoff.
         Enforces the technical ceiling on all clips without imposing a fixed length.
         """
@@ -1391,28 +1395,49 @@ Retorne APENAS o JSON.
             clip_duration = start_block["duration"]
             clip_end_idx = start_idx
 
-            # Whisper blocks can begin with a continuation or an unresolved
-            # reference after a pause. Recover adjacent context when safe instead
-            # of publishing an abrupt start such as “isso aconteceu...”.
-            opening_flags = self._editorial_flags(start_block.get("text", ""), start_block)
-            if (
-                (opening_flags.get("starts_mid_sentence") or opening_flags.get("starts_with_context_reference"))
-                and start_idx > 0
-                and (start_idx - 1) not in used_indices
-            ):
+            # Recover the smallest contiguous opening window that makes the
+            # candidate self-contained. This handles chained references such as
+            # “e isso” → “isso” and a response whose question is in the previous
+            # block, without pulling unrelated material from the next topic.
+            original_start_idx = start_idx
+            qa_start = None
+            qa_end = None
+            if isinstance(editorial_context, dict):
+                for candidate in editorial_context.get("qa_candidates", []) or []:
+                    candidate_start = float(candidate.get("start", 0) or 0)
+                    candidate_end = float(candidate.get("end", candidate_start) or candidate_start)
+                    if candidate.get("needs_question") and float(start_block.get("start", 0)) >= candidate_start and float(start_block.get("start", 0)) <= candidate_end:
+                        qa_start, qa_end = candidate_start, candidate_end
+                        break
+
+            while start_idx > 0 and (start_idx - 1) not in used_indices:
+                opening_flags = self._editorial_flags(clip_blocks[0].get("text", ""), clip_blocks[0])
                 previous_block = scored_blocks[start_idx - 1][0]
-                gap = float(start_block.get("start", 0)) - float(previous_block.get("end", 0))
-                joined_duration = float(start_block.get("end", 0)) - float(previous_block.get("start", 0))
-                if gap <= 2.5 and joined_duration <= self.max_duration:
-                    clip_blocks.insert(0, previous_block)
-                    clip_duration = joined_duration
-                    start_idx -= 1
+                gap = float(clip_blocks[0].get("start", 0)) - float(previous_block.get("end", 0))
+                joined_duration = float(clip_blocks[-1].get("end", 0)) - float(previous_block.get("start", 0))
+                needs_previous = (
+                    opening_flags.get("starts_mid_sentence")
+                    or opening_flags.get("starts_with_context_reference")
+                    or (qa_start is not None and float(previous_block.get("start", 0)) <= qa_start + 2.5)
+                )
+                if not needs_previous or gap > 2.5 or joined_duration > self.max_duration:
+                    break
+                clip_blocks.insert(0, previous_block)
+                clip_duration = joined_duration
+                start_idx -= 1
 
             preferred_stop = min(float(self.target_duration or 45), 30.0)
+            clip_text_preview = " ".join(b["text"] for b in clip_blocks)
+            preview_flags = self._editorial_flags(
+                clip_text_preview,
+                {
+                    "speaker_turn_valid": all(b.get("speaker_turn_valid", True) is not False for b in clip_blocks),
+                },
+            )
             start_is_complete = (
                 clip_duration >= self.min_duration
-                and clip_duration >= preferred_stop
-                and start_block["text"].rstrip().endswith((".", "!", "?"))
+                and preview_flags.get("context_complete")
+                and preview_flags.get("payoff_complete")
             )
             if not start_is_complete:
                 for next_idx in range(start_idx + 1, len(scored_blocks)):
@@ -1426,18 +1451,25 @@ Retorne APENAS o JSON.
 
                     clip_blocks.append(next_block)
                     clip_duration = new_duration
-                    clip_end_idx = next_idx
 
-                    # Stop at the first natural ending after the minimum useful
-                    # duration. The old target is only a soft hint for continuation.
+                    # Stop at the first complete, self-contained payoff. A
+                    # complete short idea wins over the old soft target duration.
                     natural_end = " ".join(b["text"] for b in clip_blocks)
+                    natural_flags = self._editorial_flags(
+                        natural_end,
+                        {
+                            "speaker_turn_valid": all(b.get("speaker_turn_valid", True) is not False for b in clip_blocks),
+                        },
+                    )
                     if (
                         clip_duration >= self.min_duration
-                        and clip_duration >= preferred_stop
-                        and natural_end.rstrip().endswith((".", "!", "?"))
+                        and natural_flags.get("context_complete")
+                        and natural_flags.get("payoff_complete")
                     ):
+                        clip_end_idx = next_idx
                         break
                     if clip_duration >= self.target_duration:
+                        clip_end_idx = next_idx
                         break
 
             if clip_duration < self.min_duration:

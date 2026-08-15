@@ -499,9 +499,15 @@ class EditorialRanker:
         if clip.get("speaker_turn_valid") is False:
             penalty += 18
             reasons.append("troca de locutor incompatível")
-        if has_contract and not context_complete and len(_normalize(str(clip.get("text") or "")).split()) < 12:
+        normalized_clip_words = len(_normalize(str(clip.get("text") or "")).split())
+        if has_contract and not context_complete and normalized_clip_words < 16:
             penalty += 8
             reasons.append("pouca evidência textual para contexto autossuficiente")
+        starts_with_context_reference = bool(clip.get("starts_with_context_reference"))
+        if has_contract and starts_with_context_reference:
+            if not context_complete:
+                penalty += 6
+                reasons.append("referência contextual sem antecedente recuperado")
         if sensitive_claim_hits and explicit_context_contract and (not context_complete or not bool(clip.get("evidence_present"))):
             penalty += 10
             reasons.append("alegação sensível sem contexto ou evidência explícitos")

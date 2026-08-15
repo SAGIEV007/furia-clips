@@ -149,6 +149,17 @@ _ALLOWED_CORS = [
 socketio = SocketIO(app, cors_allowed_origins=_ALLOWED_CORS, async_mode="threading")
 
 
+def _load_program_version():
+    """Load the public release version from the repository's VERSION file."""
+    version_path = os.path.join(BASE_DIR, "VERSION")
+    try:
+        with open(version_path, "r", encoding="utf-8") as handle:
+            version = handle.read().strip()
+    except (OSError, UnicodeError):
+        version = "1.0"
+    return version[:32] or "1.0"
+
+
 def _runtime_revision():
     """Return a safe checkout revision for diagnostics, never a secret."""
     configured = str(os.environ.get("FURIA_CLIPS_VERSION", "") or "").strip()
@@ -166,7 +177,7 @@ def _runtime_revision():
         return "checkout-sem-revisão"
 
 
-PROGRAM_VERSION = "rebuild-opus-parity"
+PROGRAM_VERSION = _load_program_version()
 PROGRAM_REVISION = _runtime_revision()
 
 processing_lock = threading.Lock()
@@ -3168,7 +3179,14 @@ def api_open_folder():
 
 @socketio.on("connect")
 def handle_connect():
-    emit("connected", {"message": "Conectado ao Furia Clips!"})
+    emit(
+        "connected",
+        {
+            "message": f"Conectado ao Furia Clips · Versão {PROGRAM_VERSION} · revisão {PROGRAM_REVISION}",
+            "program_version": PROGRAM_VERSION,
+            "program_revision": PROGRAM_REVISION,
+        },
+    )
     # Send AI status on connect
     settings = get_all_settings()
     status = _check_ai_status(settings)
@@ -3303,6 +3321,7 @@ if __name__ == "__main__":
     ai_status = _check_ai_status(settings)
     print("\n" + "=" * 50)
     print("   FURIA CLIPS - Corte. Ranqueie. Domine.")
+    print(f"   [Versão] {PROGRAM_VERSION} · revisão {PROGRAM_REVISION}")
     print("=" * 50)
     backend = ai_status.get("backend", "gemini")
     if ai_status.get("mode") == "gemini" and ai_status["connected"]:

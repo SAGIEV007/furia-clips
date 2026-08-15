@@ -285,3 +285,41 @@ def test_context_quality_penalizes_abrupt_start_and_unresolved_question():
         assert partial["confidence"] <= 0.74
         assert "cobertura parcial da transcrição" in partial["technical_gate"]["reasons"]
         assert partial["review_flags"]["transcription_review_required"] is True
+
+
+def test_renan_case_contextualized_payoff_beats_isolated_slogan():
+    ranker = EditorialRanker(channel_context="Renan Santos / MBL")
+    isolated = ranker.score_clip({
+        "start": 16, "end": 24, "duration": 8,
+        "text": "Foi ali que eu lancei o bordão: prendeu, matou.",
+        "starts_with_context_reference": True,
+        "context_complete": False,
+        "payoff_complete": True,
+    })
+    contextualized = ranker.score_clip({
+        "start": 0, "end": 24, "duration": 24,
+        "text": (
+            "O ciclista Vitor Medrado foi morto durante um assalto no Parque do Povo. "
+            "Ele entregou o celular e mesmo assim foi baleado por um criminoso. "
+            "Foi ali que eu lancei o bordão: prendeu, matou."
+        ),
+        "context_complete": True,
+        "payoff_complete": True,
+        "evidence_present": True,
+    })
+    assert contextualized["editorial_potential_score"] > isolated["editorial_potential_score"]
+    assert contextualized["factors"]["context_quality"] > isolated["factors"]["context_quality"]
+
+
+def test_isolated_context_reference_gets_explicit_review_reason():
+    ranker = EditorialRanker(channel_context="Renan Santos / MBL")
+    result = ranker.score_clip({
+        "start": 16, "end": 24, "duration": 8,
+        "text": "Foi ali que eu lancei o bordão: prendeu, matou.",
+        "starts_with_context_reference": True,
+        "context_complete": False,
+        "payoff_complete": True,
+    })
+    reasons = result["technical_gate"]["reasons"]
+    assert "referência contextual sem antecedente recuperado" in reasons
+    assert result["technical_gate"]["status"] in {"review", "weak"}
