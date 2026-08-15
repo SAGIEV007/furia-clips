@@ -166,6 +166,12 @@ def _emit_job_update(job):
 
 
 job_manager = JobManager(DB_PATH, max_workers=1, on_event=_emit_job_update)
+try:
+    _recovered_jobs = job_manager.reconcile_stale()
+    if _recovered_jobs:
+        print(f"[Jobs] Recuperados {len(_recovered_jobs)} job(s) órfão(s) deixado(s) sem worker ativo.")
+except Exception as _reconcile_error:
+    print(f"[Jobs] Não foi possível reconciliar jobs antigos: {_reconcile_error}")
 
 
 def _workspace_input_path(relative_path):
@@ -499,6 +505,20 @@ def _attach_multimodal_visual_observations(clips, multimodal):
         if observation.get("confidence") is not None:
             clip["visual_observation_confidence"] = observation.get("confidence")
     return clips
+
+
+def _should_allow_followup_video_analysis(transcription, settings):
+    """Return whether an explicit second multimodal pass is allowed.
+
+    Manual, public-caption and Whisper transcripts already provide the canonical
+    timeline. A second upload is therefore opt-in, otherwise a long Gemini poll
+    can make a finished transcription look like a frozen job.
+    """
+    source = str((transcription or {}).get("source", "") or "").strip().lower()
+    settings = settings or {}
+    if source == "manual":
+        return bool(settings.get("gemini_manual_video_analysis", False))
+    return bool(settings.get("gemini_video_analysis_with_transcript", False))
 
 
 def _enrich_editorial_context(video_path, settings, editorial_context, user_context, emit_progress, multimodal=None, allow_video_analysis=True):
@@ -1448,13 +1468,13 @@ def api_cut_shorts():
             from modules.editorial_context import analyze_transcript_context
             editorial_context = analyze_transcript_context(transcription, focus=settings.get("editorial_focus", "auto"))
             emit_progress(f"[Contexto editorial] {editorial_context['description']}", "info")
+            # A transcrição pública/manual/Whisper já resolveu a etapa temporal;
+            # uma segunda análise multimodal só ocorre por opção explícita.
+            allow_followup_video_analysis = _should_allow_followup_video_analysis(transcription, settings)
             editorial_context = _enrich_editorial_context(
                 video_path, settings, editorial_context, user_context, emit_progress,
                 multimodal=multimodal_result,
-                allow_video_analysis=not (
-                    transcription.get("source") == "manual"
-                    and not settings.get("gemini_manual_video_analysis", False)
-                ),
+                allow_video_analysis=allow_followup_video_analysis,
             )
             settings["editorial_context"] = editorial_context
 
