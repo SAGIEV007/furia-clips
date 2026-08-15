@@ -63,6 +63,9 @@ class ClipSelector:
             "fallback_discarded_count": 0,
             "fallback_discarded_overlap": 0,
             "fallback_discarded_similarity": 0,
+            "previous_discarded_count": 0,
+            "previous_discarded_approved": 0,
+            "previous_discarded_rejected": 0,
             "reason": "not_evaluated",
         }
 
@@ -71,6 +74,10 @@ class ClipSelector:
                      video_layout=None):
         settings = settings or {}
         self._selection_source = None
+        self._previous_clip_fingerprints = [
+            item for item in (settings.get("previous_clip_fingerprints") or [])
+            if isinstance(item, dict)
+        ]
         ai_backend = settings.get("ai_backend", "auto")
         gemini_key = str(settings.get("gemini_api_key", "") or "").strip()
         sentences = self._build_sentences(transcription["segments"])
@@ -129,6 +136,9 @@ class ClipSelector:
             "fallback_discarded_count": 0,
             "fallback_discarded_overlap": 0,
             "fallback_discarded_similarity": 0,
+            "previous_discarded_count": 0,
+            "previous_discarded_approved": 0,
+            "previous_discarded_rejected": 0,
             "reason": "short_source" if expected_count == 0 else ("adequate_pool" if len(primary_clips) >= expected_count else "primary_pool_thin"),
         }
         if primary_clips and expected_count and len(primary_clips) < expected_count:
@@ -189,7 +199,11 @@ class ClipSelector:
         # primary candidate wins deterministic conflicts with local fallback.
         clips = self._remove_overlaps(clips)
 
-        # Limit to max_clips
+        # Do not recreate intervals already generated in a previous run of the same source.
+        clips = self._remove_previous_fingerprints(clips)
+
+        # Limit to the adaptive maximum only after deduplication, so a second run can
+        # fill the queue with genuinely new moments instead of truncating repetitions.
         clips = clips[:self.max_clips]
         self._candidate_diagnostics["final_count"] = len(clips)
 
@@ -217,9 +231,9 @@ class ClipSelector:
             span = 0.0
         if span < 120 or len(sentences) < 8:
             return 0
-        duration_based = int(span // 300) + 2
-        structure_based = int(len(sentences) // 24) + 2
-        return min(max(3, duration_based, structure_based), max(3, min(self.max_clips, 8)))
+        duration_based = int(span // 240) + 6
+        structure_based = int(len(sentences) // 18) + 6
+        return min(max(3, duration_based, structure_based), max(3, min(self.max_clips, 36)))
 
     def _extract_context_keywords(self, user_context):
         """Extract meaningful keywords from user context for display."""
@@ -637,7 +651,7 @@ Mapa de capítulos temporais: {chapters}.
 Respeite os capítulos como blocos editoriais contíguos. Não combine blocos de capítulos separados sem uma ponte de fala clara. Quando a seleção for uma pergunta–resposta, inclua o capítulo inteiro ou a ponte completa; se houver dúvida sobre locutor ou sobreposição, reduza a confiança ou rejeite.
 """
 
-        num_clips = min(15, max(5, len(blocks) // 4))
+        num_clips = min(self.max_clips, max(5, len(blocks) // 4))
 
         return f"""Analise esta transcricao completa e selecione os {num_clips} MELHORES momentos para clips curtos.
 {editorial_instruction}
@@ -779,7 +793,7 @@ Selecione clips que atendam a esse pedido."""
                 "Não atravesse capítulos desconectados; preserve perguntas e respostas no mesmo capítulo.\n"
             )
 
-        num_clips = min(8, max(3, len(blocks) // 3))
+        num_clips = min(self.max_clips, max(3, len(blocks) // 3))
         return f"""Selecione os {num_clips} MELHORES momentos para clips curtos.
 {editorial_instruction}
 {context_instruction}
@@ -1475,6 +1489,44 @@ Retorne APENAS o JSON.
                 adjusted.append(clip)
 
         return adjusted
+
+    def _remove_previous_fingerprints(self, clips):
+        """Drop candidates that were already exported for this source video."""
+        previous = self._previous_clip_fingerprints
+        if not previous or not clips:
+            return clips
+        selected = []
+        for clip in clips:
+            repeated = None
+            for old in previous:
+                try:
+                    old_start = float(old.get("start", 0) or 0)
+                    old_end = float(old.get("end", 0) or 0)
+                    old_duration = float(old.get("duration", old_end - old_start) or (old_end - old_start))
+                    new_start = float(clip.get("start", 0) or 0)
+                    new_end = float(clip.get("end", 0) or 0)
+                except (TypeError, ValueError):
+                    continue
+                old_clip = {"start": old_start, "end": old_end, "duration": max(old_duration, 0.001)}
+                new_clip = {"start": new_start, "end": new_end, "duration": max(new_end - new_start, 0.001)}
+                overlap = self._calculate_overlap(new_clip, old_clip)
+                text_similarity = self._text_similarity(clip.get("text", ""), old.get("text", ""))
+                boundary_match = abs(new_start - old_start) <= 4.0 and abs(new_end - old_end) <= 6.0
+                if overlap >= 0.45 or boundary_match or (text_similarity >= 0.86 and abs(new_start - old_start) <= 30.0):
+                    repeated = old
+                    break
+            if repeated is None:
+                selected.append(clip)
+                continue
+            self._candidate_diagnostics["previous_discarded_count"] = int(
+                self._candidate_diagnostics.get("previous_discarded_count", 0) or 0
+            ) + 1
+            status = str(repeated.get("review_status") or "").lower()
+            if status == "approved":
+                self._candidate_diagnostics["previous_discarded_approved"] += 1
+            elif status == "rejected":
+                self._candidate_diagnostics["previous_discarded_rejected"] += 1
+        return selected
 
     def _remove_overlaps(self, clips):
         """Remove temporal overlaps and near-duplicate candidates deterministically."""

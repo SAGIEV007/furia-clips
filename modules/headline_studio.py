@@ -519,4 +519,5 @@ Gere no máximo 3 alternativas por formato."""
         except Exception:
             # A deterministic, explainable output is preferable to a failed screen.
             pass
+    result["generated_format"] = preferred if preferred in FORMAT_IDS else result.get("recommended_format", FORMAT_VERTICAL)
     return result
