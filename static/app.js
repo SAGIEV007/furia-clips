@@ -2198,10 +2198,22 @@ async function setClipReview(index, action) {
     renderResultsGrid();
     try {
         if (clip.clip_id) {
+            const reviewMetadata = {
+                candidate_origin: String(clip.candidate_origin || ""),
+                selection_source: String(clip.selection_source || state.selectionSource || ""),
+                confidence: Number(clip.confidence || 0),
+            };
+            const feedbackAdjustments = { _review_metadata: reviewMetadata };
             const response = await fetch(`/api/clips/${clip.clip_id}/feedback`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ action, reason_code: reasonCode, quality_tags: qualityTags, note: reasonCode ? `Motivo editorial: ${reasonCode}` : "" }),
+                body: JSON.stringify({
+                    action,
+                    adjustments: feedbackAdjustments,
+                    reason_code: reasonCode,
+                    quality_tags: qualityTags,
+                    note: reasonCode ? `Motivo editorial: ${reasonCode}` : "",
+                }),
             });
             feedbackData = await parseJsonResponse(response, "Feedback editorial");
             if (!response.ok) throw new Error(feedbackData.error || "feedback rejected");
