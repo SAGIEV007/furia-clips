@@ -99,6 +99,12 @@ from modules.persistent_data import (
     get_editorial_data_summary,
     restore_editorial_backup,
 )
+from modules.repository_sync import (
+    RepositorySyncError,
+    get_repository_status,
+    push_feedback_snapshot,
+    update_from_github,
+)
 
 # User-friendly error messages (Portuguese)
 ERROR_MESSAGES = {
@@ -791,6 +797,38 @@ def api_download_editorial_backup(filename):
     if not os.path.isfile(candidate):
         return jsonify({"error": "Backup não encontrado"}), 404
     return send_file(candidate, as_attachment=True, download_name=filename)
+
+
+@app.route("/api/repository/status", methods=["GET"])
+def api_repository_status():
+    """Report Git synchronization state without exposing remotes or secrets."""
+    try:
+        return jsonify(get_repository_status(fetch=request.args.get("fetch", "1") != "0"))
+    except RepositorySyncError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
+
+
+@app.route("/api/repository/sync", methods=["POST"])
+def api_repository_sync():
+    """Update the checkout or publish only the sanitized editorial feedback projection."""
+    data = request.get_json(silent=True) or {}
+    action = str(data.get("action", "check") or "check").strip().lower()
+    try:
+        if action == "check":
+            return jsonify(get_repository_status(fetch=True))
+        if current_task.get("active"):
+            return jsonify({"success": False, "error": "Aguarde ou cancele o processamento atual antes de sincronizar o programa."}), 409
+        if action == "update":
+            safety_backup = create_editorial_backup()
+            result = update_from_github()
+            result["safety_backup"] = safety_backup.get("filename")
+            result["restart_required"] = bool(result.get("updated"))
+            return jsonify(result)
+        if action in {"push_feedback", "sync_feedback"}:
+            return jsonify(push_feedback_snapshot())
+        return jsonify({"success": False, "error": "Ação de sincronização desconhecida."}), 400
+    except (RepositorySyncError, PersistentDataError) as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
 
 
 @app.route("/api/editorial/restore", methods=["POST"])
