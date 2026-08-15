@@ -388,14 +388,66 @@ def _transcription_from_request(data, duration=None):
     text = data.get("transcript_text") or data.get("manual_transcript") or ""
     if isinstance(text, str) and text.strip():
         result = parse_transcript_text(text, duration=duration)
+        raw_result = parse_transcript_text(text, duration=None)
+        result["raw_last_timestamp"] = max((float(item.get("end") if item.get("end") is not None else item.get("start", 0)) for item in raw_result.get("segments", [])), default=None)
         result["language"] = data.get("transcript_language", "pt")
         return result
     segments = data.get("transcript_segments")
     if isinstance(segments, list) and segments:
         result = normalize_segment_payload(segments, duration=duration)
+        result["raw_last_timestamp"] = max(
+            (float(item.get("end") if item.get("end") is not None else item.get("start", 0)) for item in segments if isinstance(item, dict)),
+            default=None,
+        )
         result["language"] = data.get("transcript_language", "pt")
         return result
     return None
+
+
+def _transcription_coverage_report(transcription, duration):
+    """Summarize temporal coverage without pretending to verify semantic identity."""
+    try:
+        video_duration = float(duration or 0)
+    except (TypeError, ValueError):
+        video_duration = 0.0
+    segments = (transcription or {}).get("segments", []) if isinstance(transcription, dict) else []
+    valid = []
+    for segment in segments if isinstance(segments, list) else []:
+        if not isinstance(segment, dict):
+            continue
+        try:
+            start = float(segment.get("start", 0))
+            end = float(segment.get("end", start))
+        except (TypeError, ValueError):
+            continue
+        if start >= 0 and end > start:
+            valid.append((start, end))
+    first = min((item[0] for item in valid), default=None)
+    last = max((item[1] for item in valid), default=None)
+    raw_last = (transcription or {}).get("raw_last_timestamp") if isinstance(transcription, dict) else None
+    try:
+        raw_last = float(raw_last) if raw_last is not None else None
+    except (TypeError, ValueError):
+        raw_last = None
+    out_of_bounds = bool(video_duration and ((raw_last is not None and raw_last > video_duration * 1.05) or any(end > video_duration * 1.05 for _, end in valid)))
+    end_ratio = round(min(1.0, last / video_duration), 3) if video_duration and last is not None else None
+    span_ratio = round(min(1.0, max(0.0, (last - first) / video_duration)), 3) if video_duration and first is not None and last is not None else None
+    if out_of_bounds:
+        status = "mismatch_suspected"
+    elif video_duration and last is not None and end_ratio < 0.35:
+        status = "partial"
+    else:
+        status = "covered"
+    return {
+        "status": status,
+        "video_duration_seconds": round(video_duration, 3) if video_duration else None,
+        "first_timestamp": round(first, 3) if first is not None else None,
+        "last_timestamp": round(last, 3) if last is not None else None,
+        "end_ratio": end_ratio,
+        "span_ratio": span_ratio,
+        "segment_count": len(valid),
+        "semantic_identity_verified": False,
+    }
 
 
 def _run_gemini_video_analysis(video_path, settings, editorial_context, user_context, emit_progress, cancel_check=None):
@@ -1465,7 +1517,8 @@ def api_cut_shorts():
             # Step 1: Transcribe or import the canonical manual transcript
             emit_progress("=== ETAPA 1/5: Transcricao e contexto ===", "info")
             from modules.transcriber import Transcriber
-            transcription = _transcription_from_request(data)
+            video_duration = _probe_video_duration_seconds(video_path)
+            transcription = _transcription_from_request(data, duration=video_duration)
             multimodal_result = None
             selected_transcription_mode = _transcription_source_mode(settings)
             if not transcription and selected_transcription_mode in {"whisper", "public_subtitle"}:
@@ -1485,6 +1538,20 @@ def api_cut_shorts():
                     cancel_check=ctx.check_cancel,
                 )
                 transcription = _transcription_from_gemini_result(multimodal_result, settings.get("language", "pt"))
+            if transcription:
+                coverage = _transcription_coverage_report(transcription, video_duration)
+                transcription["coverage"] = coverage
+                if coverage["status"] == "mismatch_suspected" and transcription.get("source") == "manual":
+                    raise ValueError(
+                        "A transcrição manual contém timestamps além da duração do vídeo selecionado. "
+                        "Ela provavelmente pertence a outro vídeo; selecione a mídia correta ou importe a legenda correspondente."
+                    )
+                if coverage["status"] == "partial":
+                    emit_progress(
+                        f"[Transcrição] Cobertura parcial: termina em {coverage['last_timestamp']:.1f}s de {coverage['video_duration_seconds']:.1f}s; "
+                        "os cortes ficarão limitados ao trecho importado.",
+                        "warning",
+                    )
             if transcription and transcription.get("source") == "manual":
                 emit_progress(f"[Transcrição manual] {transcription['segment_count']} segmentos importados; Whisper não será executado.", "success")
             elif transcription and transcription.get("source") == "gemini_video":
