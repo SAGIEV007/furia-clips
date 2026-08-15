@@ -95,3 +95,24 @@ class JobManagerTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+    def test_operation_cancelled_is_persisted_as_cancelled_state(self):
+        from modules.cancellation import OperationCancelled
+
+        def worker(_ctx):
+            raise OperationCancelled("parado no worker")
+
+        created = self.manager.submit("cancelled-operation", worker)
+        deadline = time.time() + 3
+        final = None
+        while time.time() < deadline:
+            final = self.manager.get(created["id"])
+            if final and final["state"] in {"completed", "failed", "cancelled"}:
+                break
+            time.sleep(0.02)
+
+        self.assertIsNotNone(final)
+        self.assertEqual(final["state"], "cancelled")
+        self.assertEqual(final["stage"], "cancelled")
+        self.assertIn("parado no worker", final["error"])

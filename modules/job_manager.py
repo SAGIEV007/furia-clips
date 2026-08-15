@@ -10,6 +10,8 @@ from concurrent.futures import Future, ThreadPoolExecutor
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, Optional
 
+from .cancellation import OperationCancelled
+
 
 class JobCancelled(Exception):
     """Raised by a worker when the user requested cancellation."""
@@ -147,7 +149,7 @@ class JobManager:
                 message="Job concluído",
                 artifacts=result.get("artifacts"),
             )
-        except JobCancelled as exc:
+        except (JobCancelled, OperationCancelled) as exc:
             self.update(
                 job_id,
                 state="cancelled",
