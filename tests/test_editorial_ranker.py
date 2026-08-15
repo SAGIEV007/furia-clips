@@ -222,3 +222,18 @@ def test_context_quality_penalizes_abrupt_start_and_unresolved_question():
         })
         self.assertGreater(observed["factors"]["hook"], plain["factors"]["hook"])
         self.assertGreaterEqual(observed["factors"]["hook"], 70)
+
+
+    def test_diversity_penalty_exposes_explainable_reason(self):
+        clips = [
+            {"source_id": "live-1", "start": 0, "end": 30, "duration": 30, "text": "A proposta muda a segurança pública e precisa de responsabilidade."},
+            {"source_id": "live-1", "start": 60, "end": 90, "duration": 30, "text": "A proposta muda a segurança pública e precisa de responsabilidade."},
+        ]
+        ranked = self.ranker.rank_clips(clips)
+        penalized = [clip for clip in ranked if clip.get("diversity_penalty", 0) > 0]
+        assert penalized
+        assert penalized[0]["diversity_reason"] in {
+            "texto muito semelhante",
+            "tema editorial semelhante",
+            "intervalo temporal sobreposto",
+        }

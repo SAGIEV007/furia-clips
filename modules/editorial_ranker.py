@@ -97,6 +97,7 @@ class EditorialRanker:
             penalty = self._diversity_penalty(clip, selected)
             clip["factors"]["diversity"] = round(max(0.0, 100.0 - penalty), 1)
             clip["diversity_penalty"] = round(penalty, 1)
+            clip["diversity_reason"] = self._diversity_reason(clip, selected)
             if penalty >= 70:
                 continue
             if penalty >= 35:
@@ -858,6 +859,26 @@ class EditorialRanker:
 
     def _grade(self, value: float) -> str:
         return "A" if value >= 75 else "B" if value >= 50 else "C"
+
+    def _diversity_reason(self, clip: dict, selected: list) -> str:
+        strongest = (0.0, "")
+        for existing in selected:
+            same_source = True
+            source_keys = ("source_id", "live_id", "source", "origin", "video_id")
+            left_source = next((str(clip.get(key) or "") for key in source_keys if clip.get(key)), "")
+            right_source = next((str(existing.get(key) or "") for key in source_keys if existing.get(key)), "")
+            if left_source and right_source and left_source != right_source:
+                same_source = False
+            overlap = _interval_overlap(clip, existing) if same_source else 0.0
+            similarity = _text_similarity(clip.get("text", ""), existing.get("text", ""))
+            topic_similarity = _topic_similarity(clip.get("topic_signature", ""), existing.get("topic_signature", "")) if same_source else 0.0
+            signals = [
+                (overlap * 100.0, "intervalo temporal sobreposto"),
+                (similarity * 80.0, "texto muito semelhante"),
+                (topic_similarity * 48.0, "tema editorial semelhante"),
+            ]
+            strongest = max(strongest, max(signals, key=lambda item: item[0]))
+        return strongest[1]
 
     def _diversity_penalty(self, clip: dict, selected: list) -> float:
         penalty = 0.0
