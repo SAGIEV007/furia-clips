@@ -114,6 +114,8 @@ def analyze_transcript_context(
         renan_focus = bool(references)
     focus_key = "renan_santos" if renan_focus else "generic_political"
     focus_label = "Renan Santos" if renan_focus else "participante principal / contexto político"
+    if renan_focus and speaker_status != "validated":
+        participant_confidence = min(participant_confidence, 0.62 if speaker_status == "partial" else 0.52)
 
     duration = max((float(s.get("end", 0)) for s in enriched), default=0.0)
     coverage = transcription.get("coverage", {}) if isinstance(transcription, dict) else {}

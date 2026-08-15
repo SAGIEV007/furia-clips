@@ -228,3 +228,19 @@ def test_editorial_context_marks_partial_speaker_coverage_for_review():
     assert detection["coverage_ratio"] == round(1 / 3, 3)
     assert detection["review_required"] is True
     assert context["signals"]["speaker_detection_status"] == "partial"
+
+
+def test_renan_participant_confidence_is_capped_without_full_diarization():
+    from modules.editorial_context import analyze_transcript_context
+
+    context = analyze_transcript_context({
+        "segments": [
+            {"start": 0.0, "end": 3.0, "text": "Renan Santos explica a proposta."},
+            {"start": 3.0, "end": 6.0, "text": "Renan Santos apresenta os dados."},
+            {"start": 6.0, "end": 9.0, "text": "Renan Santos conclui a resposta."},
+        ],
+    }, focus="renan")
+
+    assert context["focus"] == "renan_santos"
+    assert context["participant_confidence"] <= 0.52
+    assert context["speaker_detection"]["status"] == "not_available"

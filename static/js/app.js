@@ -1799,7 +1799,11 @@ function renderEditorialContextPreview(context = {}) {
         ? `<div class="context-local-audio"><div class="context-hook-heading"><span class="material-icons-round">graphic_eq</span><strong>Picos locais de energia para revisar</strong><small>São pistas de ênfase vocal; confirme o sentido e o payoff na imagem e na fala.</small></div><div class="context-energy-list">${highEnergyMoments.map(moment => `<span><b>${formatTime(Number(moment.start || 0))}–${formatTime(Number(moment.end || 0))}</b> · ${Math.round(Number(moment.avg_energy || 0) * 100)}% relativo</span>`).join("")}</div></div>`
         : "";
     result.hidden = false;
-    result.innerHTML = `<div class="context-result-summary"><strong>${escapeHtml(context.description || "Contexto editorial analisado.")}</strong><div class="context-result-facts"><span>${escapeHtml(mode)}</span><span>${qa} pergunta(s)–resposta</span><span>${chapters} capítulo(s)</span><span>${windows} janela(s) de entrevista</span><span>${Number(quality.segment_count || 0)} segmentos · ${escapeHtml(quality.status || "qualidade não validada")}</span>${speakerMarkup}</div></div>${localAudioMarkup}${hookMarkup}`;
+    const participantConfidence = Number(context.participant_confidence);
+    const participantMarkup = Number.isFinite(participantConfidence)
+        ? `<span title="Referência textual e sinais de locutor; não é identificação visual">participante ${Math.round(Math.max(0, Math.min(1, participantConfidence)) * 100)}%</span>`
+        : "";
+    result.innerHTML = `<div class="context-result-summary"><strong>${escapeHtml(context.description || "Contexto editorial analisado.")}</strong><div class="context-result-facts"><span>${escapeHtml(mode)}</span><span>${qa} pergunta(s)–resposta</span><span>${chapters} capítulo(s)</span><span>${windows} janela(s) de entrevista</span><span>${Number(quality.segment_count || 0)} segmentos · ${escapeHtml(quality.status || "qualidade não validada")}</span>${participantMarkup}${speakerMarkup}</div></div>${localAudioMarkup}${hookMarkup}`;
 }
 
 async function pollEditorialContextJob(jobId, button, status) {
