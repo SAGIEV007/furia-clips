@@ -183,6 +183,17 @@ class ClipSelector:
         # backend (Gemini, Ollama, and NLP) exposes the same review contract.
         editorial_context = settings.get("editorial_context")
         clips = [annotate_clip_with_chapters(clip, editorial_context) for clip in clips]
+        transcription_quality = (editorial_context or {}).get("transcription_quality", {}) if isinstance(editorial_context, dict) else {}
+        if transcription_quality.get("review_required"):
+            coverage_status = str(transcription_quality.get("status", "unknown") or "unknown")
+            for clip in clips:
+                clip["transcription_review_required"] = True
+                clip["transcription_coverage_status"] = coverage_status
+                clip["transcription_review_reason"] = (
+                    "cobertura parcial da transcrição; confirme o trecho no vídeo"
+                    if coverage_status == "partial"
+                    else "identidade temporal da transcrição não validada; confirme o trecho no vídeo"
+                )
         fallback_used = bool(self._candidate_diagnostics.get("fallback_used"))
         for clip in clips:
             source = str(clip.get("source") or "nlp").lower()

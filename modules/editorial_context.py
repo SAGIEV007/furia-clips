@@ -107,6 +107,17 @@ def analyze_transcript_context(
     focus_label = "Renan Santos" if renan_focus else "participante principal / contexto político"
 
     duration = max((float(s.get("end", 0)) for s in enriched), default=0.0)
+    coverage = transcription.get("coverage", {}) if isinstance(transcription, dict) else {}
+    coverage_status = str(coverage.get("status", "unknown") or "unknown")
+    coverage_review_required = coverage_status in {"partial", "mismatch_suspected", "empty", "unknown"}
+    transcription_quality = {
+        "status": coverage_status,
+        "review_required": coverage_review_required,
+        "semantic_identity_verified": bool(coverage.get("semantic_identity_verified", False)),
+        "last_timestamp": coverage.get("last_timestamp"),
+        "end_ratio": coverage.get("end_ratio"),
+        "segment_count": int(coverage.get("segment_count", len(enriched)) or 0),
+    }
     summary = {
         "duration": round(duration, 3),
         "segment_count": len(enriched),
@@ -119,6 +130,7 @@ def analyze_transcript_context(
         "hook_candidates": hook_candidates,
         "hook_count": len(hook_candidates),
         "chapter_map_version": "v1-temporal-qa",
+        "transcription_quality": transcription_quality,
         "focus": focus_key,
         "participant_confidence": round(participant_confidence if renan_focus else min(participant_confidence, 0.55), 3),
         "speaker_detection": speaker_detection,
@@ -131,8 +143,13 @@ def analyze_transcript_context(
             "overlap_count": overlap_count,
             "possible_overlap": _possible_overlap(enriched),
             "long_form": duration >= 3600,
+            "transcription_coverage_status": coverage_status,
+            "transcription_review_required": coverage_review_required,
         },
-        "description": _description(duration, len(questions), len(qa_candidates), participant_confidence, focus_label, len(editorial_chapters)),
+        "description": _description(duration, len(questions), len(qa_candidates), participant_confidence, focus_label, len(editorial_chapters)) + (
+            " A transcrição parcial ou não identificada exige revisão do trecho e pode limitar o contexto."
+            if coverage_review_required else ""
+        ),
     }
     return summary
 
