@@ -122,7 +122,11 @@ class ClipSelector:
             if emit_progress:
                 emit_progress("[NLP] Usando selecao local por contexto e palavras-chave.", "info")
             clips = self._select_with_nlp(
-                sentences, energy_profile, user_context, emit_progress
+                sentences,
+                energy_profile,
+                user_context,
+                emit_progress,
+                editorial_context=settings.get("editorial_context"),
             )
 
         expected_count = self._expected_candidate_count(sentences)
@@ -143,7 +147,11 @@ class ClipSelector:
         }
         if primary_clips and expected_count and len(primary_clips) < expected_count:
             fallback_clips = self._select_with_nlp(
-                sentences, energy_profile, user_context, emit_progress
+                sentences,
+                energy_profile,
+                user_context,
+                emit_progress,
+                editorial_context=settings.get("editorial_context"),
             ) or []
             if fallback_clips:
                 primary_keys = {(round(float(item.get("start", 0)), 3), round(float(item.get("end", 0)), 3)) for item in primary_clips}
@@ -1027,7 +1035,7 @@ Retorne APENAS o JSON.
     # NLP — Keyword-based fallback (always available)
     # ═══════════════════════════════════════════════════
 
-    def _select_with_nlp(self, sentences, energy_profile, user_context, emit_progress):
+    def _select_with_nlp(self, sentences, energy_profile, user_context, emit_progress, editorial_context=None):
         """NLP-based fallback when no AI backend is available."""
         if emit_progress:
             emit_progress("[NLP] Construindo clips com analise por palavras-chave...")
@@ -1040,7 +1048,7 @@ Retorne APENAS o JSON.
 
         scored_blocks = []
         for block in blocks:
-            score = self._nlp_score_block(block, user_context, energy_profile, context_data)
+            score = self._nlp_score_block(block, user_context, energy_profile, context_data, editorial_context)
             scored_blocks.append((block, score))
 
         clips = self._build_clips_from_scored_blocks(scored_blocks, context_data)
@@ -1134,7 +1142,7 @@ Retorne APENAS o JSON.
             "raw": text_lower,
         }
 
-    def _nlp_score_block(self, block, user_context, energy_profile, context_data=None):
+    def _nlp_score_block(self, block, user_context, energy_profile, context_data=None, editorial_context=None):
         """Score a block using NLP heuristics."""
         text = block["text"].lower()
         score = 40
@@ -1192,6 +1200,7 @@ Retorne APENAS o JSON.
         # while long blocks remain eligible when their context is stronger.
         duration = block["duration"]
         duration_score = self._duration_score(duration)
+        dossier_score = self._dossier_context_score(block, editorial_context)
 
         # Sentence completeness
         if block["text"].strip()[-1:] in ".!?":
@@ -1201,8 +1210,30 @@ Retorne APENAS o JSON.
 
         total = (score + hook_score + emotional_score + punct_score
                  + context_score + duration_score + completeness_score
-                 - filler_penalty)
+                 + dossier_score - filler_penalty)
         return max(0, min(100, total))
+
+    def _dossier_context_score(self, block, editorial_context):
+        """Use the local dossier as a bounded tie-breaker for offline selection."""
+        if not isinstance(editorial_context, dict):
+            return 0.0
+        start = float(block.get("start", 0) or 0)
+        end = float(block.get("end", start) or start)
+        best_hook = 0.0
+        for hook in editorial_context.get("hook_candidates", []) or []:
+            hook_start = float(hook.get("start", 0) or 0)
+            hook_end = float(hook.get("end", hook_start) or hook_start)
+            overlap = max(0.0, min(end, hook_end) - max(start, hook_start))
+            if overlap > 0:
+                best_hook = max(best_hook, min(8.0, float(hook.get("score", 0) or 0) * 0.08))
+        qa_bonus = 0.0
+        for candidate in editorial_context.get("qa_candidates", []) or []:
+            qa_start = float(candidate.get("start", 0) or 0)
+            qa_end = float(candidate.get("end", qa_start) or qa_start)
+            if max(0.0, min(end, qa_end) - max(start, qa_start)) > 0:
+                qa_bonus = 3.0 if candidate.get("speaker_boundary") else 1.5
+                break
+        return round(min(10.0, best_hook + qa_bonus), 2)
 
     def _duration_score(self, duration):
         duration = max(0.0, float(duration or 0.0))
