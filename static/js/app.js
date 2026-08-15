@@ -701,9 +701,16 @@ async function requestEditorialBackup() {
         const response = await fetch("/api/editorial/backup", { method: "POST" });
         const payload = await parseJsonResponse(response, "Backup editorial");
         if (!response.ok || !payload.success) throw new Error(payload.error || "Não foi possível criar o backup");
-        window.location.assign(`/api/editorial/backup/${encodeURIComponent(payload.filename)}`);
+        const downloadLink = document.createElement("a");
+        downloadLink.href = `/api/editorial/backup/${encodeURIComponent(payload.filename)}`;
+        downloadLink.download = payload.filename || "furia-editorial-backup.zip";
+        downloadLink.rel = "noopener";
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        downloadLink.remove();
         showToast(`Backup criado (${formatDataSize(payload.size_bytes)}). Guarde o arquivo fora da pasta do programa.`, "success");
         renderEditorialData(payload.summary || {});
+        await checkRepositorySync(false);
     } catch (error) {
         showToast(error.message || "Não foi possível criar o backup editorial", "error");
     } finally {
@@ -733,6 +740,7 @@ async function restoreEditorialBackup(event) {
         renderEditorialData(payload.summary || {});
         showToast("Dados editoriais restaurados. O backup anterior foi preservado automaticamente.", "success");
         await loadOperationDashboard();
+        await checkRepositorySync(false);
     } catch (error) {
         showToast(error.message || "Não foi possível restaurar o backup", "error");
     } finally {
