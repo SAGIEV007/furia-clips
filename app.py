@@ -601,8 +601,17 @@ def api_clip_feedback(clip_id):
             action,
             adjustments=data.get("adjustments") or {},
             note=data.get("note", ""),
+            reason_code=data.get("reason_code", ""),
+            quality_tags=data.get("quality_tags") or [],
         )
-        return jsonify({"success": True, "clip_id": clip_id, "review_status": action})
+        return jsonify({
+            "success": True,
+            "clip_id": clip_id,
+            "review_status": action,
+            "reason_code": str(data.get("reason_code", "") or "")[:48],
+            "quality_tags": list(data.get("quality_tags") or [])[:12],
+            "calibration": get_feedback_calibration(),
+        })
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
 
@@ -2382,12 +2391,26 @@ def api_process_complete():
                     "end": res["end"],
                     "duration": res["duration"],
                     "viral_score": clip_info.get("viral_score", 0),
+                    "editorial_potential_score": clip_info.get("editorial_potential_score", clip_info.get("viral_score", 0)),
+                    "editorial_score_version": clip_info.get("editorial_score_version", "v1-explainable"),
+                    "confidence": clip_info.get("confidence", 0),
+                    "factors": clip_info.get("factors", {}),
                     "has_hook": clip_info.get("has_hook", False),
                     "breakdown": clip_info.get("breakdown", {}),
                     "title": clip_info.get("title", ""),
                     "source": clip_info.get("source", "nlp"),
                     "political_signals": clip_info.get("political_signals", {}),
                     "review_flags": clip_info.get("review_flags", {}),
+                    "closure_type": clip_info.get("closure_type", ""),
+                    "starts_mid_sentence": bool(clip_info.get("starts_mid_sentence")),
+                    "question_detected": bool(clip_info.get("question_detected")),
+                    "question_answer_complete": bool(clip_info.get("question_answer_complete")),
+                    "evidence_present": bool(clip_info.get("evidence_present")),
+                    "payoff_complete": bool(clip_info.get("payoff_complete")),
+                    "context_complete": bool(clip_info.get("context_complete")),
+                    "duration_fit": clip_info.get("duration_fit"),
+                    "duration_preference": clip_info.get("duration_preference", {}),
+                    "transcript_segments": clip_segments,
                     "speaker": clip_info.get("speaker", ""),
                     "speaker_confidence": clip_info.get("speaker_confidence"),
                     "overlap_suspected": clip_info.get("overlap_suspected", False),

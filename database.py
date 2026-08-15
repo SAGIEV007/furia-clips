@@ -96,6 +96,8 @@ def init_db():
             action TEXT NOT NULL,
             adjustments TEXT,
             note TEXT,
+            reason_code TEXT DEFAULT '',
+            quality_tags TEXT DEFAULT '[]',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (clip_id) REFERENCES clips(id)
         );
@@ -150,6 +152,17 @@ def init_db():
         "editorial_key": "ALTER TABLE clips ADD COLUMN editorial_key TEXT",
         "review_status": "ALTER TABLE clips ADD COLUMN review_status TEXT DEFAULT 'pending'",
     }
+    feedback_columns = {
+        row["name"] for row in cursor.execute("PRAGMA table_info(clip_feedback)").fetchall()
+    }
+    feedback_migrations = {
+        "reason_code": "ALTER TABLE clip_feedback ADD COLUMN reason_code TEXT DEFAULT ''",
+        "quality_tags": "ALTER TABLE clip_feedback ADD COLUMN quality_tags TEXT DEFAULT '[]'",
+    }
+    for column, statement in feedback_migrations.items():
+        if column not in feedback_columns:
+            cursor.execute(statement)
+
     headline_columns = {
         row["name"] for row in cursor.execute("PRAGMA table_info(headline_feedback)").fetchall()
     }
@@ -534,7 +547,15 @@ def get_clips(project_id):
                   (SELECT adjustments FROM clip_feedback
                    WHERE clip_feedback.clip_id = clips.id
                      AND clip_feedback.action = 'adjusted'
-                   ORDER BY clip_feedback.id DESC LIMIT 1) AS latest_adjustment
+                   ORDER BY clip_feedback.id DESC LIMIT 1) AS latest_adjustment,
+                  (SELECT reason_code FROM clip_feedback
+                   WHERE clip_feedback.clip_id = clips.id
+                     AND clip_feedback.action IN ('approved', 'rejected', 'needs_review')
+                   ORDER BY clip_feedback.id DESC LIMIT 1) AS latest_feedback_reason,
+                  (SELECT quality_tags FROM clip_feedback
+                   WHERE clip_feedback.clip_id = clips.id
+                     AND clip_feedback.action IN ('approved', 'rejected', 'needs_review')
+                   ORDER BY clip_feedback.id DESC LIMIT 1) AS latest_feedback_tags
            FROM clips
            WHERE project_id = ?
            ORDER BY viral_score DESC""",
@@ -562,6 +583,11 @@ def get_clips(project_id):
                 clip["latest_adjustment"] = None
         else:
             clip["latest_adjustment"] = None
+        try:
+            parsed_tags = json.loads(clip.get("latest_feedback_tags") or "[]")
+            clip["latest_feedback_tags"] = parsed_tags if isinstance(parsed_tags, list) else []
+        except (TypeError, ValueError, json.JSONDecodeError):
+            clip["latest_feedback_tags"] = []
         clips.append(clip)
     return clips
 
@@ -600,9 +626,16 @@ def update_clip_review_status(clip_id, status):
     conn.close()
 
 
-def save_clip_feedback(clip_id, action, adjustments=None, note=""):
+def save_clip_feedback(clip_id, action, adjustments=None, note="", reason_code="", quality_tags=None):
     if action not in {"approved", "rejected", "needs_review", "adjusted", "rendered"}:
         raise ValueError("Ação de feedback inválida")
+    normalized_reason = str(reason_code or "").strip()[:48]
+    normalized_tags = []
+    for tag in (quality_tags or []):
+        value = str(tag or "").strip()[:48]
+        if value and value not in normalized_tags:
+            normalized_tags.append(value)
+    normalized_tags = normalized_tags[:12]
     conn = get_db()
     clip_row = conn.execute("SELECT id FROM clips WHERE id = ?", (clip_id,)).fetchone()
     if not clip_row:
@@ -610,8 +643,17 @@ def save_clip_feedback(clip_id, action, adjustments=None, note=""):
         raise ValueError("Clip não encontrado")
     status = action if action in {"approved", "rejected", "needs_review"} else "needs_review"
     conn.execute(
-        "INSERT INTO clip_feedback (clip_id, action, adjustments, note) VALUES (?, ?, ?, ?)",
-        (clip_id, action, json.dumps(adjustments or {}), note or ""),
+        """INSERT INTO clip_feedback
+           (clip_id, action, adjustments, note, reason_code, quality_tags)
+           VALUES (?, ?, ?, ?, ?, ?)""",
+        (
+            clip_id,
+            action,
+            json.dumps(adjustments or {}),
+            str(note or "")[:600],
+            normalized_reason,
+            json.dumps(normalized_tags, ensure_ascii=False),
+        ),
     )
     conn.execute("UPDATE clips SET review_status = ? WHERE id = ?", (status, clip_id))
     conn.commit()
@@ -657,6 +699,11 @@ def get_clip_feedback(clip_id):
             item["adjustments"] = json.loads(item.get("adjustments") or "{}")
         except json.JSONDecodeError:
             item["adjustments"] = {}
+        try:
+            parsed_tags = json.loads(item.get("quality_tags") or "[]")
+            item["quality_tags"] = parsed_tags if isinstance(parsed_tags, list) else []
+        except (TypeError, ValueError, json.JSONDecodeError):
+            item["quality_tags"] = []
         result.append(item)
     return result
 
@@ -719,7 +766,15 @@ def get_feedback_calibration(min_samples=12, min_per_outcome=3):
     """
     conn = get_db()
     rows = conn.execute(
-        """SELECT viral_score, duration, score_factors, review_status
+        """SELECT clips.id, viral_score, duration, score_factors, review_status,
+                  (SELECT reason_code FROM clip_feedback
+                   WHERE clip_feedback.clip_id = clips.id
+                     AND clip_feedback.action IN ('approved', 'rejected')
+                   ORDER BY clip_feedback.id DESC LIMIT 1) AS reason_code,
+                  (SELECT quality_tags FROM clip_feedback
+                   WHERE clip_feedback.clip_id = clips.id
+                     AND clip_feedback.action IN ('approved', 'rejected')
+                   ORDER BY clip_feedback.id DESC LIMIT 1) AS quality_tags
            FROM clips
            WHERE review_status IN ('approved', 'rejected')"""
     ).fetchall()
@@ -766,6 +821,13 @@ def get_feedback_calibration(min_samples=12, min_per_outcome=3):
         for factor in sorted(common_factors)
     }
 
+    reason_counts = {"approved": {}, "rejected": {}}
+    for row in rows:
+        status = str(row["review_status"] or "")
+        reason = str(row["reason_code"] or "").strip()
+        if status in reason_counts and reason:
+            reason_counts[status][reason] = reason_counts[status].get(reason, 0) + 1
+
     approved_duration = mean([item["duration"] for item in approved])
     rejected_duration = mean([item["duration"] for item in rejected])
     duration_gap = round(rejected_duration - approved_duration, 2)
@@ -791,6 +853,11 @@ def get_feedback_calibration(min_samples=12, min_per_outcome=3):
             2,
         ),
         "factor_deltas": factor_deltas,
+        "reason_counts": reason_counts,
+        "top_rejection_reasons": [
+            {"reason": reason, "count": count}
+            for reason, count in sorted(reason_counts["rejected"].items(), key=lambda item: (-item[1], item[0]))[:5]
+        ],
         "duration_signal": {
             "usable": duration_signal_usable,
             "approved_mean_seconds": round(approved_duration, 2),
