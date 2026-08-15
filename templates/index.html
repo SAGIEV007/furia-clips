@@ -248,6 +248,7 @@
             </div>
             <div class="main-header-actions">
                 <div class="workspace-state" id="workspaceState"><span class="status-dot online"></span><span>Pronto para analisar</span></div>
+                <span class="runtime-version" id="runtimeVersion" title="Versão do programa em uso">build local</span>
                 <button class="btn btn-help" id="btnHelp">
                     <span class="material-icons-round">help</span> Ajuda
                 </button>
@@ -532,7 +533,11 @@
         <!-- Actions -->
         <section class="section" id="actionsSection">
             <div class="section-header">
-                <h3><span class="material-icons-round">bolt</span> Acoes Disponiveis</h3>
+                <div>
+                    <h3><span class="material-icons-round">bolt</span> Acoes Disponiveis</h3>
+                    <p class="section-hint">Escolha uma operação. O corte inteligente usa contexto antes de selecionar.</p>
+                </div>
+                <span class="section-kicker">Atalho: Ctrl/Cmd + Enter</span>
             </div>
 
             <div class="action-cards">

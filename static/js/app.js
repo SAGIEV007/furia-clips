@@ -3473,6 +3473,11 @@ async function loadSettings() {
 
 function applySettings() {
     const s = state.settings;
+    const runtimeVersion = document.getElementById("runtimeVersion");
+    if (runtimeVersion && (s.program_version || s.program_revision)) {
+        runtimeVersion.textContent = `${s.program_version || "build"} · ${s.program_revision || "local"}`;
+        runtimeVersion.title = `Versão em uso: ${s.program_version || "desconhecida"} · revisão ${s.program_revision || "local"}`;
+    }
     if (s.whisper_model) document.getElementById("settingWhisperModel").value = s.whisper_model;
     if (s.cut_method) document.getElementById("settingCutMethod").value = s.cut_method;
     if (s.cut_duration) document.getElementById("settingCutDuration").value = s.cut_duration;
@@ -3764,6 +3769,13 @@ document.addEventListener("keydown", (e) => {
         return;
     }
 
+    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        e.preventDefault();
+        const cutButton = document.getElementById("actionCut")?.querySelector(".btn-action");
+        if (cutButton && !cutButton.disabled) cutButton.click();
+        return;
+    }
+
     switch (e.key) {
         case " ":
             // Space = play/pause current video
@@ -3781,6 +3793,10 @@ document.addEventListener("keydown", (e) => {
             if (transcriptSearchInput) transcriptSearchInput.focus();
             break;
         case "Escape":
+            if (state.activeJob && ["queued", "running", "cancel_requested"].includes(state.activeJob.state)) {
+                requestCancelOperation();
+                return;
+            }
             // Close any open modal
             document.querySelectorAll(".modal-overlay.active").forEach(m => m.classList.remove("active"));
             break;

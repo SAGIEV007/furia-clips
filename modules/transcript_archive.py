@@ -94,10 +94,13 @@ def validate_transcription(transcription: dict | None, duration: float | None = 
     if len(total_text) < 80:
         warnings.append("texto total muito curto para validar contexto editorial")
 
-    score = 100.0
-    score -= min(45.0, len(issues) * 20.0)
-    score -= min(25.0, len(warnings) * 8.0)
-    score = max(0.0, min(100.0, score))
+    if not valid_segments:
+        score = 0.0
+    else:
+        score = 100.0
+        score -= min(45.0, len(issues) * 20.0)
+        score -= min(25.0, len(warnings) * 8.0)
+        score = max(0.0, min(100.0, score))
     if issues:
         quality = "needs_attention"
     elif warnings:
@@ -199,10 +202,19 @@ def list_archived_transcriptions(limit: int = 100) -> list[dict]:
             metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
         except (OSError, ValueError, TypeError):
             continue
+        transcript_path = directory / "transcript.json"
+        if transcript_path.is_file():
+            try:
+                payload = json.loads(transcript_path.read_text(encoding="utf-8"))
+                duration = (metadata.get("quality") or {}).get("duration_seconds") if isinstance(metadata.get("quality"), dict) else None
+                metadata["quality"] = validate_transcription(payload, duration=duration)
+                metadata["quality_revalidated"] = True
+            except (OSError, ValueError, TypeError):
+                metadata["quality_revalidated"] = False
         entries.append({
             **metadata,
             "relative_dir": os.path.relpath(directory, root),
-            "has_json": (directory / "transcript.json").is_file(),
+            "has_json": transcript_path.is_file(),
             "has_text": (directory / "transcript.txt").is_file(),
         })
         if len(entries) >= max(1, int(limit)):

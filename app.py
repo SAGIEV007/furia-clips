@@ -1035,6 +1035,8 @@ def api_get_settings():
         configured = bool(settings.get(key))
         settings[key] = ""
         settings[f"{key}_configured"] = configured
+    settings["program_version"] = PROGRAM_VERSION
+    settings["program_revision"] = PROGRAM_REVISION
     return jsonify(settings)
 
 

@@ -24,6 +24,27 @@ class TranscriptArchiveTests(unittest.TestCase):
         self.assertTrue(report["warnings"])
         self.assertFalse(report["semantic_accuracy_verified"])
 
+    def test_empty_transcription_has_zero_quality_score(self):
+        report = transcript_archive.validate_transcription({"segments": []})
+        self.assertEqual(report["quality"], "needs_attention")
+        self.assertEqual(report["valid_segment_count"], 0)
+        self.assertEqual(report["score"], 0.0)
+
+    def test_archive_listing_revalidates_legacy_json_quality(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            directory = Path(tempdir) / "legacy_hash"
+            directory.mkdir()
+            (directory / "metadata.json").write_text(
+                json.dumps({"source": "user_uploaded_transcript", "quality": {"quality": "structurally_ok", "score": 100.0}}),
+                encoding="utf-8",
+            )
+            (directory / "transcript.json").write_text(json.dumps({"segments": []}), encoding="utf-8")
+            with patch.object(transcript_archive, "PERSISTENT_TRANSCRIPTS_DIR", tempdir):
+                entries = transcript_archive.list_archived_transcriptions()
+            self.assertEqual(entries[0]["quality"]["quality"], "needs_attention")
+            self.assertEqual(entries[0]["quality"]["score"], 0.0)
+            self.assertTrue(entries[0]["quality_revalidated"])
+
     def test_archive_writes_machine_readable_and_timestamped_files(self):
         with tempfile.TemporaryDirectory() as tempdir:
             transcription = {
