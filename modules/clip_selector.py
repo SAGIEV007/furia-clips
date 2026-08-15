@@ -60,6 +60,9 @@ class ClipSelector:
             "fallback_count": 0,
             "final_count": 0,
             "fallback_used": False,
+            "fallback_discarded_count": 0,
+            "fallback_discarded_overlap": 0,
+            "fallback_discarded_similarity": 0,
             "reason": "not_evaluated",
         }
 
@@ -123,6 +126,9 @@ class ClipSelector:
             "fallback_count": 0,
             "final_count": 0,
             "fallback_used": False,
+            "fallback_discarded_count": 0,
+            "fallback_discarded_overlap": 0,
+            "fallback_discarded_similarity": 0,
             "reason": "short_source" if expected_count == 0 else ("adequate_pool" if len(primary_clips) >= expected_count else "primary_pool_thin"),
         }
         if primary_clips and expected_count and len(primary_clips) < expected_count:
@@ -151,10 +157,7 @@ class ClipSelector:
         if scene_changes:
             clips = self._adjust_to_scene_boundaries(clips, scene_changes)
 
-        # Apply anti-overlap filter
-        clips = self._remove_overlaps(clips)
-
-        # Preserve chapter evidence after scene and overlap normalization so every
+        # Preserve chapter evidence before overlap normalization so every
         # backend (Gemini, Ollama, and NLP) exposes the same review contract.
         editorial_context = settings.get("editorial_context")
         clips = [annotate_clip_with_chapters(clip, editorial_context) for clip in clips]
@@ -181,6 +184,10 @@ class ClipSelector:
                 if origin == "local_fallback"
                 else "Origem registrada para transparência da revisão."
             )
+
+        # Apply anti-overlap filter after origin labels are available so a
+        # primary candidate wins deterministic conflicts with local fallback.
+        clips = self._remove_overlaps(clips)
 
         # Limit to max_clips
         clips = clips[:self.max_clips]
@@ -1474,9 +1481,14 @@ Retorne APENAS o JSON.
         if not clips:
             return []
 
+        def origin_priority(clip):
+            origin = str(clip.get("candidate_origin") or "")
+            return 0 if origin == "local_fallback" else 1
+
         ordered = sorted(
             clips,
             key=lambda clip: (
+                origin_priority(clip),
                 float(clip.get("editorial_potential_score", clip.get("viral_score", 0)) or 0),
                 float(clip.get("confidence", 0) or 0),
                 -float(clip.get("duration", 0) or 0),
@@ -1486,20 +1498,32 @@ Retorne APENAS o JSON.
         selected = []
         for clip in ordered:
             duplicate = False
+            duplicate_reason = ""
             for existing in selected:
                 overlap = self._calculate_overlap(clip, existing)
                 text_similarity = self._text_similarity(clip.get("text", ""), existing.get("text", ""))
                 if overlap > 0.30:
                     duplicate = True
+                    duplicate_reason = "overlap"
                     break
                 # Repeated wording in adjacent candidate windows is usually a
                 # rolling-caption duplicate. Require high lexical and sequence
                 # similarity so short common political phrases survive.
                 if text_similarity >= 0.90:
                     duplicate = True
+                    duplicate_reason = "similarity"
                     break
-            if not duplicate:
-                selected.append(clip)
+            if duplicate:
+                if str(clip.get("candidate_origin") or "") == "local_fallback":
+                    self._candidate_diagnostics["fallback_discarded_count"] = int(
+                        self._candidate_diagnostics.get("fallback_discarded_count", 0) or 0
+                    ) + 1
+                    field = "fallback_discarded_overlap" if duplicate_reason == "overlap" else "fallback_discarded_similarity"
+                    self._candidate_diagnostics[field] = int(
+                        self._candidate_diagnostics.get(field, 0) or 0
+                    ) + 1
+                continue
+            selected.append(clip)
 
         return selected
 
