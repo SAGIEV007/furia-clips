@@ -26,3 +26,59 @@ def test_short_coverage_forces_original_fallback():
     assessment = FaceTracker().assess_segment_tracking(positions, 0.0, 30.0)
     assert assessment["confident"] is False
     assert "poucas" in assessment["reason"]
+
+
+def test_tasks_api_without_model_reports_safe_fallback(monkeypatch):
+    import sys
+    from types import SimpleNamespace
+
+    fake_mp = SimpleNamespace(
+        tasks=SimpleNamespace(
+            BaseOptions=object,
+            vision=SimpleNamespace(FaceDetector=object()),
+        )
+    )
+    monkeypatch.setitem(sys.modules, "mediapipe", fake_mp)
+
+    tracker = FaceTracker()
+    tracker._get_model_path = lambda: None
+
+    assert tracker._ensure_detector() is False
+    assert "modelo facial" in tracker._unavailable_reason
+
+
+def test_tasks_api_uses_detector_factory_when_model_exists(monkeypatch):
+    import sys
+    from types import SimpleNamespace
+
+    class FakeBaseOptions:
+        def __init__(self, model_asset_path):
+            self.model_asset_path = model_asset_path
+
+    class FakeDetectorOptions:
+        def __init__(self, base_options, min_detection_confidence):
+            self.base_options = base_options
+            self.min_detection_confidence = min_detection_confidence
+
+    class FakeDetectorFactory:
+        @staticmethod
+        def create_from_options(options):
+            return {"options": options}
+
+    fake_mp = SimpleNamespace(
+        tasks=SimpleNamespace(
+            BaseOptions=FakeBaseOptions,
+            vision=SimpleNamespace(
+                FaceDetector=FakeDetectorFactory,
+                FaceDetectorOptions=FakeDetectorOptions,
+            ),
+        )
+    )
+    monkeypatch.setitem(sys.modules, "mediapipe", fake_mp)
+
+    tracker = FaceTracker()
+    tracker._get_model_path = lambda: "/tmp/fake-face-model.tflite"
+
+    assert tracker._ensure_detector() is True
+    assert tracker.detector["options"].base_options.model_asset_path.endswith("fake-face-model.tflite")
+    assert tracker._unavailable_reason is None
