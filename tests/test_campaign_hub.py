@@ -217,3 +217,37 @@ def test_aggregate_only_snapshot_is_normalized_without_post_ids():
     )
     assert prior["available"] is True
     assert prior["sample_count"] == 4
+
+
+def test_qa_boundary_stops_before_following_question():
+    from modules.editorial_context import analyze_transcript_context
+
+    result = analyze_transcript_context({
+        "segments": [
+            {"start": 0, "end": 4, "text": "Qual é a proposta?", "speaker": "entrevistador"},
+            {"start": 4, "end": 10, "text": "A proposta reduz o desperdício.", "speaker": "renan"},
+            {"start": 10, "end": 15, "text": "Ela começa pela transparência.", "speaker": "renan"},
+            {"start": 15, "end": 20, "text": "E qual é o prazo?", "speaker": "entrevistador"},
+        ]
+    })
+
+    candidate = result["qa_candidates"][0]
+    assert candidate["response_segments"] == [1, 2]
+    assert candidate["end"] == 15.0
+
+
+def test_qa_boundary_stops_at_second_reliable_speaker_change():
+    from modules.editorial_context import analyze_transcript_context
+
+    result = analyze_transcript_context({
+        "segments": [
+            {"start": 0, "end": 4, "text": "Qual é a proposta?", "speaker": "entrevistador"},
+            {"start": 4, "end": 10, "text": "A proposta reduz o desperdício.", "speaker": "renan"},
+            {"start": 10, "end": 14, "text": "Eu discordo dessa resposta.", "speaker": "convidado"},
+        ]
+    })
+
+    candidate = result["qa_candidates"][0]
+    assert candidate["response_segments"] == [1]
+    assert candidate["boundary_basis"] == "segunda_troca_de_locutor"
+    assert candidate["response_speaker"] == "renan"

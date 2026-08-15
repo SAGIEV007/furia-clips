@@ -206,17 +206,26 @@ def _build_qa_candidates(segments: list[dict]) -> list[dict]:
         response_indices = []
         speaker_boundary = False
         boundary_basis = "sem_diarização"
+        response_speaker = ""
         for offset, candidate in enumerate(segments[index + 1:index + 13], start=index + 1):
-            if candidate.get("is_question") and following and float(candidate.get("start", 0) or 0) - question_start >= 6:
+            candidate_start = float(candidate.get("start", 0) or 0)
+            candidate_speaker = str(candidate.get("speaker_label", "") or "").strip()
+            candidate_marker = str(candidate.get("speaker_marker", "") or "").strip()
+            candidate_identity = candidate_speaker or candidate_marker
+            if candidate.get("is_question") and following and candidate_start - question_start >= 6:
+                break
+            if response_speaker and candidate_identity and candidate_identity != response_speaker:
+                boundary_basis = "segunda_troca_de_locutor"
                 break
             following.append(candidate)
             response_indices.append(offset)
-            candidate_speaker = str(candidate.get("speaker_label", "") or "").strip()
-            if question_speaker and candidate_speaker and candidate_speaker != question_speaker:
+            if question_speaker and candidate_identity and candidate_identity != question_speaker:
                 speaker_boundary = True
+                response_speaker = candidate_identity
                 boundary_basis = "mudança_de_locutor"
-            elif candidate.get("speaker_marker") and candidate.get("speaker_marker") != question.get("speaker_marker"):
+            elif candidate_marker and candidate_marker != question.get("speaker_marker"):
                 speaker_boundary = True
+                response_speaker = candidate_marker
                 boundary_basis = "marcador_de_locutor"
             if float(candidate.get("end", 0) or 0) - question_start >= 32:
                 break
@@ -240,6 +249,7 @@ def _build_qa_candidates(segments: list[dict]) -> list[dict]:
             "renan_signal": renan_signal,
             "speaker_boundary": speaker_boundary,
             "boundary_basis": boundary_basis,
+            "response_speaker": response_speaker or None,
             "overlap_suspected": overlap,
             "needs_question": True,
             "needs_speaker_review": not speaker_boundary,
