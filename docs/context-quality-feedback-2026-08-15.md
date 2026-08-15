@@ -40,7 +40,7 @@ Esse desenho permite baixar o código em outro notebook e começar com um compor
 
 ## Dataset editorial dos Reels
 
-As observações visuais individuais foram formalizadas em `~/FuriaClipsData/analyses/instagram-editorial-dataset-v1-2026-08-15.json`. O lote atual contém 37 registros individuais, incluindo 24 do perfil reserva. O schema separa conta, alcance público observado, família narrativa, hook, contexto necessário, payoff, layout, política de composição, evidência, confiança e estado do áudio. O arquivo não contém vídeo nem transcrição bruta.
+As observações visuais individuais foram formalizadas em `~/FuriaClipsData/analyses/instagram-editorial-dataset-v1-2026-08-15.json`. O lote atual contém 47 registros individuais, sendo 23 do perfil principal e 24 do perfil reserva. O schema separa conta, alcance público observado, família narrativa, hook, contexto necessário, payoff, layout, política de composição, evidência, confiança e estado do áudio. O arquivo não contém vídeo nem transcrição bruta.
 
 O módulo `modules/instagram_editorial_priors.py` agrega esse dataset por família e layout. O ranqueador passa a expor `instagram_pattern_prior` e seus metadados de amostra no resultado e no HUD. Esse prior fica limitado entre 42 e 58, funcionando como desempate editorial, enquanto contexto, completude, pergunta–resposta, evidência, enquadramento e feedback humano permanecem dominantes.
 
