@@ -179,3 +179,46 @@ class EditorialRankerTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_context_quality_penalizes_abrupt_start_and_unresolved_question():
+    ranker = EditorialRanker()
+    abrupt = ranker.score_clip({
+        "start": 0, "end": 30, "duration": 30,
+        "text": "E por isso a proposta foi rejeitada no final",
+        "starts_mid_sentence": True,
+        "question_detected": False,
+        "payoff_complete": False,
+        "context_complete": False,
+    })
+    complete = ranker.score_clip({
+        "start": 0, "end": 34, "duration": 34,
+        "text": "Por que isso aconteceu? A resposta está nos registros oficiais. Por isso, a apuração deve continuar.",
+        "question_detected": True,
+        "question_answer_complete": True,
+        "evidence_present": True,
+        "payoff_complete": True,
+        "context_complete": True,
+        "qa_bridge": True,
+    })
+    assert abrupt["review_flags"]["starts_mid_sentence"] is True
+    assert complete["review_flags"]["question_answer_complete"] is True
+    assert complete["factors"]["context_quality"] > abrupt["factors"]["context_quality"]
+    assert complete["editorial_potential_score"] > abrupt["editorial_potential_score"]
+
+
+    def test_observed_high_impact_openers_score_as_hooks(self):
+        observed = self.ranker.score_clip({
+            "start": 0,
+            "end": 30,
+            "duration": 30,
+            "text": "Presta muita atenção! Leia de novo: este é o Brasil que vamos receber.",
+        })
+        plain = self.ranker.score_clip({
+            "start": 0,
+            "end": 30,
+            "duration": 30,
+            "text": "Este é o Brasil que vamos receber, segundo os dados apresentados.",
+        })
+        self.assertGreater(observed["factors"]["hook"], plain["factors"]["hook"])
+        self.assertGreaterEqual(observed["factors"]["hook"], 70)
