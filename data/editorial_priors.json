@@ -1,0 +1,385 @@
+{
+  "schema_version": "editorial-priors-v1-aggregate-only",
+  "generated_at": "2026-08-15T00:49:35.448359+00:00",
+  "source_label": "Campaign Hub aggregate observations",
+  "default_account": "@renansantosmbl",
+  "privacy_contract": {
+    "raw_media_included": false,
+    "transcripts_included": false,
+    "post_ids_included": false,
+    "urls_included": false,
+    "queries_included": false,
+    "purpose": "portable ranking priors, not model weights"
+  },
+  "accounts": {
+    "@renansantosmbl": {
+      "platform": "instagram",
+      "hook_priors": [
+        {
+          "hook": "news-peg",
+          "observations": 1,
+          "mean_ratio": 28.575,
+          "max_ratio": 28.575
+        },
+        {
+          "hook": "outro",
+          "observations": 1,
+          "mean_ratio": 8.113,
+          "max_ratio": 8.113
+        },
+        {
+          "hook": "revelacao-de-local",
+          "observations": 1,
+          "mean_ratio": 6.754,
+          "max_ratio": 6.754
+        },
+        {
+          "hook": "acusacao-direta",
+          "observations": 1,
+          "mean_ratio": 5.132,
+          "max_ratio": 5.132
+        },
+        {
+          "hook": "tese-provocativa",
+          "observations": 6,
+          "mean_ratio": 5.074,
+          "max_ratio": 8.779
+        },
+        {
+          "hook": "curiosity-gap",
+          "observations": 2,
+          "mean_ratio": 3.334,
+          "max_ratio": 3.501
+        }
+      ],
+      "example_count": 12,
+      "cohort_count": 1
+    },
+    "@renansantosreserva": {
+      "platform": "instagram",
+      "hook_priors": [
+        {
+          "hook": "acusacao-direta",
+          "observations": 3,
+          "mean_ratio": 9.644,
+          "max_ratio": 14.813
+        },
+        {
+          "hook": "outro",
+          "observations": 3,
+          "mean_ratio": 9.593,
+          "max_ratio": 25.261
+        },
+        {
+          "hook": "tese-provocativa",
+          "observations": 3,
+          "mean_ratio": 7.176,
+          "max_ratio": 11.925
+        },
+        {
+          "hook": "news-peg",
+          "observations": 2,
+          "mean_ratio": 6.534,
+          "max_ratio": 7.785
+        },
+        {
+          "hook": "desafio-ao-espectador",
+          "observations": 1,
+          "mean_ratio": 2.133,
+          "max_ratio": 2.133
+        }
+      ],
+      "example_count": 12,
+      "cohort_count": 0
+    }
+  },
+  "instagram_family_priors": {
+    "family_priors": [
+      {
+        "family": "reaction_external_evidence",
+        "observations": 4,
+        "mean_views": 797500.0,
+        "median_views": 830500.0,
+        "preserve_composition_rate": 1.0,
+        "mean_annotation_confidence": 0.915
+      },
+      {
+        "family": "debate_with_reaction",
+        "observations": 2,
+        "mean_views": 691500.0,
+        "median_views": 691500.0,
+        "preserve_composition_rate": 1.0,
+        "mean_annotation_confidence": 0.945
+      },
+      {
+        "family": "conversation_social",
+        "observations": 1,
+        "mean_views": 1000000.0,
+        "median_views": 1000000.0,
+        "preserve_composition_rate": 1.0,
+        "mean_annotation_confidence": 0.84
+      },
+      {
+        "family": "talking_head_external_proof",
+        "observations": 1,
+        "mean_views": 858000.0,
+        "median_views": 858000.0,
+        "preserve_composition_rate": 1.0,
+        "mean_annotation_confidence": 0.93
+      },
+      {
+        "family": "personal_emotional",
+        "observations": 1,
+        "mean_views": 590000.0,
+        "median_views": 590000.0,
+        "preserve_composition_rate": 1.0,
+        "mean_annotation_confidence": 0.86
+      },
+      {
+        "family": "institutional_debate",
+        "observations": 1,
+        "mean_views": 556000.0,
+        "median_views": 556000.0,
+        "preserve_composition_rate": 0.0,
+        "mean_annotation_confidence": 0.82
+      },
+      {
+        "family": "talking_head_with_support",
+        "observations": 1,
+        "mean_views": 405000.0,
+        "median_views": 405000.0,
+        "preserve_composition_rate": 1.0,
+        "mean_annotation_confidence": 0.87
+      },
+      {
+        "family": "event_mobilization",
+        "observations": 1,
+        "mean_views": 341000.0,
+        "median_views": 341000.0,
+        "preserve_composition_rate": 1.0,
+        "mean_annotation_confidence": 0.84
+      },
+      {
+        "family": "podcast_monochrome",
+        "observations": 1,
+        "mean_views": 333000.0,
+        "median_views": 333000.0,
+        "preserve_composition_rate": 0.0,
+        "mean_annotation_confidence": 0.88
+      },
+      {
+        "family": "campaign_event_collaborative",
+        "observations": 1,
+        "mean_views": 187000.0,
+        "median_views": 187000.0,
+        "preserve_composition_rate": 1.0,
+        "mean_annotation_confidence": 0.91
+      },
+      {
+        "family": "comparison_external_evidence",
+        "observations": 1,
+        "mean_views": 179000.0,
+        "median_views": 179000.0,
+        "preserve_composition_rate": 1.0,
+        "mean_annotation_confidence": 0.95
+      },
+      {
+        "family": "public_confrontation",
+        "observations": 1,
+        "mean_views": 129000.0,
+        "median_views": 129000.0,
+        "preserve_composition_rate": 1.0,
+        "mean_annotation_confidence": 0.94
+      },
+      {
+        "family": "coalition_position",
+        "observations": 1,
+        "mean_views": 70100.0,
+        "median_views": 70100.0,
+        "preserve_composition_rate": 1.0,
+        "mean_annotation_confidence": 0.84
+      },
+      {
+        "family": "political_question_answer",
+        "observations": 1,
+        "mean_views": 27300.0,
+        "median_views": 27300.0,
+        "preserve_composition_rate": 1.0,
+        "mean_annotation_confidence": 0.96
+      },
+      {
+        "family": "conference_sector_proposal",
+        "observations": 1,
+        "mean_views": 17200.0,
+        "median_views": 17200.0,
+        "preserve_composition_rate": 1.0,
+        "mean_annotation_confidence": 0.92
+      },
+      {
+        "family": "tv_commentator_external_text",
+        "observations": 1,
+        "mean_views": 10900.0,
+        "median_views": 10900.0,
+        "preserve_composition_rate": 1.0,
+        "mean_annotation_confidence": 0.93
+      },
+      {
+        "family": "controversial_statement",
+        "observations": 1,
+        "mean_views": 7948.0,
+        "median_views": 7948.0,
+        "preserve_composition_rate": 1.0,
+        "mean_annotation_confidence": 0.9
+      },
+      {
+        "family": "policy_proposal_with_support",
+        "observations": 1,
+        "mean_views": 7127.0,
+        "median_views": 7127.0,
+        "preserve_composition_rate": 1.0,
+        "mean_annotation_confidence": 0.87
+      },
+      {
+        "family": "podcast_government_statement",
+        "observations": 1,
+        "mean_views": 6882.0,
+        "median_views": 6882.0,
+        "preserve_composition_rate": 1.0,
+        "mean_annotation_confidence": 0.86
+      },
+      {
+        "family": "denunciation_external_evidence",
+        "observations": 1,
+        "mean_views": 5935.0,
+        "median_views": 5935.0,
+        "preserve_composition_rate": 1.0,
+        "mean_annotation_confidence": 0.9
+      },
+      {
+        "family": "graph_evidence",
+        "observations": 1,
+        "mean_views": 574.0,
+        "median_views": 574.0,
+        "preserve_composition_rate": 1.0,
+        "mean_annotation_confidence": 0.9
+      }
+    ],
+    "layout_priors": [
+      {
+        "layout": "vertical_split_screen",
+        "observations": 5
+      },
+      {
+        "layout": "vertical_podcast",
+        "observations": 2
+      },
+      {
+        "layout": "graphic_stage_and_chart",
+        "observations": 1
+      },
+      {
+        "layout": "monochrome_broll_plus_talking_head",
+        "observations": 1
+      },
+      {
+        "layout": "social_post_to_tv",
+        "observations": 1
+      },
+      {
+        "layout": "stage_screen_and_speaker",
+        "observations": 1
+      },
+      {
+        "layout": "vertical_event_interview",
+        "observations": 1
+      },
+      {
+        "layout": "vertical_face_plus_screenshot",
+        "observations": 1
+      },
+      {
+        "layout": "vertical_face_plus_social_screenshot",
+        "observations": 1
+      },
+      {
+        "layout": "vertical_face_plus_top_text",
+        "observations": 1
+      },
+      {
+        "layout": "vertical_interview_with_broll",
+        "observations": 1
+      },
+      {
+        "layout": "vertical_portrait_plus_interview",
+        "observations": 1
+      },
+      {
+        "layout": "vertical_split_brand_and_face",
+        "observations": 1
+      },
+      {
+        "layout": "vertical_split_interview",
+        "observations": 1
+      },
+      {
+        "layout": "vertical_stage",
+        "observations": 1
+      },
+      {
+        "layout": "vertical_stage_talking_head",
+        "observations": 1
+      },
+      {
+        "layout": "vertical_talking_head",
+        "observations": 1
+      },
+      {
+        "layout": "vertical_talking_head_support_insert",
+        "observations": 1
+      },
+      {
+        "layout": "vertical_talking_head_with_broll",
+        "observations": 1
+      },
+      {
+        "layout": "vertical_testimony_to_stage",
+        "observations": 1
+      }
+    ],
+    "record_count": 25
+  },
+  "observed_patterns": [
+    {
+      "family": "reacao_com_evidencia_externa",
+      "selection_rule": "preserve_external_evidence_and_reaction_together",
+      "layout_policy": "preserve_composition",
+      "quality_gate": "evidence_present and payoff_complete"
+    },
+    {
+      "family": "entrevista_pergunta_resposta",
+      "selection_rule": "prefer_question_answer_complete",
+      "layout_policy": "preserve_multi_subject_layout",
+      "quality_gate": "question_answer_complete"
+    },
+    {
+      "family": "talking_head_grafico",
+      "selection_rule": "keep_thesis_and_documentary_overlay",
+      "layout_policy": "preserve_composition",
+      "quality_gate": "context_complete and evidence_present"
+    },
+    {
+      "family": "conversa_descontraida",
+      "selection_rule": "allow_non_political_value_when_payoff_is_complete",
+      "layout_policy": "reframe_only_with_stable_single_speaker",
+      "quality_gate": "payoff_complete and not starts_mid_sentence"
+    }
+  ],
+  "quality_gates": {
+    "context_quality": 0.1,
+    "completeness": 0.1,
+    "question_answer_complete_bonus": 14,
+    "starts_mid_sentence_penalty": -28,
+    "unresolved_cliffhanger_penalty": -18,
+    "duration_is_soft_preference": true
+  }
+}
