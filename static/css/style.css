@@ -4160,3 +4160,12 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
     .runtime-version { max-width: 145px; }
     .section-kicker { display: none; }
 }
+
+.context-source-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: #a9bac8;
+}
+.context-source-status.validated { color: #8be0b6; border-color: rgba(85, 214, 154, .28); }
+.context-source-status.review { color: #f2c477; border-color: rgba(244, 189, 101, .28); }

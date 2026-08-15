@@ -1769,6 +1769,8 @@ function renderEditorialContextPreview(context = {}) {
     const quality = context.transcription_quality || {};
     const speakerDetection = context.speaker_detection || {};
     const localAudio = context.local_audio || {};
+    const multimodal = context.multimodal || {};
+    const multimodalStatus = String(multimodal.source_identity_status || "").toLowerCase();
     const highEnergyMoments = Array.isArray(localAudio.high_energy_moments) ? localAudio.high_energy_moments.slice(0, 8) : [];
     const mode = context.analysis_mode === "transcript_plus_video"
         ? "transcrição + vídeo/áudio"
@@ -1798,12 +1800,19 @@ function renderEditorialContextPreview(context = {}) {
     const localAudioMarkup = localAudio.available && highEnergyMoments.length
         ? `<div class="context-local-audio"><div class="context-hook-heading"><span class="material-icons-round">graphic_eq</span><strong>Picos locais de energia para revisar</strong><small>São pistas de ênfase vocal; confirme o sentido e o payoff na imagem e na fala.</small></div><div class="context-energy-list">${highEnergyMoments.map(moment => `<span><b>${formatTime(Number(moment.start || 0))}–${formatTime(Number(moment.end || 0))}</b> · ${Math.round(Number(moment.avg_energy || 0) * 100)}% relativo</span>`).join("")}</div></div>`
         : "";
+    const multimodalMarkup = multimodalStatus === "validated"
+        ? `<span class="context-source-status validated" title="A identidade da fonte foi confirmada pela análise remota">fonte multimodal validada</span>`
+        : multimodalStatus === "mismatch"
+            ? `<span class="context-source-status review" title="As observações remotas foram descartadas por incompatibilidade de fonte">fonte remota incompatível · descartada</span>`
+            : multimodalStatus
+                ? `<span class="context-source-status review" title="A análise remota é apenas evidência auxiliar até a identidade ser confirmada">vídeo remoto · evidência auxiliar</span>`
+                : "";
     result.hidden = false;
     const participantConfidence = Number(context.participant_confidence);
     const participantMarkup = Number.isFinite(participantConfidence)
         ? `<span title="Referência textual e sinais de locutor; não é identificação visual">participante ${Math.round(Math.max(0, Math.min(1, participantConfidence)) * 100)}%</span>`
         : "";
-    result.innerHTML = `<div class="context-result-summary"><strong>${escapeHtml(context.description || "Contexto editorial analisado.")}</strong><div class="context-result-facts"><span>${escapeHtml(mode)}</span><span>${qa} pergunta(s)–resposta</span><span>${chapters} capítulo(s)</span><span>${windows} janela(s) de entrevista</span><span>${Number(quality.segment_count || 0)} segmentos · ${escapeHtml(quality.status || "qualidade não validada")}</span>${participantMarkup}${speakerMarkup}</div></div>${localAudioMarkup}${hookMarkup}`;
+    result.innerHTML = `<div class="context-result-summary"><strong>${escapeHtml(context.description || "Contexto editorial analisado.")}</strong><div class="context-result-facts"><span>${escapeHtml(mode)}</span><span>${qa} pergunta(s)–resposta</span><span>${chapters} capítulo(s)</span><span>${windows} janela(s) de entrevista</span><span>${Number(quality.segment_count || 0)} segmentos · ${escapeHtml(quality.status || "qualidade não validada")}</span>${participantMarkup}${speakerMarkup}${multimodalMarkup}</div></div>${localAudioMarkup}${hookMarkup}`;
 }
 
 async function pollEditorialContextJob(jobId, button, status) {
