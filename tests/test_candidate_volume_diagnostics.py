@@ -22,7 +22,9 @@ def test_long_transcript_uses_local_fallback_when_primary_pool_is_thin(monkeypat
         ]
     }
     primary = [_clip(0, 30, "A fonte principal encontrou uma tese completa.")]
+    primary[0]["source"] = "gemini"
     fallback = [_clip(45, 75, "A alternativa local encontrou outra tese completa.")]
+    fallback[0]["source"] = "nlp"
     monkeypatch.setattr(selector, "_select_with_gemini", lambda *args, **kwargs: primary)
     monkeypatch.setattr(selector, "_select_with_nlp", lambda *args, **kwargs: fallback)
     monkeypatch.setattr(clip_selector_module, "annotate_clip_with_chapters", lambda clip, context: clip)
@@ -39,6 +41,8 @@ def test_long_transcript_uses_local_fallback_when_primary_pool_is_thin(monkeypat
     assert diagnostics["fallback_count"] == 1
     assert diagnostics["fallback_used"] is True
     assert diagnostics["final_count"] == 2
+    origins = {clip["candidate_origin"] for clip in clips}
+    assert origins == {"gemini_primary", "local_fallback"}
 
 
 def test_short_transcript_does_not_create_artificial_candidate_quota(monkeypatch):
