@@ -2347,7 +2347,9 @@ async function setClipReview(index, action) {
         clip.latest_feedback_tags = previousTags;
         renderReviewCommandCenter();
         renderResultsGrid();
-        showToast("Não foi possível salvar o feedback", "error");
+        const feedbackError = error?.message || "erro desconhecido";
+        addConsoleLog(`[Revisão] Feedback não salvo: ${feedbackError}`, "error");
+        showToast(`Não foi possível salvar o feedback: ${feedbackError}`, "error");
     }
 }
 
