@@ -250,11 +250,16 @@ def _claim_candidates(text: str, topic: str, speaker_prefix: str = "") -> list[s
         candidates.append("O BRASIL QUER TRIBUTAR O PRÓPRIO FUTURO?")
     if not candidates:
         label = topic.upper()
-        candidates.extend([
-            f"RENAN EXPLICA O IMPASSE DA {label}",
+        generic_claims = [
+            f"EXPLICA O IMPASSE DA {label}",
             f"O BRASIL PRECISA DECIDIR O RUMO DA {label}",
             f"A VERDADE INCÔMODA SOBRE {label}",
-        ])
+        ]
+        candidates.extend(
+            [f"{speaker_prefix} {generic_claims[0]}".strip(), *generic_claims[1:]]
+            if speaker_prefix
+            else generic_claims
+        )
     unique: list[str] = []
     for candidate in candidates:
         candidate_folded = normalize(candidate)

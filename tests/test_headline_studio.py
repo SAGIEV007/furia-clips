@@ -288,3 +288,15 @@ def test_headline_topic_follows_transcript_evidence_instead_of_generic_security_
     headlines = [item["headline"] for item in result["formats"][FORMAT_VERTICAL]["suggestions"]]
     assert any("EMEND" in headline or "FLÁVIO DINO" in headline for headline in headlines)
     assert all("SEGURANÇA" not in headline for headline in headlines)
+
+
+def test_generic_headlines_do_not_attribute_speaker_without_explicit_context():
+    result = generate_artwork_copy(
+        "O conselho precisa decidir se aprova a proposta e quais serão as consequências.",
+        preferred_format=FORMAT_VERTICAL,
+        ai_backend=None,
+    )
+
+    headlines = [item["headline"] for item in result["formats"][FORMAT_VERTICAL]["suggestions"]]
+    assert headlines
+    assert all("RENAN" not in headline for headline in headlines)
