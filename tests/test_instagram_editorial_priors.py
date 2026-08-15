@@ -39,3 +39,30 @@ def test_local_dataset_produces_bounded_family_prior():
     )
     assert 42.0 <= prior["signal"] <= 58.0
     assert prior["sample_count"] >= 0
+
+
+def test_missing_views_do_not_become_zero_view_observations():
+    aggregate = _aggregate_records([
+        {
+            "family": "supporter_social_proof",
+            "views": 100000,
+            "layout": "vertical_split_testimonial",
+            "layout_policy": "preserve_testimonial_pair",
+            "confidence": 0.9,
+        },
+        {
+            "family": "supporter_social_proof",
+            "public_likes": 17200,
+            "public_comments": 318,
+            "public_reposts": 1313,
+            "metric_note": "public engagement counters, not views",
+            "layout": "vertical_split_testimonial",
+            "layout_policy": "preserve_testimonial_pair",
+            "confidence": 0.9,
+        },
+    ])
+    family = aggregate["family_priors"][0]
+    assert family["observations"] == 2
+    assert family["view_observation_count"] == 1
+    assert family["mean_views"] == 100000.0
+    assert family["median_views"] == 100000.0
