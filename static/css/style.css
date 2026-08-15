@@ -3842,6 +3842,10 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 .context-hook-card blockquote { margin: 7px 0 5px; padding-left: 8px; border-left: 2px solid rgba(245,197,66,.55); color: #f3f6fb; font-size: 12px; line-height: 1.38; }
 .context-hook-card p { margin: 5px 0 3px; color: #d8e1ed; font-size: 11px; line-height: 1.35; }
 .context-hook-card small { color: #8294a1; font-size: 10px; }
+.context-local-audio { margin: 12px 0; padding: 12px; border: 1px solid rgba(90, 214, 190, .2); border-radius: 12px; background: rgba(90, 214, 190, .06); }
+.context-local-audio .context-hook-heading { margin-bottom: 8px; }
+.context-energy-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.context-energy-list span { padding: 5px 7px; border-radius: 7px; color: #c8efe5; background: rgba(90, 214, 190, .1); font-size: 10px; }
 .context-hook-empty { display: flex; align-items: center; gap: 7px; margin-top: 10px; color: var(--text-muted, #aab3c5); font-size: 11px; }
 .context-hook-empty .material-icons-round { color: #8294a1; font-size: 16px; }
 .audit-result-head, .audit-result-signals { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }

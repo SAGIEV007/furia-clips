@@ -133,6 +133,27 @@ _ALLOWED_CORS = [
 ]
 socketio = SocketIO(app, cors_allowed_origins=_ALLOWED_CORS, async_mode="threading")
 
+
+def _runtime_revision():
+    """Return a safe checkout revision for diagnostics, never a secret."""
+    configured = str(os.environ.get("FURIA_CLIPS_VERSION", "") or "").strip()
+    if configured:
+        return configured[:80]
+    try:
+        return subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=os.path.dirname(os.path.abspath(__file__)),
+            stderr=subprocess.DEVNULL,
+            text=True,
+            timeout=2,
+        ).strip() or "checkout-sem-revisão"
+    except Exception:
+        return "checkout-sem-revisão"
+
+
+PROGRAM_VERSION = "rebuild-opus-parity"
+PROGRAM_REVISION = _runtime_revision()
+
 processing_lock = threading.Lock()
 current_task = {
     "active": False,
@@ -160,7 +181,17 @@ def _set_legacy_task(operation, active=True, job_id=None):
 
 
 def emit_progress(message, level="info"):
-    socketio.emit("progress", {"message": message, "level": level, "time": datetime.now().strftime("%H:%M:%S")})
+    runtime_message = f"[Versão {PROGRAM_VERSION} · {PROGRAM_REVISION}] {str(message)}"
+    socketio.emit(
+        "progress",
+        {
+            "message": runtime_message,
+            "level": level,
+            "time": datetime.now().strftime("%H:%M:%S"),
+            "program_version": PROGRAM_VERSION,
+            "program_revision": PROGRAM_REVISION,
+        },
+    )
 
 
 def emit_status(status, data=None):
@@ -403,6 +434,7 @@ def _transcription_from_request(data, duration=None):
         raw_result = parse_transcript_text(text, duration=None)
         result["raw_last_timestamp"] = max((float(item.get("end") if item.get("end") is not None else item.get("start", 0)) for item in raw_result.get("segments", [])), default=None)
         result["language"] = data.get("transcript_language", "pt")
+        result["source"] = "manual"
         return result
     segments = data.get("transcript_segments")
     if isinstance(segments, list) and segments:
@@ -412,8 +444,46 @@ def _transcription_from_request(data, duration=None):
             default=None,
         )
         result["language"] = data.get("transcript_language", "pt")
+        result["source"] = "manual"
         return result
     return None
+
+
+def _enrich_editorial_context_locally(video_path, transcription, editorial_context, settings, emit_progress):
+    """Add local audio and hook evidence without uploading the source video."""
+    from modules.audio_analyzer import AudioAnalyzer
+    from modules.editorial_context import detect_hook_candidates
+    from modules.campaign_hub import load_snapshot
+
+    analyzer = AudioAnalyzer()
+    energy_profile = analyzer.analyze_energy(video_path, emit_progress=emit_progress)
+    high_energy = analyzer.find_high_energy_moments(energy_profile, threshold=0.62, min_duration=2.0)
+    snapshot = load_snapshot(settings.get("campaign_hub_snapshot_path"))
+    hooks = detect_hook_candidates(
+        (transcription or {}).get("segments", []),
+        snapshot=snapshot,
+        account=settings.get("campaign_hub_account", "@renansantosmbl"),
+        energy_profile=energy_profile,
+        limit=20,
+    )
+    enriched = dict(editorial_context or {})
+    enriched["hook_candidates"] = hooks
+    enriched["hook_count"] = len(hooks)
+    enriched["local_audio"] = {
+        "available": True,
+        "window_seconds": 1.0,
+        "window_count": len(energy_profile),
+        "high_energy_moments": high_energy[:12],
+        "source": "local_streaming_ffmpeg",
+    }
+    signals = dict(enriched.get("signals") or {})
+    signals.update({
+        "local_audio_available": True,
+        "local_audio_window_count": len(energy_profile),
+        "local_high_energy_count": len(high_energy),
+    })
+    enriched["signals"] = signals
+    return enriched
 
 
 def _transcription_coverage_report(transcription, duration):
@@ -2018,7 +2088,17 @@ def api_analyze_editorial_context():
         def progress(message, level="info", percentage=None):
             current = int(percentage if percentage is not None else 10)
             ctx.update(stage="editorial_context", progress=current, message=str(message))
-            socketio.emit("progress", {"message": str(message), "level": level, "job_id": ctx.job_id})
+            socketio.emit(
+                "progress",
+                {
+                    "message": f"[Versão {PROGRAM_VERSION} · {PROGRAM_REVISION}] {str(message)}",
+                    "level": level,
+                    "time": datetime.now().strftime("%H:%M:%S"),
+                    "job_id": ctx.job_id,
+                    "program_version": PROGRAM_VERSION,
+                    "program_revision": PROGRAM_REVISION,
+                },
+            )
 
         settings = get_all_settings()
         if user_context:
@@ -2068,13 +2148,31 @@ def api_analyze_editorial_context():
             multimodal=multimodal_result,
             allow_video_analysis=False,
         )
+        if not multimodal_result or not analyze_video:
+            try:
+                progress(
+                    "[Contexto] Auditoria local ativa: energia, hooks e priors do Campaign Hub serão calculados sem reenviar o vídeo.",
+                    "info",
+                    72,
+                )
+                enriched = _enrich_editorial_context_locally(
+                    video_path,
+                    transcription,
+                    enriched,
+                    settings,
+                    progress,
+                )
+                enriched["analysis_mode"] = "transcript_plus_local_audio"
+            except Exception as local_exc:
+                progress(f"[Contexto] Auditoria local de áudio não concluída; mantendo sinais textuais: {str(local_exc)[:180]}", "warning", 78)
         enriched["transcription_quality"] = {
             "status": coverage.get("status", "unknown"),
             "segment_count": len(transcription.get("segments", [])),
             "last_timestamp": coverage.get("last_timestamp"),
             "video_duration_seconds": coverage.get("video_duration_seconds"),
         }
-        enriched["analysis_mode"] = "transcript_plus_video" if multimodal_result else "transcript_only"
+        if not enriched.get("analysis_mode"):
+            enriched["analysis_mode"] = "transcript_plus_video" if multimodal_result else "transcript_only"
         if project_id:
             save_transcription(
                 project_id,

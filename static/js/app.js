@@ -88,7 +88,11 @@ socket.on("connected", (data) => {
 });
 
 socket.on("progress", (data) => {
-    addConsoleLog(`[${data.time}] ${data.message}`, data.level);
+    const time = data.time || new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    const version = data.program_version && !String(data.message || "").includes("[Versão")
+        ? `[Versão ${data.program_version}${data.program_revision ? ` · ${data.program_revision}` : ""}] `
+        : "";
+    addConsoleLog(`[${time}] ${version}${data.message || "Progresso recebido"}`, data.level);
     showProgressBar();
 });
 
@@ -1138,9 +1142,25 @@ function selectVideo(item, sourceElement = null) {
         return;
     }
     const changedVideo = state.selectedVideo && state.selectedVideo !== item.path;
-    const transcriptBelongsToItem = state.manualTranscript && state.manualTranscriptVideo === item.path;
+    const transcriptBelongsToItem = state.manualTranscript && (
+        state.manualTranscriptVideo === item.path || state.manualTranscriptVideo === "pending-source"
+    );
     state.selectedVideo = item.path;
     state.selectedVideoName = item.name;
+    if (transcriptBelongsToItem && state.manualTranscriptVideo === "pending-source") {
+        state.manualTranscriptVideo = item.path;
+    }
+    if (changedVideo) {
+        state.editorialContext = null;
+        const contextResult = document.getElementById("contextAnalysisResult");
+        if (contextResult) {
+            contextResult.hidden = true;
+            contextResult.innerHTML = "";
+        }
+        const contextStatus = document.getElementById("contextAnalysisStatus");
+        if (contextStatus) contextStatus.textContent = "Vídeo alterado. Execute uma nova análise de contexto para esta fonte.";
+        renderEditorialAudit(null);
+    }
     if (state.manualTranscript && !transcriptBelongsToItem) {
         state.manualTranscript = null;
         state.transcriptArchive = null;
@@ -1748,7 +1768,13 @@ function renderEditorialContextPreview(context = {}) {
     const hooks = Array.isArray(context.hook_candidates) ? context.hook_candidates.slice(0, 5) : [];
     const quality = context.transcription_quality || {};
     const speakerDetection = context.speaker_detection || {};
-    const mode = context.analysis_mode === "transcript_plus_video" ? "transcrição + vídeo/áudio" : "transcrição";
+    const localAudio = context.local_audio || {};
+    const highEnergyMoments = Array.isArray(localAudio.high_energy_moments) ? localAudio.high_energy_moments.slice(0, 8) : [];
+    const mode = context.analysis_mode === "transcript_plus_video"
+        ? "transcrição + vídeo/áudio"
+        : context.analysis_mode === "transcript_plus_local_audio"
+            ? "transcrição + áudio local"
+            : "transcrição";
     const speakerMarkup = speakerDetection.status === "validated"
         ? `<span class="context-speaker-status validated">locutor(es) marcado(s)</span>`
         : `<span class="context-speaker-status review" title="${escapeHtml(speakerDetection.message || "Locutor não validado")}">locutor não diarizado · confirmar no vídeo</span>`;
@@ -1761,8 +1787,11 @@ function renderEditorialContextPreview(context = {}) {
             return `<article class="context-hook-card"><div class="context-hook-card-head"><strong>#${index + 1} · ${escapeHtml(hook.family || "outro")}</strong><span>${formatTime(start)}–${formatTime(end)} · ${score}/100</span></div><blockquote>${escapeHtml(hook.hook_text || "Fala de abertura não disponível.")}</blockquote><p>${escapeHtml(hook.reason || "Sinal contextual detectado.")}</p><small>${hook.payoff_confirmed ? "Payoff próximo detectado" : "Payoff ainda precisa de validação"}${review}</small></article>`;
         }).join("")}</div>`
         : `<div class="context-hook-empty"><span class="material-icons-round">search_off</span><span>Nenhum hook textual robusto foi isolado; o editor pode revisar a transcrição por capítulos.</span></div>`;
+    const localAudioMarkup = localAudio.available && highEnergyMoments.length
+        ? `<div class="context-local-audio"><div class="context-hook-heading"><span class="material-icons-round">graphic_eq</span><strong>Picos locais de energia para revisar</strong><small>São pistas de ênfase vocal; confirme o sentido e o payoff na imagem e na fala.</small></div><div class="context-energy-list">${highEnergyMoments.map(moment => `<span><b>${formatTime(Number(moment.start || 0))}–${formatTime(Number(moment.end || 0))}</b> · ${Math.round(Number(moment.avg_energy || 0) * 100)}% relativo</span>`).join("")}</div></div>`
+        : "";
     result.hidden = false;
-    result.innerHTML = `<div class="context-result-summary"><strong>${escapeHtml(context.description || "Contexto editorial analisado.")}</strong><div class="context-result-facts"><span>${escapeHtml(mode)}</span><span>${qa} pergunta(s)–resposta</span><span>${chapters} capítulo(s)</span><span>${windows} janela(s) de entrevista</span><span>${Number(quality.segment_count || 0)} segmentos · ${escapeHtml(quality.status || "qualidade não validada")}</span>${speakerMarkup}</div></div>${hookMarkup}`;
+    result.innerHTML = `<div class="context-result-summary"><strong>${escapeHtml(context.description || "Contexto editorial analisado.")}</strong><div class="context-result-facts"><span>${escapeHtml(mode)}</span><span>${qa} pergunta(s)–resposta</span><span>${chapters} capítulo(s)</span><span>${windows} janela(s) de entrevista</span><span>${Number(quality.segment_count || 0)} segmentos · ${escapeHtml(quality.status || "qualidade não validada")}</span>${speakerMarkup}</div></div>${localAudioMarkup}${hookMarkup}`;
 }
 
 async function pollEditorialContextJob(jobId, button, status) {

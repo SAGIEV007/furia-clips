@@ -388,10 +388,10 @@
                 <div class="context-analysis-controls" id="contextAnalysisControls" aria-label="Análise integral antes do corte">
                     <div class="context-analysis-copy">
                         <strong><span class="material-icons-round">manage_search</span> Analisar o vídeo antes de cortar</strong>
-                        <p>Gera um dossiê com tese, perguntas, capítulos, participantes, sinais de áudio e possíveis payoffs. O prompt manual continua opcional.</p>
+                        <p>Gera localmente um dossiê com tese, perguntas, capítulos, participantes, energia do áudio e hooks. O envio do vídeo ao Gemini é opcional e deve ser reservado para fontes curtas ou casos em que a leitura visual seja indispensável.</p>
                     </div>
                     <div class="context-analysis-actions">
-                        <label class="context-analysis-toggle"><input type="checkbox" id="contextAnalyzeVideo" checked> Incluir leitura audiovisual pelo Gemini quando disponível</label>
+                        <label class="context-analysis-toggle"><input type="checkbox" id="contextAnalyzeVideo"> Enviar o vídeo ao Gemini para leitura audiovisual (opcional; pode demorar em fontes longas)</label>
                         <button class="btn btn-sm btn-primary" id="btnAnalyzeEditorialContext" type="button"><span class="material-icons-round">psychology</span> Analisar contexto</button>
                     </div>
                     <div class="context-analysis-status" id="contextAnalysisStatus" role="status" aria-live="polite">Ainda não analisado nesta sessão.</div>
