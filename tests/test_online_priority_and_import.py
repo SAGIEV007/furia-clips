@@ -83,6 +83,69 @@ def test_source_import_passes_normalized_url_to_downloader(monkeypatch, tmp_path
     assert app_module.current_task["active"] is False
 
 
+def test_source_import_reuses_confirmed_manual_transcript(monkeypatch, tmp_path):
+    import app as app_module
+
+    downloaded = tmp_path / "manual-source.mp4"
+    downloaded.write_bytes(b"video")
+    calls = {"subtitle": 0, "automatic": 0}
+    monkeypatch.setattr(app_module, "validate_public_url", lambda value: value)
+    monkeypatch.setattr(
+        app_module,
+        "download_public_video",
+        lambda *args, **kwargs: {"path": str(downloaded), "title": "Manual", "duration": 4, "url": "u", "extractor": "youtube"},
+    )
+    monkeypatch.setattr(app_module, "create_project", lambda *args, **kwargs: 991)
+    monkeypatch.setattr(app_module, "save_transcription", lambda *args, **kwargs: None)
+    monkeypatch.setattr(app_module, "_save_transcription_artifacts", lambda *args, **kwargs: {})
+    monkeypatch.setattr(app_module, "archive_transcription", lambda *args, **kwargs: {"quality": {"quality": "structurally_ok"}})
+    monkeypatch.setattr(
+        app_module,
+        "download_public_subtitles",
+        lambda *args, **kwargs: calls.__setitem__("subtitle", calls["subtitle"] + 1),
+    )
+    monkeypatch.setattr(
+        app_module,
+        "_transcribe_video_automatically",
+        lambda *args, **kwargs: calls.__setitem__("automatic", calls["automatic"] + 1),
+    )
+    monkeypatch.setattr(app_module.threading, "Thread", lambda target, daemon=True: SimpleNamespace(start=target))
+    app_module.current_task["active"] = False
+    client = app_module.app.test_client()
+    response = client.post(
+        "/api/source/import",
+        json={
+            "url": "https://www.youtube.com/watch?v=manual",
+            "destination_dir": str(tmp_path),
+            "auto_transcribe": True,
+            "manual_transcript": {
+                "language": "pt",
+                "segments": [{"start": 0, "end": 1.5, "text": "Resposta completa."}],
+            },
+        },
+    )
+    assert response.status_code == 200
+    assert calls == {"subtitle": 0, "automatic": 0}
+    assert app_module.current_task["active"] is False
+
+
+def test_automatic_transcription_skips_gemini_when_public_subtitle_exists(monkeypatch, tmp_path):
+    import app as app_module
+
+    subtitle = tmp_path / "source.pt.vtt"
+    subtitle.write_text("WEBVTT\n\n00:00:01.000 --> 00:00:02.000\nLegenda preferida.\n", encoding="utf-8")
+    calls = []
+    monkeypatch.setattr(app_module, "_run_gemini_video_analysis", lambda *args, **kwargs: calls.append("gemini"))
+    result = app_module._transcribe_video_automatically(
+        str(tmp_path / "video.mp4"),
+        {"ai_backend": "gemini", "gemini_api_key": "configured", "language": "pt"},
+        lambda message, level="info": calls.append(message),
+        transcript_fallback_path=str(subtitle),
+    )
+    assert result["source"] == "public_subtitles"
+    assert "gemini" not in calls
+
+
 def test_public_subtitle_fallback_prevents_cpu_whisper(monkeypatch, tmp_path):
     import app as app_module
 

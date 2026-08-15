@@ -193,3 +193,13 @@ if __name__ == "__main__":
         self.assertTrue(payload["success"])
         self.assertEqual(payload["filename"], "furia-editorial-backup-test.zip")
         self.assertNotIn("path", payload)
+
+    def test_gemini_key_is_saved_to_explicit_persistent_env(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            env_path = os.path.join(tmp_dir, "config", "local.env")
+            with patch.dict(os.environ, {"FURIA_CLIPS_ENV_FILE": env_path}, clear=False):
+                furia_app._save_key_to_env("GEMINI_API_KEY", "test-only-secret")
+            with open(env_path, "r", encoding="utf-8") as handle:
+                content = handle.read()
+            self.assertIn("GEMINI_API_KEY=test-only-secret", content)
+            self.assertNotIn(os.path.join(furia_app.BASE_DIR, ".env"), env_path)
