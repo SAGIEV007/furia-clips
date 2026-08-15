@@ -26,3 +26,49 @@ def test_analyze_energy_streams_pcm_and_normalizes(tmp_path):
     assert max(item["energy_normalized"] for item in profile) == 1.0
     assert any("streaming" in message for message in events)
     assert events[-1].startswith("Analise de energia completa")
+
+
+def test_analyze_energy_kills_ffmpeg_when_cancelled(monkeypatch):
+    import modules.audio_analyzer as audio_module
+    from modules.cancellation import OperationCancelled
+
+    class FakeStream:
+        def __init__(self):
+            self.reads = [b"\x00" * 32000]
+
+        def read(self, _size):
+            return self.reads.pop(0) if self.reads else b""
+
+        def decode(self, *args, **kwargs):
+            return ""
+
+    class FakeProcess:
+        def __init__(self):
+            self.stdout = FakeStream()
+            self.stderr = FakeStream()
+            self.killed = False
+            self.waited = False
+
+        def poll(self):
+            return -9 if self.killed else None
+
+        def kill(self):
+            self.killed = True
+
+        def wait(self):
+            self.waited = True
+            return -9 if self.killed else 0
+
+    process = FakeProcess()
+    monkeypatch.setattr(audio_module.subprocess, "Popen", lambda *args, **kwargs: process)
+    checks = iter([False, True])
+
+    try:
+        AudioAnalyzer().analyze_energy("video.mp4", cancel_check=lambda: next(checks))
+    except OperationCancelled:
+        pass
+    else:
+        raise AssertionError("o cancelamento deveria interromper o streaming")
+
+    assert process.killed is True
+    assert process.waited is True

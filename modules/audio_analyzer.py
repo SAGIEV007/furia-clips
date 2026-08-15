@@ -4,6 +4,8 @@ import json
 import os
 import tempfile
 
+from .cancellation import OperationCancelled
+
 
 class AudioAnalyzer:
     def __init__(self):
@@ -21,7 +23,7 @@ class AudioAnalyzer:
         subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
         return tmp.name
 
-    def analyze_energy(self, video_path, window_seconds=1.0, emit_progress=None):
+    def analyze_energy(self, video_path, window_seconds=1.0, emit_progress=None, cancel_check=None):
         """Analyze RMS energy without materializing the entire audio in memory.
 
         Long lives can last several hours; extracting a full WAV and converting it
@@ -48,6 +50,8 @@ class AudioAnalyzer:
         read_size = max(bytes_per_window, 256 * 1024)
         try:
             while True:
+                if cancel_check and cancel_check():
+                    raise OperationCancelled()
                 payload = process.stdout.read(read_size)
                 if not payload:
                     break
@@ -70,6 +74,8 @@ class AudioAnalyzer:
                 carry = payload[complete_bytes:]
                 if emit_progress and len(energy_profile) and len(energy_profile) % 60 == 0:
                     emit_progress(f"Energia local analisada até {energy_profile[-1]['time']:.0f}s ({len(energy_profile)} janelas)")
+            if cancel_check and cancel_check():
+                raise OperationCancelled()
             if carry:
                 samples = np.frombuffer(carry[:len(carry) - (len(carry) % 2)], dtype=np.int16).astype(np.float32) / 32768.0
                 if samples.size:

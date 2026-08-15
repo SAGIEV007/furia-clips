@@ -449,14 +449,27 @@ def _transcription_from_request(data, duration=None):
     return None
 
 
-def _enrich_editorial_context_locally(video_path, transcription, editorial_context, settings, emit_progress):
+def _analyze_energy_with_cancel(analyzer, video_path, emit_progress, cancel_check=None):
+    """Call audio analysis with cooperative cancellation while preserving test/plugin compatibility."""
+    kwargs = {"emit_progress": emit_progress}
+    if cancel_check is None:
+        return analyzer.analyze_energy(video_path, **kwargs)
+    try:
+        return analyzer.analyze_energy(video_path, cancel_check=cancel_check, **kwargs)
+    except TypeError as exc:
+        if "cancel_check" not in str(exc):
+            raise
+        return analyzer.analyze_energy(video_path, **kwargs)
+
+
+def _enrich_editorial_context_locally(video_path, transcription, editorial_context, settings, emit_progress, cancel_check=None):
     """Add local audio and hook evidence without uploading the source video."""
     from modules.audio_analyzer import AudioAnalyzer
     from modules.editorial_context import detect_hook_candidates
     from modules.campaign_hub import load_snapshot
 
     analyzer = AudioAnalyzer()
-    energy_profile = analyzer.analyze_energy(video_path, emit_progress=emit_progress)
+    energy_profile = _analyze_energy_with_cancel(analyzer, video_path, emit_progress, cancel_check)
     high_energy = analyzer.find_high_energy_moments(energy_profile, threshold=0.62, min_duration=2.0)
     snapshot = load_snapshot(settings.get("campaign_hub_snapshot_path"))
     hooks = detect_hook_candidates(
@@ -1776,7 +1789,7 @@ def api_cut_shorts():
             from modules.audio_analyzer import AudioAnalyzer
 
             analyzer = AudioAnalyzer()
-            energy_profile = analyzer.analyze_energy(video_path, emit_progress=emit_progress)
+            energy_profile = _analyze_energy_with_cancel(analyzer, video_path, emit_progress, ctx.check_cancel)
             try:
                 from modules.editorial_context import detect_hook_candidates
                 from modules.campaign_hub import load_snapshot
@@ -2182,6 +2195,7 @@ def api_analyze_editorial_context():
                     enriched,
                     settings,
                     progress,
+                    cancel_check=ctx.check_cancel,
                 )
                 enriched["analysis_mode"] = "transcript_plus_local_audio"
             except Exception as local_exc:
@@ -2658,7 +2672,7 @@ def api_process_complete():
             from modules.audio_analyzer import AudioAnalyzer
 
             analyzer = AudioAnalyzer()
-            energy_profile = analyzer.analyze_energy(working_video, emit_progress=emit_progress)
+            energy_profile = _analyze_energy_with_cancel(analyzer, working_video, emit_progress, ctx.check_cancel)
             try:
                 from modules.editorial_context import detect_hook_candidates
                 from modules.campaign_hub import load_snapshot
