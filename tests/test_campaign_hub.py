@@ -121,6 +121,31 @@ def test_hook_detector_suppresses_semantically_repeated_openings():
     assert len(repeated) == 1
 
 
+def test_qa_candidates_explain_speaker_boundary_and_review_need():
+    from modules.editorial_context import analyze_transcript_context
+
+    with_speaker_change = analyze_transcript_context({
+        "segments": [
+            {"start": 0, "end": 4, "end": 4, "text": "Qual é a proposta?", "speaker": "entrevistador"},
+            {"start": 4, "end": 12, "text": "A proposta é reduzir o desperdício.", "speaker": "renan"},
+        ]
+    })
+    assert with_speaker_change["qa_candidates"]
+    assert with_speaker_change["qa_candidates"][0]["speaker_boundary"] is True
+    assert with_speaker_change["qa_candidates"][0]["boundary_basis"] == "mudança_de_locutor"
+    assert with_speaker_change["qa_candidates"][0]["needs_speaker_review"] is False
+
+    without_speaker_change = analyze_transcript_context({
+        "segments": [
+            {"start": 0, "end": 4, "text": "Qual é a proposta?"},
+            {"start": 4, "end": 12, "text": "A proposta é reduzir o desperdício."},
+        ]
+    })
+    assert without_speaker_change["qa_candidates"]
+    assert without_speaker_change["qa_candidates"][0]["needs_speaker_review"] is True
+    assert without_speaker_change["speaker_detection"]["status"] == "not_available"
+
+
 def test_snapshot_rejects_unknown_accounts_and_keeps_supported_data():
     snapshot = normalize_snapshot({
         "accounts": {

@@ -183,25 +183,50 @@ def _build_qa_candidates(segments: list[dict]) -> list[dict]:
     for index, question in enumerate(segments):
         if not question["is_question"]:
             continue
+        question_start = float(question.get("start", 0) or 0)
+        question_speaker = str(question.get("speaker_label", "") or "").strip()
         following = []
-        for candidate in segments[index + 1:index + 12]:
+        response_indices = []
+        speaker_boundary = False
+        boundary_basis = "sem_diarização"
+        for offset, candidate in enumerate(segments[index + 1:index + 13], start=index + 1):
+            if candidate.get("is_question") and following and float(candidate.get("start", 0) or 0) - question_start >= 6:
+                break
             following.append(candidate)
-            if float(candidate.get("end", 0)) - float(question.get("start", 0)) >= 20:
+            response_indices.append(offset)
+            candidate_speaker = str(candidate.get("speaker_label", "") or "").strip()
+            if question_speaker and candidate_speaker and candidate_speaker != question_speaker:
+                speaker_boundary = True
+                boundary_basis = "mudança_de_locutor"
+            elif candidate.get("speaker_marker") and candidate.get("speaker_marker") != question.get("speaker_marker"):
+                speaker_boundary = True
+                boundary_basis = "marcador_de_locutor"
+            if float(candidate.get("end", 0) or 0) - question_start >= 32:
                 break
         if not following:
             continue
-        end = float(following[-1].get("end", question.get("end", 0)))
-        if end - float(question.get("start", 0)) < 8:
+        end = float(following[-1].get("end", question.get("end", 0)) or question.get("end", 0))
+        if end - question_start < 8:
             continue
         renan_signal = any(item["renan_reference"] for item in following)
+        overlap = bool(question.get("overlap_suspected")) or any(item.get("overlap_suspected") for item in following)
+        confidence = 0.5 + (0.2 if renan_signal else 0) + min(0.16, len(following) * 0.02)
+        if speaker_boundary:
+            confidence += 0.12
+        if overlap:
+            confidence -= 0.15
         candidates.append({
-            "start": round(max(0.0, float(question.get("start", 0)) - 2), 3),
+            "start": round(max(0.0, question_start - 2), 3),
             "end": round(end, 3),
             "question_segment": index,
-            "response_segments": [segments.index(item) for item in following],
+            "response_segments": response_indices,
             "renan_signal": renan_signal,
+            "speaker_boundary": speaker_boundary,
+            "boundary_basis": boundary_basis,
+            "overlap_suspected": overlap,
             "needs_question": True,
-            "confidence": round(0.55 + (0.2 if renan_signal else 0) + min(0.2, len(following) * 0.015), 3),
+            "needs_speaker_review": not speaker_boundary,
+            "confidence": round(max(0.2, min(0.98, confidence)), 3),
         })
     return candidates[:50]
 
