@@ -1783,8 +1783,14 @@ function renderEditorialContextPreview(context = {}) {
             const start = Number(hook.start || 0);
             const end = Number(hook.end || hook.hook_end || start);
             const score = Number(hook.score || 0).toFixed(1);
-            const review = hook.needs_visual_review ? " · revisar sobreposição" : "";
-            return `<article class="context-hook-card"><div class="context-hook-card-head"><strong>#${index + 1} · ${escapeHtml(hook.family || "outro")}</strong><span>${formatTime(start)}–${formatTime(end)} · ${score}/100</span></div><blockquote>${escapeHtml(hook.hook_text || "Fala de abertura não disponível.")}</blockquote><p>${escapeHtml(hook.reason || "Sinal contextual detectado.")}</p><small>${hook.payoff_confirmed ? "Payoff próximo detectado" : "Payoff ainda precisa de validação"}${review}</small></article>`;
+            const reviewReasons = [];
+            if (hook.needs_speaker_review) reviewReasons.push(hook.speaker_review_reason || "confirmar locutor");
+            if (hook.needs_visual_review) reviewReasons.push("revisar sobreposição visual/áudio");
+            if (hook.audio_signal?.available === false) reviewReasons.push("áudio sem sinal local");
+            const review = reviewReasons.length ? ` · ${reviewReasons.map(escapeHtml).join(" · ")}` : "";
+            const confidence = Number(hook.confidence);
+            const confidenceLabel = Number.isFinite(confidence) ? ` · confiança ${Math.round(Math.max(0, Math.min(1, confidence)) * 100)}%` : "";
+            return `<article class="context-hook-card"><div class="context-hook-card-head"><strong>#${index + 1} · ${escapeHtml(hook.family || "outro")}</strong><span>${formatTime(start)}–${formatTime(end)} · ${score}/100</span></div><blockquote>${escapeHtml(hook.hook_text || "Fala de abertura não disponível.")}</blockquote><p>${escapeHtml(hook.reason || "Sinal contextual detectado.")}</p><small>${hook.payoff_confirmed ? "Payoff próximo detectado" : "Payoff ainda precisa de validação"}${confidenceLabel}${review}</small></article>`;
         }).join("")}</div>`
         : `<div class="context-hook-empty"><span class="material-icons-round">search_off</span><span>Nenhum hook textual robusto foi isolado; o editor pode revisar a transcrição por capítulos.</span></div>`;
     const localAudioMarkup = localAudio.available && highEnergyMoments.length
