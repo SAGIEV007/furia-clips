@@ -25,6 +25,9 @@ const state = {
     sourceUrl: "",
     sourceDownloadDir: "",
     sourceMaxHeight: 1080,
+    sourceImportActive: false,
+    operationDashboardLoading: false,
+    lastJobConsoleKey: "",
 };
 
 // ─── WebSocket Connection ───
@@ -475,18 +478,21 @@ function renderEditorialLearning(calibration = {}) {
     const rejected = Number(calibration.rejected_count || 0);
     const durationSignal = calibration.duration_signal || {};
     const durationGap = Number(durationSignal.gap_seconds || 0);
+    const topRejection = Array.isArray(calibration.top_rejection_reasons) ? calibration.top_rejection_reasons[0] : null;
     panel.classList.toggle("is-active", Boolean(calibration.eligible));
     if (calibration.eligible) {
         title.textContent = "Calibração editorial ativa";
         const durationNote = durationSignal.usable && Math.abs(durationGap) >= 0.1
             ? ` A amostra indica preferência por cortes ${durationGap > 0 ? 'mais curtos' : 'mais longos'} em ${Math.abs(durationGap).toFixed(1)}s, como sinal fraco.`
             : " A duração continua sendo apenas uma preferência contextual.";
-        text.textContent = `${sample} decisões finais (${approved} aprovadas e ${rejected} rejeitadas) ajustam o ranking de forma limitada e explicável.${durationNote}`;
+        const reasonNote = topRejection ? ` Motivo de rejeição mais frequente: ${String(topRejection.reason).replaceAll('_', ' ')} (${topRejection.count}).` : "";
+        text.textContent = `${sample} decisões finais (${approved} aprovadas e ${rejected} rejeitadas) ajustam o ranking de forma limitada e explicável.${durationNote}${reasonNote}`;
         badge.textContent = "ATIVA";
     } else {
         const remaining = Math.max(0, minimum - sample);
         title.textContent = "Aprendizado editorial em coleta";
-        text.textContent = `${sample} decisão(ões) final(is) registradas. Faltam ${remaining} para avaliar uma calibração conservadora.`;
+        const reasonNote = topRejection ? ` Motivo mais registrado: ${String(topRejection.reason).replaceAll('_', ' ')}.` : "";
+        text.textContent = `${sample} decisão(ões) final(is) registradas. Faltam ${remaining} para avaliar uma calibração conservadora.${reasonNote}`;
         badge.textContent = `${sample}/${minimum}`;
     }
 }
@@ -723,6 +729,8 @@ async function restoreEditorialBackup(event) {
 }
 
 async function loadOperationDashboard() {
+    if (state.operationDashboardLoading) return;
+    state.operationDashboardLoading = true;
     try {
         const response = await fetch("/api/jobs?limit=12");
         const payload = await parseJsonResponse(response, "Histórico de operações");
@@ -739,6 +747,8 @@ async function loadOperationDashboard() {
     } catch (error) {
         const subtitle = document.getElementById("operationSubtitle");
         if (subtitle) subtitle.textContent = "Não foi possível carregar o histórico local agora.";
+    } finally {
+        state.operationDashboardLoading = false;
     }
 }
 
@@ -750,7 +760,7 @@ function handleJobUpdate(job, options = {}) {
     renderOperationDashboard();
     if (options.refreshDashboard !== false) window.clearTimeout(state.operationRefreshTimer);
     if (options.refreshDashboard !== false) {
-        state.operationRefreshTimer = window.setTimeout(loadOperationDashboard, 700);
+        state.operationRefreshTimer = window.setTimeout(loadOperationDashboard, 1200);
     }
     const container = document.getElementById("progressBarContainer");
     const bar = document.getElementById("progressBar");
@@ -758,7 +768,11 @@ function handleJobUpdate(job, options = {}) {
         container.style.display = "block";
         bar.dataset.animating = "false";
         bar.style.width = `${Math.max(2, Math.min(100, job.progress || 0))}%`;
-        addConsoleLog(`[Job ${job.id.slice(0, 8)}] ${job.message || job.stage || job.state}`, "info");
+        const consoleKey = `${job.id}:${job.state}:${job.stage || ""}:${job.message || ""}:${Math.round(Number(job.progress || 0))}`;
+        if (state.lastJobConsoleKey !== consoleKey) {
+            state.lastJobConsoleKey = consoleKey;
+            addConsoleLog(`[Job ${job.id.slice(0, 8)}] ${job.message || job.stage || job.state}`, "info");
+        }
     }
     if (["queued", "running", "cancel_requested"].includes(job.state)) {
         showProcessingControls(`[Job ${job.id.slice(0, 8)}] ${job.message || job.stage || "Processando"}`);
@@ -891,9 +905,10 @@ function truncateName(name, max) {
 
 function selectVideo(item, sourceElement = null) {
     const changedVideo = state.selectedVideo && state.selectedVideo !== item.path;
+    const transcriptBelongsToItem = state.manualTranscript && state.manualTranscriptVideo === item.path;
     state.selectedVideo = item.path;
     state.selectedVideoName = item.name;
-    if (changedVideo && state.manualTranscriptVideo !== item.path) {
+    if (state.manualTranscript && !transcriptBelongsToItem) {
         state.manualTranscript = null;
         state.transcriptArchive = null;
         const input = document.getElementById("manualTranscriptInput");
@@ -915,6 +930,9 @@ function selectVideo(item, sourceElement = null) {
                 <span class="video-name">${truncateName(item.name, 25)}</span>
                 <span class="video-meta">${item.size_human}</span>
             </div>
+            <button class="btn btn-sm btn-outline" onclick="openOutputFolderForVideo()" title="Abrir pasta do vídeo">
+                <span class="material-icons-round" style="font-size:14px">folder_open</span>
+            </button>
             <button class="btn btn-sm btn-deselect" onclick="deselectVideo()" title="Remover selecao">
                 <span class="material-icons-round" style="font-size:14px">close</span>
             </button>
@@ -929,6 +947,16 @@ function selectVideo(item, sourceElement = null) {
 
     addConsoleLog(`[Sistema] Video selecionado: ${item.name}`, "info");
     showToast(`Video selecionado: ${truncateName(item.name, 30)}`, "success");
+}
+
+async function openOutputFolderForVideo() {
+    const videoPath = typeof state.selectedVideo === "string" ? state.selectedVideo : state.selectedVideo?.path;
+    if (!videoPath) {
+        showToast("Nenhum vídeo selecionado.", "warning");
+        return;
+    }
+    const folderPath = videoPath.replace(/[\\/][^\\/]+$/, "");
+    await openOutputFolder(folderPath);
 }
 
 function showVideoPreview(item) {
@@ -1605,6 +1633,21 @@ function renderResultsGrid() {
         const latestAdjustment = clip.latest_adjustment || {};
         const adjustmentState = clip.adjustment_state || (latestAdjustment.start != null ? "saved" : "");
         const clipTranscriptText = String(clip.text || clip.transcript || "");
+        const feedbackReasonOptions = [
+            ["", "Motivo opcional"],
+            ["excellent_context", "Contexto e payoff excelentes"],
+            ["good_hook", "Hook forte"],
+            ["too_long", "Bom, mas longo"],
+            ["missing_context", "Sem contexto suficiente"],
+            ["starts_late", "Começa no meio da fala"],
+            ["no_payoff", "Não conclui o raciocínio"],
+            ["wrong_speaker", "Orador errado ou incerto"],
+            ["bad_framing", "Enquadramento ruim"],
+            ["audio_overlap", "Áudio sobreposto ou confuso"],
+            ["duplicate", "Repetido ou parecido com outro"],
+            ["fact_review", "Precisa de revisão factual"],
+        ];
+        const feedbackReasonMarkup = `<div class="clip-feedback-controls"><label for="feedback-reason-${originalIndex}"><span class="material-icons-round">label</span><span>Motivo rápido</span></label><select id="feedback-reason-${originalIndex}" data-feedback-reason="${originalIndex}">${feedbackReasonOptions.map(([value, label]) => `<option value="${value}" ${String(clip.latest_feedback_reason || "") === value ? "selected" : ""}>${label}</option>`).join("")}</select></div>`;
 
         // Grade color helper
         const gradeColor = (grade) => {
@@ -1785,6 +1828,7 @@ function renderResultsGrid() {
                     </div>
                     <div class="clip-headline-results" id="clip-headline-results-${originalIndex}" aria-live="polite"><p class="clip-headline-feedback">Edite a transcrição se necessário e escolha o formato antes de gerar.</p></div>
                 </div>
+                ${feedbackReasonMarkup}
                 <div class="review-actions" aria-label="Decisão editorial">
                     <button class="btn btn-sm btn-success ${reviewStatus === 'approved' ? 'is-current' : ''}" aria-pressed="${reviewStatus === 'approved'}" onclick="setClipReview(${originalIndex}, 'approved')"><span class="material-icons-round">check_circle</span>${reviewStatus === 'approved' ? 'Aprovado' : 'Aprovar'}</button>
                     <button class="btn btn-sm btn-review-context ${reviewStatus === 'needs_review' ? 'is-current' : ''}" aria-pressed="${reviewStatus === 'needs_review'}" title="Não aprova nem rejeita; abre a transcrição completa e coloca o clip na fila de revisão." onclick="openContextReview(${originalIndex})"><span class="material-icons-round">visibility</span>${reviewStatus === 'needs_review' ? 'Contexto aberto' : 'Revisar contexto'}</button>
@@ -1951,9 +1995,17 @@ async function setClipReview(index, action) {
     if (!clip) return;
     const previousStatus = reviewStatusOf(clip);
     const previousUpdatedAt = clip.review_updated_at;
+    const previousReason = clip.latest_feedback_reason;
+    const previousTags = clip.latest_feedback_tags;
+    const reasonSelect = document.querySelector(`[data-feedback-reason="${index}"]`);
+    const reasonCode = String(reasonSelect?.value || (action === "approved" ? "editor_approved" : "editor_rejected"));
+    const qualityTags = reasonCode ? [reasonCode] : [];
     const decisionAt = new Date().toISOString();
+    let feedbackData = null;
     clip.review_status = action;
-    clip.review_updated_at = decisionAt;
+        clip.review_updated_at = decisionAt;
+        clip.latest_feedback_reason = reasonCode;
+        clip.latest_feedback_tags = qualityTags;
     renderReviewCommandCenter();
     renderResultsGrid();
     try {
@@ -1961,16 +2013,18 @@ async function setClipReview(index, action) {
             const response = await fetch(`/api/clips/${clip.clip_id}/feedback`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ action }),
+                body: JSON.stringify({ action, reason_code: reasonCode, quality_tags: qualityTags, note: reasonCode ? `Motivo editorial: ${reasonCode}` : "" }),
             });
-            if (!response.ok) throw new Error("feedback rejected");
+            feedbackData = await parseJsonResponse(response, "Feedback editorial");
+            if (!response.ok) throw new Error(feedbackData.error || "feedback rejected");
         }
         const messages = {
             approved: "Clip aprovado",
             rejected: "Clip rejeitado",
             needs_review: "Clip marcado para revisão de contexto",
         };
-        state.lastReviewAction = { action, clip_id: clip.clip_id || null, at: decisionAt };
+        state.lastReviewAction = { action, clip_id: clip.clip_id || null, reason_code: reasonCode, at: decisionAt };
+        if (feedbackData?.calibration) renderEditorialLearning(feedbackData.calibration);
         renderReviewCommandCenter();
         renderResultsGrid();
         showToast(messages[action] || "Feedback salvo", action === "approved" ? "success" : "warning");
@@ -1978,6 +2032,8 @@ async function setClipReview(index, action) {
     } catch (error) {
         clip.review_status = previousStatus;
         clip.review_updated_at = previousUpdatedAt;
+        clip.latest_feedback_reason = previousReason;
+        clip.latest_feedback_tags = previousTags;
         renderReviewCommandCenter();
         renderResultsGrid();
         showToast("Não foi possível salvar o feedback", "error");
@@ -2213,7 +2269,8 @@ document.getElementById("btnApplyTranscript")?.addEventListener("click", async (
         const data = await parseJsonResponse(res, "Transcrição");
         if (!res.ok || !data.success) throw new Error(data.error || "Transcrição inválida");
         state.manualTranscript = data.transcription;
-        showSourceStatus(`Transcrição ${data.transcription.format} pronta: ${data.transcription.segment_count} segmentos. Ela será usada no próximo corte sem Whisper.`, "success");
+        state.manualTranscriptVideo = state.selectedVideo || "pending-source";
+        showSourceStatus(`Transcrição ${data.transcription.format} pronta: ${data.transcription.segment_count} segmentos. Ela será usada no próximo corte sem Whisper e poderá ser anexada ao próximo download.`, "success");
         showToast("Transcrição manual aplicada.", "success");
     } catch (error) {
         state.manualTranscript = null;
@@ -2672,7 +2729,8 @@ async function ensureSourceDirectory() {
     return chooseSourceDirectory();
 }
 
-document.getElementById("btnImportSource")?.addEventListener("click", async () => {
+async function importSource(autoTranscribe = false) {
+    if (state.sourceImportActive) return;
     const input = document.getElementById("sourceUrlInput");
     const url = normalizePublicUrlInput(input?.value);
     if (input && url) input.value = url;
@@ -2686,10 +2744,28 @@ document.getElementById("btnImportSource")?.addEventListener("click", async () =
         return;
     }
     const maxHeight = parseInt(document.getElementById("sourceMaxHeight")?.value || state.sourceMaxHeight || 1080, 10);
-    const autoTranscribe = document.getElementById("sourceAutoTranscribe")?.checked !== false;
+    const confirmedTranscript = autoTranscribe && state.manualTranscript?.segments?.length
+        ? {
+            segments: state.manualTranscript.segments,
+            language: state.manualTranscript.language || "pt",
+        }
+        : null;
+    const buttons = [
+        document.getElementById("btnDownloadSource"),
+        document.getElementById("btnDownloadTranscribeSource"),
+    ].filter(Boolean);
+    state.sourceImportActive = true;
     state.sourceMaxHeight = maxHeight;
+    buttons.forEach(button => { button.disabled = true; button.classList.add("loading"); });
     showProgressBar();
-    showSourceStatus("Download e transcrição iniciados; acompanhe o console abaixo.", "");
+    showSourceStatus(
+        confirmedTranscript
+            ? "Download iniciado; a transcrição manual confirmada será anexada sem nova busca."
+            : autoTranscribe
+                ? "Download e transcrição iniciados; acompanhe o console abaixo."
+                : "Download iniciado; nenhuma transcrição será gerada.",
+        "",
+    );
     try {
         const res = await fetch("/api/source/import", {
             method: "POST",
@@ -2699,6 +2775,7 @@ document.getElementById("btnImportSource")?.addEventListener("click", async () =
                 destination_dir: destination,
                 max_height: maxHeight,
                 auto_transcribe: autoTranscribe,
+                manual_transcript: confirmedTranscript,
                 transcription_source: document.getElementById("settingTranscriptionSource")?.value || "auto",
             }),
         });
@@ -2706,13 +2783,20 @@ document.getElementById("btnImportSource")?.addEventListener("click", async () =
         if (!res.ok || !data.success) throw new Error(data.error || "Não foi possível iniciar a importação");
         state.sourceUrl = url;
         addConsoleLog(`[Fonte] Download iniciado em ${destination}, limite de qualidade ${maxHeight}p.`, "info");
-        if (autoTranscribe) addConsoleLog("[Fonte] A transcrição timestampada será gerada automaticamente após o download.", "info");
+        if (confirmedTranscript) addConsoleLog("[Transcrição manual] Será reutilizada após o download; Gemini e Whisper serão ignorados.", "success");
+        else if (autoTranscribe) addConsoleLog("[Fonte] A transcrição será gerada após o download, apenas se não houver fonte manual confirmada.", "info");
     } catch (error) {
         hideProgressBar();
         showSourceStatus(error.message, "error");
         showToast(error.message, "error");
+    } finally {
+        state.sourceImportActive = false;
+        buttons.forEach(button => { button.disabled = false; button.classList.remove("loading"); });
     }
-});
+}
+
+document.getElementById("btnDownloadSource")?.addEventListener("click", () => importSource(false));
+document.getElementById("btnDownloadTranscribeSource")?.addEventListener("click", () => importSource(true));
 
 function normalizePublicUrlInput(rawUrl) {
     const value = String(rawUrl || "").trim();
