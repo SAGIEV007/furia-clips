@@ -1,0 +1,57 @@
+import json
+import tempfile
+import unittest
+from pathlib import Path
+from unittest.mock import patch
+
+from modules.repository_sync import SNAPSHOT_RELATIVE_PATH, build_feedback_snapshot, write_feedback_snapshot
+
+
+class _FakeConnection:
+    def __init__(self, rows):
+        self.rows = rows
+
+    def execute(self, _query):
+        return self
+
+    def fetchall(self):
+        return self.rows
+
+    def close(self):
+        return None
+
+
+class RepositorySyncTests(unittest.TestCase):
+    def test_feedback_snapshot_is_sanitized_and_stable(self):
+        rows = [
+            ("editorial-key", 12.3456, 42.9876, 30.642, 88, "v3", "approved", "contexto", '["hook", "completo"]', "2026-08-15 00:00:00"),
+        ]
+        with patch("modules.repository_sync.get_db", return_value=_FakeConnection(rows)):
+            payload = build_feedback_snapshot()
+        self.assertEqual(payload["format"], "furia-clips-editorial-feedback")
+        self.assertEqual(payload["record_count"], 1)
+        record = payload["records"][0]
+        self.assertEqual(record["editorial_key"], "editorial-key")
+        self.assertEqual(record["action"], "approved")
+        self.assertEqual(record["quality_tags"], ["hook", "completo"])
+        self.assertNotIn("transcript", record)
+        self.assertNotIn("source_video", record)
+        self.assertNotIn("api_key", json.dumps(payload))
+
+    def test_snapshot_writer_does_not_write_outside_checkout(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = Path(temp_dir)
+            (repo / ".git").mkdir()
+            rows = []
+            with patch("modules.repository_sync.get_db", return_value=_FakeConnection(rows)):
+                result = write_feedback_snapshot(str(repo))
+            target = repo / SNAPSHOT_RELATIVE_PATH
+            self.assertEqual(Path(result["path"]), target)
+            self.assertTrue(target.is_file())
+            self.assertFalse((repo.parent / "editorial_feedback_snapshot.json").exists())
+            saved = json.loads(target.read_text(encoding="utf-8"))
+            self.assertEqual(saved["records"], [])
+
+
+if __name__ == "__main__":
+    unittest.main()
