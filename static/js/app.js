@@ -1932,6 +1932,13 @@ function renderResultsGrid() {
             ["duplicate", "Repetido ou parecido com outro"],
             ["fact_review", "Precisa de revisão factual"],
         ];
+        const feedbackReasonLabels = Object.fromEntries(feedbackReasonOptions.filter(([value]) => value).map(([value, label]) => [value, label]));
+        const savedFeedbackReason = String(clip.latest_feedback_reason || "").trim();
+        const savedFeedbackReasonLabel = feedbackReasonLabels[savedFeedbackReason] || ({
+            editor_approved: "Decisão aprovada pelo editor",
+            editor_rejected: "Decisão rejeitada pelo editor",
+            context_review: "Separado para revisar contexto",
+        }[savedFeedbackReason] || (savedFeedbackReason ? savedFeedbackReason.replaceAll("_", " ") : ""));
         const feedbackReasonMarkup = `<div class="clip-feedback-controls"><label for="feedback-reason-${originalIndex}"><span class="material-icons-round">label</span><span>Motivo rápido</span></label><select id="feedback-reason-${originalIndex}" data-feedback-reason="${originalIndex}">${feedbackReasonOptions.map(([value, label]) => `<option value="${value}" ${String(clip.latest_feedback_reason || "") === value ? "selected" : ""}>${label}</option>`).join("")}</select></div>`;
 
         // Grade color helper
@@ -1956,6 +1963,7 @@ function renderResultsGrid() {
                 <span class="candidate-origin-badge ${originClass}" title="${escapeHtml(candidateOriginNote)}"><span class="material-icons-round">${candidateOrigin === "local_fallback" ? "alt_route" : "verified"}</span>${escapeHtml(candidateOriginLabel)}</span>
                 ${politicalType ? `<span class="clip-source-badge source-editorial">${escapeHtml(politicalType)}</span>` : ''}
                 <span class="review-state-chip ${reviewMeta.label === "APROVADO" ? "approved" : reviewMeta.label === "REJEITADO" ? "rejected" : reviewStatus}" title="${escapeHtml(reviewMeta.hint)}" aria-label="${escapeHtml(reviewMeta.hint)}"><span class="material-icons-round">${escapeHtml(reviewMeta.icon)}</span>${escapeHtml(reviewMeta.label)}</span>
+                ${savedFeedbackReasonLabel ? `<span class="clip-feedback-reason-chip ${reviewStatus}" title="Motivo editorial salvo com a decisão" aria-label="Motivo editorial salvo: ${escapeHtml(savedFeedbackReasonLabel)}"><span class="material-icons-round">label</span><span>${escapeHtml(savedFeedbackReasonLabel)}</span></span>` : ''}
                 ${clip.review_updated_at ? `<span class="clip-review-timestamp" title="Decisão registrada localmente">${new Date(clip.review_updated_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span>` : ''}
                 ${adjustmentState === "saved" ? '<span class="clip-adjustment-chip saved"><span class="material-icons-round">save</span> ajuste salvo</span>' : ''}
                 ${adjustmentState === "preview" ? '<span class="clip-adjustment-chip preview"><span class="material-icons-round">preview</span> prévia</span>' : ''}
@@ -2297,7 +2305,8 @@ async function setClipReview(index, action) {
     const previousReason = clip.latest_feedback_reason;
     const previousTags = clip.latest_feedback_tags;
     const reasonSelect = document.querySelector(`[data-feedback-reason="${index}"]`);
-    const reasonCode = String(reasonSelect?.value || (action === "approved" ? "editor_approved" : "editor_rejected"));
+    const fallbackReasonByAction = { approved: "editor_approved", rejected: "editor_rejected", needs_review: "context_review" };
+    const reasonCode = String(reasonSelect?.value || fallbackReasonByAction[action] || "editor_rejected");
     const qualityTags = reasonCode ? [reasonCode] : [];
     const decisionAt = new Date().toISOString();
     let feedbackData = null;
