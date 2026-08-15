@@ -576,6 +576,12 @@
                     <button class="btn btn-sm" id="btnEditorialRestore" type="button"><span class="material-icons-round">restore</span> Restaurar</button>
                     <input id="editorialRestoreInput" type="file" accept=".zip,application/zip" hidden>
                 </div>
+                <div class="repository-sync-actions" aria-label="Sincronização segura do programa">
+                    <button class="btn btn-sm" id="btnRepositoryCheck" type="button"><span class="material-icons-round">cloud_sync</span> Verificar atualização</button>
+                    <button class="btn btn-sm btn-outline" id="btnRepositoryUpdate" type="button"><span class="material-icons-round">system_update_alt</span> Atualizar programa</button>
+                    <button class="btn btn-sm btn-outline" id="btnRepositoryPushFeedback" type="button"><span class="material-icons-round">publish</span> Sincronizar feedback</button>
+                    <span class="repository-sync-status" id="repositorySyncStatus">Verificando o estado do programa...</span>
+                </div>
             </div>
             <div class="transcript-archive-card" id="transcriptArchiveCard" aria-live="polite">
                 <div class="transcript-archive-head"><span class="material-icons-round">description</span><div><strong>Transcrições persistentes</strong><p id="transcriptArchiveSummary">As transcrições usadas pelo programa aparecerão aqui para validação.</p></div><button class="btn btn-sm" id="btnRefreshTranscriptArchive" type="button"><span class="material-icons-round">refresh</span> Atualizar</button></div>
