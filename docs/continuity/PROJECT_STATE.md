@@ -11,13 +11,13 @@
 | Versão pública | `1.0` |
 | Fonte da versão | [`VERSION`](../../VERSION) |
 | Branch de trabalho conhecida | `manus/rebuild-opus-parity` |
-| Revisão registrada neste estado | `38d0794` — `fix: preserve qa boundary review metadata` |
+| Revisão registrada neste estado | `fbbe5ca` — `feat: establish v1.0 continuity and runtime identity` |
 | Última atualização deste documento | 2026-08-15 |
 | Validação desta rodada | `280 passed` em `python -m pytest -q`; `python -m py_compile app.py` aprovado |
 | Asset validado | `models/blaze_face_short_range.tflite`, 229746 bytes, SHA-256 conforme manifesto |
 | Objetivo | Gerar cortes do Renan Santos/MBL concisos, autossuficientes e contextualmente completos |
 
-A revisão acima é o último commit conhecido antes desta rodada de continuidade. Depois de qualquer commit novo, substitua-a pelo hash real e registre o resultado dos testes.
+Esta é a revisão publicada desta rodada de continuidade. Depois de qualquer commit novo, substitua-a pelo hash real e registre o resultado dos testes.
 
 ## Estado funcional conhecido
 
@@ -66,4 +66,4 @@ A aplicação passou a carregar a versão pública de `VERSION`, exibir versão 
 
 A próxima hipótese editorial deve ser única e mensurável. Prioridade sugerida: executar um lote público do Renan com exemplos publicados nos três formatos e medir se a seleção produz a menor janela suficiente sem perder setup, tese ou payoff. Em paralelo, testar a primeira versão da geração de headlines condicionada ao formato.
 
-Depois da execução, atualize este arquivo com a versão, commit, branch, testes, vídeos/análises realizados, métricas antes/depois e a próxima hipótese. O commit desta rodada ainda precisa ser registrado aqui depois do push.
+Depois da execução, atualize este arquivo com a versão, commit, branch, testes, vídeos/análises realizados, métricas antes/depois e a próxima hipótese. Nesta rodada, a versão `1.0` foi publicada no commit `fbbe5ca` da branch `manus/rebuild-opus-parity`.

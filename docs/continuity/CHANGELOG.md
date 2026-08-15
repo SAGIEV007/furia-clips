@@ -14,6 +14,6 @@
 - Registro explícito de que vídeos públicos publicados nos perfis do Renan podem ser analisados como corpus audiovisual legítimo.
 - Registro dos três formatos editoriais: `16:9 original`, `1:1 Alfinetei` e `fake tweet`.
 
-### Validação pendente desta release
+### Validação concluída
 
-A suíte completa, os smoke tests audiovisuais e a validação da leitura da versão devem ser executados antes do commit final. O hash do commit e o resultado real precisam ser acrescentados em `PROJECT_STATE.md` após a execução.
+A suíte completa foi executada com `280 passed`; `python -m py_compile app.py` foi aprovado; a versão foi carregada de `VERSION`; e o asset público do BlazeFace foi validado pelo tamanho e SHA-256 do manifesto. A documentação de estado foi atualizada após a publicação no commit `fbbe5ca`, na branch `manus/rebuild-opus-parity`.
