@@ -349,6 +349,7 @@
                 <div class="video-info-bar" id="videoInfoBar">
                     <span id="videoDuration"></span>
                     <span id="videoResolution"></span>
+                    <span id="videoPreviewStatus" class="preview-status" aria-live="polite"></span>
                 </div>
             </div>
         </section>
@@ -920,6 +921,31 @@
         </div>
     </div>
 
+    <div class="modal-overlay" id="cutOptionsModal" aria-hidden="true">
+        <div class="modal cut-options-modal" role="dialog" aria-modal="true" aria-labelledby="cutOptionsTitle">
+            <div class="modal-header">
+                <h3 id="cutOptionsTitle"><span class="material-icons-round">center_focus_strong</span> Opções do enquadramento</h3>
+                <button class="btn btn-icon modal-close" id="btnCloseCutOptions" title="Fechar opções">
+                    <span class="material-icons-round">close</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p class="cut-options-lead">Você vai gerar os cortes de <strong id="cutOptionsVideoName">vídeo selecionado</strong>. Escolha como o quadro deve se comportar nesta execução.</p>
+                <label class="cut-option-toggle" for="faceTrackingEnabled">
+                    <span class="cut-option-copy">
+                        <strong>Usar facetracking quando disponível</strong>
+                        <small>Centraliza o locutor detectado em 9:16. Se a detecção não for confiável, o programa preserva a composição original e registra o fallback.</small>
+                    </span>
+                    <input type="checkbox" id="faceTrackingEnabled" checked>
+                </label>
+                <p class="setting-hint">Desative para manter o enquadramento original e evitar qualquer recorte automático. Essa escolha vale somente para este lote.</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" id="btnCloseCutOptionsSecondary">Cancelar</button>
+                <button class="btn btn-primary" id="btnStartSmartCut"><span class="material-icons-round">auto_awesome</span> Gerar e ranquear cortes</button>
+            </div>
+        </div>
+    </div>
     <script src="/static/vendor/socket.io.min.js"></script>
     <script src="/static/js/app.js"></script>
 </body>
