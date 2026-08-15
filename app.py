@@ -1669,7 +1669,8 @@ def api_cut_shorts():
             )
 
             selection_source = selector.get_selection_source()
-            socketio.emit("selection_mode", {"source": selection_source})
+            candidate_diagnostics = selector.get_candidate_diagnostics()
+            socketio.emit("selection_mode", {"source": selection_source, "candidate_diagnostics": candidate_diagnostics})
 
             ctx.update(stage="ranking", progress=64, message=f"Ranqueando {len(top_clips)} candidatos")
             ctx.check_cancel()
@@ -1857,6 +1858,7 @@ def api_cut_shorts():
             emit_status("cut_complete", {
                 "clips": clip_results,
                 "selection_source": selection_source,
+                "candidate_diagnostics": candidate_diagnostics,
                 "video_layout": video_layout,
                 "project_id": active_project_id,
                 "output_folder": output_folder,
