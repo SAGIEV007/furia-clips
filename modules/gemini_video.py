@@ -187,17 +187,29 @@ class GeminiVideoAnalyzer:
 
     @staticmethod
     def _build_prompt(editorial_context: dict, user_context: str) -> str:
-        return f"""Você é um analista audiovisual e editor sênior de cortes políticos do Renan Santos/MBL.
+        focus = str(editorial_context.get("focus", "generic_political") or "generic_political").strip().lower()
+        renan_focus = focus in {"renan_santos", "renan", "renan_santos_politics"}
+        role = (
+            "editor sênior de cortes políticos do Renan Santos/MBL"
+            if renan_focus
+            else "editor sênior de cortes políticos, sem presumir a identidade de qualquer participante"
+        )
+        default_instruction = (
+            "Nenhuma; aplique automaticamente o perfil político do Renan Santos/MBL, mas confirme a identidade no vídeo."
+            if renan_focus
+            else "Nenhuma; aplique um critério editorial político genérico e identifique os participantes apenas quando houver evidência."
+        )
+        return f"""Você é um analista audiovisual e {role}.
 Analise o vídeo inteiro usando áudio e imagem, sem inventar fatos externos. O objetivo é preparar uma etapa posterior de corte, não escrever legendas.
 
 Identidade esperada da fonte e do foco editorial:
-{json.dumps({'source_file_name': editorial_context.get('source_file_name', ''), 'expected_focus': editorial_context.get('focus', 'participante principal / contexto político')}, ensure_ascii=False)}
+{json.dumps({'source_file_name': editorial_context.get('source_file_name', ''), 'expected_focus': editorial_context.get('focus', 'generic_political')}, ensure_ascii=False)}
 
 Contexto determinístico já extraído da transcrição:
 {json.dumps(editorial_context, ensure_ascii=False)[:12000]}
 
 Instrução opcional do editor:
-{user_context or 'Nenhuma; aplique automaticamente o perfil político do Renan Santos.'}
+{user_context or default_instruction}
 
 Entregue apenas JSON neste formato:
 {{

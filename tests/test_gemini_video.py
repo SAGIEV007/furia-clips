@@ -57,3 +57,15 @@ def test_gemini_generate_content_retries_transient_503(monkeypatch):
     assert len(calls) == 3
     assert len(events) == 2
     assert all("503" in message for message, _ in events)
+
+
+def test_gemini_prompt_does_not_assume_renan_for_generic_focus():
+    prompt = GeminiVideoAnalyzer._build_prompt({"focus": "generic_political"}, "")
+    assert "sem presumir a identidade" in prompt
+    assert "critério editorial político genérico" in prompt
+
+
+def test_gemini_prompt_keeps_renan_profile_when_focus_is_explicit():
+    prompt = GeminiVideoAnalyzer._build_prompt({"focus": "renan_santos"}, "")
+    assert "Renan Santos/MBL" in prompt
+    assert "confirme a identidade no vídeo" in prompt
