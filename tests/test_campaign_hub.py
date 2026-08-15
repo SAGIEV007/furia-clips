@@ -251,3 +251,24 @@ def test_qa_boundary_stops_at_second_reliable_speaker_change():
     assert candidate["response_segments"] == [1]
     assert candidate["boundary_basis"] == "segunda_troca_de_locutor"
     assert candidate["response_speaker"] == "renan"
+
+
+def test_campaign_hub_prior_stays_neutral_with_insufficient_hook_sample():
+    snapshot = normalize_snapshot({
+        "accounts": {
+            "@renansantosmbl": {
+                "hook_observations": [
+                    {"hook": "tese-provocativa", "ratio": 9.0},
+                    {"hook": "tese-provocativa", "ratio": 9.5},
+                ],
+            }
+        }
+    })
+    prior = build_performance_prior(
+        "Vamos mudar a gestão pública. A tese é clara.",
+        account="@renansantosmbl",
+        snapshot=snapshot,
+    )
+    assert prior["available"] is False
+    assert prior["observed_signal"] == 50.0
+    assert prior["confidence"] == 0.0
