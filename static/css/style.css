@@ -2312,6 +2312,30 @@ body {
 .review-state-chip.rejected { color: var(--error); border-color: rgba(239,68,68,.4); background: rgba(239,68,68,.1); }
 .review-state-chip.needs_review { color: var(--warning); border-color: rgba(245,158,11,.45); background: rgba(245,158,11,.1); }
 
+.clip-feedback-reason-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    max-width: 245px;
+    padding: 3px 7px;
+    border: 1px solid rgba(245, 158, 11, .32);
+    border-radius: 999px;
+    color: #ffe7a3;
+    background: rgba(245, 158, 11, .08);
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1.2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.clip-feedback-reason-chip .material-icons-round { flex: 0 0 auto; font-size: 13px; color: #f59e0b; }
+.clip-feedback-reason-chip.approved { border-color: rgba(68, 207, 108, .34); color: #b9f7c8; background: rgba(68, 207, 108, .08); }
+.clip-feedback-reason-chip.approved .material-icons-round { color: var(--success); }
+.clip-feedback-reason-chip.rejected { border-color: rgba(239, 68, 68, .34); color: #ffc2c2; background: rgba(239, 68, 68, .08); }
+.clip-feedback-reason-chip.rejected .material-icons-round { color: var(--error); }
+.clip-feedback-reason-chip.needs_review { border-color: rgba(245, 158, 11, .42); color: #ffe7a3; background: rgba(245, 158, 11, .1); }
+
 .review-format-chip { margin-top: 9px; padding: 4px 8px; color: var(--text-secondary); background: rgba(255,255,255,.045); border: 1px solid var(--border); }
 .review-format-chip .material-icons-round { color: var(--gold); font-size: 14px; }
 
@@ -3755,6 +3779,7 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 @media (max-width: 640px) {
     .clip-feedback-controls { align-items: stretch; flex-direction: column; gap: 7px; }
     .clip-feedback-controls select { min-width: 0; width: 100%; }
+    .clip-feedback-reason-chip { max-width: 100%; }
 }
 .clip-review-risk { border-left-width: 3px; }
 .result-card.review-approved .clip-feedback-controls { border-color: rgba(34,197,94,.22); }
