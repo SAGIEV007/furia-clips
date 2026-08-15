@@ -1012,6 +1012,39 @@ def get_feedback_calibration(min_samples=12, min_per_outcome=3):
         if status in reason_counts and reason:
             reason_counts[status][reason] = reason_counts[status].get(reason, 0) + 1
 
+    reason_categories = {
+        "hook": {"good_hook", "weak_hook", "no_hook"},
+        "context_payoff": {"excellent_context", "missing_context", "no_payoff"},
+        "speaker_audio": {"wrong_speaker", "audio_overlap"},
+        "duration": {"too_long"},
+        "framing": {"bad_framing"},
+    }
+    reason_coverage_categories = {}
+    explicit_reason_total = 0
+    for category, codes in reason_categories.items():
+        approved_total = sum(reason_counts["approved"].get(code, 0) for code in codes)
+        rejected_total = sum(reason_counts["rejected"].get(code, 0) for code in codes)
+        reason_coverage_categories[category] = {
+            "approved": approved_total,
+            "rejected": rejected_total,
+            "total": approved_total + rejected_total,
+            "codes": sorted(codes),
+            "usable": approved_total + rejected_total >= 2,
+        }
+        explicit_reason_total += approved_total + rejected_total
+    reason_coverage = {
+        "explicit_reason_total": explicit_reason_total,
+        "final_decision_total": sample_size,
+        "unattributed_final_decisions": max(0, sample_size - explicit_reason_total),
+        "categories": reason_coverage_categories,
+        "interpretation": (
+            "motivos agrupados por sinal editorial; decisões sem motivo não foram reclassificadas"
+            if explicit_reason_total
+            else             "nenhum motivo explícito disponível para calibrar categorias; decisões sem motivo não foram reclassificadas"
+
+        ),
+    }
+
     approved_duration = mean([item["duration"] for item in approved])
     rejected_duration = mean([item["duration"] for item in rejected])
     duration_gap = round(rejected_duration - approved_duration, 2)
@@ -1096,6 +1129,7 @@ def get_feedback_calibration(min_samples=12, min_per_outcome=3):
             "origins": origin_calibration,
         },
         "reason_counts": reason_counts,
+        "reason_coverage": reason_coverage,
         "top_rejection_reasons": [
             {"reason": reason, "count": count}
             for reason, count in sorted(reason_counts["rejected"].items(), key=lambda item: (-item[1], item[0]))[:5]

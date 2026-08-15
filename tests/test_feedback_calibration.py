@@ -31,6 +31,18 @@ def _build_feedback_history(monkeypatch, tmp_path, approved_count=6, rejected_co
         database.update_clip_review_status(clip_id, "approved" if approved else "rejected")
 
 
+def test_feedback_reason_coverage_exposes_context_categories_without_reclassification(monkeypatch, tmp_path):
+    _build_feedback_history(monkeypatch, tmp_path)
+    calibration = database.get_feedback_calibration()
+
+    coverage = calibration["reason_coverage"]
+    assert coverage["final_decision_total"] == 12
+    assert coverage["explicit_reason_total"] == 0
+    assert coverage["unattributed_final_decisions"] == 12
+    assert coverage["categories"]["context_payoff"]["usable"] is False
+    assert "decisões sem motivo" in coverage["interpretation"]
+
+
 def test_feedback_calibration_requires_final_decision_volume(monkeypatch, tmp_path):
     _build_feedback_history(monkeypatch, tmp_path, approved_count=2, rejected_count=2)
 
