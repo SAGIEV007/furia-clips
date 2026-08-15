@@ -12,14 +12,18 @@ from modules.repository_sync import (
     get_repository_status,
     write_feedback_snapshot,
     _feedback_snapshot_metadata,
+    restore_feedback_snapshot,
+    RepositorySyncError,
 )
 
 
 class _FakeConnection:
     def __init__(self, rows):
         self.rows = rows
+        self.queries = []
 
-    def execute(self, _query):
+    def execute(self, query):
+        self.queries.append(query)
         return self
 
     def fetchall(self):
@@ -34,7 +38,8 @@ class RepositorySyncTests(unittest.TestCase):
         rows = [
             ("editorial-key", 12.3456, 42.9876, 30.642, 88, "v3", "approved", "contexto", '["hook", "completo"]', '{"_review_metadata": {"candidate_origin": "gemini_primary", "selection_source": "gemini", "confidence": 0.91}, "text": "não exportar"}', "2026-08-15 00:00:00"),
         ]
-        with patch("modules.repository_sync.get_db", return_value=_FakeConnection(rows)):
+        connection = _FakeConnection(rows)
+        with patch("modules.repository_sync.get_db", return_value=connection):
             payload = build_feedback_snapshot()
         self.assertEqual(payload["format"], "furia-clips-editorial-feedback")
         self.assertEqual(payload["format_version"], 2)
@@ -47,6 +52,11 @@ class RepositorySyncTests(unittest.TestCase):
         self.assertNotIn("transcript", record)
         self.assertNotIn("source_video", record)
         self.assertNotIn("api_key", json.dumps(payload))
+        self.assertIn("ROW_NUMBER() OVER", connection.queries[0])
+        self.assertIn("PARTITION BY f.clip_id", connection.queries[0])
+        self.assertIn("f.action IN ('approved', 'rejected', 'needs_review')", connection.queries[0])
+        self.assertIn("WHERE feedback_rank = 1", connection.queries[0])
+        self.assertIn("ORDER BY editorial_key ASC, start_time ASC", connection.queries[0])
 
     def test_repository_status_separates_feedback_snapshot_from_code_changes(self):
         def fake_git(_repo, *args, **kwargs):
@@ -107,6 +117,61 @@ class RepositorySyncTests(unittest.TestCase):
         self.assertEqual(metadata["feedback_snapshot_records"], 2)
         self.assertEqual(metadata["feedback_snapshot_version"], 2)
         self.assertEqual(metadata["feedback_snapshot_generated_at"], "2026-08-15T05:00:00+00:00")
+
+    def test_restore_feedback_snapshot_validates_and_replays_final_decisions(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = Path(temp_dir)
+            (repo / ".git").mkdir()
+            target = repo / SNAPSHOT_RELATIVE_PATH
+            target.parent.mkdir(parents=True)
+            record = {
+                "editorial_key": "portable-key",
+                "action": "approved",
+                "reason_code": "contexto_completo",
+                "quality_tags": ["hook"],
+                "created_at": "2026-08-15T05:00:00+00:00",
+            }
+            target.write_text(
+                json.dumps(
+                    {
+                        "format": SYNC_FORMAT,
+                        "format_version": 2,
+                        "record_count": 1,
+                        "records": [record],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            with patch(
+                "modules.repository_sync.restore_local_feedback_snapshot",
+                return_value={"records_seen": 1, "imported": 1, "already_current": 0},
+            ) as replay:
+                result = restore_feedback_snapshot(str(repo))
+
+        replay.assert_called_once_with([record])
+        self.assertTrue(result["success"])
+        self.assertEqual(result["imported"], 1)
+        self.assertEqual(result["feedback_snapshot_version"], 2)
+
+    def test_restore_feedback_snapshot_rejects_inconsistent_count(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = Path(temp_dir)
+            (repo / ".git").mkdir()
+            target = repo / SNAPSHOT_RELATIVE_PATH
+            target.parent.mkdir(parents=True)
+            target.write_text(
+                json.dumps(
+                    {
+                        "format": SYNC_FORMAT,
+                        "format_version": 2,
+                        "record_count": 2,
+                        "records": [{"editorial_key": "one", "action": "approved"}],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            with self.assertRaises(RepositorySyncError):
+                restore_feedback_snapshot(str(repo))
 
     def test_invalid_feedback_snapshot_is_present_but_not_valid(self):
         with tempfile.TemporaryDirectory() as temp_dir:
