@@ -783,14 +783,20 @@ function renderRepositorySyncState(payload) {
     const codeDirty = Array.isArray(payload.code_dirty_files)
         ? payload.code_dirty_files
         : (payload.dirty_files || []).filter((item) => item !== snapshotPath);
+    const snapshotPresent = Boolean(payload.feedback_snapshot_present);
+    const snapshotValid = Boolean(payload.feedback_snapshot_valid);
+    const snapshotRecords = Number(payload.feedback_snapshot_records || 0);
+    const snapshotLabel = snapshotPresent
+        ? (snapshotValid ? `${snapshotRecords} decisão(ões) no snapshot` : "snapshot inválido; revisão necessária")
+        : "snapshot ainda não criado";
     if (payload.update_available) {
-        setRepositorySyncStatus(`Código novo disponível na branch ${payload.branch}. Faça backup e use “Atualizar programa”.`, "warning");
+        setRepositorySyncStatus(`Código novo disponível na branch ${payload.branch}. Faça backup e use “Atualizar programa”. · ${snapshotLabel}`, "warning");
     } else if (codeDirty.length) {
-        setRepositorySyncStatus(`Atualização bloqueada: há ${codeDirty.length} alteração(ões) locais de código. Faça backup ou preserve-as antes.`, "warning");
+        setRepositorySyncStatus(`Atualização bloqueada: há ${codeDirty.length} alteração(ões) locais de código. Faça backup ou preserve-as antes. · ${snapshotLabel}`, "warning");
     } else if (payload.feedback_snapshot_dirty) {
-        setRepositorySyncStatus("Feedback local pendente de envio. Use “Enviar feedback ao GitHub”; ele não bloqueia a atualização do código.", "info");
+        setRepositorySyncStatus(`Feedback local pendente de envio. Use “Enviar feedback ao GitHub”; ele não bloqueia a atualização do código. · ${snapshotLabel}`, "info");
     } else {
-        setRepositorySyncStatus(`Código sincronizado · ${String(payload.local_sha || "local").slice(0, 7)} · feedback protegido`, "success");
+        setRepositorySyncStatus(`Código sincronizado · ${String(payload.local_sha || "local").slice(0, 7)} · ${snapshotLabel}`, snapshotPresent && !snapshotValid ? "warning" : "success");
     }
 }
 
