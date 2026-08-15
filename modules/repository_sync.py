@@ -193,18 +193,20 @@ def build_feedback_snapshot() -> dict[str, Any]:
                     SELECT c.editorial_key, c.start_time, c.end_time, c.duration,
                            c.viral_score, c.editorial_score_version,
                            f.action, f.reason_code, f.quality_tags, f.adjustments, f.created_at,
+                           p.source_signature,
                            ROW_NUMBER() OVER (
                                PARTITION BY f.clip_id
                                ORDER BY f.id DESC
                            ) AS feedback_rank
                       FROM clip_feedback AS f
                       JOIN clips AS c ON c.id = f.clip_id
+                      JOIN projects AS p ON p.id = c.project_id
                      WHERE f.action IN ('approved', 'rejected', 'needs_review')
                        AND COALESCE(c.editorial_key, '') <> ''
                 )
                 SELECT editorial_key, start_time, end_time, duration,
                        viral_score, editorial_score_version,
-                       action, reason_code, quality_tags, adjustments, created_at
+                       action, reason_code, quality_tags, adjustments, created_at, source_signature
                   FROM ranked_feedback
                  WHERE feedback_rank = 1
                  ORDER BY editorial_key ASC, start_time ASC"""
@@ -227,6 +229,7 @@ def build_feedback_snapshot() -> dict[str, Any]:
                 "quality_tags": _quality_tags(row[8]),
                 "review_metadata": _review_metadata(row[9]),
                 "created_at": str(row[10] or "")[:40],
+                "source_signature": str(row[11] or "")[:64],
             }
         )
     return {

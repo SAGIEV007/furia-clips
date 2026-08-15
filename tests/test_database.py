@@ -157,3 +157,28 @@ if __name__ == "__main__":
         assert database.get_project(second_project)["source_signature"]
         assert len(second_fingerprints) == 1
         assert second_fingerprints[0]["text"] == "Trecho da fonte B"
+
+
+    def test_restore_feedback_snapshot_falls_back_to_source_signature_and_window(self):
+        source_path = os.path.join(self.tempdir.name, "downloads", "entrevista.mp4")
+        os.makedirs(os.path.dirname(source_path), exist_ok=True)
+        with open(source_path, "wb") as handle:
+            handle.write(b"same-physical-source" * 2048)
+
+        project_id = database.create_project("Entrevista", source_path)
+        clip_id = database.save_clip(project_id, "exports/clip.mp4", 12.0, 42.0, 30.0, 78, True, 0, "Contexto completo")
+        signature = database.get_project(project_id)["source_signature"]
+
+        result = database.restore_feedback_snapshot([{
+            "editorial_key": "path-dependent-key-from-another-notebook",
+            "source_signature": signature,
+            "start_seconds": 12.0,
+            "end_seconds": 42.0,
+            "action": "approved",
+            "reason_code": "contexto_completo",
+            "quality_tags": ["hook"],
+            "created_at": "2026-08-15T00:00:00+00:00",
+        }])
+
+        assert result["imported"] == 1
+        assert database.get_clip(clip_id)["review_status"] == "approved"

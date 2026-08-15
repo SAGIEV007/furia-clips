@@ -846,6 +846,23 @@ def restore_feedback_snapshot(records):
                 (editorial_key,),
             ).fetchone()
             if not clip:
+                source_signature = str(record.get("source_signature") or "").strip()[:64]
+                try:
+                    start_seconds = float(record.get("start_seconds"))
+                    end_seconds = float(record.get("end_seconds"))
+                except (TypeError, ValueError):
+                    start_seconds = end_seconds = None
+                if source_signature and start_seconds is not None and end_seconds is not None:
+                    clip = conn.execute(
+                        """SELECT c.id FROM clips AS c
+                              JOIN projects AS p ON p.id = c.project_id
+                             WHERE p.source_signature = ?
+                               AND ABS(c.start_time - ?) <= 0.5
+                               AND ABS(c.end_time - ?) <= 0.5
+                             ORDER BY c.id DESC LIMIT 1""",
+                        (source_signature, start_seconds, end_seconds),
+                    ).fetchone()
+            if not clip:
                 counters["unmatched"] += 1
                 continue
             latest = conn.execute(

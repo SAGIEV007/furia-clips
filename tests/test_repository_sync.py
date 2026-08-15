@@ -36,7 +36,7 @@ class _FakeConnection:
 class RepositorySyncTests(unittest.TestCase):
     def test_feedback_snapshot_is_sanitized_and_stable(self):
         rows = [
-            ("editorial-key", 12.3456, 42.9876, 30.642, 88, "v3", "approved", "contexto", '["hook", "completo"]', '{"_review_metadata": {"candidate_origin": "gemini_primary", "selection_source": "gemini", "confidence": 0.91}, "text": "não exportar"}', "2026-08-15 00:00:00"),
+            ("editorial-key", 12.3456, 42.9876, 30.642, 88, "v3", "approved", "contexto", '["hook", "completo"]', '{"_review_metadata": {"candidate_origin": "gemini_primary", "selection_source": "gemini", "confidence": 0.91}, "text": "não exportar"}', "2026-08-15 00:00:00", "physical-signature"),
         ]
         connection = _FakeConnection(rows)
         with patch("modules.repository_sync.get_db", return_value=connection):
@@ -48,6 +48,7 @@ class RepositorySyncTests(unittest.TestCase):
         self.assertEqual(record["editorial_key"], "editorial-key")
         self.assertEqual(record["action"], "approved")
         self.assertEqual(record["quality_tags"], ["hook", "completo"])
+        self.assertEqual(record["source_signature"], "physical-signature")
         self.assertEqual(record["review_metadata"], {"candidate_origin": "gemini_primary", "selection_source": "gemini", "confidence": 0.91})
         self.assertNotIn("transcript", record)
         self.assertNotIn("source_video", record)
