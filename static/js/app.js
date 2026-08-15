@@ -3034,7 +3034,7 @@ function renderHeadlineStudioResults(studio, options = {}) {
         </section>`;
     }).join("");
     const tweets = Array.isArray(formats.fake_tweet?.suggestions) ? formats.fake_tweet.suggestions : [];
-    const tweetCard = formats.fake_tweet ? `<section class="artwork-format-result fake-tweet ${recommended === "fake_tweet" ? "recommended" : ""}">
+    const tweetCard = selectedFormat === "fake_tweet" && formats.fake_tweet ? `<section class="artwork-format-result fake-tweet ${recommended === "fake_tweet" ? "recommended" : ""}">
         <div class="artwork-format-result-head"><div><span class="artwork-format-kicker">${recommended === "fake_tweet" ? "FORMATO RECOMENDADO" : "ALTERNATIVA"}</span><h4>Fake tweet — rascunho de publicação</h4></div><span class="artwork-limit">Revisar antes de atribuir ao perfil</span></div>
         <div class="fake-tweet-options">${tweets.map(item => `<article class="fake-tweet-card"><p>${escapeHtml(item.post_text || "")}</p><footer><span>${Number(item.character_count || 0)} caracteres</span><div>${artworkCopyButton(item.post_text || "", "Copiar texto")}${artworkFeedbackButton("fake_tweet", item.post_text || "", clipIndex)}</div></footer></article>`).join("") || '<p class="artwork-empty">Sem alternativa disponível.</p>'}        </div>
     </section>` : "";
