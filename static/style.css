@@ -1491,6 +1491,45 @@ body {
     to { transform: rotate(360deg); }
 }
 
+/* ─── Fase 4: status do preview e opções de enquadramento ─── */
+.preview-status {
+    margin-left: auto;
+    min-height: 1em;
+    font-size: 11px;
+    color: var(--text-muted);
+}
+.preview-status.loading { color: var(--gold); }
+.preview-status.ready { color: var(--success); }
+.preview-status.error { color: #ff8d8d; }
+.cut-options-modal { max-width: 620px; }
+.cut-options-lead {
+    margin: 0 0 20px;
+    color: var(--text-secondary);
+    line-height: 1.55;
+}
+.cut-option-toggle {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 18px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: rgba(255,255,255,0.03);
+    cursor: pointer;
+}
+.cut-option-toggle:hover { border-color: rgba(246, 196, 69, 0.55); }
+.cut-option-copy { display: flex; flex-direction: column; gap: 6px; }
+.cut-option-copy strong { color: var(--text-primary); font-size: 14px; }
+.cut-option-copy small { color: var(--text-secondary); line-height: 1.45; }
+.cut-option-toggle input {
+    width: 20px;
+    height: 20px;
+    accent-color: var(--gold);
+    flex: 0 0 auto;
+    margin-top: 2px;
+}
+
 /* ─── Responsive ─── */
 
 @media (max-width: 1200px) {

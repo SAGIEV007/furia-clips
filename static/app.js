@@ -30,6 +30,8 @@ const state = {
     lastJobConsoleKey: "",
     repositorySync: null,
     repositorySyncBusy: false,
+    faceTracking: true,
+    previewToken: 0,
 };
 
 // ─── WebSocket Connection ───
@@ -983,6 +985,10 @@ function truncateName(name, max) {
 // ─── Video Selection & Preview ───
 
 function selectVideo(item, sourceElement = null) {
+    if (!item || !item.path) {
+        showToast("Não foi possível selecionar este vídeo: caminho inválido.", "error");
+        return;
+    }
     const changedVideo = state.selectedVideo && state.selectedVideo !== item.path;
     const transcriptBelongsToItem = state.manualTranscript && state.manualTranscriptVideo === item.path;
     state.selectedVideo = item.path;
@@ -1022,8 +1028,10 @@ function selectVideo(item, sourceElement = null) {
     if (sourceElement?.classList) sourceElement.classList.add("selected");
 
     // Show video preview
-    showVideoPreview(item);
-
+        showVideoPreview(item);
+    if (changedVideo && state.activeJob && ["queued", "running", "cancel_requested"].includes(state.activeJob.state)) {
+        addConsoleLog("[Sistema] A nova seleção foi liberada; a tarefa anterior continua na fila persistente.", "info");
+    }
     addConsoleLog(`[Sistema] Video selecionado: ${item.name}`, "info");
     showToast(`Video selecionado: ${truncateName(item.name, 30)}`, "success");
 }
@@ -1034,27 +1042,57 @@ async function openOutputFolderForVideo() {
         showToast("Nenhum vídeo selecionado.", "warning");
         return;
     }
-    const folderPath = videoPath.replace(/[\\/][^\\/]+$/, "");
+    const normalized = String(videoPath).replaceAll("\\", "/").replace(/\/+$/, "");
+    const separator = normalized.lastIndexOf("/");
+    let folderPath = separator >= 0 ? normalized.slice(0, separator) : "";
+    if (/^[A-Za-z]:$/.test(folderPath)) folderPath += "/";
+    if (!folderPath) {
+        showToast("A pasta deste vídeo não pôde ser identificada.", "warning");
+        return;
+    }
     await openOutputFolder(folderPath);
 }
-
 function showVideoPreview(item) {
     const section = document.getElementById("videoPreviewSection");
     const video = document.getElementById("videoPreview");
     const source = document.getElementById("videoPreviewSource");
     const nameEl = document.getElementById("previewVideoName");
-
+    const status = document.getElementById("videoPreviewStatus");
+    if (!section || !video || !source || !item?.path) return;
+    const token = ++state.previewToken;
     section.style.display = "block";
-    nameEl.textContent = item.name;
+    nameEl.textContent = item.name || "Vídeo selecionado";
+    if (status) {
+        status.textContent = "Carregando mídia…";
+        status.className = "preview-status loading";
+    }
+    video.pause();
+    video.removeAttribute("src");
+    source.removeAttribute("src");
+    video.load();
+    const onMetadata = () => {
+        if (token !== state.previewToken) return;
+        const duration = Number.isFinite(video.duration) ? formatTime(video.duration) : "—";
+        const resolution = video.videoWidth && video.videoHeight ? `${video.videoWidth}x${video.videoHeight}` : "—";
+        document.getElementById("videoDuration").textContent = `Duração: ${duration}`;
+        document.getElementById("videoResolution").textContent = `Resolução: ${resolution}`;
+        if (status) {
+            status.textContent = "Mídia pronta";
+            status.className = "preview-status ready";
+        }
+    };
+    const onError = () => {
+        if (token !== state.previewToken) return;
+        if (status) {
+            status.textContent = "Não foi possível carregar este arquivo";
+            status.className = "preview-status error";
+        }
+        addConsoleLog(`[Preview] Falha ao carregar ${item.name || "o vídeo"}. Verifique se o arquivo ainda existe e tente selecioná-lo novamente.`, "warning");
+    };
+    video.addEventListener("loadedmetadata", onMetadata, { once: true });
+    video.addEventListener("error", onError, { once: true });
     source.src = mediaUrlForPath(item.path);
     video.load();
-
-    video.addEventListener("loadedmetadata", () => {
-        const dur = formatTime(video.duration);
-        const res = `${video.videoWidth}x${video.videoHeight}`;
-        document.getElementById("videoDuration").textContent = `Duracao: ${dur}`;
-        document.getElementById("videoResolution").textContent = `Resolucao: ${res}`;
-    }, { once: true });
 }
 
 function deselectVideo() {
@@ -1187,14 +1225,28 @@ document.getElementById("actionSilence").querySelector(".btn-action").addEventLi
     });
 });
 
-document.getElementById("actionCut").querySelector(".btn-action").addEventListener("click", async () => {
+function openCutOptionsModal() {
     if (!requireVideo()) return;
+    const modal = document.getElementById("cutOptionsModal");
+    if (!modal) return;
+    const name = document.getElementById("cutOptionsVideoName");
+    if (name) name.textContent = state.selectedVideoName || "vídeo selecionado";
+    const enabled = document.getElementById("faceTrackingEnabled");
+    if (enabled) enabled.checked = state.faceTracking !== false;
+    modal.classList.add("active");
+}
+function closeCutOptionsModal() {
+    document.getElementById("cutOptionsModal")?.classList.remove("active");
+}
+async function startSmartCut() {
+    closeCutOptionsModal();
+    if (!requireVideo()) return;
+    state.faceTracking = Boolean(document.getElementById("faceTrackingEnabled")?.checked);
     const userContext = document.getElementById("userContextInput").value.trim();
     addConsoleLog("[Acao] Iniciando corte inteligente de shorts...", "info");
+    addConsoleLog(`[Enquadramento] Facetracking ${state.faceTracking ? "ativado" : "desativado"}; o fallback mantém a proporção original quando necessário.`, "info");
     if (userContext) addConsoleLog(`[Contexto] "${userContext}"`, "info");
     const videoGenre = document.getElementById("settingVideoGenre").value;
-
-    // Auto-save Gemini key before processing (in case user pasted but didn't click Save)
     const geminiKey = document.getElementById("settingGeminiKey").value.trim();
     const aiBackend = document.getElementById("settingAiBackend").value;
     if (geminiKey.length > 10 || aiBackend) {
@@ -1208,13 +1260,12 @@ document.getElementById("actionCut").querySelector(".btn-action").addEventListen
             }),
         });
     }
-
     const response = await fetch("/api/process/cut", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
             video_path: state.selectedVideo,
-            face_tracking: true,
+            face_tracking: state.faceTracking,
             user_context: userContext,
             video_genre: videoGenre,
             transcription_source: document.getElementById("settingTranscriptionSource")?.value || "auto",
@@ -1232,7 +1283,11 @@ document.getElementById("actionCut").querySelector(".btn-action").addEventListen
         state.activeJob = { id: started.job_id, state: started.state || "queued" };
         showProcessingControls("Corte adicionado à fila persistente.");
     }
-});
+}
+document.getElementById("actionCut").querySelector(".btn-action").addEventListener("click", openCutOptionsModal);
+document.getElementById("btnStartSmartCut")?.addEventListener("click", startSmartCut);
+document.getElementById("btnCloseCutOptions")?.addEventListener("click", closeCutOptionsModal);
+document.getElementById("btnCloseCutOptionsSecondary")?.addEventListener("click", closeCutOptionsModal);
 
 document.getElementById("actionArtwork")?.querySelector(".btn-action")?.addEventListener("click", () => {
     document.getElementById("headlineStudioSection")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -1446,12 +1501,14 @@ function saveOutputDir() {
 function mediaUrlForPath(path) {
     if (!path) return "";
     const value = String(path).replaceAll("\\", "/");
-    if (value.startsWith("/workspace/")) return value;
-    if (value.startsWith("workspace/")) return `/${value}`;
+    if (value.startsWith("/workspace/") || value.startsWith("workspace/")) {
+        const relative = value.replace(/^\/+workspace\//, "").replace(/^workspace\//, "");
+        return `/workspace/${relative.split("/").filter(Boolean).map(encodeURIComponent).join("/")}`;
+    }
     if (/^[A-Za-z]:\//.test(value) || value.startsWith("/")) {
         return `/api/output_file?path=${encodeURIComponent(path)}`;
     }
-    return `/workspace/${value.replace(/^\\+/, "")}`;
+    return `/workspace/${value.split("/").filter(Boolean).map(encodeURIComponent).join("/")}`;
 }
 
 function escapeHtml(value) {
@@ -2202,20 +2259,24 @@ function updateOpenFolderButton(folderPath) {
 }
 
 async function openOutputFolder(folderPath) {
+    if (!folderPath) {
+        showToast("Pasta não informada.", "warning");
+        return;
+    }
     try {
         const res = await fetch("/api/open_folder", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ path: folderPath }),
         });
-        const data = await res.json();
-        if (data.success) {
-            showToast("Pasta aberta!", "success");
-        } else {
-            showToast(data.error || "Nao foi possivel abrir a pasta", "warning");
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success) {
+            throw new Error(data.error || `Servidor recusou a abertura (${res.status})`);
         }
+        showToast("Pasta aberta!", "success");
     } catch (e) {
-        showToast("Erro ao abrir pasta", "error");
+        addConsoleLog(`[Pasta] ${e.message || "Falha ao abrir pasta"}`, "warning");
+        showToast(e.message || "Erro ao abrir pasta", "error");
     }
 }
 
