@@ -68,3 +68,26 @@ def test_hook_details_explain_explicit_thesis_before_generic_question():
     assert details["family"] == "tese-provocativa"
     assert details["evidence"]
     assert details["basis"] == "regra_textual_explicita"
+
+
+def test_aggregate_only_snapshot_is_normalized_without_post_ids():
+    snapshot = normalize_snapshot({
+        "schema_version": "editorial-priors-v1-aggregate-only",
+        "default_account": "@renansantosmbl",
+        "accounts": {
+            "@renansantosmbl": {
+                "platform": "instagram",
+                "hook_priors": [
+                    {"hook": "tese-provocativa", "observations": 4, "mean_ratio": 4.2, "max_ratio": 8.0},
+                ],
+            }
+        },
+    })
+    assert snapshot["accounts"]["@renansantosmbl"]["hook_observations"]
+    assert not snapshot["accounts"]["@renansantosmbl"]["examples"]
+    prior = build_performance_prior(
+        "Vamos mudar a gestão pública. A tese é clara.",
+        snapshot=snapshot,
+    )
+    assert prior["available"] is True
+    assert prior["sample_count"] == 4
