@@ -504,8 +504,13 @@ def generate_artwork_copy(
     if ai_backend is not None:
         if emit_progress:
             emit_progress("[Texto de arte] Refinando opções curtas pelo modo de IA configurado...", "info")
-        system = """Você é editor de vídeos políticos curtos no Brasil. Gere texto de ARTE, não SEO.
-Use somente ideias claramente presentes na transcrição. Intensifique o contraste sem inventar fatos, crimes, números, intenções ou acusações. Quando for opinião do orador, prefira atribuição como 'RENAN:' ou 'RENAN CRITICA'.
+        attribution_rule = (
+            "Só use 'RENAN:' ou 'RENAN CRITICA' se a transcrição ou o minic contexto identificar explicitamente Renan; caso contrário, não atribua a fala a uma pessoa específica."
+            if _speaker_prefix(context) or "renan" in normalize(text)
+            else "Não atribua a fala a Renan nem a qualquer pessoa específica sem identificação explícita na transcrição ou no minic contexto."
+        )
+        system = f"""Você é editor de vídeos políticos curtos no Brasil. Gere texto de ARTE, não SEO.
+Use somente ideias claramente presentes na transcrição. Intensifique o contraste sem inventar fatos, crimes, números, intenções ou acusações. {attribution_rule}
 A resposta deve ser somente JSON válido. Para 1:1 e 9:16, headline é curta, em caixa alta e sem descrição complementar. Respeite rigorosamente os limites informados."""
         format_scope = preferred if preferred in FORMAT_IDS else "todos os três formatos para recomendação"
         prompt = f"""FORMATO SOLICITADO: {format_scope}
