@@ -31,6 +31,8 @@ const state = {
     lastJobConsoleKey: "",
     repositorySync: null,
     repositorySyncBusy: false,
+    campaignHubSnapshotStatus: null,
+    campaignHubStatusTimer: null,
     faceTracking: true,
     previewToken: 0,
 };
@@ -755,6 +757,46 @@ async function restoreEditorialBackup(event) {
         input.value = "";
         if (button) button.disabled = false;
     }
+}
+
+function renderCampaignHubLocalStatus(payload) {
+    const element = document.getElementById("campaignHubLocalStatus");
+    if (!element) return;
+    const dot = element.querySelector(".status-dot");
+    const label = element.querySelector("span:last-child");
+    const previous = state.campaignHubSnapshotStatus;
+    state.campaignHubSnapshotStatus = payload || null;
+    if (!payload?.available) {
+        if (dot) dot.className = `status-dot ${payload?.status === "invalid" ? "warning" : "offline"}`;
+        if (label) label.textContent = payload?.message || "Sem snapshot editorial local";
+        element.title = "O Furia funciona offline, mas não recebeu memória editorial local.";
+        return;
+    }
+    const changed = Boolean(previous?.modified_at && payload.modified_at && previous.modified_at !== payload.modified_at);
+    if (dot) dot.className = `status-dot ${changed ? "warning" : "online"}`;
+    const accountCount = Object.keys(payload.accounts || {}).length;
+    if (label) label.textContent = changed
+        ? `Novo snapshot detectado · ${accountCount} perfil(is) · será usado no próximo corte`
+        : `Memória local pronta · ${accountCount} perfil(is) · somente leitura`;
+    element.title = `${payload.version || "Snapshot editorial"}${payload.modified_at ? ` · atualizado em ${new Date(payload.modified_at).toLocaleString("pt-BR")}` : ""}. O próximo job relê o arquivo automaticamente.`;
+}
+
+async function loadCampaignHubLocalStatus() {
+    try {
+        const response = await fetch("/api/campaign-hub/status", { cache: "no-store" });
+        const payload = await parseJsonResponse(response, "Status da memória editorial");
+        renderCampaignHubLocalStatus(payload);
+        return payload;
+    } catch (error) {
+        renderCampaignHubLocalStatus({ available: false, status: "error", message: "Memória editorial local indisponível agora" });
+        return null;
+    }
+}
+
+function startCampaignHubLocalStatusPolling() {
+    loadCampaignHubLocalStatus();
+    if (state.campaignHubStatusTimer) window.clearInterval(state.campaignHubStatusTimer);
+    state.campaignHubStatusTimer = window.setInterval(loadCampaignHubLocalStatus, 60000);
 }
 
 function setRepositorySyncStatus(message, level = "info") {
@@ -3659,6 +3701,7 @@ document.addEventListener("keydown", (e) => {
 
 document.addEventListener("DOMContentLoaded", () => {
     loadSettings();
+    startCampaignHubLocalStatusPolling();
     loadMediaFiles();
     loadTranscriptArchive();
     recoverActiveJobs();

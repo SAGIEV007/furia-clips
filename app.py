@@ -863,6 +863,23 @@ def api_download_editorial_backup(filename):
     return send_file(candidate, as_attachment=True, download_name=filename)
 
 
+@app.route("/api/campaign-hub/status", methods=["GET"])
+def api_campaign_hub_status():
+    """Report bounded local Campaign Hub snapshot metadata without any write path."""
+    try:
+        from modules.campaign_hub import snapshot_status
+        settings = get_all_settings()
+        return jsonify(snapshot_status(settings.get("campaign_hub_snapshot_path")))
+    except Exception as exc:
+        return jsonify({
+            "available": False,
+            "source": "campaign_hub_local_snapshot",
+            "status": "error",
+            "read_only": True,
+            "message": f"Não foi possível ler o snapshot local: {str(exc)[:240]}",
+        }), 200
+
+
 @app.route("/api/repository/status", methods=["GET"])
 def api_repository_status():
     """Report Git synchronization state without exposing remotes or secrets."""

@@ -136,6 +136,18 @@
                     <small class="setting-hint">Prioriza tese, conflito, proposta, evidencia e conclusao.</small>
                 </div>
 
+                <div class="setting-group">
+                    <label>Base histórica de clipping</label>
+                    <select id="settingCampaignHubAccount" class="setting-select">
+                        <option value="@renansantosmbl" selected>Renan Santos / MBL — principal</option>
+                        <option value="@renansantosreserva">Renan Santos / Reserva</option>
+                    </select>
+                    <small class="setting-hint">Usa priors locais de hooks e contexto observados; não envia nada ao Campaign Hub e não substitui a análise do vídeo.</small>
+                    <div class="campaign-hub-local-status" id="campaignHubLocalStatus" role="status" aria-live="polite">
+                        <span class="status-dot offline"></span><span>Verificando memória editorial local…</span>
+                    </div>
+                </div>
+
                 <div class="setting-group setting-toggle">
                     <label>Correcao com IA</label>
                     <div class="toggle" id="settingAiCorrection" data-active="true">

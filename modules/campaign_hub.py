@@ -125,6 +125,59 @@ def normalize_snapshot(payload: Any) -> dict[str, Any] | None:
     }
 
 
+def snapshot_status(path: str | os.PathLike[str] | None = None) -> dict[str, Any]:
+    """Return bounded local metadata for the read-only editorial snapshot."""
+    explicit = path or os.environ.get("FURIA_CAMPAIGN_HUB_SNAPSHOT")
+    candidates = [Path(explicit).expanduser()] if explicit else [DEFAULT_SNAPSHOT_PATH, PACKAGED_SNAPSHOT_PATH]
+    for candidate in candidates:
+        try:
+            stat = candidate.stat()
+        except (FileNotFoundError, OSError):
+            continue
+        snapshot = load_snapshot(str(candidate))
+        if not snapshot:
+            return {
+                "available": False,
+                "source": "campaign_hub_local_snapshot",
+                "path": str(candidate),
+                "status": "invalid",
+                "message": "Snapshot local encontrado, mas não passou pela validação.",
+                "read_only": True,
+            }
+        accounts = snapshot.get("accounts", {}) if isinstance(snapshot, dict) else {}
+        account_summary = {}
+        for account, data in accounts.items():
+            if not isinstance(data, dict):
+                continue
+            account_summary[account] = {
+                "hook_observations": len(data.get("hook_observations", [])),
+                "examples": len(data.get("examples", [])),
+                "cohorts": len(data.get("cohorts", [])),
+            }
+        from datetime import datetime, timezone
+        return {
+            "available": True,
+            "source": "campaign_hub_local_snapshot",
+            "path": str(candidate),
+            "status": "ready",
+            "version": snapshot.get("version", ""),
+            "collected_at": snapshot.get("collected_at", ""),
+            "modified_at": datetime.fromtimestamp(float(stat.st_mtime), tz=timezone.utc).isoformat(),
+            "default_account": snapshot.get("default_account", ""),
+            "accounts": account_summary,
+            "read_only": True,
+            "auto_reload_on_next_analysis": True,
+        }
+    return {
+        "available": False,
+        "source": "campaign_hub_local_snapshot",
+        "status": "missing",
+        "message": "Nenhum snapshot editorial local foi encontrado.",
+        "read_only": True,
+        "auto_reload_on_next_analysis": False,
+    }
+
+
 def classify_hook_details(text: str) -> dict[str, Any]:
     """Return a transparent hook family plus matched evidence.
 

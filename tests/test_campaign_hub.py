@@ -1,4 +1,4 @@
-from modules.campaign_hub import build_performance_prior, classify_hook, classify_hook_details, normalize_snapshot
+from modules.campaign_hub import build_performance_prior, classify_hook, classify_hook_details, normalize_snapshot, snapshot_status
 from modules.editorial_ranker import EditorialRanker
 
 
@@ -18,6 +18,21 @@ def _snapshot():
             }
         },
     })
+
+
+def test_snapshot_status_reports_bounded_local_metadata(tmp_path):
+    snapshot_path = tmp_path / "profile.json"
+    snapshot_path.write_text(
+        '{"version":"test-v1","collected_at":"2026-08-15T12:00:00Z","default_account":"@renansantosmbl","accounts":{"@renansantosmbl":{"hook_observations":[{"hook":"news-peg","ratio":2.0}],"examples":[{}],"cohorts":[{}]}}}',
+        encoding="utf-8",
+    )
+
+    status = snapshot_status(str(snapshot_path))
+
+    assert status["available"] is True
+    assert status["read_only"] is True
+    assert status["auto_reload_on_next_analysis"] is True
+    assert status["accounts"]["@renansantosmbl"] == {"hook_observations": 1, "examples": 1, "cohorts": 1}
 
 
 def test_snapshot_rejects_unknown_accounts_and_keeps_supported_data():

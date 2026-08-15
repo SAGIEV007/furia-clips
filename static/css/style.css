@@ -234,6 +234,20 @@ body {
     color: var(--text-muted);
 }
 
+.campaign-hub-local-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 7px;
+    color: var(--text-muted);
+    font-size: 10px;
+    line-height: 1.35;
+}
+
+.campaign-hub-local-status .status-dot.online { background: #62d883; }
+.campaign-hub-local-status .status-dot.warning { background: #f5c542; box-shadow: 0 0 0 4px rgba(245, 197, 66, 0.12); }
+.campaign-hub-local-status .status-dot.offline { background: #718096; box-shadow: none; }
+
 .setting-hint a {
     color: var(--gold);
     text-decoration: none;
