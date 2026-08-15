@@ -852,8 +852,10 @@ async function runRepositorySync(action) {
             const current = Number(payload.already_current || 0);
             const unmatched = Number(payload.unmatched || 0);
             const stale = Number(payload.skipped_older || 0);
-            showToast(`Feedback reconciliado: ${imported} importado(s), ${current} já atual(is).`, "success");
-            addConsoleLog(`[Sincronização] Snapshot sanitizado reconciliado: ${imported} importado(s), ${current} já atual(is), ${stale} antigo(s), ${unmatched} sem correspondência.`, "info");
+            const invalid = Number(payload.invalid || 0);
+            const restoreLevel = invalid ? "warning" : "success";
+            showToast(`Feedback reconciliado: ${imported} importado(s), ${current} já atual(is)${invalid ? `, ${invalid} inválido(s) ignorado(s)` : ""}.`, restoreLevel);
+            addConsoleLog(`[Sincronização] Snapshot sanitizado reconciliado: ${imported} importado(s), ${current} já atual(is), ${stale} antigo(s), ${unmatched} sem correspondência, ${invalid} inválido(s) ignorado(s).`, invalid ? "warning" : "info");
             await checkRepositorySync(false);
         }
         return payload;
