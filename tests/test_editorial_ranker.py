@@ -254,3 +254,14 @@ def test_context_quality_penalizes_abrupt_start_and_unresolved_question():
             "payoff_complete": True,
         })
         assert complete["factors"]["context_quality"] > unresolved["factors"]["context_quality"]
+
+
+    def test_context_review_flags_expose_reference_and_weak_payoff(self):
+        result = self.ranker.score_clip({
+            "start": 0, "end": 20, "duration": 20,
+            "text": "Isso acontece porque a proposta ainda precisa de análise.",
+            "starts_with_context_reference": True,
+            "payoff_weak_ending": True,
+        })
+        assert result["review_flags"]["starts_with_context_reference"] is True
+        assert result["review_flags"]["payoff_weak_ending"] is True

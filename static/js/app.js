@@ -2110,6 +2110,8 @@ function renderResultsGrid() {
         const topicSignature = String(clip.topic_signature || "");
         const diversityPenalty = Math.round(Number(clip.diversity_penalty || 0));
         const diversityReason = String(clip.diversity_reason || "").trim();
+        const contextReferenceFlag = Boolean(clip.starts_with_context_reference || reviewFlags.starts_with_context_reference);
+        const weakPayoffFlag = Boolean(clip.payoff_weak_ending || reviewFlags.payoff_weak_ending);
         const closureType = String(clip.closure_type || "");
         const closureLabels = { conclusion: "conclusão", closed_statement: "frase fechada", cliffhanger: "continuidade", open: "fecho a revisar" };
         const speakerLabel = String(clip.speaker || clip.speaker_role || "").trim();
@@ -2301,6 +2303,8 @@ function renderResultsGrid() {
                 ${topicSignature ? `<div class="clip-topic-chip" title="Sinal lexical usado somente para diversificar o portfólio">Tema: ${escapeHtml(topicSignature.replace(':', ' · ').replaceAll('-', ', '))}</div>` : ''}
                 ${durationStatus ? `<div class="clip-duration-policy ${durationMeta.className}" title="${escapeHtml(String(durationPreference.reason || durationMeta.hint))}"><span class="material-icons-round">${durationMeta.icon}</span><span><b>${escapeHtml(durationMeta.label)}</b>${Number.isFinite(durationFit) ? ` · brevidade ${Math.round(Math.max(0, Math.min(100, durationFit)))}%` : ''}${durationException ? ' · contexto excepcional preservado' : ''}</span></div>` : ''}
                 ${closureType ? `<div class="clip-closure-chip ${escapeHtml(closureType)}"><span class="material-icons-round">${closureType === 'conclusion' ? 'task_alt' : closureType === 'cliffhanger' ? 'hourglass_top' : 'subtitles'}</span> ${escapeHtml(closureLabels[closureType] || closureType)}</div>` : ''}
+                ${contextReferenceFlag ? `<div class="clip-review-risk"><span class="material-icons-round">link_off</span><span><b>Abertura dependente:</b> o trecho começa com uma referência sem antecedente claro.</span></div>` : ''}
+                ${weakPayoffFlag ? `<div class="clip-review-risk"><span class="material-icons-round">pending</span><span><b>Payoff a revisar:</b> o final pode continuar o raciocínio em vez de concluí-lo.</span></div>` : ''}
                 ${(speakerLabel || overlapSuspected || Number.isFinite(speakerConfidence)) ? `<div class="clip-speaker-note ${overlapSuspected ? 'warning' : ''}"><span class="material-icons-round">${overlapSuspected ? 'record_voice_over' : 'person'}</span> ${speakerLabel ? `Locutor: ${escapeHtml(speakerLabel)}` : 'Locutor não identificado'}${Number.isFinite(speakerConfidence) ? ` · ${Math.round(Math.max(0, Math.min(1, speakerConfidence)) * 100)}%` : ''}${overlapSuspected ? ' · possível sobreposição' : ''}</div>` : ''}
                 ${diversityPenalty >= 20 ? `<div class="clip-diversity-note"><span class="material-icons-round">filter_list</span> Similaridade com outro corte: ${diversityPenalty}%${diversityReason ? ` · ${escapeHtml(diversityReason)}` : ''}</div>` : ''}
                 <div class="result-duration">

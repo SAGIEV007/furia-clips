@@ -346,6 +346,8 @@ class EditorialRanker:
                 "duration_preference": duration_preference["status"],
                 "duration_exception": bool(duration_preference["exception"]),
                 "starts_mid_sentence": bool(clip.get("starts_mid_sentence")),
+                "starts_with_context_reference": bool(clip.get("starts_with_context_reference")),
+                "payoff_weak_ending": bool(clip.get("payoff_weak_ending")),
                 "question_detected": bool(clip.get("question_detected")),
                 "question_answer_complete": bool(clip.get("question_answer_complete")),
                 "evidence_present": bool(clip.get("evidence_present")),

@@ -2983,6 +2983,8 @@ def api_process_complete():
                     "review_flags": clip_info.get("review_flags", {}),
                     "closure_type": clip_info.get("closure_type", ""),
                     "starts_mid_sentence": bool(clip_info.get("starts_mid_sentence")),
+                    "starts_with_context_reference": bool(clip_info.get("starts_with_context_reference")),
+                    "payoff_weak_ending": bool(clip_info.get("payoff_weak_ending")),
                     "question_detected": bool(clip_info.get("question_detected")),
                     "question_answer_complete": bool(clip_info.get("question_answer_complete")),
                     "evidence_present": bool(clip_info.get("evidence_present")),
