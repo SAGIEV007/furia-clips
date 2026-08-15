@@ -7,9 +7,11 @@ from subprocess import CompletedProcess
 
 from modules.repository_sync import (
     SNAPSHOT_RELATIVE_PATH,
+    SYNC_FORMAT,
     build_feedback_snapshot,
     get_repository_status,
     write_feedback_snapshot,
+    _feedback_snapshot_metadata,
 )
 
 
@@ -80,6 +82,40 @@ class RepositorySyncTests(unittest.TestCase):
             self.assertFalse((repo.parent / "editorial_feedback_snapshot.json").exists())
             saved = json.loads(target.read_text(encoding="utf-8"))
             self.assertEqual(saved["records"], [])
+
+    def test_feedback_snapshot_metadata_is_portable_and_non_sensitive(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = Path(temp_dir)
+            target = repo / SNAPSHOT_RELATIVE_PATH
+            target.parent.mkdir(parents=True)
+            target.write_text(
+                json.dumps(
+                    {
+                        "format": SYNC_FORMAT,
+                        "format_version": 2,
+                        "generated_at": "2026-08-15T05:00:00+00:00",
+                        "records": [{"action": "approved"}, {"action": "rejected"}],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            metadata = _feedback_snapshot_metadata(repo)
+        self.assertTrue(metadata["feedback_snapshot_present"])
+        self.assertTrue(metadata["feedback_snapshot_valid"])
+        self.assertEqual(metadata["feedback_snapshot_records"], 2)
+        self.assertEqual(metadata["feedback_snapshot_version"], 2)
+        self.assertEqual(metadata["feedback_snapshot_generated_at"], "2026-08-15T05:00:00+00:00")
+
+    def test_invalid_feedback_snapshot_is_present_but_not_valid(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = Path(temp_dir)
+            target = repo / SNAPSHOT_RELATIVE_PATH
+            target.parent.mkdir(parents=True)
+            target.write_text("not-json", encoding="utf-8")
+            metadata = _feedback_snapshot_metadata(repo)
+        self.assertTrue(metadata["feedback_snapshot_present"])
+        self.assertFalse(metadata["feedback_snapshot_valid"])
+        self.assertEqual(metadata["feedback_snapshot_records"], 0)
 
 
 if __name__ == "__main__":
