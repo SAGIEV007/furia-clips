@@ -1,7 +1,9 @@
 import os
+import sqlite3
 import tempfile
 import time
 import unittest
+from datetime import datetime, timezone
 
 from modules.job_manager import JobManager
 
@@ -70,6 +72,25 @@ class JobManagerTests(unittest.TestCase):
             self.assertEqual(len(recovered.list()), 1)
         finally:
             recovered.shutdown()
+
+    def test_reconcile_stale_running_job_marks_it_failed(self):
+        created = self.manager.create("orphaned")
+        self.manager.update(created["id"], state="running", stage="analysis", progress=40)
+        old_timestamp = datetime.fromtimestamp(time.time() - 3600, timezone.utc).isoformat()
+        connection = sqlite3.connect(self.db_path)
+        connection.execute(
+            "UPDATE jobs SET updated_at = ? WHERE id = ?",
+            (old_timestamp, created["id"]),
+        )
+        connection.commit()
+        connection.close()
+
+        recovered = self.manager.reconcile_stale(max_age_seconds=60)
+        assert len(recovered) == 1
+        final = self.manager.get(created["id"])
+        self.assertEqual(final["state"], "failed")
+        self.assertEqual(final["stage"], "stale_recovered")
+        self.assertEqual(final["error"], "stale_job_recovered")
 
 
 if __name__ == "__main__":

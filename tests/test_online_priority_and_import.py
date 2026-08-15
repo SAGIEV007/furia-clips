@@ -263,3 +263,46 @@ def test_long_cpu_video_uses_fast_model_for_discovery(monkeypatch, tmp_path):
     assert result["source"] == "whisper"
     assert calls == ["small", "base"]
     assert any("modelo base" in message for message, _ in events)
+
+
+def test_followup_video_analysis_is_opt_in_after_canonical_transcript():
+    import app as app_module
+
+    assert app_module._should_allow_followup_video_analysis(
+        {"source": "public_subtitles"}, {"gemini_api_key": "configured"}
+    ) is False
+    assert app_module._should_allow_followup_video_analysis(
+        {"source": "whisper"}, {"gemini_api_key": "configured"}
+    ) is False
+    assert app_module._should_allow_followup_video_analysis(
+        {"source": "manual"}, {"gemini_api_key": "configured"}
+    ) is False
+    assert app_module._should_allow_followup_video_analysis(
+        {"source": "manual"}, {"gemini_manual_video_analysis": True}
+    ) is True
+    assert app_module._should_allow_followup_video_analysis(
+        {"source": "public_subtitles"}, {"gemini_video_analysis_with_transcript": True}
+    ) is True
+
+
+def test_followup_enrichment_does_not_call_gemini_by_default(monkeypatch):
+    import app as app_module
+
+    calls = []
+    monkeypatch.setattr(
+        app_module,
+        "_run_gemini_video_analysis",
+        lambda *args, **kwargs: calls.append(True),
+    )
+    result = app_module._enrich_editorial_context(
+        "video.mp4",
+        {"gemini_api_key": "configured"},
+        {"description": "entrevista"},
+        "",
+        lambda *args, **kwargs: None,
+        allow_video_analysis=app_module._should_allow_followup_video_analysis(
+            {"source": "public_subtitles"}, {"gemini_api_key": "configured"}
+        ),
+    )
+    assert calls == []
+    assert result == {"description": "entrevista"}
