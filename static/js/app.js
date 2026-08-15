@@ -1205,6 +1205,18 @@ function isArtworkTranscriptFile(file) {
     return Boolean(file?.name && /\.(txt|srt|vtt)$/i.test(file.name));
 }
 
+function isVideoFile(file) {
+    return Boolean(file?.name && /\.(mp4|mkv|avi|mov|webm|flv|wmv|m4v|mpeg|mpg)$/i.test(file.name));
+}
+
+async function selectLastImportedMedia(force = false) {
+    await loadMediaFiles();
+    setTimeout(() => {
+        const cards = document.querySelectorAll(".media-card");
+        if (cards.length > 0 && (force || !state.selectedVideo)) cards[cards.length - 1].click();
+    }, 100);
+}
+
 async function importArtworkTranscriptFile(file) {
     if (!file || !isArtworkTranscriptFile(file)) return false;
     try {
@@ -1241,10 +1253,16 @@ if (artworkTranscriptDropTarget) {
         artworkTranscriptDropTarget.classList.remove("drag-over");
         const files = Array.from(event.dataTransfer?.files || []);
         const transcript = files.find(isArtworkTranscriptFile);
-        if (transcript) {
-            await importArtworkTranscriptFile(transcript);
-        } else if (files.length) {
-            setHeadlineStudioStatus("Solte um TXT, SRT ou VTT nesta área. Para importar vídeos, use a Biblioteca de mídia acima.", "warning");
+        const video = files.find(isVideoFile);
+        if (transcript) await importArtworkTranscriptFile(transcript);
+        if (video) {
+            setHeadlineStudioStatus(`${video.name} será importado na Biblioteca de mídia.`, "info");
+            await uploadFile(video);
+            await selectLastImportedMedia(true);
+            setHeadlineStudioStatus(`${video.name} importado. A transcrição do corte pode ser usada no Estúdio quando estiver disponível.`, "success");
+        }
+        if (!transcript && !video && files.length) {
+            setHeadlineStudioStatus("Solte um TXT, SRT, VTT ou vídeo nesta área.", "warning");
         }
     });
 }
@@ -1268,15 +1286,9 @@ const mediaSection = document.getElementById("mediaLibrarySection");
         const files = Array.from(e.dataTransfer?.files || []);
         for (const file of files) {
             if (isArtworkTranscriptFile(file)) await importArtworkTranscriptFile(file);
-            else await uploadFile(file);
+            else if (isVideoFile(file)) await uploadFile(file);
         }
-        if (files.some((file) => !isArtworkTranscriptFile(file))) {
-            await loadMediaFiles();
-            setTimeout(() => {
-                const cards = document.querySelectorAll(".media-card");
-                if (cards.length > 0 && !state.selectedVideo) cards[cards.length - 1].click();
-            }, 100);
-        }
+        if (files.some(isVideoFile)) await selectLastImportedMedia();
     });
 });
 
