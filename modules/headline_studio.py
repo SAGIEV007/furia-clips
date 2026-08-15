@@ -309,14 +309,15 @@ def _fallback_result(
     topic = _topic(text)
     attention = _attention_word(text, signals)
     claims = _claim_candidates(text, topic, speaker_prefix=_speaker_prefix(mini_context))
+    selected_only = preferred_format if preferred_format in FORMAT_IDS else ""
     square = [
         ArtworkSuggestion(attention, claim, emphasis="", accent="white", note=FORMAT_SQUARE).as_dict()
         for claim in claims[:3]
-    ]
+    ] if not selected_only or selected_only == FORMAT_SQUARE else []
     vertical = [
         ArtworkSuggestion("", claim, emphasis=_compact(claim.split()[-1], 18), accent="red_on_white", note=FORMAT_VERTICAL).as_dict()
         for claim in claims[:3]
-    ]
+    ] if not selected_only or selected_only == FORMAT_VERTICAL else []
     fake_tweet = [
         {
             "post_text": copy,
@@ -324,7 +325,7 @@ def _fallback_result(
             "attribution_note": "Use como rascunho de publicação; confirme a redação final antes de atribuir ao perfil.",
         }
         for copy in _safe_fake_tweet(text, topic, mini_context)
-    ]
+    ] if not selected_only or selected_only == FORMAT_TWEET else []
 
     learning_format, learning_count, learning_scope = _format_from_learning(editorial_learning)
     learning_applied = False
@@ -410,12 +411,18 @@ def _suggestion_has_evidence(value: str, source_text: str) -> bool:
     return bool(meaningful and any(token in source_tokens for token in meaningful))
 
 
-def _merge_ai_suggestions(base: dict[str, Any], payload: dict[str, Any], source_text: str = "") -> dict[str, Any]:
+def _merge_ai_suggestions(
+    base: dict[str, Any],
+    payload: dict[str, Any],
+    source_text: str = "",
+    preferred_format: str = "auto",
+) -> dict[str, Any]:
     """Accept only short, evidence-backed AI variations; deterministic safety stays intact."""
     suggested = payload.get("formats") if isinstance(payload, dict) else None
     if not isinstance(suggested, dict):
         return base
-    for format_id in (FORMAT_VERTICAL, FORMAT_SQUARE):
+    allowed_formats = (preferred_format,) if preferred_format in FORMAT_IDS else (FORMAT_VERTICAL, FORMAT_SQUARE)
+    for format_id in allowed_formats:
         variants = suggested.get(format_id)
         if not isinstance(variants, list):
             continue
@@ -447,7 +454,7 @@ def _merge_ai_suggestions(base: dict[str, Any], payload: dict[str, Any], source_
             })
         if accepted:
             base["formats"][format_id]["suggestions"] = accepted
-    tweets = suggested.get(FORMAT_TWEET)
+    tweets = suggested.get(FORMAT_TWEET) if preferred_format in {"auto", FORMAT_TWEET} else None
     if isinstance(tweets, list):
         accepted_tweets = []
         for item in tweets[:2]:
@@ -495,7 +502,10 @@ def generate_artwork_copy(
         system = """Você é editor de vídeos políticos curtos no Brasil. Gere texto de ARTE, não SEO.
 Use somente ideias claramente presentes na transcrição. Intensifique o contraste sem inventar fatos, crimes, números, intenções ou acusações. Quando for opinião do orador, prefira atribuição como 'RENAN:' ou 'RENAN CRITICA'.
 A resposta deve ser somente JSON válido. Para 1:1 e 9:16, headline é curta, em caixa alta e sem descrição complementar. Respeite rigorosamente os limites informados."""
-        prompt = f"""TRANSCRIÇÃO DO CORTE:
+        format_scope = preferred if preferred in FORMAT_IDS else "todos os três formatos para recomendação"
+        prompt = f"""FORMATO SOLICITADO: {format_scope}
+
+TRANSCRIÇÃO DO CORTE:
 {text[:5000]}
 
 MINICONTEXTO DO EDITOR:
@@ -511,11 +521,11 @@ Produza JSON neste formato:
     "fake_tweet": [{{"post_text":"até 180 caracteres"}}]
   }}
 }}
-Gere no máximo 3 alternativas por formato."""
+Gere no máximo 3 alternativas por formato permitido. Se houver um formato solicitado, não gere alternativas para os demais."""
         try:
             refined = _extract_json(ai_backend.generate(prompt, system, emit_progress))
             if refined:
-                result = _merge_ai_suggestions(result, refined, source_text=text)
+                result = _merge_ai_suggestions(result, refined, source_text=text, preferred_format=preferred)
         except Exception:
             # A deterministic, explainable output is preferable to a failed screen.
             pass

@@ -125,7 +125,7 @@ def test_square_headline_keeps_claim_and_exposes_layout_budget():
 def test_vertical_headline_uses_a_tighter_line_budget_than_square():
     result = generate_artwork_copy(
         "O Estado precisa decidir se vai acolher ou afastar as criptos do Brasil.",
-        preferred_format=FORMAT_VERTICAL,
+        preferred_format="auto",
         ai_backend=None,
     )
 
@@ -180,6 +180,18 @@ def test_learning_can_calibrate_auto_format_only_after_meaningful_history():
     )
     assert explicit["recommended_format"] == FORMAT_VERTICAL
     assert explicit["learning_applied"]["applied"] is False
+
+
+def test_explicit_headline_format_only_generates_selected_profile():
+    result = generate_artwork_copy(
+        "O Brasil escolheu o caminho arcaico para tratar as criptos e afastar as novas gerações.",
+        preferred_format=FORMAT_SQUARE,
+        ai_backend=None,
+    )
+    assert result["generated_format"] == FORMAT_SQUARE
+    assert result["formats"][FORMAT_SQUARE]["suggestions"]
+    assert result["formats"][FORMAT_VERTICAL]["suggestions"] == []
+    assert result["formats"]["fake_tweet"]["suggestions"] == []
 
 
 def test_headline_studio_endpoint_uses_persisted_clip_transcript(monkeypatch, tmp_path):
