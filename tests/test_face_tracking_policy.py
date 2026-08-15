@@ -82,3 +82,17 @@ def test_tasks_api_uses_detector_factory_when_model_exists(monkeypatch):
     assert tracker._ensure_detector() is True
     assert tracker.detector["options"].base_options.model_asset_path.endswith("fake-face-model.tflite")
     assert tracker._unavailable_reason is None
+
+
+def test_model_path_resolves_models_directory(monkeypatch, tmp_path):
+    import modules.face_tracker as face_tracker_module
+
+    module_root = tmp_path / "project" / "modules"
+    module_root.mkdir(parents=True)
+    model_dir = tmp_path / "project" / "models"
+    model_dir.mkdir()
+    model_file = model_dir / "blaze_face_short_range.tflite"
+    model_file.write_bytes(b"model")
+    monkeypatch.setattr(face_tracker_module, "__file__", str(module_root / "face_tracker.py"))
+
+    assert FaceTracker()._get_model_path() == str(model_file)
