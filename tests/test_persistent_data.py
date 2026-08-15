@@ -92,13 +92,13 @@ def _create_editorial_schema(path, project_name="Projeto atual"):
         connection.executescript(
             """
             CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
-            CREATE TABLE projects (id INTEGER PRIMARY KEY, name TEXT NOT NULL);
+            CREATE TABLE projects (id INTEGER PRIMARY KEY, name TEXT NOT NULL, source_video TEXT DEFAULT '', source_signature TEXT DEFAULT '');
             CREATE TABLE clips (id INTEGER PRIMARY KEY, project_id INTEGER NOT NULL);
             CREATE TABLE transcriptions (id INTEGER PRIMARY KEY, project_id INTEGER NOT NULL);
             CREATE TABLE clip_feedback (id INTEGER PRIMARY KEY, clip_id INTEGER NOT NULL, action TEXT NOT NULL);
             """
         )
-        connection.execute("INSERT INTO projects (name) VALUES (?)", (project_name,))
+        connection.execute("INSERT INTO projects (name, source_video, source_signature) VALUES (?, ?, ?)", (project_name, "downloads/entrevista.mp4", "signature-preservada-123"))
         connection.execute("INSERT INTO clips (project_id) VALUES (1)")
         connection.execute("INSERT INTO clip_feedback (clip_id, action) VALUES (1, 'approved')")
         connection.commit()
@@ -137,7 +137,9 @@ def test_portable_backup_and_restore_preserve_editorial_decisions(monkeypatch, t
     assert restored["pre_restore_backup"] is not None
     assert list(backup_dir.glob("furia-editorial-backup-*.zip"))
     with sqlite3.connect(db_path) as connection:
-        assert connection.execute("SELECT name FROM projects").fetchone()[0] == "Versão preservada"
+        row = connection.execute("SELECT name, source_signature FROM projects").fetchone()
+        assert row[0] == "Versão preservada"
+        assert row[1] == "signature-preservada-123"
     assert (transcript_dir / "transcript.txt").read_text(encoding="utf-8").startswith("00:00:00.000")
 
 
