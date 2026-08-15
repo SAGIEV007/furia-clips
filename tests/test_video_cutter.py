@@ -68,6 +68,7 @@ class VideoCutterTests(unittest.TestCase):
 
             self.assertEqual(len(results), 1)
             self.assertEqual(results[0]["framing_mode"], "original_16_9")
+            self.assertEqual(results[0]["framing_reason"], "preservar os dois interlocutores")
             self.assertEqual(
                 results[0]["layout_plan"]["reason"],
                 "preservar os dois interlocutores",

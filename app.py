@@ -2966,6 +2966,17 @@ def api_process_complete():
             clip_results = []
             for i, res in enumerate(results):
                 clip_info = top_clips[i] if i < len(top_clips) else {}
+                planned_framing = framing_by_index.get(i, {
+                    "mode": "original",
+                    "reason": "composição original preservada por segurança",
+                })
+                applied_framing = {
+                    **planned_framing,
+                    "mode": res.get("framing_mode") or planned_framing.get("mode", "original"),
+                    "reason": res.get("framing_reason") or planned_framing.get("reason", "composição original preservada por segurança"),
+                }
+                if res.get("framing_confidence") is not None:
+                    applied_framing["confidence"] = res.get("framing_confidence")
                 clip_results.append({
                     "path": os.path.relpath(res["path"], WORKSPACE_DIR),
                     "subtitled_path": os.path.relpath(res["subtitled_path"], WORKSPACE_DIR) if res.get("subtitled_path") else None,
@@ -3015,10 +3026,7 @@ def api_process_complete():
                     "text": res.get("text", ""),
                     "seo": res.get("seo", {}),
                     "clip_id": res.get("clip_id"),
-                    "framing": framing_by_index.get(i, {
-                        "mode": "original",
-                        "reason": "composição original preservada por segurança",
-                    }),
+                    "framing": applied_framing,
                 })
 
             # Report where files are saved

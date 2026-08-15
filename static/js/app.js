@@ -2120,6 +2120,17 @@ function renderResultsGrid() {
         const overlapSuspected = Boolean(clip.overlap_suspected || clip.speaker_overlap);
         const visualFormat = String(clip.visual_format || clip.format_family || "").trim();
         const visualFormatConfidence = Number(clip.visual_format_confidence);
+        const framing = clip.framing || {};
+        const framingMode = String(framing.mode || clip.framing_mode || "").trim().toLowerCase();
+        const framingReason = String(framing.reason || clip.framing_reason || "").trim();
+        const framingConfidence = Number(framing.confidence ?? clip.framing_confidence);
+        const framingLabels = {
+            face_tracking: "facetracking aplicado",
+            original_16_9: "composição original preservada",
+            center_crop: "crop centralizado",
+            reframe_9_16: "reframe 9:16 planejado",
+            original: "composição original preservada",
+        };
         const multimodalIdentityStatus = String(clip.multimodal_identity_status || reviewFlags.multimodal_identity_status || "").trim().toLowerCase();
         const multimodalIdentityConfidence = Number(clip.multimodal_identity_confidence ?? reviewFlags.multimodal_identity_confidence);
         const multimodalIdentityReview = multimodalIdentityStatus && multimodalIdentityStatus !== "validated";
@@ -2292,6 +2303,7 @@ function renderResultsGrid() {
             <div class="result-info">
                 ${politicalType ? `<div style="font-size:12px; color:#f59e0b; margin-bottom:6px"><span class="material-icons-round" style="font-size:14px; vertical-align:middle">account_balance</span> Formato editorial: ${escapeHtml(politicalType)}</div>` : ''}
                 ${visualFormat ? `<div class="clip-visual-format-note ${preserveComposition ? 'preserve' : ''}"><span class="material-icons-round">${preserveComposition ? 'aspect_ratio' : 'center_focus_strong'}</span><span><b>${escapeHtml(visualFormatLabels[visualFormat] || visualFormat)}</b> · ${preserveComposition ? 'preservar composição' : 'reframe somente se seguro'}${Number.isFinite(visualFormatConfidence) ? ` · ${Math.round(Math.max(0, Math.min(1, visualFormatConfidence)) * 100)}%` : ''}${clip.visual_format_reason ? ` — ${escapeHtml(String(clip.visual_format_reason))}` : ''}</span></div>` : ''}
+                ${framingMode ? `<div class="clip-visual-format-note ${framingMode === 'face_tracking' ? '' : 'preserve'}"><span class="material-icons-round">${framingMode === 'face_tracking' ? 'center_focus_strong' : 'aspect_ratio'}</span><span><b>Enquadramento: ${escapeHtml(framingLabels[framingMode] || framingMode)}</b>${Number.isFinite(framingConfidence) ? ` · ${Math.round(Math.max(0, Math.min(1, framingConfidence)) * 100)}%` : ''}${framingReason ? ` — ${escapeHtml(framingReason)}` : ''}</span></div>` : ''}
                 ${multimodalIdentityReview ? `<div class="clip-review-risk ${multimodalIdentityStatus === 'mismatch' ? 'legal' : ''}"><span class="material-icons-round">visibility_off</span><span><b>Identidade multimodal:</b> ${escapeHtml(multimodalIdentityLabel)}${Number.isFinite(multimodalIdentityConfidence) ? ` · ${Math.round(Math.max(0, Math.min(1, multimodalIdentityConfidence)) * 100)}%` : ''}</span></div>` : ''}
                 ${clip.visual_observation ? `<div class="clip-visual-observation"><span class="material-icons-round">visibility</span><span><b>Evidência visual:</b> ${escapeHtml(String(clip.visual_observation))}${Number.isFinite(Number(clip.visual_observation_confidence)) ? ` · ${Math.round(Math.max(0, Math.min(1, Number(clip.visual_observation_confidence))) * 100)}% de confiança` : ''}</span></div>` : ''}
                 ${(chapterCount > 0 || qaBoundaryBasis) ? `<div class="clip-chapter-note ${chapterCount > 0 && chapterScore < 60 ? 'warning' : ''}"><span class="material-icons-round">account_tree</span><span><b>Contexto temporal:</b> ${chapterCount > 0 ? `${chapterCount} capítulo(s)${Number.isFinite(chapterScore) ? ` · coerência ${Math.round(Math.max(0, Math.min(100, chapterScore)))}%` : ''}${chapterBridge ? ' · ponte pergunta–resposta preservada' : chapterCount > 1 ? ' · atravessa capítulos; revisar continuidade' : ' · dentro do mesmo bloco'}` : 'fronteira Q&A registrada'}${qaBoundaryBasis ? ` · fronteira: ${escapeHtml(qaBoundaryLabel)}${qaBoundaryReviewRequired ? ' · confirmar locutor' : ''}` : ''}</span></div>` : ''}

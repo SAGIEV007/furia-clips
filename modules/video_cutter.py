@@ -289,12 +289,14 @@ class VideoCutter:
 
             face_pos = face_positions_map.get(i, None) if face_positions_map else None
             can_reframe = use_face_tracking and bool(face_pos) and i not in original_aspect_indices
+            framing_reason = ""
             if can_reframe:
                 result = self.cut_clip_with_face_tracking(
                     video_path, padded_start, padded_end,
                     output_path, face_pos, emit_progress, active_preset
                 )
                 framing_mode = "face_tracking"
+                framing_reason = "facetracking aplicado com posição facial detectada"
             elif i in original_aspect_indices:
                 result = self.cut_clip(
                     video_path, padded_start, padded_end,
@@ -302,9 +304,9 @@ class VideoCutter:
                     video_layout=video_layout, preset=active_preset
                 )
                 framing_mode = "original_16_9"
+                framing_reason = (layout_plan or {}).get("reason") or "composição original preservada por segurança"
                 if emit_progress:
-                    reason = (layout_plan or {}).get("reason") or "sem locutor confiável"
-                    emit_progress(f"[Layout] Clip {rank}: {reason} Saída na proporção original.", "info")
+                    emit_progress(f"[Layout] Clip {rank}: {framing_reason} Saída na proporção original.", "info")
             else:
                 result = self.cut_clip(
                     video_path, padded_start, padded_end,
@@ -312,6 +314,7 @@ class VideoCutter:
                     video_layout=video_layout, preset=active_preset
                 )
                 framing_mode = "center_crop"
+                framing_reason = "crop centralizado; facetracking não aplicado ou não disponível"
 
             if result:
                 render_vertical = framing_mode != "original_16_9"
@@ -342,9 +345,11 @@ class VideoCutter:
                     "title": clip_title,
                     "rank": rank,
                     "output_folder": export_dir,
+                    "framing_mode": framing_mode,
+                    "framing_reason": framing_reason,
+                    "framing_confidence": (layout_plan or {}).get("confidence"),
                     "validation": validation.as_dict(),
                     "preset": active_preset["aspect"] if render_vertical else "original_16:9",
-                    "framing_mode": framing_mode,
                     "layout_plan": dict(layout_plan) if isinstance(layout_plan, dict) else None,
                 })
 
