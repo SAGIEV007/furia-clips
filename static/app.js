@@ -2261,6 +2261,9 @@ function renderCandidateVolumeNotice(diagnostics = {}) {
     const expected = Number(diagnostics.expected_count || 0);
     const primary = Number(diagnostics.primary_count || 0);
     const fallback = Number(diagnostics.fallback_count || 0);
+    const discarded = Number(diagnostics.fallback_discarded_count || 0);
+    const discardedOverlap = Number(diagnostics.fallback_discarded_overlap || 0);
+    const discardedSimilarity = Number(diagnostics.fallback_discarded_similarity || 0);
     const finalCount = Number(diagnostics.final_count || 0);
     if (!expected && !primary && !finalCount) {
         notice.hidden = true;
@@ -2271,7 +2274,10 @@ function renderCandidateVolumeNotice(diagnostics = {}) {
     notice.className = "candidate-volume-notice";
     if (fallback > 0) {
         notice.classList.add("fallback");
-        notice.innerHTML = `<span class="material-icons-round">alt_route</span><span>Pool ampliado com segurança: ${primary} candidato(s) da fonte principal + ${fallback} alternativa(s) locais. Revise todos; os gates de contexto permaneceram ativos.</span>`;
+        const discardedNote = discarded > 0
+            ? ` ${discarded} alternativa(s) foram descartadas por redundância${discardedOverlap > 0 ? ` (${discardedOverlap} por sobreposição` : " ("}${discardedSimilarity > 0 ? `${discardedOverlap > 0 ? ", " : ""}${discardedSimilarity} por repetição textual` : ""}).`
+            : " Nenhuma alternativa foi descartada por redundância.";
+        notice.innerHTML = `<span class="material-icons-round">alt_route</span><span>Pool ampliado com segurança: ${primary} candidato(s) da fonte principal + ${fallback} alternativa(s) locais.${discardedNote} Os gates de contexto permaneceram ativos.</span>`;
         return;
     }
     if (expected && finalCount < expected) {
