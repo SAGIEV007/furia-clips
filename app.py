@@ -2496,6 +2496,20 @@ def api_process_complete():
                     emit_progress=emit_progress,
                     cancel_check=ctx.check_cancel,
                 )
+            video_duration = _probe_video_duration_seconds(working_video)
+            coverage = _transcription_coverage_report(transcription, video_duration)
+            transcription["coverage"] = coverage
+            if coverage["status"] == "mismatch_suspected" and transcription.get("source") == "manual":
+                raise ValueError(
+                    "A transcrição manual contém timestamps além da duração do vídeo selecionado. "
+                    "Ela provavelmente pertence a outro vídeo; selecione a mídia correta ou importe a legenda correspondente."
+                )
+            if coverage["status"] == "partial":
+                emit_progress(
+                    f"[Transcrição] Cobertura parcial: termina em {coverage['last_timestamp']:.1f}s de {coverage['video_duration_seconds']:.1f}s; "
+                    "os cortes ficarão limitados ao trecho importado.",
+                    "warning",
+                )
             save_transcription(
                 project_id, transcription["segments"], transcription["full_text"],
                 transcription["language"], transcription.get("source", settings.get("whisper_model", "small"))
