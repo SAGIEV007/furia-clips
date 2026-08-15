@@ -1,6 +1,6 @@
 {
   "schema_version": "editorial-priors-v1-aggregate-only",
-  "generated_at": "2026-08-15T02:29:10.608661+00:00",
+  "generated_at": "2026-08-15T02:41:45.766619+00:00",
   "source_label": "Campaign Hub aggregate observations",
   "default_account": "@renansantosmbl",
   "privacy_contract": {
@@ -368,6 +368,22 @@
         "mean_annotation_confidence": 0.87
       },
       {
+        "family": "cultural_accusation",
+        "observations": 1,
+        "mean_views": 0.0,
+        "median_views": 0.0,
+        "preserve_composition_rate": 1.0,
+        "mean_annotation_confidence": 0.88
+      },
+      {
+        "family": "culture_image_question",
+        "observations": 1,
+        "mean_views": 0.0,
+        "median_views": 0.0,
+        "preserve_composition_rate": 1.0,
+        "mean_annotation_confidence": 0.89
+      },
+      {
         "family": "curiosity_gap",
         "observations": 1,
         "mean_views": 0.0,
@@ -384,12 +400,44 @@
         "mean_annotation_confidence": 0.85
       },
       {
+        "family": "education_defense",
+        "observations": 1,
+        "mean_views": 0.0,
+        "median_views": 0.0,
+        "preserve_composition_rate": 1.0,
+        "mean_annotation_confidence": 0.9
+      },
+      {
+        "family": "education_paternity_thesis",
+        "observations": 1,
+        "mean_views": 0.0,
+        "median_views": 0.0,
+        "preserve_composition_rate": 1.0,
+        "mean_annotation_confidence": 0.86
+      },
+      {
+        "family": "emotional_growth_statement",
+        "observations": 1,
+        "mean_views": 0.0,
+        "median_views": 0.0,
+        "preserve_composition_rate": 1.0,
+        "mean_annotation_confidence": 0.9
+      },
+      {
         "family": "event_speech",
         "observations": 1,
         "mean_views": 0.0,
         "median_views": 0.0,
         "preserve_composition_rate": 1.0,
         "mean_annotation_confidence": 0.86
+      },
+      {
+        "family": "ideological_label_debate",
+        "observations": 1,
+        "mean_views": 0.0,
+        "median_views": 0.0,
+        "preserve_composition_rate": 1.0,
+        "mean_annotation_confidence": 0.89
       },
       {
         "family": "interview_event",
@@ -416,6 +464,14 @@
         "mean_annotation_confidence": 0.91
       },
       {
+        "family": "podcast_question_answer",
+        "observations": 1,
+        "mean_views": 0.0,
+        "median_views": 0.0,
+        "preserve_composition_rate": 1.0,
+        "mean_annotation_confidence": 0.92
+      },
+      {
         "family": "political_contrast",
         "observations": 1,
         "mean_views": 0.0,
@@ -440,6 +496,22 @@
         "mean_annotation_confidence": 0.91
       },
       {
+        "family": "punitive_positioning",
+        "observations": 1,
+        "mean_views": 0.0,
+        "median_views": 0.0,
+        "preserve_composition_rate": 1.0,
+        "mean_annotation_confidence": 0.9
+      },
+      {
+        "family": "punitive_thesis",
+        "observations": 1,
+        "mean_views": 0.0,
+        "median_views": 0.0,
+        "preserve_composition_rate": 1.0,
+        "mean_annotation_confidence": 0.91
+      },
+      {
         "family": "reaction_electoral_poll",
         "observations": 1,
         "mean_views": 0.0,
@@ -456,6 +528,14 @@
         "mean_annotation_confidence": 0.96
       },
       {
+        "family": "slogan_origin_explanation",
+        "observations": 1,
+        "mean_views": 0.0,
+        "median_views": 0.0,
+        "preserve_composition_rate": 1.0,
+        "mean_annotation_confidence": 0.9
+      },
+      {
         "family": "social_documentary_political_contrast",
         "observations": 1,
         "mean_views": 0.0,
@@ -470,12 +550,24 @@
         "median_views": 0.0,
         "preserve_composition_rate": 1.0,
         "mean_annotation_confidence": 0.93
+      },
+      {
+        "family": "supporter_social_proof",
+        "observations": 1,
+        "mean_views": 0.0,
+        "median_views": 0.0,
+        "preserve_composition_rate": 1.0,
+        "mean_annotation_confidence": 0.9
       }
     ],
     "layout_priors": [
       {
         "layout": "vertical_split_screen",
         "observations": 7
+      },
+      {
+        "layout": "vertical_split_podcast",
+        "observations": 6
       },
       {
         "layout": "vertical_podcast",
@@ -542,6 +634,10 @@
         "observations": 1
       },
       {
+        "layout": "text_post_plus_tv_commentary",
+        "observations": 1
+      },
+      {
         "layout": "text_post_plus_tv_commentator",
         "observations": 1
       },
@@ -590,11 +686,19 @@
         "observations": 1
       },
       {
+        "layout": "vertical_interview_yellow_panel",
+        "observations": 1
+      },
+      {
         "layout": "vertical_portrait_plus_interview",
         "observations": 1
       },
       {
         "layout": "vertical_selfie_talking_head",
+        "observations": 1
+      },
+      {
+        "layout": "vertical_slogan_panel",
         "observations": 1
       },
       {
@@ -614,10 +718,6 @@
         "observations": 1
       },
       {
-        "layout": "vertical_split_podcast",
-        "observations": 1
-      },
-      {
         "layout": "vertical_split_speaker_and_stylized_image",
         "observations": 1
       },
@@ -627,6 +727,10 @@
       },
       {
         "layout": "vertical_split_stage_and_remote_message",
+        "observations": 1
+      },
+      {
+        "layout": "vertical_split_testimonial",
         "observations": 1
       },
       {
@@ -654,6 +758,10 @@
         "observations": 1
       },
       {
+        "layout": "vertical_thesis_card",
+        "observations": 1
+      },
+      {
         "layout": "vertical_three_layer_curiosity",
         "observations": 1
       },
@@ -664,9 +772,13 @@
       {
         "layout": "vertical_two_layer_media_commentary",
         "observations": 1
+      },
+      {
+        "layout": "vertical_yellow_card_montage",
+        "observations": 1
       }
     ],
-    "record_count": 59
+    "record_count": 70
   },
   "observed_patterns": [
     {
