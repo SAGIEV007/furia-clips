@@ -1608,7 +1608,11 @@ def api_cut_shorts():
             )
 
             from modules.editorial_context import analyze_transcript_context
-            editorial_context = analyze_transcript_context(transcription, focus=settings.get("editorial_focus", "auto"))
+            editorial_context = analyze_transcript_context(
+                transcription,
+                focus=settings.get("editorial_focus", "auto"),
+                campaign_hub_account=settings.get("campaign_hub_account", "@renansantosmbl"),
+            )
             emit_progress(f"[Contexto editorial] {editorial_context['description']}", "info")
             # A transcrição pública/manual/Whisper já resolveu a etapa temporal;
             # uma segunda análise multimodal só ocorre por opção explícita.
@@ -2032,7 +2036,11 @@ def api_analyze_editorial_context():
         )
         ctx.check_cancel()
         from modules.editorial_context import analyze_transcript_context
-        editorial_context = analyze_transcript_context(transcription, focus=settings.get("editorial_focus", "auto"))
+        editorial_context = analyze_transcript_context(
+                transcription,
+                focus=settings.get("editorial_focus", "auto"),
+                campaign_hub_account=settings.get("campaign_hub_account", "@renansantosmbl"),
+            )
         progress("[Contexto] Identificando tese, perguntas, capítulos e possíveis payoffs...", "info", 55)
         if analyze_video and multimodal_result is None:
             progress("[Contexto] Escutando e observando a fonte para validar o cenário, tom e participantes...", "info", 62)
@@ -2481,7 +2489,11 @@ def api_process_complete():
                 transcription["language"], transcription.get("source", settings.get("whisper_model", "small"))
             )
             from modules.editorial_context import analyze_transcript_context
-            editorial_context = analyze_transcript_context(transcription, focus=settings.get("editorial_focus", "auto"))
+            editorial_context = analyze_transcript_context(
+                transcription,
+                focus=settings.get("editorial_focus", "auto"),
+                campaign_hub_account=settings.get("campaign_hub_account", "@renansantosmbl"),
+            )
             emit_progress(f"[Contexto editorial] {editorial_context['description']}", "info")
             editorial_context = _enrich_editorial_context(
                 video_path, settings, editorial_context, user_context, emit_progress,

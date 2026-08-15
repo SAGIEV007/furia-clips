@@ -1,4 +1,5 @@
 from modules.campaign_hub import build_performance_prior, classify_hook, classify_hook_details, normalize_snapshot, snapshot_status
+from modules.editorial_context import detect_hook_candidates
 from modules.editorial_ranker import EditorialRanker
 
 
@@ -33,6 +34,42 @@ def test_snapshot_status_reports_bounded_local_metadata(tmp_path):
     assert status["read_only"] is True
     assert status["auto_reload_on_next_analysis"] is True
     assert status["accounts"]["@renansantosmbl"] == {"hook_observations": 1, "examples": 1, "cohorts": 1}
+
+
+def test_hook_candidates_expose_timestamped_payoff_and_selected_account_prior():
+    snapshot = normalize_snapshot({
+        "default_account": "@renansantosmbl",
+        "accounts": {
+            "@renansantosmbl": {
+                "hook_observations": [
+                    {"hook": "desafio-ao-espectador", "ratio": 1.0},
+                    {"hook": "desafio-ao-espectador", "ratio": 1.1},
+                    {"hook": "desafio-ao-espectador", "ratio": 1.2},
+                ],
+            },
+            "@renansantosreserva": {
+                "hook_observations": [
+                    {"hook": "desafio-ao-espectador", "ratio": 3.0},
+                    {"hook": "desafio-ao-espectador", "ratio": 3.1},
+                    {"hook": "desafio-ao-espectador", "ratio": 3.2},
+                ],
+            },
+        },
+    })
+    candidates = detect_hook_candidates([
+        {"start": 4, "end": 7, "text": "Presta atenção: qual é o problema?"},
+        {"start": 7, "end": 14, "text": "A resposta começa nos dados da cidade."},
+        {"start": 14, "end": 22, "text": "Por isso, a solução precisa ser concreta."},
+    ], snapshot=snapshot, account="@renansantosreserva", limit=3)
+
+    assert candidates
+    top = candidates[0]
+    assert top["family"] == "desafio-ao-espectador"
+    assert top["payoff_confirmed"] is True
+    assert top["start"] <= 4
+    assert top["end"] >= 22
+    assert top["campaign_hub_prior"]["account"] == "@renansantosreserva"
+    assert top["campaign_hub_prior"]["available"] is True
 
 
 def test_snapshot_rejects_unknown_accounts_and_keeps_supported_data():

@@ -38,7 +38,12 @@ def _contains_renan(text: str) -> bool:
     return any(term in normalized for term in RENAN_TERMS)
 
 
-def analyze_transcript_context(transcription: dict, focus: str = "auto") -> dict:
+def analyze_transcript_context(
+    transcription: dict,
+    focus: str = "auto",
+    campaign_hub_snapshot: dict | None = None,
+    campaign_hub_account: str | None = None,
+) -> dict:
     segments = transcription.get("segments", []) if isinstance(transcription, dict) else []
     enriched = []
     for segment in segments:
@@ -65,6 +70,17 @@ def analyze_transcript_context(transcription: dict, focus: str = "auto") -> dict
     interview_windows = _build_interview_windows(enriched)
     qa_candidates = _build_qa_candidates(enriched)
     editorial_chapters = build_editorial_chapters(enriched, qa_candidates)
+    if campaign_hub_snapshot is None:
+        try:
+            from .campaign_hub import load_snapshot
+            campaign_hub_snapshot = load_snapshot()
+        except ImportError:
+            campaign_hub_snapshot = None
+    hook_candidates = detect_hook_candidates(
+        enriched,
+        snapshot=campaign_hub_snapshot,
+        account=campaign_hub_account,
+    )
     labeled_speakers = [s for s in enriched if s["speaker_label"]]
     speaker_confidences = [s["speaker_confidence"] for s in labeled_speakers if s["speaker_confidence"] is not None]
     overlap_count = sum(1 for s in enriched if s["overlap_suspected"])
@@ -89,6 +105,8 @@ def analyze_transcript_context(transcription: dict, focus: str = "auto") -> dict
         "qa_candidates": qa_candidates,
         "editorial_chapters": editorial_chapters,
         "chapter_count": len(editorial_chapters),
+        "hook_candidates": hook_candidates,
+        "hook_count": len(hook_candidates),
         "chapter_map_version": "v1-temporal-qa",
         "focus": focus_key,
         "participant_confidence": round(participant_confidence if renan_focus else min(participant_confidence, 0.55), 3),
@@ -173,6 +191,136 @@ def _build_qa_candidates(segments: list[dict]) -> list[dict]:
             "confidence": round(0.55 + (0.2 if renan_signal else 0) + min(0.2, len(following) * 0.015), 3),
         })
     return candidates[:50]
+
+
+def detect_hook_candidates(
+    segments: list[dict],
+    *,
+    snapshot: dict | None = None,
+    account: str | None = None,
+    limit: int = 12,
+) -> list[dict]:
+    """Suggest timestamped hook openings without claiming virality.
+
+    Each item is a review lead, not an automatic cut. The score combines a
+    deterministic textual hook family, question/contrast/number cues, a nearby
+    payoff signal, speaker overlap penalties and an optional Campaign Hub prior
+    capped to two points. The returned window is intentionally bounded so an
+    editor can verify it against the source video.
+    """
+    if not segments:
+        return []
+    try:
+        max_items = max(1, min(30, int(limit)))
+    except (TypeError, ValueError):
+        max_items = 12
+    try:
+        from .campaign_hub import build_performance_prior, classify_hook_details
+    except ImportError:
+        build_performance_prior = None
+        classify_hook_details = None
+
+    candidates = []
+    for index, segment in enumerate(segments):
+        text = str(segment.get("text", "") or "").strip()
+        if not text:
+            continue
+        try:
+            start = max(0.0, float(segment.get("start", 0) or 0))
+            end = max(start, float(segment.get("end", start) or start))
+        except (TypeError, ValueError):
+            continue
+        details = classify_hook_details(text) if classify_hook_details else {"family": "outro", "evidence": [], "confidence": 0.35}
+        family = str(details.get("family", "outro"))
+        evidence = list(details.get("evidence", []))[:4]
+        normalized = re.sub(r"\s+", " ", text.lower()).strip()
+        score = 28.0
+        reasons = []
+        if family != "outro":
+            score += 16
+            reasons.append(f"abertura classificada como {family}")
+        if bool(segment.get("is_question")) or _is_question(text):
+            score += 10
+            reasons.append("pergunta ou desafio inicial")
+        if re.search(r"\b\d+(?:[,.]\d+)?\s*%?\b|\bprimeiro\b|\bsegundo\b|\bmilh", normalized):
+            score += 8
+            evidence.append("sinal quantitativo")
+            reasons.append("contém dado ou ordem concreta")
+        if re.search(r"\bmas\b|\bpor[eé]m\b|\benquanto\b|\bdiferente\b|\bna verdade\b", normalized):
+            score += 7
+            evidence.append("contraste")
+            reasons.append("abre uma tensão ou contraste")
+        if start <= 35:
+            score += 5
+            reasons.append("entrada precoce no bloco")
+        if bool(segment.get("overlap_suspected")):
+            score -= 14
+            reasons.append("sobreposição de falas exige revisão")
+
+        lookahead = []
+        for following in segments[index + 1:index + 10]:
+            try:
+                following_start = float(following.get("start", end) or end)
+                following_end = float(following.get("end", following_start) or following_start)
+            except (TypeError, ValueError):
+                continue
+            if following_start - start > 48:
+                break
+            lookahead.append(following)
+            if following_end - start >= 32:
+                break
+        payoff_text = " ".join(str(item.get("text", "") or "") for item in lookahead).lower()
+        payoff = bool(re.search(
+            r"\b(portanto|por isso|logo|a solu[cç][aã]o|o ponto [eé]|isso significa|na pr[aá]tica|resultado|conclus[aã]o|resposta)\b",
+            payoff_text,
+        )) or len(lookahead) >= 3
+        if payoff:
+            score += 14
+            reasons.append("há fechamento ou desenvolvimento próximo")
+        else:
+            score -= 8
+            reasons.append("payoff ainda não confirmado")
+
+        payoff_end = end
+        if lookahead:
+            try:
+                payoff_end = max(end, min(start + 58.0, float(lookahead[-1].get("end", end) or end)))
+            except (TypeError, ValueError):
+                payoff_end = end
+        prior = None
+        if build_performance_prior and snapshot:
+            prior = build_performance_prior(text, account=account, snapshot=snapshot)
+            if prior.get("available"):
+                score += max(-2.0, min(2.0, (float(prior.get("observed_signal", 50.0)) - 50.0) / 4.0))
+                reasons.append("prior histórico consultado, impacto limitado")
+        if end - start < 1.2:
+            score -= 7
+        score = max(0.0, min(100.0, score))
+        candidates.append({
+            "segment_index": index,
+            "start": round(max(0.0, start - 1.5), 3),
+            "end": round(payoff_end, 3),
+            "hook_start": round(start, 3),
+            "hook_end": round(min(payoff_end, start + 12.0), 3),
+            "family": family,
+            "score": round(score, 1),
+            "confidence": round(min(0.98, max(0.2, float(details.get("confidence", 0.35)) * 0.7 + (0.2 if payoff else 0))), 2),
+            "evidence": list(dict.fromkeys(evidence))[:6],
+            "reason": "; ".join(reasons[:4]),
+            "payoff_confirmed": payoff,
+            "needs_visual_review": bool(segment.get("overlap_suspected")),
+            "campaign_hub_prior": prior,
+        })
+
+    candidates.sort(key=lambda item: (float(item.get("score", 0)), bool(item.get("payoff_confirmed"))), reverse=True)
+    selected = []
+    for candidate in candidates:
+        if any(max(candidate["start"], previous["start"]) < min(candidate["end"], previous["end"]) - 2 for previous in selected):
+            continue
+        selected.append(candidate)
+        if len(selected) >= max_items:
+            break
+    return selected
 
 
 def _possible_overlap(segments: list[dict]) -> bool:
