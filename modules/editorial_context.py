@@ -84,14 +84,23 @@ def analyze_transcript_context(
     labeled_speakers = [s for s in enriched if s["speaker_label"]]
     speaker_confidences = [s["speaker_confidence"] for s in labeled_speakers if s["speaker_confidence"] is not None]
     overlap_count = sum(1 for s in enriched if s["overlap_suspected"])
+    speaker_coverage = (len(labeled_speakers) / len(enriched)) if enriched else 0.0
+    speaker_status = (
+        "validated" if labeled_speakers and len(labeled_speakers) == len(enriched)
+        else "partial" if labeled_speakers
+        else "not_available"
+    )
     speaker_detection = {
-        "status": "validated" if labeled_speakers else "not_available",
+        "status": speaker_status,
         "labeled_segment_count": len(labeled_speakers),
+        "coverage_ratio": round(speaker_coverage, 3),
         "confidence_mean": round(mean(speaker_confidences), 3) if speaker_confidences else None,
-        "review_required": not bool(labeled_speakers),
+        "review_required": speaker_status != "validated",
         "message": (
-            "Locutor(es) identificados por marcadores/diarização."
-            if labeled_speakers
+            "Locutor(es) identificados em todos os segmentos por marcadores/diarização."
+            if speaker_status == "validated"
+            else "A diarização cobre apenas parte da transcrição; confirme as trocas de locutor no vídeo."
+            if speaker_status == "partial"
             else "A transcrição não contém diarização; perguntas e respostas foram inferidas, mas o locutor deve ser confirmado no vídeo."
         ),
     }

@@ -210,3 +210,21 @@ def test_source_progress_messages_explain_multistream_and_merge_stages():
     })
     assert "Unindo vídeo e áudio" in app_module._format_source_import_progress({"status": "merging"})
     assert "Arquivo final pronto" in app_module._format_source_import_progress({"status": "merge_finished"})
+
+
+def test_editorial_context_marks_partial_speaker_coverage_for_review():
+    from modules.editorial_context import analyze_transcript_context
+
+    context = analyze_transcript_context({
+        "segments": [
+            {"start": 0.0, "end": 3.0, "text": "Qual é a proposta?", "speaker": "mediador"},
+            {"start": 3.0, "end": 7.0, "text": "A proposta reduz o desperdício."},
+            {"start": 7.0, "end": 11.0, "text": "Ela começa pela transparência."},
+        ]
+    })
+
+    detection = context["speaker_detection"]
+    assert detection["status"] == "partial"
+    assert detection["coverage_ratio"] == round(1 / 3, 3)
+    assert detection["review_required"] is True
+    assert context["signals"]["speaker_detection_status"] == "partial"
