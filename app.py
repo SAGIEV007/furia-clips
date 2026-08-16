@@ -2052,28 +2052,7 @@ def api_cut_shorts():
                     cancel_check=ctx.check_cancel,
                 )
                 transcription = _transcription_from_gemini_result(multimodal_result, settings.get("language", "pt"))
-            if transcription:
-                coverage = _transcription_coverage_report(transcription, video_duration)
-                transcription["coverage"] = coverage
-                if coverage["status"] == "mismatch_suspected" and transcription.get("source") == "manual":
-                    raise ValueError(
-                        "A transcrição manual contém timestamps além da duração do vídeo selecionado. "
-                        "Ela provavelmente pertence a outro vídeo; selecione a mídia correta ou importe a legenda correspondente."
-                    )
-                if coverage["status"] == "partial":
-                    emit_progress(
-                        f"[Transcrição] Cobertura parcial: termina em {coverage['last_timestamp']:.1f}s de {coverage['video_duration_seconds']:.1f}s; "
-                        "os cortes ficarão limitados ao trecho importado.",
-                        "warning",
-                    )
-            if transcription:
-                transcription["provenance"] = _transcription_provenance(transcription, manual_supplied=manual_supplied)
-                settings["transcription_provenance"] = transcription["provenance"]
-            if transcription and transcription.get("source") == "manual":
-                emit_progress(f"[Transcrição manual] {transcription['segment_count']} segmentos importados; Whisper não será executado.", "success")
-            elif transcription and transcription.get("source") == "gemini_video":
-                emit_progress(f"[Gemini] {transcription['segment_count']} segmentos obtidos da análise multimodal; Whisper não será executado.", "success")
-            else:
+            if not transcription:
                 transcriber = Transcriber(
                     model_name=settings.get("whisper_model", "small"),
                     language=settings.get("language", "pt"),
@@ -2084,9 +2063,34 @@ def api_cut_shorts():
                 transcription = transcriber.transcribe(
                     video_path,
                     emit_progress=emit_progress,
-                    cancel_check=check_current_task_cancel,
+                    cancel_check=ctx.check_cancel,
                 )
                 emit_progress(f"[Whisper] Motor: {transcriber._engine}", "info")
+
+            if transcription:
+                coverage = _transcription_coverage_report(transcription, video_duration)
+                transcription["coverage"] = coverage
+                if coverage["status"] == "mismatch_suspected" and transcription.get("source") in {"manual", "manual_confirmed"}:
+                    raise ValueError(
+                        "A transcrição manual contém timestamps além da duração do vídeo selecionado. "
+                        "Ela provavelmente pertence a outro vídeo; selecione a mídia correta ou importe a legenda correspondente."
+                    )
+                if coverage["status"] == "partial":
+                    emit_progress(
+                        f"[Transcrição] Cobertura parcial: termina em {coverage['last_timestamp']:.1f}s de {coverage['video_duration_seconds']:.1f}s; "
+                        "os cortes ficarão limitados ao trecho importado.",
+                        "warning",
+                    )
+                transcription["provenance"] = _transcription_provenance(transcription, manual_supplied=manual_supplied)
+                settings["transcription_provenance"] = transcription["provenance"]
+
+                source = str(transcription.get("source", "") or "").lower()
+                if source in {"manual", "manual_confirmed"}:
+                    emit_progress(f"[Transcrição manual] {transcription['segment_count']} segmentos importados; Whisper não será executado.", "success")
+                elif source == "gemini_video":
+                    emit_progress(f"[Gemini] {transcription['segment_count']} segmentos obtidos da análise multimodal; Whisper não será executado.", "success")
+                else:
+                    emit_progress(f"[Transcrição canônica] {transcription['segment_count']} segmentos serão usados no contexto e na seleção.", "success")
 
             full_transcription = transcription
             source_boundary = detect_live_content_start(
@@ -2095,6 +2099,12 @@ def api_cut_shorts():
                 manual_start_seconds=data.get("content_start_seconds"),
             )
             selection_transcription = trim_transcription_to_live_start(full_transcription, source_boundary)
+            # Keep temporal validation/provenance on the live-only view. Without
+            # this, the context analyzer sees a new dict with no coverage and
+            # marks every otherwise valid candidate as technically unverified.
+            selection_transcription["coverage"] = dict(full_transcription.get("coverage") or {})
+            selection_transcription["provenance"] = dict(full_transcription.get("provenance") or {})
+            selection_transcription["source"] = full_transcription.get("source", "")
             settings["source_boundary"] = source_boundary
             if source_boundary.get("status") in {"detected", "manual"} and source_boundary.get("content_start_seconds", 0) > 0:
                 emit_progress(

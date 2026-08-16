@@ -1,5 +1,24 @@
 # Changelog de continuidade
 
+## 1.8 — Decodificação AV1 e cobertura canônica da transcrição
+
+### Incluído
+
+- FFmpeg passa a forçar decodificação por software nas etapas de detecção de cenas, análise de layout e renderização, evitando que fontes AV1 dependam de aceleração de hardware indisponível.
+- Fontes AV1 deixam de acionar o caminho OpenCV/MediaPipe quando a análise segura de layout não é possível; o Furia preserva o quadro original com fallback explícito, em vez de repetir erros de decodificação.
+- O pipeline deixa de executar Whisper uma segunda vez quando a transcrição automática já foi obtida; a transcrição efetivamente usada passa a receber cobertura e proveniência antes da análise de contexto.
+- A visão de seleção, depois de remover o pré-roll, preserva o status de cobertura, a origem e a qualidade da transcrição completa. Isso impede que uma transcrição válida seja reclassificada como “identidade temporal não validada” e que todos os candidatos sejam adiados por engano.
+
+### Validação da rodada
+
+No vídeo real `RENAN SANTOS — BP NAS ELEIÇÕES`, a primeira amostra de 15 minutos reproduzia o bug: 5 candidatos eram encontrados, mas os 5 eram adiados porque a seleção havia perdido a cobertura temporal. Depois da correção, a mesma amostra produziu **4 exports** válidos. Os arquivos finais preservaram 1920×1080 e foram validados por FFprobe como H.264/AAC, com durações aproximadas de 138,8 s, 40,4 s, 26,3 s e 27,2 s. A prova final não registrou novos erros AV1 no servidor.
+
+A suíte completa passou com **306 testes**; os testes focados de contexto, fronteira, cenas, layout e AV1 passaram com **26 testes**. Também foram aprovados `py_compile` e uma renderização real de intervalo AV1 para H.264/AAC.
+
+### Limitações conhecidas
+
+A fonte BP completa tem aproximadamente 84 minutos. O ambiente encerrou o servidor durante a tentativa de transcrição integral, portanto a validação editorial desta rodada foi feita com uma amostra real de 15 minutos e com reanálise da transcrição/cortes antigos da fonte completa. Nenhum Gemini foi necessário. O Campaign Hub continua sendo prior agregado fraco e explicável; a próxima hipótese isolada permanece a detecção de erros semânticos do ASR antes de headlines.
+
 ## 1.7 — Contexto canônico, proxy multimodal e headlines específicas
 
 ### Incluído

@@ -8,16 +8,16 @@
 | --- | --- |
 | Projeto | Furia Clips |
 | Repositório | `SAGIEV007/furia-clips` |
-| Versão pública | `1.7` |
+| Versão pública | `1.8` |
 | Fonte da versão | [`VERSION`](../../VERSION) |
 | Branch de trabalho conhecida | `manus/rebuild-opus-parity` |
-| Revisão registrada neste estado | `f712e23` — `feat: make context provenance and headlines evidence-first (1.7)` |
+| Revisão registrada neste estado | pendente até o commit da release 1.8 |
 | Última atualização deste documento | 2026-08-16 |
-| Validação desta rodada | `303 passed`; testes focados `52 passed`; `py_compile`, `node --check`, prova local do proxy FFmpeg e `git diff --check` em fechamento |
+| Validação desta rodada | `306 passed`; testes focados `26 passed`; `py_compile`, renderização AV1 real e FFprobe aprovados |
 | Asset validado | `models/blaze_face_short_range.tflite`, 229746 bytes, SHA-256 conforme manifesto |
 | Objetivo | Gerar cortes do Renan Santos/MBL concisos, autossuficientes e contextualmente completos |
 
-Esta é a revisão publicada desta rodada de continuidade. O commit de código `f712e23` foi verificado localmente e será publicado junto com esta atualização documental na branch de trabalho; esta atualização registra a referência sem reescrever o commit de código.
+Esta rodada prepara a publicação da release 1.8. O hash final será registrado após o commit, sem incluir mídia, banco local, transcrições reais ou credenciais.
 
 ## Estado funcional conhecido
 
@@ -61,6 +61,16 @@ Não descarte essas alterações. Determine se já são parte do trabalho da rod
 ## Resultado da rodada real 1.2
 
 A primeira melhoria especializada do Prompt 2 alterou o `clip_selector`: a duração-alvo não encerra mais um candidato enquanto contexto ou payoff estiverem incompletos. A janela continua até encontrar o menor intervalo completo, sem incluir a pauta seguinte quando o bloco anterior já fecha naturalmente. A hipótese foi reproduzida com um teste de caso real e a suíte passou com 284 testes. O Campaign Hub/Garimpo localizou a live longa `RENAN SANTOS EM CHAPECÓ - SC`, com bloco de 10:51 iniciando em 15:23; o download autenticado foi solicitado, mas o helper Corteiros não concluiu no sandbox. Nenhum Reel publicado foi usado como fonte operacional nesta rodada.
+
+## Resultado da rodada 1.8
+
+A hipótese desta rodada foi: **uma fonte AV1 e uma transcrição automática válida não podem produzir zero cortes por falha de decodificação visual ou por perda do status de cobertura ao criar a visão de seleção**.
+
+A fonte real `RENAN SANTOS — BP NAS ELEIÇÕES` foi identificada como o vídeo que ainda não havia sido reanalisado pelo fluxo novo. A tentativa integral de aproximadamente 84 minutos fez o ambiente encerrar o servidor durante a transcrição; por isso foi usada uma amostra real de 15 minutos, preservando o MP4 original. O primeiro lote encontrou 5 candidatos, mas adiou todos porque a transcrição de seleção havia perdido a cobertura temporal e sido marcada como não validada.
+
+A correção evita a retranscrição silenciosa quando o Whisper já entregou a transcrição canônica, recalcula cobertura e proveniência depois da etapa efetiva de transcrição, preserva esses dados após o corte do pré-roll e força FFmpeg por software para fontes AV1. O caminho OpenCV/MediaPipe também é evitado para AV1 quando o layout não pode ser validado com segurança. No replay final, a amostra produziu 4 exports H.264/AAC válidos, em 1920×1080, com durações aproximadas de 138,8 s, 40,4 s, 26,3 s e 27,2 s; não houve novos erros AV1 no log do servidor.
+
+A suíte completa passou com **306 testes**. A transcrição antiga e os quatro cortes da fonte BP completa também foram reanalisados localmente pelo contexto Renan/MBL e pelo Estúdio de Texto, sem usar Gemini. O Campaign Hub apareceu como prior agregado fraco e explicável.
 
 ## Resultado da rodada 1.7
 

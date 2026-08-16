@@ -86,3 +86,26 @@ def test_trim_preserves_canonical_timestamps_and_archives_boundary():
     assert result["selection_scope"] == "live_content_only"
     assert result["source_boundary"] == boundary
     assert transcription["segment_count"] == 2
+
+
+def test_trim_preserves_validated_transcription_coverage():
+    transcription = {
+        "segments": [{"start": 0, "end": 4, "text": "Abertura."}, {"start": 8, "end": 12, "text": "Conteúdo."}],
+        "full_text": "Abertura. Conteúdo.",
+        "coverage": {
+            "status": "covered",
+            "last_timestamp": 12.0,
+            "end_ratio": 1.0,
+            "segment_count": 2,
+            "semantic_identity_verified": False,
+        },
+        "provenance": {"source": "whisper", "confirmed_by_editor": False},
+    }
+    result = trim_transcription_to_live_start(
+        transcription,
+        {"status": "manual", "content_start_seconds": 5.0, "confidence": 1.0},
+    )
+
+    assert result["coverage"]["status"] == "covered"
+    assert result["coverage"]["last_timestamp"] == 12.0
+    assert result["provenance"]["source"] == "whisper"

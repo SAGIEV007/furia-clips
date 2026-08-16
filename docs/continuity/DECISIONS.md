@@ -60,3 +60,11 @@ A análise audiovisual opcional deve enviar uma cópia compactada e temporária,
 ## D-015 — Evidência editorial fica fora do Git
 
 Transcrições, dossiês de contexto, headlines geradas, escolhas/rejeições e aprovações/rejeições de clips são evidências de sessão e devem ser arquivadas em `FuriaClipsData/editorial_sessions`, sem entrar no repositório. O banco continua sendo a fonte operacional; os arquivos humanamente legíveis são a trilha para calibração futura.
+
+## D-016 — AV1 não depende de aceleração de hardware
+
+Fontes AV1 devem usar decodificação FFmpeg por software nas etapas de análise e renderização. Se o layout facial não puder ser validado com segurança, o Furia deve preservar o enquadramento original e registrar o fallback, em vez de insistir em OpenCV/MediaPipe e gerar erros repetidos.
+
+## D-017 — Cobertura acompanha a timeline de seleção
+
+Quando a transcrição integral é recortada para remover pré-roll, a transcrição de seleção deve preservar cobertura temporal, proveniência e qualidade da fonte canônica. Perder esses metadados não pode transformar uma transcrição válida em “não validada” nem adiar todos os candidatos por um falso gate técnico.

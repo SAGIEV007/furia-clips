@@ -144,6 +144,15 @@ class FaceTracker:
             self._layout = ffmpeg_layout
             return self._layout
 
+        # OpenCV/MediaPipe may select an unavailable hardware AV1 decoder on
+        # some hosts. For AV1, keep the safe original layout after FFmpeg's
+        # software probe instead of repeatedly failing to decode frames.
+        if self._is_av1_source(video_path):
+            if emit_progress:
+                emit_progress("[Layout] Fonte AV1 detectada; análise facial ignorada com fallback seguro para layout original.", "warning")
+            self._layout = LAYOUT_SINGLE
+            return self._layout
+
         # Strategy 4: MediaPipe face counting (original method)
         if self._ensure_detector():
             mediapipe_layout = self._detect_layout_mediapipe(video_path, emit_progress)
@@ -156,6 +165,29 @@ class FaceTracker:
             emit_progress("[Layout] Nao foi possivel detectar layout. Usando modo padrao (single speaker).")
         self._layout = LAYOUT_SINGLE
         return self._layout
+
+    def _is_av1_source(self, video_path):
+        """Return True when the source uses AV1, which may break OpenCV decode."""
+        try:
+            cmd = [
+                "ffprobe", "-v", "quiet", "-print_format", "json",
+                "-show_entries", "stream=codec_name", "-select_streams", "v:0", video_path,
+            ]
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=10,
+            )
+            if result.returncode != 0:
+                return False
+            streams = json.loads(result.stdout or "{}").get("streams", [])
+            codec = str(streams[0].get("codec_name", "") if streams else "").lower()
+            return codec in {"av1", "av01"}
+        except (OSError, ValueError, TypeError, subprocess.TimeoutExpired):
+            return False
 
     def _detect_layout_ffmpeg(self, video_path, emit_progress=None):
         """Detect layout using FFmpeg analysis (no MediaPipe needed)."""
@@ -222,7 +254,7 @@ class FaceTracker:
             # Sample at 30% of video - extract center column brightness variance
             sample_time = duration * 0.3
             cmd = [
-                "ffmpeg", "-ss", str(sample_time), "-i", video_path,
+                "ffmpeg", "-hwaccel", "none", "-ss", str(sample_time), "-i", video_path,
                 "-vframes", "1", "-vf",
                 "crop=2:ih:iw/2-1:0,format=gray",
                 "-f", "rawvideo", "-"

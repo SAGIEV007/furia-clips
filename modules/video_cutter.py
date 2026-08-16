@@ -71,7 +71,7 @@ class VideoCutter:
             emit_progress("Detectando mudancas de cena...")
 
         cmd = [
-            "ffmpeg", "-hide_banner", "-nostats", "-i", video_path,
+            "ffmpeg", "-hide_banner", "-nostats", "-hwaccel", "none", "-i", video_path,
             "-an", "-vf", f"select='gt(scene,{threshold / 100.0})',showinfo",
             "-f", "null", "-",
         ]
@@ -177,7 +177,7 @@ class VideoCutter:
         vf_str = ffmpeg_video_filter(active_preset, layout=video_layout or "center") if vertical else None
 
         cmd = [
-            "ffmpeg", "-y",
+            "ffmpeg", "-y", "-hwaccel", "none",
             "-ss", str(start_time),
             "-i", video_path,
             "-t", str(duration),
@@ -239,7 +239,7 @@ class VideoCutter:
         vf = f"crop={crop_w}:{orig_h}:{crop_x}:0,scale={active_preset['width']}:{active_preset['height']}"
 
         cmd = [
-            "ffmpeg", "-y",
+            "ffmpeg", "-y", "-hwaccel", "none",
             "-ss", str(start_time),
             "-i", video_path,
             "-t", str(duration),

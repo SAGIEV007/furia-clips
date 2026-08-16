@@ -25,6 +25,7 @@ def test_detect_scenes_passes_timeout_and_returns_changes(monkeypatch):
     assert changes == [0.0, 1.25, 4.5]
     assert calls[0][1]["timeout"] == 17.0
     assert "-an" in calls[0][0]
+    assert calls[0][0][calls[0][0].index("-hwaccel") + 1] == "none"
     assert messages[-1][1] == "info"
 
 

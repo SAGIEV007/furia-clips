@@ -20,7 +20,7 @@ def test_program_version_matches_repository_file():
 
     version_path = Path(app_module.BASE_DIR) / "VERSION"
     assert version_path.read_text(encoding="utf-8").strip() == app_module.PROGRAM_VERSION
-    assert app_module.PROGRAM_VERSION == "1.7"
+    assert app_module.PROGRAM_VERSION == "1.8"
 
 
 def test_connected_event_exposes_runtime_identity(monkeypatch):
@@ -32,7 +32,7 @@ def test_connected_event_exposes_runtime_identity(monkeypatch):
     connected = next(payload for event, payload in events if event == "connected")
     assert connected["program_version"] == app_module.PROGRAM_VERSION
     assert connected["program_revision"] == app_module.PROGRAM_REVISION
-    assert "Versão 1.7" in connected["message"]
+    assert "Versão 1.8" in connected["message"]
 
 
 def test_settings_endpoint_exposes_runtime_identity():

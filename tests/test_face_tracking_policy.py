@@ -103,3 +103,36 @@ def test_tracker_close_is_idempotent():
     tracker.close()
     tracker.close()
     assert tracker.detector is None
+
+
+def test_split_screen_probe_forces_software_video_decode(monkeypatch):
+    import json
+    import subprocess
+    from types import SimpleNamespace
+    import modules.face_tracker as module
+
+    calls = []
+
+    def fake_run(command, **kwargs):
+        calls.append(command)
+        if command[0] == "ffprobe":
+            return SimpleNamespace(returncode=0, stdout=json.dumps({"format": {"duration": "100"}}), stderr="")
+        return SimpleNamespace(returncode=1, stdout=b"", stderr=b"AV1 software probe")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    assert module.FaceTracker()._detect_split_screen_ffmpeg("sample.mp4") is False
+    ffmpeg_call = next(command for command in calls if command[0] == "ffmpeg")
+    assert ffmpeg_call[ffmpeg_call.index("-hwaccel") + 1] == "none"
+
+
+def test_av1_source_uses_safe_layout_without_mediapipe(monkeypatch):
+    import modules.face_tracker as module
+
+    tracker = module.FaceTracker()
+    monkeypatch.setattr(tracker, "_detect_layout_ffmpeg", lambda *args, **kwargs: module.LAYOUT_UNKNOWN)
+    monkeypatch.setattr(tracker, "_is_av1_source", lambda path: True)
+    monkeypatch.setattr(tracker, "_ensure_detector", lambda: (_ for _ in ()).throw(AssertionError("MediaPipe não deveria ser chamado")))
+
+    messages = []
+    assert tracker.detect_layout("sample-av1.mp4", emit_progress=lambda message, level="info": messages.append((message, level))) == module.LAYOUT_SINGLE
+    assert any("Fonte AV1" in message for message, _ in messages)
