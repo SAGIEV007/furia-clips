@@ -11,9 +11,9 @@
 | Versão pública | `1.2` |
 | Fonte da versão | [`VERSION`](../../VERSION) |
 | Branch de trabalho conhecida | `manus/rebuild-opus-parity` |
-| Revisão registrada neste estado | `1860276` — `feat: preserve complete editorial payoffs` |
+| Revisão registrada neste estado | `a6846f9` — `test: align runtime assertions with v1.2` |
 | Última atualização deste documento | 2026-08-16 |
-| Validação desta rodada | `284 passed`; `py_compile` aprovado; `git diff --check` aprovado; gate de payoff validado; fonte longa do Garimpo localizada, download bloqueado pelo helper Corteiros no sandbox |
+| Validação desta rodada | `284 passed`; `py_compile` aprovado; `git diff --check` aprovado; fonte longa do Garimpo localizada; transcrição do Acervo consultada; download direto bloqueado pelo YouTube e download autenticado não concluído pelo helper Corteiros no sandbox |
 | Asset validado | `models/blaze_face_short_range.tflite`, 229746 bytes, SHA-256 conforme manifesto |
 | Objetivo | Gerar cortes do Renan Santos/MBL concisos, autossuficientes e contextualmente completos |
 
@@ -66,4 +66,4 @@ A primeira melhoria especializada do Prompt 2 alterou o `clip_selector`: a dura�
 
 A próxima hipótese única é: **usar blocos longos do Garimpo como referência operacional para calibrar a recuperação de setup, pergunta/resposta, antecedente anafórico e headline, sem recortar Reels publicados novamente**. Primeiro resolver ou contornar legitimamente a aquisição do MP4 longo; depois comparar os candidatos do Furia com os intervalos do Garimpo.
 
-Depois da execução, atualize este arquivo com a versão, commit, branch, testes, vídeos/análises realizados, métricas antes/depois e a próxima hipótese. A versão `1.2` foi publicada no commit `1860276` da branch `manus/rebuild-opus-parity`, após `284 passed`, `py_compile` e `git diff --check` aprovados.
+Depois da execução, atualize este arquivo com a versão, commit, branch, testes, vídeos/análises realizados, métricas antes/depois e a próxima hipótese. A versão `1.2` foi publicada no commit `1860276`; o alinhamento dos testes de runtime foi publicado no commit `a6846f9`, ambos na branch `manus/rebuild-opus-parity`. O ciclo 2 manteve `284 passed`, `py_compile` e `git diff --check` aprovados.
