@@ -11,7 +11,7 @@
 | Versão pública | `1.5` |
 | Fonte da versão | [`VERSION`](../../VERSION) |
 | Branch de trabalho conhecida | `manus/rebuild-opus-parity` |
-| Revisão registrada neste estado | `pending` — release 1.5 em validação final |
+| Revisão registrada neste estado | `337e2dd` — `feat: add URL transcription and technical render gate (1.5)` |
 | Última atualização deste documento | 2026-08-16 |
 | Validação desta rodada | `293 passed`; `py_compile`, `node --check` e `git diff --check` aprovados; transcrição por URL validada por regressões e smoke anti-bot; gate técnico replayado em 30 candidatos renais; 3 exports pós-gate H.264/AAC válidos |
 | Asset validado | `models/blaze_face_short_range.tflite`, 229746 bytes, SHA-256 conforme manifesto |
@@ -80,4 +80,4 @@ O MP4 operacional tem duração de aproximadamente 84,1 minutos, vídeo AV1 1920
 
 Usar os candidatos reais da coletiva e da live renal para calibrar detecção de erros semânticos do ASR em nomes próprios, entidades políticas e termos raros antes de gerar headlines. Marcar baixa confiança lexical para revisão humana e comparar a transcrição local com uma fonte corrigida quando disponível. O Estúdio de Texto de Arte permanece adiado; Reels publicados continuam `reference_only` e somente fontes longas/cruas são `processing_source`.
 
-Depois da execução, atualize este arquivo com a versão, commit, branch, testes, vídeos/análises realizados, métricas antes/depois e a próxima hipótese. As versões anteriores `1.2` e os commits `1860276`, `a6846f9` e `2c92b09` permanecem no histórico; a release `1.3` foi publicada no commit `aa678fe`; esta release `1.4` está registrada no commit `2528cec` da branch `manus/rebuild-opus-parity`.
+Depois da execução, atualize este arquivo com a versão, commit, branch, testes, vídeos/análises realizados, métricas antes/depois e a próxima hipótese. As versões anteriores `1.2` e os commits `1860276`, `a6846f9` e `2c92b09` permanecem no histórico; a release `1.3` foi publicada no commit `aa678fe`; a release `1.4` está registrada no commit `2528cec`; esta release `1.5` está registrada no commit `337e2dd` da branch `manus/rebuild-opus-parity`.
