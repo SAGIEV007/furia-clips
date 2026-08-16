@@ -56,6 +56,7 @@ FORMAT_PROFILES = {
 TOPIC_RULES = (
     ("cripto", ("bitcoin", "cripto", "criptomoeda", "criptomoedas", "blockchain")),
     ("emendas", ("emenda", "emendas", "parlamentar", "parlamentares", "orçamento", "orcamento", "indicadores")),
+    ("mobilização", ("ato", "atos", "faculdade", "comparecer", "vão", "vá", "familia", "medo", "ameaça", "ameacas")),
     ("segurança", ("segurança", "seguranca", "crime", "polícia", "policia", "violência", "violencia", "bandido")),
     ("impostos", ("imposto", "tributo", "tributação", "tributacao", "iof", "taxa")),
     ("economia", ("economia", "emprego", "salário", "salario", "inflação", "inflacao", "pobreza")),
@@ -235,7 +236,18 @@ def _claim_candidates(text: str, topic: str, speaker_prefix: str = "") -> list[s
         candidates.append("O ESTADO VAI ACOLHER OU AFASTAR AS CRIPTOS?")
     if "liberdade" in folded:
         candidates.append("A LIBERDADE NÃO CABE EM MAIS CONTROLE")
-    if "seguran" in folded:
+    if "nao tenham medo" in folded and ("ato" in folded or "faculdade" in folded):
+        candidates.extend([
+            "NÃO TENHAM MEDO DE IR AO ATO",
+            "A AMEAÇA NÃO VAI IMPEDIR O ATO",
+            "VÃO AO ATO: NÃO SEJAM COVARDES",
+        ])
+    elif "ameac" in folded and "ato" in folded:
+        candidates.extend([
+            "A AMEAÇA NÃO VAI IMPEDIR O ATO",
+            "NÃO TENHAM MEDO DAS AMEAÇAS",
+        ])
+    elif "seguran" in folded:
         candidates.append("SEGURANÇA NÃO SE RESOLVE COM DISCURSO")
     if "emenda" in folded or "emendas" in folded:
         if "flavio dino" in folded and "jornalista" in folded:

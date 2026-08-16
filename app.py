@@ -116,6 +116,14 @@ from modules.persistent_data import (
     get_editorial_data_summary,
     restore_editorial_backup,
 )
+from modules.editorial_learning_store import (
+    save_transcription_bundle,
+    save_context_bundle,
+    save_headline_generation,
+    save_headline_decision,
+    save_clip_decision,
+    write_session_manifest,
+)
 from modules.repository_sync import (
     RepositorySyncError,
     get_repository_status,
@@ -503,6 +511,11 @@ def _transcription_from_request(data, duration=None):
         result["raw_last_timestamp"] = max((float(item.get("end") if item.get("end") is not None else item.get("start", 0)) for item in raw_result.get("segments", [])), default=None)
         result["language"] = data.get("transcript_language", "pt")
         result["source"] = "manual"
+        result["provenance"] = {
+            "source": "manual",
+            "input_kind": "transcript_text" if data.get("transcript_text") else "manual_transcript",
+            "confirmed_by_editor": True,
+        }
         return result
     segments = data.get("transcript_segments")
     if isinstance(segments, list) and segments:
@@ -513,8 +526,83 @@ def _transcription_from_request(data, duration=None):
         )
         result["language"] = data.get("transcript_language", "pt")
         result["source"] = "manual"
+        result["provenance"] = {
+            "source": "manual",
+            "input_kind": "transcript_segments",
+            "confirmed_by_editor": True,
+        }
         return result
     return None
+
+
+def _manual_transcript_was_supplied(data):
+    data = data or {}
+    text = data.get("transcript_text") or data.get("manual_transcript") or ""
+    if isinstance(text, str) and text.strip():
+        return True
+    segments = data.get("transcript_segments")
+    return isinstance(segments, list) and bool(segments)
+
+
+def _transcript_reference_for_multimodal(transcription, max_chars=48000):
+    """Build a bounded timestamped reference; local selection still uses all text."""
+    if not isinstance(transcription, dict):
+        return ""
+    segments = [item for item in transcription.get("segments", []) if isinstance(item, dict) and str(item.get("text", "")).strip()]
+    if not segments:
+        return ""
+
+    def line(item):
+        start = float(item.get("start", 0) or 0)
+        hours = int(start // 3600)
+        minutes = int((start % 3600) // 60)
+        seconds = start % 60
+        return f"[{hours:02d}:{minutes:02d}:{seconds:06.3f}] {str(item.get('text', '')).strip()}"
+
+    full = "\n".join(line(item) for item in segments)
+    if len(full) <= max_chars:
+        return full
+    head_budget = max_chars // 3
+    tail_budget = max_chars // 3
+    head, tail = [], []
+    used = 0
+    for item in segments:
+        value = line(item)
+        if used + len(value) + 1 > head_budget:
+            break
+        head.append(value)
+        used += len(value) + 1
+    used = 0
+    for item in reversed(segments):
+        value = line(item)
+        if used + len(value) + 1 > tail_budget:
+            break
+        tail.append(value)
+        used += len(value) + 1
+    middle_budget = max_chars - len("\n".join(head)) - len("\n".join(tail)) - 120
+    middle = []
+    step = max(1, len(segments) // max(1, middle_budget // 120))
+    for item in segments[len(head): max(len(head), len(segments) - len(tail)): step]:
+        value = line(item)
+        if sum(len(entry) + 1 for entry in middle) + len(value) + 1 > middle_budget:
+            break
+        middle.append(value)
+    return "\n".join([*head, "[...trechos intermediários amostrados...]"] + middle + ["[...fim da transcrição...]"] + list(reversed(tail)))
+
+
+def _transcription_provenance(transcription, *, manual_supplied=False):
+    transcription = transcription or {}
+    coverage = transcription.get("coverage") if isinstance(transcription.get("coverage"), dict) else {}
+    return {
+        "source": str(transcription.get("source", "unknown") or "unknown"),
+        "manual_supplied": bool(manual_supplied),
+        "confirmed_by_editor": bool(manual_supplied or transcription.get("source") in {"manual", "manual_confirmed"}),
+        "segment_count": int(transcription.get("segment_count", len(transcription.get("segments", [])) or 0) or 0),
+        "coverage_status": str(coverage.get("status", "unknown") or "unknown"),
+        "first_timestamp": coverage.get("first_timestamp"),
+        "last_timestamp": coverage.get("last_timestamp"),
+        "used_as_canonical_timeline": True,
+    }
 
 
 def _analyze_energy_with_cancel(analyzer, video_path, emit_progress, cancel_check=None):
@@ -564,6 +652,17 @@ def _enrich_editorial_context_locally(video_path, transcription, editorial_conte
         "local_high_energy_count": len(high_energy),
     })
     enriched["signals"] = signals
+    account = str(settings.get("campaign_hub_account", "@renansantosmbl") or "@renansantosmbl")
+    account_data = (snapshot or {}).get("accounts", {}).get(account, {}) if isinstance(snapshot, dict) else {}
+    family_priors = (snapshot or {}).get("instagram_family_priors", {}).get("family_priors", []) if isinstance(snapshot, dict) else []
+    enriched["campaign_hub"] = {
+        "used": bool(snapshot),
+        "source": "campaign_hub_aggregate_snapshot" if snapshot else "unavailable",
+        "account": account,
+        "hook_observations": len(account_data.get("hook_observations", [])) if isinstance(account_data, dict) else 0,
+        "family_prior_count": len(family_priors) if isinstance(family_priors, list) else 0,
+        "role": "prior fraco e explicável; nunca substitui contexto, payoff ou revisão humana",
+    }
     return enriched
 
 
@@ -645,7 +744,12 @@ def _run_gemini_video_analysis(video_path, settings, editorial_context, user_con
         raise
     except Exception as exc:
         detail = str(exc)[:220]
-        if "503" in detail or "high demand" in detail.lower():
+        if "maximum number of tokens" in detail.lower() or "input token count" in detail.lower():
+            emit_progress(
+                "[Gemini] O pedido multimodal excedeu o limite de contexto. A cópia compactada e a transcrição canônica serão usadas nas próximas tentativas; nenhum corte será perdido por causa disso.",
+                "warning",
+            )
+        elif "503" in detail or "high demand" in detail.lower():
             emit_progress(
                 "[Gemini] Serviço temporariamente sobrecarregado (HTTP 503). A chave e o vídeo foram aceitos; seguindo para legenda pública/Whisper local sem reenviar o arquivo.",
                 "warning",
@@ -872,6 +976,9 @@ def api_clip_feedback(clip_id):
     data = request.get_json(silent=True) or {}
     action = data.get("action", "")
     try:
+        clip_before = get_clip(clip_id)
+        if not clip_before:
+            return jsonify({"error": "Clip não encontrado"}), 404
         save_clip_feedback(
             clip_id,
             action,
@@ -880,6 +987,25 @@ def api_clip_feedback(clip_id):
             reason_code=data.get("reason_code", ""),
             quality_tags=data.get("quality_tags") or [],
         )
+        project = get_project(clip_before.get("project_id")) or {}
+        try:
+            save_clip_decision(
+                {
+                    "action": str(action or "")[:32],
+                    "adjustments": data.get("adjustments") or {},
+                    "note": str(data.get("note", "") or "")[:600],
+                    "reason_code": str(data.get("reason_code", "") or "")[:48],
+                    "quality_tags": list(data.get("quality_tags") or [])[:12],
+                    "start_seconds": clip_before.get("start_time"),
+                    "end_seconds": clip_before.get("end_time"),
+                    "editorial_key": clip_before.get("editorial_key", ""),
+                },
+                project_id=clip_before.get("project_id"),
+                clip_id=clip_id,
+                source_video=project.get("source_video", ""),
+            )
+        except Exception as storage_error:
+            app.logger.warning("Não foi possível arquivar decisão editorial: %s", storage_error)
         return jsonify({
             "success": True,
             "clip_id": clip_id,
@@ -1905,6 +2031,7 @@ def api_cut_shorts():
             emit_progress("=== ETAPA 1/5: Transcricao e contexto ===", "info")
             from modules.transcriber import Transcriber
             video_duration = _probe_video_duration_seconds(video_path)
+            manual_supplied = _manual_transcript_was_supplied(data)
             transcription = _transcription_from_request(data, duration=video_duration)
             multimodal_result = None
             selected_transcription_mode = _transcription_source_mode(settings)
@@ -1939,6 +2066,9 @@ def api_cut_shorts():
                         "os cortes ficarão limitados ao trecho importado.",
                         "warning",
                     )
+            if transcription:
+                transcription["provenance"] = _transcription_provenance(transcription, manual_supplied=manual_supplied)
+                settings["transcription_provenance"] = transcription["provenance"]
             if transcription and transcription.get("source") == "manual":
                 emit_progress(f"[Transcrição manual] {transcription['segment_count']} segmentos importados; Whisper não será executado.", "success")
             elif transcription and transcription.get("source") == "gemini_video":
@@ -1977,7 +2107,13 @@ def api_cut_shorts():
 
             save_transcription(
                 active_project_id, full_transcription["segments"], full_transcription["full_text"],
-                full_transcription["language"], settings.get("whisper_model", "small")
+                full_transcription["language"], full_transcription.get("source", settings.get("whisper_model", "small"))
+            )
+            save_transcription_bundle(
+                full_transcription,
+                project_id=active_project_id,
+                source_video=video_path,
+                selection_transcription=selection_transcription,
             )
 
             from modules.editorial_context import analyze_transcript_context
@@ -1986,7 +2122,13 @@ def api_cut_shorts():
                 focus=settings.get("editorial_focus", "auto"),
                 campaign_hub_account=settings.get("campaign_hub_account", "@renansantosmbl"),
             )
-            emit_progress(f"[Contexto editorial] {editorial_context['description']}", "info")
+            editorial_context["transcription_provenance"] = transcription.get("provenance", {})
+            editorial_context["transcript_reference"] = _transcript_reference_for_multimodal(selection_transcription)
+            emit_progress(
+                f"[Contexto editorial] {editorial_context['description']} | fonte temporal: {transcription.get('source', 'desconhecida')}; "
+                f"{transcription.get('segment_count', len(transcription.get('segments', [])))} segmentos canônicos.",
+                "info",
+            )
             # A transcrição pública/manual/Whisper já resolveu a etapa temporal;
             # uma segunda análise multimodal só ocorre por opção explícita.
             allow_followup_video_analysis = _should_allow_followup_video_analysis(selection_transcription, settings)
@@ -2405,7 +2547,7 @@ def api_analyze_editorial_context():
         return jsonify({"error": "Video não encontrado"}), 404
     project_id = data.get("project_id")
     user_context = str(data.get("user_context", "") or "").strip()
-    analyze_video = bool(data.get("analyze_video", True))
+    analyze_video = _coerce_bool(data.get("analyze_video"), default=True)
 
     def task(ctx):
         def progress(message, level="info", percentage=None):
@@ -2429,6 +2571,7 @@ def api_analyze_editorial_context():
         video_duration = _probe_video_duration_seconds(video_path)
         progress("[Contexto] Preparando a análise integral da fonte...", "info", 5)
         ctx.check_cancel()
+        manual_supplied = _manual_transcript_was_supplied(data)
         transcription = _transcription_from_request(data, duration=video_duration)
         if not transcription and project_id:
             transcription = get_transcription(project_id)
@@ -2443,9 +2586,10 @@ def api_analyze_editorial_context():
             raise ValueError("Não foi possível obter uma transcrição para analisar o contexto.")
         coverage = _transcription_coverage_report(transcription, video_duration)
         transcription["coverage"] = coverage
+        transcription["provenance"] = _transcription_provenance(transcription, manual_supplied=manual_supplied)
         progress(
-            f"[Contexto] Transcrição disponível: {transcription.get('segment_count', len(transcription.get('segments', [])))} segmentos; "
-            f"cobertura {coverage.get('status', 'não verificada') }.",
+            f"[Contexto] Transcrição canônica confirmada: {transcription.get('segment_count', len(transcription.get('segments', [])))} segmentos; "
+            f"origem {transcription.get('source', 'desconhecida')}; cobertura {coverage.get('status', 'não verificada')}.",
             "success",
             35,
         )
@@ -2456,7 +2600,13 @@ def api_analyze_editorial_context():
                 focus=settings.get("editorial_focus", "auto"),
                 campaign_hub_account=settings.get("campaign_hub_account", "@renansantosmbl"),
             )
-        progress("[Contexto] Identificando tese, perguntas, capítulos e possíveis payoffs...", "info", 55)
+        editorial_context["transcription_provenance"] = transcription.get("provenance", {})
+        editorial_context["transcript_reference"] = _transcript_reference_for_multimodal(transcription)
+        progress(
+            "[Contexto] Identificando tese, perguntas, capítulos e possíveis payoffs; a transcrição canônica será preservada.",
+            "info",
+            55,
+        )
         if analyze_video and multimodal_result is None:
             progress("[Contexto] Escutando e observando a fonte para validar o cenário, tom e participantes...", "info", 62)
             multimodal_result = _run_gemini_video_analysis(
@@ -2507,6 +2657,24 @@ def api_analyze_editorial_context():
                 transcription.get("language", settings.get("language", "pt")),
                 transcription.get("source", "editorial_context"),
             )
+        transcript_files = save_transcription_bundle(
+            transcription,
+            project_id=project_id,
+            source_video=video_path,
+        )
+        context_file = save_context_bundle(
+            enriched,
+            transcription_provenance=transcription.get("provenance", {}),
+            project_id=project_id,
+            source_video=video_path,
+        )
+        manifest_file = write_session_manifest(
+            project_id=project_id,
+            source_video=video_path,
+            transcription_provenance=transcription.get("provenance", {}),
+            context_status={"analysis_mode": enriched.get("analysis_mode"), "context_file": context_file},
+        )
+        enriched["session_artifacts"] = {**transcript_files, "context": context_file, "manifest": manifest_file}
         artifacts = [{"type": "editorial_context", "context": enriched}]
         ctx.update(stage="editorial_context", progress=100, message="Contexto integral concluído", artifacts=artifacts)
         socketio.emit("editorial_context_complete", {"context": enriched, "job_id": ctx.job_id})
@@ -2696,6 +2864,7 @@ def api_analyze_headline_studio():
     preferred_format = str(data.get("preferred_format", "auto") or "auto")
     use_ai = bool(data.get("use_ai", True))
     clip_id = data.get("clip_id")
+    project_id = data.get("project_id")
     clip = None
     if clip_id not in (None, ""):
         try:
@@ -2709,6 +2878,7 @@ def api_analyze_headline_studio():
             transcript = str(clip.get("transcript") or "")
         if not mini_context.strip():
             mini_context = str(clip.get("title") or "")
+        project_id = project_id or clip.get("project_id")
     if not transcript.strip():
         return jsonify({"success": False, "error": "Cole ou importe uma transcrição antes de gerar o texto de arte."}), 400
     if len(transcript) > 60000:
@@ -2735,6 +2905,17 @@ def api_analyze_headline_studio():
             "start": float((clip or {}).get("start_time", 0) or 0),
             "end": float((clip or {}).get("end_time", 0) or 0),
         } if clip else None
+        project = get_project(project_id) if project_id not in (None, "") else {}
+        try:
+            result["session_artifact"] = save_headline_generation(
+                data,
+                result,
+                project_id=project_id,
+                clip_id=clip_id,
+                source_video=(project or {}).get("source_video", ""),
+            )
+        except Exception as storage_error:
+            app.logger.warning("Não foi possível arquivar geração de headline: %s", storage_error)
         return jsonify({"success": True, "studio": result})
     except ValueError as exc:
         return jsonify({"success": False, "error": str(exc)}), 400
@@ -2751,6 +2932,8 @@ def api_save_headline_studio_feedback():
     action = str(data.get("action", "selected") or "selected")
     clip_id = data.get("clip_id")
     editorial_key = str(data.get("editorial_key", "") or "")
+    clip = None
+    project_id = data.get("project_id")
     if clip_id not in (None, ""):
         try:
             clip_id = int(clip_id)
@@ -2759,6 +2942,7 @@ def api_save_headline_studio_feedback():
         clip = get_clip(clip_id)
         if not clip:
             return jsonify({"success": False, "error": "Corte não encontrado no backup local."}), 404
+        project_id = project_id or clip.get("project_id")
         editorial_key = editorial_key or str(clip.get("editorial_key") or "")
     if format_id not in {"vertical_916", "square_alfinetei", "fake_tweet"}:
         return jsonify({"success": False, "error": "Formato editorial inválido."}), 400
@@ -2766,17 +2950,38 @@ def api_save_headline_studio_feedback():
         return jsonify({"success": False, "error": "Texto de arte inválido ou longo demais."}), 400
     if action not in {"selected", "rejected"}:
         return jsonify({"success": False, "error": "Ação editorial inválida."}), 400
+    topic = str(data.get("topic", "") or "")
+    transcript_excerpt = str(data.get("transcript_excerpt", "") or "")
+    mini_context = str(data.get("mini_context", "") or "")
     save_headline_feedback(
         format_id,
         artwork_text,
         action=action,
-        topic=str(data.get("topic", "") or ""),
-        transcript_excerpt=str(data.get("transcript_excerpt", "") or ""),
-        mini_context=str(data.get("mini_context", "") or ""),
+        topic=topic,
+        transcript_excerpt=transcript_excerpt,
+        mini_context=mini_context,
         clip_id=clip_id,
         editorial_key=editorial_key,
         source="clip_headline_studio" if clip_id else "headline_studio",
     )
+    project = get_project(project_id) if project_id not in (None, "") else {}
+    try:
+        save_headline_decision(
+            {
+                "format_id": format_id,
+                "artwork_text": artwork_text,
+                "action": action,
+                "topic": topic,
+                "transcript_excerpt": transcript_excerpt[:1200],
+                "mini_context": mini_context[:500],
+                "editorial_key": editorial_key,
+            },
+            project_id=project_id,
+            clip_id=clip_id,
+            source_video=(project or {}).get("source_video", ""),
+        )
+    except Exception as storage_error:
+        app.logger.warning("Não foi possível arquivar decisão de headline: %s", storage_error)
     return jsonify({"success": True, "learning": get_headline_feedback_summary()})
 
 

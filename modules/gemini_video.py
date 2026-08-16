@@ -11,6 +11,8 @@ import json
 import mimetypes
 import os
 import random
+import subprocess
+import tempfile
 import time
 from pathlib import Path
 
@@ -38,51 +40,145 @@ class GeminiVideoAnalyzer:
 
         if cancel_check:
             cancel_check()
-        mime_type = mimetypes.guess_type(path.name)[0] or "video/mp4"
-        if emit_progress:
-            emit_progress("[Gemini] Enviando o vídeo para análise multimodal online...", "info")
-        file_info = self._upload_file(path, mime_type, emit_progress, cancel_check)
-        self._wait_until_active(file_info.get("name", ""), emit_progress, cancel_check)
+        analysis_path, analysis_meta = self._prepare_analysis_media(path, emit_progress, cancel_check)
+        try:
+            mime_type = mimetypes.guess_type(analysis_path.name)[0] or "video/mp4"
+            if emit_progress:
+                emit_progress("[Gemini] Enviando a cópia audiovisual compactada para análise online...", "info")
+            file_info = self._upload_file(analysis_path, mime_type, emit_progress, cancel_check)
+            self._wait_until_active(file_info.get("name", ""), emit_progress, cancel_check)
 
-        prompt = self._build_prompt(editorial_context or {}, user_context)
-        request_payload = {
-            "contents": [{
-                "parts": [
-                    {"file_data": {"mime_type": mime_type, "file_uri": file_info.get("uri", "")}},
-                    {"text": prompt},
-                ]
-            }],
-            "generationConfig": {
-                "temperature": 0.2,
-                "maxOutputTokens": 8192,
-                "responseMimeType": "application/json",
-            },
+            prompt_context = dict(editorial_context or {})
+            prompt_context["analysis_input"] = analysis_meta
+            prompt = self._build_prompt(prompt_context, user_context)
+            request_payload = {
+                "contents": [{
+                    "parts": [
+                        {"file_data": {"mime_type": mime_type, "file_uri": file_info.get("uri", "")}},
+                        {"text": prompt},
+                    ]
+                }],
+                "generationConfig": {
+                    "temperature": 0.2,
+                    "maxOutputTokens": 8192,
+                    "responseMimeType": "application/json",
+                },
+            }
+            response = self._generate_content(request_payload, emit_progress, cancel_check)
+            if response.status_code != 200:
+                raise GeminiVideoError(f"Gemini retornou HTTP {response.status_code}: {self._error_text(response)}")
+            payload = response.json()
+            text = self._extract_text(payload)
+            if not text:
+                raise GeminiVideoError("Gemini não retornou conteúdo multimodal")
+            try:
+                parsed = json.loads(text)
+            except json.JSONDecodeError:
+                parsed = json.loads(self._strip_fence(text))
+            if not isinstance(parsed, dict):
+                raise GeminiVideoError("Resposta multimodal fora do formato esperado")
+            parsed["source"] = "gemini_video"
+            parsed["model"] = self.model
+            parsed["analysis_input"] = analysis_meta
+            identity = parsed.get("source_identity") if isinstance(parsed.get("source_identity"), dict) else {}
+            raw_status = str(identity.get("status") or "unverified").strip().lower()
+            status_aliases = {"validated": "validated", "confirmed": "validated", "match": "validated", "mismatch": "mismatch", "wrong_source": "mismatch", "uncertain": "unverified", "unknown": "unverified"}
+            parsed["source_identity_status"] = status_aliases.get(raw_status, "unverified")
+            try:
+                parsed["source_identity_confidence"] = max(0.0, min(1.0, float(identity.get("confidence", 0) or 0)))
+            except (TypeError, ValueError):
+                parsed["source_identity_confidence"] = 0.0
+            parsed["multimodal_evidence_policy"] = "auxiliary_until_identity_validated"
+            return parsed
+        finally:
+            if analysis_path != path:
+                try:
+                    analysis_path.unlink(missing_ok=True)
+                except OSError:
+                    pass
+
+    @staticmethod
+    def _probe_duration(path: Path) -> float:
+        try:
+            result = subprocess.run(
+                ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", str(path)],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            return max(0.0, float((result.stdout or "").strip() or 0.0))
+        except (OSError, ValueError, subprocess.SubprocessError):
+            return 0.0
+
+    @classmethod
+    def _proxy_profile(cls, duration_seconds: float) -> dict:
+        duration = max(0.0, float(duration_seconds or 0.0))
+        if duration > 45 * 60:
+            fps, maxrate = "1/12", "100k"
+        elif duration > 20 * 60:
+            fps, maxrate = "1/8", "130k"
+        elif duration > 10 * 60:
+            fps, maxrate = "1/4", "180k"
+        else:
+            fps, maxrate = "1", "350k"
+        return {"fps": fps, "maxrate": maxrate, "max_width": 640, "audio_bitrate": "16k"}
+
+    @classmethod
+    def _prepare_analysis_media(cls, path: Path, emit_progress=None, cancel_check=None):
+        duration = cls._probe_duration(path)
+        profile = cls._proxy_profile(duration)
+        descriptor = {
+            "used_proxy": True,
+            "original_duration_seconds": round(duration, 3) if duration else None,
+            "visual_sampling": f"{profile['fps']} fps",
+            "max_width": profile["max_width"],
+            "audio": "mono 16 kHz",
+            "purpose": "reduzir tamanho e tokens; a transcrição canônica permanece textual",
         }
-        response = self._generate_content(request_payload, emit_progress, cancel_check)
-        if response.status_code != 200:
-            raise GeminiVideoError(f"Gemini retornou HTTP {response.status_code}: {self._error_text(response)}")
-        payload = response.json()
-        text = self._extract_text(payload)
-        if not text:
-            raise GeminiVideoError("Gemini não retornou conteúdo multimodal")
+        if emit_progress:
+            emit_progress(
+                f"[Gemini] Compactando cópia de análise: até {profile['max_width']} px, {profile['fps']} fps, áudio mono 16 kHz; a fonte original não será alterada.",
+                "info",
+            )
+        if cancel_check:
+            cancel_check()
+        fd, proxy_name = tempfile.mkstemp(prefix="furia-gemini-proxy-", suffix=".mp4")
+        os.close(fd)
+        proxy = Path(proxy_name)
+        command = [
+            "ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", str(path),
+            "-vf", f"scale='min({profile['max_width']},iw)':-2,fps={profile['fps']}",
+            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "36",
+            "-maxrate", profile["maxrate"], "-bufsize", profile["maxrate"],
+            "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", profile["audio_bitrate"],
+            "-ac", "1", "-ar", "16000", "-movflags", "+faststart", str(proxy),
+        ]
+        process = None
         try:
-            parsed = json.loads(text)
-        except json.JSONDecodeError:
-            parsed = json.loads(self._strip_fence(text))
-        if not isinstance(parsed, dict):
-            raise GeminiVideoError("Resposta multimodal fora do formato esperado")
-        parsed["source"] = "gemini_video"
-        parsed["model"] = self.model
-        identity = parsed.get("source_identity") if isinstance(parsed.get("source_identity"), dict) else {}
-        raw_status = str(identity.get("status") or "unverified").strip().lower()
-        status_aliases = {"validated": "validated", "confirmed": "validated", "match": "validated", "mismatch": "mismatch", "wrong_source": "mismatch", "uncertain": "unverified", "unknown": "unverified"}
-        parsed["source_identity_status"] = status_aliases.get(raw_status, "unverified")
-        try:
-            parsed["source_identity_confidence"] = max(0.0, min(1.0, float(identity.get("confidence", 0) or 0)))
-        except (TypeError, ValueError):
-            parsed["source_identity_confidence"] = 0.0
-        parsed["multimodal_evidence_policy"] = "auxiliary_until_identity_validated"
-        return parsed
+            process = subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+            while process.poll() is None:
+                if cancel_check:
+                    try:
+                        cancel_check()
+                    except Exception:
+                        process.kill()
+                        process.wait(timeout=10)
+                        raise
+                time.sleep(0.5)
+            stderr = process.stderr.read() if process.stderr else ""
+            if process.returncode != 0:
+                raise GeminiVideoError(f"Não foi possível compactar a cópia para análise: {stderr[-240:]}")
+            return proxy, descriptor
+        except FileNotFoundError as exc:
+            proxy.unlink(missing_ok=True)
+            raise GeminiVideoError("FFmpeg é necessário para preparar a cópia compactada do Gemini.") from exc
+        except Exception:
+            if process is not None and process.poll() is None:
+                process.kill()
+                process.wait(timeout=10)
+            proxy.unlink(missing_ok=True)
+            raise
 
     def _generate_content(self, request_payload: dict, emit_progress=None, cancel_check=None):
         """Retry only transient API failures; the video upload is not repeated."""
@@ -93,7 +189,7 @@ class GeminiVideoAnalyzer:
         for attempt in range(1, max_attempts + 1):
             if cancel_check:
                 cancel_check()
-            response = self.session.post(endpoint, json=request_payload, timeout=600)
+            response = self.session.post(endpoint, json=request_payload, timeout=180)
             last_response = response
             if response.status_code == 200:
                 return response
@@ -155,7 +251,7 @@ class GeminiVideoAnalyzer:
                     "Content-Type": mime_type,
                 },
                 data=handle,
-                timeout=1800,
+                timeout=180,
             )
         if cancel_check:
             cancel_check()
@@ -171,7 +267,7 @@ class GeminiVideoAnalyzer:
         for attempt in range(180):
             if cancel_check:
                 cancel_check()
-            result = self.session.get(f"{self.base_url}/v1beta/{file_name}", timeout=60)
+            result = self.session.get(f"{self.base_url}/v1beta/{file_name}", timeout=30)
             if result.status_code != 200:
                 raise GeminiVideoError(f"Falha ao consultar arquivo: HTTP {result.status_code}")
             payload = result.json()
@@ -199,6 +295,14 @@ class GeminiVideoAnalyzer:
             if renan_focus
             else "Nenhuma; aplique um critério editorial político genérico e identifique os participantes apenas quando houver evidência."
         )
+        transcript_reference = str(editorial_context.get("transcript_reference", "") or "").strip()
+        analysis_input = editorial_context.get("analysis_input") if isinstance(editorial_context.get("analysis_input"), dict) else {}
+        transcript_block = (
+            "\nTRANSCRIÇÃO CANÔNICA FORNECIDA PELO EDITOR:\n"
+            f"{transcript_reference}\n"
+            "Use-a como fonte principal para as falas e para localizar o argumento. Ela pode ser mais confiável que uma nova transcrição automática; não substitua a timeline dela.\n"
+            if transcript_reference else ""
+        )
         return f"""Você é um analista audiovisual e {role}.
 Analise o vídeo inteiro usando áudio e imagem, sem inventar fatos externos. O objetivo é preparar uma etapa posterior de corte, não escrever legendas.
 
@@ -210,6 +314,9 @@ Contexto determinístico já extraído da transcrição:
 
 Instrução opcional do editor:
 {user_context or default_instruction}
+{transcript_block}
+Entrada audiovisual enviada:
+{json.dumps(analysis_input, ensure_ascii=False)}
 
 Entregue apenas JSON neste formato:
 {{

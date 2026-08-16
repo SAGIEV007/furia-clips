@@ -47,3 +47,16 @@ Quando o ranker marca `technical_gate_status=review`, o candidato continua dispo
 ## D-012 — Pré-roll é fronteira de seleção, não conteúdo editorial
 
 Quando uma fonte longa contém propaganda ou intro antes da live, a seleção deve usar apenas a partir de uma fronteira temporal segura, enquanto a transcrição integral permanece arquivada para auditoria. O detector deve exigir evidência forte de abertura de live; uma saudação genérica isolada não autoriza corte automático. Na dúvida, preservar a timeline completa para revisão é preferível a remover conteúdo editorial válido.
+
+
+## D-013 — Transcrição manual é timeline canônica
+
+Quando o editor fornece uma transcrição ou segmentos timestampados, o sistema deve marcá-los como confirmados pelo editor, usá-los como referência temporal principal e nunca iniciar Whisper silenciosamente por falta de um marcador de origem. A qualidade e a cobertura continuam sujeitas a revisão, mas a proveniência precisa ser visível.
+
+## D-014 — Multimodal usa proxy descartável
+
+A análise audiovisual opcional deve enviar uma cópia compactada e temporária, preservando o vídeo original e a transcrição canônica. A compactação reduz resolução, amostragem visual e bitrate de áudio de modo adaptativo à duração; falha ou limite do Gemini deve produzir fallback local explícito, não bloquear a seleção.
+
+## D-015 — Evidência editorial fica fora do Git
+
+Transcrições, dossiês de contexto, headlines geradas, escolhas/rejeições e aprovações/rejeições de clips são evidências de sessão e devem ser arquivadas em `FuriaClipsData/editorial_sessions`, sem entrar no repositório. O banco continua sendo a fonte operacional; os arquivos humanamente legíveis são a trilha para calibração futura.

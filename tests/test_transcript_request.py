@@ -7,6 +7,8 @@ def test_transcript_text_request_is_marked_manual():
         duration=10,
     )
     assert result["source"] == "manual"
+    assert result["provenance"]["confirmed_by_editor"] is True
+    assert result["provenance"]["input_kind"] == "transcript_text"
     assert result["segment_count"] == 1
 
 
@@ -20,4 +22,6 @@ def test_transcript_segments_request_is_marked_manual():
         duration=10,
     )
     assert result["source"] == "manual"
+    assert result["provenance"]["confirmed_by_editor"] is True
+    assert result["provenance"]["input_kind"] == "transcript_segments"
     assert result["segment_count"] == 1

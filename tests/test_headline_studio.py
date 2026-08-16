@@ -300,3 +300,20 @@ def test_generic_headlines_do_not_attribute_speaker_without_explicit_context():
     headlines = [item["headline"] for item in result["formats"][FORMAT_VERTICAL]["suggestions"]]
     assert headlines
     assert all("RENAN" not in headline for headline in headlines)
+
+
+THREAT_MOBILIZATION_TRANSCRIPT = """Todos vocês têm que ir ao ato na frente da faculdade de direito Largo São Francisco. Não tenham medo: haverá GCM, Polícia Militar e Polícia Federal. Ah, mas é o aluno que ameaçou você? A Polícia Federal vai pegar ele na hora certa. Então é para ir. Não sejam covardes porque ela não foi."""
+
+
+def test_threat_clip_headline_keeps_the_specific_ato_and_threat_context():
+    result = generate_artwork_copy(
+        THREAT_MOBILIZATION_TRANSCRIPT,
+        preferred_format=FORMAT_VERTICAL,
+        ai_backend=None,
+    )
+    headlines = [item["headline"] for item in result["formats"][FORMAT_VERTICAL]["suggestions"]]
+    assert result["topic"] == "mobilização"
+    assert any("ATO" in headline or "AMEAÇA" in headline for headline in headlines)
+    assert all("IMPASSE DA SEGURANÇA" not in headline for headline in headlines)
+    assert all("RUMO DA SEGURANÇA" not in headline for headline in headlines)
+    assert result["review_flags"]["transcript_ends_incomplete"] is False

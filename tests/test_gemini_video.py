@@ -1,6 +1,12 @@
 from modules.gemini_video import GeminiVideoAnalyzer
 
 
+def test_gemini_proxy_profile_gets_more_aggressive_for_long_sources():
+    assert GeminiVideoAnalyzer._proxy_profile(5 * 60)["fps"] == "1"
+    assert GeminiVideoAnalyzer._proxy_profile(30 * 60)["fps"] == "1/8"
+    assert GeminiVideoAnalyzer._proxy_profile(60 * 60)["fps"] == "1/12"
+
+
 def test_gemini_prompt_requests_timestamped_segments_and_audio_signals():
     prompt = GeminiVideoAnalyzer._build_prompt(
         {"description": "entrevista", "participant_confidence": 0.7},
@@ -13,6 +19,16 @@ def test_gemini_prompt_requests_timestamped_segments_and_audio_signals():
     assert "visual_meme" in prompt
     assert "MM:SS" in prompt
     assert "priorize impostos" in prompt
+
+
+def test_gemini_prompt_marks_editor_transcript_as_canonical():
+    prompt = GeminiVideoAnalyzer._build_prompt(
+        {"focus": "renan_santos", "transcript_reference": "[00:08:10.000] Não tenham medo."},
+        "priorize o trecho sobre a ameaça",
+    )
+    assert "TRANSCRIÇÃO CANÔNICA FORNECIDA PELO EDITOR" in prompt
+    assert "Não tenham medo" in prompt
+    assert "não substitua a timeline" in prompt
 
 
 def test_gemini_video_analyzer_extracts_non_thought_text():

@@ -1,5 +1,25 @@
 # Changelog de continuidade
 
+## 1.7 — Contexto canônico, proxy multimodal e headlines específicas
+
+### Incluído
+
+- Transcrições coladas/importadas passam a carregar proveniência explícita e são marcadas como timeline canônica; o pipeline não executa Whisper silenciosamente quando o texto manual foi recebido.
+- O Gemini recebe uma cópia audiovisual temporária compactada, com resolução máxima de 640 px, amostragem visual adaptativa e áudio mono a 16 kHz; o vídeo original não é alterado e o arquivo temporário é removido ao final.
+- Upload e geração multimodal receberam timeouts menores e cancelamento cooperativo durante a compactação, upload, espera e geração.
+- Cada sessão arquiva fora do GitHub a transcrição integral, a transcrição de seleção, o dossiê de contexto, headlines geradas, escolhas/rejeições de headlines, aprovações/rejeições de clips e um manifesto de proveniência.
+- O botão de cópia do console usa o histórico completo da sessão, não somente as 200 linhas visíveis.
+- O dossiê de contexto informa na interface a origem da transcrição, o uso do proxy Gemini e se o prior agregado do Campaign Hub foi realmente aplicado.
+- O fallback de headlines reconhece o núcleo específico de mobilização, ato e ameaça, evitando slogans genéricos de segurança no caso real enviado pelo usuário.
+
+### Validação da rodada
+
+A suíte completa passou com `303 passed`; os testes focados passaram com `52 passed`; `py_compile`, `node --check` e uma prova local do proxy FFmpeg foram aprovados. A prova reduziu um vídeo sintético de 49.171 para 16.266 bytes, preservando a preparação de áudio e vídeo da cópia temporária. A regressão editorial do corte “não tenham medo/ato/ameaça” passou sem Gemini.
+
+### Limitações conhecidas
+
+O proxy reduz custo e risco de limite, mas não transforma uma análise visual longa em evidência perfeita; a transcrição canônica continua sendo a fonte temporal principal. O Campaign Hub ainda é usado como prior agregado fraco e explicável, não como memória de voz nem treinamento de pesos. A próxima hipótese isolada permanece a detecção de erros semânticos do ASR antes de headlines.
+
 ## 1.6 — Gate conservador de pré-roll e fronteira de conteúdo de live
 
 ### Incluído

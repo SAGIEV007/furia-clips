@@ -37,6 +37,7 @@ const state = {
     campaignHubStatusTimer: null,
     faceTracking: true,
     previewToken: 0,
+    consoleHistory: [],
 };
 
 // ─── WebSocket Connection ───
@@ -328,18 +329,53 @@ function handleStatusUpdate(data) {
 
 function addConsoleLog(message, level = "info") {
     const console_el = document.getElementById("consoleOutput");
+    const text = String(message ?? "");
+    state.consoleHistory.push({ text, level, recorded_at: new Date().toISOString() });
     const line = document.createElement("div");
     line.className = `console-line ${level}`;
-    line.textContent = message;
+    line.textContent = text;
     console_el.appendChild(line);
     console_el.scrollTop = console_el.scrollHeight;
-    updateProcessingJourney(message, level);
+    updateProcessingJourney(text, level);
 
-    // Keep max 200 lines
+    // The visible panel stays bounded for performance; copying uses the full session history.
     while (console_el.children.length > 200) {
         console_el.removeChild(console_el.firstChild);
     }
+    if (state.consoleHistory.length > 5000) {
+        state.consoleHistory.splice(0, state.consoleHistory.length - 5000);
+    }
 }
+
+async function copyFullConsoleLog() {
+    const lines = state.consoleHistory.map(entry => entry.text).filter(Boolean);
+    const value = lines.join("\n");
+    if (!value) {
+        showToast("Ainda não há linhas para copiar.", "warning");
+        return;
+    }
+    try {
+        if (navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(value);
+        } else {
+            const helper = document.createElement("textarea");
+            helper.value = value;
+            helper.setAttribute("readonly", "true");
+            helper.style.position = "fixed";
+            helper.style.opacity = "0";
+            document.body.appendChild(helper);
+            helper.select();
+            document.execCommand("copy");
+            helper.remove();
+        }
+        addConsoleLog(`[Sistema] Log completo copiado (${lines.length} linhas).`, "success");
+        showToast(`Log completo copiado (${lines.length} linhas).`, "success");
+    } catch (error) {
+        showToast(`Não foi possível copiar o log: ${error.message}`, "error");
+    }
+}
+
+document.getElementById("btnCopyConsoleLog")?.addEventListener("click", copyFullConsoleLog);
 
 function showProcessingControls(label = "Processamento em andamento.") {
     const controls = document.getElementById("processingControls");
@@ -1799,19 +1835,6 @@ async function openConfiguredDownloadsFolder() {
 }
 
 document.getElementById("btnOpenDownloadsDir")?.addEventListener("click", openConfiguredDownloadsFolder);
-document.getElementById("btnCopyConsoleLog")?.addEventListener("click", async () => {
-    const text = document.getElementById("consoleOutput")?.innerText?.trim() || "";
-    if (!text) {
-        showToast("Ainda não há log para copiar.", "warning");
-        return;
-    }
-    try {
-        await navigator.clipboard.writeText(text);
-        showToast("Log completo copiado.", "success");
-    } catch (error) {
-        showToast("Não foi possível copiar o log automaticamente.", "error");
-    }
-});
 
 function renderEditorialContextPreview(context = {}) {
     const result = document.getElementById("contextAnalysisResult");
@@ -1825,6 +1848,9 @@ function renderEditorialContextPreview(context = {}) {
     const localAudio = context.local_audio || {};
     const multimodal = context.multimodal || {};
     const multimodalStatus = String(multimodal.source_identity_status || "").toLowerCase();
+    const provenance = context.transcription_provenance || {};
+    const campaignHub = context.campaign_hub || {};
+    const analysisInput = multimodal.analysis_input || {};
     const highEnergyMoments = Array.isArray(localAudio.high_energy_moments) ? localAudio.high_energy_moments.slice(0, 8) : [];
     const mode = context.analysis_mode === "transcript_plus_video"
         ? "transcrição + vídeo/áudio"
@@ -1861,12 +1887,21 @@ function renderEditorialContextPreview(context = {}) {
             : multimodalStatus
                 ? `<span class="context-source-status review" title="A análise remota é apenas evidência auxiliar até a identidade ser confirmada">vídeo remoto · evidência auxiliar</span>`
                 : "";
+    const transcriptMarkup = provenance.confirmed_by_editor || provenance.manual_supplied
+        ? `<span class="context-source-status validated" title="O texto colado/importado foi usado como timeline canônica; não houve retranscrição silenciosa">transcrição manual confirmada · ${Number(provenance.segment_count || 0)} segmentos</span>`
+        : `<span class="context-source-status review" title="A fonte temporal veio do pipeline automático; confirme antes de publicar">transcrição automática · confirmar</span>`;
+    const proxyMarkup = analysisInput.used_proxy
+        ? `<span class="context-source-status validated" title="O Gemini recebeu uma cópia visual menor; o vídeo original não foi alterado">vídeo compactado para Gemini</span>`
+        : "";
+    const hubMarkup = campaignHub.used
+        ? `<span class="context-source-status validated" title="Priors agregados e limitados foram usados apenas como desempate editorial">Campaign Hub · prior fraco aplicado</span>`
+        : `<span class="context-source-status review" title="Nenhum snapshot do Campaign Hub foi carregado nesta análise">Campaign Hub · sem snapshot</span>`;
     result.hidden = false;
     const participantConfidence = Number(context.participant_confidence);
     const participantMarkup = Number.isFinite(participantConfidence)
         ? `<span title="Referência textual e sinais de locutor; não é identificação visual">participante ${Math.round(Math.max(0, Math.min(1, participantConfidence)) * 100)}%</span>`
         : "";
-    result.innerHTML = `<div class="context-result-summary"><strong>${escapeHtml(context.description || "Contexto editorial analisado.")}</strong><div class="context-result-facts"><span>${escapeHtml(mode)}</span><span>${qa} pergunta(s)–resposta</span><span>${chapters} capítulo(s)</span><span>${windows} janela(s) de entrevista</span><span>${Number(quality.segment_count || 0)} segmentos · ${escapeHtml(quality.status || "qualidade não validada")}</span>${participantMarkup}${speakerMarkup}${multimodalMarkup}</div></div>${localAudioMarkup}${hookMarkup}`;
+    result.innerHTML = `<div class="context-result-summary"><strong>${escapeHtml(context.description || "Contexto editorial analisado.")}</strong><div class="context-result-facts"><span>${escapeHtml(mode)}</span><span>${qa} pergunta(s)–resposta</span><span>${chapters} capítulo(s)</span><span>${windows} janela(s) de entrevista</span><span>${Number(quality.segment_count || 0)} segmentos · ${escapeHtml(quality.status || "qualidade não validada")}</span>${participantMarkup}${speakerMarkup}${transcriptMarkup}${proxyMarkup}${hubMarkup}${multimodalMarkup}</div></div>${localAudioMarkup}${hookMarkup}`;
 }
 
 async function pollEditorialContextJob(jobId, button, status) {
@@ -3247,6 +3282,7 @@ async function generateClipHeadline(index) {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 clip_id: clip.clip_id || clip.id || null,
+                project_id: state.selectedProjectId || state.currentProjectId || null,
                 transcript,
                 mini_context: miniContext,
                 preferred_format: preferredFormat,

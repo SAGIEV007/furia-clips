@@ -1,8 +1,8 @@
-# Próximo ciclo de melhoria — Furia Clips v1.6
+# Próximo ciclo de melhoria — Furia Clips v1.7
 
 ## Objetivo da rodada
 
-Usar os candidatos reais da coletiva e da live final de análises renais para calibrar a confiabilidade semântica da transcrição local antes da geração de headlines. O Estúdio de Texto de Arte permanece fora da hipótese principal até que seleção, transcrição e estabilidade estejam mais maduras.
+Usar os candidatos reais da coletiva e da live final de análises renais, agora com as transcrições e headlines arquivadas por sessão, para calibrar a confiabilidade semântica da transcrição local antes da geração de headlines. O proxy multimodal e o feedback humano permanecem infraestrutura; não misturar essa hipótese com novos presets ou o Estúdio de Texto de Arte.
 
 ## Hipótese única
 

@@ -8,12 +8,12 @@
 | --- | --- |
 | Projeto | Furia Clips |
 | Repositório | `SAGIEV007/furia-clips` |
-| Versão pública | `1.6` |
+| Versão pública | `1.7` |
 | Fonte da versão | [`VERSION`](../../VERSION) |
 | Branch de trabalho conhecida | `manus/rebuild-opus-parity` |
-| Revisão registrada neste estado | `2ac5b1c` — `feat: add conservative live source boundary gate (1.6)` |
+| Revisão registrada neste estado | pendente até o commit da release 1.7 |
 | Última atualização deste documento | 2026-08-16 |
-| Validação desta rodada | `299 passed`; benchmark renal v2 reproduzido com 4 exports H.264/AAC 1920×1080, nenhum início antes de 169,5s; `py_compile`, `node --check` e `git diff --check` aprovados |
+| Validação desta rodada | `303 passed`; testes focados `52 passed`; `py_compile`, `node --check`, prova local do proxy FFmpeg e `git diff --check` em fechamento |
 | Asset validado | `models/blaze_face_short_range.tflite`, 229746 bytes, SHA-256 conforme manifesto |
 | Objetivo | Gerar cortes do Renan Santos/MBL concisos, autossuficientes e contextualmente completos |
 
@@ -61,6 +61,18 @@ Não descarte essas alterações. Determine se já são parte do trabalho da rod
 ## Resultado da rodada real 1.2
 
 A primeira melhoria especializada do Prompt 2 alterou o `clip_selector`: a duração-alvo não encerra mais um candidato enquanto contexto ou payoff estiverem incompletos. A janela continua até encontrar o menor intervalo completo, sem incluir a pauta seguinte quando o bloco anterior já fecha naturalmente. A hipótese foi reproduzida com um teste de caso real e a suíte passou com 284 testes. O Campaign Hub/Garimpo localizou a live longa `RENAN SANTOS EM CHAPECÓ - SC`, com bloco de 10:51 iniciando em 15:23; o download autenticado foi solicitado, mas o helper Corteiros não concluiu no sandbox. Nenhum Reel publicado foi usado como fonte operacional nesta rodada.
+
+## Resultado da rodada 1.7
+
+A hipótese desta rodada foi: **quando o editor fornece uma transcrição e pede contexto ou headline específica, o Furia deve usar esse texto de forma inequívoca, evitar o limite multimodal com uma cópia compactada e preservar evidências para calibração posterior**.
+
+A transcrição manual/importada agora recebe proveniência explícita, é usada como timeline canônica e aparece no dossiê como confirmada. A análise audiovisual opcional passa a usar uma cópia temporária de até 640 px, com amostragem adaptativa e áudio mono a 16 kHz; o original não é modificado. O cancelamento pode interromper a compactação e as janelas HTTP foram reduzidas para não deixar o job bloqueado por longos períodos.
+
+Cada sessão passa a arquivar, fora do GitHub, a transcrição integral e de seleção, o dossiê de contexto, headlines geradas, decisões de headlines, decisões de clips e o manifesto de proveniência. O console mantém histórico completo da sessão para cópia, enquanto o painel de contexto informa a origem da transcrição, o proxy e o prior do Campaign Hub.
+
+O caso editorial real do corte sobre o ato e a ameaça ganhou candidatos específicos como “NÃO TENHAM MEDO DE IR AO ATO” e “A AMEAÇA NÃO VAI IMPEDIR O ATO”, em vez do fallback genérico “IMPASSE DA SEGURANÇA”. A regressão passou sem depender do Gemini.
+
+A suíte completa passou com **303 testes**. A prova local do proxy reduziu um vídeo sintético de 49.171 para 16.266 bytes. Não foi usado token, mídia real ou transcrição privada no commit.
 
 ## Resultado da rodada 1.6
 
