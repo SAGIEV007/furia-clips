@@ -1,6 +1,26 @@
 # Changelog de continuidade
 
+## 1.9 — Prompt executor e paridade editorial via Campaign Hub
+
+### Incluído
+
+- Novo `docs/continuity/PROMPT_3_EXECUTOR_CHUB_PARITY.md`, prompt copiável para futuras IAs continuarem o Furia Clips com auditoria do checkout, hipótese única, testes, versionamento e publicação verificável.
+- Contrato explícito para usar blocos QA-gated, transcrições, perguntas-gatilho, autossuficiência, payoff, riscos e destaques do Campaign Hub como benchmark e calibração fraca, sem chamada MCP direta no runtime.
+- Regras de escopo que mantêm o Furia Clips focado em cortes precisos e contextuais e adiam um editor pós-renderização semelhante ao CapCut.
+- Registro de padrões profissionais pesquisados em OpusClip, Descript e Riverside, traduzidos para foco por locutor/tópico, busca editorial, score explicável, presets de composição, preservação de evidência e diagnóstico de divergência.
+- `AGENTS.md` atualizado para apontar o prompt executor vigente.
+
+### Validação da rodada
+
+A mudança é documental e operacional; nenhum módulo de processamento foi alterado. Foram conferidos o estado da branch, a versão 1.8, o prompt mestre, o prompt executor, o estado do projeto, o próximo ciclo, a linhagem do Campaign Hub e o contrato de versionamento. A validação automatizada final deve ser executada antes do commit.
+
+### Limitações conhecidas
+
+O benchmark Campaign Hub versus candidatos do Furia ainda não foi implementado nesta release. A versão 1.9 registra o contrato e a hipótese para a próxima rodada; ela não declara melhoria editorial já medida. A validação audiovisual não faz parte desta alteração documental.
+
+
 ## 1.8 — Decodificação AV1 e cobertura canônica da transcrição
+
 
 ### Incluído
 

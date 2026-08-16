@@ -8,16 +8,22 @@
 | --- | --- |
 | Projeto | Furia Clips |
 | Repositório | `SAGIEV007/furia-clips` |
-| Versão pública | `1.8` |
+| Versão pública | `1.9` |
 | Fonte da versão | [`VERSION`](../../VERSION) |
 | Branch de trabalho conhecida | `manus/rebuild-opus-parity` |
-| Revisão registrada neste estado | `b91000a` — `fix: make AV1 and transcript coverage processing safe (1.8)` |
+| Revisão registrada neste estado | `commit pendente` — release documental/operacional 1.9 |
 | Última atualização deste documento | 2026-08-16 |
-| Validação desta rodada | `306 passed`; testes focados `26 passed`; `py_compile`, renderização AV1 real e FFprobe aprovados |
+| Validação desta rodada | `306 passed`; `git diff --check` aprovado; asset BlazeFace oficial baixado temporariamente e SHA-256 validado; nenhum módulo de processamento alterado |
 | Asset validado | `models/blaze_face_short_range.tflite`, 229746 bytes, SHA-256 conforme manifesto |
 | Objetivo | Gerar cortes do Renan Santos/MBL concisos, autossuficientes e contextualmente completos |
 
-Esta rodada prepara a publicação da release 1.8. O hash final será registrado após o commit, sem incluir mídia, banco local, transcrições reais ou credenciais.
+Esta rodada prepara a publicação da release 1.9. O hash final será registrado após o commit, sem incluir mídia, banco local, transcrições reais ou credenciais.
+
+## Resultado da release 1.9
+
+A release 1.9 adiciona `docs/continuity/PROMPT_3_EXECUTOR_CHUB_PARITY.md`, atualiza `AGENTS.md`, registra decisões sobre o benchmark rico do Campaign Hub, substitui a próxima hipótese por uma comparação QA-gated versus candidatos locais e atualiza o contrato de continuidade. O prompt incorpora recursos profissionais pesquisados em OpusClip, Descript e Riverside — foco por locutor/tópico, busca editorial, score explicável, presets e preservação de evidência — sem transformar o Furia em editor geral.
+
+A rodada é documental/operacional: nenhum módulo de seleção, ranking, ingestão ou renderização foi modificado. A suíte completa passou com **306 testes** após atualizar as expectativas de runtime para 1.9. O asset BlazeFace foi provisionado fora do commit apenas para a validação e seu hash oficial foi confirmado. O benchmark Campaign Hub versus candidatos locais ainda não foi implementado e permanece como a próxima hipótese única.
 
 ## Estado funcional conhecido
 

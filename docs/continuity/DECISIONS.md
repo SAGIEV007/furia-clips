@@ -68,3 +68,13 @@ Fontes AV1 devem usar decodificação FFmpeg por software nas etapas de análise
 ## D-017 — Cobertura acompanha a timeline de seleção
 
 Quando a transcrição integral é recortada para remover pré-roll, a transcrição de seleção deve preservar cobertura temporal, proveniência e qualidade da fonte canônica. Perder esses metadados não pode transformar uma transcrição válida em “não validada” nem adiar todos os candidatos por um falso gate técnico.
+
+## D-019 — Campaign Hub rico é benchmark antes de ser peso
+
+O Furia Clips pode aproveitar blocos QA-gated, perguntas-gatilho, autossuficiência, payoff, destaques, riscos, tópicos, transcrições e relações temporais do Campaign Hub para calibrar a seleção. A primeira integração deve comparar essas unidades com candidatos locais em um benchmark versionado e read-only. Nenhum campo do Campaign Hub aprova automaticamente um corte, e nenhuma métrica histórica pode compensar gates de contexto, transcrição, locutor ou evidência visual.
+
+O aplicativo local continua usando snapshots autorizados fora do checkout. O agente pode consultar o MCP para pesquisa e gerar o snapshot, mas o processamento local não deve depender de uma chamada MCP por job. Contas, plataformas, crossposts, métricas settled/provisórias e rótulos de publicação devem permanecer separados.
+
+## D-020 — Ferramentas profissionais inspiram capacidades, não escopo indiscriminado
+
+Recursos observados em OpusClip, Descript e Riverside — foco por locutor/tópico, busca editorial, score multifatorial, presets, reframe com preservação de evidência e edição baseada em transcrição — podem orientar melhorias no núcleo de seleção. Editor geral estilo CapCut, edição pós-renderização de legendas/headlines, avatars, voz, música e publicação automática permanecem adiados até que precisão contextual, benchmark e estabilidade estejam maduros.
