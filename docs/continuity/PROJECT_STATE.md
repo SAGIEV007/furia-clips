@@ -11,7 +11,7 @@
 | Versão pública | `1.3` |
 | Fonte da versão | [`VERSION`](../../VERSION) |
 | Branch de trabalho conhecida | `manus/rebuild-opus-parity` |
-| Revisão registrada neste estado | pendente até o commit de fechamento desta rodada |
+| Revisão registrada neste estado | `aa678fe` — `feat: require answers for explicit editorial questions` |
 | Última atualização deste documento | 2026-08-16 |
 | Validação desta rodada | `286 passed`; `py_compile` aprovado; `git diff --check` aprovado; gate de pergunta explícita validado offline; nenhuma etapa de navegador foi necessária; validação audiovisual da fonte longa permanece pendente |
 | Asset validado | `models/blaze_face_short_range.tflite`, 229746 bytes, SHA-256 conforme manifesto |
@@ -70,4 +70,4 @@ A hipótese offline desta rodada foi: **uma pergunta explícita não pode ser co
 
 Quando o navegador/Criadores/Corteiros estiver disponível, usar blocos longos do Garimpo como referência operacional para calibrar setup, pergunta/resposta, antecedente anafórico e headline, sem recortar Reels publicados novamente. Enquanto isso, priorizar apenas hipóteses reproduzíveis offline e bugs de estabilidade/diagnóstico.
 
-Depois da execução, atualize este arquivo com a versão, commit, branch, testes, vídeos/análises realizados, métricas antes/depois e a próxima hipótese. As versões anteriores `1.2` e os commits `1860276`, `a6846f9` e `2c92b09` permanecem no histórico; esta release 1.3 será registrada no commit de fechamento desta rodada.
+Depois da execução, atualize este arquivo com a versão, commit, branch, testes, vídeos/análises realizados, métricas antes/depois e a próxima hipótese. As versões anteriores `1.2` e os commits `1860276`, `a6846f9` e `2c92b09` permanecem no histórico; a release `1.3` foi publicada no commit `aa678fe` da branch `manus/rebuild-opus-parity`.
