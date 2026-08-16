@@ -115,3 +115,21 @@ def test_cyclist_case_keeps_setup_before_prendeu_matou_payoff():
     assert "próxima pauta eleitoral" not in clips[0]["text"]
     assert clips[0]["context_complete"] is True
     assert clips[0]["payoff_complete"] is True
+
+
+def test_target_duration_never_truncates_open_payoff():
+    selector = ClipSelector(target_duration=10, min_duration=4, max_duration=30)
+    scored = [
+        block(0, 0, 6, "Eu vou entregar para vocês uma guerra porque", 96),
+        block(1, 6, 14, "a escolha é entre enfrentar o crime ou aceitar que ele continue.", 82),
+        block(2, 14, 22, "Agora vamos mudar para outro assunto completamente diferente.", 35),
+    ]
+
+    clips = selector._build_clips_from_scored_blocks(scored)
+
+    assert clips
+    assert clips[0]["end"] == 14
+    assert "a escolha é entre enfrentar" in clips[0]["text"]
+    assert "outro assunto completamente diferente" not in clips[0]["text"]
+    assert clips[0]["payoff_complete"] is True
+    assert clips[0]["context_complete"] is True

@@ -8,12 +8,12 @@
 | --- | --- |
 | Projeto | Furia Clips |
 | Repositório | `SAGIEV007/furia-clips` |
-| Versão pública | `1.1` |
+| Versão pública | `1.2` |
 | Fonte da versão | [`VERSION`](../../VERSION) |
 | Branch de trabalho conhecida | `manus/rebuild-opus-parity` |
-| Revisão registrada neste estado | `6349d37` — `fix: make scene detection resilient` |
+| Revisão registrada neste estado | pendente até o commit da rodada 1.2 |
 | Última atualização deste documento | 2026-08-16 |
-| Validação desta rodada | `283 passed`; `py_compile` aprovado; job real concluído com 3 clipes; servidor saudável após renderização |
+| Validação desta rodada | `284 passed`; `py_compile` aprovado; `git diff --check` aprovado; gate de payoff validado; fonte longa do Garimpo localizada, download bloqueado pelo helper Corteiros no sandbox |
 | Asset validado | `models/blaze_face_short_range.tflite`, 229746 bytes, SHA-256 conforme manifesto |
 | Objetivo | Gerar cortes do Renan Santos/MBL concisos, autossuficientes e contextualmente completos |
 
@@ -58,12 +58,12 @@ Antes da continuidade, examine o `git status`. O estado conhecido antes desta do
 
 Não descarte essas alterações. Determine se já são parte do trabalho da rodada, rode a suíte e faça commit somente após verificar o diff.
 
-## Resultado da rodada real 1.1
+## Resultado da rodada real 1.2
 
-A detecção de cenas passou a ter timeout configurável, ignorar áudio desnecessário e tratar timeout/erro do ffmpeg com uma linha de base segura, evitando que metadados visuais sejam pré-requisito do corte. O primeiro benchmark real baixou um Reel público do Renan via Instagram pelo próprio Furia, validou MP4 H.264/AAC vertical, gerou 57 segmentos de transcrição e exportou três clipes. A análise audiovisual aprovou dois cortes com ressalvas e identificou que um termina antes do payoff e outro começa no meio da frase; esses casos viram regressões editoriais da próxima rodada.
+A primeira melhoria especializada do Prompt 2 alterou o `clip_selector`: a duração-alvo não encerra mais um candidato enquanto contexto ou payoff estiverem incompletos. A janela continua até encontrar o menor intervalo completo, sem incluir a pauta seguinte quando o bloco anterior já fecha naturalmente. A hipótese foi reproduzida com um teste de caso real e a suíte passou com 284 testes. O Campaign Hub/Garimpo localizou a live longa `RENAN SANTOS EM CHAPECÓ - SC`, com bloco de 10:51 iniciando em 15:23; o download autenticado foi solicitado, mas o helper Corteiros não concluiu no sandbox. Nenhum Reel publicado foi usado como fonte operacional nesta rodada.
 
 ## Próxima rodada recomendada
 
-A próxima hipótese única é: **a seleção deve rejeitar ou expandir automaticamente qualquer candidato cujo início seja fragmentado ou cujo final ocorra antes do payoff**, mesmo que a janela tenha hook e alta pontuação. Criar regressões com os três cortes reais, comparar as janelas atuais com janelas expandidas e medir completude, concisão e fidelidade da headline.
+A próxima hipótese única é: **usar blocos longos do Garimpo como referência operacional para calibrar a recuperação de setup, pergunta/resposta, antecedente anafórico e headline, sem recortar Reels publicados novamente**. Primeiro resolver ou contornar legitimamente a aquisição do MP4 longo; depois comparar os candidatos do Furia com os intervalos do Garimpo.
 
-Depois da execução, atualize este arquivo com a versão, commit, branch, testes, vídeos/análises realizados, métricas antes/depois e a próxima hipótese. A versão `1.1` foi publicada no commit `6349d37` da branch `manus/rebuild-opus-parity`, após `283 passed`, `py_compile` aprovado e smoke test real com três clipes exportados.
+Depois da execução, atualize este arquivo com a versão, commit, branch, testes, vídeos/análises realizados, métricas antes/depois e a próxima hipótese. A versão `1.2` está pronta para publicação após o commit final; o hash será preenchido então.

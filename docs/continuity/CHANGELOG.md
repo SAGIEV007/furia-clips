@@ -1,5 +1,18 @@
 # Changelog de continuidade
 
+## 1.2 — Gate de payoff e menor janela completa
+
+### Incluído
+
+- A duração-alvo voltou a ser tratada estritamente como uma dica suave: o seletor não encerra o candidato enquanto o pensamento/payoff estiver aberto.
+- A expansão continua até encontrar a menor janela com contexto e payoff completos, sem incluir a pauta seguinte quando o bloco anterior já fecha naturalmente.
+- Regressão editorial baseada no padrão observado nos outputs reais: hook forte que terminava antes da conclusão.
+- A versão de runtime passa a identificar a especialização editorial desta rodada como `1.2`.
+
+### Validação da rodada
+
+O teste específico de concisão passou com `5 passed`; a suíte completa passou com `284 passed`; `py_compile` e `git diff --check` foram aprovados. A fonte longa do Garimpo foi localizada e o download autenticado foi solicitado, mas o Corteiros não concluiu no sandbox por limitação do helper Electron; nenhum Reel publicado foi usado como fonte de corte nesta rodada.
+
 ## 1.1 — Resiliência da análise de cenas e primeiro benchmark real
 
 ### Incluído

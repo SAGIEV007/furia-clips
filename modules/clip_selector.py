@@ -1468,9 +1468,6 @@ Retorne APENAS o JSON.
                     ):
                         clip_end_idx = next_idx
                         break
-                    if clip_duration >= self.target_duration:
-                        clip_end_idx = next_idx
-                        break
 
             if clip_duration < self.min_duration:
                 continue
