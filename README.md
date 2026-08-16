@@ -2,7 +2,7 @@
 
 **Corte. Ranqueie. Domine.**
 
-> **Versão atual: 1.0.** A identidade de runtime é exibida no console, na interface e na API. A fonte única da versão é [`VERSION`](VERSION).
+> **Versão atual: 1.4.** A identidade de runtime é exibida no console, na interface e na API. A fonte única da versão é [`VERSION`](VERSION).
 
 ## Continuidade para novas sessões e IAs
 

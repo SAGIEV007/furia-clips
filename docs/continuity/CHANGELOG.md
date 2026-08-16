@@ -1,5 +1,18 @@
 # Changelog de continuidade
 
+## 1.4 — Gate de contexto autossuficiente antes da renderização
+
+### Incluído
+
+- Candidatos explicitamente marcados com `context_complete=false` agora permanecem disponíveis para revisão diagnóstica, mas não são renderizados como cortes prontos.
+- O job registra quantos candidatos foram adiados em `render_deferred_context_count` e preserva o motivo e os `review_flags` em `render_rejections`.
+- A mudança foi baseada em mídia real: no lote de 15 minutos do MP4 enviado, o comportamento anterior renderizou 4 candidatos, incluindo um trecho de 168,09 segundos que começava no meio da frase e tinha `context_complete=false`; após a alteração, 3 candidatos foram renderizados e esse trecho foi adiado.
+- O SRT `0815(1).srt` foi parseado como referência externa, sem ser associado ao MP4.
+
+### Validação da rodada
+
+A suíte completa passou com `288 passed`; os testes focados do gate passaram com `24 passed`; `py_compile` e `git diff --check` foram aprovados. A repetição real concluiu com `3` exports H.264/AAC válidos, em comparação com `4` antes da alteração. O processamento da fonte completa de 84,1 minutos foi bloqueado pelo limite operacional do ambiente durante a transcrição CPU; o lote verificável de 15 minutos foi processado com timestamps gerados do áudio do próprio MP4.
+
 ## 1.3 — Gate de pergunta explícita e modo offline do Prompt 2
 
 ### Incluído

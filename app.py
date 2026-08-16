@@ -337,6 +337,34 @@ def _selection_coverage_plan(source_video, video_duration):
     return {"previous_clip_fingerprints": fingerprints, "adaptive_max_clips": max_clips}
 
 
+def _defer_context_incomplete_candidates(candidates):
+    """Keep explicitly incomplete candidates for review, never render them as ready clips.
+
+    The ranker still exposes these candidates and their reasons. This boundary only
+    affects rendering, so a strong hook cannot turn an explicitly incomplete context
+    contract into a published-looking artifact.
+    """
+    renderable = []
+    deferred = []
+    for candidate in candidates or []:
+        if "context_complete" not in candidate or candidate.get("context_complete") is not False:
+            renderable.append(candidate)
+            continue
+        reasons = ["contexto autossuficiente não confirmado"]
+        if candidate.get("starts_mid_sentence"):
+            reasons.append("início possivelmente no meio da frase")
+        if candidate.get("starts_with_context_reference"):
+            reasons.append("referência contextual sem antecedente recuperado")
+        deferred.append({
+            "start": candidate.get("start"),
+            "end": candidate.get("end"),
+            "duration": candidate.get("duration"),
+            "reason": "; ".join(reasons),
+            "review_flags": candidate.get("review_flags", {}),
+        })
+    return renderable, deferred
+
+
 def _transcription_source_mode(settings):
     mode = str((settings or {}).get("transcription_source", "auto") or "auto").strip().lower()
     aliases = {"public_subtitles": "public_subtitle", "captions": "public_subtitle", "local_whisper": "whisper"}
@@ -1913,6 +1941,13 @@ def api_cut_shorts():
                 user_context=user_context,
                 energy_profile=energy_profile,
             )
+            top_clips, editorial_gate_rejections = _defer_context_incomplete_candidates(top_clips)
+            candidate_diagnostics["render_deferred_context_count"] = len(editorial_gate_rejections)
+            if editorial_gate_rejections:
+                emit_progress(
+                    f"[Gate editorial] {len(editorial_gate_rejections)} candidato(s) adiados: contexto autossuficiente não confirmado.",
+                    "warning",
+                )
 
             ctx.update(stage="rendering", progress=76, message="Validando enquadramento e renderizando cortes")
             ctx.check_cancel()
@@ -2001,7 +2036,8 @@ def api_cut_shorts():
                 video_layout=video_layout,
                 layout_plans=layout_plans,
             )
-            render_rejections = list(getattr(cutter, "last_rejections", []))
+            render_rejections = list(editorial_gate_rejections)
+            render_rejections.extend(getattr(cutter, "last_rejections", []))
 
             # Persist rendered clips so review decisions can calibrate future ranking.
             output_folder = ""

@@ -43,6 +43,9 @@ logs/
 video_*_analysis_*.md
 
 # Local research, media audits, and generated evidence
+workspace/benchmarks/
+workspace/references/
+workspace/cache/
 workspace/instagram_*/
 workspace/audit_*/
 workspace/google-*/
