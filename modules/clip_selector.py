@@ -1335,6 +1335,11 @@ Retorne APENAS o JSON.
         question_answer_complete = bool(
             has_question and response_words >= 8 and (response_closed or response_words >= 14)
         )
+        # An explicit question mark creates a Q&A contract: a candidate must
+        # preserve enough response text to be self-contained. Bare
+        # interrogative openings remain a soft signal because automatic
+        # captions often omit punctuation.
+        question_requires_answer = "?" in raw
         normalized_words = set(re.findall(r"[\wÀ-ÿ-]+", normalized))
         has_evidence = bool(normalized_words & {term.lower() for term in EVIDENCE_TERMS_PT})
         ends_closed = raw.endswith((".", "!", "?"))
@@ -1352,6 +1357,7 @@ Retorne APENAS o JSON.
             not starts_mid_sentence
             and not starts_with_context_reference
             and payoff_complete
+            and (not question_requires_answer or question_answer_complete)
             and len(words) >= 12
             and not overlap_suspected
             and not timing_ambiguous
@@ -1361,6 +1367,7 @@ Retorne APENAS o JSON.
             "starts_mid_sentence": starts_mid_sentence,
             "starts_with_context_reference": starts_with_context_reference,
             "question_detected": has_question,
+            "question_requires_answer": question_requires_answer,
             "question_answer_complete": question_answer_complete,
             "evidence_present": has_evidence,
             "payoff_complete": payoff_complete,

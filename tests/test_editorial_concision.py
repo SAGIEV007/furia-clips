@@ -133,3 +133,54 @@ def test_target_duration_never_truncates_open_payoff():
     assert "outro assunto completamente diferente" not in clips[0]["text"]
     assert clips[0]["payoff_complete"] is True
     assert clips[0]["context_complete"] is True
+
+
+def test_explicit_question_requires_answer_before_context_is_complete():
+    selector = ClipSelector(target_duration=10, min_duration=4, max_duration=30)
+    scored = [
+        block(
+            0,
+            0,
+            7,
+            "Qual foi a decisão que mudou completamente a estratégia do governo brasileiro?",
+            96,
+        ),
+        block(
+            1,
+            7,
+            16,
+            "Foi a criação de metas públicas, fiscalização independente e prazo obrigatório para execução.",
+            84,
+        ),
+        block(
+            2,
+            16,
+            24,
+            "Agora a conversa muda para outro assunto sem relação com essa decisão.",
+            35,
+        ),
+    ]
+
+    clips = selector._build_clips_from_scored_blocks(scored)
+
+    assert clips
+    assert clips[0]["end"] == 16
+    assert "Foi a criação de metas públicas" in clips[0]["text"]
+    assert "outro assunto sem relação" not in clips[0]["text"]
+    assert clips[0]["question_requires_answer"] is True
+    assert clips[0]["question_answer_complete"] is True
+    assert clips[0]["context_complete"] is True
+
+
+def test_question_without_answer_is_not_context_complete():
+    selector = ClipSelector(target_duration=10, min_duration=4, max_duration=30)
+    metadata = {"speaker_turn_valid": True}
+
+    flags = selector._editorial_flags(
+        "Qual foi a decisão que mudou completamente a estratégia do governo brasileiro?",
+        metadata,
+    )
+
+    assert flags["question_requires_answer"] is True
+    assert flags["question_answer_complete"] is False
+    assert flags["context_complete"] is False

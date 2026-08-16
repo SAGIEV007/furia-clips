@@ -1,5 +1,19 @@
 # Changelog de continuidade
 
+## 1.3 — Gate de pergunta explícita e modo offline do Prompt 2
+
+### Incluído
+
+- Perguntas explícitas com `?` agora exigem resposta suficiente antes de um candidato ser considerado contextualmente completo.
+- A flag explicável `question_requires_answer` é propagada pelo seletor e pelo ranker para revisão e diagnóstico.
+- Regressões para pergunta sem resposta e para expansão até a resposta antes de avançar para a pauta seguinte.
+- Prompt 2 atualizado para não presumir a versão `1.1`, registrar a versão real pelo arquivo `VERSION`, reconhecer a hipótese de payoff como concluída e continuar com melhorias offline quando navegador/Criadores/Corteiros estiverem bloqueados.
+- Cópia versionada do Prompt 2 em [`PROMPT_2_EXECUTOR.md`](PROMPT_2_EXECUTOR.md).
+
+### Validação da rodada
+
+A suíte completa passou com `286 passed`; `py_compile` e `git diff --check` foram aprovados. Nenhum navegador, login, cookie, Reel publicado ou nova fonte longa foi necessário para esta alteração. A validação audiovisual da fonte longa do Garimpo permanece pendente.
+
 ## 1.2 — Gate de payoff e menor janela completa
 
 ### Incluído

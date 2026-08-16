@@ -297,6 +297,7 @@ class EditorialRanker:
             "payoff_complete": bool(clip.get("payoff_complete")),
             "context_complete": bool(clip.get("context_complete")),
             "starts_with_context_reference": bool(clip.get("starts_with_context_reference")),
+            "question_requires_answer": bool(clip.get("question_requires_answer")),
             "payoff_weak_ending": bool(clip.get("payoff_weak_ending")),
             "transcription_review_required": bool(clip.get("transcription_review_required")),
             "transcription_coverage_status": str(clip.get("transcription_coverage_status", "") or ""),
@@ -357,6 +358,7 @@ class EditorialRanker:
                 "duration_exception": bool(duration_preference["exception"]),
                 "starts_mid_sentence": bool(clip.get("starts_mid_sentence")),
                 "starts_with_context_reference": bool(clip.get("starts_with_context_reference")),
+                "question_requires_answer": bool(clip.get("question_requires_answer")),
                 "payoff_weak_ending": bool(clip.get("payoff_weak_ending")),
                 "question_detected": bool(clip.get("question_detected")),
                 "question_answer_complete": bool(clip.get("question_answer_complete")),
@@ -450,7 +452,7 @@ class EditorialRanker:
         reasons = []
         penalty = 0
         contract_keys = {
-            "starts_mid_sentence", "question_detected", "question_answer_complete",
+            "starts_mid_sentence", "question_detected", "question_requires_answer", "question_answer_complete",
             "evidence_present", "payoff_complete", "context_complete",
             "overlap_suspected", "timing_ambiguous", "speaker_turn_valid",
         }
