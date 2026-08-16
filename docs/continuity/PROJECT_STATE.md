@@ -11,7 +11,7 @@
 | Versão pública | `1.4` |
 | Fonte da versão | [`VERSION`](../../VERSION) |
 | Branch de trabalho conhecida | `manus/rebuild-opus-parity` |
-| Revisão registrada neste estado | `pending` — gate de contexto autossuficiente antes da renderização |
+| Revisão registrada neste estado | `2528cec` — `feat: defer context-incomplete renders (1.4)` |
 | Última atualização deste documento | 2026-08-16 |
 | Validação desta rodada | `288 passed`; `py_compile` aprovado; `git diff --check` aprovado; gate de contexto validado em lote real de 15 minutos; 3 exports H.264/AAC válidos; transcrição integral da fonte de 84,1 minutos bloqueada pelo limite operacional de CPU |
 | Asset validado | `models/blaze_face_short_range.tflite`, 229746 bytes, SHA-256 conforme manifesto |
@@ -72,4 +72,4 @@ O MP4 operacional tem duração de aproximadamente 84,1 minutos, vídeo AV1 1920
 
 Usar uma fonte longa autorizada do Renan com transcrição completa ou um lote reproduzível maior para calibrar antecedente anafórico, pergunta/resposta e mudança de pauta. O Estúdio de Texto de Arte permanece adiado até nova validação da seleção e da estabilidade. Reels publicados continuam `reference_only`; somente fontes longas/cruas são `processing_source`.
 
-Depois da execução, atualize este arquivo com a versão, commit, branch, testes, vídeos/análises realizados, métricas antes/depois e a próxima hipótese. As versões anteriores `1.2` e os commits `1860276`, `a6846f9` e `2c92b09` permanecem no histórico; a release `1.3` foi publicada no commit `aa678fe` da branch `manus/rebuild-opus-parity`.
+Depois da execução, atualize este arquivo com a versão, commit, branch, testes, vídeos/análises realizados, métricas antes/depois e a próxima hipótese. As versões anteriores `1.2` e os commits `1860276`, `a6846f9` e `2c92b09` permanecem no histórico; a release `1.3` foi publicada no commit `aa678fe`; esta release `1.4` está registrada no commit `2528cec` da branch `manus/rebuild-opus-parity`.
