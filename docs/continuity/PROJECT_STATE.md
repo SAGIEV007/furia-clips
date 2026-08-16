@@ -11,7 +11,7 @@
 | Versão pública | `1.8` |
 | Fonte da versão | [`VERSION`](../../VERSION) |
 | Branch de trabalho conhecida | `manus/rebuild-opus-parity` |
-| Revisão registrada neste estado | pendente até o commit da release 1.8 |
+| Revisão registrada neste estado | `b91000a` — `fix: make AV1 and transcript coverage processing safe (1.8)` |
 | Última atualização deste documento | 2026-08-16 |
 | Validação desta rodada | `306 passed`; testes focados `26 passed`; `py_compile`, renderização AV1 real e FFprobe aprovados |
 | Asset validado | `models/blaze_face_short_range.tflite`, 229746 bytes, SHA-256 conforme manifesto |
@@ -110,4 +110,4 @@ O MP4 operacional tem duração de aproximadamente 84,1 minutos, vídeo AV1 1920
 
 Usar os candidatos reais da coletiva e da live renal para calibrar detecção de erros semânticos do ASR em nomes próprios, entidades políticas e termos raros antes de gerar headlines. Marcar baixa confiança lexical para revisão humana e comparar a transcrição local com uma fonte corrigida quando disponível. O Estúdio de Texto de Arte permanece adiado; Reels publicados continuam `reference_only` e somente fontes longas/cruas são `processing_source`.
 
-Depois da execução, atualize este arquivo com a versão, commit, branch, testes, vídeos/análises realizados, métricas antes/depois e a próxima hipótese. As versões anteriores `1.2` e os commits `1860276`, `a6846f9` e `2c92b09` permanecem no histórico; a release `1.3` foi publicada no commit `aa678fe`; a release `1.4` está registrada no commit `2528cec`; esta release `1.5` está registrada no commit `337e2dd`; a release `1.6` está registrada no commit `2ac5b1c`; a release `1.7` está registrada no commit `f712e23` da branch `manus/rebuild-opus-parity`.
+Depois da execução, atualize este arquivo com a versão, commit, branch, testes, vídeos/análises realizados, métricas antes/depois e a próxima hipótese. As versões anteriores `1.2` e os commits `1860276`, `a6846f9` e `2c92b09` permanecem no histórico; a release `1.3` foi publicada no commit `aa678fe`; a release `1.4` está registrada no commit `2528cec`; a release `1.5` está registrada no commit `337e2dd`; a release `1.6` está registrada no commit `2ac5b1c`; a release `1.7` está registrada no commit `f712e23`; a release `1.8` está registrada no commit `b91000a` da branch `manus/rebuild-opus-parity`.
