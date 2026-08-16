@@ -35,3 +35,11 @@ A versão pública inicial é `1.0`, mantida em `VERSION`. O console, a API, a i
 ## D-009 — Branch antes de merge
 
 O agente pode criar branch, commit e push no GitHub autorizado. Merge na principal exige autorização explícita. Vídeos grandes, bancos, tokens, cookies e dados pessoais ficam fora do Git.
+
+## D-010 — Transcrição leve separada do corte
+
+A operação somente-transcrição por URL usa áudio por padrão, arquiva timestamps e não cria projeto nem gera cortes. O download de vídeo permanece reservado à fonte operacional que será cortada.
+
+## D-011 — Revisão técnica é fronteira de renderização
+
+Quando o ranker marca `technical_gate_status=review`, o candidato continua disponível para diagnóstico e revisão humana, mas não deve ser renderizado como corte pronto. Perguntas sem ponte resposta–pergunta validada e alegações sensíveis sem contexto/evidência explícitos não podem ser compensadas por score alto.

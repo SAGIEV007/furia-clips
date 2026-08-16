@@ -326,8 +326,9 @@
                      <button class="btn btn-sm btn-outline" id="btnProbeSource" type="button"><span class="material-icons-round">search</span> Verificar</button>
                  </div>
                  <div class="source-link-actions">
-                     <button class="btn btn-sm btn-outline" id="btnDownloadSource" type="button"><span class="material-icons-round">download</span> Baixar somente</button>
-                     <button class="btn btn-sm btn-primary" id="btnDownloadTranscribeSource" type="button"><span class="material-icons-round">cloud_download</span> Baixar e transcrever</button>
+                      <button class="btn btn-sm btn-outline" id="btnDownloadSource" type="button"><span class="material-icons-round">download</span> Baixar somente</button>
+                      <button class="btn btn-sm btn-outline" id="btnTranscribeSource" type="button"><span class="material-icons-round">description</span> Transcrever sem cortar</button>
+                      <button class="btn btn-sm btn-primary" id="btnDownloadTranscribeSource" type="button"><span class="material-icons-round">cloud_download</span> Baixar e transcrever</button>
                      <button class="btn btn-sm btn-outline" id="btnOpenTactiq" type="button"><span class="material-icons-round">open_in_new</span> Abrir Tactiq assistido</button>
                  </div>
                  <div class="source-download-options">
@@ -337,7 +338,7 @@
                          <button class="btn btn-sm btn-outline" id="btnChooseSourceDir" type="button"><span class="material-icons-round">folder_open</span> Escolher pasta</button>
                      </div>
                      <div class="source-option-row">
-                         <span class="source-help-inline">“Baixar e transcrever” respeita a transcrição manual confirmada e só usa Gemini/legenda/Whisper quando ela não existir.</span>
+                          <span class="source-help-inline">“Transcrever sem cortar” baixa a fonte, cria apenas a transcrição timestampada e não executa seleção ou renderização. “Baixar e transcrever” respeita a transcrição manual confirmada e só usa Gemini/legenda/Whisper quando ela não existir.</span>
                          <label class="source-quality-label" for="sourceMaxHeight">Qualidade máxima
                              <select id="sourceMaxHeight" class="setting-select">
                                  <option value="1080" selected>1080p</option>

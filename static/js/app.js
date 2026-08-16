@@ -27,6 +27,8 @@ const state = {
     sourceDownloadDir: "",
     sourceMaxHeight: 1080,
     sourceImportActive: false,
+    sourceTranscriptionActive: false,
+    sourceTranscriptionJobId: null,
     operationDashboardLoading: false,
     lastJobConsoleKey: "",
     repositorySync: null,
@@ -104,6 +106,10 @@ socket.on("job_update", (job) => {
     handleJobUpdate(job);
 });
 
+socket.on("source_transcription_complete", (data) => {
+    handleSourceTranscriptionComplete(data);
+});
+
 socket.on("editorial_context_complete", (data) => {
     state.editorialContext = data?.context || null;
     renderEditorialContextPreview(state.editorialContext || {});
@@ -177,6 +183,39 @@ function updateOllamaStatusBadge(data) {
 }
 
 // ─── Status Handlers ───
+
+function setSourceTranscriptionButtons(active) {
+    state.sourceTranscriptionActive = Boolean(active);
+    [
+        document.getElementById("btnDownloadSource"),
+        document.getElementById("btnTranscribeSource"),
+        document.getElementById("btnDownloadTranscribeSource"),
+    ].filter(Boolean).forEach((button) => {
+        button.disabled = Boolean(active);
+        button.classList.toggle("loading", Boolean(active));
+    });
+}
+
+function handleSourceTranscriptionComplete(data) {
+    setSourceTranscriptionButtons(false);
+    state.sourceTranscriptionJobId = null;
+    hideProgressBar();
+    const transcription = data?.transcription;
+    if (transcription) {
+        state.manualTranscript = transcription;
+        state.manualTranscriptVideo = data?.source?.path || data?.source?.absolute_path || "";
+        state.transcriptArchive = data?.transcription_archive || transcription.archive || null;
+        hydrateTranscriptEditor(transcription, state.transcriptArchive);
+    }
+    const count = Number(transcription?.segment_count || transcription?.segments?.length || 0);
+    const coverage = data?.coverage?.status || transcription?.coverage?.status || "não verificada";
+    showSourceStatus(
+        `Transcrição pronta sem cortes: ${count} segmentos · cobertura ${coverage}. Arquivo persistente salvo.`,
+        coverage === "mismatch_suspected" ? "warning" : "success",
+    );
+    addConsoleLog(`[Transcrição por URL] ${count} segmentos prontos; nenhum corte foi gerado. Cobertura: ${coverage}.`, "success");
+    showToast("Transcrição por URL concluída sem gerar cortes.", "success");
+}
 
 function handleStatusUpdate(data) {
     switch (data.status) {
@@ -995,6 +1034,20 @@ function handleJobUpdate(job, options = {}) {
     if (options.refreshDashboard !== false) window.clearTimeout(state.operationRefreshTimer);
     if (options.refreshDashboard !== false) {
         state.operationRefreshTimer = window.setTimeout(loadOperationDashboard, 1200);
+    }
+    if (job.type === "source_transcription") {
+        const active = ["queued", "running", "cancel_requested"].includes(job.state);
+        setSourceTranscriptionButtons(active);
+        if (active) {
+            state.sourceTranscriptionJobId = job.id;
+            showSourceStatus(`[Transcrição por URL] ${job.message || job.stage || "Processando"}`, "");
+        } else if (job.state === "failed") {
+            state.sourceTranscriptionJobId = null;
+            showSourceStatus(`[Transcrição por URL] Falha: ${job.error || "consulte o console"}`, "error");
+        } else if (job.state === "cancelled") {
+            state.sourceTranscriptionJobId = null;
+            showSourceStatus("Transcrição por URL cancelada.", "warning");
+        }
     }
     const container = document.getElementById("progressBarContainer");
     const bar = document.getElementById("progressBar");
@@ -3465,8 +3518,53 @@ async function ensureSourceDirectory() {
     return chooseSourceDirectory();
 }
 
+async function transcribeSourceOnly() {
+    if (state.sourceTranscriptionActive || state.sourceImportActive) return;
+    const input = document.getElementById("sourceUrlInput");
+    const url = normalizePublicUrlInput(input?.value);
+    if (input && url) input.value = url;
+    if (!url) {
+        showSourceStatus("Informe uma URL pública.", "error");
+        return;
+    }
+    const destination = await ensureSourceDirectory();
+    if (!destination) {
+        showSourceStatus("Transcrição cancelada: escolha uma pasta para salvar a fonte.", "warning");
+        return;
+    }
+    const maxHeight = parseInt(document.getElementById("sourceMaxHeight")?.value || state.sourceMaxHeight || 1080, 10);
+    setSourceTranscriptionButtons(true);
+    showProgressBar();
+    showSourceStatus("Download de áudio e transcrição iniciados; nenhum corte será gerado.", "");
+    try {
+        const res = await fetch("/api/source/transcribe", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                url,
+                destination_dir: destination,
+                max_height: maxHeight,
+                media_type: "audio",
+                transcription_source: document.getElementById("settingTranscriptionSource")?.value || "auto",
+            }),
+        });
+        const data = await parseJsonResponse(res, "Transcrição por URL");
+        if (!res.ok || !data.success) throw new Error(data.error || "Não foi possível iniciar a transcrição");
+        state.sourceUrl = url;
+        state.sourceTranscriptionJobId = data.job_id || null;
+        state.activeJob = data.job_id ? { id: data.job_id, type: "source_transcription", state: data.state || "queued" } : null;
+        showProcessingControls("Transcrição por URL (áudio) adicionada à fila persistente; nenhum corte será gerado.");
+        addConsoleLog(`[Transcrição por URL] Job ${String(data.job_id || "").slice(0, 8)} iniciado com áudio, sem renderização.`, "info");
+    } catch (error) {
+        setSourceTranscriptionButtons(false);
+        hideProgressBar();
+        showSourceStatus(error.message, "error");
+        showToast(error.message, "error");
+    }
+}
+
 async function importSource(autoTranscribe = false) {
-    if (state.sourceImportActive) return;
+    if (state.sourceImportActive || state.sourceTranscriptionActive) return;
     const input = document.getElementById("sourceUrlInput");
     const url = normalizePublicUrlInput(input?.value);
     if (input && url) input.value = url;
@@ -3532,6 +3630,7 @@ async function importSource(autoTranscribe = false) {
 }
 
 document.getElementById("btnDownloadSource")?.addEventListener("click", () => importSource(false));
+document.getElementById("btnTranscribeSource")?.addEventListener("click", transcribeSourceOnly);
 document.getElementById("btnDownloadTranscribeSource")?.addEventListener("click", () => importSource(true));
 
 function normalizePublicUrlInput(rawUrl) {

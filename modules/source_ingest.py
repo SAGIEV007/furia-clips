@@ -329,3 +329,111 @@ def download_public_video(url: str, destination: str, progress=None, max_height:
         "extractor": info.get("extractor", ""),
         "max_height": height_limit,
     }
+
+
+def download_public_audio(url: str, destination: str, progress=None, retries: int = 3, cancel_check=None) -> dict:
+    """Download an audio-only public source for transcript-only operations.
+
+    This deliberately does not replace ``download_public_video``: cutting still
+    requires the original video. It only avoids the heavier video transfer when
+    the caller explicitly requests a transcript without rendering clips.
+    """
+    value = validate_public_url(url)
+    yt_dlp = _yt_dlp()
+    target = Path(destination).expanduser().resolve()
+    target.mkdir(parents=True, exist_ok=True)
+    hooks = []
+    if progress:
+        last_percent = {"value": None}
+        last_emit = {"time": 0.0}
+
+        def hook(status):
+            if cancel_check:
+                cancel_check()
+            if status.get("status") != "downloading":
+                if status.get("status") == "finished":
+                    progress({"status": "stream_finished", "filename": status.get("filename", ""), "stream": "áudio"})
+                return
+            total = status.get("total_bytes") or status.get("total_bytes_estimate") or 0
+            done = status.get("downloaded_bytes") or 0
+            percent = (done / total * 100) if total else None
+            now = time.monotonic()
+            previous = last_percent["value"]
+            if percent is None or previous is None or percent >= 100 or percent - previous >= 0.5 or now - last_emit["time"] >= 1.0:
+                last_percent["value"] = percent
+                last_emit["time"] = now
+                progress({
+                    "status": "downloading",
+                    "percent": percent,
+                    "downloaded": done,
+                    "total": total,
+                    "stream": "áudio",
+                })
+
+        hooks.append(hook)
+
+    try:
+        max_attempts = max(1, min(int(retries or 3), 5))
+    except (TypeError, ValueError):
+        max_attempts = 3
+    options = {
+        **_common_yt_dlp_options(),
+        "format": "ba/b",
+        "outtmpl": str(target / "%(title).120B [%(id)s].%(ext)s"),
+        "noplaylist": True,
+        "restrictfilenames": True,
+        "nooverwrites": True,
+        "quiet": True,
+        "no_warnings": True,
+        "progress_hooks": hooks,
+    }
+    last_error = None
+    output = None
+    info = {}
+    for attempt in range(1, max_attempts + 1):
+        try:
+            if cancel_check:
+                cancel_check()
+            if attempt > 1 and progress:
+                progress({"status": "retry", "attempt": attempt, "max_attempts": max_attempts})
+            with yt_dlp.YoutubeDL(options) as downloader:
+                info = downloader.extract_info(value, download=True)
+                output = Path(downloader.prepare_filename(info))
+                if not output.exists():
+                    candidates = sorted(target.glob(f"*{info.get('id', '')}*"), key=lambda p: p.stat().st_mtime, reverse=True)
+                    if candidates:
+                        output = candidates[0]
+            if output and output.exists():
+                break
+        except OperationCancelled:
+            raise
+        except Exception as exc:
+            last_error = exc
+            if attempt < max_attempts:
+                deadline = time.monotonic() + min(2 ** (attempt - 1), 5)
+                while time.monotonic() < deadline:
+                    if cancel_check:
+                        cancel_check()
+                    time.sleep(min(0.5, deadline - time.monotonic()))
+
+    if last_error is not None and (not output or not output.exists()):
+        raise _source_error("Não foi possível baixar o áudio público", last_error) from last_error
+    if not output or not output.exists() or not output.is_file():
+        raise SourceIngestError("O download terminou sem produzir um arquivo de áudio.")
+
+    validation = validate_media(str(output), expected_duration=info.get("duration"), duration_tolerance=5.0, require_audio=True, require_video=False)
+    if not validation.valid:
+        try:
+            output.unlink(missing_ok=True)
+        except OSError:
+            pass
+        raise SourceIngestError(f"O áudio baixado não passou na validação de mídia: {'; '.join(validation.errors)}")
+
+    return {
+        "path": str(output),
+        "title": info.get("title", ""),
+        "duration": info.get("duration"),
+        "url": value,
+        "extractor": info.get("extractor", ""),
+        "media_type": "audio",
+    }

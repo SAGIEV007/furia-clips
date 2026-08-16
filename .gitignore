@@ -46,6 +46,8 @@ video_*_analysis_*.md
 workspace/benchmarks/
 workspace/references/
 workspace/cache/
+workspace/calibration_sources/
+workspace/transcription-url-tests/
 workspace/instagram_*/
 workspace/audit_*/
 workspace/google-*/

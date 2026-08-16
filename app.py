@@ -101,6 +101,7 @@ from modules.source_ingest import (
     SourceIngestError,
     probe_public_url,
     download_public_video,
+    download_public_audio,
     download_public_subtitles,
     validate_public_url,
 )
@@ -338,29 +339,41 @@ def _selection_coverage_plan(source_video, video_duration):
 
 
 def _defer_context_incomplete_candidates(candidates):
-    """Keep explicitly incomplete candidates for review, never render them as ready clips.
+    """Keep editorially unsafe candidates for review instead of rendering them ready.
 
-    The ranker still exposes these candidates and their reasons. This boundary only
-    affects rendering, so a strong hook cannot turn an explicitly incomplete context
-    contract into a published-looking artifact.
+    The ranker still exposes deferred candidates and their reasons. Rendering is the
+    final publication-like boundary: a strong hook must not compensate for missing
+    context or an explicit technical review requirement such as an unvalidated
+    question bridge or a sensitive claim without evidence.
     """
     renderable = []
     deferred = []
     for candidate in candidates or []:
-        if "context_complete" not in candidate or candidate.get("context_complete") is not False:
+        review_flags = candidate.get("review_flags") or {}
+        technical_status = candidate.get("technical_gate_status") or review_flags.get("technical_gate_status")
+        technical_reasons = candidate.get("technical_gate_reasons") or review_flags.get("technical_gate_reasons") or []
+        context_incomplete = "context_complete" in candidate and candidate.get("context_complete") is False
+        technical_review = technical_status == "review"
+        if not context_incomplete and not technical_review:
             renderable.append(candidate)
             continue
-        reasons = ["contexto autossuficiente não confirmado"]
-        if candidate.get("starts_mid_sentence"):
-            reasons.append("início possivelmente no meio da frase")
-        if candidate.get("starts_with_context_reference"):
-            reasons.append("referência contextual sem antecedente recuperado")
+
+        reasons = []
+        if context_incomplete:
+            reasons.append("contexto autossuficiente não confirmado")
+            if candidate.get("starts_mid_sentence"):
+                reasons.append("início possivelmente no meio da frase")
+            if candidate.get("starts_with_context_reference"):
+                reasons.append("referência contextual sem antecedente recuperado")
+        if technical_review:
+            reasons.append("revisão técnica editorial obrigatória")
+            reasons.extend(str(reason) for reason in technical_reasons if str(reason).strip())
         deferred.append({
-            "start": candidate.get("start"),
-            "end": candidate.get("end"),
+            "start": candidate.get("start", candidate.get("start_time")),
+            "end": candidate.get("end", candidate.get("end_time")),
             "duration": candidate.get("duration"),
-            "reason": "; ".join(reasons),
-            "review_flags": candidate.get("review_flags", {}),
+            "reason": "; ".join(dict.fromkeys(reasons)),
+            "review_flags": review_flags,
         })
     return renderable, deferred
 
@@ -1502,6 +1515,189 @@ def api_source_import():
     return jsonify({"success": True, "message": message, "destination_dir": destination})
 
 
+@app.route("/api/source/transcribe", methods=["POST"])
+def api_source_transcribe():
+    """Download a public source and create a transcript without generating clips."""
+    data = request.get_json(silent=True) or {}
+    settings = get_all_settings()
+    try:
+        url = validate_public_url(data.get("url", ""))
+        destination = _resolve_source_destination(data.get("destination_dir"), settings)
+    except (SourceIngestError, OSError) as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
+
+    media_type = str(data.get("media_type", "audio") or "audio").strip().lower()
+    if media_type not in {"audio", "video"}:
+        media_type = "audio"
+    try:
+        max_height = max(144, min(int(data.get("max_height", settings.get("source_max_height", 1080)) or 1080), 1080))
+    except (TypeError, ValueError):
+        max_height = 1080
+    transcription_mode = _transcription_source_mode({
+        **settings,
+        "transcription_source": data.get("transcription_source", settings.get("transcription_source", "auto")),
+    })
+    transcription_settings = {**settings, "transcription_source": transcription_mode}
+    set_setting("source_download_dir", destination)
+    set_setting("source_max_height", max_height)
+
+    def task(ctx):
+        def job_message(message, level="info", stage=None, progress=None):
+            emit_progress(message, level)
+            if stage is not None or progress is not None:
+                ctx.update(stage=stage, progress=progress, message=str(message)[:500])
+
+        try:
+            ctx.check_cancel()
+            job_message("[Transcrição por URL] Preparando download da fonte pública...", "info", "downloading", 2)
+            download_progress_state = {"last_bucket": -1}
+
+            def on_download_progress(update):
+                message = _format_source_import_progress(update)
+                emit_progress(message, "info")
+                percent = update.get("percent")
+                if percent is None:
+                    return
+                try:
+                    bucket = int(float(percent) // 5)
+                except (TypeError, ValueError):
+                    return
+                if bucket <= download_progress_state["last_bucket"]:
+                    return
+                download_progress_state["last_bucket"] = bucket
+                ctx.update(
+                    stage="downloading",
+                    progress=min(35, 5 + bucket * 2),
+                    message=message[:500],
+                )
+
+            if media_type == "audio":
+                result = download_public_audio(
+                    url,
+                    destination,
+                    retries=settings.get("source_download_retries", 3),
+                    cancel_check=ctx.check_cancel,
+                    progress=on_download_progress,
+                )
+            else:
+                result = download_public_video(
+                    url,
+                    destination,
+                    max_height=max_height,
+                    retries=settings.get("source_download_retries", 3),
+                    cancel_check=ctx.check_cancel,
+                    progress=on_download_progress,
+                )
+            result_path = os.path.abspath(result["path"])
+            source_duration = result.get("duration") or _probe_video_duration_seconds(result_path)
+            display_path = os.path.relpath(result_path, WORKSPACE_DIR) if _is_under(result_path, WORKSPACE_DIR) else result_path
+            ctx.update(stage="downloaded", progress=38, message=f"Fonte {media_type} baixada e validada; preparando transcrição")
+            emit_progress(f"[Transcrição por URL] Fonte validada: {display_path}", "success")
+            ctx.check_cancel()
+
+            subtitle_path = None
+            if transcription_mode != "whisper":
+                ctx.update(stage="public_subtitles", progress=42, message="Procurando legenda pública timestampada")
+                emit_progress("[Transcrição por URL] Procurando legenda pública timestampada...", "info")
+                subtitle_path = download_public_subtitles(
+                    url,
+                    destination,
+                    cancel_check=ctx.check_cancel,
+                )
+                if subtitle_path:
+                    emit_progress(f"[Transcrição por URL] Legenda pública encontrada: {os.path.basename(subtitle_path)}", "success")
+                else:
+                    emit_progress("[Transcrição por URL] Nenhuma legenda pública válida encontrada; seguindo para o motor configurado.", "warning")
+            else:
+                emit_progress("[Transcrição por URL] Whisper local forçado; busca de legenda pública ignorada.", "info")
+
+            ctx.update(stage="transcribing", progress=48, message="Gerando transcrição timestampada sem gerar cortes")
+            transcription = _transcribe_video_automatically(
+                result_path,
+                transcription_settings,
+                lambda message, level="info": job_message(message, level, "transcribing", 52),
+                transcript_fallback_path=subtitle_path,
+                cancel_check=ctx.check_cancel,
+            )
+            if not isinstance(transcription, dict) or not transcription.get("segments"):
+                raise SourceIngestError("A fonte foi baixada, mas não produziu segmentos timestampados.")
+
+            transcription["source_url"] = url
+            transcription["source_video"] = display_path
+            transcription["source_duration_seconds"] = source_duration
+            transcription["coverage"] = _transcription_coverage_report(transcription, source_duration)
+            transcript_files = _save_transcription_artifacts(result_path, transcription)
+            transcript_source = "public_subtitle" if subtitle_path else str(transcription.get("source", "automatic"))
+            transcript_archive = archive_transcription(
+                transcription,
+                source_video=result_path,
+                source=transcript_source,
+                source_artifact=subtitle_path or "",
+                project_id=None,
+                duration=source_duration,
+                archive_name=result.get("title") or os.path.basename(result_path),
+            )
+            transcription["quality"] = transcript_archive.get("quality", {})
+            transcription["archive"] = transcript_archive
+            transcription["transcription_files"] = transcript_files
+            ctx.check_cancel()
+
+            artifacts = [{
+                "type": "transcription",
+                "source_url": url,
+                "source_video": display_path,
+                "archive_dir": transcript_archive.get("relative_dir"),
+                "quality": transcript_archive.get("quality", {}),
+                "coverage": transcription.get("coverage", {}),
+            }]
+            event_data = {
+                "job_id": ctx.job_id,
+                "url": url,
+                "source": {
+                    **result,
+                    "path": display_path,
+                    "absolute_path": result_path,
+                    "destination_dir": destination,
+                },
+                "transcription": transcription,
+                "transcription_files": transcript_files,
+                "transcription_archive": transcript_archive,
+                "coverage": transcription.get("coverage", {}),
+                "quality": transcript_archive.get("quality", {}),
+                "mode": transcription_mode,
+                "media_type": media_type,
+            }
+            ctx.update(stage="completed", progress=100, message="Transcrição por URL concluída", artifacts=artifacts)
+            socketio.emit("source_transcription_complete", event_data)
+            emit_status("source_transcription_complete", event_data)
+            emit_progress(
+                f"[Transcrição por URL] Concluída: {transcription.get('segment_count', len(transcription.get('segments', [])))} segmentos; nenhum corte foi gerado.",
+                "success",
+            )
+            return {"artifacts": artifacts}
+        except (JobCancelled, OperationCancelled):
+            emit_progress("[Transcrição por URL] Operação cancelada com segurança.", "warning")
+            raise
+        except Exception as exc:
+            emit_progress(f"[Transcrição por URL] Falha: {str(exc)[:240]}", "error")
+            raise
+
+    with processing_lock:
+        if current_task["active"]:
+            return jsonify({"error": ERROR_MESSAGES["processing_active"]}), 409
+        job = job_manager.submit("source_transcription", task)
+    return jsonify({
+        "success": True,
+        "message": "Transcrição por URL iniciada sem gerar cortes",
+        "job_id": job["id"],
+        "state": job["state"],
+        "source_url": url,
+        "destination_dir": destination,
+        "transcription_source": transcription_mode,
+        "media_type": media_type,
+    })
+
+
 @app.route("/api/transcript/parse", methods=["POST"])
 def api_parse_transcript():
     data = request.get_json(silent=True) or {}
@@ -1942,10 +2138,15 @@ def api_cut_shorts():
                 energy_profile=energy_profile,
             )
             top_clips, editorial_gate_rejections = _defer_context_incomplete_candidates(top_clips)
-            candidate_diagnostics["render_deferred_context_count"] = len(editorial_gate_rejections)
+            candidate_diagnostics["render_deferred_context_count"] = sum(
+                1 for item in editorial_gate_rejections if "contexto autossuficiente" in item.get("reason", "")
+            )
+            candidate_diagnostics["render_deferred_technical_count"] = sum(
+                1 for item in editorial_gate_rejections if "revisão técnica editorial obrigatória" in item.get("reason", "")
+            )
             if editorial_gate_rejections:
                 emit_progress(
-                    f"[Gate editorial] {len(editorial_gate_rejections)} candidato(s) adiados: contexto autossuficiente não confirmado.",
+                    f"[Gate editorial] {len(editorial_gate_rejections)} candidato(s) adiados: contexto ou revisão técnica explícita.",
                     "warning",
                 )
 

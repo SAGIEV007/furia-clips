@@ -102,6 +102,47 @@ def test_public_subtitles_are_detected_before_cpu_fallback(monkeypatch, tmp_path
     assert progress[-1]["status"] == "subtitle"
 
 
+def test_download_public_audio_uses_audio_format_and_validates_audio(monkeypatch, tmp_path):
+    from types import SimpleNamespace
+    import modules.source_ingest as source_ingest
+
+    audio = tmp_path / "Fonte [abc123].m4a"
+    audio.write_bytes(b"audio")
+    captured = {}
+
+    class FakeYoutubeDL:
+        def __init__(self, options):
+            captured["options"] = options
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def extract_info(self, url, download=True):
+            captured["url"] = url
+            return {"id": "abc123", "title": "Fonte", "duration": 3, "extractor": "youtube"}
+
+        def prepare_filename(self, info):
+            return str(audio)
+
+    monkeypatch.setattr(source_ingest, "validate_public_url", lambda value: "https://www.youtube.com/watch?v=abc123")
+    monkeypatch.setattr(source_ingest, "_yt_dlp", lambda: SimpleNamespace(YoutubeDL=FakeYoutubeDL))
+    monkeypatch.setattr(
+        source_ingest,
+        "validate_media",
+        lambda *args, **kwargs: SimpleNamespace(valid=True, errors=[]),
+    )
+    progress = []
+    result = source_ingest.download_public_audio("https://example.com/video", str(tmp_path), progress.append)
+
+    assert result["path"] == str(audio)
+    assert result["media_type"] == "audio"
+    assert captured["url"].endswith("v=abc123")
+    assert captured["options"]["format"] == "ba/b"
+
+
 def test_public_source_403_is_actionable():
     from modules.source_ingest import _source_error
 

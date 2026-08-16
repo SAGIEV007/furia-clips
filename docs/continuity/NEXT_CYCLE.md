@@ -1,33 +1,29 @@
-# Próximo ciclo de melhoria — Furia Clips v1.4
+# Próximo ciclo de melhoria — Furia Clips v1.5
 
 ## Objetivo da rodada
 
-Processar uma fonte longa do Renan com transcrição completa ou cobertura significativamente maior e calibrar a recuperação de setup, referências anafóricas, pergunta/resposta, tese e payoff sem reduzir a concisão. O Estúdio de Texto de Arte permanece fora da próxima hipótese principal até que a seleção e a estabilidade estejam mais maduras.
+Usar os candidatos reais da coletiva e da live final de análises renais para calibrar a confiabilidade semântica da transcrição local antes da geração de headlines. O Estúdio de Texto de Arte permanece fora da hipótese principal até que seleção, transcrição e estabilidade estejam mais maduras.
 
 ## Hipótese única
 
-> A expansão contextual atual ainda precisa ser calibrada em trechos longos: quando uma referência anafórica ou uma pergunta aparece perto de uma mudança de pauta, o seletor deve recuperar o antecedente e a resposta mínima, mas parar antes da pauta seguinte, produzindo uma janela menor e autossuficiente.
+> Se o ASR local produzir erros prováveis em nomes próprios, entidades políticas ou termos raros, o Furia deve marcar o trecho para revisão humana e impedir headline definitiva baseada somente nessa transcrição, sem necessariamente descartar o candidato de diagnóstico.
 
-A hipótese de hard gate para `context_complete=false` foi validada na release 1.4 e não deve ser misturada com novos pesos de headline ou mudanças visuais nesta próxima rodada.
+O gate de contexto da 1.4 e o gate técnico da 1.5 permanecem ativos. Não misturar essa hipótese com novos pesos visuais, novos presets ou alteração do Estúdio.
 
 ## Procedimento
 
 1. Ler `AGENTS.md`, `README.md`, `VERSION`, `docs/continuity/PROJECT_STATE.md`, `docs/continuity/DECISIONS.md`, `docs/VERSIONING.md` e o `git status`.
-2. Confirmar a versão pública e capturar a revisão Git nos logs.
-3. Repetir a suíte existente antes da mudança.
-4. Usar uma live longa ou um lote longo autorizado do Renan/MBL; Reels publicados continuam sendo apenas `reference_only`.
-5. Obter a transcrição completa com timestamps. Se o ambiente não suportar a transcrição integral, registrar o bloqueio e usar um lote reproduzível, sem alegar cobertura completa.
-6. Medir baseline: início abrupto, referência ausente, pergunta sem resposta, payoff incompleto, duração, redundância, duplicata, candidatos adiados pelo gate, taxa de renderização e falha de validação.
-7. Criar ou confirmar um teste regressivo para a hipótese de antecedente/pergunta e mudança de pauta.
-8. Fazer uma única alteração no seletor ou no módulo de contexto responsável pela menor janela suficiente.
-9. Reprocessar a mesma mídia e comparar antes/depois com os mesmos critérios.
-10. Validar transcrição, timestamps, artefato visual e FFprobe.
-11. Só depois avaliar uma hipótese separada do Estúdio de Texto de Arte, usando headlines derivadas do trecho correto, nunca do SRT de outra fonte.
-12. Se a alteração for observável, atualizar `VERSION` de acordo com `docs/VERSIONING.md`; não incrementar apenas por conveniência.
-13. Atualizar `PROJECT_STATE.md`, `DECISIONS.md` quando necessário, `CHANGELOG.md` e este arquivo.
-14. Fazer `git diff --check`, verificar segredos e executar testes completos.
-15. Commitar na branch de trabalho, fazer push e registrar branch/hash/testes.
+2. Repetir a suíte existente antes da mudança e registrar a versão/revisão.
+3. Usar os JSONs e transcrições reais de `calibration-collective` e `ultimo-analises-renais` como fixtures de diagnóstico; Reels publicados continuam `reference_only`.
+4. Medir nomes próprios, entidades, termos raros, tokens incomuns, baixa confiança lexical quando disponível, palavras incompatíveis com o vocabulário Renan/MBL e divergência com uma legenda corrigida.
+5. Criar regressões sintéticas e pelo menos uma regressão baseada em segmento real, sem publicar texto corrigido como se fosse fala original.
+6. Implementar uma única alteração no diagnóstico de transcrição/headline: marcar revisão ou bloquear headline definitiva quando o risco semântico superar o limiar.
+7. Reprocessar a mesma fixture e comparar falsos positivos, falsos negativos, revisão necessária e preservação da seleção de cortes.
+8. Validar a transcrição, a janela temporal, os exports existentes e FFprobe quando houver novo render.
+9. Só depois avaliar uma hipótese separada do Estúdio de Texto de Arte, usando headlines derivadas do trecho correto e nunca do SRT de outra fonte.
+10. Se a mudança for observável, incrementar `VERSION`, atualizar `CHANGELOG.md`, `PROJECT_STATE.md`, este arquivo e o relatório do ciclo.
+11. Executar suíte completa, `py_compile`, `node --check`, `git diff --check`, verificar segredos e publicar a branch de trabalho.
 
 ## Formato do relatório
 
-O relatório final deve indicar o que foi confirmado, reproduzido, corrigido, não verificado ou bloqueado. Inclua versão, revisão, branch, hipótese, arquivos, testes, mídia analisada, métricas antes/depois, exemplos de cortes, qualidade da headline por formato, limitações e uma única próxima hipótese.
+O relatório deve separar o que foi confirmado, reproduzido, corrigido, não verificado ou bloqueado. Inclua versão, revisão, branch, hipótese, arquivos, testes, mídia analisada, métricas antes/depois, exemplos de segmentos com risco de ASR, qualidade editorial e uma única próxima hipótese.

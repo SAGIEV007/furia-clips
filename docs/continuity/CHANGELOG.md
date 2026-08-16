@@ -1,5 +1,20 @@
 # Changelog de continuidade
 
+## 1.5 — Transcrição por áudio via URL e gate técnico antes da renderização
+
+### Incluído
+
+- Nova operação assíncrona `POST /api/source/transcribe` para transcrever fontes públicas sem criar projeto ou gerar cortes.
+- Transcrição por URL baixa áudio por padrão (`media_type: audio` / `format=ba/b`), mantendo o download de vídeo para o fluxo operacional de cortes.
+- Botão separado no frontend para “somente transcrever”, com acompanhamento persistente do job, cancelamento existente e carregamento no editor.
+- Candidatos com `technical_gate_status=review` agora são adiados antes do `VideoCutter`, preservando motivos, `review_flags` e intervalos no diagnóstico.
+- Correção da persistência de `start_time`/`end_time` nos motivos de rejeição.
+- Regressões para URL, áudio, enfileiramento sem cortes, gate técnico e identidade de runtime.
+
+### Validação da rodada
+
+A coletiva de 33m38s gerou 12 exports H.264/AAC e o vídeo `OÚLTIMOANÁLISESRENAIS.mp4` gerou 30 exports antes do gate; o replay sobre os candidatos reais identificou 13/30 para revisão técnica. A amostra renal de 15 minutos processada após o gate concluiu com 3 exports H.264/AAC válidos. A suíte completa chegou a 293 testes aprovados; `py_compile`, `node --check` e `git diff --check` foram aprovados. A URL do YouTube foi enfileirada no modo áudio, mas o downloader foi bloqueado por anti-bot nesta sessão; nenhum cookie ou credencial foi usado.
+
 ## 1.4 — Gate de contexto autossuficiente antes da renderização
 
 ### Incluído
