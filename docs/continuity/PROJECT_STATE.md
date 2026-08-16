@@ -11,9 +11,9 @@
 | Versão pública | `1.1` |
 | Fonte da versão | [`VERSION`](../../VERSION) |
 | Branch de trabalho conhecida | `manus/rebuild-opus-parity` |
-| Revisão registrada neste estado | pendente até o commit da rodada 1.1 |
+| Revisão registrada neste estado | `6349d37` — `fix: make scene detection resilient` |
 | Última atualização deste documento | 2026-08-16 |
-| Validação desta rodada | testes específicos `11 passed`; job real concluído com 3 clipes; servidor saudável após renderização; suíte completa pendente |
+| Validação desta rodada | `283 passed`; `py_compile` aprovado; job real concluído com 3 clipes; servidor saudável após renderização |
 | Asset validado | `models/blaze_face_short_range.tflite`, 229746 bytes, SHA-256 conforme manifesto |
 | Objetivo | Gerar cortes do Renan Santos/MBL concisos, autossuficientes e contextualmente completos |
 
@@ -66,4 +66,4 @@ A detecção de cenas passou a ter timeout configurável, ignorar áudio desnece
 
 A próxima hipótese única é: **a seleção deve rejeitar ou expandir automaticamente qualquer candidato cujo início seja fragmentado ou cujo final ocorra antes do payoff**, mesmo que a janela tenha hook e alta pontuação. Criar regressões com os três cortes reais, comparar as janelas atuais com janelas expandidas e medir completude, concisão e fidelidade da headline.
 
-Depois da execução, atualize este arquivo com a versão, commit, branch, testes, vídeos/análises realizados, métricas antes/depois e a próxima hipótese. A versão `1.1` está pronta para publicação após a suíte completa; o hash será preenchido no commit final.
+Depois da execução, atualize este arquivo com a versão, commit, branch, testes, vídeos/análises realizados, métricas antes/depois e a próxima hipótese. A versão `1.1` foi publicada no commit `6349d37` da branch `manus/rebuild-opus-parity`, após `283 passed`, `py_compile` aprovado e smoke test real com três clipes exportados.
