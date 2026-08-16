@@ -4,6 +4,12 @@ import re
 import unicodedata
 import subprocess
 from config import EXPORT_DIR
+
+
+SCENE_DETECTION_TIMEOUT_SECONDS = max(
+    10,
+    int(os.environ.get("FURIA_SCENE_DETECTION_TIMEOUT_SECONDS", "120")),
+)
 from .media_validation import validate_media
 from .render_presets import get_preset, ffmpeg_video_filter
 
@@ -55,16 +61,49 @@ class VideoCutter:
             raise RuntimeError((result.stderr or "ffprobe falhou").strip()[-500:])
         return json.loads(result.stdout or "{}")
 
-    def detect_scenes(self, video_path, threshold=27.0, emit_progress=None):
+    def detect_scenes(self, video_path, threshold=27.0, emit_progress=None, timeout=None):
+        """Detect scene changes without allowing ffmpeg to take down a job.
+
+        Scene metadata is an enhancement, not a prerequisite for editorial selection.
+        If ffmpeg is unavailable, returns a safe baseline so the caller can continue.
+        """
         if emit_progress:
             emit_progress("Detectando mudancas de cena...")
 
         cmd = [
-            "ffmpeg", "-i", video_path,
-            "-vf", f"select='gt(scene,{threshold / 100.0})',showinfo",
-            "-f", "null", "-"
+            "ffmpeg", "-hide_banner", "-nostats", "-i", video_path,
+            "-an", "-vf", f"select='gt(scene,{threshold / 100.0})',showinfo",
+            "-f", "null", "-",
         ]
-        result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
+        timeout_seconds = timeout if timeout is not None else SCENE_DETECTION_TIMEOUT_SECONDS
+        try:
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=max(1, float(timeout_seconds)),
+            )
+        except subprocess.TimeoutExpired:
+            message = f"Deteccao de cena excedeu {timeout_seconds}s; continuando sem limites visuais."
+            if emit_progress:
+                emit_progress(message, "warning")
+            return [0.0]
+        except OSError as exc:
+            message = f"Deteccao de cena indisponivel: {str(exc)[:180]}"
+            if emit_progress:
+                emit_progress(message, "warning")
+            return [0.0]
+
+        if result.returncode != 0:
+            stderr = (result.stderr or "").strip().replace("\n", " ")
+            message = "Deteccao de cena falhou; continuando sem limites visuais."
+            if stderr:
+                message += f" Motivo: {stderr[-240:]}"
+            if emit_progress:
+                emit_progress(message, "warning")
+            return [0.0]
 
         scene_changes = [0.0]
         stderr = result.stderr or ""

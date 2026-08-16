@@ -8,12 +8,12 @@
 | --- | --- |
 | Projeto | Furia Clips |
 | Repositório | `SAGIEV007/furia-clips` |
-| Versão pública | `1.0` |
+| Versão pública | `1.1` |
 | Fonte da versão | [`VERSION`](../../VERSION) |
 | Branch de trabalho conhecida | `manus/rebuild-opus-parity` |
-| Revisão registrada neste estado | `fbbe5ca` — `feat: establish v1.0 continuity and runtime identity` |
-| Última atualização deste documento | 2026-08-15 |
-| Validação desta rodada | `280 passed` em `python -m pytest -q`; `python -m py_compile app.py` aprovado |
+| Revisão registrada neste estado | pendente até o commit da rodada 1.1 |
+| Última atualização deste documento | 2026-08-16 |
+| Validação desta rodada | testes específicos `11 passed`; job real concluído com 3 clipes; servidor saudável após renderização; suíte completa pendente |
 | Asset validado | `models/blaze_face_short_range.tflite`, 229746 bytes, SHA-256 conforme manifesto |
 | Objetivo | Gerar cortes do Renan Santos/MBL concisos, autossuficientes e contextualmente completos |
 
@@ -58,12 +58,12 @@ Antes da continuidade, examine o `git status`. O estado conhecido antes desta do
 
 Não descarte essas alterações. Determine se já são parte do trabalho da rodada, rode a suíte e faça commit somente após verificar o diff.
 
-## Resultado da rodada de continuidade 1.0
+## Resultado da rodada real 1.1
 
-A aplicação passou a carregar a versão pública de `VERSION`, exibir versão e revisão no banner de inicialização, evento de conexão, eventos de progresso e `/api/settings`. Foram adicionados `AGENTS.md`, o contrato de versionamento e o pacote de continuidade em `docs/continuity/`. A suíte ficou verde após provisionar o modelo facial público exigido pelo teste.
+A detecção de cenas passou a ter timeout configurável, ignorar áudio desnecessário e tratar timeout/erro do ffmpeg com uma linha de base segura, evitando que metadados visuais sejam pré-requisito do corte. O primeiro benchmark real baixou um Reel público do Renan via Instagram pelo próprio Furia, validou MP4 H.264/AAC vertical, gerou 57 segmentos de transcrição e exportou três clipes. A análise audiovisual aprovou dois cortes com ressalvas e identificou que um termina antes do payoff e outro começa no meio da frase; esses casos viram regressões editoriais da próxima rodada.
 
 ## Próxima rodada recomendada
 
-A próxima hipótese editorial deve ser única e mensurável. Prioridade sugerida: executar um lote público do Renan com exemplos publicados nos três formatos e medir se a seleção produz a menor janela suficiente sem perder setup, tese ou payoff. Em paralelo, testar a primeira versão da geração de headlines condicionada ao formato.
+A próxima hipótese única é: **a seleção deve rejeitar ou expandir automaticamente qualquer candidato cujo início seja fragmentado ou cujo final ocorra antes do payoff**, mesmo que a janela tenha hook e alta pontuação. Criar regressões com os três cortes reais, comparar as janelas atuais com janelas expandidas e medir completude, concisão e fidelidade da headline.
 
-Depois da execução, atualize este arquivo com a versão, commit, branch, testes, vídeos/análises realizados, métricas antes/depois e a próxima hipótese. Nesta rodada, a versão `1.0` foi publicada no commit `fbbe5ca` da branch `manus/rebuild-opus-parity`.
+Depois da execução, atualize este arquivo com a versão, commit, branch, testes, vídeos/análises realizados, métricas antes/depois e a próxima hipótese. A versão `1.1` está pronta para publicação após a suíte completa; o hash será preenchido no commit final.

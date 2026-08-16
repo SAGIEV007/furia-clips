@@ -1,5 +1,20 @@
 # Changelog de continuidade
 
+## 1.1 — Resiliência da análise de cenas e primeiro benchmark real
+
+### Incluído
+
+- Timeout configurável na detecção de cenas via `FURIA_SCENE_DETECTION_TIMEOUT_SECONDS`, com padrão de 120 segundos.
+- A detecção de cenas passou a ignorar áudio desnecessário, tratar timeout/erro do ffmpeg e retornar uma linha de base segura (`[0.0]`) sem derrubar o job.
+- Três testes de regressão para retorno normal, timeout e retorno não-zero do ffmpeg.
+- Primeiro teste real com Reel público do Renan: download, FFprobe, transcrição com 57 segmentos e geração de três clipes verticais.
+- Benchmark audiovisual dos três clipes para identificar cortes aprováveis, cortes que terminam antes do payoff e cortes que começam no meio da frase.
+- Escada de ingestão legítima documentada no prompt mestre para YouTube bloqueado, plataformas públicas alternativas, Criadores/Campaign Hub e Corteiros.
+
+### Validação da rodada
+
+Os testes específicos passaram com `11 passed`. O job integrado após a correção permaneceu ativo, concluiu com `3` artefatos e deixou o servidor saudável. O benchmark real mostrou que a estabilidade melhorou, mas a seleção ainda precisa impedir finais antes do payoff e penalizar inícios fragmentados. A release será publicada após a suíte completa e a atualização do estado.
+
 ## 1.0 — Fundação do contrato de continuidade
 
 ### Incluído
