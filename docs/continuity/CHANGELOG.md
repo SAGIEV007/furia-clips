@@ -12,7 +12,7 @@
 
 ### Validação da rodada
 
-A mudança é documental e operacional; nenhum módulo de processamento foi alterado. Foram conferidos o estado da branch, a versão 1.8, o prompt mestre, o prompt executor, o estado do projeto, o próximo ciclo, a linhagem do Campaign Hub e o contrato de versionamento. A validação automatizada final deve ser executada antes do commit.
+A mudança é documental e operacional; nenhum módulo de processamento foi alterado. Foram conferidos o estado da branch, a versão 1.8, o prompt mestre, o prompt executor, o estado do projeto, o próximo ciclo, a linhagem do Campaign Hub e o contrato de versionamento. A suíte completa passou com `306 passed`, `git diff --check` e `py_compile` foram aprovados, e o commit `d27cb05` foi publicado na branch `manus/rebuild-opus-parity`.
 
 ### Limitações conhecidas
 

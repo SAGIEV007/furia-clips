@@ -11,13 +11,13 @@
 | Versão pública | `1.9` |
 | Fonte da versão | [`VERSION`](../../VERSION) |
 | Branch de trabalho conhecida | `manus/rebuild-opus-parity` |
-| Revisão registrada neste estado | `commit pendente` — release documental/operacional 1.9 |
+| Revisão registrada neste estado | `d27cb05` — `docs: publish executor prompt and Chub parity contract (1.9)` |
 | Última atualização deste documento | 2026-08-16 |
 | Validação desta rodada | `306 passed`; `git diff --check` aprovado; asset BlazeFace oficial baixado temporariamente e SHA-256 validado; nenhum módulo de processamento alterado |
 | Asset validado | `models/blaze_face_short_range.tflite`, 229746 bytes, SHA-256 conforme manifesto |
 | Objetivo | Gerar cortes do Renan Santos/MBL concisos, autossuficientes e contextualmente completos |
 
-Esta rodada prepara a publicação da release 1.9. O hash final será registrado após o commit, sem incluir mídia, banco local, transcrições reais ou credenciais.
+A release 1.9 foi publicada na branch `manus/rebuild-opus-parity` no commit `d27cb05`, sem incluir mídia, banco local, transcrições reais ou credenciais.
 
 ## Resultado da release 1.9
 

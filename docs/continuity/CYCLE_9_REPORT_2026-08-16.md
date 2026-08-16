@@ -9,7 +9,7 @@
 | Branch | `manus/rebuild-opus-parity` |
 | Hipótese | Um prompt executor explícito e um benchmark read-only do Campaign Hub devem orientar futuras melhorias de precisão sem acoplar o MCP ao runtime nem expandir o escopo para edição geral. |
 | Tipo da rodada | Documental/operacional; sem alteração em módulos de processamento |
-| Estado | Validação automatizada aprovada; commit e push pendentes no momento deste registro |
+| Estado | Validação automatizada, commit e push aprovados |
 
 ## Contexto
 
@@ -43,6 +43,10 @@ Referências: [OpusClip](https://www.opus.pro/), [OpusClip Virality Score](https
 ## Não verificado nesta etapa
 
 O benchmark ainda não foi implementado. Nenhuma melhoria editorial de seleção ou ranking pode ser declarada a partir desta rodada. A validação audiovisual não foi necessária porque os módulos de processamento não foram alterados.
+
+## Publicação
+
+O commit `d27cb05` (`docs: publish executor prompt and Chub parity contract (1.9)`) foi criado na branch `manus/rebuild-opus-parity` e publicado no remote autorizado. O asset BlazeFace usado na validação permaneceu fora do commit.
 
 ## Próxima hipótese única
 
