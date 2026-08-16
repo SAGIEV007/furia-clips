@@ -97,6 +97,7 @@ from modules.clip_adjustments import adjust_clip_bounds
 from modules.editorial_block import build_editorial_block
 from modules.performance_metrics import normalize_snapshot, metric_labels
 from modules.transcript_archive import archive_transcription, list_archived_transcriptions, validate_transcription
+from modules.source_boundary import detect_live_content_start, trim_transcription_to_live_start
 from modules.source_ingest import (
     SourceIngestError,
     probe_public_url,
@@ -1957,21 +1958,38 @@ def api_cut_shorts():
                 )
                 emit_progress(f"[Whisper] Motor: {transcriber._engine}", "info")
 
+            full_transcription = transcription
+            source_boundary = detect_live_content_start(
+                full_transcription,
+                duration_seconds=video_duration,
+                manual_start_seconds=data.get("content_start_seconds"),
+            )
+            selection_transcription = trim_transcription_to_live_start(full_transcription, source_boundary)
+            settings["source_boundary"] = source_boundary
+            if source_boundary.get("status") in {"detected", "manual"} and source_boundary.get("content_start_seconds", 0) > 0:
+                emit_progress(
+                    f"[Fonte] Conteúdo de live começa em {source_boundary['content_start_seconds']:.1f}s; "
+                    "o pré-roll permanece arquivado, mas não entra na seleção.",
+                    "info",
+                )
+            else:
+                emit_progress("[Fonte] Nenhuma fronteira segura de pré-roll foi detectada; seleção usa a timeline completa.", "info")
+
             save_transcription(
-                active_project_id, transcription["segments"], transcription["full_text"],
-                transcription["language"], settings.get("whisper_model", "small")
+                active_project_id, full_transcription["segments"], full_transcription["full_text"],
+                full_transcription["language"], settings.get("whisper_model", "small")
             )
 
             from modules.editorial_context import analyze_transcript_context
             editorial_context = analyze_transcript_context(
-                transcription,
+                selection_transcription,
                 focus=settings.get("editorial_focus", "auto"),
                 campaign_hub_account=settings.get("campaign_hub_account", "@renansantosmbl"),
             )
             emit_progress(f"[Contexto editorial] {editorial_context['description']}", "info")
             # A transcrição pública/manual/Whisper já resolveu a etapa temporal;
             # uma segunda análise multimodal só ocorre por opção explícita.
-            allow_followup_video_analysis = _should_allow_followup_video_analysis(transcription, settings)
+            allow_followup_video_analysis = _should_allow_followup_video_analysis(selection_transcription, settings)
             editorial_context = _enrich_editorial_context(
                 video_path, settings, editorial_context, user_context, emit_progress,
                 multimodal=multimodal_result,
@@ -1980,12 +1998,13 @@ def api_cut_shorts():
             settings["editorial_context"] = editorial_context
             settings["audit_mode"] = audit_mode
             settings["preferred_format"] = preferred_format
+            settings["selection_transcription"] = selection_transcription
             editorial_audit = None
             if audit_mode in {"standard", "full"}:
                 try:
                     from modules.headline_studio import generate_artwork_copy
                     editorial_audit = generate_artwork_copy(
-                        transcription.get("full_text", ""),
+                        selection_transcription.get("full_text", ""),
                         mini_context=user_context,
                         preferred_format=preferred_format,
                         ai_backend=None,
@@ -2049,7 +2068,7 @@ def api_cut_shorts():
                 from modules.campaign_hub import load_snapshot
                 context_snapshot = load_snapshot(settings.get("campaign_hub_snapshot_path"))
                 settings.setdefault("editorial_context", {})["hook_candidates"] = detect_hook_candidates(
-                    transcription.get("segments", []),
+                    selection_transcription.get("segments", []),
                     snapshot=context_snapshot,
                     account=settings.get("campaign_hub_account", "@renansantosmbl"),
                     energy_profile=energy_profile,
@@ -2076,7 +2095,7 @@ def api_cut_shorts():
                 max_duration=180,
             )
             top_clips = selector.select_clips(
-                transcription,
+                selection_transcription,
                 energy_profile=energy_profile,
                 user_context=user_context,
                 settings=settings,
@@ -2087,6 +2106,8 @@ def api_cut_shorts():
 
             selection_source = selector.get_selection_source()
             candidate_diagnostics = selector.get_candidate_diagnostics()
+            candidate_diagnostics["source_boundary"] = source_boundary
+            candidate_diagnostics["selection_scope"] = selection_transcription.get("selection_scope", "full_source")
             socketio.emit("selection_mode", {"source": selection_source, "candidate_diagnostics": candidate_diagnostics})
 
             ctx.update(stage="ranking", progress=64, message=f"Ranqueando {len(top_clips)} candidatos")
@@ -2312,6 +2333,7 @@ def api_cut_shorts():
                 "editorial_audit": editorial_audit,
                 "audit_mode": audit_mode,
                 "preferred_format": preferred_format,
+                "source_boundary": source_boundary,
             })
 
             source_label = "IA Inteligente" if selection_source == "llm" else "NLP Basico"

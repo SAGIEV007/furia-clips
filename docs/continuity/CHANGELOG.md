@@ -1,5 +1,24 @@
 # Changelog de continuidade
 
+## 1.6 — Gate conservador de pré-roll e fronteira de conteúdo de live
+
+### Incluído
+
+- Novo módulo `modules/source_boundary.py` para detectar, com timestamps da transcrição, a fronteira entre pré-roll/propaganda e o conteúdo editorial da live.
+- A seleção editorial recebe apenas a transcrição a partir da fronteira segura; a transcrição integral continua arquivada para auditoria.
+- O detector prefere uma abertura forte de live, como “sejam bem-vindos” acompanhada de uma indicação inequívoca de início, sobre uma saudação promocional ambígua.
+- Uma saudação genérica isolada, como “boa noite a todos”, não é suficiente para cortar automaticamente a fonte; nesse caso a timeline completa permanece em revisão segura.
+- Regressões para pré-roll detectado, coletiva sem pré-roll, saudação genérica e limite manual de fronteira.
+
+### Validação da rodada
+
+No benchmark renal de 15 minutos, o baseline do projeto 42 gerava 3 exports e incluía o material promocional `1. se não ser na rua, porque pode ser.mp4`, iniciado em `66,0333s` e estendido até `215,29s`. Com a fronteira detectada em `169,5s`, o projeto 47 gerou 4 exports, nenhum iniciado antes de `169,5s`; os quatro foram validados por FFprobe como H.264/AAC 1920×1080. A suíte completa passou com `299 passed`. O resultado foi reproduzido depois do endurecimento conservador do detector, usando a amostra v2 para evitar deduplicação por assinatura.
+
+### Limitações conhecidas
+
+A fronteira é um diagnóstico de seleção e ainda não é persistida como campo próprio na tabela de projetos; o evento do job e os artefatos de benchmark registram o resultado. Uma fonte sem uma abertura forte pode permanecer sem corte automático, deliberadamente, para evitar remover conteúdo válido. A próxima rodada continua sendo a detecção de erros semânticos do ASR antes da headline.
+
+
 ## 1.5 — Transcrição por áudio via URL e gate técnico antes da renderização
 
 ### Incluído

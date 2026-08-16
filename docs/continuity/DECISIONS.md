@@ -43,3 +43,7 @@ A operação somente-transcrição por URL usa áudio por padrão, arquiva times
 ## D-011 — Revisão técnica é fronteira de renderização
 
 Quando o ranker marca `technical_gate_status=review`, o candidato continua disponível para diagnóstico e revisão humana, mas não deve ser renderizado como corte pronto. Perguntas sem ponte resposta–pergunta validada e alegações sensíveis sem contexto/evidência explícitos não podem ser compensadas por score alto.
+
+## D-012 — Pré-roll é fronteira de seleção, não conteúdo editorial
+
+Quando uma fonte longa contém propaganda ou intro antes da live, a seleção deve usar apenas a partir de uma fronteira temporal segura, enquanto a transcrição integral permanece arquivada para auditoria. O detector deve exigir evidência forte de abertura de live; uma saudação genérica isolada não autoriza corte automático. Na dúvida, preservar a timeline completa para revisão é preferível a remover conteúdo editorial válido.

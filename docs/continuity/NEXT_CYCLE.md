@@ -1,4 +1,4 @@
-# Próximo ciclo de melhoria — Furia Clips v1.5
+# Próximo ciclo de melhoria — Furia Clips v1.6
 
 ## Objetivo da rodada
 
