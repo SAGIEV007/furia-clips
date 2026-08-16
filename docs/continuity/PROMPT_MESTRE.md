@@ -70,6 +70,18 @@ Se a mídia não puder ser baixada, não alegue que a testou. Registre o bloquei
 
 Não invente minutagens, transcrições, métricas, resultados ou links. Classifique cada afirmação como **confirmada**, **reproduzida**, **corrigida**, **provável**, **não verificada** ou **bloqueada**.
 
+### Escada de ingestão quando uma fonte falhar
+
+Quando o YouTube ou outra fonte apresentar CAPTCHA, bloqueio anti-bot ou falha de extração, não tente contornar a proteção, raspar cookies ou usar tokens de sessão. Siga uma escada de ingestão legítima e registre em qual nível a mídia foi obtida:
+
+1. tentar o downloader existente do Furia Clips com a URL pública;
+2. tentar uma fonte pública alternativa do mesmo conteúdo, como Instagram, TikTok ou Facebook, mantendo a origem e o identificador;
+3. usar o painel Criadores/Campaign Hub quando houver bloco, transcrição, timestamp e opção autorizada de download;
+4. usar o aplicativo Corteiros quando o painel retornar uma `launchUrl` `corteiros://download/...`, sem tratar essa URL temporária como se fosse um MP4;
+5. aceitar um MP4, WebM, MKV ou legenda timestampada fornecida pelo usuário.
+
+A cada tentativa, registre `source_platform`, URL, extractor, status, erro, duração, hash, caminho local e se a mídia foi realmente importada. Uma fonte alternativa pode ser usada para testar o pipeline, mas não deve ser confundida com a live original: associe o Reel/crosspost à live somente quando houver evidência. Quando um MP4 alternativo for importado com sucesso, execute FFprobe, preserve o arquivo fora do Git, gere a transcrição e valide o pipeline antes de alterar o ranking. Se a ingestão alternativa revelar uma diferença estrutural — por exemplo, vídeos verticais, reuploads, ausência de contexto ou áudio já editado — transforme isso em hipótese de teste, não em regra global.
+
 ## Dados do Campaign Hub: escopo correto
 
 Use o Campaign Hub como apoio de treinamento editorial, calibração e avaliação, não como fonte para misturar indiscriminadamente todos os conteúdos. Os perfis mencionados no Campaign Hub são públicos e os vídeos/cortes publicados neles devem ser tratados como exemplos legítimos de referência editorial, não como material privado.
