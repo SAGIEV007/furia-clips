@@ -13,7 +13,7 @@
 | Fonte da versão | [`VERSION`](../../VERSION) |
 | Branch de trabalho | `manus/rebuild-opus-parity` |
 | Revisão de código-base observada | `074a129` — `feat: persist editorial benchmark and export highlights (2.2)` |
-| Revisão final da documentação 2.3 | Atualizar após o commit desta rodada e conferir com `git rev-parse --short HEAD` |
+| Commit de publicação da documentação 2.3 | `3c80db0` — `docs: consolidate AI continuity prompt and commit contract (2.3)` |
 | Última atualização | 2026-08-17 |
 | Natureza da revisão 2.3 | Documental/operacional; nenhum módulo de processamento foi alterado |
 | Objetivo | Gerar cortes Renan Santos/MBL concisos, autossuficientes, contextualizados e editorialmente úteis |

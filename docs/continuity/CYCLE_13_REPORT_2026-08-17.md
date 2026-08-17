@@ -8,6 +8,7 @@
 | Última release funcional de código | `2.2` |
 | Branch | `manus/rebuild-opus-parity` |
 | Baseline de código | `074a129` |
+| Commit de publicação | `3c80db0` |
 | Natureza da rodada | Somente documental e operacional; nenhum módulo de processamento foi alterado |
 | Hipótese | Se todo o contexto relevante ficar consolidado no GitHub, com uma entrada copiável e um contrato de commits completo, outra IA poderá continuar o projeto sem depender de uma conversa privada ou de mensagens genéricas de commit. |
 | Escopo excluído | Nenhuma mudança de seleção, ranking, diarização, reframe, ingestão, renderização, headline ou integração de runtime foi feita nesta rodada. |
@@ -34,7 +35,7 @@ Foram conferidas a revisão Git `074a129`, a branch de trabalho, a versão base 
 
 A primeira execução local da suíte encontrou `324 passed` e três falhas: duas expectativas antigas de versão `2.2` nos testes de identidade de runtime e a ausência do asset externo BlazeFace. As expectativas foram atualizadas para `2.3`, sem alterar o pipeline. O asset oficial foi provisionado temporariamente, conferido pelo SHA-256 documentado e mantido fora do commit. A execução final terminou com **327 passed**.
 
-Também foi verificado que nenhum arquivo proibido foi adicionado pela rodada e que não houve alteração em módulos de seleção, ranking, ingestão, reframe ou renderização. A revisão do diff completo e a confirmação do hash final devem ser repetidas imediatamente antes e depois do commit.
+Também foi verificado que nenhum arquivo proibido foi adicionado pela rodada e que não houve alteração em módulos de seleção, ranking, ingestão, reframe ou renderização. A revisão do diff completo foi repetida antes do commit. O conteúdo documental foi publicado no commit `3c80db0`; qualquer commit posterior de correção deve ser registrado separadamente no estado vivo.
 
 O relatório não afirma melhoria de recall ou qualidade editorial. A validação confirma a consistência do contrato documental e da identidade de runtime; qualquer resultado funcional futuro deve criar um novo relatório com métricas reproduzidas.
 
