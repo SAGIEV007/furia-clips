@@ -3,6 +3,7 @@
 **Data:** 2026-08-17
 **Versão documental:** 2.5
 **Branch:** `manus/rebuild-opus-parity`
+**Commit de publicação:** `8592227` — `docs: adicionar prompt operacional Chub para execução (2.5)`
 **Natureza:** criação de prompt operacional e atualização das entradas de continuidade; nenhuma ponte funcional Chub→cortes foi implementada nesta rodada.
 
 ## 1. Objetivo

@@ -16,6 +16,7 @@
 | Commit de publicação da documentação 2.3 | `3c80db0` — `docs: consolidate AI continuity prompt and commit contract (2.3)` |
 | Última atualização | 2026-08-17 |
 | Commit de publicação da documentação 2.4 | `b18de83` — `docs: reorientar contrato Campaign Hub para cortes (2.4)` |
+| Commit de publicação da documentação 2.5 | `8592227` — `docs: adicionar prompt operacional Chub para execução (2.5)` |
 | Natureza da revisão 2.4 | Reorientação documental/operacional; nenhum módulo de processamento foi alterado |
 | Natureza da revisão 2.5 | Prompt operacional copiável; nenhum módulo de processamento foi alterado |
 | Objetivo | Gerar cortes Renan Santos/MBL concisos, autossuficientes, contextualizados e editorialmente úteis |
