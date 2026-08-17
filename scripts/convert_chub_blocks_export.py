@@ -14,14 +14,54 @@ from pathlib import Path
 
 
 def _read_tool_result(path: Path) -> dict:
-    envelope = json.loads(path.read_text(encoding="utf-8"))
-    text = ((envelope.get("content") or [{}])[0]).get("text", "")
+    """Accept both a saved MCP envelope and the already-unwrapped payload.
+
+    Different clients hand the same block result over differently: some keep the
+    ``content[0].text`` envelope, others write the decoded object straight to
+    disk. Rejecting the second shape only produced a confusing error about
+    missing structured text.
+    """
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if isinstance(payload, dict) and "items" in payload:
+        return payload
+    text = ((payload.get("content") or [{}])[0]).get("text", "") if isinstance(payload, dict) else ""
     if not text:
-        raise ValueError("O retorno do Campaign Hub não contém texto estruturado.")
+        raise ValueError("O retorno do Campaign Hub não contém texto estruturado nem uma lista 'items'.")
     return json.loads(text)
 
 
-def convert(payload: dict) -> dict:
+def ignored_regions(transcript: dict | None, video_id: str) -> list[dict]:
+    """Regions the Acervo labelled as unusable, kept as an exclusion signal.
+
+    These are not gaps in the data: each one carries a reason, such as an
+    unintelligible stretch or an isolated fragment. Feeding them to the selector
+    stops candidates from being spent on parts of the source that the labelling
+    pipeline already judged to hold no editorial content.
+    """
+    if not isinstance(transcript, dict):
+        return []
+    regions = []
+    for region in transcript.get("ignoredRegions") or transcript.get("ignored_regions") or []:
+        if not isinstance(region, dict):
+            continue
+        start = region.get("startS", region.get("start_s"))
+        end = region.get("endS", region.get("end_s"))
+        if start is None or end is None:
+            continue
+        regions.append({
+            "video_id": video_id,
+            "start_s": start,
+            "end_s": end,
+            "duration_s": region.get("durationS", region.get("duration_s")),
+            "start_sentence_idx": region.get("startSentenceIdx", region.get("start_sentence_idx")),
+            "end_sentence_idx": region.get("endSentenceIdx", region.get("end_sentence_idx")),
+            "reason": region.get("reason"),
+            "provenance": region.get("provenance"),
+        })
+    return regions
+
+
+def convert(payload: dict, transcript: dict | None = None) -> dict:
     items = [item for item in payload.get("items", []) if isinstance(item, dict) and item.get("kind") == "bloco"]
     blocks = []
     highlights = []
@@ -98,6 +138,8 @@ def convert(payload: dict) -> dict:
                 "audio_check_ranges": sentence.get("audioCheckRanges") or [],
             })
 
+    ignored = ignored_regions(transcript, next(iter(sources), ""))
+
     # Do not invent performance ratios for Acervo blocks. The account record is
     # only the adapter identity required by the legacy snapshot contract.
     return {
@@ -126,6 +168,7 @@ def convert(payload: dict) -> dict:
             "blocks": blocks,
             "highlights": highlights,
             "sentences": sentences,
+            "ignored_regions": ignored,
             "transcripts": [],
             "possible_cuts": [],
             "posts": [],
@@ -141,9 +184,15 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Converte blocos Campaign Hub em export local do Furia.")
     parser.add_argument("input", type=Path)
     parser.add_argument("output", type=Path)
+    parser.add_argument(
+        "--transcript",
+        type=Path,
+        help="Export de chub_acervo_transcript; traz as regiões que o Acervo marcou como sem conteúdo.",
+    )
     args = parser.parse_args()
     payload = _read_tool_result(args.input)
-    export = convert(payload)
+    transcript = json.loads(args.transcript.expanduser().read_text(encoding="utf-8")) if args.transcript else None
+    export = convert(payload, transcript)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(export, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(json.dumps({"blocks": len(export["records"]["blocks"]), "highlights": len(export["records"]["highlights"]), "sentences": len(export["records"]["sentences"]), "output": str(args.output)}, ensure_ascii=False))

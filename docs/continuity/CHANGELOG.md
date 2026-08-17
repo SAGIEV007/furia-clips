@@ -1,5 +1,38 @@
 # Changelog de continuidade
 
+## 2.9 — Primeiro recall medido em fonte longa inteira
+
+### Incluído
+
+- `scripts/run_acervo_recall_benchmark.py`: novo benchmark que roda o seletor real sobre a transcrição completa de uma fonte longa e pontua contra **todos** os blocos e destaques que o Acervo produziu para ela. Não exige mídia local.
+- `scripts/convert_chub_blocks_export.py`: aceita o payload cru além do envelope MCP e ganhou `--transcript`, que traz as regiões rotuladas como sem conteúdo para o snapshot.
+- `modules/clip_selector.py`: `_labelled_non_content_regions()` e `_drop_labelled_non_content()` descartam candidatos que caem majoritariamente em trechos que o Acervo marcou como sem conteúdo editorial.
+- `tests/test_campaign_hub_guidance.py`: duas regressões novas.
+
+### O bloqueio removido
+
+Os ciclos 16, 17 e 18 terminaram com a mesma frase: o recall real não pôde ser medido por falta do MP4. A observação que destravou é que a seleção do Furia roda sobre a **transcrição**, não sobre os pixels — então uma transcrição autorizada do Acervo basta para medir a seleção.
+
+### Resultado
+
+Medido em `3XJfcqn56Rw` ("O ÚLTIMO ANÁLISES RENAIS"), 98 minutos, 27 blocos, 66 destaques:
+
+| Configuração | Destaques | Blocos | IoU médio | Desperdício |
+| --- | --- | --- | --- | --- |
+| Seleção local (NLP) | `11/66` | `18/27` | `0.1012` | 14 de 40 |
+| `+ campaign_hub_guided` | `24/66` | `17/27` | `0.1225` | 10 de 40 |
+| `+ filtro de não-conteúdo` | `27/66` | `20/27` | `0.1600` | 0 de 40 |
+
+A ponte do Campaign Hub **mais que dobrou** o recall — primeira evidência quantitativa de que a integração da 2.6 melhora a seleção.
+
+O recall é binário: 24 destaques inteiros, 42 nunca tocados, **zero parciais**. O gargalo é cobertura, não recorte de janela.
+
+Suíte: **338 aprovados, 7 falhas ambientais**.
+
+### Limitações
+
+Medido em um único vídeo, sem perfil de energia e sem mudanças de cena — o relatório declara ambos. Renderização e FFprobe continuam bloqueados por ausência de `ffmpeg` no container. Relatório em [`CYCLE_19_REPORT_2026-08-17.md`](CYCLE_19_REPORT_2026-08-17.md).
+
 ## 2.8 — Alinhamento temporal das seeds do Campaign Hub
 
 ### Incluído

@@ -8,9 +8,9 @@
 | --- | --- |
 | Projeto | Furia Clips |
 | Repositório | `SAGIEV007/furia-clips` |
-| Versão pública atual | `2.8` |
-| Última release funcional anterior | `2.7` |
-| Natureza da release atual | Alinhamento temporal das seeds do Campaign Hub com a mídia local |
+| Versão pública atual | `2.9` |
+| Última release funcional anterior | `2.8` |
+| Natureza da release atual | Primeiro recall medido em fonte longa inteira e descarte de não-conteúdo rotulado |
 | Fonte da versão | [`VERSION`](../../VERSION) |
 | Branch de trabalho | `claude/repo-access-commits-imgjmk` |
 | Última publicação conhecida antes desta rodada | `a0452d3` — `fix: declarar confiabilidade da medição no benchmark editorial (2.7)` |
@@ -18,8 +18,8 @@
 | Commit funcional 2.7 | `a0452d3` — `fix: declarar confiabilidade da medição no benchmark editorial (2.7)` |
 | Commit funcional 2.8 | `fdf5e6b` — `fix: alinhar seeds do Campaign Hub com a mídia local em processamento (2.8)` |
 | Última atualização | 2026-08-17 |
-| Baseline editorial | b354 com 7 candidatos, recall `0/3`, IoU médio `0.0` — **ainda não remedido com mídia local real** |
-| Suíte no checkout | 336 aprovados, 7 falhas ambientais (`ffmpeg`/`ffprobe` ausentes e asset BlazeFace) |
+| Baseline editorial | `3XJfcqn56Rw`: 27 blocos, 66 destaques, recall `27/66`, cobertura `20/27`, IoU `0.16` (release 2.9). O b354 permanece como regressão de locutor. |
+| Suíte no checkout | 338 aprovados, 7 falhas ambientais (`ffmpeg`/`ffprobe` ausentes e asset BlazeFace) |
 | Objetivo | Gerar cortes Renan Santos/MBL concisos, autossuficientes, contextualizados e editorialmente úteis |
 
 A branch de trabalho deve ser confirmada no checkout real. O GitHub é a fonte da revisão técnica; este arquivo não pode manter um hash diferente do `HEAD` final publicado. Antes de alterar qualquer arquivo, preserve mudanças locais e confirme `git status`.
@@ -32,7 +32,24 @@ A ponte carrega o snapshot uma vez por job, preserva proveniência e riscos, exp
 
 O caso b354 deve preservar `renanSpeaking=false` quando Kim ou outro terceiro fala. O fato de um bloco ser sobre Renan não autoriza atribuir a fala a Renan. Propostas guiadas devem permanecer separadas de cortes aprovados e não podem apagar candidatos de terceiros.
 
-## Release atual — 2.8
+## Release atual — 2.9
+
+A 2.9 produziu o primeiro número de recall comparável em uma fonte longa inteira. O
+bloqueio de todas as rodadas anteriores era a falta do MP4; a observação que o removeu
+é que a seleção roda sobre a **transcrição**, não sobre os pixels, então uma
+transcrição autorizada do Acervo já permite medir a seleção.
+
+Medido em `3XJfcqn56Rw` ("O ÚLTIMO ANÁLISES RENAIS", 98 minutos, 27 blocos, 66
+destaques): a seleção local recupera `11/66`; a ponte `campaign_hub_guided` leva a
+`24/66` — **primeira evidência quantitativa de que a integração da 2.6 funciona**; e o
+descarte de não-conteúdo rotulado leva a `27/66`, com cobertura de blocos `20/27`, IoU
+`0.16` e **zero** candidatos desperdiçados, contra 14 no início.
+
+O recall é binário: 24 destaques inteiros, 42 nunca tocados, zero parciais. O gargalo
+é cobertura, não borda de janela. Relatório em
+[`CYCLE_19_REPORT_2026-08-17.md`](CYCLE_19_REPORT_2026-08-17.md).
+
+## Release anterior — 2.8
 
 A 2.8 corrigiu a causa do recall travado: as seeds do Campaign Hub nasciam no eixo de
 tempo errado. `_map_interval()` decidia o mapeamento pela duração declarada em
@@ -161,6 +178,7 @@ Em qualquer rodada, classifique conclusões como `confirmado`, `reproduzido`, `c
 
 | Release | Foco | Resultado principal | Relatório |
 | --- | --- | --- | --- |
+| 2.9 | Recall medido em fonte longa | Ponte Chub dobra o recall (`11/66`→`24/66`); filtro de não-conteúdo leva a `27/66` | [`CYCLE_19_REPORT_2026-08-17.md`](CYCLE_19_REPORT_2026-08-17.md) |
 | 2.8 | Alinhamento temporal das seeds | Seeds do b354 passam a cair na timeline local; três propostas falsas idênticas eliminadas | [`CYCLE_18_REPORT_2026-08-17.md`](CYCLE_18_REPORT_2026-08-17.md) |
 | 2.7 | Confiabilidade declarada da medição | Benchmark passa a distinguir `0/3` de seleção de `0/3` por timeline não mapeada | [`CYCLE_17_REPORT_2026-08-17.md`](CYCLE_17_REPORT_2026-08-17.md) |
 | 2.6 | Primeira ponte Campaign Hub→seeds→propostas | 2 seeds e 2 propostas reproduzidas em payload real; recall b354 ainda não medido | [`CYCLE_16_REPORT_2026-08-17.md`](CYCLE_16_REPORT_2026-08-17.md) |

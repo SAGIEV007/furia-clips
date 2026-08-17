@@ -294,6 +294,45 @@ def test_guided_proposals_recover_the_three_b354_highlights():
     assert {proposal["campaign_hub"]["provenance"]["block_id"] for proposal in proposals} == {B354_BLOCK_ID}
 
 
+def _snapshot_with_ignored_region():
+    snapshot = _b354_snapshot()
+    snapshot["records"]["ignored_regions"] = [{
+        "video_id": "57nyfP9IDW4",
+        "start_s": 300.0,
+        "end_s": 400.0,
+        "reason": "Transcrição ininteligível e isolada.",
+        "provenance": "model_labelled",
+    }]
+    return snapshot
+
+
+def test_candidates_over_labelled_non_content_are_dropped():
+    """A stretch the Acervo labelled as unusable must not consume a candidate slot."""
+    selector = ClipSelector()
+    settings = {"campaign_hub_snapshot": _snapshot_with_ignored_region()}
+    clips = [
+        {"start": 310.0, "end": 350.0, "text": "dentro da região ignorada"},
+        {"start": 100.0, "end": 140.0, "text": "conteúdo normal"},
+        # Touching the edge is not enough: an idea may start right after the
+        # unusable stretch, so only a dominant overlap disqualifies a candidate.
+        {"start": 380.0, "end": 460.0, "text": "começa na borda e segue para conteúdo"},
+    ]
+
+    kept = selector._drop_labelled_non_content(clips, settings)
+
+    assert [clip["start"] for clip in kept] == [100.0, 380.0]
+    assert selector.get_candidate_diagnostics()["labelled_non_content_dropped"] == 1
+
+
+def test_non_content_filter_is_inert_without_a_snapshot():
+    """Offline-first: no authorized snapshot means nothing is filtered."""
+    selector = ClipSelector()
+    clips = [{"start": 310.0, "end": 350.0, "text": "sem snapshot"}]
+
+    assert selector._drop_labelled_non_content(clips, {}) == clips
+    assert selector._drop_labelled_non_content(clips, {"campaign_hub_snapshot": {}}) == clips
+
+
 def test_media_duration_is_read_from_the_probed_job_settings():
     selector = ClipSelector()
 

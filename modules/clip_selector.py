@@ -53,6 +53,10 @@ class ClipSelector:
     # a transcript; a mismatch of whole minutes means a timeline mismatch instead.
     MAX_SEED_ANCHOR_GAP_S = 60.0
 
+    # Share of a candidate that may sit on labelled non-content before the
+    # candidate is discarded instead of competing for a slot.
+    NON_CONTENT_DROP_RATIO = 0.5
+
     def __init__(
         self,
         target_duration=45,
@@ -200,6 +204,10 @@ class ClipSelector:
                         f"foram acrescentadas {len(additions)} alternativas locais para revisão, sem relaxar os gates.",
                         "warning",
                     )
+
+        # Drop candidates sitting on stretches the Acervo already labelled as
+        # holding no editorial content, before the candidate budget is spent.
+        clips = self._drop_labelled_non_content(clips, settings, emit_progress)
 
         # Filter clips at scene boundaries if available
         if scene_changes:
@@ -1165,6 +1173,67 @@ Retorne APENAS o JSON.
             float(item.get("campaign_hub", {}).get("confidence", 0) or 0),
         ), reverse=True)
         return proposals[:self.max_clips]
+
+    @staticmethod
+    def _labelled_non_content_regions(settings):
+        """Intervals the authorized snapshot marks as carrying no content.
+
+        Each region arrives with a reason — an unintelligible stretch, an
+        isolated fragment — so this is labelled evidence of absence, not missing
+        data. Without a snapshot the list is empty and nothing is filtered.
+        """
+        snapshot = settings.get("campaign_hub_snapshot") if isinstance(settings, dict) else None
+        records = snapshot.get("records") if isinstance(snapshot, dict) else None
+        regions = []
+        for region in (records or {}).get("ignored_regions") or []:
+            if not isinstance(region, dict):
+                continue
+            try:
+                start = float(region.get("start_s"))
+                end = float(region.get("end_s"))
+            except (TypeError, ValueError):
+                continue
+            if end > start:
+                regions.append((start, end, str(region.get("reason") or "")))
+        return regions
+
+    def _drop_labelled_non_content(self, clips, settings, emit_progress=None):
+        """Remove candidates that mostly cover labelled non-content.
+
+        A candidate is only dropped when the majority of its window sits inside
+        such a region: merely touching one at the edge is normal, because a real
+        idea can start right after an unintelligible stretch. Candidates are a
+        budget — every slot spent here is a slot a real cut does not get.
+        """
+        regions = self._labelled_non_content_regions(settings)
+        if not regions or not clips:
+            return clips
+        kept, dropped = [], []
+        for clip in clips:
+            start = float(clip.get("start", 0) or 0)
+            end = float(clip.get("end", 0) or 0)
+            span = end - start
+            if span <= 0:
+                kept.append(clip)
+                continue
+            covered = sum(
+                max(0.0, min(end, region_end) - max(start, region_start))
+                for region_start, region_end, _ in regions
+            )
+            if covered / span >= self.NON_CONTENT_DROP_RATIO:
+                dropped.append(clip)
+            else:
+                kept.append(clip)
+        if dropped:
+            self._candidate_diagnostics["labelled_non_content_dropped"] = len(dropped)
+            if emit_progress:
+                emit_progress(
+                    f"[Campaign Hub] {len(dropped)} candidato(s) descartado(s) por cair em trechos que o "
+                    "Acervo marcou como sem conteúdo editorial; o orçamento de candidatos foi liberado "
+                    "para trechos com fala aproveitável.",
+                    "info",
+                )
+        return kept
 
     @staticmethod
     def _media_duration(settings):
