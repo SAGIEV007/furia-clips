@@ -19,6 +19,7 @@
 | Commit funcional 2.8 | `fdf5e6b` — `fix: alinhar seeds do Campaign Hub com a mídia local em processamento (2.8)` |
 | Commit funcional 2.9 | `10c1fad` — `feat: medir recall em fonte longa inteira e descartar não-conteúdo rotulado (2.9)` |
 | Commit funcional 3.0 | `f83d1fb` — `feat: governar o orçamento de candidatos pela fonte, com precisão medida (3.0)` |
+| Commit funcional 3.1 | `a170aab` — `feat: entregar todo candidato com contexto, locutor e veredito de revisão (3.1)` |
 | Última atualização | 2026-08-17 |
 | Baseline editorial | `3XJfcqn56Rw`: 27 blocos, 66 destaques, recall `50/66`, cobertura `25/27`, precisão `1.00`, IoU `0.273` (release 3.0). O b354 permanece como regressão de locutor. |
 | Suíte no checkout | 347 aprovados, 7 falhas ambientais (`ffmpeg`/`ffprobe` ausentes e asset BlazeFace) |
