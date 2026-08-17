@@ -134,6 +134,8 @@ class EditorialRanker:
             text,
             account=self.campaign_hub_account,
             snapshot=self.campaign_hub_snapshot,
+            start=clip.get("start"),
+            end=clip.get("end"),
         )
         instagram_pattern_prior = build_editorial_pattern_prior(text, clip)
         factors = {
@@ -156,6 +158,7 @@ class EditorialRanker:
             "chapter_coherence": self._chapter_coherence(clip),
             "duration_fit": self._duration_fit(duration),
             "campaign_hub_prior": campaign_hub_prior["observed_signal"],
+            "campaign_hub_block_evidence": (campaign_hub_prior.get("block_evidence") or {}).get("observed_signal", 50.0),
         }
         political_signals = {}
         if self.editorial_profile in (PROFILE_NAME, "politics", "political"):
@@ -217,6 +220,10 @@ class EditorialRanker:
         if campaign_hub_prior["available"]:
             # Post-publication evidence is intentionally bounded to +/- 2 points.
             score += int(round((campaign_hub_prior["observed_signal"] - 50.0) * 0.12))
+        block_evidence = campaign_hub_prior.get("block_evidence") or {}
+        if block_evidence.get("available"):
+            # Acervo block evidence is a small explainable tie-breaker, never a gate.
+            score += int(round((float(block_evidence.get("observed_signal", 50.0)) - 50.0) * 0.10))
         # Speaker and Q&A boundaries are tie-breakers, never substitutes for
         # context, payoff or technical gates. Combined impact is <= 4 points.
         score += int(round(
@@ -332,6 +339,7 @@ class EditorialRanker:
             "transcription_coverage_status": str(clip.get("transcription_coverage_status", "") or ""),
             "transcription_review_reason": str(clip.get("transcription_review_reason", "") or ""),
             "campaign_hub_prior": campaign_hub_prior,
+            "campaign_hub_block_evidence": block_evidence,
             "instagram_pattern_prior": instagram_pattern_prior,
             "feedback_calibration": feedback_calibration,
             "technical_gate": technical_gate,

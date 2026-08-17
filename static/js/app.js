@@ -483,6 +483,8 @@ document.getElementById("btnCancelOperation")?.addEventListener("click", request
 document.getElementById("btnRefreshOperations")?.addEventListener("click", loadOperationDashboard);
 
 document.getElementById("btnEditorialBackup")?.addEventListener("click", requestEditorialBackup);
+document.getElementById("btnImportCampaignHubMemory")?.addEventListener("click", () => document.getElementById("campaignHubMemoryFileInput")?.click());
+document.getElementById("campaignHubMemoryFileInput")?.addEventListener("change", (event) => importCampaignHubMemory(event.target.files?.[0]));
 document.getElementById("btnRefreshTranscriptArchive")?.addEventListener("click", loadTranscriptArchive);
 document.getElementById("btnEditorialRestore")?.addEventListener("click", () => document.getElementById("editorialRestoreInput")?.click());
 document.getElementById("editorialRestoreInput")?.addEventListener("change", restoreEditorialBackup);
@@ -859,24 +861,74 @@ async function restoreEditorialBackup(event) {
 
 function renderCampaignHubLocalStatus(payload) {
     const element = document.getElementById("campaignHubLocalStatus");
-    if (!element) return;
-    const dot = element.querySelector(".status-dot");
-    const label = element.querySelector("span:last-child");
+    const memoryCard = document.getElementById("campaignHubMemoryCard");
+    const memoryText = document.getElementById("campaignHubMemoryText");
+    const memoryMeta = document.getElementById("campaignHubMemoryMeta");
+    const memoryBadge = document.getElementById("campaignHubMemoryBadge");
+    if (!element && !memoryCard) return;
+    const dot = element?.querySelector(".status-dot");
+    const label = element?.querySelector("span:last-child");
     const previous = state.campaignHubSnapshotStatus;
     state.campaignHubSnapshotStatus = payload || null;
-    if (!payload?.available) {
-        if (dot) dot.className = `status-dot ${payload?.status === "invalid" ? "warning" : "offline"}`;
-        if (label) label.textContent = payload?.message || "Sem snapshot editorial local";
-        element.title = "O Furia funciona offline, mas não recebeu memória editorial local.";
-        return;
+    const memory = payload?.memory || payload || {};
+    const available = Boolean(memory.available || payload?.memory_available);
+    const status = String(memory.status || payload?.status || "missing");
+    const accounts = memory.accounts || payload?.accounts || {};
+    const accountCount = Object.keys(accounts).length;
+    const recordCounts = memory.record_counts || payload?.record_counts || {};
+    const blockCount = Number(recordCounts.blocks || 0);
+    const highlightCount = Number(recordCounts.highlights || 0);
+    const changed = Boolean(previous?.modified_at && payload?.modified_at && previous.modified_at !== payload.modified_at);
+    const level = !available ? (status === "invalid" ? "warning" : "offline") : (changed ? "warning" : "online");
+    if (dot) dot.className = `status-dot ${level}`;
+    if (label) {
+        label.textContent = !available
+            ? (memory.message || payload?.message || "Sem memória editorial local")
+            : changed
+                ? `Nova memória detectada · ${accountCount} perfil(is) · será usada no próximo corte`
+                : `Memória local pronta · ${accountCount} perfil(is) · somente leitura`;
     }
-    const changed = Boolean(previous?.modified_at && payload.modified_at && previous.modified_at !== payload.modified_at);
-    if (dot) dot.className = `status-dot ${changed ? "warning" : "online"}`;
-    const accountCount = Object.keys(payload.accounts || {}).length;
-    if (label) label.textContent = changed
-        ? `Novo snapshot detectado · ${accountCount} perfil(is) · será usado no próximo corte`
-        : `Memória local pronta · ${accountCount} perfil(is) · somente leitura`;
-    element.title = `${payload.version || "Snapshot editorial"}${payload.modified_at ? ` · atualizado em ${new Date(payload.modified_at).toLocaleString("pt-BR")}` : ""}. O próximo job relê o arquivo automaticamente.`;
+    if (element) element.title = available
+        ? `${memory.version || payload?.version || "Memória local"}${memory.last_sync_at ? ` · sincronizada em ${new Date(memory.last_sync_at).toLocaleString("pt-BR")}` : ""}.`
+        : "O Furia continua funcionando offline, mas não recebeu memória editorial válida.";
+    if (memoryCard) {
+        memoryCard.dataset.level = level;
+        if (!available) {
+            if (memoryText) memoryText.textContent = memory.message || payload?.message || "Nenhum export autorizado instalado. O Furia continua funcionando com sinais locais básicos.";
+            if (memoryBadge) memoryBadge.textContent = status === "invalid" ? "REVISAR" : "OFFLINE";
+            if (memoryMeta) memoryMeta.textContent = "Atualize a memória quando tiver um export autorizado do Campaign Hub.";
+        } else {
+            if (memoryText) memoryText.textContent = changed
+                ? "Há uma versão nova da memória local; ela será usada no próximo processamento."
+                : "O próximo job usa esta memória offline para contexto, benchmark e prior fraco.";
+            if (memoryBadge) memoryBadge.textContent = "PRONTA";
+            if (memoryMeta) memoryMeta.textContent = `${accountCount} perfil(is) · ${blockCount} bloco(s) · ${highlightCount} destaque(s)${memory.last_sync_at ? ` · ${new Date(memory.last_sync_at).toLocaleDateString("pt-BR")}` : ""}`;
+        }
+    }
+}
+
+async function importCampaignHubMemory(file) {
+    if (!file) return;
+    const button = document.getElementById("btnImportCampaignHubMemory");
+    if (button) button.disabled = true;
+    const formData = new FormData();
+    formData.append("snapshot", file);
+    formData.append("merge", "true");
+    try {
+        const response = await fetch("/api/campaign-hub/memory/import", { method: "POST", body: formData });
+        const payload = await parseJsonResponse(response, "Memória do Campaign Hub");
+        if (!response.ok || !payload.success) throw new Error(payload.error || "Não foi possível atualizar a memória local.");
+        showToast(`Memória atualizada: ${Number(payload.record_counts?.blocks || 0)} bloco(s) local(is).`, "success");
+        addConsoleLog(`[Campaign Hub] Memória local mesclada; ${Number(payload.merge_stats?.records_added || 0)} registro(s) novo(s).`, "info");
+        await loadCampaignHubLocalStatus();
+    } catch (error) {
+        showToast(error.message || "Não foi possível atualizar a memória local.", "error");
+        addConsoleLog(`[Campaign Hub] Atualização não concluída: ${error.message}`, "warning");
+    } finally {
+        if (button) button.disabled = false;
+        const input = document.getElementById("campaignHubMemoryFileInput");
+        if (input) input.value = "";
+    }
 }
 
 async function loadCampaignHubLocalStatus() {
@@ -891,11 +943,125 @@ async function loadCampaignHubLocalStatus() {
     }
 }
 
+function renderEditorialBlocks(payload) {
+    const list = document.getElementById("editorialBlocksList");
+    const status = document.getElementById("editorialBlocksStatus");
+    if (!list) return;
+    const blocks = Array.isArray(payload?.blocks) ? payload.blocks : [];
+    if (status) {
+        const dot = status.querySelector(".status-dot");
+        if (dot) dot.className = `status-dot ${payload?.available ? "online" : "offline"}`;
+        status.lastChild.textContent = payload?.available ? ` ${payload.total || 0} bloco(s) local(is)` : " Memória não carregada";
+    }
+    if (!payload?.available) {
+        list.innerHTML = `<div class="editorial-blocks-empty"><span class="material-icons-round">cloud_off</span><br>${escapeHtml(payload?.message || "Atualize a memória local para carregar blocos editoriais.")}</div>`;
+        return;
+    }
+    if (!blocks.length) {
+        list.innerHTML = `<div class="editorial-blocks-empty"><span class="material-icons-round">search_off</span><br>Nenhum bloco corresponde à busca atual.</div>`;
+        return;
+    }
+    list.innerHTML = blocks.map((block) => {
+        const riskCount = (block.risk_flags || []).length + (block.gate_warnings || []).length;
+        const renanLabel = block.renan_speaking === true ? "fala do Renan" : block.renan_speaking === false ? "fala de terceiro" : "locutor não confirmado";
+        const renanClass = block.renan_speaking === true ? "good" : block.renan_speaking === false ? "warn" : "";
+        const sourceTitle = block.source?.title ? ` · ${escapeHtml(block.source.title)}` : "";
+        return `<article class="editorial-block-card" data-block-id="${escapeHtml(block.id)}">
+            <div class="editorial-block-time"><strong>${formatTime(Number(block.start || 0))}</strong>${formatTime(Number(block.end || 0))}<span>${Number(block.duration || 0).toFixed(0)}s</span></div>
+            <div class="editorial-block-content">
+                <h4>${escapeHtml(block.title || "Bloco editorial")}</h4>
+                <p>${escapeHtml(block.summary || "Resumo não disponível.")}</p>
+                ${block.trigger_question ? `<div class="editorial-block-question"><b>Pergunta:</b> ${escapeHtml(block.trigger_question)}</div>` : ""}
+                <div class="editorial-block-meta">
+                    <span class="editorial-block-chip ${renanClass}">${escapeHtml(renanLabel)}</span>
+                    <span class="editorial-block-chip">${Number(block.highlight_count || 0)} destaque(s)</span>
+                    ${block.self_contained_rank ? `<span class="editorial-block-chip good">contexto ${escapeHtml(block.self_contained_rank)}º percentil</span>` : ""}
+                    ${riskCount ? `<span class="editorial-block-chip warn">${riskCount} alerta(s)</span>` : ""}
+                    <span class="editorial-block-chip">${escapeHtml(block.trust_tier || "tier não informado")}${sourceTitle}</span>
+                </div>
+            </div>
+            <div class="editorial-block-action-stack">
+                <button class="btn btn-sm btn-outline editorial-block-action" type="button" data-block-select="${escapeHtml(block.id)}"><span class="material-icons-round">playlist_add</span> Selecionar</button>
+                <button class="btn btn-sm btn-outline editorial-block-action" type="button" data-block-export="${escapeHtml(block.id)}" title="Usa a fonte local selecionada; confirme que ela corresponde a este vídeo"><span class="material-icons-round">download</span> Exportar intervalo</button>
+            </div>
+        </article>`;
+    }).join("");
+    list.querySelectorAll("[data-block-select]").forEach((button) => {
+        button.addEventListener("click", () => {
+            const block = blocks.find((item) => String(item.id) === String(button.dataset.blockSelect));
+            state.selectedEditorialBlock = block || null;
+            list.querySelectorAll(".editorial-block-card").forEach((card) => card.classList.toggle("selected", card.dataset.blockId === String(button.dataset.blockSelect)));
+            const source = block?.source?.title || "fonte local correspondente";
+            showToast(`Bloco selecionado: ${block?.title || "intervalo editorial"}. Verifique a fonte (${source}) antes de baixar.`, "info");
+            addConsoleLog(`[Blocos] Intervalo selecionado ${formatTime(Number(block?.start || 0))}–${formatTime(Number(block?.end || 0))}; confirme a fonte local antes de exportar.`, "info");
+        });
+    });
+    list.querySelectorAll("[data-block-export]").forEach((button) => {
+        button.addEventListener("click", async () => {
+            const block = blocks.find((item) => String(item.id) === String(button.dataset.blockExport));
+            const videoPath = selectedVideoPathForRequest();
+            if (!block || !videoPath) {
+                showToast("Selecione primeiro o MP4 correspondente ao bloco.", "warning");
+                return;
+            }
+            const sourceLabel = block.source?.title || block.source?.url || "fonte do Campaign Hub";
+            if (!confirm(`Confirme que o vídeo local selecionado corresponde a “${sourceLabel}”. Exportar ${formatTime(Number(block.start || 0))}–${formatTime(Number(block.end || 0))} no aspecto original?`)) return;
+            button.disabled = true;
+            try {
+                const response = await fetch("/api/editorial/blocks/export", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ video_path: videoPath, block_id: block.id, start: block.start, end: block.end }),
+                });
+                const payload = await parseJsonResponse(response, "Exportação do bloco");
+                if (!response.ok || !payload.success) throw new Error(payload.error || "Não foi possível exportar o intervalo.");
+                showToast("Intervalo exportado no aspecto original.", "success");
+                addConsoleLog(`[Blocos] Intervalo ${formatTime(Number(payload.start))}–${formatTime(Number(payload.end))} exportado.`, "success");
+                window.open(payload.download_url, "_blank", "noopener");
+            } catch (error) {
+                showToast(error.message, "error");
+                addConsoleLog(`[Blocos] Exportação não concluída: ${error.message}`, "warning");
+            } finally {
+                button.disabled = false;
+            }
+        });
+    });
+}
+
+async function loadEditorialBlocks() {
+    const query = document.getElementById("editorialBlocksSearch")?.value.trim() || "";
+    const prioritizeRenan = document.getElementById("editorialBlocksRenanOnly")?.checked;
+    const sourceRef = String(state.selectedVideoName || "").match(/[A-Za-z0-9_-]{11}/)?.[0] || "";
+    const params = new URLSearchParams({ limit: "80" });
+    if (query) params.set("q", query);
+    if (prioritizeRenan) params.set("prioritize_renan", "1");
+    if (sourceRef) params.set("source_ref", sourceRef);
+    try {
+        const response = await fetch(`/api/editorial/blocks?${params.toString()}`, { cache: "no-store" });
+        const payload = await parseJsonResponse(response, "Blocos editoriais");
+        renderEditorialBlocks(payload);
+    } catch (error) {
+        renderEditorialBlocks({ available: false, message: error.message });
+    }
+}
+
 function startCampaignHubLocalStatusPolling() {
     loadCampaignHubLocalStatus();
+    loadEditorialBlocks();
     if (state.campaignHubStatusTimer) window.clearInterval(state.campaignHubStatusTimer);
-    state.campaignHubStatusTimer = window.setInterval(loadCampaignHubLocalStatus, 60000);
+    state.campaignHubStatusTimer = window.setInterval(() => {
+        loadCampaignHubLocalStatus();
+        loadEditorialBlocks();
+    }, 60000);
 }
+
+document.getElementById("btnRefreshEditorialBlocks")?.addEventListener("click", loadEditorialBlocks);
+document.getElementById("editorialBlocksRenanOnly")?.addEventListener("change", loadEditorialBlocks);
+let editorialBlocksSearchTimer;
+document.getElementById("editorialBlocksSearch")?.addEventListener("input", () => {
+    window.clearTimeout(editorialBlocksSearchTimer);
+    editorialBlocksSearchTimer = window.setTimeout(loadEditorialBlocks, 250);
+});
 
 function setRepositorySyncStatus(message, level = "info") {
     const element = document.getElementById("repositorySyncStatus");
@@ -1292,6 +1458,7 @@ function selectVideo(item, sourceElement = null) {
     }
     addConsoleLog(`[Sistema] Video selecionado: ${item.name}`, "info");
     showToast(`Video selecionado: ${truncateName(item.name, 30)}`, "success");
+    if (typeof loadEditorialBlocks === "function") loadEditorialBlocks();
 }
 
 async function openOutputFolderForVideo() {

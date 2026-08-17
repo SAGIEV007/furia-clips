@@ -270,15 +270,33 @@ O relatório de cada rodada deve responder, em português simples:
 
 Nunca esconda uma falha atrás de uma lista de funcionalidades. Se o job terminou, isso prova apenas que terminou; não prova que os cortes são editorialmente bons.
 
-## 15. Próxima hipótese recomendada
+## 15. Primeira onda implementada e validada
 
-A hipótese de maior impacto após esta auditoria é:
+A primeira onda operacional foi implementada no clone real da branch `manus/rebuild-opus-parity` e validada em **17/08/2026**. Ela não transforma o Furia em produto final, mas cria a fundação real da ponte local entre Campaign Hub, blocos e exportação seletiva.
 
-> **Se o Furia comparar cada candidato local com blocos QA-gated, destaques, perguntas-gatilho, riscos, autossuficiência e locutor do Campaign Hub antes do ranking final, ele reduzirá a seleção de trechos de outro orador, perderá menos momentos importantes e explicará melhor por que um corte foi escolhido ou rejeitado, sem depender do MCP em cada job.**
+| Entrega | Estado verificado |
+| --- | --- |
+| Memória local versionada | Implementada em `modules/campaign_hub_memory.py`, com validação, manifesto, instalação atômica, fusão incremental e fallback offline. |
+| Export autorizado do Acervo | Implementado em `scripts/convert_chub_blocks_export.py`; preserva blocos, destaques, frases, fontes e proveniência, sem mídia bruta. |
+| Atualização local | Implementada em `scripts/update_campaign_hub_memory.py` e nas rotas de status/importação. |
+| Blocos no backend | Implementados em `modules/editorial_block_memory.py`, com busca, filtro por fonte, prioridade Renan-first sem ocultar terceiros e leitura detalhada. |
+| UX de Blocos | Implementado entre Fonte e Refinamento, com resumo, pergunta, intervalo, duração, destaques, ranks, riscos e tier. |
+| Exportação seletiva local | Implementada em `/api/editorial/blocks/export`, preservando o aspecto original e validando mídia. |
+| MP4 de bloco baixado | O b354 real foi mapeado de `6142.56–6692.0` na fonte longa para `0–549.44s` no MP4 local. O arquivo produzido foi validado em 1920×1080, H.264/AAC e 549.4489s. |
+| Sinal do Chub no ranking | Implementado como evidência temporal/textual limitada e explicável; não é gate nem aprovação automática. |
+| Testes | `322 passed`; JavaScript, compilação Python, diff e FFprobe também passaram. |
 
-Primeiro implemente o benchmark e o diagnóstico. Depois, com evidência suficiente, promova somente os sinais que melhorarem o resultado para priors fracos. Não transforme o Campaign Hub em aprovador automático.
+O caso b354 continua sendo a regressão editorial principal: é um bloco sobre Renan, mas com `renanSpeaking=false` porque Kim fala. A interface deve mostrar esse fato, não convertê-lo em “fala do Renan”. O campo `speakerChange` do Acervo continua sendo evidência automática e não identidade definitiva.
 
-## 16. Referências vivas
+A exportação seletiva implementada nesta onda é **local**: ela recorta uma fonte já disponível no workspace ou um MP4 de bloco baixado. O download remoto por range de uma URL longa ainda não está garantido para todos os provedores e permanece na próxima onda, com fallback seguro.
+
+## 16. Próxima hipótese recomendada
+
+> **Se o Furia usar a memória de blocos filtrada pela fonte e um benchmark temporal/editorial reutilizável, ele reduzirá o trabalho manual em eventos complexos e poderá medir se a integração do Chub melhora recall, locutor e contexto antes de aumentar o peso no ranking.**
+
+A próxima implementação deve transformar a comparação b354 em benchmark persistente, mapear highlights para a timeline local do MP4, permitir exportar um highlight específico e testar download remoto seletivo quando o provedor autorizar. Não transforme o Campaign Hub em aprovador automático.
+
+## 17. Referências vivas
 
 - [Repositório Furia Clips](https://github.com/SAGIEV007/furia-clips)
 - [Campaign Hub MCP autorizado](https://chub-api.missao.org.br/mcp/wk_a07206ced171ac72acb18d6746e735486790ea98a2a2f51b)
@@ -290,3 +308,4 @@ Primeiro implemente o benchmark e o diagnóstico. Depois, com evidência suficie
 - [`CAMPAIGN_HUB_LINEAGE.md`](CAMPAIGN_HUB_LINEAGE.md)
 - [`IDEAS_BACKLOG.md`](IDEAS_BACKLOG.md)
 - [`PROMPT_3_EXECUTOR_CHUB_PARITY.md`](PROMPT_3_EXECUTOR_CHUB_PARITY.md), mantido como histórico técnico até ser incorporado e eventualmente arquivado.
+- [`CYCLE_11_REPORT_2026-08-17.md`](CYCLE_11_REPORT_2026-08-17.md), relatório da primeira onda operacional.

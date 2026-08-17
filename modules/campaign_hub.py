@@ -20,6 +20,20 @@ from typing import Any
 DEFAULT_SNAPSHOT_PATH = Path.home() / "FuriaClipsData" / "campaign_hub" / "profile.json"
 PACKAGED_SNAPSHOT_PATH = Path(__file__).resolve().parents[1] / "data" / "editorial_priors.json"
 SUPPORTED_ACCOUNTS = {"@renansantosmbl", "@renansantosreserva", "@partidomissao"}
+MEMORY_COLLECTION_KEYS = (
+    "sources",
+    "transcripts",
+    "sentences",
+    "blocks",
+    "highlights",
+    "possible_cuts",
+    "posts",
+    "metrics",
+    "entities",
+    "topics",
+    "benchmarks",
+)
+MAX_MEMORY_COLLECTION_ITEMS = 50_000
 
 # Rules are intentionally descriptive rather than generative. They expose why a
 # hook family was assigned, while the historical prior remains separately capped.
@@ -116,13 +130,36 @@ def normalize_snapshot(payload: Any) -> dict[str, Any] | None:
     if not normalized_accounts:
         return None
     default_account = str(payload.get("default_account", "@renansantosmbl") or "@renansantosmbl")
-    return {
-        "version": str(payload.get("version", "1") or "1")[:20],
+    record_source = payload.get("records") if isinstance(payload.get("records"), dict) else payload
+    records = {}
+    for key in MEMORY_COLLECTION_KEYS:
+        raw_records = record_source.get(key, []) if isinstance(record_source, dict) else []
+        records[key] = [dict(item) for item in raw_records[:MAX_MEMORY_COLLECTION_ITEMS] if isinstance(item, dict)] if isinstance(raw_records, list) else []
+    metadata = payload.get("metadata") if isinstance(payload.get("metadata"), dict) else {}
+    sync = payload.get("sync") if isinstance(payload.get("sync"), dict) else {}
+    normalized_payload = {
+        "version": str(payload.get("version", "1") or "1")[:80],
+        "schema_version": str(payload.get("schema_version", "") or "")[:80],
         "source": "campaign-hub",
         "collected_at": str(payload.get("collected_at", "") or "")[:80],
         "default_account": default_account if default_account in SUPPORTED_ACCOUNTS else "@renansantosmbl",
         "accounts": normalized_accounts,
+        "records": records,
+        "record_counts": {key: len(value) for key, value in records.items()},
+        "metadata": metadata,
+        "sync": {
+            "last_sync_at": str(sync.get("last_sync_at") or payload.get("collected_at") or "")[:80],
+            "cursor": str(sync.get("cursor") or "")[:200],
+            "status": str(sync.get("status") or "ready")[:40],
+            "source": str(sync.get("source") or "authorized_export")[:80],
+        },
     }
+    # Preserve validated aggregate structures used by the current ranker while
+    # allowing richer exports to carry them alongside blocks and transcripts.
+    for key in ("instagram_family_priors", "privacy_contract"):
+        if key in payload:
+            normalized_payload[key] = payload[key]
+    return normalized_payload
 
 
 def snapshot_status(path: str | os.PathLike[str] | None = None) -> dict[str, Any]:
@@ -209,11 +246,106 @@ def classify_hook(text: str) -> str:
     return classify_hook_details(text)["family"]
 
 
+def build_block_evidence(
+    text: str,
+    *,
+    start: float | None = None,
+    end: float | None = None,
+    account: str | None = None,
+    snapshot: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Find local Acervo block evidence without making it a hard gate.
+
+    Temporal overlap is preferred when the incoming source is known. Text/topic
+    overlap is only a weak fallback because captions can be noisy. The return
+    value is explanatory and intentionally bounded; it never claims that a
+    block proves speaker identity or factual truth.
+    """
+    profile = snapshot or {}
+    records = profile.get("records", {}) if isinstance(profile, dict) else {}
+    blocks = records.get("blocks", []) if isinstance(records, dict) else []
+    if not isinstance(blocks, list) or not blocks:
+        return {"available": False, "matches": [], "observed_signal": 50.0, "confidence": 0.0, "basis": "no_local_blocks"}
+    account_key = account if account in SUPPORTED_ACCOUNTS else profile.get("default_account", "@renansantosmbl")
+    query_tokens = set(re.findall(r"[a-z0-9à-ÿ]{4,}", _normalize(text)))
+    try:
+        clip_start = float(start) if start is not None else None
+        clip_end = float(end) if end is not None else None
+    except (TypeError, ValueError):
+        clip_start = clip_end = None
+    ranked = []
+    for block in blocks:
+        if not isinstance(block, dict):
+            continue
+        if block.get("account") and block.get("account") != account_key:
+            continue
+        block_start = block.get("start_s")
+        block_end = block.get("end_s")
+        try:
+            block_start = float(block_start)
+            block_end = float(block_end)
+        except (TypeError, ValueError):
+            block_start = block_end = None
+        overlap = 0.0
+        temporal = 0.0
+        if clip_start is not None and clip_end is not None and block_start is not None and block_end is not None:
+            overlap = max(0.0, min(clip_end, block_end) - max(clip_start, block_start))
+            clip_duration = max(0.1, clip_end - clip_start)
+            block_duration = max(0.1, block_end - block_start)
+            temporal = max(overlap / clip_duration, overlap / block_duration)
+        block_text = " ".join(
+            str(block.get(key) or "") for key in ("title", "summary", "trigger_question")
+        ) + " " + " ".join(str(item) for item in (block.get("topics") or []))
+        block_tokens = set(re.findall(r"[a-z0-9à-ÿ]{4,}", _normalize(block_text)))
+        lexical = len(query_tokens & block_tokens) / max(1, len(query_tokens)) if query_tokens else 0.0
+        evidence_score = max(temporal, lexical * 0.75)
+        if evidence_score <= 0.18:
+            continue
+        rank = 0.65 * temporal + 0.35 * lexical
+        ranked.append((rank, block, temporal, lexical))
+    ranked.sort(key=lambda item: item[0], reverse=True)
+    matches = []
+    for rank, block, temporal, lexical in ranked[:3]:
+        matches.append({
+            "block_id": block.get("id"),
+            "title": block.get("title", ""),
+            "start": block.get("start_s"),
+            "end": block.get("end_s"),
+            "temporal_overlap": round(temporal, 3),
+            "text_overlap": round(lexical, 3),
+            "renan_speaking": block.get("renan_speaking"),
+            "self_contained_rank": block.get("self_contained_rank"),
+            "needs_context": bool(block.get("needs_context")),
+            "risk_flags": block.get("risk_flags") or [],
+            "trust_tier": block.get("trust_tier", ""),
+        })
+    best = matches[0] if matches else None
+    signal = 50.0
+    confidence = 0.0
+    if best:
+        signal = 50.0 + min(8.0, max(0.0, float(best.get("temporal_overlap", 0)) * 8.0))
+        if best.get("renan_speaking") is True:
+            signal += 2.0
+        if best.get("needs_context"):
+            signal -= 2.0
+        confidence = round(min(1.0, max(float(best.get("temporal_overlap", 0)), float(best.get("text_overlap", 0)))), 2)
+    return {
+        "available": bool(matches),
+        "account": account_key,
+        "matches": matches,
+        "observed_signal": round(max(42.0, min(60.0, signal)), 1),
+        "confidence": confidence,
+        "basis": "local_acervo_temporal_and_text_overlap" if matches else "no_matching_local_block",
+    }
+
+
 def build_performance_prior(
     text: str,
     *,
     account: str | None = None,
     snapshot: dict[str, Any] | None = None,
+    start: float | None = None,
+    end: float | None = None,
 ) -> dict[str, Any]:
     """Build a conservative hook prior from observed settled ratios.
 
@@ -239,11 +371,19 @@ def build_performance_prior(
         relative = float(median(hook_values)) / baseline
         signal = max(42.0, min(58.0, 50.0 + (relative - 1.0) * 18.0))
         confidence = min(1.0, sample_count / 10.0)
+    block_evidence = build_block_evidence(
+        text,
+        start=start,
+        end=end,
+        account=selected_account,
+        snapshot=profile,
+    )
     return {
         "available": available,
         "account": selected_account,
         "platform": account_data.get("platform", "instagram") if isinstance(account_data, dict) else "instagram",
         "hook_family": hook,
+        "block_evidence": block_evidence,
         "hook_evidence": hook_details["evidence"],
         "hook_classification_confidence": hook_details["confidence"],
         "sample_count": sample_count,

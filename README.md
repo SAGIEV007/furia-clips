@@ -2,7 +2,7 @@
 
 **Corte. Ranqueie. Domine.**
 
-> **Versão atual: 2.0.** Esta release consolida o ponto de entrada operacional e o diagnóstico prático do produto. A identidade de runtime é exibida no console, na interface e na API; a fonte única da versão é [`VERSION`](VERSION).
+> **Versão atual: 2.1.** Esta release adiciona a memória local do Campaign Hub, pré-análise por blocos e exportação seletiva local. A identidade de runtime é exibida no console, na interface e na API; a fonte única da versão é [`VERSION`](VERSION).
 
 ## Continuidade para novas sessões e IAs
 
@@ -10,7 +10,7 @@ Se você entregar apenas o link deste repositório a outra IA, ela deve começar
 
 O arquivo [`docs/continuity/PROJECT_STATE.md`](docs/continuity/PROJECT_STATE.md) é atualizado ao final de cada rodada verificável. Ele não substitui o código nem o Git: a nova IA deve sempre confirmar `git status`, branch, commit e testes no checkout real.
 
-O Furia Clips é uma ferramenta local em evolução para analisar vídeos longos e encontrar cortes precisos do Renan Santos/MBL. O código já contém módulos de ingestão, transcrição, seleção editorial, renderização, legendas, persistência e revisão, mas o fluxo ainda não deve ser tratado como produto maduro: download seletivo de blocos, diarização confiável e memória rica do Campaign Hub continuam em desenvolvimento. O processamento ocorre no computador do usuário; serviços de IA são opcionais e possuem fallback local/NLP quando não estão disponíveis.
+O Furia Clips é uma ferramenta local em evolução para analisar vídeos longos e encontrar cortes precisos do Renan Santos/MBL. A release 2.1 já possui memória rica local do Campaign Hub, pré-análise por blocos e exportação seletiva local de uma fonte disponível; download remoto seletivo, diarização confiável, benchmark persistente e reconhecimento de voz continuam em desenvolvimento. O processamento ocorre no computador do usuário; serviços de IA são opcionais e possuem fallback local/NLP quando não estão disponíveis.
 
 ## O que está implementado
 
@@ -27,6 +27,9 @@ O Furia Clips é uma ferramenta local em evolução para analisar vídeos longos
 - **Lotes locais:** descoberta segura de vídeos, hash de conteúdo, deduplicação, manifesto reproduzível e endpoint `/api/batch/rank` para seleção global de candidatos entre lives.
 - **Segurança local:** proteção contra path traversal, nomes inseguros, symlinks externos e exposição acidental do servidor na rede.
 - **Validação de mídia:** exports só são considerados prontos depois de uma verificação objetiva com `ffprobe`.
+- **Memória local do Campaign Hub:** exports autorizados podem ser instalados ou mesclados fora do checkout; o job normal continua offline-first e não consulta o MCP a cada corte.
+- **Pré-análise por blocos:** a interface lista blocos filtrados pela fonte, mostra resumo, pergunta, locutor provável, destaques e riscos, e permite selecionar/exportar um intervalo local.
+- **Timeline de bloco:** quando um MP4 baixado corresponde ao intervalo de uma fonte longa, timestamps absolutos são mapeados para a linha local com confirmação e registro do método.
 
 ## Instalação no Windows
 

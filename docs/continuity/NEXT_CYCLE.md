@@ -1,14 +1,14 @@
-# Próximo ciclo de melhoria — Furia Clips v2.0
+# Próximo ciclo de melhoria — Furia Clips v2.1
 
 ## Objetivo da rodada
 
-Construir o primeiro benchmark read-only entre candidatos locais do Furia Clips e unidades estruturadas do Campaign Hub/Acervo, usando blocos QA-gated, transcrições, timestamps, perguntas-gatilho, autossuficiência, payoff, riscos e destaques. O objetivo é medir precisão editorial antes de transformar qualquer sinal do Campaign Hub em comportamento do seletor ou do ranker.
+Construir o benchmark persistente da primeira onda entre candidatos locais do Furia Clips e unidades estruturadas do Campaign Hub/Acervo, começando pelo caso real b354 já validado. O benchmark deve reutilizar a comparação existente, registrar erro temporal, sobreposição, destaque coberto/perdido, locutor, contexto, payoff, risco e motivo da divergência. A rodada deve também permitir exportar um destaque individual da timeline local de um MP4 de bloco, sem depender de consulta ao Chub no corte.
 
 Reels e posts publicados continuam `reference_only`. Lives longas e gravações cruas continuam `processing_source`. O Estúdio de Texto de Arte e qualquer editor pós-renderização permanecem adiados.
 
 ## Hipótese única
 
-> Se os blocos QA-gated e transcrições reais do Campaign Hub forem comparados temporal e editorialmente com os candidatos locais, será possível reduzir cortes com início abrupto, pergunta sem resposta, payoff ausente e contexto insuficiente sem aumentar indiscriminadamente a duração.
+> Se o Furia persistir a comparação entre candidatos locais e os três destaques do b354, usando o mapeamento da fonte longa para o MP4 local e exportando highlights individuais, será possível medir recall e precisão editorial antes de aumentar a influência do Campaign Hub no ranking.
 
 ## Procedimento
 
@@ -16,17 +16,19 @@ Reels e posts publicados continuam `reference_only`. Lives longas e gravações 
 2. Confirmar branch, commit, diff e baseline; não apagar alterações locais.
 3. Repetir a suíte existente antes da mudança e registrar versão/revisão.
 4. Consultar o Campaign Hub apenas em leitura, mantendo conta, plataforma, crosspost, métrica, amostra e estado settled/provisório separados.
-5. Montar um lote pequeno de blocos QA-gated e, quando possível, transcrições de criativos publicados; não usar Reel publicado como fonte para recortar novamente.
-6. Gerar candidatos pelo pipeline local a partir de uma `processing_source` autorizada ou fixture temporal equivalente.
+5. Reutilizar o export local do vídeo `57nyfP9IDW4` e confirmar o bloco b354, seus três destaques e o mapeamento `6142.56–6692.0` para `0–549.44`.
+6. Gerar ou carregar candidatos locais a partir do MP4 b354; não usar Reel publicado como fonte para recortar novamente.
 7. Comparar início, fim, duração, sobreposição temporal, pergunta, resposta, tese, payoff, autossuficiência, contexto, risco, evidência visual e motivo da divergência.
-8. Classificar cada caso como `Furia melhor`, `Campaign Hub melhor` ou `ambos precisam de revisão`; não converter o Acervo em verdade absoluta.
-9. Criar regressões para pelo menos início abrupto, pergunta sem resposta, payoff ausente e contexto anafórico.
-10. Implementar no máximo uma alteração principal, preferencialmente no diagnóstico/benchmark ou na geração de candidatos; não misturar pesos, presets, headlines e renderização.
-11. Reprocessar o mesmo lote e comparar métricas antes/depois: erro temporal, autossuficiência, payoff, começo abrupto, perguntas incompletas, duplicatas e duração.
-12. Validar transcrição, intervalos, exports e FFprobe quando houver novo render.
-13. Se a alteração for observável, atualizar `VERSION`, `CHANGELOG.md`, `PROJECT_STATE.md`, este arquivo e o relatório do ciclo.
-14. Executar suíte completa, `py_compile`, `node --check` quando aplicável, `git diff --check`, verificação de segredos e revisão do diff.
-15. Fazer commit pequeno, publicar a branch de trabalho e registrar o hash.
+8. Persistir cada comparação com origem, versão do benchmark, confiança, classificação `Furia melhor`, `Campaign Hub melhor` ou `ambos precisam de revisão`.
+9. Mapear os três highlights QA-gated para a timeline local e testar exportação individual de cada highlight.
+10. Criar regressões para highlight coberto, highlight perdido, mapeamento de timeline, início abrupto, pergunta sem resposta e payoff ausente.
+11. Implementar no máximo uma alteração principal, preferencialmente no benchmark/highlight export; não misturar diarização, reframe, headlines e edição.
+12. Reprocessar o mesmo lote e comparar recall de highlights, IoU, erro temporal, autossuficiência, payoff, duplicatas e duração.
+13. Investigar range remoto apenas depois do caminho local; testar o provedor sem contornar anti-bot e manter fallback seguro.
+14. Validar transcrição, intervalos, exports e FFprobe quando houver novo render.
+15. Se a alteração for observável, atualizar `VERSION`, `CHANGELOG.md`, `PROJECT_STATE.md`, este arquivo e o relatório do ciclo.
+16. Executar suíte completa, `py_compile`, `node --check` quando aplicável, `git diff --check`, verificação de segredos e revisão do diff.
+17. Fazer commit pequeno, publicar a branch de trabalho e registrar o hash.
 
 ## Limites
 

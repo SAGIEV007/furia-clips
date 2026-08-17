@@ -8,22 +8,29 @@
 | --- | --- |
 | Projeto | Furia Clips |
 | Repositório | `SAGIEV007/furia-clips` |
-| Versão pública | `2.0` |
+| Versão pública | `2.1` |
 | Fonte da versão | [`VERSION`](../../VERSION) |
 | Branch de trabalho conhecida | `manus/rebuild-opus-parity` |
-| Revisão registrada neste estado | `cd5c037` — `docs: publish canonical START_HERE prompt (2.0)` |
+| Revisão registrada neste estado | `f683812` — `feat: add local campaign hub memory and editorial blocks` |
 | Última atualização deste documento | 2026-08-17 |
-| Validação desta rodada | `306 passed`; MP4 real processado em dois ciclos; sete outputs finais validados por FFprobe e inspeção visual; asset BlazeFace oficial validado; nenhum módulo de processamento alterado |
+| Validação desta rodada | `322 passed`; memória rica, blocos reais e exportação seletiva local validados; MP4 b354 real validado por FFprobe; UX revisado no navegador; nenhum segredo ou mídia foi publicado |
 | Asset validado | `models/blaze_face_short_range.tflite`, 229746 bytes, SHA-256 conforme manifesto |
 | Objetivo | Gerar cortes do Renan Santos/MBL concisos, autossuficientes e contextualmente completos |
 
-A release 2.0 foi criada na branch `manus/rebuild-opus-parity` no commit `cd5c037`. Ela não inclui mídia, banco local, transcrições reais ou credenciais. A release 1.9 permanece registrada no histórico.
+A release 2.1 foi publicada na branch `manus/rebuild-opus-parity` no commit `f683812`. Ela não inclui mídia, banco local, transcrições reais ou credenciais. As releases 2.0 e 1.9 permanecem registradas no histórico.
+
+
+## Resultado da release 2.1
+
+A primeira onda 2.1 implementa a memória local versionada do Campaign Hub, exportação incremental autorizada, leitura de blocos, filtro por fonte, prioridade Renan-first sem ocultar terceiros, painel visual de pré-análise, exportação seletiva local e um sinal temporal/textual limitado no ranking. O MP4 real correspondente ao bloco b354 foi exportado com mapeamento seguro da timeline longa para a timeline local e validado em 1920×1080 H.264/AAC.
+
+A suíte completa passou com 322 testes. O download remoto seletivo por range, o benchmark persistente, a diarização e o reconhecimento de voz ainda não estão concluídos. A interface ficou mais informativa, mas a simplificação total da sidebar permanece na próxima onda.
 
 ## Resultado da release 2.0
 
-A release 2.0 transforma `docs/continuity/START_HERE.md` no ponto de entrada canônico para novas IAs, atualiza `AGENTS.md`, registra a validação prática do MP4 do Primeiro Ato de Campanha contra o bloco b354 do Campaign Hub, atualiza a versão pública e explicita que o Furia ainda está incompleto para uso diário Renan-first. O download seletivo de blocos, a memória rica local, a diarização confiável e o benchmark QA-gated continuam como trabalho de implementação futura.
+A release 2.0 transformou `docs/continuity/START_HERE.md` no ponto de entrada canônico para novas IAs, atualizou `AGENTS.md`, registrou a validação prática do MP4 do Primeiro Ato de Campanha contra o bloco b354 do Campaign Hub, atualizou a versão pública e explicitou que o Furia ainda estava incompleto para uso diário Renan-first. O download seletivo de blocos, a memória rica local, a diarização confiável e o benchmark QA-gated eram trabalho de implementação futura.
 
-Nenhum módulo de processamento foi alterado nesta release. O baseline real passou com 306 testes, o job local concluiu e os renders originais foram validados. O segundo ciclo não cobriu os três destaques do bloco b354; isso é diagnóstico, não melhoria.
+Nenhum módulo de processamento foi alterado na release 2.0. O baseline real passou com 306 testes, o job local concluiu e os renders originais foram validados. O segundo ciclo não cobriu os três destaques do bloco b354; isso foi diagnóstico, não melhoria.
 
 ## Resultado da release 1.9
 

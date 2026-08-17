@@ -1162,19 +1162,193 @@ def api_download_editorial_backup(filename):
 
 @app.route("/api/campaign-hub/status", methods=["GET"])
 def api_campaign_hub_status():
-    """Report bounded local Campaign Hub snapshot metadata without any write path."""
+    """Report bounded local Campaign Hub metadata without calling the MCP."""
     try:
         from modules.campaign_hub import snapshot_status
+        from modules.campaign_hub_memory import memory_status
         settings = get_all_settings()
-        return jsonify(snapshot_status(settings.get("campaign_hub_snapshot_path")))
+        snapshot_path = settings.get("campaign_hub_snapshot_path")
+        snapshot = snapshot_status(snapshot_path)
+        memory = memory_status(snapshot_path)
+        # Keep the legacy top-level fields used by the current frontend while
+        # exposing the richer memory contract for the new UX.
+        snapshot["memory"] = memory
+        snapshot["memory_available"] = bool(memory.get("available"))
+        snapshot["memory_schema_version"] = memory.get("memory_schema_version", "")
+        snapshot["record_counts"] = memory.get("record_counts", {})
+        snapshot["last_sync_at"] = memory.get("last_sync_at", "")
+        return jsonify(snapshot)
     except Exception as exc:
         return jsonify({
             "available": False,
             "source": "campaign_hub_local_snapshot",
             "status": "error",
             "read_only": True,
-            "message": f"Não foi possível ler o snapshot local: {str(exc)[:240]}",
+            "memory_available": False,
+            "message": f"Não foi possível ler a memória local: {str(exc)[:240]}",
         }), 200
+
+
+@app.route("/api/campaign-hub/memory/status", methods=["GET"])
+def api_campaign_hub_memory_status():
+    """Return the offline-first memory status without exposing its contents."""
+    try:
+        from modules.campaign_hub_memory import export_status_payload
+        settings = get_all_settings()
+        return jsonify(export_status_payload(settings.get("campaign_hub_snapshot_path")))
+    except Exception as exc:
+        return jsonify({
+            "available": False,
+            "source": "campaign_hub_local_memory",
+            "status": "error",
+            "read_only_runtime": True,
+            "message": f"Não foi possível ler a memória local: {str(exc)[:240]}",
+        }), 200
+
+
+@app.route("/api/campaign-hub/memory/import", methods=["POST"])
+def api_campaign_hub_memory_import():
+    """Install an authorized JSON export; the app never contacts the MCP here."""
+    uploaded = request.files.get("snapshot")
+    if not uploaded or not uploaded.filename:
+        return jsonify({"success": False, "error": "Envie um arquivo JSON de exportação do Campaign Hub."}), 400
+    temp_path = None
+    try:
+        from modules.campaign_hub_memory import import_snapshot_file
+        settings = get_all_settings()
+        destination = settings.get("campaign_hub_snapshot_path") or None
+        with tempfile.NamedTemporaryFile(
+            mode="wb",
+            prefix="campaign-hub-import-",
+            suffix=".json",
+            dir=PERSISTENT_DATA_DIR,
+            delete=False,
+        ) as handle:
+            uploaded.save(handle)
+            temp_path = handle.name
+        if os.path.getsize(temp_path) > 100 * 1024 * 1024:
+            raise ValueError("O export do Campaign Hub excede o limite local de 100 MB.")
+        merge = _coerce_bool(request.form.get("merge"), default=True)
+        status = import_snapshot_file(temp_path, destination=destination, merge=merge)
+        return jsonify({"success": True, "message": "Memória local atualizada com export autorizado.", **status})
+    except (OSError, ValueError) as exc:
+        return jsonify({"success": False, "error": str(exc)[:300]}), 400
+    except Exception as exc:
+        return jsonify({"success": False, "error": f"Falha ao importar memória local: {str(exc)[:300]}"}), 500
+    finally:
+        if temp_path:
+            try:
+                os.unlink(temp_path)
+            except OSError:
+                pass
+
+
+@app.route("/api/editorial/blocks", methods=["GET"])
+def api_editorial_blocks():
+    """List blocks from local memory; network access is intentionally absent."""
+    try:
+        from modules.editorial_block_memory import list_blocks
+        settings = get_all_settings()
+        renan_value = request.args.get("renan_speaking")
+        renan_speaking = None if renan_value in (None, "", "all") else _coerce_bool(renan_value)
+        payload = list_blocks(
+            settings.get("campaign_hub_snapshot_path"),
+            query=str(request.args.get("q") or "").strip(),
+            video_id=str(request.args.get("video_id") or "").strip() or None,
+            renan_speaking=renan_speaking,
+            prioritize_renan=request.args.get("prioritize_renan", "0") == "1",
+            source_ref=str(request.args.get("source_ref") or "").strip() or None,
+            limit=request.args.get("limit", 50),
+            offset=request.args.get("offset", 0),
+        )
+        return jsonify(payload)
+    except (TypeError, ValueError) as exc:
+        return jsonify({"available": False, "blocks": [], "total": 0, "error": str(exc)[:240]}), 400
+    except Exception as exc:
+        return jsonify({"available": False, "blocks": [], "total": 0, "error": f"Não foi possível ler os blocos: {str(exc)[:240]}"}), 200
+
+
+@app.route("/api/editorial/blocks/<block_id>", methods=["GET"])
+def api_editorial_block(block_id):
+    """Return one local block with bounded highlights and transcript sentences."""
+    try:
+        from modules.editorial_block_memory import get_block
+        settings = get_all_settings()
+        block = get_block(block_id, settings.get("campaign_hub_snapshot_path"))
+        if not block:
+            return jsonify({"error": "Bloco não encontrado na memória local."}), 404
+        return jsonify({"available": True, "block": block})
+    except Exception as exc:
+        return jsonify({"available": False, "error": f"Não foi possível ler o bloco: {str(exc)[:240]}"}), 200
+
+
+@app.route("/api/editorial/blocks/export", methods=["POST"])
+def api_export_editorial_block_interval():
+    """Render one selected local interval; remote range download is a later wave."""
+    data = request.get_json(silent=True) or {}
+    video_path = _resolve_media_input(data.get("video_path", ""))
+    if not video_path or not os.path.isfile(video_path):
+        return jsonify({"success": False, "error": "A fonte local do bloco não foi encontrada."}), 404
+    try:
+        start = max(0.0, float(data.get("start", 0)))
+        end = float(data.get("end"))
+    except (TypeError, ValueError):
+        return jsonify({"success": False, "error": "Informe início e fim numéricos para o intervalo."}), 400
+    if end <= start:
+        return jsonify({"success": False, "error": "O fim do intervalo precisa ser maior que o início."}), 400
+    requested_start = start
+    requested_end = end
+    duration = _probe_video_duration_seconds(video_path)
+    timeline_mapping = "source_timeline"
+    if duration and end > duration + 0.25:
+        # A block downloaded from Garimpo/Acervo starts at zero locally while
+        # its Chub timestamps remain absolute in the long source. Infer this
+        # only when the local duration closely matches the selected block span.
+        block_span = end - start
+        if abs(duration - block_span) <= max(15.0, block_span * 0.05):
+            start = 0.0
+            end = min(duration, block_span)
+            timeline_mapping = "downloaded_block_timeline"
+        else:
+            return jsonify({"success": False, "error": f"O bloco termina em {requested_end:.1f}s, mas a fonte local tem apenas {duration:.1f}s e não parece ser esse bloco."}), 400
+    if end - start > 15 * 60:
+        return jsonify({"success": False, "error": "A exportação seletiva está limitada a 15 minutos por intervalo."}), 413
+    try:
+        from modules.video_cutter import VideoCutter
+        block_id = str(data.get("block_id") or "intervalo")
+        filename = unique_storage_name(
+            f"bloco-{block_id}-{int(start)}-{int(end)}.mp4",
+            extension=".mp4",
+        )
+        output_path = os.path.join(EXPORT_DIR, filename)
+        cutter = VideoCutter(method="intelligent", target_duration=end - start, preset="shorts")
+        rendered = cutter.cut_clip(
+            video_path,
+            start,
+            end,
+            output_path,
+            vertical=False,
+            emit_progress=None,
+        )
+        if not rendered:
+            return jsonify({"success": False, "error": "A renderização do intervalo foi rejeitada pela validação de mídia."}), 422
+        relative = os.path.relpath(rendered, WORKSPACE_DIR).replace(os.sep, "/")
+        return jsonify({
+            "success": True,
+            "source_mode": "local_interval",
+            "block_id": block_id,
+            "start": start,
+            "end": end,
+            "requested_start": requested_start,
+            "requested_end": requested_end,
+            "duration": round(end - start, 3),
+            "timeline_mapping": timeline_mapping,
+            "path": relative,
+            "download_url": f"/workspace/{relative}",
+            "message": "Intervalo exportado no aspecto original; timestamps absolutos foram mapeados para a linha local quando a fonte parecia ser um bloco baixado.",
+        })
+    except Exception as exc:
+        return jsonify({"success": False, "error": f"Não foi possível exportar o intervalo: {str(exc)[:300]}"}), 500
 
 
 @app.route("/api/repository/status", methods=["GET"])

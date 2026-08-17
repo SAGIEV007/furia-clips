@@ -146,6 +146,13 @@
                     <div class="campaign-hub-local-status" id="campaignHubLocalStatus" role="status" aria-live="polite">
                         <span class="status-dot offline"></span><span>Verificando memória editorial local…</span>
                     </div>
+                    <div class="campaign-hub-setting-actions">
+                        <button class="btn btn-sm btn-outline" id="btnImportCampaignHubMemory" type="button">
+                            <span class="material-icons-round">sync</span> Atualizar memória
+                        </button>
+                        <input type="file" id="campaignHubMemoryFileInput" accept=".json,application/json" hidden>
+                    </div>
+                    <small class="setting-hint">Importa um export autorizado e mescla apenas registros novos/alterados. O processamento continua offline.</small>
                 </div>
 
                 <div class="setting-group setting-toggle">
@@ -353,6 +360,27 @@
 
         </section>
 
+        <!-- Editorial Blocks -->
+        <section class="section editorial-blocks-section" id="editorialBlocksSection">
+            <div class="section-header">
+                <div>
+                    <h3><span class="material-icons-round">view_agenda</span> Blocos da pré-análise</h3>
+                    <p class="section-hint">Escolha um trecho contextualizado antes de gerar cortes. A lista usa a memória local; o vídeo precisa estar disponível para baixar/renderizar.</p>
+                </div>
+                <div class="section-actions editorial-blocks-actions">
+                    <span class="studio-status-pill" id="editorialBlocksStatus"><span class="status-dot offline"></span> Memória não carregada</span>
+                    <button class="btn btn-sm btn-outline" id="btnRefreshEditorialBlocks" type="button"><span class="material-icons-round">refresh</span> Atualizar</button>
+                </div>
+            </div>
+            <div class="editorial-blocks-toolbar">
+                <input id="editorialBlocksSearch" class="setting-input" type="search" placeholder="Buscar por tema, título ou pergunta…" aria-label="Buscar blocos">
+                <label class="editorial-blocks-filter"><input id="editorialBlocksRenanOnly" type="checkbox" checked> Mostrar falas do Renan primeiro (sem ocultar outros oradores)</label>
+            </div>
+            <div class="editorial-blocks-list" id="editorialBlocksList" aria-live="polite">
+                <div class="editorial-blocks-empty">Atualize a memória local para carregar blocos editoriais.</div>
+            </div>
+        </section>
+
         <!-- Video Preview -->
         <section class="section" id="videoPreviewSection" style="display:none">
             <div class="section-header">
@@ -547,7 +575,7 @@
             </div>
 
             <div class="action-cards">
-                <div class="action-card" id="actionSilence" data-action="silence">
+                <div class="action-card" id="actionSilence" data-action="silence" hidden>
                     <div class="action-icon" style="background: linear-gradient(135deg, #FF6B6B, #FF8E53)">
                         <span class="material-icons-round">content_cut</span>
                     </div>
@@ -556,7 +584,7 @@
                     <button class="btn btn-action">Executar Corte</button>
                 </div>
 
-                <div class="action-card" id="actionSubtitles" data-action="subtitles">
+                <div class="action-card" id="actionSubtitles" data-action="subtitles" hidden>
                     <div class="action-icon" style="background: linear-gradient(135deg, #4ECDC4, #44CF6C)">
                         <span class="material-icons-round">subtitles</span>
                     </div>
@@ -617,7 +645,7 @@
                 <div class="operation-metric complete"><span class="material-icons-round">task_alt</span><div><strong id="operationCompletedCount">0</strong><span>concluídos</span></div></div>
                 <div class="operation-metric failed"><span class="material-icons-round">error_outline</span><div><strong id="operationAttentionCount">0</strong><span>exigem atenção</span></div></div>
             </div>
-            <div class="daily-editorial-goal" id="dailyEditorialGoal" aria-live="polite">
+            <div class="daily-editorial-goal" id="dailyEditorialGoal" aria-live="polite" hidden>
                 <span class="material-icons-round">flag</span>
                 <div class="daily-editorial-copy">
                     <div class="daily-editorial-head"><strong id="dailyEditorialTitle">Meta diária editorial</strong><span id="dailyEditorialValue">0 / 39 aprovados</span></div>
@@ -630,6 +658,15 @@
                 <span class="material-icons-round">school</span>
                 <div><strong id="editorialLearningTitle">Aprendizado editorial</strong><p id="editorialLearningText">Carregando decisões de revisão...</p><div id="editorialLearningCoverage" class="editorial-learning-coverage" aria-label="Cobertura dos motivos de revisão"></div></div>
                 <span class="editorial-learning-badge" id="editorialLearningBadge">—</span>
+            </div>
+            <div class="campaign-hub-memory-card" id="campaignHubMemoryCard" aria-live="polite">
+                <span class="material-icons-round">database</span>
+                <div class="campaign-hub-memory-copy">
+                    <strong>Memória editorial local</strong>
+                    <p id="campaignHubMemoryText">Verificando snapshot, blocos e referências disponíveis offline...</p>
+                    <div class="campaign-hub-memory-meta" id="campaignHubMemoryMeta"></div>
+                </div>
+                <span class="campaign-hub-memory-badge" id="campaignHubMemoryBadge">—</span>
             </div>
             <div class="editorial-data-card" id="editorialDataCard" aria-live="polite">
                 <span class="material-icons-round">database</span>
@@ -898,7 +935,7 @@
                         <div class="step-number">5</div>
                         <div>
                             <h4>Veja os resultados</h4>
-                            <p>Os clips gerados aparecerao com <strong>score viral (0-100)</strong>, preview em video, titulos sugeridos e opcao de exportar. Scores altos = maior chance de viralizar!</p>
+                            <p>Os cortes aparecerão com <strong>potencial editorial explicável</strong>, preview, contexto, alertas de revisão e opção de exportar. Um score não é promessa de viralização.</p>
                         </div>
                     </div>
                 </div>

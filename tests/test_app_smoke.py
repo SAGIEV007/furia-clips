@@ -1,6 +1,7 @@
 import os
 import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 import app as furia_app
@@ -248,3 +249,115 @@ def test_coerce_bool_handles_json_and_form_style_values():
     assert furia_app._coerce_bool("off") is False
     assert furia_app._coerce_bool("true") is True
     assert furia_app._coerce_bool(None, default=True) is True
+
+
+def test_campaign_hub_memory_status_endpoint_is_safe():
+    response = furia_app.app.test_client().get("/api/campaign-hub/memory/status")
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["source"] == "campaign_hub_local_memory"
+    assert payload["read_only_runtime"] is True
+    assert "token" not in str(payload).lower()
+
+
+def test_campaign_hub_memory_import_endpoint_installs_authorized_json(tmp_path):
+    import io
+    import json
+
+    payload = {
+        "version": "http-test",
+        "default_account": "@renansantosmbl",
+        "accounts": {
+            "@renansantosmbl": {
+                "platform": "instagram",
+                "hook_observations": [
+                    {"hook": "news-peg", "ratio": 1.0},
+                    {"hook": "news-peg", "ratio": 1.1},
+                    {"hook": "news-peg", "ratio": 1.2},
+                ],
+            }
+        },
+        "records": {"blocks": [{"id": "http-block", "start_s": 0, "end_s": 10}]},
+        "metadata": {"privacy_contract": {"raw_media_included": False}},
+    }
+    destination = tmp_path / "profile.json"
+    with patch.object(furia_app, "get_all_settings", return_value={"campaign_hub_snapshot_path": str(destination)}):
+        response = furia_app.app.test_client().post(
+            "/api/campaign-hub/memory/import",
+            data={"snapshot": (io.BytesIO(json.dumps(payload).encode("utf-8")), "export.json")},
+            content_type="multipart/form-data",
+        )
+    assert response.status_code == 200
+    result = response.get_json()
+    assert result["success"] is True
+    assert result["record_counts"]["blocks"] == 1
+    assert destination.is_file()
+
+
+def test_editorial_block_interval_export_validates_and_returns_download_path(tmp_path):
+    from modules import video_cutter
+
+    source = tmp_path / "source.mp4"
+    source.write_bytes(b"source")
+
+    def fake_cut(_self, _video, _start, _end, output_path, **_kwargs):
+        with open(output_path, "wb") as handle:
+            handle.write(b"rendered")
+        return output_path
+
+    with patch.object(furia_app, "_resolve_media_input", return_value=str(source)), \
+         patch.object(furia_app, "_probe_video_duration_seconds", return_value=120.0), \
+         patch.object(video_cutter.VideoCutter, "cut_clip", new=fake_cut):
+        response = furia_app.app.test_client().post(
+            "/api/editorial/blocks/export",
+            json={"video_path": "workspace/uploads/source.mp4", "block_id": "b1", "start": 10, "end": 30},
+        )
+
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["success"] is True
+    assert payload["source_mode"] == "local_interval"
+    assert payload["duration"] == 20
+    assert payload["download_url"].startswith("/workspace/")
+
+
+def test_editorial_block_interval_export_rejects_source_overflow(tmp_path):
+    source = tmp_path / "source.mp4"
+    source.write_bytes(b"source")
+    with patch.object(furia_app, "_resolve_media_input", return_value=str(source)), \
+         patch.object(furia_app, "_probe_video_duration_seconds", return_value=10.0):
+        response = furia_app.app.test_client().post(
+            "/api/editorial/blocks/export",
+            json={"video_path": "source.mp4", "start": 10, "end": 40},
+        )
+    assert response.status_code == 400
+    assert "apenas" in response.get_json()["error"]
+
+
+def test_editorial_block_interval_export_maps_downloaded_block_timeline(tmp_path):
+    from modules import video_cutter
+
+    source = tmp_path / "downloaded-block.mp4"
+    source.write_bytes(b"source")
+
+    def fake_cut(_self, _video, start, end, output_path, **_kwargs):
+        assert start == 0.0
+        assert abs(end - 549.44) < 1e-6
+        Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+        with open(output_path, "wb") as handle:
+            handle.write(b"rendered")
+        return output_path
+
+    with patch.object(furia_app, "_resolve_media_input", return_value=str(source)), \
+         patch.object(furia_app, "_probe_video_duration_seconds", return_value=553.527), \
+         patch.object(video_cutter.VideoCutter, "cut_clip", new=fake_cut):
+        response = furia_app.app.test_client().post(
+            "/api/editorial/blocks/export",
+            json={"video_path": "downloaded-block.mp4", "block_id": "b354", "start": 6142.56, "end": 6692.0},
+        )
+
+    payload = response.get_json()
+    assert response.status_code == 200
+    assert payload["timeline_mapping"] == "downloaded_block_timeline"
+    assert payload["requested_start"] == 6142.56
+    assert payload["start"] == 0.0

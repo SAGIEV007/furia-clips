@@ -1,5 +1,25 @@
 # Changelog de continuidade
 
+## 2.1 — Memória local do Campaign Hub, blocos e exportação seletiva
+
+### Incluído
+
+- Memória local versionada e offline-first para exports autorizados do Campaign Hub, com manifesto, hash, instalação atômica e fusão incremental.
+- Conversor e comando local de atualização em `scripts/convert_chub_blocks_export.py` e `scripts/update_campaign_hub_memory.py`, sem depender do MCP durante cada job.
+- Leitura de blocos editoriais com filtro por fonte/YouTube ID, busca, destaques, pergunta-gatilho, riscos, proveniência e prioridade Renan-first sem ocultar terceiros.
+- Novo painel visual de Blocos entre Fonte e Refinamento, mantendo o aspecto original como prioridade.
+- Exportação seletiva local por intervalo e mapeamento seguro de timestamps absolutos do vídeo longo para MP4 de bloco que começa em zero.
+- Evidência temporal/textual de blocos no ranking como ajuste pequeno, explicável e nunca como gate.
+- Testes para memória, filtros, ranking, exportação, limites, timeline mapeada e UX; nenhum vídeo ou segredo foi versionado.
+
+### Validação da rodada
+
+A consulta autorizada por `videoId=57nyfP9IDW4` retornou 64 blocos reais do Primeiro Ato. O bloco b354, `6142.56–6692.0s`, foi exportado do MP4 local como `0–549.44s` e validado em 1920×1080, H.264/AAC, 549.4489s. A suíte completa terminou com **322 testes aprovados**; `node --check`, `compileall`, `git diff --check` e inspeção visual também passaram.
+
+### Limitações conhecidas
+
+O download remoto seletivo por range ainda depende do provedor e não foi prometido. O benchmark persistente ainda será construído na próxima onda, assim como exportação individual de highlights, diarização robusta, reconhecimento de voz e simplificação completa da sidebar.
+
 ## 2.0 — START_HERE canônico e validação prática Renan-first
 
 ### Incluído

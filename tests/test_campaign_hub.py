@@ -272,3 +272,52 @@ def test_campaign_hub_prior_stays_neutral_with_insufficient_hook_sample():
     assert prior["available"] is False
     assert prior["observed_signal"] == 50.0
     assert prior["confidence"] == 0.0
+
+
+def test_build_performance_prior_exposes_bounded_local_block_evidence():
+    snapshot = normalize_snapshot({
+        "default_account": "@renansantosmbl",
+        "accounts": {"@renansantosmbl": {"platform": "youtube", "hook_observations": []}},
+        "records": {
+            "blocks": [{
+                "id": "b-real",
+                "title": "Renan convoca o primeiro ato",
+                "summary": "O primeiro ato de campanha será em São Paulo.",
+                "topics": ["campanha", "mobilização"],
+                "start_s": 100,
+                "end_s": 160,
+                "renan_speaking": True,
+                "self_contained_rank": 90,
+                "needs_context": False,
+            }],
+        },
+    })
+
+    prior = build_performance_prior(
+        "Renan convoca o primeiro ato de campanha em São Paulo.",
+        account="@renansantosmbl",
+        snapshot=snapshot,
+        start=110,
+        end=140,
+    )
+
+    evidence = prior["block_evidence"]
+    assert evidence["available"] is True
+    assert evidence["matches"][0]["block_id"] == "b-real"
+    assert 42 <= evidence["observed_signal"] <= 60
+
+
+def test_ranker_keeps_block_evidence_explainable_and_small():
+    snapshot = normalize_snapshot({
+        "default_account": "@renansantosmbl",
+        "accounts": {"@renansantosmbl": {"platform": "youtube", "hook_observations": []}},
+        "records": {"blocks": [{"id": "b1", "title": "Campanha", "summary": "Renan convoca campanha", "topics": ["campanha"], "start_s": 10, "end_s": 60, "renan_speaking": True}]},
+    })
+    scored = EditorialRanker(campaign_hub_snapshot=snapshot, campaign_hub_account="@renansantosmbl").score_clip({
+        "text": "Renan convoca campanha com trabalho e mobilização.",
+        "start": 20,
+        "end": 40,
+        "duration": 20,
+    })
+    assert scored["campaign_hub_block_evidence"]["available"] is True
+    assert scored["factors"]["campaign_hub_block_evidence"] >= 50
