@@ -14,7 +14,7 @@
 | Fonte da versão | [`VERSION`](../../VERSION) |
 | Branch de trabalho | `manus/rebuild-opus-parity` |
 | Última publicação conhecida antes desta rodada | `74bc611` — `docs: registrar commit do prompt operacional (2.5)` |
-| Commit funcional/documental 2.6 | Será registrado após o commit e a conferência de `git rev-parse` |
+| Commit funcional/documental 2.6 | `fec34fe` — `feat: primeira ponte funcional Campaign Hub para propostas (2.6)` |
 | Última atualização | 2026-08-17 |
 | Baseline editorial | b354 com 7 candidatos, recall `0/3`, IoU médio `0.0` |
 | Objetivo | Gerar cortes Renan Santos/MBL concisos, autossuficientes, contextualizados e editorialmente úteis |
