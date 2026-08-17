@@ -17,6 +17,7 @@
 | Commit funcional 2.6 | `fec34fe` — `feat: primeira ponte funcional Campaign Hub para propostas (2.6)` |
 | Commit funcional 2.7 | `a0452d3` — `fix: declarar confiabilidade da medição no benchmark editorial (2.7)` |
 | Commit funcional 2.8 | `fdf5e6b` — `fix: alinhar seeds do Campaign Hub com a mídia local em processamento (2.8)` |
+| Commit funcional 2.9 | `10c1fad` — `feat: medir recall em fonte longa inteira e descartar não-conteúdo rotulado (2.9)` |
 | Última atualização | 2026-08-17 |
 | Baseline editorial | `3XJfcqn56Rw`: 27 blocos, 66 destaques, recall `27/66`, cobertura `20/27`, IoU `0.16` (release 2.9). O b354 permanece como regressão de locutor. |
 | Suíte no checkout | 338 aprovados, 7 falhas ambientais (`ffmpeg`/`ffprobe` ausentes e asset BlazeFace) |
