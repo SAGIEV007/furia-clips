@@ -8,7 +8,26 @@ Reels e posts publicados continuam `reference_only`. Lives longas e gravações 
 
 ## Hipótese única
 
-> Se o MP4 local do bloco b354 e um snapshot autorizado do Campaign Hub forem instalados e o Furia reprocessar o caso com a ponte da release 2.6 obtendo `measurement.reliable=true`, então o recall temporal medido será o recall real da seleção e poderá ser confrontado com o baseline `0/3`, sem aumentar falsos positivos, atribuições erradas, truncamentos ou confusão entre quem fala e quem é foco editorial.
+> Se o MP4 local do bloco b354 for instalado e o Furia reprocessar o caso com a ponte da release 2.6 e o alinhamento da release 2.8, obtendo `measurement.reliable=true`, então o recall temporal medido será o recall real da seleção e poderá ser confrontado com o baseline `0/3`, sem aumentar falsos positivos, atribuições erradas, truncamentos ou confusão entre quem fala e quem é foco editorial.
+
+## O que a release 2.8 já resolveu
+
+O alinhamento temporal deixou de ser um obstáculo. As seeds nasciam em segundos
+absolutos porque o mapeamento usava a duração declarada no snapshot (a live inteira)
+em vez da duração do arquivo em processamento. Agora o job passa
+`settings["media_duration"]`, medido por `ffprobe`, e o mapeamento prefere esse valor.
+
+Duas consequências práticas para esta rodada:
+
+1. **Passe a duração da mídia.** Ao chamar `build_campaign_hub_guided_seeds()` fora do
+   job, informe `media_duration`. Sem ela o comportamento antigo é preservado — as
+   seeds continuam em segundos absolutos.
+2. **Zero propostas agora significa zero propostas.** Antes da 2.8, uma seed fora da
+   transcrição era ancorada na frase mais próxima e virava uma proposta falsa. Se
+   aparecerem propostas repetidas na mesma janela, é regressão desta correção.
+
+A duração real da live `57nyfP9IDW4` é **`11230s`**, conferida no Acervo. Registros
+anteriores diziam `7241s`.
 
 ## Pré-condição obrigatória de medição — release 2.7
 

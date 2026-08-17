@@ -1,5 +1,33 @@
 # Changelog de continuidade
 
+## 2.8 — Alinhamento temporal das seeds do Campaign Hub
+
+### Incluído
+
+- `modules/campaign_hub_guidance.py`: `_map_interval()` e `build_campaign_hub_guided_seeds()` aceitam `media_duration` e preferem a duração **medida** da mídia local sobre a **declarada** no snapshot.
+- `modules/clip_selector.py`: novo `_media_duration()` para ler a duração medida das configurações do job, e nova constante `MAX_SEED_ANCHOR_GAP_S = 60.0` limitando a ancoragem de uma seed na frase mais próxima.
+- `app.py`: o job passa a gravar `settings["media_duration"]` com a duração já obtida por `ffprobe`, que nunca chegava à camada de orientação.
+- `tests/test_campaign_hub_guidance.py`: seis regressões com os dados do b354 verificados direto no Acervo.
+- `tests/test_runtime_version.py`: lê `VERSION` em vez de repetir o número, corrigindo duas falhas que a 2.7 introduziu.
+
+### Hipótese e baseline
+
+A hipótese foi que as seeds do Campaign Hub nasciam no eixo de tempo errado. `_map_interval()` decidia o mapeamento pela duração declarada em `records.sources[].duration_s` — a live inteira — e não pela duração do arquivo em processamento. No b354 a live tem `11230s` e o bloco `549.44s`: a condição nunca fecha.
+
+Reproduzido em execução real: as três seeds ficaram em `6289.36` / `6365.80` / `6631.04` enquanto a transcrição local ia de `0` a `497s`. Nenhuma seed dentro da transcrição.
+
+Uma segunda falha apareceu na reprodução e não estava prevista: em vez de zero propostas, o seletor devolvia **três propostas idênticas** em `488.48–497.00`, porque `_build_campaign_hub_proposal()` ancorava qualquer seed órfã na frase mais próxima, sem limite de distância. Três destaques distintos viravam a mesma janela errada com proveniência do Campaign Hub.
+
+### Resultado
+
+Com a duração medida informada, os três destaques mapeiam para `146.80` / `223.24` / `488.48` — exatamente os valores do baseline documentado — e geram três propostas distintas, cada uma abrindo antes do destaque para recuperar a pergunta ou o antecedente, todas `review_required=true` porque o bloco tem `renanSpeaking=false`.
+
+Suíte: **336 aprovados, 7 falhas ambientais**, contra 328/9 antes da rodada. A diferença de `+8` é exata: `+2` dos testes de versão corrigidos e `+6` das regressões novas.
+
+### Limitações
+
+O recall real do b354 continua **não verificado**. A transcrição usada nas regressões é sintética e serve para exercitar o alinhamento, não para medir seleção. Nenhum ganho sobre o baseline `0/3` é reivindicado. O MP4 local do bloco não está no ambiente. Relatório em [`CYCLE_18_REPORT_2026-08-17.md`](CYCLE_18_REPORT_2026-08-17.md).
+
 ## 2.7 — Confiabilidade declarada da medição do benchmark
 
 ### Incluído

@@ -8,16 +8,17 @@
 | --- | --- |
 | Projeto | Furia Clips |
 | Repositório | `SAGIEV007/furia-clips` |
-| Versão pública atual | `2.7` |
-| Última release funcional anterior | `2.6` |
-| Natureza da release atual | Confiabilidade declarada da medição do benchmark editorial |
+| Versão pública atual | `2.8` |
+| Última release funcional anterior | `2.7` |
+| Natureza da release atual | Alinhamento temporal das seeds do Campaign Hub com a mídia local |
 | Fonte da versão | [`VERSION`](../../VERSION) |
-| Branch de trabalho | `manus/rebuild-opus-parity` |
-| Última publicação conhecida antes desta rodada | `c530cd1` — `docs: registrar hash da release 2.6` |
+| Branch de trabalho | `claude/repo-access-commits-imgjmk` |
+| Última publicação conhecida antes desta rodada | `a0452d3` — `fix: declarar confiabilidade da medição no benchmark editorial (2.7)` |
 | Commit funcional 2.6 | `fec34fe` — `feat: primeira ponte funcional Campaign Hub para propostas (2.6)` |
-| Commit funcional 2.7 | `e451dad` — `fix: declarar confiabilidade da medição no benchmark editorial (2.7)` |
+| Commit funcional 2.7 | `a0452d3` — `fix: declarar confiabilidade da medição no benchmark editorial (2.7)` |
 | Última atualização | 2026-08-17 |
-| Baseline editorial | b354 com 7 candidatos, recall `0/3`, IoU médio `0.0` — **ainda não remedido com mapeamento confiável** |
+| Baseline editorial | b354 com 7 candidatos, recall `0/3`, IoU médio `0.0` — **ainda não remedido com mídia local real** |
+| Suíte no checkout | 336 aprovados, 7 falhas ambientais (`ffmpeg`/`ffprobe` ausentes e asset BlazeFace) |
 | Objetivo | Gerar cortes Renan Santos/MBL concisos, autossuficientes, contextualizados e editorialmente úteis |
 
 A branch de trabalho deve ser confirmada no checkout real. O GitHub é a fonte da revisão técnica; este arquivo não pode manter um hash diferente do `HEAD` final publicado. Antes de alterar qualquer arquivo, preserve mudanças locais e confirme `git status`.
@@ -30,7 +31,37 @@ A ponte carrega o snapshot uma vez por job, preserva proveniência e riscos, exp
 
 O caso b354 deve preservar `renanSpeaking=false` quando Kim ou outro terceiro fala. O fato de um bloco ser sobre Renan não autoriza atribuir a fala a Renan. Propostas guiadas devem permanecer separadas de cortes aprovados e não podem apagar candidatos de terceiros.
 
-## Release atual — 2.7
+## Release atual — 2.8
+
+A 2.8 corrigiu a causa do recall travado: as seeds do Campaign Hub nasciam no eixo de
+tempo errado. `_map_interval()` decidia o mapeamento pela duração declarada em
+`records.sources[].duration_s` — a live inteira — e não pela duração do arquivo em
+processamento. No b354 a live tem `11230s` (valor conferido no Acervo; a documentação
+anterior registrava `7241s`) e o bloco tem `549.44s`: a condição nunca fechava.
+
+Reproduzido em execução real: as três seeds ficavam em `6289.36` / `6365.80` /
+`6631.04` enquanto a transcrição do MP4 do bloco ia de `0` a `497s`. Nenhuma seed caía
+dentro da transcrição.
+
+A reprodução revelou uma segunda falha não prevista. Em vez de zero propostas, o
+seletor devolvia **três propostas idênticas** em `488.48–497.00`, porque
+`_build_campaign_hub_proposal()` ancorava qualquer seed órfã na frase mais próxima sem
+limite de distância — e a frase mais próxima de uma seed em `6289s` é sempre a última
+da transcrição. Três destaques distintos viravam a mesma janela errada carregando
+proveniência do Campaign Hub. Isso é proposta errada com procedência falsa, não apenas
+recall perdido.
+
+Com a duração medida da mídia informada pelo job, os três destaques mapeiam para
+`146.80` / `223.24` / `488.48` e geram três propostas distintas, cada uma abrindo antes
+do destaque para recuperar a pergunta ou o antecedente, todas `review_required=true`
+porque o bloco tem `renanSpeaking=false`.
+
+O recall real continua **não verificado**: a transcrição das regressões é sintética e
+exercita o alinhamento, não a seleção. O MP4 local do b354 não está no ambiente.
+Nenhum ganho sobre o baseline `0/3` é reivindicado. Relatório em
+[`CYCLE_18_REPORT_2026-08-17.md`](CYCLE_18_REPORT_2026-08-17.md).
+
+## Release anterior — 2.7
 
 A release 2.7 corrigiu um modo de falha da **medição**, não da seleção. O benchmark
 podia devolver `recall 0/3` por dois motivos completamente diferentes — a seleção
@@ -129,6 +160,7 @@ Em qualquer rodada, classifique conclusões como `confirmado`, `reproduzido`, `c
 
 | Release | Foco | Resultado principal | Relatório |
 | --- | --- | --- | --- |
+| 2.8 | Alinhamento temporal das seeds | Seeds do b354 passam a cair na timeline local; três propostas falsas idênticas eliminadas | [`CYCLE_18_REPORT_2026-08-17.md`](CYCLE_18_REPORT_2026-08-17.md) |
 | 2.7 | Confiabilidade declarada da medição | Benchmark passa a distinguir `0/3` de seleção de `0/3` por timeline não mapeada | [`CYCLE_17_REPORT_2026-08-17.md`](CYCLE_17_REPORT_2026-08-17.md) |
 | 2.6 | Primeira ponte Campaign Hub→seeds→propostas | 2 seeds e 2 propostas reproduzidas em payload real; recall b354 ainda não medido | [`CYCLE_16_REPORT_2026-08-17.md`](CYCLE_16_REPORT_2026-08-17.md) |
 | 2.5 | Prompt operacional Chub→cortes | Roteiro copiável; sem alteração funcional | [`CYCLE_15_REPORT_2026-08-17.md`](CYCLE_15_REPORT_2026-08-17.md) |

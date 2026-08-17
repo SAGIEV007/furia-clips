@@ -2478,6 +2478,11 @@ def api_cut_shorts():
             # remain offline-first rather than calling MCP once per candidate.
             settings["campaign_hub_snapshot"] = campaign_hub_snapshot
             settings["campaign_hub_account"] = campaign_hub_account
+            # Measured from the file on disk. Without it the guidance layer can
+            # only trust the duration declared in the snapshot, which describes
+            # the long source and leaves the seeds of a downloaded block in
+            # absolute seconds while the local transcript starts at zero.
+            settings["media_duration"] = video_duration
             settings["audit_mode"] = audit_mode
             settings["preferred_format"] = preferred_format
             settings["selection_transcription"] = selection_transcription

@@ -150,6 +150,161 @@ def test_real_campaign_hub_block_shape_becomes_auditable_seeds():
     assert seed["provenance"]["source_ref"] == "gVrW6a5e6Tc"
 
 
+B354_BLOCK_ID = "b3545938-e3a5-4287-82b1-5f7dcdc218c3"
+B354_MP4_DURATION_S = 549.449
+B354_LIVE_DURATION_S = 11230.0
+
+
+def _b354_snapshot():
+    """Real shape of the b354 case, confirmed against the authorized Acervo.
+
+    The block was cut out of a long live: the snapshot describes the whole
+    `57nyfP9IDW4` source, while the editor works on the downloaded block MP4.
+    """
+    return {
+        "version": "b354-alignment-v1",
+        "default_account": "@renansantosmbl",
+        "accounts": {"@renansantosmbl": {"platform": "youtube"}},
+        "records": {
+            "sources": [{
+                "id": "57nyfP9IDW4",
+                "youtubeId": "57nyfP9IDW4",
+                "durationS": B354_LIVE_DURATION_S,
+                "account": "@renansantosmbl",
+            }],
+            "blocks": [{
+                "id": B354_BLOCK_ID,
+                "videoId": "57nyfP9IDW4",
+                "startS": 6142.56,
+                "endS": 6692.0,
+                "title": "Kim transforma a campanha de Renan em guerra e convoca 45 dias de mobilização",
+                "triggerQuestion": "Como Kim apresenta a campanha de Renan e mobiliza os apoiadores?",
+                # The block is about Renan, but Kim is the one speaking.
+                "renanSpeaking": False,
+                "riskFlags": ["juridico_sensivel", "linguagem_ofensiva", "ataque_pessoal"],
+                "trustTier": "owner",
+                "densityRank": 98,
+                "selfContainedRank": 90,
+                "highlights": [
+                    {"sentenceIdx": 1350, "startS": 6289.36, "endS": 6293.36,
+                     "text": "Nós somos um exército indestrutível."},
+                    {"sentenceIdx": 1367, "startS": 6365.80, "endS": 6370.96,
+                     "text": "Nós fundamos o nosso partido para representar as nossas próprias ideias."},
+                    {"sentenceIdx": 1426, "startS": 6631.04, "endS": 6637.76,
+                     "text": "Se a gente não se empenhar nesses 45 dias, a gente vai pagar pelos próximos 20 anos."},
+                ],
+            }],
+        },
+    }
+
+
+def _b354_local_sentences():
+    """Transcript of the downloaded block MP4: local timeline, starting at zero."""
+    return [
+        {"start": 140.0, "end": 146.8, "text": "Eu quero dizer uma coisa para vocês que estão aqui hoje.", "speaker_turn_valid": True},
+        {"start": 146.8, "end": 152.4, "text": "Nós somos um exército indestrutível e ninguém vai nos parar.", "speaker_turn_valid": True},
+        {"start": 218.0, "end": 223.24, "text": "Por que vocês fundaram um partido novo?", "speaker_turn_valid": True},
+        {"start": 223.24, "end": 231.0, "text": "Nós fundamos o nosso partido para representar as nossas próprias ideias.", "speaker_turn_valid": True},
+        {"start": 482.0, "end": 488.48, "text": "Agora eu preciso da atenção de todos vocês.", "speaker_turn_valid": True},
+        {"start": 488.48, "end": 497.0, "text": "São 45 dias de esforço que vão definir os próximos 20 anos deste país.", "speaker_turn_valid": True},
+    ]
+
+
+def test_downloaded_block_media_maps_seeds_into_the_local_transcript():
+    """The measured MP4 length is what tells the seeds which timeline they live on."""
+    seeds = build_campaign_hub_guided_seeds(
+        _b354_local_sentences(),
+        _b354_snapshot(),
+        account="@renansantosmbl",
+        media_duration=B354_MP4_DURATION_S,
+    )
+
+    assert len(seeds) == 3
+    assert [seed["timeline_mapping"] for seed in seeds] == ["downloaded_block_timeline"] * 3
+    # The three reference highlights of the b354 baseline, on the local timeline.
+    assert [seed["start"] for seed in seeds] == [146.8, 223.24, 488.48]
+    assert [seed["end"] for seed in seeds] == [150.8, 228.4, 495.2]
+    # The absolute coordinates stay recorded so the mapping remains auditable.
+    assert seeds[0]["absolute_start"] == 6289.36
+    assert seeds[0]["renan_speaking"] is False
+    assert seeds[0]["speaker_gate"] == "review_required"
+
+
+def test_declared_source_duration_alone_cannot_place_a_downloaded_block():
+    """Without a measured duration the snapshot only knows the long source."""
+    seeds = build_campaign_hub_guided_seeds(
+        _b354_local_sentences(), _b354_snapshot(), account="@renansantosmbl"
+    )
+
+    assert [seed["timeline_mapping"] for seed in seeds] == ["source_timeline"] * 3
+    assert seeds[0]["start"] == 6289.36
+
+
+def test_full_length_media_keeps_the_absolute_timeline():
+    """Cutting the whole live keeps candidates and seeds on the same absolute axis."""
+    seeds = build_campaign_hub_guided_seeds(
+        [], _b354_snapshot(), account="@renansantosmbl", media_duration=B354_LIVE_DURATION_S
+    )
+
+    assert [seed["timeline_mapping"] for seed in seeds] == ["source_timeline"] * 3
+    assert seeds[0]["start"] == 6289.36
+
+
+def test_seed_far_outside_the_transcript_produces_no_proposal():
+    """An unmapped seed must not be snapped onto an unrelated sentence.
+
+    Anchoring it would publish the wrong window carrying Campaign Hub
+    provenance, and every distant seed would collapse onto the same edge
+    sentence, turning three different highlights into one repeated proposal.
+    """
+    selector = ClipSelector(min_duration=8, max_duration=180, max_clips=5)
+    proposals = selector._select_with_campaign_hub_guidance(
+        _b354_local_sentences(),
+        {"campaign_hub_snapshot": _b354_snapshot(), "campaign_hub_account": "@renansantosmbl"},
+    )
+
+    assert proposals == []
+
+
+def test_guided_proposals_recover_the_three_b354_highlights():
+    """End to end: measured media in settings turns the seeds into real proposals."""
+    selector = ClipSelector(min_duration=8, max_duration=180, max_clips=5)
+    proposals = selector._select_with_campaign_hub_guidance(
+        _b354_local_sentences(),
+        {
+            "campaign_hub_snapshot": _b354_snapshot(),
+            "campaign_hub_account": "@renansantosmbl",
+            "media_duration": B354_MP4_DURATION_S,
+        },
+    )
+
+    assert len(proposals) == 3
+    # Each proposal covers its highlight and opens earlier, because the expansion
+    # recovers the antecedent instead of starting in the middle of the answer.
+    for highlight_start, highlight_end in ((146.8, 150.8), (223.24, 228.4), (488.48, 495.2)):
+        covering = [
+            proposal for proposal in proposals
+            if proposal["start"] <= highlight_start and proposal["end"] >= highlight_end
+        ]
+        assert len(covering) == 1, f"destaque {highlight_start}-{highlight_end} sem proposta única"
+        assert covering[0]["start"] < highlight_start
+    # Kim speaks in this block, so no proposal may be released without review.
+    assert all(proposal["review_required"] is True for proposal in proposals)
+    assert all(proposal["source"] == "campaign_hub_guided" for proposal in proposals)
+    assert {proposal["campaign_hub"]["provenance"]["block_id"] for proposal in proposals} == {B354_BLOCK_ID}
+
+
+def test_media_duration_is_read_from_the_probed_job_settings():
+    selector = ClipSelector()
+
+    assert selector._media_duration({"media_duration": 549.449}) == 549.449
+    assert selector._media_duration({"video_duration": 549.449}) == 549.449
+    assert selector._media_duration({"media_duration": 0}) is None
+    assert selector._media_duration({"media_duration": "indefinido"}) is None
+    assert selector._media_duration({}) is None
+    assert selector._media_duration(None) is None
+
+
 def test_third_party_campaign_hub_seed_remains_review_required():
     selector = ClipSelector(min_duration=8, max_duration=180, max_clips=5)
     proposal = selector._build_campaign_hub_proposal(

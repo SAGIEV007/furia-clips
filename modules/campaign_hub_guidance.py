@@ -44,14 +44,25 @@ def _map_interval(
     source_duration: float | None,
     block_start: float,
     block_end: float,
+    media_duration: float | None = None,
 ) -> tuple[float, float, str]:
-    """Map absolute Chub seconds to a downloaded block timeline when justified."""
+    """Map absolute Chub seconds to a downloaded block timeline when justified.
+
+    ``media_duration`` is the length of the file actually being processed, read
+    from the media itself. ``source_duration`` is only what the snapshot declares
+    for the long source. The two disagree exactly in the case that matters: when
+    the editor processes the downloaded block MP4, the snapshot still describes
+    the whole live, so trusting the declared value leaves every seed in absolute
+    seconds while the local transcript starts at zero. The real media wins; the
+    declared value stays as the fallback for callers that cannot measure it.
+    """
     block_span = max(0.0, block_end - block_start)
-    if source_duration and block_span > 0 and abs(source_duration - block_span) <= max(15.0, block_span * 0.05):
+    local_duration = _float(media_duration) or _float(source_duration)
+    if local_duration and block_span > 0 and abs(local_duration - block_span) <= max(15.0, block_span * 0.05):
         local_start = max(0.0, start - block_start)
         local_end = max(local_start, end - block_start)
-        local_start = min(local_start, source_duration)
-        local_end = min(local_end, source_duration)
+        local_start = min(local_start, local_duration)
+        local_end = min(local_end, local_duration)
         return round(local_start, 3), round(local_end, 3), "downloaded_block_timeline"
     return round(start, 3), round(end, 3), "source_timeline"
 
@@ -86,6 +97,7 @@ def build_campaign_hub_guided_seeds(
     *,
     account: str | None = None,
     limit: int = 30,
+    media_duration: float | None = None,
 ) -> list[dict[str, Any]]:
     """Build timestamped Chub seeds for the local transcript timeline.
 
@@ -93,6 +105,10 @@ def build_campaign_hub_guided_seeds(
     is emitted from its possible cut or interval so the editor can still inspect it.
     All records preserve provenance and review gates; nothing here auto-approves a
     renderable clip.
+
+    ``media_duration`` is the measured length of the local file being processed.
+    Without it the mapping can only trust the duration declared in the snapshot,
+    which describes the long source and not a downloaded block.
     """
     if not isinstance(snapshot, dict):
         return []
@@ -150,6 +166,7 @@ def build_campaign_hub_guided_seeds(
                 source_duration=source_duration,
                 block_start=block_start,
                 block_end=block_end,
+                media_duration=media_duration,
             )
             if mapped_end <= mapped_start:
                 continue

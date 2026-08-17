@@ -14,13 +14,21 @@ def test_progress_events_include_runtime_version(monkeypatch):
     assert payload["time"]
 
 
-def test_program_version_matches_repository_file():
+def _repository_version():
     import app as app_module
     from pathlib import Path
 
-    version_path = Path(app_module.BASE_DIR) / "VERSION"
-    assert version_path.read_text(encoding="utf-8").strip() == app_module.PROGRAM_VERSION
-    assert app_module.PROGRAM_VERSION == "2.6"
+    return (Path(app_module.BASE_DIR) / "VERSION").read_text(encoding="utf-8").strip()
+
+
+def test_program_version_matches_repository_file():
+    import app as app_module
+
+    # The literal version is read from VERSION instead of being repeated here:
+    # a hardcoded number turns every release bump into a false regression.
+    version = _repository_version()
+    assert version
+    assert version == app_module.PROGRAM_VERSION
 
 
 def test_connected_event_exposes_runtime_identity(monkeypatch):
@@ -32,7 +40,7 @@ def test_connected_event_exposes_runtime_identity(monkeypatch):
     connected = next(payload for event, payload in events if event == "connected")
     assert connected["program_version"] == app_module.PROGRAM_VERSION
     assert connected["program_revision"] == app_module.PROGRAM_REVISION
-    assert "Versão 2.6" in connected["message"]
+    assert f"Versão {_repository_version()}" in connected["message"]
 
 
 def test_settings_endpoint_exposes_runtime_identity():

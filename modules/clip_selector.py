@@ -48,6 +48,11 @@ WEAK_PAYOFF_ENDINGS_PT = {
 
 
 class ClipSelector:
+    # How far a Campaign Hub seed may fall outside every sentence and still be
+    # anchored to the nearest one. Silences, applause and music leave real gaps in
+    # a transcript; a mismatch of whole minutes means a timeline mismatch instead.
+    MAX_SEED_ANCHOR_GAP_S = 60.0
+
     def __init__(
         self,
         target_duration=45,
@@ -1143,6 +1148,7 @@ Retorne APENAS o JSON.
                 snapshot,
                 account=settings.get("campaign_hub_account") or snapshot.get("default_account"),
                 limit=max(1, min(30, self.max_clips * 2)),
+                media_duration=self._media_duration(settings),
             )
         except (ImportError, OSError, TypeError, ValueError) as exc:
             if emit_progress:
@@ -1160,6 +1166,26 @@ Retorne APENAS o JSON.
         ), reverse=True)
         return proposals[:self.max_clips]
 
+    @staticmethod
+    def _media_duration(settings):
+        """Length of the file being processed, as measured by the caller.
+
+        The snapshot only knows how long the original source is. When the editor
+        works on a block that was downloaded out of a long live, that declared
+        length is the wrong ruler, so the job must hand over the duration it
+        probed from the local media.
+        """
+        if not isinstance(settings, dict):
+            return None
+        for key in ("media_duration", "video_duration", "source_duration"):
+            try:
+                duration = float(settings.get(key))
+            except (TypeError, ValueError):
+                continue
+            if duration > 0:
+                return duration
+        return None
+
     def _build_campaign_hub_proposal(self, sentences, seed):
         """Expand one temporal/semantic seed to the smallest complete local window."""
         if not seed or not sentences:
@@ -1176,6 +1202,20 @@ Retorne APENAS o JSON.
                 range(len(sentences)),
                 key=lambda index: abs(float(sentences[index].get("start", 0) or 0) - seed_start),
             )
+            # A seed landing in a short silence or just past the last sentence is
+            # still the same moment, so the nearest sentence is a fair anchor. A
+            # seed that misses the transcript by minutes is not: it means the seed
+            # and the transcript are on different timelines, and snapping it would
+            # publish an unrelated window carrying Campaign Hub provenance. Every
+            # such seed would also collapse onto the same edge sentence, turning
+            # distinct highlights into duplicate proposals.
+            gap = max(
+                float(sentences[nearest].get("start", 0) or 0) - seed_end,
+                seed_start - float(sentences[nearest].get("end", 0) or 0),
+                0.0,
+            )
+            if gap > self.MAX_SEED_ANCHOR_GAP_S:
+                return None
             overlapping = [nearest]
         start_index = min(overlapping)
         end_index = max(overlapping)
