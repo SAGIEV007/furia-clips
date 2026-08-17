@@ -16,6 +16,7 @@
 | Última publicação conhecida antes desta rodada | `a0452d3` — `fix: declarar confiabilidade da medição no benchmark editorial (2.7)` |
 | Commit funcional 2.6 | `fec34fe` — `feat: primeira ponte funcional Campaign Hub para propostas (2.6)` |
 | Commit funcional 2.7 | `a0452d3` — `fix: declarar confiabilidade da medição no benchmark editorial (2.7)` |
+| Commit funcional 2.8 | `fdf5e6b` — `fix: alinhar seeds do Campaign Hub com a mídia local em processamento (2.8)` |
 | Última atualização | 2026-08-17 |
 | Baseline editorial | b354 com 7 candidatos, recall `0/3`, IoU médio `0.0` — **ainda não remedido com mídia local real** |
 | Suíte no checkout | 336 aprovados, 7 falhas ambientais (`ffmpeg`/`ffprobe` ausentes e asset BlazeFace) |
