@@ -149,3 +149,44 @@ parciais. O Furia nunca truncou uma ideia nesta fonte.
 
 Sinais do Acervo ainda não consumidos: `corpus_verdict`/`corpus_keep`,
 `pauta_temporality` (evergreen versus datado) e `audio_check_ranges`.
+
+---
+
+## Adendo — validação em segunda fonte
+
+A limitação declarada em todas as rodadas anteriores era a mesma: tudo havia sido
+medido em **um único vídeo**, então os números podiam ser calibração para um caso
+particular. A segunda fonte foi escolhida pelo contraste máximo com a primeira.
+
+| | `3XJfcqn56Rw` | `j9FRVbb8CAI` |
+| --- | --- | --- |
+| Formato | live, 98 minutos | **entrevista, 31 minutos** |
+| Frases | 1951 | 578 |
+| Blocos | 27 | 11 |
+| Blocos com `renan_speaking=true` | 3 (11%) | **11 (100%)** |
+| Destaques | 66 | 34 |
+| Regiões sem conteúdo | 20 | 4 |
+
+Resultado com o mesmo código e o mesmo orçamento derivado da duração:
+
+| Métrica | Live 98 min | Entrevista 31 min |
+| --- | --- | --- |
+| Candidatos | 121 | 43 |
+| Destaques recuperados | `50/66` (76%) | **`30/34` (88%)** |
+| Blocos alcançados | `25/27` (93%) | **`11/11` (100%)** |
+| `precision_on_block` | `1.00` | **`1.00`** |
+| Candidatos fora de bloco | 0 | **0** |
+| Desperdício em não-conteúdo | 0 | **0** |
+| Top 5 / Top 10 com destaque | 100% / 100% | **100% / 100%** |
+| Duração média | `31.18s` | `29.81s` |
+
+As três garantias — precisão `1.00`, zero candidatos fora de bloco e zero desperdício
+— se mantiveram em um formato completamente diferente. O recall foi **melhor** na
+entrevista, o que é coerente: uma entrevista de 31 minutos é mais uniformemente densa
+que uma live de 98 minutos com abertura, intervalos e trechos ininteligíveis.
+
+| Classificação | Conclusão |
+| --- | --- |
+| Confirmado | Precisão `1.00`, zero fora de bloco e zero desperdício não são específicos de uma fonte. |
+| Confirmado | O orçamento derivado da duração funciona nos dois extremos testados, de 31 a 98 minutos. |
+| Não verificado | Fontes de 3–4 horas, o alvo declarado do produto; a mais longa medida tem 98 minutos. |
