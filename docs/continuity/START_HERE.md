@@ -1,6 +1,6 @@
 # START_HERE — Furia Clips Renan-first
 
-> **Este é o ponto de entrada canônico para qualquer nova IA que continuar o Furia Clips.** Leia este arquivo antes de alterar código. O prompt copiável e consolidado está em [`PROMPT_MESTRE_IA.md`](PROMPT_MESTRE_IA.md), e o modelo obrigatório de commit está em [`COMMIT_MESSAGE_TEMPLATE.md`](COMMIT_MESSAGE_TEMPLATE.md). Este arquivo substitui, como instrução de entrada, os antigos Prompts 1, 2 e 3. Os arquivos antigos permanecem no repositório como histórico, mas não devem ser tratados como o prompt vigente.
+> **Este é o ponto de entrada canônico para qualquer nova IA que continuar o Furia Clips.** Leia este arquivo antes de alterar código. O prompt copiável e consolidado está em [`PROMPT_MESTRE_IA.md`](PROMPT_MESTRE_IA.md), o contrato funcional Chub→cortes está em [`CHUB_INTEGRATION_CONTRACT.md`](CHUB_INTEGRATION_CONTRACT.md) e o modelo obrigatório de commit está em [`COMMIT_MESSAGE_TEMPLATE.md`](COMMIT_MESSAGE_TEMPLATE.md). Este arquivo substitui, como instrução de entrada, os antigos Prompts 1, 2 e 3. Os arquivos antigos permanecem no repositório como histórico, mas não devem ser tratados como o prompt vigente.
 
 ## 1. Missão do projeto
 
@@ -43,7 +43,7 @@ A tentativa de consultar o link público do YouTube pelo endpoint de probe retor
 
 **Campaign Hub** e **Garimpo** pertencem ao ecossistema Missão e estão interligados. O Garimpo é a experiência de trabalho por blocos: recebe ou encontra uma fonte, separa o vídeo em unidades compreensíveis, mostra resumo e momentos fortes e permite escolher um intervalo. O Campaign Hub mantém a memória editorial, as transcrições, os blocos QA-gated, os destaques, os riscos, a proveniência e os dados de desempenho.
 
-O **Furia Clips é um projeto separado**. Ele não possui vínculo automático com o Garimpo nem com o Campaign Hub. A autorização de acesso ao Campaign Hub existe para melhorar o Furia, mas essa integração precisa ser construída de forma explícita.
+O **Furia Clips é um projeto separado**, mas sua prioridade funcional é construir uma integração explícita com o Campaign Hub. O objetivo não é apenas importar memória, listar blocos ou exportar intervalos conhecidos: o contexto do Campaign Hub deve orientar seeds, alinhamento à fonte local, expansão temporal, gates de contexto e propostas de cortes Renan Santos/MBL. O contrato detalhado está em [`CHUB_INTEGRATION_CONTRACT.md`](CHUB_INTEGRATION_CONTRACT.md).
 
 O screenshot e o fluxo observado no Garimpo servem como referência de experiência:
 
@@ -68,7 +68,8 @@ snapshot local sanitizado, compactado e versionado
         ↓
 modules/campaign_hub.py
         ↓
-contexto, candidatos, ranking e revisão local
+        contexto Chub → seeds → propostas de corte
+        ranking, revisão e renderização local
 ```
 
 O programa diário não deve chamar o MCP a cada corte. O Furia precisa funcionar offline com a última memória local válida. Um canal de atualização pode existir para o agente ou para uma ação administrativa explícita, mas o job normal não pode depender de uma chamada externa.
@@ -104,13 +105,14 @@ A ordem do produto deve ser esta:
 | 1 | Receber uma URL pública ou um arquivo MP4 e verificar a fonte. |
 | 2 | Reutilizar uma transcrição timestampada fornecida pelo usuário quando existir. |
 | 3 | Se não houver transcrição, escolher o melhor caminho testado entre Whisper local e Gemini; o caminho local deve continuar funcionando sem custo externo. |
-| 4 | Criar pré-análise por blocos antes de gerar todos os cortes. |
-| 5 | Mostrar cada bloco com início, fim, duração, resumo, tema, locutor provável, confiança, riscos e motivo editorial. |
-| 6 | Permitir assistir ao bloco e ajustar início/fim. |
-| 7 | Baixar ou exportar somente o intervalo escolhido quando a fonte permitir; se não permitir, baixar a fonte uma vez, reutilizá-la e explicar o fallback. |
-| 8 | Dentro do bloco, gerar candidatos automáticos com critérios de qualidade. |
-| 9 | Priorizar a fala do Renan quando ele estiver presente, mas nunca atribuir a ele uma fala de Kim, entrevistador ou convidado. |
-| 10 | Renderizar primeiro no aspecto original, validar com FFprobe e registrar tudo para revisão. |
+| 4 | Criar pré-análise por blocos e importar, quando disponível, o contexto autorizado do Campaign Hub antes de gerar os cortes. |
+| 5 | Alinhar fonte, YouTube ID, timestamps, transcrição e proveniência Chub com o MP4 local; declarar qualquer mismatch. |
+| 6 | Transformar blocos, highlights, pergunta-gatilho, pauta, riscos e locutor em seeds semânticas/temporais. |
+| 7 | Expandir cada seed até a menor janela completa com antecedente, pergunta–resposta quando necessária, tese, evidência e payoff. |
+| 8 | Aplicar gates de contexto, locutor, transcrição, timing, mídia e risco; somente depois gerar propostas e ranking. |
+| 9 | Mostrar a origem Chub, a razão da expansão, a confiança e as flags; permitir revisão e exportar/renderizar apenas a proposta confirmada. |
+| 10 | Priorizar a fala do Renan quando ele estiver presente, mas nunca atribuir a ele uma fala de Kim, entrevistador ou convidado. |
+| 11 | Renderizar primeiro no aspecto original, validar com FFprobe e registrar tudo para revisão. |
 
 A quantidade de cortes não é fixa. “Todos os cortes” significa **todos os candidatos que passarem pelos critérios**, com diversidade e sem repetição. Uma entrevista curta pode gerar poucos cortes; uma live longa pode gerar mais. Nunca aumentar a quantidade apenas para atingir um número.
 
@@ -173,9 +175,9 @@ Rejeite, expanda ou marque para revisão quando houver referência sem anteceden
 
 Um hook agressivo nunca pode compensar locutor errado ou contexto insuficiente. Priors do Campaign Hub, views, energia, palavras virais e duração curta só podem desempatar candidatos que já passaram pelos gates.
 
-## 9. Campaign Hub como benchmark antes de peso
+## 9. Campaign Hub como contexto, seed e calibração
 
-A primeira integração rica não deve aumentar pesos do ranking diretamente. Ela deve construir um benchmark read-only entre candidatos locais e unidades do Acervo.
+A integração rica deve usar o Campaign Hub antes do score para construir contexto e propostas de corte, e depois manter um benchmark read-only para medir se essa orientação melhora o baseline. O Campaign Hub fornece seeds, evidência e calibração; não aprova automaticamente a saída.
 
 Para cada comparação, registre:
 
@@ -191,7 +193,7 @@ Para cada comparação, registre:
 | Evidência | A tela, documento, rosto ou reação essencial permaneceu? |
 | Resultado | Furia melhor, Campaign Hub melhor ou ambos precisam de revisão? |
 
-O Acervo também pode estar errado, incompleto ou baseado em legenda automática. Não trate seus blocos como verdade absoluta. Use `densityRank` e `selfContainedRank`, não os valores brutos de autoavaliação. Preserve versão do labeler, origem, tier de confiança e avisos de gate.
+O Acervo também pode estar errado, incompleto ou baseado em legenda automática. Não trate seus blocos como verdade absoluta. Use `densityRank` e `selfContainedRank`, não os valores brutos de autoavaliação. Preserve versão do labeler, origem, tier de confiança e avisos de gate. `turn` e `speakerChange` não são identidade; `renanSpeaking=false` deve continuar excluindo atribuição automática da fala ao Renan. Para o contrato completo de campos, operações, gates e critérios de aceitação, leia [`CHUB_INTEGRATION_CONTRACT.md`](CHUB_INTEGRATION_CONTRACT.md).
 
 ## 10. Formatos editoriais
 

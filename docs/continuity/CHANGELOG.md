@@ -1,5 +1,22 @@
 # Changelog de continuidade
 
+## 2.4 — Contrato Campaign Hub→cortes e reorientação do norte
+
+### Incluído
+
+- `docs/continuity/CHUB_INTEGRATION_CONTRACT.md`, contrato funcional que define o fluxo Campaign Hub → alinhamento à fonte local → seeds → expansão contextual → gates → propostas → revisão → renderização.
+- `PROMPT_MESTRE_IA.md` e `START_HERE.md` atualizados para deixar claro que a sessão de blocos é superfície de diagnóstico/revisão e que o objetivo principal é melhorar de forma verificável a seleção de cortes Renan Santos/MBL usando contexto do Campaign Hub.
+- `PROJECT_STATE.md` e `NEXT_CYCLE.md` reorientados para a hipótese de transformar blocos/highlights Chub em seeds temporais e semânticas, sem tratar o Campaign Hub como aprovador automático.
+- `VERSION` incrementado para `2.4`, representando a mudança observável no contrato de continuidade; nenhuma lógica de seleção, ranking, ingestão, reframe ou renderização foi alterada nesta revisão.
+
+### Validação da rodada
+
+Foram revisados o adaptador do Campaign Hub, a memória local, o contexto editorial, o ranker, a sessão de blocos, o frontend e os dados autorizados de blocos/transcrição. O estado real registrado é que a memória e a UI existem, mas o contexto Chub ainda influencia pouco o resultado e não cria propostas de janela contextualizadas. A suíte terminou com **327 testes aprovados**, além de `compileall`, `node --check`, `git diff --check` e revisão de arquivos proibidos; o asset BlazeFace usado na validação foi removido antes do commit.
+
+### Limitações conhecidas
+
+A revisão 2.4 não melhora recall, geração de propostas, diarização, reconhecimento de voz, reframe, ranking, download remoto por range ou qualidade editorial. O benchmark b354 permanece em `0/3` até que a hipótese Chub→seed→expansão seja implementada e reproduzida. A sessão de blocos continua funcional apenas para a parte já implementada de consulta, inspeção e exportação; ela não deve ser interpretada como integração completa.
+
 ## 2.3 — Prompt mestre e contrato de continuidade
 
 ### Incluído

@@ -2,15 +2,15 @@
 
 **Corte. Ranqueie. Domine.**
 
-> **Versão atual: 2.3.** Esta revisão consolida o contrato de continuidade e o prompt mestre; a última release funcional de código é a 2.2, com benchmark persistente local e exportação individual de highlights. A identidade de runtime é exibida no console, na interface e na API; a fonte única da versão é [`VERSION`](VERSION).
+> **Versão atual: 2.4.** Esta revisão formaliza o contrato Campaign Hub→cortes; a última release funcional de código é a 2.2, com benchmark persistente local e exportação individual de highlights. A identidade de runtime é exibida no console, na interface e na API; a fonte única da versão é [`VERSION`](VERSION).
 
 ## Continuidade para novas sessões e IAs
 
-Se você entregar apenas o link deste repositório a outra IA, ela deve começar por [`docs/continuity/START_HERE.md`](docs/continuity/START_HERE.md), [`docs/continuity/PROMPT_MESTRE_IA.md`](docs/continuity/PROMPT_MESTRE_IA.md) e depois ler [`AGENTS.md`](AGENTS.md), [`PROJECT_STATE.md`](docs/continuity/PROJECT_STATE.md), [`DECISIONS.md`](docs/continuity/DECISIONS.md), [`NEXT_CYCLE.md`](docs/continuity/NEXT_CYCLE.md) e o pacote [`docs/continuity/`](docs/continuity/). O prompt mestre consolida os prompts históricos e as regras de execução; o START_HERE continua sendo a entrada operacional canônica. O padrão obrigatório de commits está em [`COMMIT_MESSAGE_TEMPLATE.md`](docs/continuity/COMMIT_MESSAGE_TEMPLATE.md), e o contrato de releases está em [`docs/VERSIONING.md`](docs/VERSIONING.md).
+Se você entregar apenas o link deste repositório a outra IA, ela deve começar por [`docs/continuity/START_HERE.md`](docs/continuity/START_HERE.md), [`docs/continuity/PROMPT_MESTRE_IA.md`](docs/continuity/PROMPT_MESTRE_IA.md), [`docs/continuity/CHUB_INTEGRATION_CONTRACT.md`](docs/continuity/CHUB_INTEGRATION_CONTRACT.md) e depois ler [`AGENTS.md`](AGENTS.md), [`PROJECT_STATE.md`](docs/continuity/PROJECT_STATE.md), [`DECISIONS.md`](docs/continuity/DECISIONS.md), [`NEXT_CYCLE.md`](docs/continuity/NEXT_CYCLE.md) e o pacote [`docs/continuity/`](docs/continuity/). O prompt mestre consolida os prompts históricos e as regras de execução; o contrato Chub→cortes define o objetivo funcional; o START_HERE continua sendo a entrada operacional canônica. O padrão obrigatório de commits está em [`COMMIT_MESSAGE_TEMPLATE.md`](docs/continuity/COMMIT_MESSAGE_TEMPLATE.md), e o contrato de releases está em [`docs/VERSIONING.md`](docs/VERSIONING.md).
 
 O arquivo [`docs/continuity/PROJECT_STATE.md`](docs/continuity/PROJECT_STATE.md) é atualizado ao final de cada rodada verificável. Ele não substitui o código nem o Git: a nova IA deve sempre confirmar `git status`, branch, commit e testes no checkout real.
 
-O Furia Clips é uma ferramenta local em evolução para analisar vídeos longos e encontrar cortes precisos do Renan Santos/MBL. A release funcional 2.2 já possui memória rica local do Campaign Hub, pré-análise por blocos, benchmark persistente e exportação seletiva de blocos e highlights a partir de uma fonte disponível; download remoto seletivo, diarização confiável e reconhecimento de voz continuam em desenvolvimento. O norte imediato é melhorar o recall do benchmark b354 por meio de propostas sem alterar ranking, diarização, reframe ou editor. O processamento ocorre no computador do usuário; serviços de IA são opcionais e possuem fallback local/NLP quando não estão disponíveis.
+O Furia Clips é uma ferramenta local em evolução para analisar vídeos longos e encontrar cortes precisos do Renan Santos/MBL. A release funcional 2.2 já possui memória rica local do Campaign Hub, pré-análise por blocos, benchmark persistente e exportação seletiva de blocos e highlights a partir de uma fonte disponível; a integração que transforma esse contexto em propostas de corte contextualizadas ainda está em desenvolvimento. O norte imediato é usar seeds do Campaign Hub para alinhar, expandir e validar janelas antes do ranking, mantendo fallback offline e sem tratar o Chub como aprovador automático. O processamento ocorre no computador do usuário; serviços de IA são opcionais e possuem fallback local/NLP quando não estão disponíveis.
 
 ## O que está implementado
 
@@ -27,11 +27,12 @@ O Furia Clips é uma ferramenta local em evolução para analisar vídeos longos
 - **Lotes locais:** descoberta segura de vídeos, hash de conteúdo, deduplicação, manifesto reproduzível e endpoint `/api/batch/rank` para seleção global de candidatos entre lives.
 - **Segurança local:** proteção contra path traversal, nomes inseguros, symlinks externos e exposição acidental do servidor na rede.
 - **Validação de mídia:** exports só são considerados prontos depois de uma verificação objetiva com `ffprobe`.
-- **Memória local do Campaign Hub:** exports autorizados podem ser instalados ou mesclados fora do checkout; o job normal continua offline-first e não consulta o MCP a cada corte.
-- **Pré-análise por blocos:** a interface lista blocos filtrados pela fonte, mostra resumo, pergunta, locutor provável, destaques e riscos, e permite selecionar/exportar um intervalo local.
+- **Memória local do Campaign Hub:** exports autorizados podem ser instalados ou mesclados fora do checkout; o job normal continua offline-first, usando a última memória válida sem consultar o MCP a cada corte.
+- **Pré-análise por blocos:** a interface lista blocos filtrados pela fonte, mostra resumo, pergunta, locutor provável, destaques e riscos, e permite selecionar/exportar um intervalo local; essa tela ainda é superfície de diagnóstico e revisão.
 - **Timeline de bloco:** quando um MP4 baixado corresponde ao intervalo de uma fonte longa, timestamps absolutos são mapeados para a linha local com confirmação e registro do método.
 - **Benchmark editorial local:** compara candidatos do Furia com highlights autorizados do Campaign Hub, mede recall, IoU e erro de fronteira e salva o resultado fora do Git; a comparação não aprova cortes nem consulta o Chub durante o job.
 - **Highlights individuais:** o painel de Blocos pode exportar um highlight específico no aspecto original quando o MP4 correspondente já está disponível.
+- **Contrato Chub→cortes:** a próxima implementação deve transformar contexto autorizado em seeds, alinhar a fonte, expandir janelas, aplicar gates e gerar propostas separadas de cortes aprovados; ver [`docs/continuity/CHUB_INTEGRATION_CONTRACT.md`](docs/continuity/CHUB_INTEGRATION_CONTRACT.md).
 
 ## Instalação no Windows
 

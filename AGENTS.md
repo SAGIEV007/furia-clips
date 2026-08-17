@@ -2,21 +2,22 @@
 
 ## Leia antes de alterar qualquer arquivo
 
-Você está continuando um projeto existente. Não comece reescrevendo o sistema e não trate este documento como autorização para apagar alterações locais. Primeiro leia [`docs/continuity/START_HERE.md`](docs/continuity/START_HERE.md), [`docs/continuity/PROMPT_MESTRE_IA.md`](docs/continuity/PROMPT_MESTRE_IA.md), [`README.md`](README.md), [`VERSION`](VERSION), [`docs/continuity/PROJECT_STATE.md`](docs/continuity/PROJECT_STATE.md), [`docs/continuity/DECISIONS.md`](docs/continuity/DECISIONS.md), [`docs/continuity/NEXT_CYCLE.md`](docs/continuity/NEXT_CYCLE.md), [`docs/continuity/COMMIT_MESSAGE_TEMPLATE.md`](docs/continuity/COMMIT_MESSAGE_TEMPLATE.md), [`docs/VERSIONING.md`](docs/VERSIONING.md), a documentação editorial relevante e o estado do Git.
+Você está continuando um projeto existente. Não comece reescrevendo o sistema e não trate este documento como autorização para apagar alterações locais. Primeiro leia [`docs/continuity/START_HERE.md`](docs/continuity/START_HERE.md), [`docs/continuity/PROMPT_MESTRE_IA.md`](docs/continuity/PROMPT_MESTRE_IA.md), [`docs/continuity/CHUB_INTEGRATION_CONTRACT.md`](docs/continuity/CHUB_INTEGRATION_CONTRACT.md), [`README.md`](README.md), [`VERSION`](VERSION), [`docs/continuity/PROJECT_STATE.md`](docs/continuity/PROJECT_STATE.md), [`docs/continuity/DECISIONS.md`](docs/continuity/DECISIONS.md), [`docs/continuity/NEXT_CYCLE.md`](docs/continuity/NEXT_CYCLE.md), [`docs/continuity/COMMIT_MESSAGE_TEMPLATE.md`](docs/continuity/COMMIT_MESSAGE_TEMPLATE.md), [`docs/VERSIONING.md`](docs/VERSIONING.md), a documentação editorial relevante e o estado do Git.
 
 O objetivo central é aprimorar o Furia Clips para gerar cortes do Renan Santos/MBL **concisos, autossuficientes, contextualizados, com tese/payoff completos e começo e encerramento naturais**. O usuário quer um agente executor: baixe o código, rode a aplicação, processe vídeos públicos, analise transcrição e vídeo, corrija bugs, escreva testes, compare antes/depois e publique alterações verificadas no GitHub.
 
 ## Ponto de entrada canônico
 
-`docs/continuity/START_HERE.md` é a entrada operacional canônica. O prompt copiável e consolidado está em [`docs/continuity/PROMPT_MESTRE_IA.md`](docs/continuity/PROMPT_MESTRE_IA.md); ele incorpora o START_HERE, os prompts históricos, as decisões e o norte atual. Os arquivos `PROMPT_1`, `PROMPT_2`, `PROMPT_3` e prompts antigos permanecem como histórico e referência, mas não substituem o contrato vigente. O padrão obrigatório de mensagens de commit está em [`docs/continuity/COMMIT_MESSAGE_TEMPLATE.md`](docs/continuity/COMMIT_MESSAGE_TEMPLATE.md). O Furia continua sendo um sistema de cortes precisos; edição pós-renderização não entra na prioridade e o aplicativo local não deve chamar o MCP por job.
+`docs/continuity/START_HERE.md` é a entrada operacional canônica. O prompt copiável e consolidado está em [`docs/continuity/PROMPT_MESTRE_IA.md`](docs/continuity/PROMPT_MESTRE_IA.md); ele incorpora o START_HERE, os prompts históricos, as decisões e o norte atual. O contrato funcional da integração Campaign Hub→cortes está em [`docs/continuity/CHUB_INTEGRATION_CONTRACT.md`](docs/continuity/CHUB_INTEGRATION_CONTRACT.md). Os arquivos `PROMPT_1`, `PROMPT_2`, `PROMPT_3` e prompts antigos permanecem como histórico e referência, mas não substituem o contrato vigente. O padrão obrigatório de mensagens de commit está em [`docs/continuity/COMMIT_MESSAGE_TEMPLATE.md`](docs/continuity/COMMIT_MESSAGE_TEMPLATE.md). O Furia continua sendo um sistema de cortes precisos; edição pós-renderização não entra na prioridade e o aplicativo local não deve chamar o MCP por job, mas deve usar a memória Chub válida durante a seleção.
 
 ## Prioridades
 
-1. Seleção de janelas menores que continuem completas, com excelente contexto.
-2. Calibração com vídeos públicos publicados em `@renansantosmbl` e `@renansantosreserva`, usando Campaign Hub, transcrição, vídeo, legendas, headlines, formato e métricas.
-3. Geração de headlines fiéis ao trecho e adequadas ao formato.
-4. Correção de bugs, estabilidade, jobs, renderização, cancelamento, persistência e diagnóstico.
-5. Recursos secundários somente depois de proteger as prioridades anteriores.
+1. Integração efetiva do contexto do Campaign Hub na geração de seeds, expansão, gates e propostas de corte.
+2. Seleção de janelas menores que continuem completas, com excelente contexto, locutor correto e payoff.
+3. Calibração com vídeos públicos publicados em `@renansantosmbl` e `@renansantosreserva`, usando Campaign Hub, transcrição, vídeo, legendas, headlines, formato e métricas.
+4. Geração de headlines fiéis ao trecho e adequadas ao formato.
+5. Correção de bugs, estabilidade, jobs, renderização, cancelamento, persistência e diagnóstico.
+6. Recursos secundários somente depois de proteger as prioridades anteriores.
 
 ## Corpus editorial
 

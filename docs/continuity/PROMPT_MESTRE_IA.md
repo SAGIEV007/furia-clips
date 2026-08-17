@@ -19,7 +19,7 @@ Se você recebeu apenas o link do GitHub, comece pelo checkout real e siga esta 
 1. Leia [`AGENTS.md`](../../AGENTS.md).
 2. Leia [`README.md`](../../README.md), [`VERSION`](../../VERSION) e [`docs/VERSIONING.md`](../VERSIONING.md).
 3. Leia [`docs/continuity/START_HERE.md`](START_HERE.md), que é o contrato operacional canônico.
-4. Leia este prompt, [`PROJECT_STATE.md`](PROJECT_STATE.md), [`DECISIONS.md`](DECISIONS.md), [`NEXT_CYCLE.md`](NEXT_CYCLE.md), [`CHANGELOG.md`](CHANGELOG.md) e o relatório do ciclo mais recente.
+4. Leia este prompt, [`PROJECT_STATE.md`](PROJECT_STATE.md), [`DECISIONS.md`](DECISIONS.md), [`NEXT_CYCLE.md`](NEXT_CYCLE.md), [`CHUB_INTEGRATION_CONTRACT.md`](CHUB_INTEGRATION_CONTRACT.md), [`CHANGELOG.md`](CHANGELOG.md) e o relatório do ciclo mais recente.
 5. Leia somente os prompts históricos ou documentos editoriais necessários para a tarefa; eles enriquecem o contexto, mas não substituem o `START_HERE` nem o estado vivo.
 6. Confirme no Git real o remote, a branch, o commit, o `git status`, a versão e os testes. O checkout e a documentação podem divergir; fatos observados no checkout vencem suposições documentais, e a divergência deve ser corrigida no GitHub.
 
@@ -27,11 +27,13 @@ A documentação deve sempre indicar qual é o código atual, qual é a última 
 
 ## 3. Estado corrente e norte que não pode ser perdido
 
-O estado funcional mais recente registrado é a release **2.2**, na branch `manus/rebuild-opus-parity`, commit de código `074a129`. A release criou benchmark editorial persistente, exportação individual de highlights e validações de mídia. O caso b354 usou sete candidatos locais e três highlights QA-gated do Campaign Hub: o mapeamento temporal e a exportação funcionaram, mas o recall foi `0/3` e o IoU médio foi `0.0`. Isso é uma falha mensurável de **cobertura da seleção**, não uma justificativa para alterar o renderizador ou aumentar automaticamente o peso do Campaign Hub.
+O estado funcional mais recente registrado é a release **2.2**, na branch `manus/rebuild-opus-parity`, commit de código `074a129`. A release criou benchmark editorial persistente, exportação individual de highlights e validações de mídia. O caso b354 usou sete candidatos locais e três highlights QA-gated do Campaign Hub: o mapeamento temporal e a exportação funcionaram, mas o recall foi `0/3` e o IoU médio foi `0.0`. Isso prova que a fundação de memória/benchmark existe, mas a ponte entre o contexto do Campaign Hub e a geração de cortes ainda não funciona de forma suficiente.
 
-O norte imediato é a hipótese registrada em [`NEXT_CYCLE.md`](NEXT_CYCLE.md): transformar cada highlight local em uma semente de proposta e expandi-la até a menor janela completa da transcrição, preservando frase, tese, pergunta–resposta quando necessária e payoff. A hipótese deve ser testada sem misturar ranking, diarização, reframe, headlines, editor geral ou download remoto por range. A proposta guiada deve permanecer uma proposta, não um corte aprovado; não pode inventar locutor, substituir a transcrição canônica, eliminar candidatos de terceiros ou fazer o job depender de consulta externa.
+O norte imediato não é fazer a sessão de blocos parecer pronta. É fazer o Furia **usar efetivamente o Campaign Hub para selecionar e contextualizar cortes Renan Santos/MBL**. O fluxo prioritário é: importar ou consultar contexto autorizado; alinhar fonte, timestamps e transcrição; transformar bloco, highlight, pergunta-gatilho, pauta, risco e locutor em seeds editoriais; expandir cada seed até a menor janela completa; aplicar gates de contexto, timing, transcrição, locutor, mídia e risco; comparar com o baseline local; e só então oferecer proposta para revisão e renderização. A sessão de blocos é uma superfície de inspeção, diagnóstico, escolha e fallback, não o objetivo final.
 
-O benchmark do Campaign Hub é um instrumento de comparação e calibração, não uma verdade absoluta. No caso b354, a evidência correta continua sendo que o bloco pode ser sobre Renan sem que Renan seja o locutor: o Acervo registrou `renanSpeaking=false` porque Kim fala. Nunca converta “sobre Renan” em “falado por Renan”.
+A hipótese vigente está detalhada em [`NEXT_CYCLE.md`](NEXT_CYCLE.md) e no [`CHUB_INTEGRATION_CONTRACT.md`](CHUB_INTEGRATION_CONTRACT.md): transformar cada unidade do Campaign Hub em seed semântica e temporal, recuperar as frases correspondentes na timeline local e expandi-la até conter antecedente, pergunta–resposta quando necessária, tese, evidência e payoff. A hipótese deve ser testada com baseline, benchmark e mídia real, sem misturar reframe, headlines, editor geral, tradução, avatars, voz, música, publicação automática ou download remoto por range.
+
+O Campaign Hub deve ser um **motor de contexto e calibração**, não um aprovador automático. O prior histórico pode continuar limitado no ranking legado, mas a integração principal deve acontecer antes do score, na geração de propostas e nos gates. No caso b354, `renanSpeaking=false` significa que o trecho pode ser sobre Renan sem ser fala de Renan; nunca converta “sobre Renan” em “falado por Renan”.
 
 ## 4. Regras editoriais invariáveis
 
@@ -55,15 +57,17 @@ A análise multimodal pode usar áudio e visão, mas Gemini é opcional. Envie s
 
 Não invente falas, números, fatos, contexto, identidade, evidência ou afirmações políticas verificadas. Legenda automática, comentário, headline ou métrica de engajamento são evidências com níveis diferentes; não os trate como citação audiovisual perfeita nem como prova de qualidade.
 
-## 6. Campaign Hub, Garimpo e dados editoriais
+## 6. Campaign Hub, Garimpo e integração efetiva de contexto
 
-O Garimpo é uma referência de experiência por blocos; o Furia Clips é um projeto separado. O fluxo de referência é fonte longa → blocos → resumo/momentos fortes → intervalo → exportação seletiva. O Furia deve funcionar com MP4 local e não depender de acesso autenticado, CAPTCHA, paywall, DRM ou uma plataforma específica.
+O Garimpo é uma referência de experiência por blocos; o Furia Clips é um projeto separado. O fluxo visual de referência é fonte longa → blocos → resumo/momentos fortes → intervalo → exportação seletiva, mas o objetivo do Furia é ir além da navegação: o contexto do Campaign Hub precisa alimentar a geração e a validação de propostas de corte. Consulte [`CHUB_INTEGRATION_CONTRACT.md`](CHUB_INTEGRATION_CONTRACT.md) para o contrato completo.
 
-O Campaign Hub oferece memória editorial, transcrições, blocos QA-gated, destaques, riscos, proveniência, hooks, entidades e métricas. As contas são independentes: `@renansantosmbl` cobre Instagram, Facebook, TikTok e X; `@renansantosreserva` cobre Instagram e Facebook; `@partidomissao` cobre Instagram e Facebook. Nunca misture baselines, métricas brutas, demografia, crossposts ou amostras entre contas sem normalização e sem declarar a operação.
+O Campaign Hub oferece memória editorial, transcrições, blocos QA-gated, destaques, riscos, proveniência, hooks, entidades, pauta e métricas. Esses dados devem ser usados como contexto estruturado, seeds semânticas/temporais, evidência de calibração e flags de revisão. Um bloco não é apenas um intervalo para exportar e uma memória carregada não é uma integração concluída. A ponte esperada é Campaign Hub → alinhamento à fonte local → seed → expansão contextual → gates → proposta → revisão → renderização.
 
-O aplicativo local deve ser **offline-first**. O job normal não chama MCP a cada corte. O agente pode consultar o Campaign Hub para pesquisa autorizada e gerar snapshots locais sanitizados, versionados, paginados e incrementais. Não versionar mídia bruta, cookies, tokens, URLs privadas, transcrições privadas, bancos locais ou dados pessoais. A memória completa do editor deve permanecer em `FuriaClipsData` ou equivalente externo ao checkout, com backup, manifesto, hash, restauração e migração verificável.
+As contas são independentes: `@renansantosmbl` cobre Instagram, Facebook, TikTok e X; `@renansantosreserva` cobre Instagram e Facebook; `@partidomissao` cobre Instagram e Facebook. Nunca misture baselines, métricas brutas, demografia, crossposts ou amostras entre contas sem normalização e sem declarar a operação. Dados de desempenho calibram padrões, mas não substituem evidência do vídeo nem aprovam um corte.
 
-Trate vídeos públicos publicados como corpus editorial e rótulo fraco de seleção. Separe `publicado`, `analisado audiovisual`, `performou bem` e `aprovado diretamente pelo usuário`. Analise vídeo, áudio, ritmo, composição, locutor, headline, formato e transcrição quando o acesso público legítimo permitir; não transforme apenas metadata ou comentários em evidência audiovisual.
+O aplicativo local deve ser **offline-first**, mas offline-first não significa Chub-ignorant. O job normal não chama MCP a cada corte; ele usa a última memória local válida e um snapshot sanitizado. O agente pode consultar o Campaign Hub para pesquisa autorizada, exportar dados paginados e atualizar a memória antes do job. A ausência de snapshot deve ser visível e degradar com segurança, nunca desaparecer como se o contexto não fosse necessário.
+
+Não versionar mídia bruta, cookies, tokens, URLs privadas, transcrições privadas, bancos locais ou dados pessoais. A memória editorial deve permanecer em `FuriaClipsData` ou equivalente externo ao checkout, com backup, manifesto, hash, restauração e migração verificável. Trate vídeos públicos publicados como corpus editorial e rótulo fraco de seleção; separe `publicado`, `analisado audiovisual`, `performou bem` e `aprovado diretamente pelo usuário`.
 
 ## 7. Formatos e enquadramento
 
@@ -99,9 +103,11 @@ Se o pedido do usuário for apenas análise, não altere código sem autorizaç�
 
 ## 9. Norte atual e limites da próxima rodada
 
-A próxima rodada não deve misturar o problema de recall b354 com ranking, diarização robusta, reframe social, headlines, editor estilo CapCut, tradução, avatars, voz, música automática, branding complexo, publicação automática, múltiplas câmeras ou download remoto por range.
+A próxima rodada deve priorizar a integração funcional **Campaign Hub → seleção de cortes → contexto → revisão → renderização**. Não deve misturar esse problema com reframe social, headlines, editor estilo CapCut, tradução, avatars, voz, música automática, branding complexo, publicação automática, múltiplas câmeras ou download remoto por range.
 
-O resultado mínimo esperado da hipótese atual é uma comparação versionada entre candidatos antigos, propostas guiadas e highlights, medindo recall, IoU, erro temporal, duração, duplicatas, autossuficiência, payoff, locutor e flags de revisão. Um ganho só é aceito se for reproduzível e não aumentar falsos positivos nem apagar falas de terceiros. O Campaign Hub não pode aprovar automaticamente a saída.
+O resultado mínimo esperado da hipótese atual é uma comparação versionada entre o baseline local, propostas geradas a partir de blocos/highlights do Campaign Hub e as referências QA-gated. A comparação deve medir recall, IoU, erro temporal, duração, duplicatas, autossuficiência, pergunta–resposta, tese, payoff, locutor, riscos e flags de revisão. A UI de blocos só conta como avanço quando disparar ou explicar esse fluxo; listar e exportar um intervalo conhecido, isoladamente, não conta.
+
+Um ganho só é aceito se for reproduzível, preservar terceiros, não inventar locutor, não trocar a transcrição canônica e não aumentar falsos positivos. O Campaign Hub não aprova automaticamente a saída: ele fornece contexto, seeds, evidências e calibração para que o Furia proponha uma janela melhor e um revisor possa confirmar.
 
 ## 10. Contrato obrigatório de documentação no GitHub
 
