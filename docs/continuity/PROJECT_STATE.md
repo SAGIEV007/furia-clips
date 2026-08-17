@@ -1,139 +1,90 @@
-# Estado do projeto — Furia Clips
+# PROJECT_STATE — Furia Clips
 
-> Este arquivo é o ponto de entrada operacional para uma nova sessão ou uma nova IA. Atualize-o ao final de cada rodada verificável.
+> Este é o estado vivo do projeto. Atualize-o ao final de cada rodada verificável. O histórico detalhado permanece nos relatórios de ciclo; não misture instruções antigas, hashes obsoletos ou alterações locais já encerradas com o estado corrente.
 
-## Identidade atual
+## Estado corrente
 
 | Campo | Valor |
 | --- | --- |
 | Projeto | Furia Clips |
 | Repositório | `SAGIEV007/furia-clips` |
-| Versão pública | `2.2` |
+| Versão documental atual | `2.3` |
+| Última release funcional de código | `2.2` |
 | Fonte da versão | [`VERSION`](../../VERSION) |
-| Branch de trabalho conhecida | `manus/rebuild-opus-parity` |
-| Revisão registrada neste estado | `a9a2803` — `feat: persist editorial benchmark and export highlights (2.2)` |
-| Última atualização deste documento | 2026-08-17 |
-| Validação desta rodada | `327 passed`; benchmark b354 persistido, três highlights exportados individualmente e validados por FFprobe; nenhum segredo ou mídia foi publicado |
-| Asset validado | `models/blaze_face_short_range.tflite`, 229746 bytes, SHA-256 conforme manifesto |
-| Objetivo | Gerar cortes do Renan Santos/MBL concisos, autossuficientes e contextualmente completos |
+| Branch de trabalho | `manus/rebuild-opus-parity` |
+| Revisão de código-base observada | `074a129` — `feat: persist editorial benchmark and export highlights (2.2)` |
+| Revisão final da documentação 2.3 | Atualizar após o commit desta rodada e conferir com `git rev-parse --short HEAD` |
+| Última atualização | 2026-08-17 |
+| Natureza da revisão 2.3 | Documental/operacional; nenhum módulo de processamento foi alterado |
+| Objetivo | Gerar cortes Renan Santos/MBL concisos, autossuficientes, contextualizados e editorialmente úteis |
 
-A release 2.2 foi publicada na branch `manus/rebuild-opus-parity` no commit `a9a2803`. Ela não inclui mídia, banco local, transcrições reais ou credenciais. As releases 2.1, 2.0 e 1.9 permanecem registradas no histórico.
+A branch de trabalho deve ser confirmada no checkout real. O GitHub é a fonte da revisão técnica; este arquivo não pode manter um hash diferente do `HEAD` final publicado. Antes de alterar qualquer arquivo, preserve mudanças locais e confirme `git status`.
 
-## Resultado da release 2.2
+## Norte imediato
 
-A segunda onda implementa `modules/editorial_benchmark.py`, `scripts/run_editorial_benchmark.py`, persistência local de comparações, exportação individual de highlights e ações correspondentes no painel de Blocos. O benchmark real do b354 usou os sete candidatos persistidos pelo Furia e os três destaques QA-gated do snapshot local.
+A release 2.2 tornou mensurável o caso b354: sete candidatos locais cobriram `0/3` highlights QA-gated do Campaign Hub, com IoU médio `0.0`, embora o mapeamento da timeline e a exportação individual tenham funcionado. A lacuna atual é **cobertura da seleção**, não renderização.
 
-Os destaques foram mapeados para `146.80–150.80s`, `223.24–228.40s` e `488.48–495.20s` no MP4 local de `549.449s`. O recall temporal foi `0/3`, o IoU médio foi `0.0` e os três casos foram classificados como `Campaign Hub melhor` pela métrica temporal. A falha pertence à cobertura da seleção atual; o mapeamento e a exportação individual funcionaram.
+A hipótese única da próxima rodada está em [`NEXT_CYCLE.md`](NEXT_CYCLE.md): transformar cada highlight em uma semente de proposta e expandi-la até a menor janela completa da transcrição, mantendo frase, tese, pergunta–resposta quando necessária e payoff. A rodada não deve misturar ranking, diarização, reframe, headlines, editor estilo CapCut, tradução, avatars, voz, música, branding, publicação automática, múltiplas câmeras ou download remoto por range.
 
-Os três exports individuais foram validados como 1920×1080 H.264/AAC, com durações medidas de aproximadamente `4.004s`, `5.172s` e `6.740s`. A suíte passou com `327 testes`. O benchmark não altera o ranking e não consulta o MCP durante o corte.
+O caso b354 deve preservar `renanSpeaking=false` quando Kim ou outro terceiro fala. O fato de um bloco ser sobre Renan não autoriza atribuir a fala a Renan. Propostas guiadas devem permanecer separadas de cortes aprovados e não podem apagar candidatos de terceiros.
 
-## Resultado da release 2.1
+## Última release funcional — 2.2
 
-A primeira onda 2.1 implementa a memória local versionada do Campaign Hub, exportação incremental autorizada, leitura de blocos, filtro por fonte, prioridade Renan-first sem ocultar terceiros, painel visual de pré-análise, exportação seletiva local e um sinal temporal/textual limitado no ranking. O MP4 real correspondente ao bloco b354 foi exportado com mapeamento seguro da timeline longa para a timeline local e validado em 1920×1080 H.264/AAC.
+A release 2.2 implementou `modules/editorial_benchmark.py`, `scripts/run_editorial_benchmark.py`, persistência local de comparações, exportação individual de highlights e ações correspondentes no painel de Blocos. O benchmark real usou sete candidatos persistidos pelo Furia e três destaques QA-gated do snapshot local autorizado.
 
-A suíte completa da release 2.1 passou com 322 testes. O download remoto seletivo por range, o benchmark persistente, a diarização e o reconhecimento de voz ainda não estavam concluídos naquela release. A interface ficou mais informativa, mas a simplificação total da sidebar permaneceu para uma onda própria.
+Os destaques foram mapeados para `146.80–150.80s`, `223.24–228.40s` e `488.48–495.20s` no MP4 local de `549.449s`. O recall temporal foi `0/3`; o IoU médio foi `0.0`; os três casos foram classificados como `Campaign Hub melhor` na métrica temporal. O resultado não aumenta o peso do Campaign Hub no ranking e não consulta MCP durante o corte.
 
-## Resultado da release 2.0
+Os três exports individuais foram validados em 1920×1080 H.264/AAC, com durações aproximadas de `4.004s`, `5.172s` e `6.740s`. A suíte da release 2.2 terminou com **327 testes aprovados**. O modelo pequeno de facetracking permanece um asset externo e não deve ser incluído no Git.
 
-A release 2.0 transformou `docs/continuity/START_HERE.md` no ponto de entrada canônico para novas IAs, atualizou `AGENTS.md`, registrou a validação prática do MP4 do Primeiro Ato de Campanha contra o bloco b354 do Campaign Hub, atualizou a versão pública e explicitou que o Furia ainda estava incompleto para uso diário Renan-first. O download seletivo de blocos, a memória rica local, a diarização confiável e o benchmark QA-gated eram trabalho de implementação futura.
+## Release documental — 2.3
 
-Nenhum módulo de processamento foi alterado na release 2.0. O baseline real passou com 306 testes, o job local concluiu e os renders originais foram validados. O segundo ciclo não cobriu os três destaques do bloco b354; isso foi diagnóstico, não melhoria.
+Esta revisão criou [`PROMPT_MESTRE_IA.md`](PROMPT_MESTRE_IA.md), uma versão copiável que consolida o `START_HERE`, os prompts históricos, as decisões permanentes, o norte do benchmark 2.2, as regras do Campaign Hub, o ciclo obrigatório de engenharia, o contrato de documentação, segurança e formato de entrega.
 
-## Resultado da release 1.9
+Também criou [`COMMIT_MESSAGE_TEMPLATE.md`](COMMIT_MESSAGE_TEMPLATE.md), que torna obrigatório registrar hipótese, baseline, implementação, escopo excluído, validação, resultado, limitações e continuidade no corpo dos commits relevantes.
 
-A release 1.9 adiciona `docs/continuity/PROMPT_3_EXECUTOR_CHUB_PARITY.md`, atualiza `AGENTS.md`, registra decisões sobre o benchmark rico do Campaign Hub, substitui a próxima hipótese por uma comparação QA-gated versus candidatos locais e atualiza o contrato de continuidade. O prompt incorpora recursos profissionais pesquisados em OpusClip, Descript e Riverside — foco por locutor/tópico, busca editorial, score explicável, presets e preservação de evidência — sem transformar o Furia em editor geral.
-
-A rodada é documental/operacional: nenhum módulo de seleção, ranking, ingestão ou renderização foi modificado. A suíte completa passou com **306 testes** após atualizar as expectativas de runtime para 1.9. O asset BlazeFace foi provisionado fora do commit apenas para a validação e seu hash oficial foi confirmado. O benchmark Campaign Hub versus candidatos locais ainda não foi implementado e permanece como a próxima hipótese única.
+`README.md`, `AGENTS.md` e `START_HERE.md` agora encaminham qualquer IA que receba apenas o link do GitHub para o prompt mestre, o estado vivo, a próxima hipótese, as decisões e o modelo de commit. O `PROJECT_STATE.md` foi normalizado para manter uma única seção corrente e corrigir o hash da release 2.2 para `074a129`.
 
 ## Estado funcional conhecido
 
-O projeto é uma aplicação local Flask com Socket.IO, SQLite, FFmpeg/FFprobe, faster-whisper, MediaPipe/BlazeFace, yt-dlp e fallbacks locais/online opcionais. O princípio de timeline canônica mantém os intervalos derivados vinculados ao vídeo original.
+O projeto é uma aplicação local Flask com Socket.IO, SQLite, FFmpeg/FFprobe, faster-whisper, MediaPipe/BlazeFace, yt-dlp e fallbacks locais/online opcionais. O princípio de timeline canônica mantém intervalos derivados vinculados ao vídeo original.
 
-O pipeline conhecido contém ingestão/validação da fonte, download público, transcrição com timestamps, análise de contexto, geração de candidatos, ranking editorial explicável, revisão humana, renderização por preset, legendas, validação audiovisual e persistência de jobs/feedback.
+O pipeline conhecido contém ingestão e validação de fonte, download público, transcrição timestampada, análise de contexto, geração de candidatos, ranking editorial explicável, revisão humana, renderização por preset, legendas, validação audiovisual e persistência de jobs/feedback. A release 2.1 adicionou memória local offline-first do Campaign Hub, blocos editoriais e exportação seletiva; a release 2.2 adicionou benchmark persistente e exportação individual de highlights.
 
-A evolução editorial recente concentrou-se em recuperação de contexto, tratamento de referências anafóricas como “isso” e “foi ali que”, completude de pergunta/resposta, gates antes do score e preferência por menor janela suficiente. As alterações locais existentes devem ser preservadas e avaliadas antes de qualquer commit.
+O Furia consegue receber MP4 local, transcrever, selecionar e renderizar arquivos tecnicamente válidos, mas ainda não oferece uma experiência diária equivalente ao Garimpo + Campaign Hub. A seleção ainda precisa melhorar em contexto, cobertura, identidade do locutor, completude Q&A, autossuficiência e estabilidade entre reprocessamentos.
 
-## Formatos editoriais
+## Regras permanentes
 
-O sistema deve distinguir:
+As decisões duráveis estão em [`DECISIONS.md`](DECISIONS.md). As mais importantes são:
 
-| Formato | Intenção |
-| --- | --- |
-| `16:9 original` | Preservar paisagem/evidência visual e usar headline curta mais descritiva. |
-| `1:1 Alfinetei` | Composição quadrada, palavra de impacto no topo e headline branca integrada; texto mais enxuto. |
-| `fake tweet` | Simular publicação em primeira pessoa do Renan somente quando a fala sustentar essa voz. |
+- contexto e payoff vencem slogan, duração curta ou palavra viral;
+- gates de contexto, timing, locutor, transcrição, mídia e risco vêm antes do ranking;
+- o Campaign Hub é prior fraco e benchmark read-only, nunca aprovador automático;
+- uma rodada deve testar uma hipótese principal e comparar antes/depois;
+- a transcrição fornecida pelo editor é a timeline canônica;
+- `quem fala`, `quem aparece` e `quem é foco editorial` são campos distintos;
+- em ambiguidade de enquadramento, preserve `16:9 original` em vez de crop central arbitrário;
+- o job normal não chama MCP; snapshots autorizados devem ser locais, sanitizados e versionados;
+- contas, plataformas, crossposts, métricas e proveniência permanecem separados;
+- vídeos grandes, bancos, tokens, cookies, chaves, transcrições privadas e dados pessoais ficam fora do Git;
+- trabalho ocorre em branch, commits são pequenos e merge na principal exige autorização explícita;
+- todo commit relevante deve seguir [`COMMIT_MESSAGE_TEMPLATE.md`](COMMIT_MESSAGE_TEMPLATE.md).
 
-## Corpus e aprendizado
+## Validação e evidências
 
-O Campaign Hub disponibiliza dados públicos dos perfis `@renansantosmbl`, `@renansantosreserva` e contas relacionadas. Priorize vídeos em que Renan fala, depois em que aparece, depois Reserva/Renan e somente em último caso MBL geral.
+A validação histórica recente da release 2.2 incluiu suíte com 327 testes, `compileall`, `node --check`, `git diff --check`, benchmark b354, três exports individuais e FFprobe. Esses resultados são evidências históricas e não substituem a execução atual após qualquer alteração.
 
-Para cada exemplo, relacione tema, tese, intervalo, transcrição, legenda, headline, formato, sinais visuais, publicação e métricas. Um corte publicado é evidência de seleção editorial, mas deve ser separado de “performou bem” e “aprovado diretamente pelo usuário”.
+A revisão 2.3 é somente documental. Ela não afirma novo ganho de recall, nova execução funcional ou melhoria editorial. O relatório está em [`CYCLE_13_REPORT_2026-08-17.md`](CYCLE_13_REPORT_2026-08-17.md). Em qualquer rodada futura, classifique conclusões como `confirmado`, `reproduzido`, `corrigido`, `provável`, `não verificado` ou `bloqueado`.
 
-## Validações já conhecidas
+## Histórico resumido
 
-O histórico da sessão anterior registrou suíte com 278 testes aprovados e smoke tests de clipping com fixtures reais. Nesta rodada, a suíte completa foi executada novamente: **284 testes passaram** antes da release 1.3. Também foram validados `py_compile app.py`, a fonte única `VERSION` e o asset público do BlazeFace. A próxima IA ainda deve repetir os testes após qualquer alteração, pois nenhum resultado histórico substitui a execução atual.
+| Release | Foco | Resultado principal | Relatório |
+| --- | --- | --- | --- |
+| 2.3 | Prompt mestre e contrato de continuidade | Documentação consolidada; sem alteração de processamento | [`CYCLE_13_REPORT_2026-08-17.md`](CYCLE_13_REPORT_2026-08-17.md) |
+| 2.2 | Benchmark persistente e highlights individuais | `0/3` highlights cobertos; mapeamento e exports funcionaram | [`CYCLE_12_REPORT_2026-08-17.md`](CYCLE_12_REPORT_2026-08-17.md) |
+| 2.1 | Memória local, blocos e exportação seletiva | b354 exportado e validado; 322 testes | [`CYCLE_11_REPORT_2026-08-17.md`](CYCLE_11_REPORT_2026-08-17.md) |
+| 2.0 | START_HERE canônico e diagnóstico prático | Contexto operacional formalizado; 306 testes | [`CYCLE_10_REPORT_2026-08-17.md`](CYCLE_10_REPORT_2026-08-17.md) |
+| 1.9 | Prompt executor e benchmark como direção | Regras de continuidade e benchmark especificadas | Histórico no `CHANGELOG.md` |
 
-## Alterações locais a investigar
+## Leitura obrigatória para a próxima IA
 
-Antes da continuidade, examine o `git status`. O estado conhecido antes desta documentação continha alterações locais em:
-
-- `modules/clip_selector.py`;
-- `modules/editorial_ranker.py`;
-- `tests/test_editorial_ranker.py`;
-- `tests/test_editorial_concision.py`.
-
-Não descarte essas alterações. Determine se já são parte do trabalho da rodada, rode a suíte e faça commit somente após verificar o diff.
-
-## Resultado da rodada real 1.2
-
-A primeira melhoria especializada do Prompt 2 alterou o `clip_selector`: a duração-alvo não encerra mais um candidato enquanto contexto ou payoff estiverem incompletos. A janela continua até encontrar o menor intervalo completo, sem incluir a pauta seguinte quando o bloco anterior já fecha naturalmente. A hipótese foi reproduzida com um teste de caso real e a suíte passou com 284 testes. O Campaign Hub/Garimpo localizou a live longa `RENAN SANTOS EM CHAPECÓ - SC`, com bloco de 10:51 iniciando em 15:23; o download autenticado foi solicitado, mas o helper Corteiros não concluiu no sandbox. Nenhum Reel publicado foi usado como fonte operacional nesta rodada.
-
-## Resultado da rodada 1.8
-
-A hipótese desta rodada foi: **uma fonte AV1 e uma transcrição automática válida não podem produzir zero cortes por falha de decodificação visual ou por perda do status de cobertura ao criar a visão de seleção**.
-
-A fonte real `RENAN SANTOS — BP NAS ELEIÇÕES` foi identificada como o vídeo que ainda não havia sido reanalisado pelo fluxo novo. A tentativa integral de aproximadamente 84 minutos fez o ambiente encerrar o servidor durante a transcrição; por isso foi usada uma amostra real de 15 minutos, preservando o MP4 original. O primeiro lote encontrou 5 candidatos, mas adiou todos porque a transcrição de seleção havia perdido a cobertura temporal e sido marcada como não validada.
-
-A correção evita a retranscrição silenciosa quando o Whisper já entregou a transcrição canônica, recalcula cobertura e proveniência depois da etapa efetiva de transcrição, preserva esses dados após o corte do pré-roll e força FFmpeg por software para fontes AV1. O caminho OpenCV/MediaPipe também é evitado para AV1 quando o layout não pode ser validado com segurança. No replay final, a amostra produziu 4 exports H.264/AAC válidos, em 1920×1080, com durações aproximadas de 138,8 s, 40,4 s, 26,3 s e 27,2 s; não houve novos erros AV1 no log do servidor.
-
-A suíte completa passou com **306 testes**. A transcrição antiga e os quatro cortes da fonte BP completa também foram reanalisados localmente pelo contexto Renan/MBL e pelo Estúdio de Texto, sem usar Gemini. O Campaign Hub apareceu como prior agregado fraco e explicável.
-
-## Resultado da rodada 1.7
-
-A hipótese desta rodada foi: **quando o editor fornece uma transcrição e pede contexto ou headline específica, o Furia deve usar esse texto de forma inequívoca, evitar o limite multimodal com uma cópia compactada e preservar evidências para calibração posterior**.
-
-A transcrição manual/importada agora recebe proveniência explícita, é usada como timeline canônica e aparece no dossiê como confirmada. A análise audiovisual opcional passa a usar uma cópia temporária de até 640 px, com amostragem adaptativa e áudio mono a 16 kHz; o original não é modificado. O cancelamento pode interromper a compactação e as janelas HTTP foram reduzidas para não deixar o job bloqueado por longos períodos.
-
-Cada sessão passa a arquivar, fora do GitHub, a transcrição integral e de seleção, o dossiê de contexto, headlines geradas, decisões de headlines, decisões de clips e o manifesto de proveniência. O console mantém histórico completo da sessão para cópia, enquanto o painel de contexto informa a origem da transcrição, o proxy e o prior do Campaign Hub.
-
-O caso editorial real do corte sobre o ato e a ameaça ganhou candidatos específicos como “NÃO TENHAM MEDO DE IR AO ATO” e “A AMEAÇA NÃO VAI IMPEDIR O ATO”, em vez do fallback genérico “IMPASSE DA SEGURANÇA”. A regressão passou sem depender do Gemini.
-
-A suíte completa passou com **303 testes**. A prova local do proxy reduziu um vídeo sintético de 49.171 para 16.266 bytes. Não foi usado token, mídia real ou transcrição privada no commit.
-
-## Resultado da rodada 1.6
-
-A hipótese desta rodada foi: **uma fonte longa que começa com propaganda ou pré-roll não deve contaminar a seleção editorial com candidatos iniciados antes do conteúdo de live**. Foi criado o detector conservador `modules/source_boundary.py`, integrado antes da análise de contexto, mantendo `full_transcription` arquivada e usando `selection_transcription` somente a partir da fronteira segura.
-
-No baseline do projeto 42, a amostra renal de 15 minutos gerava 3 exports e incluía o corte promocional `1. se não ser na rua, porque pode ser.mp4`, iniciado em `66,0333s` e terminando em `215,29s`. No benchmark final v2, projeto 47, a fronteira foi detectada em `169,5s` com confiança `0,90`; foram gerados 4 exports, nenhum iniciado antes dessa marca. O resultado foi reproduzido após o endurecimento que impede cortar uma saudação genérica isolada. Todos os quatro arquivos foram validados como H.264/AAC 1920×1080 por FFprobe.
-
-A regressão adicionada confirma ainda que uma coletiva sem intro não recebe fronteira artificial e que `boa noite a todos` isolado não basta para descartar os primeiros segundos de uma fonte. A limitação conhecida é que `source_boundary` ainda não é uma coluna própria na tabela `projects`; o diagnóstico fica disponível no evento de seleção e nos artefatos do job. A suíte completa desta revisão candidata passou com **299 testes**.
-
-## Resultado da rodada 1.5
-
-A rodada implementou a rota assíncrona `POST /api/source/transcribe`, com áudio por padrão e nenhum corte, além do botão correspondente no frontend. O smoke real com a URL do usuário confirmou o job em `media_type=audio` e falhou de forma sanitizada no anti-bot do YouTube sem usar cookies ou credenciais.
-
-A hipótese editorial foi transformar `technical_gate_status=review` em uma fronteira de renderização. No projeto renal real com 30 candidatos, 17 seriam renderizáveis e 13 seriam adiados: 10 por pergunta sem ponte validada, 2 por alegação sensível sem contexto/evidência e 1 pelos dois motivos. Uma amostra renal de 15 minutos processada após o gate concluiu com 3 exports H.264/AAC 1920×1080. O replay também corrigiu a preservação dos intervalos persistidos em `start_time`/`end_time`.
-
-A fonte renal completa foi transcrita localmente com faster-whisper base em dez lotes: 1.429 segmentos, 86.837 caracteres, qualidade estrutural 92/100, três sobreposições e sem validação semântica automática. A análise audiovisual multimodal devolvida para o arquivo foi genérica e não foi usada como evidência específica.
-
-## Resultado da rodada 1.4
-
-A hipótese desta rodada foi: **um candidato explicitamente marcado como `context_complete=false` não deve ser renderizado como corte pronto**. O novo gate mantém o candidato no diagnóstico de revisão, mas o adia antes do `VideoCutter` e registra `render_deferred_context_count` e os motivos em `render_rejections`. No mesmo lote de 15 minutos, o baseline v1.3 gerou 4 exports, incluindo um trecho de 168,09 segundos com início no meio da frase e contexto incompleto; a repetição v1.4 gerou 3 exports e adiou esse trecho. Os três exports foram validados com FFprobe como H.264/AAC 1920×1080. A suíte passou de 286 para 288 testes.
-
-O MP4 operacional tem duração de aproximadamente 84,1 minutos, vídeo AV1 1920×1080 e áudio AAC estéreo 44,1 kHz. A transcrição integral CPU foi tentada e interrompida pelo limite operacional do ambiente; o lote de 15 minutos foi transcrito do áudio do próprio MP4 com 357 segmentos. O SRT externo foi parseado em separado e não foi usado como legenda do MP4.
-
-## Próxima rodada recomendada
-
-Usar os candidatos reais da coletiva e da live renal para calibrar detecção de erros semânticos do ASR em nomes próprios, entidades políticas e termos raros antes de gerar headlines. Marcar baixa confiança lexical para revisão humana e comparar a transcrição local com uma fonte corrigida quando disponível. O Estúdio de Texto de Arte permanece adiado; Reels publicados continuam `reference_only` e somente fontes longas/cruas são `processing_source`.
-
-Depois da execução, atualize este arquivo com a versão, commit, branch, testes, vídeos/análises realizados, métricas antes/depois e a próxima hipótese. As versões anteriores `1.2` e os commits `1860276`, `a6846f9` e `2c92b09` permanecem no histórico; a release `1.3` foi publicada no commit `aa678fe`; a release `1.4` está registrada no commit `2528cec`; a release `1.5` está registrada no commit `337e2dd`; a release `1.6` está registrada no commit `2ac5b1c`; a release `1.7` está registrada no commit `f712e23`; a release `1.8` está registrada no commit `b91000a` da branch `manus/rebuild-opus-parity`.
+Leia [`AGENTS.md`](../../AGENTS.md), [`README.md`](../../README.md), [`VERSION`](../../VERSION), [`docs/VERSIONING.md`](../VERSIONING.md), [`START_HERE.md`](START_HERE.md), [`PROMPT_MESTRE_IA.md`](PROMPT_MESTRE_IA.md), este arquivo, [`DECISIONS.md`](DECISIONS.md), [`NEXT_CYCLE.md`](NEXT_CYCLE.md), [`COMMIT_MESSAGE_TEMPLATE.md`](COMMIT_MESSAGE_TEMPLATE.md) e o relatório mais recente. Depois confirme `git status`, branch, commit e testes no checkout real antes de propor qualquer alteração.

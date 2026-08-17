@@ -2,15 +2,15 @@
 
 **Corte. Ranqueie. Domine.**
 
-> **Versão atual: 2.2.** Esta release adiciona benchmark persistente local, exportação individual de highlights e as ações correspondentes no painel de Blocos. A identidade de runtime é exibida no console, na interface e na API; a fonte única da versão é [`VERSION`](VERSION).
+> **Versão atual: 2.3.** Esta revisão consolida o contrato de continuidade e o prompt mestre; a última release funcional de código é a 2.2, com benchmark persistente local e exportação individual de highlights. A identidade de runtime é exibida no console, na interface e na API; a fonte única da versão é [`VERSION`](VERSION).
 
 ## Continuidade para novas sessões e IAs
 
-Se você entregar apenas o link deste repositório a outra IA, ela deve começar por [`docs/continuity/START_HERE.md`](docs/continuity/START_HERE.md) e depois ler [`AGENTS.md`](AGENTS.md) e o pacote [`docs/continuity/`](docs/continuity/). O START_HERE é o prompt mestre canônico e registra o objetivo, o estado real incompleto, o uso do Campaign Hub, o fluxo inspirado no Garimpo, as regras editoriais, os testes, as limitações e a próxima hipótese. O contrato de releases está em [`docs/VERSIONING.md`](docs/VERSIONING.md).
+Se você entregar apenas o link deste repositório a outra IA, ela deve começar por [`docs/continuity/START_HERE.md`](docs/continuity/START_HERE.md), [`docs/continuity/PROMPT_MESTRE_IA.md`](docs/continuity/PROMPT_MESTRE_IA.md) e depois ler [`AGENTS.md`](AGENTS.md), [`PROJECT_STATE.md`](docs/continuity/PROJECT_STATE.md), [`DECISIONS.md`](docs/continuity/DECISIONS.md), [`NEXT_CYCLE.md`](docs/continuity/NEXT_CYCLE.md) e o pacote [`docs/continuity/`](docs/continuity/). O prompt mestre consolida os prompts históricos e as regras de execução; o START_HERE continua sendo a entrada operacional canônica. O padrão obrigatório de commits está em [`COMMIT_MESSAGE_TEMPLATE.md`](docs/continuity/COMMIT_MESSAGE_TEMPLATE.md), e o contrato de releases está em [`docs/VERSIONING.md`](docs/VERSIONING.md).
 
 O arquivo [`docs/continuity/PROJECT_STATE.md`](docs/continuity/PROJECT_STATE.md) é atualizado ao final de cada rodada verificável. Ele não substitui o código nem o Git: a nova IA deve sempre confirmar `git status`, branch, commit e testes no checkout real.
 
-O Furia Clips é uma ferramenta local em evolução para analisar vídeos longos e encontrar cortes precisos do Renan Santos/MBL. A release 2.2 já possui memória rica local do Campaign Hub, pré-análise por blocos, benchmark persistente e exportação seletiva de blocos e highlights a partir de uma fonte disponível; download remoto seletivo, diarização confiável e reconhecimento de voz continuam em desenvolvimento. O processamento ocorre no computador do usuário; serviços de IA são opcionais e possuem fallback local/NLP quando não estão disponíveis.
+O Furia Clips é uma ferramenta local em evolução para analisar vídeos longos e encontrar cortes precisos do Renan Santos/MBL. A release funcional 2.2 já possui memória rica local do Campaign Hub, pré-análise por blocos, benchmark persistente e exportação seletiva de blocos e highlights a partir de uma fonte disponível; download remoto seletivo, diarização confiável e reconhecimento de voz continuam em desenvolvimento. O norte imediato é melhorar o recall do benchmark b354 por meio de propostas sem alterar ranking, diarização, reframe ou editor. O processamento ocorre no computador do usuário; serviços de IA são opcionais e possuem fallback local/NLP quando não estão disponíveis.
 
 ## O que está implementado
 

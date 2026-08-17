@@ -1,5 +1,23 @@
 # Changelog de continuidade
 
+## 2.3 — Prompt mestre e contrato de continuidade
+
+### Incluído
+
+- `docs/continuity/PROMPT_MESTRE_IA.md`, prompt copiável que consolida o `START_HERE`, os prompts históricos, as decisões permanentes, o norte do benchmark b354, o uso do Campaign Hub, o ciclo de engenharia, segurança e o formato de entrega.
+- `docs/continuity/COMMIT_MESSAGE_TEMPLATE.md`, modelo obrigatório para registrar hipótese, baseline, implementação, escopo excluído, validação, resultado, limitações e próxima hipótese no corpo dos commits.
+- `docs/continuity/CYCLE_13_REPORT_2026-08-17.md`, relatório da rodada documental e da hipótese de tornar o GitHub autossuficiente para continuidade entre IAs.
+- `README.md`, `AGENTS.md`, `START_HERE.md`, `PROJECT_STATE.md` e `NEXT_CYCLE.md` atualizados para encaminhar ao prompt mestre, manter o norte atual e eliminar a divergência do hash `a9a2803` para `074a129`.
+- `VERSION` incrementado para `2.3`, representando a mudança no contrato de continuidade; nenhuma lógica de seleção, ranking, ingestão, reframe ou renderização foi alterada.
+
+### Validação da rodada
+
+O estado do Git, a branch `manus/rebuild-opus-parity`, a revisão de código `074a129`, os documentos vivos, os prompts históricos e os resultados da release 2.2 foram auditados. A validação desta revisão é documental e inclui revisão de links relativos, diff, versão, ausência de arquivos proibidos e confirmação do hash final após o commit.
+
+### Limitações conhecidas
+
+A revisão 2.3 não melhora recall, diarização, reconhecimento de voz, reframe, ranking, download remoto por range ou qualidade editorial. O benchmark b354 permanece em `0/3` até que a hipótese de expansão de seeds seja executada e reproduzida. A capacidade de uma IA externa seguir o contrato deverá ser avaliada em uma sessão futura com checkout limpo.
+
 ## 2.2 — Benchmark persistente e exportação individual de highlights
 
 ### Incluído

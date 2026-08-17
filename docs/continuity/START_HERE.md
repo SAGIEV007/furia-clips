@@ -1,6 +1,6 @@
 # START_HERE — Furia Clips Renan-first
 
-> **Este é o ponto de entrada canônico para qualquer nova IA que continuar o Furia Clips.** Leia este arquivo antes de alterar código. Ele substitui, como instrução de entrada, os antigos Prompts 1, 2 e 3. Os arquivos antigos permanecem no repositório como histórico, mas não devem ser tratados como o prompt vigente.
+> **Este é o ponto de entrada canônico para qualquer nova IA que continuar o Furia Clips.** Leia este arquivo antes de alterar código. O prompt copiável e consolidado está em [`PROMPT_MESTRE_IA.md`](PROMPT_MESTRE_IA.md), e o modelo obrigatório de commit está em [`COMMIT_MESSAGE_TEMPLATE.md`](COMMIT_MESSAGE_TEMPLATE.md). Este arquivo substitui, como instrução de entrada, os antigos Prompts 1, 2 e 3. Os arquivos antigos permanecem no repositório como histórico, mas não devem ser tratados como o prompt vigente.
 
 ## 1. Missão do projeto
 
@@ -14,9 +14,9 @@ O usuário não é programador. Execute no ambiente autorizado tudo o que puder 
 
 ## 2. Estado real conhecido — não confundir código com produto pronto
 
-A branch de trabalho conhecida é `manus/rebuild-opus-parity`. O baseline documental anterior era a versão `1.9`, commit `40c78b1`, uma fase predominantemente documental e operacional. O Furia contém muitas peças do pipeline, mas ainda não oferece uma experiência diária equivalente ao Garimpo + Campaign Hub.
+A branch de trabalho conhecida é `manus/rebuild-opus-parity`. A última release funcional de código é a versão `2.2`, commit `074a129`, e a versão `2.3` consolida o contrato de continuidade e o prompt mestre. O Furia contém muitas peças do pipeline, mas ainda não oferece uma experiência diária equivalente ao Garimpo + Campaign Hub.
 
-A validação prática mais recente da branch foi feita no clone real do GitHub para a release `2.2`. A suíte terminou com **327 testes aprovados**, o benchmark b354 foi persistido, três highlights foram exportados individualmente e todos os MP4s foram validados por FFprobe. O modelo oficial pequeno de facetracking continua sendo um asset externo; não o inclua no Git e mantenha o fallback offline quando ele não estiver disponível.
+A validação prática mais recente do código foi feita no clone real do GitHub para a release `2.2`. A suíte terminou com **327 testes aprovados**, o benchmark b354 foi persistido, três highlights foram exportados individualmente e todos os MP4s foram validados por FFprobe. A revisão 2.3 é documental e não reivindica melhoria funcional. O modelo oficial pequeno de facetracking continua sendo um asset externo; não o inclua no Git e mantenha o fallback offline quando ele não estiver disponível.
 
 O caso real usado nesta auditoria foi o arquivo MP4 do vídeo `Primeiro ato de Campanha - Renan Santos Presidente`, baixado do fluxo de blocos do ecossistema Missão:
 
@@ -242,15 +242,16 @@ Em cada rodada:
 11. compare antes/depois com métricas claras;
 12. classifique cada conclusão como confirmado, reproduzido, corrigido, provável, não verificado ou bloqueado;
 13. atualize estado, decisões, changelog, relatório e próxima hipótese;
-14. faça commits pequenos na branch de trabalho;
+14. faça commits pequenos na branch de trabalho, sempre usando o corpo completo de [`COMMIT_MESSAGE_TEMPLATE.md`](COMMIT_MESSAGE_TEMPLATE.md);
 15. publique no GitHub somente alterações verificadas;
-16. não faça merge na branch principal sem autorização explícita.
+16. atualize `PROJECT_STATE.md` com o hash final e o relatório correspondente;
+17. não faça merge na branch principal sem autorização explícita.
 
 Não inclua no Git vídeos grandes, bancos locais, cookies, tokens, chaves, transcrições privadas ou dados pessoais.
 
 ## 14. Relatório obrigatório
 
-O relatório de cada rodada deve responder, em português simples:
+O relatório de cada rodada e o corpo do commit devem responder, em português simples:
 
 - o que foi executado;
 - qual era a hipótese;

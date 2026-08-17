@@ -12,7 +12,7 @@ Reels e posts publicados continuam `reference_only`. Lives longas e gravações 
 
 ## Procedimento
 
-1. Ler `docs/continuity/START_HERE.md`, `AGENTS.md`, `README.md`, `VERSION`, `docs/continuity/PROJECT_STATE.md`, `docs/continuity/DECISIONS.md`, `docs/VERSIONING.md` e este arquivo.
+1. Ler `docs/continuity/START_HERE.md`, `docs/continuity/PROMPT_MESTRE_IA.md`, `AGENTS.md`, `README.md`, `VERSION`, `docs/continuity/PROJECT_STATE.md`, `docs/continuity/DECISIONS.md`, `docs/continuity/COMMIT_MESSAGE_TEMPLATE.md`, `docs/VERSIONING.md` e este arquivo.
 2. Confirmar branch, commit, diff e baseline; não apagar alterações locais.
 3. Repetir a suíte existente antes da mudança e registrar versão/revisão.
 4. Reutilizar a memória local autorizada, o benchmark `b354-v1`, os sete candidatos do baseline e o MP4 de bloco já disponível.
@@ -27,7 +27,11 @@ Reels e posts publicados continuam `reference_only`. Lives longas e gravações 
 13. Só depois de um ganho reproduzível investigar download remoto por range; testar o provedor sem contornar anti-bot e manter fallback seguro.
 14. Atualizar `VERSION`, `CHANGELOG.md`, `PROJECT_STATE.md`, `START_HERE.md`, este arquivo e o relatório do ciclo se a alteração for observável.
 15. Executar suíte completa, `compileall`, `node --check`, `git diff --check`, verificação de segredos, revisão de mídia e revisão do diff.
-16. Fazer commit pequeno, publicar a branch de trabalho e registrar o hash.
+16. Atualizar `PROJECT_STATE.md`, `CHANGELOG.md`, o relatório do ciclo e qualquer decisão durável; fazer commit pequeno com corpo completo conforme `COMMIT_MESSAGE_TEMPLATE.md`, publicar a branch de trabalho e registrar o hash final conferido com `git rev-parse`.
+
+## Contrato de continuidade
+
+Toda alteração relevante deve deixar no GitHub a hipótese, o baseline, o escopo excluído, os testes, as métricas, as limitações e a próxima hipótese. Não deixar essa informação apenas na conversa, no terminal ou no título do commit. Se a rodada for somente documental, declarar isso explicitamente e não reivindicar melhoria funcional.
 
 ## Limites
 
