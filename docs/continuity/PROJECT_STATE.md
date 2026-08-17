@@ -8,9 +8,9 @@
 | --- | --- |
 | Projeto | Furia Clips |
 | Repositório | `SAGIEV007/furia-clips` |
-| Versão pública atual | `3.1` |
-| Última release funcional anterior | `3.0` |
-| Natureza da release atual | Todo candidato entregue com contexto, locutor, riscos e veredito de revisão |
+| Versão pública atual | `3.2` |
+| Última release funcional anterior | `3.1` |
+| Natureza da release atual | Interpretação temática própria, medida contra os blocos do Acervo |
 | Fonte da versão | [`VERSION`](../../VERSION) |
 | Branch de trabalho | `claude/repo-access-commits-imgjmk` |
 | Última publicação conhecida antes desta rodada | `a0452d3` — `fix: declarar confiabilidade da medição no benchmark editorial (2.7)` |
@@ -22,7 +22,7 @@
 | Commit funcional 3.1 | `a170aab` — `feat: entregar todo candidato com contexto, locutor e veredito de revisão (3.1)` |
 | Última atualização | 2026-08-17 |
 | Baseline editorial | Duas fontes medidas na 3.1. `3XJfcqn56Rw` (live 98 min): recall `50/66`, cobertura `25/27`. `j9FRVbb8CAI` (entrevista 31 min): recall `30/34`, cobertura `11/11`. Precisão `1.00`, zero fora de bloco e zero desperdício **nas duas**. O b354 permanece como regressão de locutor. |
-| Suíte no checkout | 347 aprovados, 7 falhas ambientais (`ffmpeg`/`ffprobe` ausentes e asset BlazeFace) |
+| Suíte no checkout | 355 aprovados, 7 falhas ambientais (`ffmpeg`/`ffprobe` ausentes e asset BlazeFace) |
 | Objetivo | Gerar cortes Renan Santos/MBL concisos, autossuficientes, contextualizados e editorialmente úteis |
 
 A branch de trabalho deve ser confirmada no checkout real. O GitHub é a fonte da revisão técnica; este arquivo não pode manter um hash diferente do `HEAD` final publicado. Antes de alterar qualquer arquivo, preserve mudanças locais e confirme `git status`.
@@ -35,7 +35,26 @@ A ponte carrega o snapshot uma vez por job, preserva proveniência e riscos, exp
 
 O caso b354 deve preservar `renanSpeaking=false` quando Kim ou outro terceiro fala. O fato de um bloco ser sobre Renan não autoriza atribuir a fala a Renan. Propostas guiadas devem permanecer separadas de cortes aprovados e não podem apagar candidatos de terceiros.
 
-## Release atual — 3.1
+## Release atual — 3.2
+
+A 3.2 ataca a dependência de rótulo externo. Até a 3.1, tudo que o Furia sabia sobre
+estrutura vinha pronto do Acervo — e some numa fonte que o Acervo não processou. O
+tamanho da dependência estava medido desde a 2.9: `11/66` sozinho contra `50/66` com
+os rótulos, ou seja, 4,5×.
+
+A primeira tentativa — reconhecer não-conteúdo por vocabulário — falhou com 3.4% de
+recall, e a falha mostrou que o problema estava mal formulado: região sem conteúdo é o
+complemento dos blocos, então a capacidade real é **segmentar**.
+
+`modules/topic_segmenter.py` encontra fronteiras por vale de coesão lexical. Calibrado
+só na live de 98 minutos, cobre **23/27 blocos (85%)** ali e **9/11 (82%)** na
+entrevista de 31 minutos, que nunca entrou na calibração, com precisão temporal de 75%
+e 85%.
+
+O segmentador **ainda não está ligado ao seletor**: esta rodada entrega e mede a
+capacidade. Relatório em [`CYCLE_22_REPORT_2026-08-17.md`](CYCLE_22_REPORT_2026-08-17.md).
+
+## Release anterior — 3.1
 
 A 3.1 tratou de **entrega**, não de cobertura. `precision@k` foi medida primeiro e
 mostrou que o ranqueamento já funciona: 100% dos 20 primeiros colocados carregam um
@@ -211,6 +230,7 @@ Em qualquer rodada, classifique conclusões como `confirmado`, `reproduzido`, `c
 
 | Release | Foco | Resultado principal | Relatório |
 | --- | --- | --- | --- |
+| 3.2 | Interpretação própria | Segmentação temática nativa cobre 85% e 82% dos blocos do Acervo em duas fontes | [`CYCLE_22_REPORT_2026-08-17.md`](CYCLE_22_REPORT_2026-08-17.md) |
 | 3.1 | Corte pronto e ranqueado | 100% dos candidatos com contexto, locutor e veredito; ranqueamento confirmado (top 20 = 100% com destaque) | [`CYCLE_21_REPORT_2026-08-17.md`](CYCLE_21_REPORT_2026-08-17.md) |
 | 3.0 | Orçamento governado pela fonte | Recall `27/66`→`50/66` e cobertura `20/27`→`25/27` com precisão inalterada em `1.00` | [`CYCLE_20_REPORT_2026-08-17.md`](CYCLE_20_REPORT_2026-08-17.md) |
 | 2.9 | Recall medido em fonte longa | Ponte Chub dobra o recall (`11/66`→`24/66`); filtro de não-conteúdo leva a `27/66` | [`CYCLE_19_REPORT_2026-08-17.md`](CYCLE_19_REPORT_2026-08-17.md) |
