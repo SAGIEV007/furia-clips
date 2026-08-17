@@ -79,6 +79,74 @@ def map_interval_to_local(
     }
 
 
+def assess_measurement(
+    *,
+    source_duration: float | None,
+    reference_start: float,
+    reference_end: float,
+    timeline_mapping: str,
+    reference_count: int,
+    candidate_count: int,
+) -> dict[str, Any]:
+    """Declare whether this comparison can be confronted with the baseline.
+
+    A ``0/3`` recall has two very different causes: the selection really missed
+    the references, or the reference intervals were never mapped to the local
+    timeline and are therefore being compared against unrelated coordinates.
+    The benchmark must never let those two look alike.
+    """
+    duration = _float(source_duration)
+    block_span = max(0.0, reference_end - reference_start)
+    mapping_applied = timeline_mapping == "downloaded_block_timeline"
+    # A block that starts at the beginning of its source needs no translation:
+    # absolute and local coordinates already coincide.
+    mapping_required = reference_start > 1.0
+    # A full-length source keeps candidates on the same absolute timeline as the
+    # references, so the comparison stays coherent without mapping.
+    source_is_full_length = duration is not None and duration >= reference_end - max(15.0, block_span * 0.05)
+
+    warnings: list[str] = []
+    if reference_count <= 0:
+        status = "no_reference"
+        warnings.append("O bloco não possui destaques de referência; não há o que comparar.")
+    elif candidate_count <= 0:
+        status = "no_candidates"
+        warnings.append("Nenhum candidato válido foi recebido; as métricas não representam a seleção.")
+    elif not mapping_required or mapping_applied or source_is_full_length:
+        status = "reliable"
+    else:
+        status = "unmapped_timeline"
+        if duration is None:
+            warnings.append(
+                "A duração da fonte local não foi informada, então os destaques permaneceram em "
+                "segundos absolutos da live e foram comparados com candidatos da timeline local. "
+                "As métricas desta execução não são comparáveis ao baseline."
+            )
+        else:
+            warnings.append(
+                f"A fonte local tem {duration:.3f}s, incompatível com o bloco "
+                f"({block_span:.3f}s) e com o fim do bloco na live ({reference_end:.3f}s). "
+                "Os destaques permaneceram em segundos absolutos e as métricas desta execução "
+                "não são comparáveis ao baseline."
+            )
+        warnings.append(
+            "Informe o MP4 do bloco baixado (ou a fonte longa completa) para que o mapeamento "
+            "temporal seja aplicado antes de medir recall."
+        )
+
+    return {
+        "reliable": status == "reliable",
+        "status": status,
+        "timeline_mapping": timeline_mapping,
+        "mapping_required": mapping_required,
+        "mapping_applied": mapping_applied,
+        "source_is_full_length": source_is_full_length,
+        "source_duration_s": _round(duration),
+        "block_span_s": _round(block_span),
+        "warnings": warnings,
+    }
+
+
 def interval_iou(left: tuple[float, float] | None, right: tuple[float, float] | None) -> float:
     if not left or not right:
         return 0.0
@@ -219,10 +287,21 @@ def compare_candidates(
         if any(interval_iou(current, previous) >= 0.8 for previous in intervals[:index]):
             duplicate_candidates += 1
 
+    timeline_mapping = mapped_references[0]["timeline_mapping"] if mapped_references else "unknown"
+    measurement = assess_measurement(
+        source_duration=source_duration,
+        reference_start=reference_start,
+        reference_end=reference_end,
+        timeline_mapping=timeline_mapping,
+        reference_count=len(mapped_references),
+        candidate_count=len(normalized_candidates),
+    )
+
     return {
         "benchmark_id": f"{block.get('id') or block.get('block_id')}-{benchmark_version}",
         "benchmark_version": benchmark_version,
         "created_at": datetime.now(timezone.utc).isoformat(),
+        "measurement": measurement,
         "block": {
             "id": block.get("id") or block.get("block_id"),
             "title": block.get("title") or "",
@@ -237,7 +316,8 @@ def compare_candidates(
         "source": {
             "name": Path(str(source_name or "")).name[:180],
             "duration_s": _round(source_duration),
-            "timeline_mapping": mapped_references[0]["timeline_mapping"] if mapped_references else "unknown",
+            "timeline_mapping": timeline_mapping,
+            "mapping_applied": measurement["mapping_applied"],
         },
         "candidate_count": len(normalized_candidates),
         "references": mapped_references,
@@ -250,6 +330,10 @@ def compare_candidates(
             "mean_boundary_error_s": round(sum(errors) / len(errors), 3) if errors else None,
             "duplicate_candidates": duplicate_candidates,
             "classifications": classifications,
+            # Repeated here because list_benchmarks() exposes only "metrics";
+            # a recall number must never travel without its reliability.
+            "measurement_reliable": measurement["reliable"],
+            "measurement_status": measurement["status"],
         },
     }
 

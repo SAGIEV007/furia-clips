@@ -8,7 +8,28 @@ Reels e posts publicados continuam `reference_only`. Lives longas e gravações 
 
 ## Hipótese única
 
-> Se um snapshot autorizado e sanitizado do Campaign Hub for instalado localmente e o Furia reprocessar o caso b354 com a ponte da release 2.6, então o recall temporal deve sair do baseline `0/3` sem aumentar falsos positivos, atribuições erradas, truncamentos ou confusão entre quem fala e quem é foco editorial.
+> Se o MP4 local do bloco b354 e um snapshot autorizado do Campaign Hub forem instalados e o Furia reprocessar o caso com a ponte da release 2.6 obtendo `measurement.reliable=true`, então o recall temporal medido será o recall real da seleção e poderá ser confrontado com o baseline `0/3`, sem aumentar falsos positivos, atribuições erradas, truncamentos ou confusão entre quem fala e quem é foco editorial.
+
+## Pré-condição obrigatória de medição — release 2.7
+
+Antes de comparar qualquer métrica com o baseline, confirme no payload do benchmark:
+
+- `measurement.reliable == true`;
+- `measurement.status == "reliable"`;
+- nas referências, `timeline_mapping == "downloaded_block_timeline"`;
+- os destaques mapeados em `146.80` / `223.24` / `488.48` na timeline local.
+
+Se `measurement.reliable` for `false`, o resultado é **bloqueado**, não `0/3`. A
+release 2.7 emite os avisos correspondentes no `stderr` do script e na resposta da
+rota `POST /api/editorial/benchmark`.
+
+Atenção a três armadilhas registradas em `CYCLE_17_REPORT_2026-08-17.md`:
+
+1. `normalize_snapshot()` descarta o snapshot inteiro se faltar a chave `accounts`
+   com pelo menos uma conta suportada, mesmo que blocos e highlights estejam corretos;
+2. `Path.home()` pode não apontar para o diretório do usuário conforme o ambiente —
+   confirme onde os artefatos estão sendo gravados;
+3. passe caminhos absolutos ou confie no `expanduser()` adicionado na 2.7.
 
 ## Procedimento
 

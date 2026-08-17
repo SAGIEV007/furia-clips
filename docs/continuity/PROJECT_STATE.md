@@ -8,15 +8,16 @@
 | --- | --- |
 | Projeto | Furia Clips |
 | Repositório | `SAGIEV007/furia-clips` |
-| Versão pública atual | `2.6` |
-| Última release funcional anterior | `2.2` |
-| Natureza da release atual | Primeira ponte funcional Campaign Hub→seeds→expansão→gates→propostas guiadas |
+| Versão pública atual | `2.7` |
+| Última release funcional anterior | `2.6` |
+| Natureza da release atual | Confiabilidade declarada da medição do benchmark editorial |
 | Fonte da versão | [`VERSION`](../../VERSION) |
 | Branch de trabalho | `manus/rebuild-opus-parity` |
-| Última publicação conhecida antes desta rodada | `74bc611` — `docs: registrar commit do prompt operacional (2.5)` |
-| Commit funcional/documental 2.6 | `fec34fe` — `feat: primeira ponte funcional Campaign Hub para propostas (2.6)` |
+| Última publicação conhecida antes desta rodada | `c530cd1` — `docs: registrar hash da release 2.6` |
+| Commit funcional 2.6 | `fec34fe` — `feat: primeira ponte funcional Campaign Hub para propostas (2.6)` |
+| Commit funcional 2.7 | `e451dad` — `fix: declarar confiabilidade da medição no benchmark editorial (2.7)` |
 | Última atualização | 2026-08-17 |
-| Baseline editorial | b354 com 7 candidatos, recall `0/3`, IoU médio `0.0` |
+| Baseline editorial | b354 com 7 candidatos, recall `0/3`, IoU médio `0.0` — **ainda não remedido com mapeamento confiável** |
 | Objetivo | Gerar cortes Renan Santos/MBL concisos, autossuficientes, contextualizados e editorialmente úteis |
 
 A branch de trabalho deve ser confirmada no checkout real. O GitHub é a fonte da revisão técnica; este arquivo não pode manter um hash diferente do `HEAD` final publicado. Antes de alterar qualquer arquivo, preserve mudanças locais e confirme `git status`.
@@ -28,6 +29,42 @@ A release 2.2 tornou mensurável o caso b354: sete candidatos locais cobriram `0
 A ponte carrega o snapshot uma vez por job, preserva proveniência e riscos, expande a seed dentro da transcrição local e aplica gates antes do ranking. Ela não transforma o Campaign Hub em aprovador automático: propostas guiadas continuam separadas de cortes aprovados e podem exigir revisão humana. A hipótese seguinte está em [`NEXT_CYCLE.md`](NEXT_CYCLE.md): instalar snapshot autorizado do b354 e medir recall real em mídia local, sem ampliar escopo para reframe, headlines, editor estilo CapCut, tradução, avatars, voz, música, branding, publicação automática, múltiplas câmeras ou download remoto por range.
 
 O caso b354 deve preservar `renanSpeaking=false` quando Kim ou outro terceiro fala. O fato de um bloco ser sobre Renan não autoriza atribuir a fala a Renan. Propostas guiadas devem permanecer separadas de cortes aprovados e não podem apagar candidatos de terceiros.
+
+## Release atual — 2.7
+
+A release 2.7 corrigiu um modo de falha da **medição**, não da seleção. O benchmark
+podia devolver `recall 0/3` por dois motivos completamente diferentes — a seleção
+realmente errou os destaques, ou as referências nunca foram mapeadas para a timeline
+local — e o relatório não distinguia os dois casos.
+
+O caso foi reproduzido em execução real: sem `--source` legível pelo `ffprobe`,
+`map_interval_to_local()` mantém os destaques em segundos absolutos (`6289.36`)
+enquanto os candidatos estão na timeline local (`146.80`). O relatório então
+acusava `mean_boundary_error_s: 5904.771` — o deslocamento do bloco dentro da live,
+não erro editorial — e mesmo assim exibia `coverage_recall: 0.0` como se fosse
+comparável ao baseline.
+
+`assess_measurement()` em `modules/editorial_benchmark.py` passou a declarar
+`measurement.reliable`, `status`, `mapping_required`, `mapping_applied`,
+`source_is_full_length` e avisos em português. A decisão tem três vias: MP4 do
+bloco (mapeia), fonte longa completa (coerente sem mapear) e qualquer outro caso
+com bloco fora do início (incoerente, avisa). `metrics` repete
+`measurement_reliable` porque `list_benchmarks()` expõe apenas `metrics`.
+
+`scripts/run_editorial_benchmark.py` passou a expandir `~` em `--memory` e
+`--source` — antes falhava silenciosamente com "Bloco não encontrado" — e emite os
+avisos em `stderr`. `app.py` devolve `measurement` na rota de benchmark.
+
+Suíte: **330 aprovados, 7 falhas ambientais** (`ffmpeg`/`ffprobe` ausentes e asset
+externo BlazeFace). As mesmas 7 falhas foram reproduzidas com `git stash` no código
+original (`326 aprovados`), confirmando que não têm relação com a mudança.
+`compileall`, `node --check` e `git diff --check` passaram.
+
+O recall real do b354 continua **não verificado**: o MP4 local do bloco não estava
+presente no ambiente e o conector CHUB ficou indisponível durante a rodada. O
+baseline permanece `0/3`, sem reivindicação de ganho. Seleção, ranking, expansão de
+seeds e renderização não foram alterados. Relatório em
+[`CYCLE_17_REPORT_2026-08-17.md`](CYCLE_17_REPORT_2026-08-17.md).
 
 ## Histórico funcional anterior — 2.2
 
@@ -92,6 +129,7 @@ Em qualquer rodada, classifique conclusões como `confirmado`, `reproduzido`, `c
 
 | Release | Foco | Resultado principal | Relatório |
 | --- | --- | --- | --- |
+| 2.7 | Confiabilidade declarada da medição | Benchmark passa a distinguir `0/3` de seleção de `0/3` por timeline não mapeada | [`CYCLE_17_REPORT_2026-08-17.md`](CYCLE_17_REPORT_2026-08-17.md) |
 | 2.6 | Primeira ponte Campaign Hub→seeds→propostas | 2 seeds e 2 propostas reproduzidas em payload real; recall b354 ainda não medido | [`CYCLE_16_REPORT_2026-08-17.md`](CYCLE_16_REPORT_2026-08-17.md) |
 | 2.5 | Prompt operacional Chub→cortes | Roteiro copiável; sem alteração funcional | [`CYCLE_15_REPORT_2026-08-17.md`](CYCLE_15_REPORT_2026-08-17.md) |
 | 2.4 | Contrato Chub→cortes e reorientação do prompt | Norte funcional atualizado; sem alteração de processamento | [`CYCLE_14_REPORT_2026-08-17.md`](CYCLE_14_REPORT_2026-08-17.md) |

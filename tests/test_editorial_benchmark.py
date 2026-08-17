@@ -2,6 +2,7 @@ import json
 
 from modules.campaign_hub_memory import install_snapshot
 from modules.editorial_benchmark import (
+    assess_measurement,
     compare_candidates,
     interval_iou,
     list_benchmarks,
@@ -80,9 +81,79 @@ def test_compare_persists_recall_and_classifications(tmp_path):
     assert result["comparisons"][1]["classification"] == "campaign_hub_better"
     assert result["comparisons"][0]["timeline_mapping"] == "downloaded_block_timeline"
 
+    assert result["measurement"]["reliable"] is True
+    assert result["measurement"]["status"] == "reliable"
+    assert result["metrics"]["measurement_reliable"] is True
+
     target = save_benchmark(result, tmp_path / "benchmarks")
     stored = load_benchmark(result["benchmark_id"], tmp_path / "benchmarks")
     assert target.exists()
     assert stored["metrics"] == result["metrics"]
     assert list_benchmarks(tmp_path / "benchmarks")[0]["benchmark_id"] == result["benchmark_id"]
     json.loads(target.read_text(encoding="utf-8"))
+
+
+def test_missing_source_marks_measurement_unreliable(tmp_path):
+    """A 0/3 caused by an unmapped timeline must not look like a 0/3 of selection."""
+    memory = tmp_path / "profile.json"
+    install_snapshot(_payload(), destination=memory)
+    block = get_block(BLOCK_ID, str(memory))
+    result = compare_candidates(
+        block,
+        [{"id": "candidate-local", "start": 146.2, "end": 151.4}],
+        source_duration=None,
+        source_name="",
+    )
+    # Without the local duration the highlights stay on absolute seconds.
+    assert result["references"][0]["timeline_mapping"] == "source_timeline"
+    assert result["references"][0]["local_start"] == 6289.36
+    # The recall is still 0/3, but it is now explicitly not comparable.
+    assert result["metrics"]["coverage_recall"] == 0.0
+    assert result["measurement"]["reliable"] is False
+    assert result["measurement"]["status"] == "unmapped_timeline"
+    assert result["measurement"]["mapping_required"] is True
+    assert result["measurement"]["mapping_applied"] is False
+    assert result["measurement"]["warnings"]
+    assert result["metrics"]["measurement_reliable"] is False
+    assert result["source"]["mapping_applied"] is False
+
+
+def test_full_length_source_stays_comparable_without_mapping():
+    """Candidates cut from the whole live share the absolute timeline."""
+    measurement = assess_measurement(
+        source_duration=7241.0,
+        reference_start=6142.56,
+        reference_end=6692.0,
+        timeline_mapping="source_timeline",
+        reference_count=3,
+        candidate_count=7,
+    )
+    assert measurement["reliable"] is True
+    assert measurement["source_is_full_length"] is True
+    assert measurement["warnings"] == []
+
+
+def test_block_starting_at_zero_needs_no_mapping():
+    measurement = assess_measurement(
+        source_duration=None,
+        reference_start=0.0,
+        reference_end=549.44,
+        timeline_mapping="source_timeline",
+        reference_count=3,
+        candidate_count=7,
+    )
+    assert measurement["reliable"] is True
+    assert measurement["mapping_required"] is False
+
+
+def test_empty_candidates_are_reported_as_such():
+    measurement = assess_measurement(
+        source_duration=549.449,
+        reference_start=6142.56,
+        reference_end=6692.0,
+        timeline_mapping="downloaded_block_timeline",
+        reference_count=3,
+        candidate_count=0,
+    )
+    assert measurement["reliable"] is False
+    assert measurement["status"] == "no_candidates"

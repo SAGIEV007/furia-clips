@@ -1,5 +1,36 @@
 # Changelog de continuidade
 
+## 2.7 — Confiabilidade declarada da medição do benchmark
+
+### Incluído
+
+- `modules/editorial_benchmark.py` ganhou `assess_measurement()` e o bloco `measurement` no payload: toda comparação agora declara se pode ser confrontada com o baseline, com `status`, `mapping_required`, `mapping_applied`, `source_is_full_length` e avisos em português.
+- `metrics` repete `measurement_reliable` e `measurement_status`, porque `list_benchmarks()` expõe apenas `metrics` — um número de recall nunca deve viajar sem a confiabilidade dele.
+- `source` passou a registrar `mapping_applied`.
+- `scripts/run_editorial_benchmark.py` expande `~` em `--memory` e `--source`, imprime `measurement` e emite avisos em `stderr` quando a medição não é comparável.
+- `app.py` devolve `measurement` em `POST /api/editorial/benchmark` e troca a mensagem de sucesso por um alerta explícito quando a medição não é confiável.
+- `tests/test_editorial_benchmark.py` adiciona quatro regressões: mapeamento ausente, fonte longa completa, bloco iniciando em zero e lista de candidatos vazia.
+
+### Hipótese e baseline
+
+A hipótese foi que um `0/3` causado por timeline não mapeada estava indistinguível de um `0/3` causado por seleção ruim, tornando qualquer medição futura de recall não confiável. O baseline b354 permanece: 7 candidatos, 3 highlights, recall `0/3`, IoU médio `0.0`.
+
+O caso foi reproduzido em execução real. Rodando o benchmark do b354 sem `--source`, o relatório devolvia `coverage_recall: 0.0` e `mean_boundary_error_s: 5904.771` sem qualquer aviso. Os `5904.771s` não são erro editorial: são o deslocamento do bloco dentro da live, porque os destaques permaneceram em segundos absolutos (`6289.36`) enquanto os candidatos estavam na timeline local (`146.80`).
+
+### Validação da rodada
+
+Suíte completa: **330 aprovados, 7 falhas ambientais**. As mesmas 7 falhas foram reproduzidas com `git stash` no código original (`326 aprovados, 7 falhas`), confirmando que são causadas por `ffmpeg`/`ffprobe` ausentes no container e pelo asset externo BlazeFace, não por esta mudança. A diferença de `+4` aprovados corresponde exatamente às regressões adicionadas.
+
+Também passaram `compileall`, `node --check static/js/app.js` e `git diff --check`.
+
+Após a mudança, o mesmo comando que antes silenciava agora imprime `measurement.reliable=false`, `status=unmapped_timeline` e a instrução de informar o MP4 do bloco.
+
+### Resultado e limitações
+
+Confirmado: um resultado de benchmark sem mapeamento temporal deixa de ser confundido com um resultado de seleção. Corrigido: `--memory ~/...` não falha mais silenciosamente com "Bloco não encontrado".
+
+O recall real do b354 continua **não verificado**: o MP4 local do bloco não estava presente neste ambiente (`workspace/exports/` vazio) e o snapshot autorizado não pôde ser obtido do conector CHUB, que ficou indisponível durante a rodada. O baseline segue `0/3` sem reivindicação de ganho. Nenhuma alteração foi feita em seleção, ranking, expansão de seeds ou renderização.
+
 ## 2.6 — Primeira ponte funcional Campaign Hub→seeds→propostas
 
 ### Incluído

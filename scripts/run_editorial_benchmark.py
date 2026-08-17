@@ -56,16 +56,18 @@ def main() -> int:
     parser.add_argument("--version", default="b354-v1")
     args = parser.parse_args()
 
-    block = get_block(args.block_id, str(args.memory) if args.memory else None)
+    memory_path = args.memory.expanduser() if args.memory else None
+    block = get_block(args.block_id, str(memory_path) if memory_path else None)
     if not block:
         raise SystemExit("Bloco não encontrado na memória local.")
-    source_duration = probe_duration(args.source) if args.source else None
+    source_path = args.source.expanduser() if args.source else None
+    source_duration = probe_duration(source_path) if source_path else None
     candidates = load_candidates(args.candidates)
     payload = compare_candidates(
         block,
         candidates,
         source_duration=source_duration,
-        source_name=str(args.source or ""),
+        source_name=str(source_path or ""),
         benchmark_version=args.version,
     )
     target = save_benchmark(payload)
@@ -73,9 +75,17 @@ def main() -> int:
         "benchmark_id": payload["benchmark_id"],
         "file": str(target),
         "candidate_count": payload["candidate_count"],
+        "measurement": payload["measurement"],
         "metrics": payload["metrics"],
         "references": payload["references"],
     }, ensure_ascii=False, indent=2))
+    if not payload["measurement"]["reliable"]:
+        for warning in payload["measurement"]["warnings"]:
+            print(f"AVISO: {warning}", file=sys.stderr)
+        print(
+            "AVISO: estas métricas NÃO podem ser comparadas com o baseline b354.",
+            file=sys.stderr,
+        )
     return 0
 
 

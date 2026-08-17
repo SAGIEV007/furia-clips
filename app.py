@@ -1461,14 +1461,22 @@ def api_editorial_benchmark():
             benchmark_version=str(data.get("benchmark_version") or "b354-v1")[:40],
         )
         target = save_benchmark(payload)
+        measurement = payload.get("measurement") or {}
+        message = "Benchmark salvo localmente; ele não altera o ranking nem consulta o Campaign Hub durante os cortes."
+        if not measurement.get("reliable", True):
+            message = (
+                "Benchmark salvo, mas a medição não é comparável ao baseline: "
+                + " ".join(measurement.get("warnings") or [])
+            )
         return jsonify({
             "success": True,
             "benchmark_id": payload["benchmark_id"],
+            "measurement": measurement,
             "metrics": payload["metrics"],
             "references": payload["references"],
             "candidate_count": payload["candidate_count"],
             "file": target.name,
-            "message": "Benchmark salvo localmente; ele não altera o ranking nem consulta o Campaign Hub durante os cortes.",
+            "message": message,
         })
     except (TypeError, ValueError) as exc:
         return jsonify({"success": False, "error": str(exc)[:300]}), 400
