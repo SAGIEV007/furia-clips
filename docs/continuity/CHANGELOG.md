@@ -1,5 +1,23 @@
 # Changelog de continuidade
 
+## 2.0 — START_HERE canônico e validação prática Renan-first
+
+### Incluído
+
+- Novo `docs/continuity/START_HERE.md`, ponto de entrada canônico que unifica o contexto do Furia, o estado real incompleto, o uso do Campaign Hub, o fluxo inspirado no Garimpo, as regras Renan-first, o ciclo de testes e a continuidade no GitHub.
+- `AGENTS.md` atualizado para apontar o START_HERE; os Prompts 1, 2, 3 e o Prompt Mestre antigo permanecem como histórico, não como instrução vigente.
+- Relatório `docs/continuity/CYCLE_10_REPORT_2026-08-17.md` com a primeira validação ponta a ponta usando o MP4 do Primeiro Ato de Campanha e comparação read-only com o bloco b354 do Campaign Hub.
+- Diagnóstico explícito de que o Furia atual faz upload, transcrição, seleção e renderização, mas ainda não possui download seletivo de bloco, diarização confiável nem memória rica local do Campaign Hub.
+- Versão pública atualizada de 1.9 para 2.0 e teste de identidade de runtime atualizado.
+
+### Validação da rodada
+
+O clone real da branch `manus/rebuild-opus-parity` foi executado com 306 testes aprovados. O MP4 de aproximadamente 9m14s foi processado pelo servidor local, gerando sete cortes H.264 1920×1080 em 16:9, validados por FFprobe e inspeção visual. O Campaign Hub identificou o mesmo material como o bloco b354, com 121 frases, três destaques QA-gated, pergunta-gatilho, riscos e `renanSpeaking=false`.
+
+### Limitações conhecidas
+
+Nenhum módulo de seleção, ranking ou renderização foi melhorado nesta release. O segundo ciclo não cobriu os três destaques do bloco b354, embora tenha produzido arquivos tecnicamente válidos. A entrada por link foi bloqueada pelo anti-bot do YouTube neste ambiente. A área autenticada interna do Garimpo não ficou disponível na sessão Sandbox. O benchmark temporal/editorial foi especificado, mas ainda não foi implementado como funcionalidade do aplicativo.
+
 ## 1.9 — Prompt executor e paridade editorial via Campaign Hub
 
 ### Incluído

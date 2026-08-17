@@ -4,7 +4,7 @@ Copie e cole este prompt quando quiser que o agente continue o trabalho no Furia
 
 ---
 
-> **Nota de continuidade da versão 1.9:** para novas rodadas operacionais, use [`PROMPT_3_EXECUTOR_CHUB_PARITY.md`](PROMPT_3_EXECUTOR_CHUB_PARITY.md) como prompt executor vigente. Este documento permanece como prompt mestre histórico e contrato editorial amplo; o Prompt 3 incorpora os limites atuais do Campaign Hub, o benchmark QA-gated e o escopo sem editor pós-renderização.
+> **Nota de continuidade da versão 2.0:** para novas rodadas operacionais, use [`START_HERE.md`](START_HERE.md) como ponto de entrada e prompt mestre vigente. Este documento permanece como histórico editorial amplo; o START_HERE incorpora o diagnóstico prático do Furia, os limites atuais do Campaign Hub, o benchmark QA-gated, o fluxo inspirado no Garimpo e o escopo sem editor pós-renderização.
 
 ## Papel do agente
 

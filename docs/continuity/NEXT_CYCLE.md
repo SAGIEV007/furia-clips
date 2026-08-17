@@ -1,4 +1,4 @@
-# Próximo ciclo de melhoria — Furia Clips v1.9
+# Próximo ciclo de melhoria — Furia Clips v2.0
 
 ## Objetivo da rodada
 
@@ -12,7 +12,7 @@ Reels e posts publicados continuam `reference_only`. Lives longas e gravações 
 
 ## Procedimento
 
-1. Ler `AGENTS.md`, `README.md`, `VERSION`, `docs/continuity/PROJECT_STATE.md`, `docs/continuity/DECISIONS.md`, `docs/VERSIONING.md`, `docs/continuity/CAMPAIGN_HUB_LINEAGE.md` e `docs/continuity/PROMPT_3_EXECUTOR_CHUB_PARITY.md`.
+1. Ler `docs/continuity/START_HERE.md`, `AGENTS.md`, `README.md`, `VERSION`, `docs/continuity/PROJECT_STATE.md`, `docs/continuity/DECISIONS.md`, `docs/VERSIONING.md` e `docs/continuity/CAMPAIGN_HUB_LINEAGE.md`.
 2. Confirmar branch, commit, diff e baseline; não apagar alterações locais.
 3. Repetir a suíte existente antes da mudança e registrar versão/revisão.
 4. Consultar o Campaign Hub apenas em leitura, mantendo conta, plataforma, crosspost, métrica, amostra e estado settled/provisório separados.

@@ -2,19 +2,19 @@
 
 **Corte. Ranqueie. Domine.**
 
-> **Versão atual: 1.5.** A identidade de runtime é exibida no console, na interface e na API. A fonte única da versão é [`VERSION`](VERSION).
+> **Versão atual: 2.0.** Esta release consolida o ponto de entrada operacional e o diagnóstico prático do produto. A identidade de runtime é exibida no console, na interface e na API; a fonte única da versão é [`VERSION`](VERSION).
 
 ## Continuidade para novas sessões e IAs
 
-Se você entregar apenas o link deste repositório a outra IA, ela deve começar por [`AGENTS.md`](AGENTS.md) e pelo pacote [`docs/continuity/`](docs/continuity/). Esses arquivos registram o objetivo, a arquitetura, as funções, os formatos editoriais, as decisões, o corpus público do Campaign Hub, os testes, o estado atual, as limitações e a próxima hipótese de melhoria. O contrato de releases está em [`docs/VERSIONING.md`](docs/VERSIONING.md).
+Se você entregar apenas o link deste repositório a outra IA, ela deve começar por [`docs/continuity/START_HERE.md`](docs/continuity/START_HERE.md) e depois ler [`AGENTS.md`](AGENTS.md) e o pacote [`docs/continuity/`](docs/continuity/). O START_HERE é o prompt mestre canônico e registra o objetivo, o estado real incompleto, o uso do Campaign Hub, o fluxo inspirado no Garimpo, as regras editoriais, os testes, as limitações e a próxima hipótese. O contrato de releases está em [`docs/VERSIONING.md`](docs/VERSIONING.md).
 
 O arquivo [`docs/continuity/PROJECT_STATE.md`](docs/continuity/PROJECT_STATE.md) é atualizado ao final de cada rodada verificável. Ele não substitui o código nem o Git: a nova IA deve sempre confirmar `git status`, branch, commit e testes no checkout real.
 
-O Furia Clips é uma ferramenta local para transformar vídeos longos em clipes verticais para Shorts, Reels e TikTok. O pipeline combina transcrição, seleção editorial explicável, renderização por plataforma, legendas, persistência de jobs, revisão humana e processamento em lote. O processamento ocorre no computador do usuário; serviços de IA são opcionais e possuem fallback local/NLP quando não estão disponíveis.
+O Furia Clips é uma ferramenta local em evolução para analisar vídeos longos e encontrar cortes precisos do Renan Santos/MBL. O código já contém módulos de ingestão, transcrição, seleção editorial, renderização, legendas, persistência e revisão, mas o fluxo ainda não deve ser tratado como produto maduro: download seletivo de blocos, diarização confiável e memória rica do Campaign Hub continuam em desenvolvimento. O processamento ocorre no computador do usuário; serviços de IA são opcionais e possuem fallback local/NLP quando não estão disponíveis.
 
 ## O que está implementado
 
-- **Pipeline completo:** upload, transcrição, seleção, ranking, corte, legendas, validação e persistência do resultado.
+- **Pipeline executável em evolução:** upload, transcrição, seleção, ranking, corte, legendas, validação e persistência existem no código e devem ser validados em mídia real antes de serem considerados confiáveis.
 - **Timeline canônica:** todos os estágios usam a mesma linha do tempo do vídeo original, inclusive depois da análise de silêncio.
 - **Seleção editorial explicável:** cada clip pode exibir score, confiança, fatores de hook, fluxo, valor, contexto, energia, clareza, completude e diversidade.
 - **Perfil editorial Renan Santos/MBL:** classifica o subtipo político quando aplicável e também reconhece as famílias `politico`, `humor`, `reacao`, `bastidor`, `descontraido` e `conversa`, sem forçar todo momento a parecer político.

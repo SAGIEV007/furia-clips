@@ -8,16 +8,22 @@
 | --- | --- |
 | Projeto | Furia Clips |
 | Repositório | `SAGIEV007/furia-clips` |
-| Versão pública | `1.9` |
+| Versão pública | `2.0` |
 | Fonte da versão | [`VERSION`](../../VERSION) |
 | Branch de trabalho conhecida | `manus/rebuild-opus-parity` |
-| Revisão registrada neste estado | `d27cb05` — `docs: publish executor prompt and Chub parity contract (1.9)` |
-| Última atualização deste documento | 2026-08-16 |
-| Validação desta rodada | `306 passed`; `git diff --check` aprovado; asset BlazeFace oficial baixado temporariamente e SHA-256 validado; nenhum módulo de processamento alterado |
+| Revisão registrada neste estado | `cd5c037` — `docs: publish canonical START_HERE prompt (2.0)` |
+| Última atualização deste documento | 2026-08-17 |
+| Validação desta rodada | `306 passed`; MP4 real processado em dois ciclos; sete outputs finais validados por FFprobe e inspeção visual; asset BlazeFace oficial validado; nenhum módulo de processamento alterado |
 | Asset validado | `models/blaze_face_short_range.tflite`, 229746 bytes, SHA-256 conforme manifesto |
 | Objetivo | Gerar cortes do Renan Santos/MBL concisos, autossuficientes e contextualmente completos |
 
-A release 1.9 foi publicada na branch `manus/rebuild-opus-parity` no commit `d27cb05`, sem incluir mídia, banco local, transcrições reais ou credenciais.
+A release 2.0 foi criada na branch `manus/rebuild-opus-parity` no commit `cd5c037`. Ela não inclui mídia, banco local, transcrições reais ou credenciais. A release 1.9 permanece registrada no histórico.
+
+## Resultado da release 2.0
+
+A release 2.0 transforma `docs/continuity/START_HERE.md` no ponto de entrada canônico para novas IAs, atualiza `AGENTS.md`, registra a validação prática do MP4 do Primeiro Ato de Campanha contra o bloco b354 do Campaign Hub, atualiza a versão pública e explicita que o Furia ainda está incompleto para uso diário Renan-first. O download seletivo de blocos, a memória rica local, a diarização confiável e o benchmark QA-gated continuam como trabalho de implementação futura.
+
+Nenhum módulo de processamento foi alterado nesta release. O baseline real passou com 306 testes, o job local concluiu e os renders originais foram validados. O segundo ciclo não cobriu os três destaques do bloco b354; isso é diagnóstico, não melhoria.
 
 ## Resultado da release 1.9
 

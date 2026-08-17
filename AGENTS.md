@@ -2,13 +2,13 @@
 
 ## Leia antes de alterar qualquer arquivo
 
-Você está continuando um projeto existente. Não comece reescrevendo o sistema e não trate este documento como autorização para apagar alterações locais. Primeiro leia [`README.md`](README.md), [`VERSION`](VERSION), [`docs/continuity/PROJECT_STATE.md`](docs/continuity/PROJECT_STATE.md), [`docs/continuity/DECISIONS.md`](docs/continuity/DECISIONS.md), [`docs/continuity/NEXT_CYCLE.md`](docs/continuity/NEXT_CYCLE.md), [`docs/VERSIONING.md`](docs/VERSIONING.md), a documentação editorial relevante e o estado do Git. Para o fluxo executor atualizado, leia também [`docs/continuity/PROMPT_3_EXECUTOR_CHUB_PARITY.md`](docs/continuity/PROMPT_3_EXECUTOR_CHUB_PARITY.md).
+Você está continuando um projeto existente. Não comece reescrevendo o sistema e não trate este documento como autorização para apagar alterações locais. Primeiro leia [`docs/continuity/START_HERE.md`](docs/continuity/START_HERE.md), [`README.md`](README.md), [`VERSION`](VERSION), [`docs/continuity/PROJECT_STATE.md`](docs/continuity/PROJECT_STATE.md), [`docs/continuity/DECISIONS.md`](docs/continuity/DECISIONS.md), [`docs/continuity/NEXT_CYCLE.md`](docs/continuity/NEXT_CYCLE.md), [`docs/VERSIONING.md`](docs/VERSIONING.md), a documentação editorial relevante e o estado do Git.
 
 O objetivo central é aprimorar o Furia Clips para gerar cortes do Renan Santos/MBL **concisos, autossuficientes, contextualizados, com tese/payoff completos e começo e encerramento naturais**. O usuário quer um agente executor: baixe o código, rode a aplicação, processe vídeos públicos, analise transcrição e vídeo, corrija bugs, escreva testes, compare antes/depois e publique alterações verificadas no GitHub.
 
-## Prompt executor vigente
+## Ponto de entrada canônico
 
-`docs/continuity/PROMPT_3_EXECUTOR_CHUB_PARITY.md` é o prompt operacional vigente para futuras IAs. Ele complementa este arquivo e não autoriza reescrita do sistema, edição pós-renderização ou uso direto do MCP no runtime. O prompt deve ser atualizado quando o processo, a hipótese principal ou os limites do Campaign Hub mudarem.
+`docs/continuity/START_HERE.md` é o prompt mestre operacional vigente para futuras IAs. Ele unifica o contexto do projeto, o estado real verificado, as prioridades, o uso correto do Campaign Hub, o fluxo inspirado no Garimpo, as regras editoriais, o ciclo de testes e a continuidade no GitHub. Os arquivos `PROMPT_1`, `PROMPT_2`, `PROMPT_3` e `PROMPT_MESTRE` permanecem como histórico e referência, mas não substituem o START_HERE. O Furia continua sendo um sistema de cortes precisos; edição pós-renderização não entra na prioridade e o aplicativo local não deve chamar o MCP por job.
 
 ## Prioridades
 
