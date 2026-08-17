@@ -107,3 +107,35 @@ def test_detected_regions_carry_a_readable_reason():
     assert regions
     assert regions[0]["reason"].startswith("Sem conteúdo editorial:")
     assert regions[0]["provenance"] == "furia_local_detector"
+
+
+def test_learned_priors_are_reported_but_never_decide():
+    """The distilled odds travel as evidence, not as a verdict.
+
+    Measured on two labelled sources, the aggregated score does not separate
+    content from non-content: on the 98-minute live the content units scored
+    higher than the non-content ones. Letting it flip the verdict would discard
+    real speech on a signal that was shown not to discriminate.
+    """
+    promotional = score_segment("Acesse o link na descrição e use o cupom de desconto do nosso patrocinador.")
+    argument = score_segment(
+        "A proposta reduz a pena mínima porque o presídio virou escritório do crime organizado."
+    )
+
+    # The odds do fire on promotional vocabulary...
+    assert promotional["learned_score"] > argument["learned_score"]
+    assert promotional["learned_terms"]
+    # ...but no cue named after them exists, and the verdict ignores the score.
+    assert "lexico_aprendido" not in promotional["cues"]
+    assert argument["non_content"] is False
+
+
+def test_priors_file_ships_with_the_repository():
+    from modules.non_content_detector import load_priors
+
+    priors = load_priors()
+    assert priors["schema_version"] == "chub-priors-v1"
+    assert len(priors["non_content_terms"]) >= 50
+    assert priors["structure"]["block_duration_s"]["median"] > 0
+    # Aggregate statistics only: no transcript, URL or personal data travels.
+    assert "não reversível" in priors["provenance"]["privacy"]

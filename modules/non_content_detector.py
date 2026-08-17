@@ -15,8 +15,10 @@ independent cues agree, or when a single cue is decisive on its own.
 
 from __future__ import annotations
 
+import json
 import re
 import unicodedata
+from pathlib import Path
 from typing import Any
 
 
@@ -50,6 +52,49 @@ _CUE_GROUPS = {
 }
 
 _WORD = re.compile(r"[0-9a-zà-ü]+")
+
+_PRIORS_PATH = Path(__file__).resolve().parent.parent / "data" / "chub_priors" / "acervo_priors.json"
+_PRIORS_CACHE: dict[str, Any] | None = None
+
+
+def load_priors() -> dict[str, Any]:
+    """Statistics distilled from the Acervo corpus, carried locally.
+
+    The hand-written cue lists below were a guess and recovered 3.4% of the
+    regions the Acervo labelled. These terms were learned instead, from the
+    frequency gap between sentences inside a block and sentences inside a
+    labelled non-content region across 885k sentences. They surfaced whole
+    categories the guess had missed — sponsorship, donation nicknames, channel
+    jargon — and no transcript travels with them, only the odds of each word.
+
+    Missing or unreadable priors leave the detector on its hand-written cues
+    alone, so the app keeps working offline with no extra file.
+    """
+    global _PRIORS_CACHE
+    if _PRIORS_CACHE is None:
+        try:
+            _PRIORS_CACHE = json.loads(_PRIORS_PATH.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            _PRIORS_CACHE = {}
+    return _PRIORS_CACHE
+
+
+def learned_non_content_score(text: str) -> tuple[float, list[str]]:
+    """Mean log-odds of the learned terms present, and which ones they were."""
+    priors = load_priors()
+    terms = priors.get("non_content_terms") or {}
+    if not terms:
+        return 0.0, []
+    words = _WORD.findall(_normalize(text))
+    if not words:
+        return 0.0, []
+    hits = [(word, terms[word]) for word in words if word in terms]
+    if not hits:
+        return 0.0, []
+    # Averaged over the whole stretch, so one promotional word inside a long
+    # argument cannot condemn it, while a run of them adds up.
+    total = sum(weight for _, weight in hits)
+    return total / len(words), [word for word, _ in hits[:8]]
 
 
 def _normalize(text: str) -> str:
@@ -114,6 +159,15 @@ def score_segment(text: str, *, words_per_second: float | None = None) -> dict[s
     if sparse:
         cues.append("fala_esparsa")
 
+    # The learned score is reported but deliberately kept out of the verdict.
+    # Measured on two labelled sources, it does not separate content from
+    # non-content once aggregated over a stretch: on the 98-minute live the
+    # content units scored *higher* than the non-content ones (0.0106 against
+    # 0.0068). The per-word odds are real, but a long-form live interleaves
+    # promotion with argument, so the average says nothing about the stretch.
+    # It travels as evidence for a reviewer and for future calibration.
+    learned, learned_terms = learned_non_content_score(normalized)
+
     # A single decisive cue is enough; otherwise two independent ones must agree.
     decisive = unintelligible or "engajamento" in cues or repetition >= 0.62
     non_content = decisive or len(cues) >= 2
@@ -121,6 +175,8 @@ def score_segment(text: str, *, words_per_second: float | None = None) -> dict[s
         "non_content": non_content,
         "cues": cues,
         "repetition_ratio": round(repetition, 3),
+        "learned_score": round(learned, 3),
+        "learned_terms": learned_terms,
         "latin_ratio": round(latin, 3),
         "word_count": len(words),
     }

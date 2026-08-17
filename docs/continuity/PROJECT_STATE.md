@@ -8,9 +8,9 @@
 | --- | --- |
 | Projeto | Furia Clips |
 | Repositório | `SAGIEV007/furia-clips` |
-| Versão pública atual | `3.2` |
-| Última release funcional anterior | `3.1` |
-| Natureza da release atual | Interpretação temática própria, medida contra os blocos do Acervo |
+| Versão pública atual | `3.3` |
+| Última release funcional anterior | `3.2` |
+| Natureza da release atual | Corpus do Acervo destilado em 3 KB locais; ganho no detector refutado e registrado |
 | Fonte da versão | [`VERSION`](../../VERSION) |
 | Branch de trabalho | `claude/repo-access-commits-imgjmk` |
 | Última publicação conhecida antes desta rodada | `a0452d3` — `fix: declarar confiabilidade da medição no benchmark editorial (2.7)` |
@@ -35,7 +35,24 @@ A ponte carrega o snapshot uma vez por job, preserva proveniência e riscos, exp
 
 O caso b354 deve preservar `renanSpeaking=false` quando Kim ou outro terceiro fala. O fato de um bloco ser sobre Renan não autoriza atribuir a fala a Renan. Propostas guiadas devem permanecer separadas de cortes aprovados e não podem apagar candidatos de terceiros.
 
-## Release atual — 3.2
+## Release atual — 3.3
+
+A 3.3 destilou o corpus do Acervo — 517 vídeos, 16.559 blocos, 885.215 frases — em
+`data/chub_priors/acervo_priors.json`, com **3 KB**. O cálculo roda no servidor do
+Chub em consulta somente leitura; volta apenas estatística agregada e não reversível.
+
+O léxico aprendido descobriu categorias que a lista manual não tinha — publicidade,
+doações, jargão do canal — com log-odds até `5.05`. Também mostrou que **o que torna um
+trecho um destaque não é lexical**: log-odds máximo de `0.89`, por isso nenhum léxico de
+destaque foi incluído.
+
+**A hipótese da rodada foi refutada.** O léxico não leva o detector a patamar
+utilizável: teto de 11% de recall, e no nível de unidade a separação é *invertida* na
+fonte com amostra suficiente. O score passou a ser evidência reportada, nunca veredito,
+com regressão travando esse contrato. Relatório em
+[`CYCLE_23_REPORT_2026-08-17.md`](CYCLE_23_REPORT_2026-08-17.md).
+
+## Release anterior — 3.2
 
 A 3.2 ataca a dependência de rótulo externo. Até a 3.1, tudo que o Furia sabia sobre
 estrutura vinha pronto do Acervo — e some numa fonte que o Acervo não processou. O
@@ -230,6 +247,7 @@ Em qualquer rodada, classifique conclusões como `confirmado`, `reproduzido`, `c
 
 | Release | Foco | Resultado principal | Relatório |
 | --- | --- | --- | --- |
+| 3.3 | Destilação do corpus | 885k frases em 3 KB; ganho no detector refutado e o sinal mantido fora do veredito | [`CYCLE_23_REPORT_2026-08-17.md`](CYCLE_23_REPORT_2026-08-17.md) |
 | 3.2 | Interpretação própria | Segmentação temática nativa cobre 85% e 82% dos blocos do Acervo em duas fontes | [`CYCLE_22_REPORT_2026-08-17.md`](CYCLE_22_REPORT_2026-08-17.md) |
 | 3.1 | Corte pronto e ranqueado | 100% dos candidatos com contexto, locutor e veredito; ranqueamento confirmado (top 20 = 100% com destaque) | [`CYCLE_21_REPORT_2026-08-17.md`](CYCLE_21_REPORT_2026-08-17.md) |
 | 3.0 | Orçamento governado pela fonte | Recall `27/66`→`50/66` e cobertura `20/27`→`25/27` com precisão inalterada em `1.00` | [`CYCLE_20_REPORT_2026-08-17.md`](CYCLE_20_REPORT_2026-08-17.md) |
