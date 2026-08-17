@@ -15,6 +15,7 @@
 | Revisão de código-base observada | `074a129` — `feat: persist editorial benchmark and export highlights (2.2)` |
 | Commit de publicação da documentação 2.3 | `3c80db0` — `docs: consolidate AI continuity prompt and commit contract (2.3)` |
 | Última atualização | 2026-08-17 |
+| Commit de publicação da documentação 2.4 | `b18de83` — `docs: reorientar contrato Campaign Hub para cortes (2.4)` |
 | Natureza da revisão 2.4 | Reorientação documental/operacional; nenhum módulo de processamento foi alterado |
 | Objetivo | Gerar cortes Renan Santos/MBL concisos, autossuficientes, contextualizados e editorialmente úteis |
 

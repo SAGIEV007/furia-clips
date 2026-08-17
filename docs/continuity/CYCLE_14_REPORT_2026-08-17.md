@@ -3,6 +3,7 @@
 **Data:** 2026-08-17
 **Versão documental:** 2.4
 **Branch:** `manus/rebuild-opus-parity`
+**Commit de publicação:** `b18de83` — `docs: reorientar contrato Campaign Hub para cortes (2.4)`
 **Natureza:** reorientação documental e operacional; a ponte funcional Chub→cortes ainda não foi implementada nesta rodada.
 
 ## 1. Hipótese e objetivo
