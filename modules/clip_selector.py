@@ -221,7 +221,7 @@ class ClipSelector:
 
         # Drop candidates sitting on stretches the Acervo already labelled as
         # holding no editorial content, before the candidate budget is spent.
-        clips = self._drop_labelled_non_content(clips, settings, emit_progress)
+        clips = self._drop_labelled_non_content(clips, settings, sentences, emit_progress)
 
         # Every surviving candidate inherits what the Acervo established about the
         # stretch it covers, so the reviewer never sees an anonymous window.
@@ -1287,15 +1287,31 @@ Retorne APENAS o JSON.
                 regions.append((start, end, str(region.get("reason") or "")))
         return regions
 
-    def _drop_labelled_non_content(self, clips, settings, emit_progress=None):
-        """Remove candidates that mostly cover labelled non-content.
+    def _drop_labelled_non_content(self, clips, settings, sentences=None, emit_progress=None):
+        """Remove candidates that mostly cover material that is not editorial.
 
         A candidate is only dropped when the majority of its window sits inside
         such a region: merely touching one at the edge is normal, because a real
         idea can start right after an unintelligible stretch. Candidates are a
         budget — every slot spent here is a slot a real cut does not get.
+
+        The authorized snapshot is preferred when present, but it only exists for
+        sources the Acervo already labelled. Without it the same judgement is made
+        locally from the transcript, so a fresh recording is not left defenceless
+        against its own sponsor read, opening titles and sign-off.
         """
         regions = self._labelled_non_content_regions(settings)
+        source = "acervo"
+        if not regions and sentences:
+            try:
+                from .non_content_detector import detect_non_content_regions
+                regions = [
+                    (float(item["start_s"]), float(item["end_s"]), str(item.get("reason") or ""))
+                    for item in detect_non_content_regions(sentences)
+                ]
+                source = "local"
+            except (ImportError, KeyError, TypeError, ValueError):
+                regions = []
         if not regions or not clips:
             return clips
         kept, dropped = [], []
@@ -1316,13 +1332,25 @@ Retorne APENAS o JSON.
                 kept.append(clip)
         if dropped:
             self._candidate_diagnostics["labelled_non_content_dropped"] = len(dropped)
+            self._candidate_diagnostics["non_content_source"] = source
+            self._candidate_diagnostics["non_content_regions"] = len(regions)
             if emit_progress:
+                origem = (
+                    "que o Acervo marcou como sem conteúdo editorial"
+                    if source == "acervo"
+                    else "reconhecidos localmente como propaganda, abertura, bastidor ou encerramento"
+                )
                 emit_progress(
-                    f"[Campaign Hub] {len(dropped)} candidato(s) descartado(s) por cair em trechos que o "
-                    "Acervo marcou como sem conteúdo editorial; o orçamento de candidatos foi liberado "
-                    "para trechos com fala aproveitável.",
+                    f"[Descarte] {len(dropped)} candidato(s) removido(s) por cair em trechos {origem}; "
+                    "o orçamento foi liberado para fala aproveitável.",
                     "info",
                 )
+                for clip in dropped[:8]:
+                    emit_progress(
+                        f"[Descarte] {float(clip.get('start', 0)):.0f}s-{float(clip.get('end', 0)):.0f}s: "
+                        f"{str(clip.get('text') or '')[:70]}",
+                        "info",
+                    )
         return kept
 
     @staticmethod

@@ -371,6 +371,71 @@ def _selection_coverage_plan(source_video, video_duration):
     return {"previous_clip_fingerprints": fingerprints, "adaptive_max_clips": max_clips}
 
 
+def _write_selection_diagnostics(
+    *, job_id, video_path, duration_s, selection_source, diagnostics, clips, deferred, emit_progress=None
+):
+    """Record why each candidate survived, in one file the editor can hand over.
+
+    The console shows the timestamps of the clips that were rendered and nothing
+    about the reasoning behind them: which gates fired, what the ranker scored,
+    why thirty candidates were held back. Diagnosing a bad run from the console
+    alone means guessing. This writes the whole decision, ranked, next to the
+    other local artefacts and never inside the repository.
+    """
+    from pathlib import Path
+
+    try:
+        target_dir = Path(
+            os.environ.get("FURIA_CLIPS_DATA_DIR") or (Path.home() / "FuriaClipsData")
+        ) / "diagnostics"
+        target_dir.mkdir(parents=True, exist_ok=True)
+
+        def _describe(clip, rank=None):
+            campaign_block = clip.get("campaign_hub_block") or {}
+            return {
+                "rank": rank,
+                "start_s": round(float(clip.get("start", 0) or 0), 2),
+                "end_s": round(float(clip.get("end", 0) or 0), 2),
+                "duration_s": round(float(clip.get("end", 0) or 0) - float(clip.get("start", 0) or 0), 2),
+                "origem": clip.get("candidate_origin") or clip.get("source"),
+                "viral_score": clip.get("viral_score"),
+                "score_breakdown": clip.get("score_breakdown") or clip.get("scores"),
+                "context_complete": clip.get("context_complete"),
+                "technical_gate_status": clip.get("technical_gate_status"),
+                "technical_gate_reasons": clip.get("technical_gate_reasons"),
+                "review_required": clip.get("review_required"),
+                "review_reasons": clip.get("review_reasons"),
+                "review_flags": clip.get("review_flags"),
+                "speaker_status": campaign_block.get("speaker_status"),
+                "bloco_chub": campaign_block.get("title"),
+                "density_rank": campaign_block.get("density_rank"),
+                "risk_flags": campaign_block.get("risk_flags"),
+                "motivo_adiamento": clip.get("reason"),
+                "texto": str(clip.get("text") or "")[:400],
+            }
+
+        payload = {
+            "gerado_em": datetime.now().isoformat(timespec="seconds"),
+            "versao": PROGRAM_VERSION,
+            "job_id": job_id,
+            "fonte": {"arquivo": Path(str(video_path)).name, "duracao_s": duration_s},
+            "selecao": {"origem": selection_source, "diagnostico": diagnostics},
+            "cortes_renderizados": [_describe(clip, index + 1) for index, clip in enumerate(clips or [])],
+            "candidatos_adiados": [_describe(item) for item in (deferred or [])],
+        }
+        target = target_dir / f"selecao-{Path(str(video_path)).stem[:60]}-{datetime.now():%Y%m%dT%H%M%S}.json"
+        target.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        if emit_progress:
+            emit_progress(
+                f"[Diagnóstico] Decisões de seleção e ranqueamento salvas em {target}. "
+                "Envie esse arquivo para analisar por que cada corte entrou ou ficou de fora.",
+                "info",
+            )
+    except (OSError, TypeError, ValueError) as exc:
+        if emit_progress:
+            emit_progress(f"[Diagnóstico] Não foi possível gravar o relatório de seleção: {str(exc)[:140]}", "warning")
+
+
 def _defer_context_incomplete_candidates(candidates):
     """Keep editorially unsafe candidates for review instead of rendering them ready.
 
@@ -2679,6 +2744,17 @@ def api_cut_shorts():
                     f"[Gate editorial] {len(editorial_gate_rejections)} candidato(s) adiados: contexto ou revisão técnica explícita.",
                     "warning",
                 )
+
+            _write_selection_diagnostics(
+                job_id=getattr(ctx, "job_id", None),
+                video_path=video_path,
+                duration_s=video_duration,
+                selection_source=selection_source,
+                diagnostics=candidate_diagnostics,
+                clips=top_clips,
+                deferred=editorial_gate_rejections,
+                emit_progress=emit_progress,
+            )
 
             ctx.update(stage="rendering", progress=76, message="Validando enquadramento e renderizando cortes")
             ctx.check_cancel()

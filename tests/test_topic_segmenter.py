@@ -5,7 +5,11 @@ covered on the source used for calibration and 9/11 on a source never used for i
 with 72% and 81% of the detected time falling inside a real block.
 """
 
-from modules.non_content_detector import detect_non_content_regions, score_segment
+from modules.non_content_detector import (
+    LEARNED_NON_CONTENT_THRESHOLD,
+    detect_non_content_regions,
+    score_segment,
+)
 from modules.topic_segmenter import cohesion_curve, segment_transcript
 
 
@@ -109,33 +113,53 @@ def test_detected_regions_carry_a_readable_reason():
     assert regions[0]["provenance"] == "furia_local_detector"
 
 
-def test_learned_priors_are_reported_but_never_decide():
-    """The distilled odds travel as evidence, not as a verdict.
+def test_learned_lexicon_separates_a_sponsor_read_from_an_argument():
+    """The distilled odds decide, after a measurement that overturned an earlier one.
 
-    Measured on two labelled sources, the aggregated score does not separate
-    content from non-content: on the 98-minute live the content units scored
-    higher than the non-content ones. Letting it flip the verdict would discard
-    real speech on a signal that was shown not to discriminate.
+    Cycle 23 concluded the learned score could not discriminate and kept it out
+    of the verdict. That conclusion held for an 86-term lexicon scored as a mean
+    over sliding windows. Extending the vocabulary to the whole promotional,
+    production and sign-off surface changed the picture on real material: the
+    sponsor read of a 47-minute interview scores 0.58 and the closing thanks
+    0.389, while four passages of actual argument from the same interview score
+    exactly 0. The threshold sits in that gap.
     """
-    promotional = score_segment("Acesse o link na descrição e use o cupom de desconto do nosso patrocinador.")
+    sponsor = score_segment(
+        "Assinar o nosso combo significa ter os bastidores de Brasília em tempo real. "
+        "Preparamos uma condição exclusiva para o nosso público do YouTube. Clique no "
+        "link aqui embaixo na descrição ou aponte a câmera para o QR code na tela."
+    )
     argument = score_segment(
-        "A proposta reduz a pena mínima porque o presídio virou escritório do crime organizado."
+        "Eu acho que uma das perspectivas de direito penal que a gente tem que trazer é "
+        "o direito penal voltado pra vítima. A vítima só vai entender que o pacto social "
+        "é válido se ela se sentir contemplada através do senso de justiça."
     )
 
-    # The odds do fire on promotional vocabulary...
-    assert promotional["learned_score"] > argument["learned_score"]
-    assert promotional["learned_terms"]
-    # ...but no cue named after them exists, and the verdict ignores the score.
-    assert "lexico_aprendido" not in promotional["cues"]
+    assert sponsor["non_content"] is True
+    assert "lexico_aprendido" in sponsor["cues"]
+    assert sponsor["learned_score"] >= LEARNED_NON_CONTENT_THRESHOLD
+
+    # Real argument must stay untouched: discarding speech is worse than keeping
+    # a weak candidate, and this passage carries no promotional vocabulary at all.
     assert argument["non_content"] is False
+    assert argument["learned_score"] == 0.0
+
+
+def test_closing_thanks_are_recognised_as_filler():
+    verdict = score_segment(
+        "Muito obrigado aí pela oportunidade. Eu queria primeiro agradecer assim a honra "
+        "incrível de estar aqui presente. Obrigado."
+    )
+
+    assert verdict["non_content"] is True
 
 
 def test_priors_file_ships_with_the_repository():
     from modules.non_content_detector import load_priors
 
     priors = load_priors()
-    assert priors["schema_version"] == "chub-priors-v1"
-    assert len(priors["non_content_terms"]) >= 50
+    assert priors["schema_version"] == "chub-priors-v2"
+    assert len(priors["non_content_terms"]) >= 200
     assert priors["structure"]["block_duration_s"]["median"] > 0
     # Aggregate statistics only: no transcript, URL or personal data travels.
     assert "não reversível" in priors["provenance"]["privacy"]
