@@ -1,5 +1,22 @@
 # Changelog de continuidade
 
+## 2.5 — Prompt operacional Chub→cortes
+
+### Incluído
+
+- `docs/continuity/PROMPT_EXECUCAO_CHUB_CORTES.md`, prompt copiável para executar a próxima hipótese do projeto com foco em Campaign Hub→seeds→alinhamento→expansão→gates→propostas.
+- `START_HERE.md`, `AGENTS.md` e `README.md` atualizados para encaminhar diretamente ao novo prompt, além do prompt mestre e do contrato funcional.
+- `CYCLE_15_REPORT_2026-08-17.md`, relatório da criação do prompt e do estado funcional preservado.
+- `VERSION` incrementado para `2.5`; nenhum módulo de seleção, ranking, ingestão, diarização, reframe ou renderização foi alterado.
+
+### Validação da rodada
+
+A revisão confirmou o prompt novo, os links relativos, a versão, **327 testes aprovados**, `git diff --check`, `compileall`, `node --check static/js/app.js` e a ausência de tokens, cookies, mídia grande, bancos locais, modelos binários ou dados privados. O asset BlazeFace foi usado apenas temporariamente com SHA-256 conferido e removido antes do commit.
+
+### Limitações conhecidas
+
+A revisão 2.5 não implementa a ponte funcional Chub→seeds→expansão→gates→propostas. O benchmark b354 permanece em `0/3` e a sessão de blocos continua sendo diagnóstico, revisão e fallback, não o produto final.
+
 ## 2.4 — Contrato Campaign Hub→cortes e reorientação do norte
 
 ### Incluído

@@ -8,7 +8,7 @@
 | --- | --- |
 | Projeto | Furia Clips |
 | Repositório | `SAGIEV007/furia-clips` |
-| Versão documental atual | `2.4` |
+| Versão documental atual | `2.5` |
 | Última release funcional de código | `2.2` |
 | Fonte da versão | [`VERSION`](../../VERSION) |
 | Branch de trabalho | `manus/rebuild-opus-parity` |
@@ -17,6 +17,7 @@
 | Última atualização | 2026-08-17 |
 | Commit de publicação da documentação 2.4 | `b18de83` — `docs: reorientar contrato Campaign Hub para cortes (2.4)` |
 | Natureza da revisão 2.4 | Reorientação documental/operacional; nenhum módulo de processamento foi alterado |
+| Natureza da revisão 2.5 | Prompt operacional copiável; nenhum módulo de processamento foi alterado |
 | Objetivo | Gerar cortes Renan Santos/MBL concisos, autossuficientes, contextualizados e editorialmente úteis |
 
 A branch de trabalho deve ser confirmada no checkout real. O GitHub é a fonte da revisão técnica; este arquivo não pode manter um hash diferente do `HEAD` final publicado. Antes de alterar qualquer arquivo, preserve mudanças locais e confirme `git status`.
@@ -42,6 +43,8 @@ Os três exports individuais foram validados em 1920×1080 H.264/AAC, com duraç
 A revisão 2.3 criou [`PROMPT_MESTRE_IA.md`](PROMPT_MESTRE_IA.md), uma versão copiável que consolida o `START_HERE`, os prompts históricos, as decisões permanentes, o norte do benchmark 2.2, as regras do Campaign Hub, o ciclo obrigatório de engenharia, o contrato de documentação, segurança e formato de entrega.
 
 A revisão 2.4 criou [`CHUB_INTEGRATION_CONTRACT.md`](CHUB_INTEGRATION_CONTRACT.md) e reorientou o prompt mestre e o `START_HERE`: a prioridade agora é fazer o contexto do Campaign Hub alimentar seeds, alinhamento, expansão, gates, propostas e renderização de cortes; blocos permanecem como superfície de diagnóstico e revisão.
+
+A revisão 2.5 criou [`PROMPT_EXECUCAO_CHUB_CORTES.md`](PROMPT_EXECUCAO_CHUB_CORTES.md), um roteiro copiável para implementar a ponte funcional Chub→cortes sem misturar escopo. Ela preserva o estado funcional real: a ponte ainda não foi implementada e o benchmark b354 permanece em `0/3`.
 
 Também permanece vigente [`COMMIT_MESSAGE_TEMPLATE.md`](COMMIT_MESSAGE_TEMPLATE.md), que torna obrigatório registrar hipótese, baseline, implementação, escopo excluído, validação, resultado, limitações e continuidade no corpo dos commits relevantes.
 
