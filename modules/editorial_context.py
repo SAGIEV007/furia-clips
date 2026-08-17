@@ -81,6 +81,18 @@ def analyze_transcript_context(
         snapshot=campaign_hub_snapshot,
         account=campaign_hub_account,
     )
+    campaign_hub_guided_seed_count = 0
+    if campaign_hub_snapshot:
+        try:
+            from .campaign_hub_guidance import build_campaign_hub_guided_seeds
+            campaign_hub_guided_seed_count = len(build_campaign_hub_guided_seeds(
+                enriched,
+                campaign_hub_snapshot,
+                account=campaign_hub_account,
+                limit=100,
+            ))
+        except (ImportError, OSError, TypeError, ValueError):
+            campaign_hub_guided_seed_count = 0
     labeled_speakers = [s for s in enriched if s["speaker_label"]]
     speaker_confidences = [s["speaker_confidence"] for s in labeled_speakers if s["speaker_confidence"] is not None]
     overlap_count = sum(1 for s in enriched if s["overlap_suspected"])
@@ -140,6 +152,7 @@ def analyze_transcript_context(
         "chapter_count": len(editorial_chapters),
         "hook_candidates": hook_candidates,
         "hook_count": len(hook_candidates),
+        "campaign_hub_guided_seed_count": campaign_hub_guided_seed_count,
         "chapter_map_version": "v1-temporal-qa",
         "transcription_quality": transcription_quality,
         "focus": focus_key,
@@ -156,6 +169,7 @@ def analyze_transcript_context(
             "long_form": duration >= 3600,
             "transcription_coverage_status": coverage_status,
             "transcription_review_required": coverage_review_required,
+            "campaign_hub_guided_seed_count": campaign_hub_guided_seed_count,
         },
         "description": _description(duration, len(questions), len(qa_candidates), participant_confidence, focus_label, len(editorial_chapters)) + (
             " A transcrição parcial ou não identificada exige revisão do trecho e pode limitar o contexto."

@@ -138,6 +138,22 @@ class ClipSelector:
                 editorial_context=settings.get("editorial_context"),
             )
 
+        guided_clips = self._select_with_campaign_hub_guidance(
+            sentences,
+            settings,
+            emit_progress=emit_progress,
+        )
+        if guided_clips:
+            legacy_clips = list(clips or [])
+            clips = guided_clips + legacy_clips
+            self._selection_source = "campaign_hub_guided"
+            if emit_progress:
+                emit_progress(
+                    f"[Campaign Hub] {len(guided_clips)} proposta(s) guiada(s) adicionada(s) antes do ranking; "
+                    "as propostas permanecem sujeitas aos gates e à revisão editorial.",
+                    "info",
+                )
+
         expected_count = self._expected_candidate_count(sentences)
         primary_clips = list(clips or [])
         self._candidate_diagnostics = {
@@ -202,7 +218,10 @@ class ClipSelector:
         fallback_used = bool(self._candidate_diagnostics.get("fallback_used"))
         for clip in clips:
             source = str(clip.get("source") or "nlp").lower()
-            if source == "gemini":
+            if source == "campaign_hub_guided":
+                origin = "campaign_hub_guided"
+                origin_label = "Campaign Hub — proposta guiada"
+            elif source == "gemini":
                 origin = "gemini_primary"
                 origin_label = "Gemini — seleção primária"
             elif source == "llm":
@@ -220,6 +239,8 @@ class ClipSelector:
                 "Alternativa acrescentada porque a fonte primária devolveu um pool curto; "
                 "não substitui a avaliação editorial humana."
                 if origin == "local_fallback"
+                else "Proposta guiada por seed autorizada do Campaign Hub; revisão editorial continua obrigatória."
+                if origin == "campaign_hub_guided"
                 else "Origem registrada para transparência da revisão."
             )
 
@@ -236,7 +257,12 @@ class ClipSelector:
         self._candidate_diagnostics["final_count"] = len(clips)
 
         if emit_progress:
-            source_labels = {"gemini": "Gemini Flash", "llm": "IA (Ollama)", "nlp": "NLP basico"}
+            source_labels = {
+                "gemini": "Gemini Flash",
+                "llm": "IA (Ollama)",
+                "nlp": "NLP basico",
+                "campaign_hub_guided": "Campaign Hub + selecao local",
+            }
             source_label = source_labels.get(self._selection_source, "NLP basico")
             emit_progress(f"Selecionados {len(clips)} clips de partes diferentes do video (via {source_label})")
 
@@ -1098,6 +1124,202 @@ Retorne APENAS o JSON.
             emit_progress(f"[NLP] Encontrou {len(clips)} clips candidatos")
 
         return clips
+
+    def _select_with_campaign_hub_guidance(self, sentences, settings, emit_progress=None):
+        """Turn an authorized Campaign Hub snapshot into bounded clip proposals."""
+        snapshot = settings.get("campaign_hub_snapshot") if isinstance(settings, dict) else None
+        if snapshot is None and isinstance(settings, dict) and settings.get("campaign_hub_snapshot_path"):
+            try:
+                from .campaign_hub import load_snapshot
+                snapshot = load_snapshot(settings.get("campaign_hub_snapshot_path"))
+            except (ImportError, OSError, ValueError):
+                snapshot = None
+        if not snapshot or not sentences:
+            return []
+        try:
+            from .campaign_hub_guidance import build_campaign_hub_guided_seeds
+            seeds = build_campaign_hub_guided_seeds(
+                sentences,
+                snapshot,
+                account=settings.get("campaign_hub_account") or snapshot.get("default_account"),
+                limit=max(1, min(30, self.max_clips * 2)),
+            )
+        except (ImportError, OSError, TypeError, ValueError) as exc:
+            if emit_progress:
+                emit_progress(f"[Campaign Hub] Seeds guiadas indisponíveis; mantendo seleção local: {str(exc)[:140]}", "warning")
+            return []
+        proposals = []
+        for seed in seeds:
+            proposal = self._build_campaign_hub_proposal(sentences, seed)
+            if proposal:
+                proposals.append(proposal)
+        proposals.sort(key=lambda item: (
+            bool((item.get("campaign_hub") or {}).get("gates", {}).get("context_complete")),
+            float(item.get("viral_score", 0) or 0),
+            float(item.get("campaign_hub", {}).get("confidence", 0) or 0),
+        ), reverse=True)
+        return proposals[:self.max_clips]
+
+    def _build_campaign_hub_proposal(self, sentences, seed):
+        """Expand one temporal/semantic seed to the smallest complete local window."""
+        if not seed or not sentences:
+            return None
+        seed_start = float(seed.get("start", 0) or 0)
+        seed_end = float(seed.get("end", seed_start) or seed_start)
+        overlapping = [
+            index for index, sentence in enumerate(sentences)
+            if float(sentence.get("end", 0) or 0) > seed_start
+            and float(sentence.get("start", 0) or 0) < seed_end
+        ]
+        if not overlapping:
+            nearest = min(
+                range(len(sentences)),
+                key=lambda index: abs(float(sentences[index].get("start", 0) or 0) - seed_start),
+            )
+            overlapping = [nearest]
+        start_index = min(overlapping)
+        end_index = max(overlapping)
+
+        def window_text():
+            return " ".join(str(sentences[index].get("text", "") or "").strip() for index in range(start_index, end_index + 1)).strip()
+
+        def window_metadata():
+            window = sentences[start_index:end_index + 1]
+            return {
+                "overlap_suspected": any(bool(item.get("overlap_suspected")) for item in window),
+                "timing_ambiguous": any(bool(item.get("timing_ambiguous")) for item in window),
+                "speaker_turn_valid": all(item.get("speaker_turn_valid", True) is not False for item in window),
+                "timing_confidence": min(
+                    [float(item.get("timing_confidence")) for item in window if item.get("timing_confidence") is not None]
+                    or [1.0]
+                ),
+            }
+
+        # Recover the opening question/antecedent when the Chub highlight starts
+        # inside a response. The expansion is bounded by the same technical ceiling.
+        while start_index > 0:
+            current_text = window_text()
+            current_flags = self._editorial_flags(current_text, window_metadata())
+            previous = sentences[start_index - 1]
+            gap = float(sentences[start_index].get("start", 0) or 0) - float(previous.get("end", 0) or 0)
+            joined_duration = float(sentences[end_index].get("end", 0) or 0) - float(previous.get("start", 0) or 0)
+            needs_opening = (
+                current_flags.get("starts_mid_sentence")
+                or current_flags.get("starts_with_context_reference")
+                or (seed.get("trigger_question") and not current_flags.get("question_detected"))
+            )
+            if not needs_opening or gap > 2.5 or joined_duration > self.max_duration:
+                break
+            start_index -= 1
+
+        # Add enough response for the seed to become a complete, reviewable idea.
+        while end_index < len(sentences) - 1:
+            current_text = window_text()
+            current_flags = self._editorial_flags(current_text, window_metadata())
+            duration = float(sentences[end_index].get("end", 0) or 0) - float(sentences[start_index].get("start", 0) or 0)
+            if duration >= self.min_duration and current_flags.get("context_complete") and current_flags.get("payoff_complete"):
+                break
+            next_sentence = sentences[end_index + 1]
+            joined_duration = float(next_sentence.get("end", 0) or 0) - float(sentences[start_index].get("start", 0) or 0)
+            if joined_duration > self.max_duration:
+                break
+            end_index += 1
+
+        text = window_text()
+        if not text:
+            return None
+        metadata = window_metadata()
+        flags = self._editorial_flags(text, metadata)
+        start = float(sentences[start_index].get("start", seed_start) or seed_start)
+        end = float(sentences[end_index].get("end", seed_end) or seed_end)
+        duration = max(0.0, end - start)
+        if duration <= 0:
+            return None
+        chub_confidence = float(seed.get("confidence", 0.0) or 0.0)
+        gate_warnings = list(seed.get("gate_warnings") or [])
+        if seed.get("renan_speaking") is False:
+            gate_warnings.append("Campaign Hub indica outro locutor; confirme o foco editorial")
+        speaker_gate = "pass" if seed.get("renan_speaking") is True and metadata.get("speaker_turn_valid") else "review_required"
+        trust_tier = str(seed.get("trust_tier") or "unknown").lower()
+        gates = {
+            "context_complete": bool(flags.get("context_complete")),
+            "payoff_complete": bool(flags.get("payoff_complete")),
+            "speaker_gate": speaker_gate,
+            "timing_gate": "review_required" if metadata.get("timing_ambiguous") else "pass",
+            "risk_gate": "review_required" if seed.get("risk_flags") else "pass",
+            "technical_gate": "review_required" if metadata.get("overlap_suspected") else "pass",
+            "provenance_gate": "pass" if trust_tier == "qa_gated" else "review_required",
+            "warning_gate": "review_required" if gate_warnings else "pass",
+        }
+        review_required = any(value == "review_required" for value in gates.values())
+        score = 46.0 + (chub_confidence * 22.0)
+        score += 16.0 if flags.get("context_complete") else -12.0
+        score += 10.0 if flags.get("payoff_complete") else -10.0
+        score += 5.0 if seed.get("source_kind") == "highlight" else 0.0
+        density_rank = seed.get("density_rank")
+        self_contained_rank = seed.get("self_contained_rank")
+        if density_rank is not None:
+            score += min(8.0, max(0.0, float(density_rank)) * 0.08)
+        if self_contained_rank is not None:
+            score += min(8.0, max(0.0, float(self_contained_rank)) * 0.08)
+        if trust_tier == "qa_gated":
+            score += 3.0
+        score -= min(12.0, len(gate_warnings) * 3.0)
+        score = max(0.0, min(100.0, score))
+        title = str(seed.get("title") or "").strip() or self._generate_simple_title(text)
+        reason_parts = [
+            f"seed {seed.get('source_kind', 'Campaign Hub')} {seed.get('seed_id')}",
+            "janela expandida até contexto e payoff" if flags.get("context_complete") and flags.get("payoff_complete") else "janela requer revisão de completude",
+        ]
+        return {
+            **flags,
+            "start": round(start, 3),
+            "end": round(end, 3),
+            "duration": round(duration, 3),
+            "text": text,
+            "title": title[:160],
+            "reason": "; ".join(reason_parts),
+            "viral_score": int(round(score)),
+            "has_hook": bool(flags.get("context_complete")),
+            "breakdown": {
+                "hook": "A" if score >= 75 else ("B" if score >= 55 else "C"),
+                "flow": "A" if flags.get("context_complete") else "C",
+                "value": "A" if chub_confidence >= 0.8 else "B",
+                "energy": "B",
+            },
+            "source": "campaign_hub_guided",
+            "duration_preference": self._duration_label(duration, {"flow": "A" if flags.get("context_complete") else "B"}),
+            "review_required": review_required,
+            "campaign_hub": {
+                "seed_id": seed.get("seed_id"),
+                "block_id": seed.get("block_id"),
+                "highlight_id": seed.get("highlight_id"),
+                "source_kind": seed.get("source_kind"),
+                "seed_text": seed.get("seed_text"),
+                "summary": seed.get("summary"),
+                "trigger_question": seed.get("trigger_question"),
+                "topics": seed.get("topics") or [],
+                "timeline_mapping": seed.get("timeline_mapping"),
+                "absolute_start": seed.get("absolute_start"),
+                "absolute_end": seed.get("absolute_end"),
+                "confidence": seed.get("confidence"),
+                "density_rank": seed.get("density_rank"),
+                "self_contained_rank": seed.get("self_contained_rank"),
+                "self_contained_reason": seed.get("self_contained_reason"),
+                "possible_cuts": seed.get("possible_cuts", 0),
+                "content_class": seed.get("content_class"),
+                "labeler_version": seed.get("labeler_version"),
+                "prompt_version": seed.get("prompt_version"),
+                "trust_tier": seed.get("trust_tier"),
+                "risk_flags": seed.get("risk_flags") or [],
+                "gate_warnings": list(dict.fromkeys(gate_warnings)),
+                "gates": gates,
+                "review_required": review_required,
+                "provenance": seed.get("provenance") or {},
+            },
+            "technical_gate_status": "review" if review_required else "pass",
+            "technical_gate_reasons": list(dict.fromkeys(gate_warnings)),
+        }
 
     def _prepare_context_matching(self, user_context):
         """Pre-process user context for efficient matching."""

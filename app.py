@@ -2438,10 +2438,17 @@ def api_cut_shorts():
             )
 
             from modules.editorial_context import analyze_transcript_context
+            from modules.campaign_hub import load_snapshot
+            campaign_hub_snapshot = load_snapshot(settings.get("campaign_hub_snapshot_path"))
+            campaign_hub_account = str(
+                settings.get("campaign_hub_account")
+                or (campaign_hub_snapshot or {}).get("default_account", "@renansantosmbl")
+            )
             editorial_context = analyze_transcript_context(
                 selection_transcription,
                 focus=settings.get("editorial_focus", "auto"),
-                campaign_hub_account=settings.get("campaign_hub_account", "@renansantosmbl"),
+                campaign_hub_snapshot=campaign_hub_snapshot,
+                campaign_hub_account=campaign_hub_account,
             )
             editorial_context["transcription_provenance"] = transcription.get("provenance", {})
             editorial_context["transcript_reference"] = _transcript_reference_for_multimodal(selection_transcription)
@@ -2459,6 +2466,10 @@ def api_cut_shorts():
                 allow_video_analysis=allow_followup_video_analysis,
             )
             settings["editorial_context"] = editorial_context
+            # The authorized snapshot stays in memory for this job; selection must
+            # remain offline-first rather than calling MCP once per candidate.
+            settings["campaign_hub_snapshot"] = campaign_hub_snapshot
+            settings["campaign_hub_account"] = campaign_hub_account
             settings["audit_mode"] = audit_mode
             settings["preferred_format"] = preferred_format
             settings["selection_transcription"] = selection_transcription
@@ -2528,8 +2539,7 @@ def api_cut_shorts():
             energy_profile = _analyze_energy_with_cancel(analyzer, video_path, emit_progress, ctx.check_cancel)
             try:
                 from modules.editorial_context import detect_hook_candidates
-                from modules.campaign_hub import load_snapshot
-                context_snapshot = load_snapshot(settings.get("campaign_hub_snapshot_path"))
+                context_snapshot = settings.get("campaign_hub_snapshot")
                 settings.setdefault("editorial_context", {})["hook_candidates"] = detect_hook_candidates(
                     selection_transcription.get("segments", []),
                     snapshot=context_snapshot,
@@ -2587,9 +2597,8 @@ def api_cut_shorts():
                         if start <= float(change) <= end
                     ]
             from modules.viral_ranker import ViralRanker
-            from modules.campaign_hub import load_snapshot
             feedback_calibration = get_feedback_calibration()
-            campaign_hub_snapshot = load_snapshot(settings.get("campaign_hub_snapshot_path"))
+            campaign_hub_snapshot = settings.get("campaign_hub_snapshot")
             campaign_hub_account = str(
                 settings.get("campaign_hub_account")
                 or (campaign_hub_snapshot or {}).get("default_account", "")

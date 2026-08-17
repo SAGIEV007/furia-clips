@@ -2,7 +2,7 @@
 
 **Corte. Ranqueie. Domine.**
 
-> **Versão atual: 2.5.** Esta revisão adiciona o prompt operacional copiável para executar a integração Campaign Hub→cortes; a última release funcional de código é a 2.2, com benchmark persistente local e exportação individual de highlights. A identidade de runtime é exibida no console, na interface e na API; a fonte única da versão é [`VERSION`](VERSION).
+> **Versão atual: 2.6.** Esta release adiciona a primeira ponte funcional Campaign Hub→seeds→expansão→gates→propostas guiadas, mantendo a revisão humana obrigatória e o benchmark local. A integração completa de alinhamento com mídia baixada, renderização aprovada e ganho reproduzível de recall ainda está em evolução. A identidade de runtime é exibida no console, na interface e na API; a fonte única da versão é [`VERSION`](VERSION).
 
 ## Continuidade para novas sessões e IAs
 
@@ -10,7 +10,7 @@ Se você entregar apenas o link deste repositório a outra IA, ela deve começar
 
 O arquivo [`docs/continuity/PROJECT_STATE.md`](docs/continuity/PROJECT_STATE.md) é atualizado ao final de cada rodada verificável. Ele não substitui o código nem o Git: a nova IA deve sempre confirmar `git status`, branch, commit e testes no checkout real.
 
-O Furia Clips é uma ferramenta local em evolução para analisar vídeos longos e encontrar cortes precisos do Renan Santos/MBL. A release funcional 2.2 já possui memória rica local do Campaign Hub, pré-análise por blocos, benchmark persistente e exportação seletiva de blocos e highlights a partir de uma fonte disponível; a integração que transforma esse contexto em propostas de corte contextualizadas ainda está em desenvolvimento. O norte imediato é usar seeds do Campaign Hub para alinhar, expandir e validar janelas antes do ranking, mantendo fallback offline e sem tratar o Chub como aprovador automático. O processamento ocorre no computador do usuário; serviços de IA são opcionais e possuem fallback local/NLP quando não estão disponíveis.
+O Furia Clips é uma ferramenta local em evolução para analisar vídeos longos e encontrar cortes precisos do Renan Santos/MBL. A release 2.6 possui a primeira ponte funcional que transforma seeds autorizadas do Campaign Hub em propostas guiadas, expandidas por contexto e marcadas com gates de proveniência e revisão. O alinhamento completo com cada mídia local, a persistência de propostas no benchmark e o ganho reproduzível de recall ainda são a próxima etapa. O processamento ocorre no computador do usuário; serviços de IA são opcionais e possuem fallback local/NLP quando não estão disponíveis.
 
 ## O que está implementado
 
@@ -32,7 +32,7 @@ O Furia Clips é uma ferramenta local em evolução para analisar vídeos longos
 - **Timeline de bloco:** quando um MP4 baixado corresponde ao intervalo de uma fonte longa, timestamps absolutos são mapeados para a linha local com confirmação e registro do método.
 - **Benchmark editorial local:** compara candidatos do Furia com highlights autorizados do Campaign Hub, mede recall, IoU e erro de fronteira e salva o resultado fora do Git; a comparação não aprova cortes nem consulta o Chub durante o job.
 - **Highlights individuais:** o painel de Blocos pode exportar um highlight específico no aspecto original quando o MP4 correspondente já está disponível.
-- **Contrato Chub→cortes:** a próxima implementação deve transformar contexto autorizado em seeds, alinhar a fonte, expandir janelas, aplicar gates e gerar propostas separadas de cortes aprovados; ver [`docs/continuity/CHUB_INTEGRATION_CONTRACT.md`](docs/continuity/CHUB_INTEGRATION_CONTRACT.md).
+- **Ponte Chub→cortes:** `modules/campaign_hub_guidance.py` normaliza blocos/highlights reais em seeds auditáveis; `ClipSelector` expande seeds para propostas guiadas com contexto, payoff, locutor, timing, risco e gates de proveniência, sem autoaprovação; ver [`docs/continuity/CHUB_INTEGRATION_CONTRACT.md`](docs/continuity/CHUB_INTEGRATION_CONTRACT.md).
 
 ## Instalação no Windows
 

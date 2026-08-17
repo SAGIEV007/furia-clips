@@ -10,6 +10,8 @@ O objetivo central é aprimorar o Furia Clips para gerar cortes do Renan Santos/
 
 `docs/continuity/START_HERE.md` é a entrada operacional canônica. O prompt de execução copiável e focado na implementação está em [`docs/continuity/PROMPT_EXECUCAO_CHUB_CORTES.md`](docs/continuity/PROMPT_EXECUCAO_CHUB_CORTES.md). O prompt mestre consolidado está em [`docs/continuity/PROMPT_MESTRE_IA.md`](docs/continuity/PROMPT_MESTRE_IA.md); ele incorpora o START_HERE, os prompts históricos, as decisões e o norte atual. O contrato funcional da integração Campaign Hub→cortes está em [`docs/continuity/CHUB_INTEGRATION_CONTRACT.md`](docs/continuity/CHUB_INTEGRATION_CONTRACT.md). Os arquivos `PROMPT_1`, `PROMPT_2`, `PROMPT_3` e prompts antigos permanecem como histórico e referência, mas não substituem o contrato vigente. O padrão obrigatório de mensagens de commit está em [`docs/continuity/COMMIT_MESSAGE_TEMPLATE.md`](docs/continuity/COMMIT_MESSAGE_TEMPLATE.md). O Furia continua sendo um sistema de cortes precisos; edição pós-renderização não entra na prioridade e o aplicativo local não deve chamar o MCP por job, mas deve usar a memória Chub válida durante a seleção.
 
+A versão 2.6 já possui a primeira ponte funcional em `modules/campaign_hub_guidance.py` e `ClipSelector`: seeds de blocos/highlights autorizados podem gerar propostas guiadas auditáveis, expandidas por contexto e marcadas para revisão quando a proveniência ou os avisos não forem suficientes. A próxima IA deve medir o comportamento em mídia local e benchmark persistente, não tratar essa primeira ponte como integração completa nem começar pela sessão de blocos.
+
 ## Prioridades
 
 1. Integração efetiva do contexto do Campaign Hub na geração de seeds, expansão, gates e propostas de corte.

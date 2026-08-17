@@ -1,5 +1,37 @@
 # Changelog de continuidade
 
+## 2.6 — Primeira ponte funcional Campaign Hub→seeds→propostas
+
+### Incluído
+
+- `modules/campaign_hub_guidance.py` normaliza snapshots autorizados do Campaign Hub em seeds auditáveis, aceitando os formatos snake_case e camelCase usados pelos exports reais.
+- A normalização preserva proveniência, `sentenceIdx`, `source_ref`, `renanSpeaking`, `trustTier`, `gateWarnings`, `riskFlags`, `densityRank` e `selfContainedRank`, além de suportar highlights aninhados, `possibleCuts` e fallback por bloco.
+- `modules/clip_selector.py` passou a gerar propostas `campaign_hub_guided`: a seed é expandida até a menor janela local que complete antecedente, pergunta, tese/evidência e payoff quando a transcrição permitir.
+- As propostas guiadas recebem gates explícitos de contexto, payoff, locutor, timing, risco, técnico, proveniência e avisos. Elas permanecem separadas de cortes aprovados e podem exigir revisão humana.
+- `modules/editorial_context.py` expõe o diagnóstico da quantidade de seeds guiadas; `app.py` carrega o snapshot uma vez por job e o reutiliza offline-first na seleção, nos hooks e no ranking.
+- `tests/test_campaign_hub_guidance.py` adiciona seis regressões para mapeamento de timeline, expansão contextual, fallback legado, origem auditável, formato camelCase real e revisão obrigatória de `third_party`/`gateWarnings`.
+- `VERSION`, `README.md`, `AGENTS.md`, `START_HERE.md`, `PROJECT_STATE.md` e `NEXT_CYCLE.md` registram a nova identidade e o próximo experimento.
+
+### Hipótese e baseline
+
+A hipótese foi que transformar highlights/blocos autorizados em seeds temporais e semânticas e expandi-los até a menor janela completa aumentaria o recall sem sacrificar contexto, atribuição ou revisão. O baseline persistente b354 tinha sete candidatos locais, recall `0/3` e IoU médio `0.0`.
+
+### Validação da rodada
+
+A suíte completa terminou com **333 testes aprovados**. Também passaram `compileall`, `node --check static/js/app.js`, `git diff --check` e a verificação SHA-256 do asset BlazeFace provisionado temporariamente e removido antes do commit.
+
+Com um payload real do Campaign Hub para o vídeo `gVrW6a5e6Tc` e o bloco `70358a7d-7848-48d1-8d3d-5ef7c61c149d`, a normalização produziu duas seeds a partir dos highlights `sentenceIdx=128` e `sentenceIdx=171`. A avaliação de proposta gerou as janelas `426.4–451.52s` e `511.0–566.12s`; ambas passaram `context_complete=true`. Como o bloco tinha `trustTier=third_party` e `gateWarnings=["start_continuation"]`, as duas ficaram com `review_required=true` por `provenance_gate` e `warning_gate`, sem autoaprovação.
+
+### Resultado e limitações
+
+A ponte está implementada e coberta por regressões, mas o recall do b354 **não foi medido nesta release** porque o snapshot autorizado correspondente não estava instalado localmente durante o job normal. Portanto, não há ganho de recall reivindicado sobre `0/3`; o resultado é funcional e reproduzido no payload real do Chub, mas o benchmark de mídia local permanece não verificado.
+
+A proveniência `third_party` e os avisos de início abrupto continuam exigindo revisão, de forma intencional. Sem snapshot local em `~/FuriaClipsData/campaign_hub/profile.json`, o job normal permanece no caminho legado e não produz propostas guiadas. Nenhum token, cookie, snapshot privado, banco local, mídia grande ou modelo binário foi incluído no Git.
+
+### Próxima hipótese
+
+> Se um snapshot autorizado e sanitizado do Campaign Hub for instalado localmente e o Furia reprocessar o caso b354 com a ponte 2.6, o recall temporal deve sair de `0/3` sem aumentar falsos positivos, atribuições erradas, truncamentos ou confusão entre quem fala e quem é foco editorial.
+
 ## 2.5 — Prompt operacional Chub→cortes
 
 ### Incluído
