@@ -1,43 +1,42 @@
-# Próximo ciclo de melhoria — Furia Clips v2.1
+# Próximo ciclo de melhoria — Furia Clips v2.2
 
 ## Objetivo da rodada
 
-Construir o benchmark persistente da primeira onda entre candidatos locais do Furia Clips e unidades estruturadas do Campaign Hub/Acervo, começando pelo caso real b354 já validado. O benchmark deve reutilizar a comparação existente, registrar erro temporal, sobreposição, destaque coberto/perdido, locutor, contexto, payoff, risco e motivo da divergência. A rodada deve também permitir exportar um destaque individual da timeline local de um MP4 de bloco, sem depender de consulta ao Chub no corte.
+A release 2.2 tornou mensurável o caso b354: os sete candidatos locais cobriram `0/3` destaques QA-gated do Campaign Hub, embora o mapeamento de timeline e a exportação individual tenham funcionado. O próximo ciclo deve atacar a lacuna de **cobertura da seleção**, não o render.
 
-Reels e posts publicados continuam `reference_only`. Lives longas e gravações cruas continuam `processing_source`. O Estúdio de Texto de Arte e qualquer editor pós-renderização permanecem adiados.
+Reels e posts publicados continuam `reference_only`. Lives longas e gravações cruas continuam `processing_source`. O Estúdio de Texto de Arte, reframe social, diarização completa e download remoto por range continuam adiados.
 
 ## Hipótese única
 
-> Se o Furia persistir a comparação entre candidatos locais e os três destaques do b354, usando o mapeamento da fonte longa para o MP4 local e exportando highlights individuais, será possível medir recall e precisão editorial antes de aumentar a influência do Campaign Hub no ranking.
+> Se o Furia transformar cada highlight local do snapshot em uma semente de proposta e expandir a semente para a menor janela completa da transcrição, o recall temporal do b354 aumentará sem alterar o ranking, inventar locutor ou depender de consulta externa.
 
 ## Procedimento
 
-1. Ler `docs/continuity/START_HERE.md`, `AGENTS.md`, `README.md`, `VERSION`, `docs/continuity/PROJECT_STATE.md`, `docs/continuity/DECISIONS.md`, `docs/VERSIONING.md` e `docs/continuity/CAMPAIGN_HUB_LINEAGE.md`.
+1. Ler `docs/continuity/START_HERE.md`, `AGENTS.md`, `README.md`, `VERSION`, `docs/continuity/PROJECT_STATE.md`, `docs/continuity/DECISIONS.md`, `docs/VERSIONING.md` e este arquivo.
 2. Confirmar branch, commit, diff e baseline; não apagar alterações locais.
 3. Repetir a suíte existente antes da mudança e registrar versão/revisão.
-4. Consultar o Campaign Hub apenas em leitura, mantendo conta, plataforma, crosspost, métrica, amostra e estado settled/provisório separados.
-5. Reutilizar o export local do vídeo `57nyfP9IDW4` e confirmar o bloco b354, seus três destaques e o mapeamento `6142.56–6692.0` para `0–549.44`.
-6. Gerar ou carregar candidatos locais a partir do MP4 b354; não usar Reel publicado como fonte para recortar novamente.
-7. Comparar início, fim, duração, sobreposição temporal, pergunta, resposta, tese, payoff, autossuficiência, contexto, risco, evidência visual e motivo da divergência.
-8. Persistir cada comparação com origem, versão do benchmark, confiança, classificação `Furia melhor`, `Campaign Hub melhor` ou `ambos precisam de revisão`.
-9. Mapear os três highlights QA-gated para a timeline local e testar exportação individual de cada highlight.
-10. Criar regressões para highlight coberto, highlight perdido, mapeamento de timeline, início abrupto, pergunta sem resposta e payoff ausente.
-11. Implementar no máximo uma alteração principal, preferencialmente no benchmark/highlight export; não misturar diarização, reframe, headlines e edição.
-12. Reprocessar o mesmo lote e comparar recall de highlights, IoU, erro temporal, autossuficiência, payoff, duplicatas e duração.
-13. Investigar range remoto apenas depois do caminho local; testar o provedor sem contornar anti-bot e manter fallback seguro.
-14. Validar transcrição, intervalos, exports e FFprobe quando houver novo render.
-15. Se a alteração for observável, atualizar `VERSION`, `CHANGELOG.md`, `PROJECT_STATE.md`, este arquivo e o relatório do ciclo.
-16. Executar suíte completa, `py_compile`, `node --check` quando aplicável, `git diff --check`, verificação de segredos e revisão do diff.
-17. Fazer commit pequeno, publicar a branch de trabalho e registrar o hash.
+4. Reutilizar a memória local autorizada, o benchmark `b354-v1`, os sete candidatos do baseline e o MP4 de bloco já disponível.
+5. Para cada um dos três highlights, gerar uma proposta temporal na timeline local e expandi-la apenas até completar frase, tese, pergunta–resposta quando necessário e payoff.
+6. Manter `renanSpeaking=false` para o b354; o highlight ser sobre Renan não autoriza atribuir a fala a Renan.
+7. Aplicar os mesmos gates de início abrupto, referência sem antecedente, transcrição incompleta, contexto, payoff, risco e locutor.
+8. Comparar candidatos antigos, propostas guiadas e destaques com recall, IoU, erro temporal, duração, duplicatas, autossuficiência, payoff e flags de revisão.
+9. Persistir o lote como uma nova versão do benchmark, separando claramente proposta de highlight de corte aprovado.
+10. Implementar no máximo uma alteração principal na geração de candidatos; não misturar ranking, diarização, reframe, headlines ou editor.
+11. Exportar somente uma amostra dos candidatos guiados que passarem pelos gates e validar com FFprobe.
+12. Reprocessar o mesmo lote e medir se o recall sai de `0/3` sem aumentar falsos positivos ou apagar falas de terceiros.
+13. Só depois de um ganho reproduzível investigar download remoto por range; testar o provedor sem contornar anti-bot e manter fallback seguro.
+14. Atualizar `VERSION`, `CHANGELOG.md`, `PROJECT_STATE.md`, `START_HERE.md`, este arquivo e o relatório do ciclo se a alteração for observável.
+15. Executar suíte completa, `compileall`, `node --check`, `git diff --check`, verificação de segredos, revisão de mídia e revisão do diff.
+16. Fazer commit pequeno, publicar a branch de trabalho e registrar o hash.
 
 ## Limites
 
-O aplicativo local não deve chamar o MCP por job. O agente pode consultar o MCP para pesquisa e gerar snapshots sanitizados fora do checkout. Não incluir mídia grande, transcrições privadas, tokens, cookies, URLs privadas ou banco local no Git.
+O aplicativo local não deve chamar o MCP por job. O agente pode consultar o MCP para pesquisa e gerar snapshots sanitizados fora do checkout. O benchmark do Chub é uma referência editorial, não uma verdade absoluta e nunca uma aprovação automática.
 
-Um prior histórico pode desempatar candidatos que já passaram pelos gates, mas não pode compensar contexto, transcrição, locutor, payoff, evidência visual ou risco. Ausência de cobertura deve ser desconhecida, nunca zero.
+A proposta guiada não pode forçar o ranking, substituir a transcrição canônica, inventar locutor ou apagar candidatos de terceiros. Ausência de cobertura continua desconhecida, nunca zero; uma unidade do Acervo pode estar incompleta ou conter erro de ASR.
 
-Não implementar nesta rodada: editor estilo CapCut, correção manual de legendas/headlines, tradução, avatars, voz, música, branding complexo ou publicação automática.
+Não implementar nesta rodada: editor estilo CapCut, correção manual de legendas/headlines, tradução, avatars, voz, música, branding complexo, publicação automática, múltiplas câmeras, formatos sociais ou download remoto por range.
 
 ## Formato do relatório
 
-O relatório deve separar confirmado, reproduzido, corrigido, provável, não verificado e bloqueado. Inclua versão, revisão, branch, hipótese, arquivos, consultas Campaign Hub, lote, mídia analisada, métricas antes/depois, casos divergentes, testes, limitações e uma única próxima hipótese.
+O relatório deve separar confirmado, reproduzido, corrigido, provável, não verificado e bloqueado. Inclua versão, revisão, branch, hipótese, arquivos, benchmark usado, mídia analisada, candidatos antigos e guiados, métricas antes/depois, casos divergentes, testes, limitações e uma única próxima hipótese.

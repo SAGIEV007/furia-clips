@@ -16,7 +16,7 @@ O usuário não é programador. Execute no ambiente autorizado tudo o que puder 
 
 A branch de trabalho conhecida é `manus/rebuild-opus-parity`. O baseline documental anterior era a versão `1.9`, commit `40c78b1`, uma fase predominantemente documental e operacional. O Furia contém muitas peças do pipeline, mas ainda não oferece uma experiência diária equivalente ao Garimpo + Campaign Hub.
 
-A validação prática mais recente foi feita a partir de um clone limpo do GitHub. As dependências foram instaladas, o modelo oficial pequeno de facetracking foi baixado apenas para satisfazer o teste de asset e a suíte terminou com **306 testes aprovados**. O modelo não deve ser incluído no Git se o repositório já o trata como asset externo; mantenha o fallback offline e registre a ausência de asset quando ela for relevante.
+A validação prática mais recente da branch foi feita no clone real do GitHub para a release `2.2`. A suíte terminou com **327 testes aprovados**, o benchmark b354 foi persistido, três highlights foram exportados individualmente e todos os MP4s foram validados por FFprobe. O modelo oficial pequeno de facetracking continua sendo um asset externo; não o inclua no Git e mantenha o fallback offline quando ele não estiver disponível.
 
 O caso real usado nesta auditoria foi o arquivo MP4 do vídeo `Primeiro ato de Campanha - Renan Santos Presidente`, baixado do fluxo de blocos do ecossistema Missão:
 
@@ -116,9 +116,9 @@ A quantidade de cortes não é fixa. “Todos os cortes” significa **todos os 
 
 ## 6. Download seletivo de blocos
 
-O teste comprovou que o Furia atual possui upload local, ingestão por URL, transcrição e corte, mas **não possui download seletivo de um bloco de origem**. As rotas de intervalo existentes são de cortes derivados, não de obtenção seletiva da fonte.
+O teste comprovou que o Furia possui upload local, ingestão por URL, transcrição, corte e **exportação seletiva local** de um bloco ou highlight quando a fonte correspondente já está disponível. O download remoto seletivo por range da URL de origem ainda não está garantido para todos os provedores.
 
-Essa é uma prioridade P0/P1. O novo fluxo deve:
+Essa é uma prioridade P0/P1 para a próxima etapa de ingestão, depois que o recall local for melhorado. O fluxo deve:
 
 1. criar um manifesto da fonte inteira e do bloco selecionado;
 2. usar `start` e `end` em segundos na timeline original;
@@ -290,13 +290,29 @@ O caso b354 continua sendo a regressão editorial principal: é um bloco sobre R
 
 A exportação seletiva implementada nesta onda é **local**: ela recorta uma fonte já disponível no workspace ou um MP4 de bloco baixado. O download remoto por range de uma URL longa ainda não está garantido para todos os provedores e permanece na próxima onda, com fallback seguro.
 
-## 16. Próxima hipótese recomendada
+## 16. Segunda onda implementada e validada
 
-> **Se o Furia usar a memória de blocos filtrada pela fonte e um benchmark temporal/editorial reutilizável, ele reduzirá o trabalho manual em eventos complexos e poderá medir se a integração do Chub melhora recall, locutor e contexto antes de aumentar o peso no ranking.**
+A segunda onda foi implementada na release `2.2`. Ela transforma a comparação b354 em um benchmark persistente local e permite exportar cada highlight de referência, sem chamar o Campaign Hub durante o corte e sem colocar o Chub como aprovador automático.
 
-A próxima implementação deve transformar a comparação b354 em benchmark persistente, mapear highlights para a timeline local do MP4, permitir exportar um highlight específico e testar download remoto seletivo quando o provedor autorizar. Não transforme o Campaign Hub em aprovador automático.
+| Entrega | Estado verificado |
+| --- | --- |
+| Benchmark local | `modules/editorial_benchmark.py` compara intervalos, mapeia timelines, calcula recall, IoU, erro de fronteira, duplicatas e classificação da divergência. |
+| Repetição do benchmark | `scripts/run_editorial_benchmark.py` repete o caso com memória local e candidatos autorizados. |
+| Persistência | Relatórios leves são salvos em `FuriaClipsData/benchmarks`; nenhuma mídia, transcrição privada ou base local entra no Git. |
+| Resultado b354 | Sete candidatos do Furia cobriram `0/3` highlights QA-gated; IoU médio `0.0`; os três casos foram classificados como `Campaign Hub melhor` no critério temporal desta amostra. |
+| Mapeamento | Highlights absolutos foram convertidos para `146.80–150.80s`, `223.24–228.40s` e `488.48–495.20s` no MP4 local de `549.449s`. |
+| Exportação individual | Nova rota e botões do painel exportaram os três highlights no aspecto original; FFprobe confirmou 1920×1080 H.264/AAC. |
+| Testes | `327 passed`; `compileall`, `node --check`, `git diff --check`, verificação de segredos e revisão de mídia rastreada passaram. |
 
-## 17. Referências vivas
+O resultado é um diagnóstico útil, não uma aprovação cega do Acervo: a amostra mostra que o candidato local atual não alcançou nenhum dos três momentos de referência. A lacuna está na cobertura da seleção, não no mapeamento ou na renderização do highlight. O b354 continua sendo sobre Kim (`renanSpeaking=false`) e deve continuar sendo mostrado assim.
+
+## 17. Próxima hipótese recomendada
+
+> **Se a geração de candidatos usar os highlights locais apenas como sementes de proposta e expandir cada semente até a menor janela completa da transcrição, o Furia aumentará o recall temporal do b354 sem alterar o ranking, inventar locutor ou depender de download remoto.**
+
+A próxima implementação deve ser offline-first: propor janelas ao redor de cada highlight, ajustar as bordas para frases e turnos completos, executar os mesmos gates de contexto, payoff e locutor e repetir o benchmark b354. Download remoto por range, diarização robusta, reframe e headlines continuam fora desta hipótese.
+
+## 18. Referências vivas
 
 - [Repositório Furia Clips](https://github.com/SAGIEV007/furia-clips)
 - [Campaign Hub MCP autorizado](https://chub-api.missao.org.br/mcp/wk_a07206ced171ac72acb18d6746e735486790ea98a2a2f51b)
@@ -309,3 +325,4 @@ A próxima implementação deve transformar a comparação b354 em benchmark per
 - [`IDEAS_BACKLOG.md`](IDEAS_BACKLOG.md)
 - [`PROMPT_3_EXECUTOR_CHUB_PARITY.md`](PROMPT_3_EXECUTOR_CHUB_PARITY.md), mantido como histórico técnico até ser incorporado e eventualmente arquivado.
 - [`CYCLE_11_REPORT_2026-08-17.md`](CYCLE_11_REPORT_2026-08-17.md), relatório da primeira onda operacional.
+- [`CYCLE_12_REPORT_2026-08-17.md`](CYCLE_12_REPORT_2026-08-17.md), relatório do benchmark b354 e dos highlights individuais.

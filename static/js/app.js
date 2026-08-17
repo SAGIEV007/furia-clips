@@ -966,6 +966,8 @@ function renderEditorialBlocks(payload) {
         const renanLabel = block.renan_speaking === true ? "fala do Renan" : block.renan_speaking === false ? "fala de terceiro" : "locutor não confirmado";
         const renanClass = block.renan_speaking === true ? "good" : block.renan_speaking === false ? "warn" : "";
         const sourceTitle = block.source?.title ? ` · ${escapeHtml(block.source.title)}` : "";
+        const highlights = Array.isArray(block.highlights) ? block.highlights.slice(0, 6) : [];
+        const highlightsMarkup = highlights.length ? `<div class="editorial-block-highlights"><div class="editorial-block-highlights-title"><span class="material-icons-round">auto_awesome</span> Destaques de referência</div>${highlights.map((highlight) => `<div class="editorial-block-highlight"><div><b>${escapeHtml(formatTime(Number(highlight.start_s || 0)))}–${escapeHtml(formatTime(Number(highlight.end_s || 0)))}</b><span>${escapeHtml(highlight.text || "Destaque sem transcrição")}</span></div><button class="btn btn-sm btn-outline editorial-block-highlight-export" type="button" data-highlight-export="${escapeHtml(block.id)}" data-highlight-id="${escapeHtml(highlight.id)}" title="Exporta somente este destaque da fonte local"><span class="material-icons-round">download</span></button></div>`).join("")}</div>` : "";
         return `<article class="editorial-block-card" data-block-id="${escapeHtml(block.id)}">
             <div class="editorial-block-time"><strong>${formatTime(Number(block.start || 0))}</strong>${formatTime(Number(block.end || 0))}<span>${Number(block.duration || 0).toFixed(0)}s</span></div>
             <div class="editorial-block-content">
@@ -979,6 +981,7 @@ function renderEditorialBlocks(payload) {
                     ${riskCount ? `<span class="editorial-block-chip warn">${riskCount} alerta(s)</span>` : ""}
                     <span class="editorial-block-chip">${escapeHtml(block.trust_tier || "tier não informado")}${sourceTitle}</span>
                 </div>
+                ${highlightsMarkup}
             </div>
             <div class="editorial-block-action-stack">
                 <button class="btn btn-sm btn-outline editorial-block-action" type="button" data-block-select="${escapeHtml(block.id)}"><span class="material-icons-round">playlist_add</span> Selecionar</button>
@@ -1021,6 +1024,33 @@ function renderEditorialBlocks(payload) {
             } catch (error) {
                 showToast(error.message, "error");
                 addConsoleLog(`[Blocos] Exportação não concluída: ${error.message}`, "warning");
+            } finally {
+                button.disabled = false;
+            }
+        });
+    });
+    list.querySelectorAll("[data-highlight-export]").forEach((button) => {
+        button.addEventListener("click", async () => {
+            const videoPath = selectedVideoPathForRequest();
+            if (!videoPath) {
+                showToast("Selecione primeiro o MP4 correspondente ao bloco.", "warning");
+                return;
+            }
+            button.disabled = true;
+            try {
+                const response = await fetch("/api/editorial/blocks/highlights/export", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ video_path: videoPath, block_id: button.dataset.highlightExport, highlight_id: button.dataset.highlightId }),
+                });
+                const payload = await parseJsonResponse(response, "Exportação do destaque");
+                if (!response.ok || !payload.success) throw new Error(payload.error || "Não foi possível exportar o destaque.");
+                showToast("Destaque exportado no aspecto original.", "success");
+                addConsoleLog(`[Blocos] Destaque ${formatTime(Number(payload.start))}–${formatTime(Number(payload.end))} exportado.`, "success");
+                window.open(payload.download_url, "_blank", "noopener");
+            } catch (error) {
+                showToast(error.message, "error");
+                addConsoleLog(`[Blocos] Exportação do destaque não concluída: ${error.message}`, "warning");
             } finally {
                 button.disabled = false;
             }

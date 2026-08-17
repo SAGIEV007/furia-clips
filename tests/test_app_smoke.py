@@ -361,3 +361,85 @@ def test_editorial_block_interval_export_maps_downloaded_block_timeline(tmp_path
     assert payload["timeline_mapping"] == "downloaded_block_timeline"
     assert payload["requested_start"] == 6142.56
     assert payload["start"] == 0.0
+
+
+def _benchmark_memory_payload():
+    return {
+        "version": "api-benchmark-test",
+        "default_account": "@renansantosmbl",
+        "accounts": {"@renansantosmbl": {"platform": "youtube", "hook_observations": []}},
+        "records": {
+            "sources": [{"id": "video-api", "title": "Evento API"}],
+            "blocks": [{
+                "id": "block-api",
+                "video_id": "video-api",
+                "title": "Bloco API",
+                "start_s": 100,
+                "end_s": 200,
+                "renan_speaking": False,
+            }],
+            "highlights": [{
+                "id": "highlight-api",
+                "block_id": "block-api",
+                "start_s": 120,
+                "end_s": 125,
+                "text": "Destaque API",
+                "reason": "teste",
+            }],
+        },
+    }
+
+
+def test_highlight_export_maps_downloaded_block_timeline(tmp_path):
+    from modules.campaign_hub_memory import install_snapshot
+
+    memory_path = tmp_path / "profile.json"
+    install_snapshot(_benchmark_memory_payload(), destination=memory_path)
+    source_path = tmp_path / "source.mp4"
+    source_path.write_bytes(b"fake-media")
+    rendered_path = tmp_path / "rendered.mp4"
+    with patch.object(furia_app, "get_all_settings", return_value={"campaign_hub_snapshot_path": str(memory_path)}), \
+         patch.object(furia_app, "_resolve_media_input", return_value=str(source_path)), \
+         patch.object(furia_app, "_probe_video_duration_seconds", return_value=100.0), \
+         patch("modules.video_cutter.VideoCutter.cut_clip", return_value=str(rendered_path)):
+        response = furia_app.app.test_client().post(
+            "/api/editorial/blocks/highlights/export",
+            json={"video_path": str(source_path), "block_id": "block-api", "highlight_id": "highlight-api"},
+        )
+    payload = response.get_json()
+    assert response.status_code == 200
+    assert payload["success"] is True
+    assert payload["timeline_mapping"] == "downloaded_block_timeline"
+    assert payload["start"] == 20.0
+    assert payload["end"] == 25.0
+
+
+def test_benchmark_api_persists_and_lists_local_comparison(tmp_path):
+    from modules.campaign_hub_memory import install_snapshot
+    import modules.editorial_benchmark as benchmark
+
+    memory_path = tmp_path / "profile.json"
+    install_snapshot(_benchmark_memory_payload(), destination=memory_path)
+    source_path = tmp_path / "source.mp4"
+    source_path.write_bytes(b"fake-media")
+    with patch.object(furia_app, "get_all_settings", return_value={"campaign_hub_snapshot_path": str(memory_path)}), \
+         patch.object(furia_app, "_resolve_media_input", return_value=str(source_path)), \
+         patch.object(furia_app, "_probe_video_duration_seconds", return_value=100.0), \
+         patch.object(benchmark, "DEFAULT_BENCHMARK_DIR", tmp_path / "benchmarks"):
+        client = furia_app.app.test_client()
+        response = client.post(
+            "/api/editorial/benchmark",
+            json={
+                "block_id": "block-api",
+                "video_path": str(source_path),
+                "candidates": [{"id": "candidate-api", "start": 20, "end": 25, "review_flags": {"context_complete": True, "payoff_complete": True}}],
+                "benchmark_version": "api-test",
+            },
+        )
+        payload = response.get_json()
+        listing = client.get("/api/editorial/benchmark")
+    assert response.status_code == 200
+    assert payload["success"] is True
+    assert payload["metrics"]["coverage_recall"] == 1.0
+    assert listing.status_code == 200
+    assert listing.get_json()["benchmarks"][0]["benchmark_id"].endswith("api-test")

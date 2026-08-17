@@ -73,7 +73,7 @@ Quando a transcrição integral é recortada para remover pré-roll, a transcri�
 
 O Furia Clips pode aproveitar blocos QA-gated, perguntas-gatilho, autossuficiência, payoff, destaques, riscos, tópicos, transcrições e relações temporais do Campaign Hub para calibrar a seleção. A primeira integração deve comparar essas unidades com candidatos locais em um benchmark versionado e read-only. Nenhum campo do Campaign Hub aprova automaticamente um corte, e nenhuma métrica histórica pode compensar gates de contexto, transcrição, locutor ou evidência visual.
 
-O aplicativo local continua usando snapshots autorizados fora do checkout. O agente pode consultar o MCP para pesquisa e gerar o snapshot, mas o processamento local não deve depender de uma chamada MCP por job. Contas, plataformas, crossposts, métricas settled/provisórias e rótulos de publicação devem permanecer separados.
+O aplicativo local continua usando snapshots autorizados fora do checkout. O agente pode consultar o MCP para pesquisa e gerar o snapshot, mas o processamento local não deve depender de uma chamada MCP por job. Contas, plataformas, crossposts, métricas settled/provisórias e rótulos de publicação devem permanecer separados. A release 2.2 materializou esta decisão em um benchmark persistente; no caso b354, sete candidatos cobriram `0/3` destaques temporais, sem transformar o resultado em peso automático.
 
 ## D-020 — Ferramentas profissionais inspiram capacidades, não escopo indiscriminado
 

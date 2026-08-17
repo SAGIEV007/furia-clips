@@ -8,23 +8,30 @@
 | --- | --- |
 | Projeto | Furia Clips |
 | Repositório | `SAGIEV007/furia-clips` |
-| Versão pública | `2.1` |
+| Versão pública | `2.2` |
 | Fonte da versão | [`VERSION`](../../VERSION) |
 | Branch de trabalho conhecida | `manus/rebuild-opus-parity` |
-| Revisão registrada neste estado | `f683812` — `feat: add local campaign hub memory and editorial blocks` |
+| Revisão registrada neste estado | `a9a2803` — `feat: persist editorial benchmark and export highlights (2.2)` |
 | Última atualização deste documento | 2026-08-17 |
-| Validação desta rodada | `322 passed`; memória rica, blocos reais e exportação seletiva local validados; MP4 b354 real validado por FFprobe; UX revisado no navegador; nenhum segredo ou mídia foi publicado |
+| Validação desta rodada | `327 passed`; benchmark b354 persistido, três highlights exportados individualmente e validados por FFprobe; nenhum segredo ou mídia foi publicado |
 | Asset validado | `models/blaze_face_short_range.tflite`, 229746 bytes, SHA-256 conforme manifesto |
 | Objetivo | Gerar cortes do Renan Santos/MBL concisos, autossuficientes e contextualmente completos |
 
-A release 2.1 foi publicada na branch `manus/rebuild-opus-parity` no commit `f683812`. Ela não inclui mídia, banco local, transcrições reais ou credenciais. As releases 2.0 e 1.9 permanecem registradas no histórico.
+A release 2.2 foi publicada na branch `manus/rebuild-opus-parity` no commit `a9a2803`. Ela não inclui mídia, banco local, transcrições reais ou credenciais. As releases 2.1, 2.0 e 1.9 permanecem registradas no histórico.
 
+## Resultado da release 2.2
+
+A segunda onda implementa `modules/editorial_benchmark.py`, `scripts/run_editorial_benchmark.py`, persistência local de comparações, exportação individual de highlights e ações correspondentes no painel de Blocos. O benchmark real do b354 usou os sete candidatos persistidos pelo Furia e os três destaques QA-gated do snapshot local.
+
+Os destaques foram mapeados para `146.80–150.80s`, `223.24–228.40s` e `488.48–495.20s` no MP4 local de `549.449s`. O recall temporal foi `0/3`, o IoU médio foi `0.0` e os três casos foram classificados como `Campaign Hub melhor` pela métrica temporal. A falha pertence à cobertura da seleção atual; o mapeamento e a exportação individual funcionaram.
+
+Os três exports individuais foram validados como 1920×1080 H.264/AAC, com durações medidas de aproximadamente `4.004s`, `5.172s` e `6.740s`. A suíte passou com `327 testes`. O benchmark não altera o ranking e não consulta o MCP durante o corte.
 
 ## Resultado da release 2.1
 
 A primeira onda 2.1 implementa a memória local versionada do Campaign Hub, exportação incremental autorizada, leitura de blocos, filtro por fonte, prioridade Renan-first sem ocultar terceiros, painel visual de pré-análise, exportação seletiva local e um sinal temporal/textual limitado no ranking. O MP4 real correspondente ao bloco b354 foi exportado com mapeamento seguro da timeline longa para a timeline local e validado em 1920×1080 H.264/AAC.
 
-A suíte completa passou com 322 testes. O download remoto seletivo por range, o benchmark persistente, a diarização e o reconhecimento de voz ainda não estão concluídos. A interface ficou mais informativa, mas a simplificação total da sidebar permanece na próxima onda.
+A suíte completa da release 2.1 passou com 322 testes. O download remoto seletivo por range, o benchmark persistente, a diarização e o reconhecimento de voz ainda não estavam concluídos naquela release. A interface ficou mais informativa, mas a simplificação total da sidebar permaneceu para uma onda própria.
 
 ## Resultado da release 2.0
 

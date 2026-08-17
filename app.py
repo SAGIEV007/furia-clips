@@ -1351,6 +1351,143 @@ def api_export_editorial_block_interval():
         return jsonify({"success": False, "error": f"Não foi possível exportar o intervalo: {str(exc)[:300]}"}), 500
 
 
+@app.route("/api/editorial/blocks/highlights/export", methods=["POST"])
+def api_export_editorial_highlight():
+    """Render one Campaign Hub highlight on the local block timeline."""
+    data = request.get_json(silent=True) or {}
+    video_path = _resolve_media_input(data.get("video_path", ""))
+    if not video_path or not os.path.isfile(video_path):
+        return jsonify({"success": False, "error": "A fonte local do bloco não foi encontrada."}), 404
+    block_id = str(data.get("block_id") or "").strip()
+    highlight_id = str(data.get("highlight_id") or "").strip()
+    if not block_id or not highlight_id:
+        return jsonify({"success": False, "error": "Informe block_id e highlight_id."}), 400
+    try:
+        from modules.editorial_block_memory import get_block
+        from modules.editorial_benchmark import map_interval_to_local
+        settings = get_all_settings()
+        block = get_block(block_id, settings.get("campaign_hub_snapshot_path"))
+        if not block:
+            return jsonify({"success": False, "error": "Bloco não encontrado na memória local."}), 404
+        highlight = next((item for item in block.get("highlights", []) if str(item.get("id")) == highlight_id), None)
+        if not highlight:
+            return jsonify({"success": False, "error": "Destaque não encontrado dentro do bloco."}), 404
+        try:
+            absolute_start = float(highlight.get("start_s"))
+            absolute_end = float(highlight.get("end_s"))
+            block_start = float(block.get("start", 0))
+            block_end = float(block.get("end", block_start))
+        except (TypeError, ValueError):
+            return jsonify({"success": False, "error": "O destaque não possui timestamps válidos."}), 400
+        duration = _probe_video_duration_seconds(video_path)
+        mapped = map_interval_to_local(
+            absolute_start,
+            absolute_end,
+            source_duration=duration,
+            reference_start=block_start,
+            reference_end=block_end,
+        )
+        start = float(mapped["start"])
+        end = float(mapped["end"])
+        if end <= start:
+            return jsonify({"success": False, "error": "O destaque não produz um intervalo local válido."}), 400
+        from modules.video_cutter import VideoCutter
+        filename = unique_storage_name(
+            f"highlight-{block_id}-{highlight_id.replace(':', '-')}.mp4",
+            extension=".mp4",
+        )
+        output_path = os.path.join(EXPORT_DIR, filename)
+        cutter = VideoCutter(method="intelligent", target_duration=end - start, preset="shorts")
+        rendered = cutter.cut_clip(video_path, start, end, output_path, vertical=False, emit_progress=None)
+        if not rendered:
+            return jsonify({"success": False, "error": "A renderização do destaque foi rejeitada pela validação de mídia."}), 422
+        relative = os.path.relpath(rendered, WORKSPACE_DIR).replace(os.sep, "/")
+        return jsonify({
+            "success": True,
+            "source_mode": "local_highlight",
+            "block_id": block_id,
+            "highlight_id": highlight_id,
+            "absolute_start": absolute_start,
+            "absolute_end": absolute_end,
+            "start": start,
+            "end": end,
+            "duration": round(end - start, 3),
+            "timeline_mapping": mapped["timeline_mapping"],
+            "path": relative,
+            "download_url": f"/workspace/{relative}",
+            "text": highlight.get("text") or "",
+            "reason": highlight.get("reason") or "",
+            "message": "Destaque exportado no aspecto original; a timeline absoluta foi mapeada para o MP4 local quando necessário.",
+        })
+    except Exception as exc:
+        return jsonify({"success": False, "error": f"Não foi possível exportar o destaque: {str(exc)[:300]}"}), 500
+
+
+@app.route("/api/editorial/benchmark", methods=["GET", "POST"])
+def api_editorial_benchmark():
+    """Persist or list local-only comparisons against Campaign Hub highlights."""
+    if request.method == "GET":
+        try:
+            from modules.editorial_benchmark import list_benchmarks, load_benchmark
+            benchmark_id = str(request.args.get("benchmark_id") or "").strip()
+            if benchmark_id:
+                payload = load_benchmark(benchmark_id)
+                if not payload:
+                    return jsonify({"available": False, "error": "Benchmark não encontrado."}), 404
+                return jsonify({"available": True, "benchmark": payload})
+            return jsonify({"available": True, "benchmarks": list_benchmarks()})
+        except Exception as exc:
+            return jsonify({"available": False, "error": f"Não foi possível ler o benchmark: {str(exc)[:240]}"}), 200
+
+    data = request.get_json(silent=True) or {}
+    block_id = str(data.get("block_id") or "").strip()
+    candidates = data.get("candidates")
+    if not block_id or not isinstance(candidates, list):
+        return jsonify({"success": False, "error": "Informe block_id e uma lista de candidates."}), 400
+    try:
+        from modules.editorial_block_memory import get_block
+        from modules.editorial_benchmark import compare_candidates, save_benchmark
+        settings = get_all_settings()
+        block = get_block(block_id, settings.get("campaign_hub_snapshot_path"))
+        if not block:
+            return jsonify({"success": False, "error": "Bloco não encontrado na memória local."}), 404
+        video_path = _resolve_media_input(data.get("video_path", ""))
+        source_duration = _probe_video_duration_seconds(video_path) if video_path and os.path.isfile(video_path) else None
+        payload = compare_candidates(
+            block,
+            candidates,
+            source_duration=source_duration,
+            source_name=video_path or str(data.get("video_path") or ""),
+            benchmark_version=str(data.get("benchmark_version") or "b354-v1")[:40],
+        )
+        target = save_benchmark(payload)
+        return jsonify({
+            "success": True,
+            "benchmark_id": payload["benchmark_id"],
+            "metrics": payload["metrics"],
+            "references": payload["references"],
+            "candidate_count": payload["candidate_count"],
+            "file": target.name,
+            "message": "Benchmark salvo localmente; ele não altera o ranking nem consulta o Campaign Hub durante os cortes.",
+        })
+    except (TypeError, ValueError) as exc:
+        return jsonify({"success": False, "error": str(exc)[:300]}), 400
+    except Exception as exc:
+        return jsonify({"success": False, "error": f"Não foi possível salvar o benchmark: {str(exc)[:300]}"}), 500
+
+
+@app.route("/api/editorial/benchmark/<benchmark_id>", methods=["GET"])
+def api_editorial_benchmark_detail(benchmark_id):
+    try:
+        from modules.editorial_benchmark import load_benchmark
+        payload = load_benchmark(benchmark_id)
+        if not payload:
+            return jsonify({"available": False, "error": "Benchmark não encontrado."}), 404
+        return jsonify({"available": True, "benchmark": payload})
+    except Exception as exc:
+        return jsonify({"available": False, "error": f"Não foi possível ler o benchmark: {str(exc)[:240]}"}), 200
+
+
 @app.route("/api/repository/status", methods=["GET"])
 def api_repository_status():
     """Report Git synchronization state without exposing remotes or secrets."""

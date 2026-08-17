@@ -1,6 +1,25 @@
 # Changelog de continuidade
 
-## 2.1 — Memória local do Campaign Hub, blocos e exportação seletiva
+## 2.2 — Benchmark persistente e exportação individual de highlights
+
+### Incluído
+
+- `modules/editorial_benchmark.py` registra uma comparação local e reproduzível entre candidatos do Furia e destaques QA-gated do Campaign Hub, sem consultar o MCP durante os cortes.
+- O benchmark persiste mapeamento da timeline longa para o MP4 de bloco, recall de cobertura, IoU, erro médio de fronteira, duplicatas e classificação explicável da divergência.
+- `scripts/run_editorial_benchmark.py` permite repetir a comparação com um arquivo de candidatos e uma memória local autorizada.
+- `POST /api/editorial/blocks/highlights/export` e os botões do painel exportam um destaque específico no aspecto original.
+- `GET/POST /api/editorial/benchmark` permite consultar e salvar resultados locais; os relatórios ficam em `FuriaClipsData/benchmarks`, fora do Git.
+- Testes de mapping, IoU, persistência, rotas e sintaxe da interface foram adicionados.
+
+### Validação da rodada
+
+O bloco b354 real foi comparado com os sete candidatos persistidos pelo Furia. Seus três destaques foram mapeados para `146.80–150.80s`, `223.24–228.40s` e `488.48–495.20s` no MP4 local de `549.449s`. O recall de cobertura foi `0/3`, o IoU médio foi `0.0` e os três casos foram classificados como `Campaign Hub melhor` neste benchmark temporal. Os três highlights foram exportados individualmente pelo backend e validados em 1920×1080 H.264/AAC, com durações de aproximadamente `4.004s`, `5.172s` e `6.740s`.
+
+### Limitações conhecidas
+
+O benchmark mede alinhamento temporal e preserva flags editoriais, mas não prova que o Campaign Hub esteja sempre correto nem resolve diarização, reconhecimento de voz, relevância semântica ou download remoto por range. O caso b354 mostrou uma lacuna real de cobertura; esta release não aumenta o peso do Chub no ranking com base em uma amostra única.
+
+## 2.1 — Memória local do Campaign Hub, blocos e exportação seletiva local
 
 ### Incluído
 
