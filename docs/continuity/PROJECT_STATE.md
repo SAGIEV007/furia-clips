@@ -8,9 +8,9 @@
 | --- | --- |
 | Projeto | Furia Clips |
 | Repositório | `SAGIEV007/furia-clips` |
-| Versão pública atual | `3.0` |
-| Última release funcional anterior | `2.9` |
-| Natureza da release atual | Orçamento de candidatos governado pela fonte, com precisão medida |
+| Versão pública atual | `3.1` |
+| Última release funcional anterior | `3.0` |
+| Natureza da release atual | Todo candidato entregue com contexto, locutor, riscos e veredito de revisão |
 | Fonte da versão | [`VERSION`](../../VERSION) |
 | Branch de trabalho | `claude/repo-access-commits-imgjmk` |
 | Última publicação conhecida antes desta rodada | `a0452d3` — `fix: declarar confiabilidade da medição no benchmark editorial (2.7)` |
@@ -21,7 +21,7 @@
 | Commit funcional 3.0 | `f83d1fb` — `feat: governar o orçamento de candidatos pela fonte, com precisão medida (3.0)` |
 | Última atualização | 2026-08-17 |
 | Baseline editorial | `3XJfcqn56Rw`: 27 blocos, 66 destaques, recall `50/66`, cobertura `25/27`, precisão `1.00`, IoU `0.273` (release 3.0). O b354 permanece como regressão de locutor. |
-| Suíte no checkout | 343 aprovados, 7 falhas ambientais (`ffmpeg`/`ffprobe` ausentes e asset BlazeFace) |
+| Suíte no checkout | 347 aprovados, 7 falhas ambientais (`ffmpeg`/`ffprobe` ausentes e asset BlazeFace) |
 | Objetivo | Gerar cortes Renan Santos/MBL concisos, autossuficientes, contextualizados e editorialmente úteis |
 
 A branch de trabalho deve ser confirmada no checkout real. O GitHub é a fonte da revisão técnica; este arquivo não pode manter um hash diferente do `HEAD` final publicado. Antes de alterar qualquer arquivo, preserve mudanças locais e confirme `git status`.
@@ -34,7 +34,21 @@ A ponte carrega o snapshot uma vez por job, preserva proveniência e riscos, exp
 
 O caso b354 deve preservar `renanSpeaking=false` quando Kim ou outro terceiro fala. O fato de um bloco ser sobre Renan não autoriza atribuir a fala a Renan. Propostas guiadas devem permanecer separadas de cortes aprovados e não podem apagar candidatos de terceiros.
 
-## Release atual — 3.0
+## Release atual — 3.1
+
+A 3.1 tratou de **entrega**, não de cobertura. `precision@k` foi medida primeiro e
+mostrou que o ranqueamento já funciona: 100% dos 20 primeiros colocados carregam um
+destaque QA-gated, em blocos de densidade 76–83. O Renan-first também já opera, com
+20% do top 20 vindo dos blocos com Renan falando, que são só 9% dos destaques. Nenhum
+peso de ranking foi alterado.
+
+O defeito real era outro: só os candidatos nascidos de seed do Chub carregavam
+proveniência; os demais chegavam ao revisor sem tema, sem risco e sem dizer quem fala
+— num acervo onde 24 de 27 blocos têm `renan_speaking=false`. Agora 121 de 121 (100%)
+chegam com contexto completo e veredito de revisão, sempre como `evidence_only`.
+Relatório em [`CYCLE_21_REPORT_2026-08-17.md`](CYCLE_21_REPORT_2026-08-17.md).
+
+## Release anterior — 3.0
 
 A 3.0 removeu o teto fixo de candidatos. `_selection_coverage_plan()` calculava
 `min(36, ...)`, o que dava a uma fonte de 4 horas praticamente a mesma cota de uma de
@@ -196,6 +210,7 @@ Em qualquer rodada, classifique conclusões como `confirmado`, `reproduzido`, `c
 
 | Release | Foco | Resultado principal | Relatório |
 | --- | --- | --- | --- |
+| 3.1 | Corte pronto e ranqueado | 100% dos candidatos com contexto, locutor e veredito; ranqueamento confirmado (top 20 = 100% com destaque) | [`CYCLE_21_REPORT_2026-08-17.md`](CYCLE_21_REPORT_2026-08-17.md) |
 | 3.0 | Orçamento governado pela fonte | Recall `27/66`→`50/66` e cobertura `20/27`→`25/27` com precisão inalterada em `1.00` | [`CYCLE_20_REPORT_2026-08-17.md`](CYCLE_20_REPORT_2026-08-17.md) |
 | 2.9 | Recall medido em fonte longa | Ponte Chub dobra o recall (`11/66`→`24/66`); filtro de não-conteúdo leva a `27/66` | [`CYCLE_19_REPORT_2026-08-17.md`](CYCLE_19_REPORT_2026-08-17.md) |
 | 2.8 | Alinhamento temporal das seeds | Seeds do b354 passam a cair na timeline local; três propostas falsas idênticas eliminadas | [`CYCLE_18_REPORT_2026-08-17.md`](CYCLE_18_REPORT_2026-08-17.md) |

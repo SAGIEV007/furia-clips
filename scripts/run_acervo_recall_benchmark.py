@@ -164,6 +164,47 @@ def score(candidates: list[dict], blocks: list[dict], highlights: list[dict], ig
         ):
             carrying_highlight += 1
 
+    # Ranking quality. Coverage says the material was found; precision@k says the
+    # best of it reached the top, which is what a reviewer actually looks at.
+    block_by_span = []
+    for span in spans:
+        best_block, best_cover = None, 0.0
+        for block in blocks:
+            window = (_float(block.get("start_s")), _float(block.get("end_s")))
+            if window[1] <= window[0]:
+                continue
+            cover = _overlap(span, window)
+            if cover > best_cover:
+                best_block, best_cover = block, cover
+        block_by_span.append(best_block)
+
+    carries_highlight = [
+        any(
+            _overlap(span, (_float(h.get("start_s")), _float(h.get("end_s")))) > 0
+            for h in highlights
+        )
+        for span in spans
+    ]
+
+    precision_at_k = {}
+    for k in (5, 10, 20, 40):
+        head = min(k, len(spans))
+        if not head:
+            continue
+        ranks = [
+            _float((block_by_span[i] or {}).get("density_rank"))
+            for i in range(head)
+            if block_by_span[i] is not None
+        ]
+        precision_at_k[f"@{k}"] = {
+            "carrying_highlight": round(sum(carries_highlight[:head]) / head, 4),
+            "mean_density_rank": round(sum(ranks) / len(ranks), 2) if ranks else None,
+            "renan_speaking": sum(
+                1 for i in range(head)
+                if (block_by_span[i] or {}).get("renan_speaking") is True
+            ),
+        }
+
     durations = [span[1] - span[0] for span in spans]
     recovered = sum(1 for item in covered_highlights if item["recovered"])
     touched = sum(1 for item in covered_blocks if item["touched"])
@@ -174,6 +215,7 @@ def score(candidates: list[dict], blocks: list[dict], highlights: list[dict], ig
         "candidates_carrying_highlight": carrying_highlight,
         "precision_on_block": round(on_block / len(spans), 4) if spans else None,
         "precision_carrying_highlight": round(carrying_highlight / len(spans), 4) if spans else None,
+        "precision_at_k": precision_at_k,
         "highlight_total": len(covered_highlights),
         "highlight_recovered": recovered,
         "highlight_recall": round(recovered / len(covered_highlights), 4) if covered_highlights else None,
@@ -261,6 +303,7 @@ def main() -> int:
         "highlight_recall": f"{metrics['highlight_recovered']}/{metrics['highlight_total']}",
         "block_coverage": f"{metrics['block_touched']}/{metrics['block_total']}",
         "precision_on_block": metrics["precision_on_block"],
+        "precision_at_k": metrics["precision_at_k"],
         "precision_carrying_highlight": metrics["precision_carrying_highlight"],
         "off_block_candidates": metrics["off_block_candidates"],
         "mean_best_iou": metrics["mean_best_iou"],

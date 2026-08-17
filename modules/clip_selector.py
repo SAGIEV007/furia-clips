@@ -47,6 +47,20 @@ WEAK_PAYOFF_ENDINGS_PT = {
 }
 
 
+def _block_field(block, *names):
+    """Read a block field written in either naming convention.
+
+    Snapshots reach the selector both snake_cased by the local converter and
+    camelCased straight from the Acervo, so reading only one shape silently
+    dropped ranks, risks and the speaker verdict.
+    """
+    for name in names:
+        value = block.get(name)
+        if value is not None:
+            return value
+    return None
+
+
 class ClipSelector:
     # How far a Campaign Hub seed may fall outside every sentence and still be
     # anchored to the nearest one. Silences, applause and music leave real gaps in
@@ -208,6 +222,10 @@ class ClipSelector:
         # Drop candidates sitting on stretches the Acervo already labelled as
         # holding no editorial content, before the candidate budget is spent.
         clips = self._drop_labelled_non_content(clips, settings, emit_progress)
+
+        # Every surviving candidate inherits what the Acervo established about the
+        # stretch it covers, so the reviewer never sees an anonymous window.
+        clips = self._attach_block_evidence(clips, settings)
 
         # Filter clips at scene boundaries if available
         if scene_changes:
@@ -1173,6 +1191,78 @@ Retorne APENAS o JSON.
             float(item.get("campaign_hub", {}).get("confidence", 0) or 0),
         ), reverse=True)
         return proposals[:self.max_clips]
+
+    def _attach_block_evidence(self, clips, settings):
+        """Give every candidate the editorial context of the block it sits in.
+
+        Only candidates born from a Campaign Hub seed carried provenance, so the
+        rest reached the reviewer anonymous: no title, no topic, no risk flag and
+        — worst of all — no indication of who is speaking. A candidate that lands
+        inside a QA-gated block inherits what the Acervo already established about
+        that stretch, which is evidence, never approval: nothing here raises a
+        score or clears a gate.
+        """
+        snapshot = settings.get("campaign_hub_snapshot") if isinstance(settings, dict) else None
+        records = snapshot.get("records") if isinstance(snapshot, dict) else None
+        blocks = [item for item in (records or {}).get("blocks") or [] if isinstance(item, dict)]
+        if not blocks or not clips:
+            return clips
+
+        for clip in clips:
+            start = float(clip.get("start", 0) or 0)
+            end = float(clip.get("end", 0) or 0)
+            if end <= start:
+                continue
+            best, best_overlap = None, 0.0
+            for block in blocks:
+                try:
+                    block_start = float(_block_field(block, "start_s", "startS"))
+                    block_end = float(_block_field(block, "end_s", "endS"))
+                except (TypeError, ValueError):
+                    continue
+                overlap = max(0.0, min(end, block_end) - max(start, block_start))
+                if overlap > best_overlap:
+                    best, best_overlap = block, overlap
+            if not best or best_overlap / (end - start) < 0.5:
+                continue
+
+            renan_speaking = _block_field(best, "renan_speaking", "renanSpeaking")
+            # ``false`` from the Acervo means "not confirmed as Renan", which
+            # covers both a third party and an unidentified voice. Neither may be
+            # published as Renan, so both land on the same review verdict.
+            speaker_status = "renan_confirmado" if renan_speaking is True else (
+                "nao_confirmado" if renan_speaking is None else "terceiro_ou_indeterminado"
+            )
+            risk_flags = list(_block_field(best, "risk_flags", "riskFlags") or [])
+            gate_warnings = list(_block_field(best, "gate_warnings", "gateWarnings") or [])
+            clip["campaign_hub_block"] = {
+                "block_id": best.get("id") or best.get("blockId"),
+                "title": best.get("title"),
+                "summary": best.get("summary"),
+                "trigger_question": _block_field(best, "trigger_question", "triggerQuestion"),
+                "topics": list(best.get("topics") or [])[:20],
+                "category": best.get("category"),
+                "density_rank": _block_field(best, "density_rank", "densityRank"),
+                "self_contained_rank": _block_field(best, "self_contained_rank", "selfContainedRank"),
+                "self_contained_reason": _block_field(best, "self_contained_reason", "selfContainedReason"),
+                "renan_speaking": renan_speaking,
+                "speaker_status": speaker_status,
+                "speakers_note": _block_field(best, "speakers_note", "speakersNote"),
+                "risk_flags": risk_flags,
+                "gate_warnings": gate_warnings,
+                "trust_tier": _block_field(best, "trust_tier", "trustTier"),
+                "coverage_of_candidate": round(best_overlap / (end - start), 3),
+                "evidence_only": True,
+            }
+            if speaker_status != "renan_confirmado" or risk_flags:
+                clip["review_required"] = True
+                reasons = list(clip.get("review_reasons") or [])
+                if speaker_status != "renan_confirmado":
+                    reasons.append("locutor não confirmado como Renan pelo Acervo")
+                if risk_flags:
+                    reasons.append(f"riscos sinalizados: {', '.join(risk_flags[:4])}")
+                clip["review_reasons"] = reasons
+        return clips
 
     @staticmethod
     def _labelled_non_content_regions(settings):

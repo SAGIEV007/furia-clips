@@ -1,5 +1,30 @@
 # Changelog de continuidade
 
+## 3.1 — De candidato bruto a corte pronto e ranqueado
+
+### Incluído
+
+- `modules/clip_selector.py`: `_attach_block_evidence()` faz todo candidato herdar o contexto editorial do bloco QA-gated em que cai — título, resumo, pergunta-gatilho, tópicos, `density_rank`, `self_contained_rank`, `renan_speaking`, `speakers_note`, riscos e tier. Novo `_block_field()` lê snapshots em snake_case e camelCase.
+- `scripts/run_acervo_recall_benchmark.py`: nova métrica `precision_at_k`.
+- `scripts/convert_chub_blocks_export.py`: preserva `speakers_note`.
+- `tests/test_campaign_hub_guidance.py`: quatro regressões novas.
+
+### O ranqueamento já funcionava
+
+`precision@k` foi medida antes de mexer em qualquer peso: **100%** dos 20 primeiros colocados carregam um destaque QA-gated, em blocos de densidade média 76–83 de 99. O Renan-first também já opera — 20% do top 20 vem dos blocos com Renan falando, que são apenas 9% dos destaques disponíveis. Nenhum peso de ranking foi alterado.
+
+### O defeito real
+
+Só os candidatos nascidos de seed do Campaign Hub carregavam proveniência. Os demais chegavam ao revisor sem tema, sem risco e **sem dizer quem fala** — num acervo em que 24 de 27 blocos têm `renan_speaking=false`.
+
+Agora **121 de 121 candidatos (100%)** chegam com contexto e veredito de revisão. O veredito de locutor distingue `renan_confirmado`, `terceiro_ou_indeterminado` e `nao_confirmado`; qualquer coisa que não seja o primeiro exige revisão, assim como qualquer risco sinalizado. Tudo viaja como `evidence_only`: nada eleva score nem libera gate.
+
+As próprias regressões encontraram um defeito: snapshots em camelCase perdiam ranks, riscos e locutor silenciosamente.
+
+Cobertura e precisão não se moveram — `50/66` destaques, `25/27` blocos, precisão `1.00`, desperdício 0. Suíte: **347 aprovados, 7 falhas ambientais**.
+
+Relatório em [`CYCLE_21_REPORT_2026-08-17.md`](CYCLE_21_REPORT_2026-08-17.md).
+
 ## 3.0 — Orçamento de candidatos governado pela fonte
 
 ### Incluído

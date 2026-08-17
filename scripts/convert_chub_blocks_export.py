@@ -108,6 +108,7 @@ def convert(payload: dict, transcript: dict | None = None) -> dict:
             "trigger_question": item.get("triggerQuestion"),
             "risk_flags": item.get("riskFlags") or [],
             "gate_warnings": item.get("gateWarnings") or [],
+            "speakers_note": item.get("speakersNote"),
             "trust_tier": item.get("trustTier"),
             "trust_tier_label": item.get("trustTierLabel"),
             "labeler_version": item.get("labelerVersion"),

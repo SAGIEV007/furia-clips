@@ -380,3 +380,66 @@ def test_third_party_campaign_hub_seed_remains_review_required():
     assert proposal["campaign_hub"]["gates"]["provenance_gate"] == "review_required"
     assert proposal["campaign_hub"]["gates"]["warning_gate"] == "review_required"
     assert proposal["review_required"] is True
+
+
+def _snapshot_for_evidence():
+    snapshot = _b354_snapshot()
+    snapshot["records"]["blocks"][0].update({
+        "start_s": 0.0,
+        "end_s": 600.0,
+        "speakers_note": "Todas as linhas atribuídas à (fala 1), sem identificação nominal.",
+        "summary": "Kim convoca 45 dias de mobilização.",
+    })
+    return snapshot
+
+
+def test_every_candidate_inherits_the_block_context_it_sits_in():
+    """A candidate must never reach the reviewer without saying who is speaking."""
+    selector = ClipSelector()
+    clips = [{"start": 100.0, "end": 160.0, "text": "trecho dentro do bloco"}]
+
+    selector._attach_block_evidence(clips, {"campaign_hub_snapshot": _snapshot_for_evidence()})
+
+    block = clips[0]["campaign_hub_block"]
+    assert block["block_id"] == B354_BLOCK_ID
+    assert block["trigger_question"]
+    assert block["density_rank"] == 98
+    assert block["speakers_note"]
+    # Kim speaks in this block, so the candidate is explicitly not Renan.
+    assert block["renan_speaking"] is False
+    assert block["speaker_status"] == "terceiro_ou_indeterminado"
+    # Evidence only: the block never approves the clip on its own.
+    assert block["evidence_only"] is True
+    assert clips[0]["review_required"] is True
+    assert any("locutor" in reason for reason in clips[0]["review_reasons"])
+    assert any("riscos" in reason for reason in clips[0]["review_reasons"])
+
+
+def test_confirmed_renan_block_does_not_add_a_speaker_review_reason():
+    selector = ClipSelector()
+    snapshot = _snapshot_for_evidence()
+    snapshot["records"]["blocks"][0]["renan_speaking"] = True
+    snapshot["records"]["blocks"][0]["risk_flags"] = []
+    clips = [{"start": 100.0, "end": 160.0, "text": "Renan fala"}]
+
+    selector._attach_block_evidence(clips, {"campaign_hub_snapshot": snapshot})
+
+    assert clips[0]["campaign_hub_block"]["speaker_status"] == "renan_confirmado"
+    assert "review_reasons" not in clips[0]
+
+
+def test_candidate_outside_every_block_receives_no_invented_context():
+    selector = ClipSelector()
+    clips = [{"start": 2000.0, "end": 2060.0, "text": "fora de qualquer bloco"}]
+
+    selector._attach_block_evidence(clips, {"campaign_hub_snapshot": _snapshot_for_evidence()})
+
+    assert "campaign_hub_block" not in clips[0]
+
+
+def test_block_evidence_is_inert_without_a_snapshot():
+    selector = ClipSelector()
+    clips = [{"start": 100.0, "end": 160.0, "text": "sem snapshot"}]
+
+    assert selector._attach_block_evidence(clips, {}) == clips
+    assert "campaign_hub_block" not in clips[0]
