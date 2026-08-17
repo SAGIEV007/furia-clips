@@ -1,5 +1,39 @@
 # Changelog de continuidade
 
+## 3.0 — Orçamento de candidatos governado pela fonte
+
+### Incluído
+
+- `app.py`: `_selection_coverage_plan()` passa a derivar o orçamento da duração da fonte (`SECONDS_PER_CANDIDATE = 45`), com piso `MIN_CANDIDATE_BUDGET = 15` e válvula de segurança `MAX_CANDIDATE_BUDGET = 400`. O antigo `min(36, ...)` dava a uma fonte de 4 horas praticamente a mesma cota de uma de 1 hora.
+- `scripts/run_acervo_recall_benchmark.py`: novas métricas de precisão — `precision_on_block`, `precision_carrying_highlight` e `off_block_candidates`.
+- `tests/test_candidate_budget.py`: cinco regressões novas.
+
+### Precisão medida antes de mexer no teto
+
+A varredura de tetos de 20 a 160 candidatos na mesma fonte mostrou `precision_on_block = 1.00` em **todos** os pontos, com zero candidatos fora de bloco. Aumentar a quantidade não produziu lixo. O IoU médio subiu junto, de `0.0772` para `0.2730`.
+
+A oferta satura em **121** candidatos: elevar o teto de 120 para 160 não produziu nenhum candidato a mais. O teto não continha excesso — cortava material que os gates já haviam aprovado.
+
+### Resultado
+
+| Métrica | 2.9 | 3.0 |
+| --- | --- | --- |
+| Destaques recuperados | `27/66` | `50/66` |
+| Blocos alcançados | `20/27` | `25/27` |
+| `precision_on_block` | `1.00` | `1.00` |
+| Candidatos fora de bloco | 0 | 0 |
+| IoU médio | `0.1600` | `0.2730` |
+
+Somando as rodadas na mesma fonte: `11/66` → `24/66` (ponte Chub) → `27/66` (descarte de não-conteúdo) → `50/66` (orçamento corrigido). **4,5× o ponto de partida, com precisão `1.00` do começo ao fim.**
+
+Não existe quantidade mínima de cortes: o orçamento é limite, nunca meta, e o pipeline encerra sozinho quando o material acaba.
+
+Suíte: **343 aprovados, 7 falhas ambientais**.
+
+### Limitações
+
+Medido em um único vídeo. O efeito do orçamento maior sobre o tempo de processamento de uma fonte de 3–4 horas não foi medido. Relatório em [`CYCLE_20_REPORT_2026-08-17.md`](CYCLE_20_REPORT_2026-08-17.md).
+
 ## 2.9 — Primeiro recall medido em fonte longa inteira
 
 ### Incluído

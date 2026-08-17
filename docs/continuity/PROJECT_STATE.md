@@ -8,9 +8,9 @@
 | --- | --- |
 | Projeto | Furia Clips |
 | Repositório | `SAGIEV007/furia-clips` |
-| Versão pública atual | `2.9` |
-| Última release funcional anterior | `2.8` |
-| Natureza da release atual | Primeiro recall medido em fonte longa inteira e descarte de não-conteúdo rotulado |
+| Versão pública atual | `3.0` |
+| Última release funcional anterior | `2.9` |
+| Natureza da release atual | Orçamento de candidatos governado pela fonte, com precisão medida |
 | Fonte da versão | [`VERSION`](../../VERSION) |
 | Branch de trabalho | `claude/repo-access-commits-imgjmk` |
 | Última publicação conhecida antes desta rodada | `a0452d3` — `fix: declarar confiabilidade da medição no benchmark editorial (2.7)` |
@@ -19,8 +19,8 @@
 | Commit funcional 2.8 | `fdf5e6b` — `fix: alinhar seeds do Campaign Hub com a mídia local em processamento (2.8)` |
 | Commit funcional 2.9 | `10c1fad` — `feat: medir recall em fonte longa inteira e descartar não-conteúdo rotulado (2.9)` |
 | Última atualização | 2026-08-17 |
-| Baseline editorial | `3XJfcqn56Rw`: 27 blocos, 66 destaques, recall `27/66`, cobertura `20/27`, IoU `0.16` (release 2.9). O b354 permanece como regressão de locutor. |
-| Suíte no checkout | 338 aprovados, 7 falhas ambientais (`ffmpeg`/`ffprobe` ausentes e asset BlazeFace) |
+| Baseline editorial | `3XJfcqn56Rw`: 27 blocos, 66 destaques, recall `50/66`, cobertura `25/27`, precisão `1.00`, IoU `0.273` (release 3.0). O b354 permanece como regressão de locutor. |
+| Suíte no checkout | 343 aprovados, 7 falhas ambientais (`ffmpeg`/`ffprobe` ausentes e asset BlazeFace) |
 | Objetivo | Gerar cortes Renan Santos/MBL concisos, autossuficientes, contextualizados e editorialmente úteis |
 
 A branch de trabalho deve ser confirmada no checkout real. O GitHub é a fonte da revisão técnica; este arquivo não pode manter um hash diferente do `HEAD` final publicado. Antes de alterar qualquer arquivo, preserve mudanças locais e confirme `git status`.
@@ -33,7 +33,23 @@ A ponte carrega o snapshot uma vez por job, preserva proveniência e riscos, exp
 
 O caso b354 deve preservar `renanSpeaking=false` quando Kim ou outro terceiro fala. O fato de um bloco ser sobre Renan não autoriza atribuir a fala a Renan. Propostas guiadas devem permanecer separadas de cortes aprovados e não podem apagar candidatos de terceiros.
 
-## Release atual — 2.9
+## Release atual — 3.0
+
+A 3.0 removeu o teto fixo de candidatos. `_selection_coverage_plan()` calculava
+`min(36, ...)`, o que dava a uma fonte de 4 horas praticamente a mesma cota de uma de
+1 hora: quanto mais longa a live, maior a fração dela que nunca era examinada.
+
+A precisão foi medida **antes** de mexer no teto. Numa varredura de 20 a 160
+candidatos, `precision_on_block` ficou em `1.00` em todos os pontos, com zero
+candidatos fora de bloco, e o IoU médio subiu de `0.0772` para `0.2730`. A oferta
+satura em 121: o teto não continha excesso, cortava material já aprovado pelos gates.
+
+Resultado na mesma fonte: recall de `27/66` para `50/66`, cobertura de `20/27` para
+`25/27`, precisão inalterada em `1.00`. Somando as rodadas: `11/66` → `24/66` →
+`27/66` → `50/66`, **4,5× o ponto de partida**. Relatório em
+[`CYCLE_20_REPORT_2026-08-17.md`](CYCLE_20_REPORT_2026-08-17.md).
+
+## Release anterior — 2.9
 
 A 2.9 produziu o primeiro número de recall comparável em uma fonte longa inteira. O
 bloqueio de todas as rodadas anteriores era a falta do MP4; a observação que o removeu
@@ -179,6 +195,7 @@ Em qualquer rodada, classifique conclusões como `confirmado`, `reproduzido`, `c
 
 | Release | Foco | Resultado principal | Relatório |
 | --- | --- | --- | --- |
+| 3.0 | Orçamento governado pela fonte | Recall `27/66`→`50/66` e cobertura `20/27`→`25/27` com precisão inalterada em `1.00` | [`CYCLE_20_REPORT_2026-08-17.md`](CYCLE_20_REPORT_2026-08-17.md) |
 | 2.9 | Recall medido em fonte longa | Ponte Chub dobra o recall (`11/66`→`24/66`); filtro de não-conteúdo leva a `27/66` | [`CYCLE_19_REPORT_2026-08-17.md`](CYCLE_19_REPORT_2026-08-17.md) |
 | 2.8 | Alinhamento temporal das seeds | Seeds do b354 passam a cair na timeline local; três propostas falsas idênticas eliminadas | [`CYCLE_18_REPORT_2026-08-17.md`](CYCLE_18_REPORT_2026-08-17.md) |
 | 2.7 | Confiabilidade declarada da medição | Benchmark passa a distinguir `0/3` de seleção de `0/3` por timeline não mapeada | [`CYCLE_17_REPORT_2026-08-17.md`](CYCLE_17_REPORT_2026-08-17.md) |

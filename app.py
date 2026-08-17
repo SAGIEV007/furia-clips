@@ -336,14 +336,38 @@ def _probe_video_duration_seconds(video_path):
         return None
 
 
+# Roughly one candidate per this many seconds of source. Calibrated against the
+# Acervo benchmark: on a 98-minute live the pipeline stopped producing new
+# candidates at 121, about one per 49s, so a budget below that only discards
+# material the gates had already approved.
+SECONDS_PER_CANDIDATE = 45
+# Floor for short sources and a safety valve against pathological input. The
+# ceiling is not an editorial decision: quality gates decide what survives.
+MIN_CANDIDATE_BUDGET = 15
+MAX_CANDIDATE_BUDGET = 400
+
+
 def _selection_coverage_plan(source_video, video_duration):
-    """Build a local-only plan for adaptive candidate coverage and deduplication."""
+    """Build a local-only plan for adaptive candidate coverage and deduplication.
+
+    The budget follows the length of the source instead of a fixed ceiling. The
+    previous cap of 36 gave a four-hour source practically the same allowance as
+    a one-hour one, so the longer the video the more of it went unexamined. It is
+    a budget, not a target: the pipeline stops on its own when the material runs
+    out, and no minimum number of clips is ever produced to fill it.
+    """
     fingerprints = get_existing_clip_fingerprints(source_video)
     try:
         span = max(0.0, float(video_duration or 0.0))
     except (TypeError, ValueError):
         span = 0.0
-    max_clips = min(36, max(15, int(span // 240) + 6)) if span >= 120 else 15
+    if span < 120:
+        max_clips = MIN_CANDIDATE_BUDGET
+    else:
+        max_clips = min(
+            MAX_CANDIDATE_BUDGET,
+            max(MIN_CANDIDATE_BUDGET, int(span // SECONDS_PER_CANDIDATE) + 6),
+        )
     return {"previous_clip_fingerprints": fingerprints, "adaptive_max_clips": max_clips}
 
 

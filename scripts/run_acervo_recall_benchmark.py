@@ -139,11 +139,41 @@ def score(candidates: list[dict], blocks: list[dict], highlights: list[dict], ig
         if length > 0 and wasted / length >= 0.5:
             in_ignored.append({"start": span[0], "end": span[1], "ignored_fraction": round(wasted / length, 3)})
 
+    # Precision side of the ledger. A block is a stretch the Acervo judged to be a
+    # coherent unit, so a candidate sitting mostly inside one is on labelled
+    # content. Blocks do not tile the whole source, so a candidate outside every
+    # block is not automatically wrong — it is unendorsed, and reported as such.
+    block_spans = [
+        (_float(block.get("start_s")), _float(block.get("end_s")))
+        for block in blocks
+        if _float(block.get("end_s")) > _float(block.get("start_s"))
+    ]
+    on_block = 0
+    off_block = 0
+    carrying_highlight = 0
+    for span in spans:
+        length = span[1] - span[0]
+        covered = max((_overlap(span, block) for block in block_spans), default=0.0)
+        if length > 0 and covered / length >= 0.5:
+            on_block += 1
+        elif covered <= 0:
+            off_block += 1
+        if any(
+            _overlap(span, (_float(h.get("start_s")), _float(h.get("end_s")))) > 0
+            for h in highlights
+        ):
+            carrying_highlight += 1
+
     durations = [span[1] - span[0] for span in spans]
     recovered = sum(1 for item in covered_highlights if item["recovered"])
     touched = sum(1 for item in covered_blocks if item["touched"])
     return {
         "candidate_count": len(spans),
+        "on_block_candidates": on_block,
+        "off_block_candidates": off_block,
+        "candidates_carrying_highlight": carrying_highlight,
+        "precision_on_block": round(on_block / len(spans), 4) if spans else None,
+        "precision_carrying_highlight": round(carrying_highlight / len(spans), 4) if spans else None,
         "highlight_total": len(covered_highlights),
         "highlight_recovered": recovered,
         "highlight_recall": round(recovered / len(covered_highlights), 4) if covered_highlights else None,
@@ -230,6 +260,9 @@ def main() -> int:
         "candidate_count": metrics["candidate_count"],
         "highlight_recall": f"{metrics['highlight_recovered']}/{metrics['highlight_total']}",
         "block_coverage": f"{metrics['block_touched']}/{metrics['block_total']}",
+        "precision_on_block": metrics["precision_on_block"],
+        "precision_carrying_highlight": metrics["precision_carrying_highlight"],
+        "off_block_candidates": metrics["off_block_candidates"],
         "mean_best_iou": metrics["mean_best_iou"],
         "candidates_in_ignored_regions": metrics["candidates_in_ignored_regions"],
         "duration_s_stats": metrics["duration_s"],
