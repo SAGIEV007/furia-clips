@@ -112,6 +112,10 @@ def _interview_units(segments: list[dict[str, Any]], duration_s: float) -> list[
             "title": "",
             "summary": "",
             "question": _shorten(turn.get("text"), 200),
+            # Where the guest starts speaking. A caller quoting the stretch has
+            # to skip the question, or it shows the same words twice — once as
+            # the question and again as the opening of the answer.
+            "answer_start_s": round(_number(turn.get("end_s")) or start, 2),
             "subject_terms": _terms_between(segments, start, end),
             "highlights": [],
             "renan_speaking": None,

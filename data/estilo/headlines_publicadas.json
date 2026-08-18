@@ -1,0 +1,107 @@
+{
+  "schema_version": "furia-headlines-publicadas-v1",
+  "nota": "Headlines realmente publicadas nas contas, transcritas das capturas de tela que o editor mandou em 18/08/2026. Não vieram do CHUB: vieram do feed. Servem como referência de forma — o que é dito, em que ordem, com que verbo — e não como frases a reutilizar. Como foram lidas de imagem, algumas podem ter pequenos erros de transcrição; nenhuma é usada como citação.",
+  "origem": "capturas de tela do feed (@renanvote14 e conta principal), visão geral em grade",
+  "aviso_de_uso": "Isto é corpus de estilo. Uma headline gerada tem de descrever o que o corte realmente diz; copiar um molde daqui sobre um corte que não o sustenta produz manchete falsa, que é pior do que manchete fraca.",
+
+  "chamadas_superiores": {
+    "nota": "A linha curta acima da headline no 1:1. É reação, não informação: quem lê já sabe o que sentir antes de ler o resto. Quase sempre termina em '!' ou '?'.",
+    "observadas": [
+      "VIRALIZOU!", "NA LATA!", "CHOCADA!", "CHOCADA!!!", "BOMBA!", "EM ALTA!",
+      "SIM!!", "MEU DEUS!", "INUSITADO!", "SEM FILTRO!", "DESAFIO!",
+      "ANOTOU A PLACA?", "ALERTA DE TESTOSTERONA!", "FIM DO XANDÃO?",
+      "RESPOSTA HONESTA! KKKK", "IMPRESSIONANTE", "INCRÍVEL:",
+      "NEM FLÁVIO, NEM LULA:", "DE MILÍCIA A COMANDO VERMELHO"
+    ],
+    "palavras_max": 4
+  },
+
+  "padroes": [
+    {
+      "id": "verbo_forte_terceira_pessoa",
+      "descricao": "Sujeito nomeado + verbo de conflito no presente + alvo. É a forma mais comum de todas.",
+      "verbos": ["detona", "expõe", "confronta", "dispara", "rebate", "responde", "revela", "promete", "chama", "declara", "reage", "apresenta", "explica", "lança", "mostra", "supera"],
+      "exemplos": [
+        "Renan Santos detona prefeito e governador do Maranhão",
+        "Candidato a presidente Renan Santos expõe o real problema do Brasil",
+        "Renan Santos declara guerra aos infiltrados em milícias digitais",
+        "Renan Santos promete diminuir o poder do STF caso seja eleito presidente em outubro"
+      ]
+    },
+    {
+      "id": "gancho_de_noticia",
+      "descricao": "Abre pelo fato externo e só depois entrega a reação. É o formato de maior razão de views medido no CHUB.",
+      "molde": "Após <fato>, <sujeito> <verbo> <alvo>",
+      "exemplos": [
+        "Após ORDEM DE MORAES à PF, RENAN SANTOS DETONA MINISTRO",
+        "Após ataques por não concluir universidade, Renan Santos expõe a falsa direita",
+        "Após Renan Santos bater 10% para Presidente, jornal que o bombava agora pede entrevista",
+        "Após Pesquisas, Jornalistas afirmam que Flávio pode PERDER para Lula no 2º Turno. E o único que ganha é..."
+      ]
+    },
+    {
+      "id": "citacao_no_fim",
+      "descricao": "Contexto em terceira pessoa, dois pontos, e a frase dita entre aspas. A aspa é o gancho e tem de ser literalmente o que o áudio diz.",
+      "molde": "<contexto>: '<frase dita>'",
+      "exemplos": [
+        "Renan Santos apresenta sua meta de governo para a educação: 'A pátria educadora não educa'",
+        "Em ato, Renan Santos fala sobre o crescimento da força da Missão: 'É inevitável'",
+        "RENAN SANTOS MANDA A REAL: 'ORDEM ILEGAL NÃO SE CUMPRE'",
+        "Renan Santos reage a Nikolas Ferreira: 'Talvez você não esteja entendendo o tamanho da merda que foi feita'"
+      ]
+    },
+    {
+      "id": "lacuna_de_curiosidade",
+      "descricao": "Retém a informação decisiva. Só é honesto quando o corte realmente entrega o que foi retido.",
+      "exemplos": [
+        "Jornalista confronta Renan Santos e ouve o que não esperava",
+        "Zema atacou, mas não esperava por essa resposta",
+        "E o único que ganha é...",
+        "Esse MONSTRO fez tudo isso"
+      ]
+    },
+    {
+      "id": "pergunta_fechada",
+      "descricao": "Pergunta cuja resposta o corte dá. Cinco dos doze posts de maior view do CHUB são perguntas — pergunta funciona, desde que seja fechada e provocativa, nunca aberta e abstrata.",
+      "exemplos": [
+        "Por que Lula e Flávio estão FUGINDO desse tal de Renan Santos? 👀",
+        "Enquanto Renan Santos marchava para Brasília pelo impeachment da Dilma, o que Flávio Bolsonaro estava fazendo?",
+        "Melhor proposta dessa eleição?",
+        "Renan Santos tirou a cueca?"
+      ]
+    },
+    {
+      "id": "contraste_nominal",
+      "descricao": "Coloca dois nomes em oposição direta. Funciona porque o leitor já tem opinião sobre os dois.",
+      "exemplos": [
+        "NEM FLÁVIO, NEM LULA: Renan Santos é o único pré-candidato que defende o agro brasileiro!",
+        "UNE vs Renan Santos pela 'DEMOCRACIA'",
+        "Renan Santos explica porque não se deve apoiar candidato do PL"
+      ]
+    },
+    {
+      "id": "numero_concreto",
+      "descricao": "Número específico no corpo da headline. Nunca arredondado quando o dado não é.",
+      "exemplos": [
+        "Candidato a presidente Renan Santos dispara e atinge 10% em pesquisa espontânea",
+        "VIRADA! Renan supera Lula por 41% a 39% no 2º turno entre eleitores de 16 a 34 anos",
+        "Esse agroboy tá em terceiro com 10% nas pesquisas para virar Presidente!!"
+      ]
+    }
+  ],
+
+  "enfase": {
+    "nota": "Uma palavra do corpo sobe para caixa alta — é a palavra que carrega o conflito, nunca o sujeito e nunca um verbo neutro. No 1:1 essa ênfase pode virar o realce branco sobre fundo vermelho.",
+    "palavras_observadas_em_caixa": ["FUGINDO", "PERDER", "MUDAR O BRASIL", "ESCÂNDALO", "MONSTRO", "ORDEM DE MORAES", "DETONA", "ACABAR", "NIKOLAS FERREIRA"],
+    "por_linha_max": 1
+  },
+
+  "regras_lidas_do_corpus": [
+    "Terceira pessoa, voz de notícia. O corte é narrado, não anunciado em primeira pessoa.",
+    "O sujeito é nomeado por extenso na maioria dos casos ('Renan Santos', não 'ele'), porque quem vê o post no feed pode não saber quem é.",
+    "O cargo entra quando é o que dá peso: 'candidato a presidente', 'pré-candidato', 'deputado'.",
+    "Verbo no presente, mesmo para fato passado.",
+    "Nada de adjetivo sobre o próprio corte ('imperdível', 'chocante' no corpo). O julgamento fica na chamada superior, separado.",
+    "Aspas só para o que foi dito. O áudio é a verdade; a legenda automática não basta para autorizar uma aspa."
+  ]
+}

@@ -8,8 +8,18 @@
     "caixa": "maiuscula",
     "contorno": true,
     "posicao": "inferior_centro",
+    "posicao_9x16": "superior",
+    "posicao_9x16_nota": "No formato 9:16 a legenda fica no topo do vídeo, não embaixo: a parte de baixo do quadro é reservada para a imagem que o editor insere depois.",
     "palavras_por_linha_max": 4,
-    "linhas_max": 2
+    "linhas_max": 2,
+    "destaque_por_palavra": {
+      "observado": true,
+      "confirmar_com_editor": true,
+      "nota": "Nas capturas dos posts publicados a legenda não aparece toda amarela: o texto é branco e UMA palavra por linha vem em amarelo — 'A PESSOA INOCENTE', 'DA GLOBO NEWS', 'TÁ GERANDO UMA'. O editor descreveu a legenda como amarela, então as duas leituras estão registradas até ele confirmar qual vale.",
+      "cor_base": "#FFFFFF",
+      "cor_destaque": "#FFD400",
+      "palavras_por_linha_max": 1
+    }
   },
   "headline_1x1": {
     "fonte": "Stilu-BD",

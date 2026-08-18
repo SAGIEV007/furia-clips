@@ -1434,23 +1434,30 @@ def api_campaign_hub_memory_import():
                 pass
 
 
-@app.route("/api/editorial/blocks", methods=["GET"])
+@app.route("/api/editorial/blocks", methods=["GET", "POST"])
 def api_editorial_blocks():
-    """List blocks from local memory; network access is intentionally absent."""
+    """List blocks for the loaded source; network access is intentionally absent.
+
+    The POST form carries the video and the transcript the operator has open, so
+    the panel can fall back to Furia's own reading when no reviewed export exists
+    for the source. The GET form is the older snapshot-only listing and stays.
+    """
     try:
-        from modules.editorial_block_memory import list_blocks
+        from modules.preanalysis_blocks import blocks_for_source
         settings = get_all_settings()
-        renan_value = request.args.get("renan_speaking")
-        renan_speaking = None if renan_value in (None, "", "all") else _coerce_bool(renan_value)
-        payload = list_blocks(
-            settings.get("campaign_hub_snapshot_path"),
-            query=str(request.args.get("q") or "").strip(),
-            video_id=str(request.args.get("video_id") or "").strip() or None,
-            renan_speaking=renan_speaking,
-            prioritize_renan=request.args.get("prioritize_renan", "0") == "1",
-            source_ref=str(request.args.get("source_ref") or "").strip() or None,
-            limit=request.args.get("limit", 50),
-            offset=request.args.get("offset", 0),
+        data = request.get_json(silent=True) or {} if request.method == "POST" else {}
+        video_path = _resolve_media_input(data.get("video_path", "")) if data else ""
+        duration = data.get("duration_s")
+        if not duration and video_path and os.path.isfile(video_path):
+            duration = _probe_video_duration_seconds(video_path)
+        payload = blocks_for_source(
+            video_path=video_path or None,
+            segments=data.get("segments") if isinstance(data.get("segments"), list) else [],
+            duration_s=duration,
+            snapshot_path=settings.get("campaign_hub_snapshot_path"),
+            query=str(data.get("q") or request.args.get("q") or "").strip(),
+            prioritize_renan=bool(data.get("prioritize_renan")) or request.args.get("prioritize_renan", "0") == "1",
+            limit=int(data.get("limit") or request.args.get("limit", 80)),
         )
         return jsonify(payload)
     except (TypeError, ValueError) as exc:

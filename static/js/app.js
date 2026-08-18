@@ -956,15 +956,29 @@ async function loadCampaignHubLocalStatus() {
     }
 }
 
+// De onde vieram os blocos. Só o Acervo passou por revisão humana; a leitura do
+// Furia é uma aproximação honesta e o painel diz isso em voz alta, porque muda
+// o quanto o editor deve confiar nas bordas.
+const BLOCK_ORIGINS = {
+    acervo: "blocos revisados do Acervo",
+    campaign_hub: "blocos da memória do Campaign Hub",
+    furia_entrevista: "leitura do Furia · turnos da entrevista",
+    furia_temas: "leitura do Furia · blocos temáticos",
+};
+
 function renderEditorialBlocks(payload) {
     const list = document.getElementById("editorialBlocksList");
     const status = document.getElementById("editorialBlocksStatus");
     if (!list) return;
     const blocks = Array.isArray(payload?.blocks) ? payload.blocks : [];
+    const reviewed = payload?.reviewed === true;
     if (status) {
         const dot = status.querySelector(".status-dot");
-        if (dot) dot.className = `status-dot ${payload?.available ? "online" : "offline"}`;
-        status.lastChild.textContent = payload?.available ? ` ${payload.total || 0} bloco(s) local(is)` : " Memória não carregada";
+        if (dot) dot.className = `status-dot ${payload?.available ? (reviewed ? "online" : "warn") : "offline"}`;
+        const originLabel = BLOCK_ORIGINS[payload?.origin] || "";
+        status.lastChild.textContent = payload?.available
+            ? ` ${payload.total || 0} bloco(s)${originLabel ? ` · ${originLabel}` : ""}`
+            : " Nenhum bloco para esta fonte";
     }
     if (!payload?.available) {
         list.innerHTML = `<div class="editorial-blocks-empty"><span class="material-icons-round">cloud_off</span><br>${escapeHtml(payload?.message || "Atualize a memória local para carregar blocos editoriais.")}</div>`;
@@ -978,14 +992,14 @@ function renderEditorialBlocks(payload) {
         const riskCount = (block.risk_flags || []).length + (block.gate_warnings || []).length;
         const renanLabel = block.renan_speaking === true ? "fala do Renan" : block.renan_speaking === false ? "fala de terceiro" : "locutor não confirmado";
         const renanClass = block.renan_speaking === true ? "good" : block.renan_speaking === false ? "warn" : "";
-        const sourceTitle = block.source?.title ? ` · ${escapeHtml(block.source.title)}` : "";
+        const sourceTitle = reviewed && block.source?.title ? ` · ${escapeHtml(block.source.title)}` : "";
         const highlights = Array.isArray(block.highlights) ? block.highlights.slice(0, 6) : [];
         const highlightsMarkup = highlights.length ? `<div class="editorial-block-highlights"><div class="editorial-block-highlights-title"><span class="material-icons-round">auto_awesome</span> Destaques de referência</div>${highlights.map((highlight) => `<div class="editorial-block-highlight"><div><b>${escapeHtml(formatTime(Number(highlight.start_s || 0)))}–${escapeHtml(formatTime(Number(highlight.end_s || 0)))}</b><span>${escapeHtml(highlight.text || "Destaque sem transcrição")}</span></div><button class="btn btn-sm btn-outline editorial-block-highlight-export" type="button" data-highlight-export="${escapeHtml(block.id)}" data-highlight-id="${escapeHtml(highlight.id)}" title="Exporta somente este destaque da fonte local"><span class="material-icons-round">download</span></button></div>`).join("")}</div>` : "";
         return `<article class="editorial-block-card" data-block-id="${escapeHtml(block.id)}">
             <div class="editorial-block-time"><strong>${formatTime(Number(block.start || 0))}</strong>${formatTime(Number(block.end || 0))}<span>${Number(block.duration || 0).toFixed(0)}s</span></div>
             <div class="editorial-block-content">
-                <h4>${escapeHtml(block.title || "Bloco editorial")}</h4>
-                <p>${escapeHtml(block.summary || "Resumo não disponível.")}</p>
+                <h4>${escapeHtml(block.title || block.label || "Bloco editorial")}</h4>
+                <p class="${block.summary_is_verbatim ? "editorial-block-verbatim" : ""}">${block.summary_is_verbatim ? "<b>Trecho falado:</b> " : ""}${escapeHtml(block.summary || "Resumo não disponível.")}</p>
                 ${block.trigger_question ? `<div class="editorial-block-question"><b>Pergunta:</b> ${escapeHtml(block.trigger_question)}</div>` : ""}
                 <div class="editorial-block-meta">
                     <span class="editorial-block-chip ${renanClass}">${escapeHtml(renanLabel)}</span>
@@ -1020,7 +1034,7 @@ function renderEditorialBlocks(payload) {
                 showToast("Selecione primeiro o MP4 correspondente ao bloco.", "warning");
                 return;
             }
-            const sourceLabel = block.source?.title || block.source?.url || "fonte do Campaign Hub";
+            const sourceLabel = block.source?.title || block.source?.url || "o vídeo carregado";
             if (!confirm(`Confirme que o vídeo local selecionado corresponde a “${sourceLabel}”. Exportar ${formatTime(Number(block.start || 0))}–${formatTime(Number(block.end || 0))} no aspecto original?`)) return;
             button.disabled = true;
             try {
@@ -1072,15 +1086,25 @@ function renderEditorialBlocks(payload) {
 }
 
 async function loadEditorialBlocks() {
+    // O painel lia só um snapshot global que ninguém nunca preencheu, e por isso
+    // vivia vazio. Agora ele manda o vídeo e a transcrição abertos: o servidor
+    // usa os blocos revisados do Acervo quando existem e, quando não existem,
+    // a leitura que o próprio Furia faz da fonte.
     const query = document.getElementById("editorialBlocksSearch")?.value.trim() || "";
     const prioritizeRenan = document.getElementById("editorialBlocksRenanOnly")?.checked;
-    const sourceRef = String(state.selectedVideoName || "").match(/[A-Za-z0-9_-]{11}/)?.[0] || "";
-    const params = new URLSearchParams({ limit: "80" });
-    if (query) params.set("q", query);
-    if (prioritizeRenan) params.set("prioritize_renan", "1");
-    if (sourceRef) params.set("source_ref", sourceRef);
     try {
-        const response = await fetch(`/api/editorial/blocks?${params.toString()}`, { cache: "no-store" });
+        const response = await fetch("/api/editorial/blocks", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            cache: "no-store",
+            body: JSON.stringify({
+                video_path: state.selectedVideo || "",
+                segments: state.manualTranscript?.segments || [],
+                q: query,
+                prioritize_renan: Boolean(prioritizeRenan),
+                limit: 80,
+            }),
+        });
         const payload = await parseJsonResponse(response, "Blocos editoriais");
         renderEditorialBlocks(payload);
     } catch (error) {
@@ -3151,6 +3175,9 @@ function hydrateTranscriptEditor(transcription, archive = null) {
     // painel deixa de estar vazio sem o editor precisar pedir.
     if (state.selectedVideo && transcription?.segments?.length) {
         window.setTimeout(() => refreshSourceReading(), 0);
+        // Os blocos saem da mesma leitura. Esperar o ciclo de 60s para eles
+        // aparecerem fazia o painel parecer quebrado.
+        window.setTimeout(() => loadEditorialBlocks(), 0);
     }
     state.transcriptArchive = archive || transcription?.archive_metadata || null;
     const input = document.getElementById("manualTranscriptInput");
