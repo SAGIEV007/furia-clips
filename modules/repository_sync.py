@@ -303,32 +303,6 @@ def get_repository_status(repo_path: str | None = None, fetch: bool = False) -> 
     }
 
 
-def update_from_github(repo_path: str | None = None) -> dict[str, Any]:
-    """Fast-forward only; never overwrite uncommitted user work."""
-    repo = _repo_path(repo_path)
-    branch = _branch(repo)
-    status = get_repository_status(str(repo), fetch=True)
-    if status["current_branch"] != branch:
-        raise RepositorySyncError(f"O checkout está na branch '{status['current_branch'] or 'desconhecida'}', não em '{branch}'.")
-    snapshot_path = repo / SNAPSHOT_RELATIVE_PATH
-    snapshot_was_dirty = SNAPSHOT_RELATIVE_PATH.as_posix() in status["dirty_files"]
-    dirty = [item for item in status["dirty_files"] if item != SNAPSHOT_RELATIVE_PATH.as_posix()]
-    if dirty:
-        raise RepositorySyncError("Há alterações locais não publicadas. Faça backup ou publique-as antes de atualizar: " + ", ".join(dirty[:5]))
-    if not status["update_available"]:
-        return {**status, "updated": False, "message": "O programa já está atualizado."}
-    preserved_snapshot = snapshot_path.read_bytes() if snapshot_was_dirty and snapshot_path.is_file() else None
-    if snapshot_was_dirty:
-        snapshot_path.unlink(missing_ok=True)
-    try:
-        _run_git(repo, "merge", "--ff-only", f"origin/{branch}", timeout=60)
-    finally:
-        if preserved_snapshot is not None:
-            snapshot_path.parent.mkdir(parents=True, exist_ok=True)
-            snapshot_path.write_bytes(preserved_snapshot)
-    return {**get_repository_status(str(repo), fetch=False), "updated": True, "message": "Atualização aplicada por fast-forward; as decisões locais permanecem no armazenamento persistente."}
-
-
 def push_feedback_snapshot(repo_path: str | None = None) -> dict[str, Any]:
     """Commit and push only the sanitized feedback snapshot."""
     repo = _repo_path(repo_path)

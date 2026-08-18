@@ -502,8 +502,6 @@ document.getElementById("campaignHubMemoryFileInput")?.addEventListener("change"
 document.getElementById("btnRefreshTranscriptArchive")?.addEventListener("click", loadTranscriptArchive);
 document.getElementById("btnEditorialRestore")?.addEventListener("click", () => document.getElementById("editorialRestoreInput")?.click());
 document.getElementById("editorialRestoreInput")?.addEventListener("change", restoreEditorialBackup);
-document.getElementById("btnRepositoryCheck")?.addEventListener("click", () => checkRepositorySync(true));
-document.getElementById("btnRepositoryUpdate")?.addEventListener("click", () => runRepositorySync("update"));
 document.getElementById("btnRepositoryPushFeedback")?.addEventListener("click", () => runRepositorySync("push_feedback"));
 document.getElementById("btnRepositoryRestoreFeedback")?.addEventListener("click", () => runRepositorySync("restore_feedback"));
 
@@ -1132,7 +1130,7 @@ function syncRepositoryRestoreAvailability() {
 }
 
 function setRepositorySyncButtonsDisabled(disabled) {
-    ["btnRepositoryCheck", "btnRepositoryUpdate", "btnRepositoryPushFeedback", "btnRepositoryRestoreFeedback"].forEach((id) => {
+    ["btnRepositoryPushFeedback", "btnRepositoryRestoreFeedback"].forEach((id) => {
         const button = document.getElementById(id);
         if (button) button.disabled = disabled;
     });
@@ -1155,10 +1153,6 @@ async function fetchRepositoryJson(url, options = {}, timeoutMs = 15000) {
 }
 
 function renderRepositorySyncState(payload) {
-    const snapshotPath = String(payload.feedback_snapshot_path || "data/editorial_feedback_snapshot.json");
-    const codeDirty = Array.isArray(payload.code_dirty_files)
-        ? payload.code_dirty_files
-        : (payload.dirty_files || []).filter((item) => item !== snapshotPath);
     const snapshotPresent = Boolean(payload.feedback_snapshot_present);
     const snapshotValid = Boolean(payload.feedback_snapshot_valid);
     const snapshotRecords = Number(payload.feedback_snapshot_records || 0);
@@ -1166,12 +1160,8 @@ function renderRepositorySyncState(payload) {
         ? (snapshotValid ? `${snapshotRecords} decisão(ões) no snapshot` : "snapshot inválido; revisão necessária")
         : "snapshot ainda não criado";
     syncRepositoryRestoreAvailability();
-    if (payload.update_available) {
-        setRepositorySyncStatus(`Código novo disponível na branch ${payload.branch}. Faça backup e use “Atualizar programa”. · ${snapshotLabel}`, "warning");
-    } else if (codeDirty.length) {
-        setRepositorySyncStatus(`Atualização bloqueada: há ${codeDirty.length} alteração(ões) locais de código. Faça backup ou preserve-as antes. · ${snapshotLabel}`, "warning");
-    } else if (payload.feedback_snapshot_dirty) {
-        setRepositorySyncStatus(`Feedback local pendente de envio. Use “Enviar feedback ao GitHub”; ele não bloqueia a atualização do código. · ${snapshotLabel}`, "info");
+    if (payload.feedback_snapshot_dirty) {
+        setRepositorySyncStatus(`Feedback local pendente de envio. Use “Enviar feedback ao GitHub”. · ${snapshotLabel}`, "info");
     } else {
         setRepositorySyncStatus(`Código sincronizado · ${String(payload.local_sha || "local").slice(0, 7)} · ${snapshotLabel}`, snapshotPresent && !snapshotValid ? "warning" : "success");
     }
@@ -1197,9 +1187,7 @@ async function runRepositorySync(action) {
     state.repositorySyncBusy = true;
     setRepositorySyncButtonsDisabled(true);
     try {
-        if (action === "update") {
-            setRepositorySyncStatus("Criando backup de segurança e baixando a atualização...", "info");
-        } else if (action === "push_feedback") {
+        if (action === "push_feedback") {
             setRepositorySyncStatus("Preparando somente o snapshot sanitizado de feedback...", "info");
         } else if (action === "restore_feedback") {
             setRepositorySyncStatus("Validando o snapshot e reconciliando decisões neste notebook...", "info");
@@ -1208,7 +1196,7 @@ async function runRepositorySync(action) {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ action }),
-        }, action === "update" ? 90000 : 30000);
+        }, 30000);
         const payload = await parseJsonResponse(response, "Sincronização do programa");
         if (!response.ok || payload.success === false) throw new Error(payload.error || "A sincronização não foi concluída");
         state.repositorySync = payload;
@@ -1217,10 +1205,7 @@ async function runRepositorySync(action) {
         // generic success message. Restore refreshes the local status below because
         // its response is a reconciliation summary, not a repository-status payload.
         if (action !== "restore_feedback") renderRepositorySyncState(payload);
-        if (action === "update" && payload.updated) {
-            showToast("Atualização aplicada. Feche e abra o run.bat novamente para carregar o novo código.", "success");
-            addConsoleLog("[Sincronização] Código atualizado por fast-forward; backup de segurança preservado.", "success");
-        } else if (action === "push_feedback") {
+        if (action === "push_feedback") {
             showToast(payload.published ? "Feedback sanitizado sincronizado no GitHub." : "Feedback já estava sincronizado.", "success");
             addConsoleLog("[Sincronização] Nenhum vídeo, transcrição ou chave foi enviado; somente decisões editoriais agregadas.", "info");
         } else if (action === "restore_feedback") {

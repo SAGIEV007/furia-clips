@@ -265,9 +265,20 @@ class ClipSelector:
         # Where the Acervo has nothing to say, Furia reads the subjects itself.
         clips = self._attach_local_topic_context(clips, sentences, emit_progress)
 
-        # Filter clips at scene boundaries if available
-        if scene_changes:
+        # Scene changes are camera switches. On material where the picture tells
+        # the story that is a good place to cut; in an interview the direction
+        # switches cameras mid-answer, and snapping a boundary to it moves the cut
+        # off the seam of the conversation by up to two seconds — undoing the
+        # alignment above for no editorial gain. On the sabatina the director cut
+        # 143 times in 31 minutes, none of them where the subject changed.
+        if scene_changes and not self._candidate_diagnostics.get("interview_seams"):
             clips = self._adjust_to_scene_boundaries(clips, scene_changes)
+        elif scene_changes and emit_progress:
+            emit_progress(
+                "[Cenas] Fonte reconhecida como entrevista; as bordas seguem as perguntas, "
+                "não as trocas de câmera.",
+                "info",
+            )
 
         # Preserve chapter evidence before overlap normalization so every
         # backend (Gemini, Ollama, and NLP) exposes the same review contract.

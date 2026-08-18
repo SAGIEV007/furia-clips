@@ -129,7 +129,6 @@ from modules.repository_sync import (
     get_repository_status,
     push_feedback_snapshot,
     restore_feedback_snapshot,
-    update_from_github,
 )
 
 # User-friendly error messages (Portuguese)
@@ -269,6 +268,56 @@ def _configured_gemini_model(settings):
     """Return a safe Gemini model identifier from persisted settings."""
     model = str((settings or {}).get("gemini_model", "gemini-2.5-flash") or "").strip()
     return model if re.fullmatch(r"gemini-[a-z0-9.-]+", model) else "gemini-2.5-flash"
+
+
+def _settings_with_acervo(settings, video_path):
+    """Point the run at the Acervo blocks published for this exact source.
+
+    The blocks the Garimpo shows come from a pipeline a person supervised, and
+    for a source that already went through it they beat anything Furia derives on
+    its own. They were reachable only through a settings field pointing at a file
+    produced by a script, so in practice no run ever saw them: every clip came
+    back with ``bloco_chub: null`` even for a video with fourteen published
+    blocks. Here the export is looked up by the YouTube id in the media file name,
+    which is what the downloaders leave behind.
+
+    An export the operator configured by hand still wins, so nothing that used to
+    work stops working.
+    """
+    from modules.acervo_library import find_snapshot_for
+
+    if (settings or {}).get("campaign_hub_snapshot_path"):
+        return settings
+    found = find_snapshot_for(video_path)
+    if not found:
+        return settings
+    return {**(settings or {}), "campaign_hub_snapshot_path": str(found)}
+
+
+def _announce_acervo_source(settings, video_path):
+    """Say out loud which knowledge the run is cutting with.
+
+    The two situations produce very different cuts and the operator should never
+    have to guess which one they are in: with published blocks the boundaries were
+    reviewed by a person, without them Furia is reading the source alone.
+    """
+    from modules.acervo_library import describe_snapshot, youtube_id_from_name
+
+    described = describe_snapshot((settings or {}).get("campaign_hub_snapshot_path"))
+    if described.get("available") and described.get("blocks"):
+        emit_progress(
+            f"[Acervo] {described['blocks']} blocos revisados encontrados para esta fonte "
+            f"({described['highlights']} momentos fortes). As fronteiras vêm deles.",
+            "success",
+        )
+        return
+    youtube_id = youtube_id_from_name(os.path.basename(str(video_path or "")))
+    emit_progress(
+        "[Acervo] Nenhum bloco publicado para esta fonte"
+        + (f" ({youtube_id})" if youtube_id else "")
+        + "; o Furia vai ler o vídeo por conta própria.",
+        "info",
+    )
 
 
 def _resolve_media_input(requested):
@@ -1250,6 +1299,37 @@ def api_download_editorial_backup(filename):
     return send_file(candidate, as_attachment=True, download_name=filename)
 
 
+@app.route("/api/acervo/status", methods=["GET"])
+def api_acervo_status():
+    """Whether this source arrives with blocks a person already reviewed."""
+    from modules.acervo_library import describe_snapshot, find_snapshot_for, youtube_id_from_name
+
+    video_path = _resolve_media_input(request.args.get("video_path", ""))
+    found = find_snapshot_for(video_path) if video_path else None
+    payload = describe_snapshot(found)
+    payload["youtube_id"] = youtube_id_from_name(os.path.basename(str(video_path or ""))) or ""
+    payload["source_recognised"] = bool(payload["youtube_id"])
+    return jsonify(payload)
+
+
+@app.route("/api/acervo/import", methods=["POST"])
+def api_acervo_import():
+    """File an Acervo block export under the id of the source it belongs to."""
+    from modules.acervo_library import store_export
+
+    data = request.get_json(silent=True) or {}
+    video_path = _resolve_media_input(data.get("video_path", ""))
+    try:
+        stored = store_export(
+            data.get("blocks"),
+            data.get("transcript"),
+            video_path=video_path or None,
+        )
+    except (ValueError, TypeError, OSError) as exc:
+        return jsonify({"success": False, "error": str(exc)[:400]}), 400
+    return jsonify({"success": True, **stored})
+
+
 @app.route("/api/campaign-hub/status", methods=["GET"])
 def api_campaign_hub_status():
     """Report bounded local Campaign Hub metadata without calling the MCP."""
@@ -1605,12 +1685,6 @@ def api_repository_sync():
             return jsonify(get_repository_status(fetch=True))
         if current_task.get("active"):
             return jsonify({"success": False, "error": "Aguarde ou cancele o processamento atual antes de sincronizar o programa."}), 409
-        if action == "update":
-            safety_backup = create_editorial_backup()
-            result = update_from_github()
-            result["safety_backup"] = safety_backup.get("filename")
-            result["restart_required"] = bool(result.get("updated"))
-            return jsonify(result)
         if action in {"push_feedback", "sync_feedback"}:
             return jsonify(push_feedback_snapshot())
         if action in {"restore_feedback", "import_feedback"}:
@@ -2350,7 +2424,7 @@ def api_transcribe():
     def task():
         try:
             check_current_task_cancel()
-            settings = get_all_settings()
+            settings = _settings_with_acervo(get_all_settings(), video_path)
             settings = {**settings, "transcription_source": data.get("transcription_source", settings.get("transcription_source", "auto"))}
             result = _transcription_from_request(data)
             if result:
@@ -2415,9 +2489,10 @@ def api_cut_shorts():
         try:
             ctx.update(stage="transcription", progress=5, message="Preparando transcrição e contexto")
             ctx.check_cancel()
-            settings = get_all_settings()
+            settings = _settings_with_acervo(get_all_settings(), video_path)
             if transcription_source:
                 settings = {**settings, "transcription_source": transcription_source}
+            _announce_acervo_source(settings, video_path)
             active_project_id = project_id
             if not active_project_id:
                 auto_project_name = os.path.splitext(os.path.basename(video_path))[0]
