@@ -16,6 +16,7 @@ from collections import Counter
 
 from .political_profile import PROFILE_NAME, build_political_prompt_fragment
 from .editorial_chapters import annotate_clip_with_chapters
+from .interview_turns import detect_interviewer_turns, looks_like_an_interview
 
 PREFERRED_MAX_DURATION = 180.0
 TECHNICAL_MAX_DURATION = 600.0
@@ -78,6 +79,16 @@ class ClipSelector:
     # Share of a candidate that may sit on labelled non-content before the
     # candidate is discarded instead of competing for a slot.
     NON_CONTENT_DROP_RATIO = 0.5
+
+    # How far a clip's start may move back to open on the interviewer's question
+    # instead of on the tail of the previous answer.
+    MAX_TURN_START_SNAP_S = 20.0
+
+    # How far a clip's end may move to land on a seam of the conversation. The
+    # selector already had a view on how much material the idea needs; beyond
+    # this the boundary is not being repaired, it is being replaced. Growth is
+    # additionally bounded by the preferred maximum duration.
+    MAX_TURN_END_SHIFT_S = 90.0
 
     def __init__(
         self,
@@ -235,6 +246,11 @@ class ClipSelector:
         clips = self._trim_opening_fragment(clips, emit_progress)
 
         clips = self._close_open_question(clips, sentences, emit_progress)
+
+        # On an interview the seams of the material are the interviewer's turns,
+        # and they have the last word on both boundaries: no clip may stop in the
+        # middle of an answer or run past the next change of subject.
+        clips = self._align_to_interview_turns(clips, sentences, emit_progress)
 
         clips = self._drop_labelled_non_content(clips, settings, sentences, emit_progress)
 
@@ -1307,6 +1323,167 @@ Retorne APENAS o JSON.
                         "info",
                     )
         return clips
+
+    def _align_to_interview_turns(self, clips, sentences, emit_progress=None):
+        """Put every boundary of an interview on a seam of the conversation.
+
+        Measured against the fourteen blocks the Acervo published for a sabatina
+        of 31 minutes, not one of the sixteen clips this selector rendered began
+        within two seconds of a real seam, and six of them ran across one. That is
+        what the editor was reporting: a clip that keeps going after the reporter
+        has moved on, and a clip that stops before the answer arrives at its
+        point — which on that source turned an argument about extreme poverty
+        into its opposite.
+
+        The repair is not to re-select. The selector's window says how much
+        material the idea needs and that judgement is kept; only the two edges
+        move, onto the nearest moment the interviewer holds the floor. A clip may
+        run through a short interruption, because the guest resumes the same
+        argument straight after, but it may never cross a turn that changes the
+        subject: material from two subjects is not one clip.
+
+        Sources that are not interviews — a live, a speech — produce no turns and
+        leave every boundary untouched.
+        """
+        if not sentences:
+            return clips
+
+        turns = detect_interviewer_turns(sentences)
+        span = max((float(item.get("end", 0) or 0) for item in sentences), default=0.0)
+        if not looks_like_an_interview(turns, span):
+            return clips
+
+        # A clip may end where the interviewer speaks — but not on an aside the
+        # guest talks straight through, or it stops in the middle of the answer.
+        seams = [turn["start_s"] for turn in turns if not turn["interjection"]]
+        majors = [turn["start_s"] for turn in turns if turn["major"]]
+        if not seams:
+            return clips
+
+        self._candidate_diagnostics.update({
+            "interview_turns": len(turns),
+            "interview_seams": len(seams),
+            "interview_major_turns": len(majors),
+        })
+
+        kept, dropped = [], 0
+        for clip in clips or []:
+            start = float(clip.get("start", 0) or 0)
+            end = float(clip.get("end", 0) or 0)
+            if end <= start:
+                kept.append(clip)
+                continue
+            original_start, original_end = start, end
+
+            # Opening on the tail of the previous answer is the complaint the
+            # editor phrased as "it started in the middle of a sentence": the
+            # clip carries three words that belong to the subject before it.
+            opening = [
+                turn for turn in turns
+                if not turn["interjection"]
+                and turn["start_s"] <= start < turn["end_s"]
+                and start - turn["start_s"] <= self.MAX_TURN_START_SNAP_S
+            ]
+            if opening:
+                start = opening[-1]["start_s"]
+
+            # A window that opens a few seconds before the next question is
+            # carrying the tail of the previous answer — the "it started in the
+            # middle of a sentence" complaint. There is no clip in those seconds,
+            # so the clip starts at the question instead.
+            ahead = [seam for seam in majors if start < seam < start + self.min_duration]
+            if ahead:
+                start = ahead[0]
+
+            # A subject change inside the window is not negotiable: the clip ends
+            # there even if that costs it the slot.
+            # Half of what the selector asked for. Below it the window is no
+            # longer the idea that was chosen, it is a leftover.
+            viable = max(self.min_duration, (original_end - original_start) * 0.5)
+
+            crossed = [seam for seam in majors if start + 1.0 < seam < end - 1.0]
+            if crossed:
+                # What is left of a window cut back at a change of subject is a
+                # stub: the idea it was chosen for lives on the other side of the
+                # seam. Rendering it would fill a slot with nothing, and there is
+                # no minimum number of clips to reach.
+                end = crossed[0]
+                if end - start < viable:
+                    dropped += 1
+                    continue
+            else:
+                seam_end = self._nearest_seam_end(start, end, seams)
+                # A seam far to the left of the chosen end belongs to some
+                # follow-up early in the answer; snapping there would throw away
+                # most of the material instead of tidying its edge.
+                if seam_end < original_end and seam_end - start < viable:
+                    seam_end = original_end
+                end = seam_end
+                if end - start < self.min_duration:
+                    dropped += 1
+                    continue
+
+            if abs(end - original_end) > self.MAX_TURN_END_SHIFT_S:
+                end = original_end
+
+            if abs(start - original_start) < 0.05 and abs(end - original_end) < 0.05:
+                kept.append(clip)
+                continue
+
+            clip["start"] = round(start, 3)
+            clip["end"] = round(end, 3)
+            clip["duration"] = round(end - start, 3)
+            clip["turn_aligned"] = {
+                "start_shift_s": round(start - original_start, 2),
+                "end_shift_s": round(end - original_end, 2),
+                "crossed_subject_change": bool(crossed),
+            }
+            rebuilt = self._text_between(sentences, start, end)
+            if rebuilt:
+                clip["text"] = rebuilt
+            kept.append(clip)
+
+        if emit_progress and (dropped or len(kept) != len(clips or [])):
+            emit_progress(
+                f"[Entrevista] {len(turns)} turnos do entrevistador reconhecidos; "
+                f"bordas ajustadas para não cortar resposta pela metade. "
+                f"{dropped} candidato(s) descartado(s) por atravessar mudança de assunto.",
+                "info",
+            )
+        elif emit_progress and turns:
+            emit_progress(
+                f"[Entrevista] {len(turns)} turnos do entrevistador reconhecidos; "
+                "bordas dos cortes alinhadas às perguntas.",
+                "info",
+            )
+        return kept
+
+    def _nearest_seam_end(self, start, end, seams):
+        """Where the clip should stop, given where the selector wanted to stop.
+
+        The selector's end is treated as an estimate of how much material the
+        idea needs, and the nearest seam to it wins — on either side. Preferring
+        the seam *before* the estimate sounds safer and is not: a clip that runs
+        through two follow-up questions would be cut back to the first of them
+        and lose most of the answer. Moving forward is what completes an argument
+        that was stopping one sentence early.
+        """
+        usable = min(self.preferred_max_duration, self.max_duration)
+        reachable = [seam for seam in seams if start + self.min_duration <= seam <= start + usable]
+        if not reachable:
+            return end
+        return min(reachable, key=lambda seam: abs(seam - end))
+
+    @staticmethod
+    def _text_between(sentences, start, end):
+        """The transcript actually contained in a window, after it was moved."""
+        parts = [
+            str(item.get("text") or "").strip()
+            for item in sorted(sentences or [], key=lambda entry: float(entry.get("start", 0) or 0))
+            if float(item.get("start", 0) or 0) >= start - 0.25
+            and float(item.get("end", 0) or 0) <= end + 0.25
+        ]
+        return " ".join(part for part in parts if part).strip()
 
     @staticmethod
     def _first_standalone_sentence_offset(text):

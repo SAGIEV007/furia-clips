@@ -406,6 +406,7 @@ def _write_selection_diagnostics(
                 "review_required": clip.get("review_required"),
                 "review_reasons": clip.get("review_reasons"),
                 "review_flags": clip.get("review_flags"),
+                "alinhamento_entrevista": clip.get("turn_aligned"),
                 "speaker_status": campaign_block.get("speaker_status"),
                 "bloco_chub": campaign_block.get("title"),
                 "density_rank": campaign_block.get("density_rank"),
