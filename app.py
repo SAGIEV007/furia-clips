@@ -1312,6 +1312,27 @@ def api_acervo_status():
     return jsonify(payload)
 
 
+@app.route("/api/source/reading", methods=["POST"])
+def api_source_reading():
+    """What Furia understood about the loaded source, before cutting anything."""
+    from modules.acervo_library import find_snapshot_for
+    from modules.source_reading import read_source
+
+    data = request.get_json(silent=True) or {}
+    video_path = _resolve_media_input(data.get("video_path", ""))
+    segments = data.get("segments") if isinstance(data.get("segments"), list) else []
+    duration = data.get("duration_s")
+    if not duration and video_path and os.path.isfile(video_path):
+        duration = _probe_video_duration_seconds(video_path)
+
+    reading = read_source(
+        segments,
+        snapshot_path=find_snapshot_for(video_path) if video_path else None,
+        duration_s=duration,
+    )
+    return jsonify(reading)
+
+
 @app.route("/api/acervo/import", methods=["POST"])
 def api_acervo_import():
     """File an Acervo block export under the id of the source it belongs to."""

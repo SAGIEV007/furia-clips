@@ -360,6 +360,37 @@
 
         </section>
 
+        <!-- O que o Furia entendeu desta fonte -->
+        <section class="section reading-section" id="sourceReadingSection">
+            <div class="section-header">
+                <div>
+                    <h3><span class="material-icons-round">segment</span> Leitura da fonte</h3>
+                    <p class="section-hint">O que o Furia entendeu deste vídeo antes de cortar. Clique num trecho para ir até ele no preview.</p>
+                </div>
+                <div class="section-actions">
+                    <button class="btn btn-sm btn-outline" id="btnImportAcervo" type="button" title="Importar os blocos que o Acervo publicou para este vídeo">
+                        <span class="material-icons-round">library_add</span> Importar blocos
+                    </button>
+                    <input id="acervoImportInput" type="file" accept=".json,application/json" hidden>
+                    <button class="btn btn-sm" id="btnRefreshReading" type="button">
+                        <span class="material-icons-round">refresh</span> Ler fonte
+                    </button>
+                </div>
+            </div>
+
+            <div class="reading-body" id="readingBody">
+                <p class="reading-empty" id="readingEmpty">Carregue um vídeo e uma transcrição para ver a leitura.</p>
+                <div class="reading-summary" id="readingSummary" hidden>
+                    <div class="reading-metric"><strong id="readingUnitCount">—</strong><span>trechos</span></div>
+                    <div class="reading-metric"><strong id="readingCoverage">—</strong><span>da fonte coberta</span></div>
+                    <div class="reading-metric"><strong id="readingHighlights">—</strong><span>momentos fortes</span></div>
+                    <span class="reading-origin" id="readingOrigin" hidden></span>
+                </div>
+                <div class="reading-timeline" id="readingTimeline" hidden aria-hidden="true"></div>
+                <ol class="reading-list" id="readingList" aria-live="polite"></ol>
+            </div>
+        </section>
+
         <!-- Editorial Blocks -->
         <section class="section editorial-blocks-section" id="editorialBlocksSection">
             <div class="section-header">

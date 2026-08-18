@@ -4255,3 +4255,276 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 @media (max-width: 640px) {
     .editorial-block-action-stack { display: flex; flex-wrap: wrap; }
 }
+
+/* ═══════════════════════════════════════════════════
+   Leitura da fonte — o que o Furia entendeu do vídeo
+   
+   Este painel existe porque o programa cortava sem nunca
+   mostrar o que tinha entendido. Ele é lido antes de
+   qualquer corte, então precisa dizer três coisas de
+   relance: quantos trechos, de onde vem a leitura, e
+   qual a forma do vídeo.
+   ═══════════════════════════════════════════════════ */
+
+.reading-section .section-actions { gap: 8px; }
+
+/* De onde vem a leitura. A distinção não é decorativa: com
+   blocos do Acervo as fronteiras foram conferidas por uma
+   pessoa; sem eles são uma aproximação do Furia. */
+.reading-origin {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 11px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    border: 1px solid var(--border-light);
+    color: var(--text-secondary);
+    background: var(--bg-tertiary);
+    white-space: nowrap;
+}
+.reading-origin::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+}
+.reading-origin.reviewed { color: var(--success); border-color: rgba(68, 207, 108, 0.35); background: rgba(68, 207, 108, 0.08); }
+.reading-origin.derived { color: var(--gold); border-color: rgba(255, 215, 0, 0.3); background: rgba(255, 215, 0, 0.07); }
+
+.reading-empty {
+    color: var(--text-muted);
+    font-size: 13px;
+    padding: 28px 4px;
+    text-align: center;
+}
+
+.reading-summary {
+    display: flex;
+    gap: 32px;
+    padding: 4px 2px 18px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 18px;
+}
+.reading-metric { display: flex; flex-direction: column; gap: 2px; }
+.reading-metric strong {
+    font-size: 22px;
+    font-weight: 600;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+}
+.reading-metric span { font-size: 12px; color: var(--text-muted); }
+
+/* A forma do vídeo num traço só: cada trecho na proporção
+   que ocupa da fonte. É o elemento que responde "esse vídeo
+   tem quantos assuntos?" sem ler nada. */
+.reading-timeline {
+    display: flex;
+    gap: 2px;
+    height: 8px;
+    margin-bottom: 20px;
+    border-radius: 4px;
+    overflow: hidden;
+    background: var(--bg-tertiary);
+}
+.reading-timeline-unit {
+    background: var(--border-light);
+    transition: background 120ms ease;
+    cursor: pointer;
+    min-width: 2px;
+}
+.reading-timeline-unit:hover,
+.reading-timeline-unit.active { background: var(--gold); }
+.reading-timeline-unit.has-highlight { background: var(--gold-dark); }
+
+.reading-list { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+
+.reading-unit {
+    display: grid;
+    grid-template-columns: 84px 1fr;
+    gap: 16px;
+    padding: 14px 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--bg-card);
+    cursor: pointer;
+    transition: border-color 120ms ease, background 120ms ease;
+}
+.reading-unit:hover { border-color: var(--border-light); background: var(--bg-hover); }
+.reading-unit.active { border-color: var(--gold-dark); }
+
+.reading-unit-time {
+    font-variant-numeric: tabular-nums;
+    font-size: 13px;
+    color: var(--text-primary);
+    line-height: 1.5;
+}
+.reading-unit-time small { display: block; color: var(--text-muted); font-size: 11px; }
+
+.reading-unit-title {
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.4;
+    margin-bottom: 4px;
+}
+.reading-unit-question {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    margin-bottom: 6px;
+}
+/* Termos frequentes não são um título. Ficam com aparência de
+   dado bruto de propósito, para ninguém os ler como resumo. */
+.reading-unit-terms {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 6px;
+}
+.reading-unit-terms span {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+}
+.reading-unit-highlights {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 8px;
+    padding-left: 12px;
+    border-left: 2px solid var(--gold-dark);
+}
+.reading-unit-highlights li {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+.reading-unit-highlights b {
+    color: var(--text-muted);
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    margin-right: 6px;
+}
+.reading-unit-flags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.reading-unit-flags em {
+    font-style: normal;
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--border-light);
+    color: var(--text-muted);
+}
+.reading-unit-flags em.warn { color: var(--warning); border-color: rgba(245, 158, 11, 0.35); }
+
+@media (max-width: 900px) {
+    .reading-unit { grid-template-columns: 1fr; gap: 8px; }
+    .reading-summary { gap: 20px; flex-wrap: wrap; }
+}
+
+/* ═══════════════════════════════════════════════════
+   Passe de coerência visual
+   
+   O programa nasceu genérico e o visual acompanhou: preto
+   chapado, brilho dourado em tudo, cantos muito arredondados
+   e uma escala tipográfica que crescia por necessidade em
+   vez de por hierarquia. Nada disso é falta de gosto — é
+   ausência de sistema.
+   
+   Este bloco não redesenha telas: ajusta as fichas que já
+   cascateiam por toda a folha, então a mudança chega em cada
+   painel sem reescrever nenhum deles. Os nomes das variáveis
+   não mudam, só os valores.
+   ═══════════════════════════════════════════════════ */
+
+:root {
+    /* Neutros com uma leve inclinação fria. Preto absoluto num
+       painel grande cansa a vista e achata a profundidade: as
+       bordas somem e tudo vira o mesmo plano. */
+    --bg-primary: #0b0c0e;
+    --bg-secondary: #121316;
+    --bg-tertiary: #17191d;
+    --bg-card: #131417;
+    --bg-hover: #1b1d22;
+    --bg-input: #16181c;
+
+    --border: #23262b;
+    --border-light: #30343a;
+
+    /* O ouro continua sendo a cor da marca, mas deixa de ser
+       um brilho: vira acento. Halo colorido atrás de caixa é o
+       sinal mais rápido de interface amadora. */
+    --gold: #E8B93A;
+    --gold-dark: #9A7A20;
+    --gold-light: #F5D169;
+    --gold-glow: rgba(232, 185, 58, 0.10);
+
+    --text-primary: #F2F3F5;
+    --text-secondary: #9BA1AA;
+    --text-muted: #6B7280;
+
+    --success: #3FBF67;
+    --warning: #E0A020;
+    --error: #E05252;
+    --info: #4A8FE0;
+
+    /* Cantos mais contidos. 20px numa caixa de 900px de largura
+       lê como widget de brinquedo; a mesma caixa com 12px lê
+       como painel. */
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 12px;
+    --radius-xl: 14px;
+
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.28);
+    --shadow-lg: 0 2px 4px rgba(0, 0, 0, 0.4), 0 16px 48px rgba(0, 0, 0, 0.40);
+    --shadow-gold: none;
+}
+
+/* Uma escala só, com passos que se distinguem. Antes havia 322
+   declarações de tamanho ad hoc; estas quatro governam o texto
+   estrutural e o resto herda. */
+body { font-size: 14px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+.section-header h3 { font-size: 15px; font-weight: 600; letter-spacing: -0.006em; }
+.section-hint { font-size: 12.5px; line-height: 1.5; color: var(--text-secondary); }
+.section { padding: 22px 24px; }
+
+/* Ícone de cabeçalho não compete com o texto: ele localiza. */
+.section-header h3 .material-icons-round { font-size: 19px; color: var(--text-muted); }
+
+/* Caixa alta é para rótulo curto, nunca para frase. Onde já
+   estava aplicada, ao menos ganha o espaçamento que a torna
+   legível. */
+[class*="label"], .setting-label, .studio-status-pill {
+    letter-spacing: 0.04em;
+}
+
+/* A animação de entrada disparava em toda seção a cada
+   re-render, o que faz a página parecer instável. */
+.section { animation: none; }
+
+
+/* Ajustes lidos na tela, não no código: a coluna de tempo quebrava
+   "02:42 de duração" em duas linhas, a régua sumia contra o fundo e o
+   selo de origem espremia o texto do cabeçalho. */
+.reading-summary { align-items: baseline; }
+.reading-summary .reading-origin { margin-left: auto; align-self: center; }
+.reading-unit { grid-template-columns: 96px 1fr; }
+.reading-unit-time small { white-space: nowrap; }
+.reading-timeline { height: 10px; background: #101114; }
+.reading-timeline-unit { background: #3a4048; }
+.reading-timeline-unit:nth-child(even) { background: #454c55; }
+.reading-timeline-unit.has-highlight { background: var(--gold-dark); }
+.reading-timeline-unit:hover, .reading-timeline-unit.active { background: var(--gold); }
+
+/* Quando todos os blocos têm momentos fortes a régua vira uma barra
+   sólida e deixa de mostrar a segmentação, que é o motivo dela existir. */
+.reading-timeline-unit.has-highlight { background: #7d6320; }
+.reading-timeline-unit.has-highlight:nth-child(even) { background: #9a7a20; }
+.reading-timeline-unit:hover, .reading-timeline-unit.active { background: var(--gold); }

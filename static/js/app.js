@@ -20,6 +20,7 @@ const state = {
     operationJobs: [],
     operationProjects: [],
     manualTranscript: null,
+    sourceReading: null,
     manualTranscriptVideo: "",
     transcriptArchive: null,
     lastReviewAction: null,
@@ -3146,6 +3147,11 @@ function formatTranscriptForEditor(transcription) {
 
 function hydrateTranscriptEditor(transcription, archive = null) {
     state.manualTranscript = transcription;
+    // A leitura da fonte só é possível com transcrição; assim que ela chega, o
+    // painel deixa de estar vazio sem o editor precisar pedir.
+    if (state.selectedVideo && transcription?.segments?.length) {
+        window.setTimeout(() => refreshSourceReading(), 0);
+    }
     state.transcriptArchive = archive || transcription?.archive_metadata || null;
     const input = document.getElementById("manualTranscriptInput");
     if (input) input.value = formatTranscriptForEditor(transcription);
@@ -4227,4 +4233,225 @@ document.addEventListener("DOMContentLoaded", () => {
     recoverActiveJobs();
     // Check Ollama status on load
     socket.emit("check_ollama");
+});
+
+// ─── Leitura da fonte ───
+//
+// O programa entendia o vídeo internamente — turnos do entrevistador, blocos
+// temáticos, pontes pergunta-resposta — e não mostrava nada disso. O editor
+// descobria o que ele tinha pensado abrindo um JSON depois do corte. Este painel
+// existe para que a leitura venha antes, e para deixar explícito de onde ela vem:
+// blocos revisados por uma pessoa e uma aproximação do Furia não merecem a mesma
+// confiança.
+
+function formatTimecode(seconds) {
+    const total = Math.max(0, Math.round(Number(seconds) || 0));
+    const minutes = Math.floor(total / 60);
+    return `${String(minutes).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+}
+
+const READING_ORIGINS = {
+    acervo: { label: "Blocos revisados do Acervo", className: "reviewed" },
+    furia_entrevista: { label: "Leitura do Furia · turnos da entrevista", className: "derived" },
+    furia_temas: { label: "Leitura do Furia · blocos temáticos", className: "derived" },
+    nenhuma: { label: "Sem leitura", className: "" },
+};
+
+function renderSourceReading(reading) {
+    const empty = document.getElementById("readingEmpty");
+    const summary = document.getElementById("readingSummary");
+    const timeline = document.getElementById("readingTimeline");
+    const list = document.getElementById("readingList");
+    const origin = document.getElementById("readingOrigin");
+    if (!list) return;
+
+    state.sourceReading = reading || null;
+    const units = Array.isArray(reading?.units) ? reading.units : [];
+    list.innerHTML = "";
+    timeline.innerHTML = "";
+
+    if (!units.length) {
+        empty.hidden = false;
+        empty.textContent = reading
+            ? "Nenhum trecho reconhecido. Carregue a transcrição desta fonte e leia de novo."
+            : "Carregue um vídeo e uma transcrição para ver a leitura.";
+        summary.hidden = true;
+        timeline.hidden = true;
+        origin.hidden = true;
+        return;
+    }
+
+    empty.hidden = true;
+    summary.hidden = false;
+    timeline.hidden = false;
+
+    const descriptor = READING_ORIGINS[reading.origin] || READING_ORIGINS.nenhuma;
+    origin.hidden = false;
+    origin.textContent = descriptor.label;
+    origin.className = `reading-origin ${descriptor.className}`;
+
+    document.getElementById("readingUnitCount").textContent = String(reading.unit_count || units.length);
+    document.getElementById("readingCoverage").textContent = `${Math.round((reading.coverage_ratio || 0) * 100)}%`;
+    document.getElementById("readingHighlights").textContent = String(reading.highlight_count || 0);
+
+    const span = Number(reading.duration_s) || units[units.length - 1].end_s || 1;
+    units.forEach((unit, index) => {
+        const slice = document.createElement("div");
+        slice.className = `reading-timeline-unit${(unit.highlights || []).length ? " has-highlight" : ""}`;
+        slice.style.flexGrow = String(Math.max(0.001, (unit.duration_s || 0) / span));
+        slice.dataset.index = String(index);
+        slice.title = `${formatTimecode(unit.start_s)} – ${formatTimecode(unit.end_s)}`;
+        slice.addEventListener("click", () => focusReadingUnit(index));
+        timeline.appendChild(slice);
+
+        list.appendChild(buildReadingUnit(unit, index));
+    });
+}
+
+function buildReadingUnit(unit, index) {
+    const item = document.createElement("li");
+    item.className = "reading-unit";
+    item.dataset.index = String(index);
+    item.addEventListener("click", () => focusReadingUnit(index));
+
+    const time = document.createElement("div");
+    time.className = "reading-unit-time";
+    time.innerHTML = `${formatTimecode(unit.start_s)}<small>dura ${formatTimecode(unit.duration_s)}</small>`;
+    item.appendChild(time);
+
+    const body = document.createElement("div");
+
+    // O título só existe quando alguém escreveu um. Termos frequentes entram
+    // como termos, nunca promovidos a título.
+    if (unit.title) {
+        const title = document.createElement("div");
+        title.className = "reading-unit-title";
+        title.textContent = unit.title;
+        body.appendChild(title);
+    }
+    if (unit.question) {
+        const question = document.createElement("p");
+        question.className = "reading-unit-question";
+        question.textContent = unit.question;
+        body.appendChild(question);
+    }
+    if ((unit.subject_terms || []).length) {
+        const terms = document.createElement("div");
+        terms.className = "reading-unit-terms";
+        unit.subject_terms.forEach((term) => {
+            const chip = document.createElement("span");
+            chip.textContent = term;
+            terms.appendChild(chip);
+        });
+        body.appendChild(terms);
+    }
+    if ((unit.highlights || []).length) {
+        const highlights = document.createElement("ul");
+        highlights.className = "reading-unit-highlights";
+        unit.highlights.slice(0, 4).forEach((highlight) => {
+            const line = document.createElement("li");
+            line.innerHTML = `<b>${formatTimecode(highlight.start_s)}</b>`;
+            line.appendChild(document.createTextNode(highlight.text || ""));
+            highlights.appendChild(line);
+        });
+        body.appendChild(highlights);
+    }
+
+    const flags = document.createElement("div");
+    flags.className = "reading-unit-flags";
+    if (unit.renan_speaking === false) {
+        const flag = document.createElement("em");
+        flag.className = "warn";
+        flag.textContent = "Renan não é quem fala aqui";
+        flags.appendChild(flag);
+    }
+    if (unit.needs_context) {
+        const flag = document.createElement("em");
+        flag.className = "warn";
+        flag.textContent = "precisa de contexto";
+        flags.appendChild(flag);
+    }
+    (unit.risk_flags || []).forEach((risk) => {
+        const flag = document.createElement("em");
+        flag.textContent = risk;
+        flags.appendChild(flag);
+    });
+    if (Number(unit.possible_cuts) > 0) {
+        const flag = document.createElement("em");
+        flag.textContent = `${unit.possible_cuts} corte(s) possível(is)`;
+        flags.appendChild(flag);
+    }
+    if (flags.children.length) body.appendChild(flags);
+
+    item.appendChild(body);
+    return item;
+}
+
+function focusReadingUnit(index) {
+    const unit = state.sourceReading?.units?.[index];
+    if (!unit) return;
+    document.querySelectorAll(".reading-unit, .reading-timeline-unit").forEach((node) => {
+        node.classList.toggle("active", node.dataset.index === String(index));
+    });
+    const video = document.getElementById("videoPreview");
+    if (video && Number.isFinite(Number(unit.start_s))) {
+        video.currentTime = Number(unit.start_s);
+        video.parentElement?.closest("section")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+}
+
+async function refreshSourceReading() {
+    if (!state.selectedVideo) {
+        showToast("Selecione um vídeo antes de ler a fonte.", "warning");
+        return;
+    }
+    const button = document.getElementById("btnRefreshReading");
+    if (button) button.disabled = true;
+    try {
+        const response = await fetch("/api/source/reading", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                video_path: state.selectedVideo,
+                segments: state.manualTranscript?.segments || [],
+            }),
+        });
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.error || "Não foi possível ler a fonte.");
+        renderSourceReading(payload);
+    } catch (error) {
+        showToast(error.message || "Não foi possível ler a fonte.", "error");
+    } finally {
+        if (button) button.disabled = false;
+    }
+}
+
+async function importAcervoBlocks(file) {
+    if (!file) return;
+    if (!state.selectedVideo) {
+        showToast("Selecione o vídeo correspondente antes de importar os blocos.", "warning");
+        return;
+    }
+    try {
+        const blocks = JSON.parse(await file.text());
+        const response = await fetch("/api/acervo/import", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ video_path: state.selectedVideo, blocks }),
+        });
+        const payload = await response.json();
+        if (!response.ok || payload.success === false) throw new Error(payload.error || "Importação recusada.");
+        showToast(`${payload.blocks} bloco(s) do Acervo vinculados a este vídeo.`, "success");
+        addConsoleLog(`[Acervo] ${payload.blocks} blocos revisados importados para esta fonte; as fronteiras passam a vir deles.`, "success");
+        await refreshSourceReading();
+    } catch (error) {
+        showToast(error.message || "Não foi possível importar os blocos.", "error");
+    }
+}
+
+document.getElementById("btnRefreshReading")?.addEventListener("click", refreshSourceReading);
+document.getElementById("btnImportAcervo")?.addEventListener("click", () => document.getElementById("acervoImportInput")?.click());
+document.getElementById("acervoImportInput")?.addEventListener("change", (event) => {
+    importAcervoBlocks(event.target.files?.[0]);
+    event.target.value = "";
 });
