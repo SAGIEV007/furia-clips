@@ -163,3 +163,51 @@ def test_priors_file_ships_with_the_repository():
     assert priors["structure"]["block_duration_s"]["median"] > 0
     # Aggregate statistics only: no transcript, URL or personal data travels.
     assert "não reversível" in priors["provenance"]["privacy"]
+
+
+def test_campaign_vocabulary_alone_never_discards_editorial_content():
+    """The lexicon corroborates; it does not convict on its own.
+
+    Three stretches of a 98-minute live were discarded by an earlier version on
+    the learned score alone, and all three sit inside blocks the Acervo endorsed
+    as editorial: Renan describing the campaign app, the origin story of the
+    party, and the vote codes. The words that fired — "app", "org", "live",
+    "chat", "códigos" — belong to the subject as much as to the filler.
+    """
+    # Verbatim from the live, at 4897s, inside the block the Acervo titled
+    # "Partido Missão mobiliza ato na USP". An invented sentence packed with
+    # campaign words scores far denser than real speech and would prove nothing.
+    campanha = score_segment(
+        "Vamos todo mundo começar. Agora começou a guerra. Quase 40.000. Dá para chegar "
+        "até minha com 50.000. Vamos fazer 50.000 1000 pessoas no aplicativo. Como é que "
+        "faz para baixar? app.org.br. app.missão.org.br. app.missão.org.br. Vamos todo "
+        "mundo baixar o aplicativo, tá? E aí já tem aí vai tem o codigozinho que precisa. "
+        "Qual é? 14. Como? Voto 14. Então, olha só."
+    )
+
+    assert campanha["learned_score"] >= LEARNED_NON_CONTENT_THRESHOLD
+    assert campanha["cues"] == ["lexico_aprendido"]
+    assert campanha["non_content"] is False
+
+
+def test_a_sponsor_read_still_convicts_on_the_lexicon_alone():
+    from modules.non_content_detector import LEARNED_NON_CONTENT_DECISIVE
+
+    anuncio = score_segment(
+        "Assinar o nosso combo significa ter os bastidores em tempo real. Preparamos uma "
+        "condição exclusiva para o nosso público do YouTube. Clique no link aqui embaixo na "
+        "descrição ou aponte a câmera para o QR code na tela. Assine o combo agora."
+    )
+
+    assert anuncio["learned_score"] >= LEARNED_NON_CONTENT_DECISIVE
+    assert anuncio["non_content"] is True
+
+
+def test_two_weak_cues_together_still_convict():
+    pedido = score_segment(
+        "Vamos dando like na live aqui pra gente chegar a 14 mil, bora galera, "
+        "a transmissão tá bombando, bora compartilhar a live."
+    )
+
+    assert len(pedido["cues"]) >= 2
+    assert pedido["non_content"] is True

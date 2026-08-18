@@ -53,9 +53,20 @@ _CUE_GROUPS = {
 
 _WORD = re.compile(r"[0-9a-zà-ü]+")
 
-# Half-way between the highest score seen on real argument (0.0) and the lowest
-# seen on real filler (0.389), leaving room for a stretch that mixes the two.
+# Two tiers, both read off measured material.
+#
+# On its own the lexicon is not proof. Campaign vocabulary — "app", "org",
+# "live", "chat", "códigos" — belongs to the subject as often as to the filler:
+# on a 98-minute live it fired at 0.337 on Renan describing the campaign app, at
+# 0.21 on the origin story of the party, and at 0.153 on the vote codes. All
+# three sit inside blocks the Acervo endorsed as editorial content. Below the
+# solo bar the score only counts as one cue and needs a second, independent one
+# to agree.
 LEARNED_NON_CONTENT_THRESHOLD = 0.15
+# A read written to sell something saturates far above that: the sponsor read of
+# a real interview reaches 0.579. Nothing editorial in either measured source
+# came close, so this bar alone is enough.
+LEARNED_NON_CONTENT_DECISIVE = 0.45
 
 _PRIORS_PATH = Path(__file__).resolve().parent.parent / "data" / "chub_priors" / "acervo_priors.json"
 _PRIORS_CACHE: dict[str, Any] | None = None
@@ -180,7 +191,7 @@ def score_segment(text: str, *, words_per_second: float | None = None) -> dict[s
         unintelligible
         or "engajamento" in cues
         or repetition >= 0.62
-        or learned >= LEARNED_NON_CONTENT_THRESHOLD
+        or learned >= LEARNED_NON_CONTENT_DECISIVE
     )
     non_content = decisive or len(cues) >= 2
     return {

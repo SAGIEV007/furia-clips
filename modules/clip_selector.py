@@ -242,6 +242,9 @@ class ClipSelector:
         # stretch it covers, so the reviewer never sees an anonymous window.
         clips = self._attach_block_evidence(clips, settings)
 
+        # Where the Acervo has nothing to say, Furia reads the subjects itself.
+        clips = self._attach_local_topic_context(clips, sentences, emit_progress)
+
         # Filter clips at scene boundaries if available
         if scene_changes:
             clips = self._adjust_to_scene_boundaries(clips, scene_changes)
@@ -1326,6 +1329,73 @@ Retorne APENAS o JSON.
             if len(first_sentence.split()) >= 4:
                 return offset
         return 0
+
+    def _attach_local_topic_context(self, clips, sentences, emit_progress=None):
+        """Give each candidate the subject of the stretch it belongs to.
+
+        The Acervo turns a source into thematic blocks and every downstream
+        judgement leans on them, but they only exist for sources it already
+        labelled. This reads the same structure out of the transcript, so a
+        recording made minutes ago arrives with subjects instead of a flat wall
+        of sentences.
+
+        It never overwrites Acervo evidence. A block the Acervo endorsed is a
+        QA-gated fact; a unit found here is Furia's own reading, and travels
+        under its own key so the two are never confused.
+        """
+        if not clips or not sentences:
+            return clips
+        try:
+            from .topic_segmenter import segment_transcript
+            units = segment_transcript(sentences)
+        except (ImportError, TypeError, ValueError):
+            return clips
+        if not units:
+            return clips
+
+        tagged = 0
+        for clip in clips:
+            if clip.get("campaign_hub_block"):
+                continue
+            start = float(clip.get("start", 0) or 0)
+            end = float(clip.get("end", 0) or 0)
+            if end <= start:
+                continue
+            best, best_overlap = None, 0.0
+            for unit in units:
+                overlap = max(0.0, min(end, unit["end_s"]) - max(start, unit["start_s"]))
+                if overlap > best_overlap:
+                    best, best_overlap = unit, overlap
+            if not best or best_overlap / (end - start) < 0.5:
+                continue
+            clip["topic_block"] = {
+                "start_s": best["start_s"],
+                "end_s": best["end_s"],
+                "duration_s": best["duration_s"],
+                "topic_terms": best["topic_terms"],
+                "carries_subject": best["carries_subject"],
+                "non_content_cues": best["non_content_cues"],
+                "coverage_of_candidate": round(best_overlap / (end - start), 3),
+                "provenance": "furia_topic_segmenter",
+                "evidence_only": True,
+            }
+            tagged += 1
+            if not best["carries_subject"]:
+                clip["review_required"] = True
+                reasons = list(clip.get("review_reasons") or [])
+                reasons.append("trecho sem assunto desenvolvido segundo a leitura local")
+                clip["review_reasons"] = reasons
+
+        if tagged:
+            self._candidate_diagnostics["local_topic_units"] = len(units)
+            self._candidate_diagnostics["clips_with_local_topic"] = tagged
+            if emit_progress:
+                emit_progress(
+                    f"[Temas] A fonte foi lida em {len(units)} blocos temáticos pelo próprio Furia, "
+                    f"sem depender do Acervo; {tagged} candidato(s) receberam o assunto do trecho.",
+                    "info",
+                )
+        return clips
 
     def _attach_block_evidence(self, clips, settings):
         """Give every candidate the editorial context of the block it sits in.
