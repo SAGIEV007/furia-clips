@@ -941,6 +941,85 @@ Retorne APENAS o JSON.
 """
 
     def _build_transcript_blocks(self, sentences):
+        """Group sentences into the units the selector will choose between.
+
+        On an interview these are the seams of the conversation. Everywhere else
+        they are timed, as they always were.
+        """
+        seams = self._conversation_seams(sentences)
+        if seams:
+            return self._blocks_between_seams(sentences, seams)
+        return self._timed_transcript_blocks(sentences)
+
+    def _conversation_seams(self, sentences):
+        """Where the interviewer takes the floor, when the source is a talk.
+
+        Blocks used to be cut by a stopwatch — every eighteen to thirty seconds,
+        wherever that landed. That is why a 31-minute sabatina produced candidates
+        of twenty seconds each and why the editor saw clips that "catch the middle
+        and the end, never the question": a window that starts on a clock has no
+        reason to start where an idea does. The repair afterwards could only move
+        an edge a few seconds; it could not turn a tile into an exchange.
+        """
+        turns = detect_interviewer_turns(sentences)
+        span = max((float(item.get("end", 0) or 0) for item in sentences or []), default=0.0)
+        if not looks_like_an_interview(turns, span):
+            return []
+        return [turn["start_s"] for turn in turns if not turn["interjection"]]
+
+    def _blocks_between_seams(self, sentences, seams):
+        """One block per exchange, split only when it outgrows a clip.
+
+        A stretch longer than the preferred maximum is still one subject, but no
+        single clip can carry it, so it is divided at sentence boundaries rather
+        than left for the ranker to truncate arbitrarily.
+        """
+        ordered = sorted(sentences, key=lambda item: float(item.get("start", 0) or 0))
+        marks = sorted({round(seam, 3) for seam in seams})
+        groups: list[list] = []
+        current: list = []
+        for sentence in ordered:
+            start = float(sentence.get("start", 0) or 0)
+            if current and any(abs(start - mark) < 0.05 or (current[-1]["start"] < mark <= start) for mark in marks):
+                groups.append(current)
+                current = []
+            current.append(sentence)
+        if current:
+            groups.append(current)
+
+        blocks = []
+        for group in groups:
+            for piece in self._split_to_clip_length(group):
+                if not piece:
+                    continue
+                text = " ".join(str(item.get("text") or "") for item in piece)
+                blocks.append(self._make_editorial_block(
+                    len(blocks), piece[0]["start"], piece[-1]["end"], text, piece
+                ))
+        return blocks
+
+    def _split_to_clip_length(self, group):
+        """Cut an over-long exchange into pieces a clip can actually hold."""
+        if not group:
+            return []
+        span = float(group[-1]["end"]) - float(group[0]["start"])
+        if span <= self.preferred_max_duration:
+            return [group]
+        pieces, current = [], []
+        for sentence in group:
+            current.append(sentence)
+            if float(sentence["end"]) - float(current[0]["start"]) >= self.preferred_max_duration:
+                pieces.append(current)
+                current = []
+        if current:
+            # A tail too short to stand alone belongs to the piece before it.
+            if pieces and float(current[-1]["end"]) - float(current[0]["start"]) < self.min_duration:
+                pieces[-1].extend(current)
+            else:
+                pieces.append(current)
+        return pieces
+
+    def _timed_transcript_blocks(self, sentences):
         """Group sentences into compact editorial blocks for analysis."""
         blocks = []
         current_block_sentences = []

@@ -199,3 +199,46 @@ def test_local_evidence_reaches_the_gate_when_the_context_stage_produced_nothing
 
     assert annotated["qa_bridge"] is True
     assert annotated["qa_boundary_basis"] == "turnos_do_entrevistador"
+
+
+def test_candidates_are_born_on_the_seams_instead_of_a_stopwatch():
+    """Where the "todos pequenos" complaint came from.
+
+    Blocks used to be closed every eighteen to thirty seconds, wherever that
+    landed. On the 31-minute sabatina that produced 89 tiles with a median of
+    20 seconds, five of which happened to start within two seconds of a real
+    boundary. Cutting on the seams of the conversation instead gives 24 blocks
+    with a median of 67 seconds, ten of them starting on a real boundary.
+    """
+    selector = ClipSelector()
+
+    seam_blocks = selector._build_transcript_blocks(SEGURANCA)
+    timed_blocks = selector._timed_transcript_blocks(SEGURANCA)
+
+    assert seam_blocks
+    # The exchange survives as one unit instead of being closed by the clock.
+    assert len(seam_blocks) < len(timed_blocks)
+    starts = [block["start"] for block in seam_blocks]
+    assert 453.6 in starts
+
+
+def test_a_source_with_no_conversation_keeps_the_timed_blocks():
+    selector = ClipSelector()
+    live = _talk([(index * 20.0, index * 20.0 + 20.0, f"Vamos todo mundo baixar o aplicativo, número {index}.")
+                  for index in range(12)])
+
+    assert selector._conversation_seams(live) == []
+    assert selector._build_transcript_blocks(live) == selector._timed_transcript_blocks(live)
+
+
+def test_an_exchange_longer_than_a_clip_is_divided_at_sentences():
+    selector = ClipSelector()
+    long_answer = SEGURANCA + _talk([
+        (700.0 + index * 30.0, 730.0 + index * 30.0, f"Sigo explicando o mesmo ponto pela vez número {index}.")
+        for index in range(10)
+    ])
+
+    blocks = selector._build_transcript_blocks(long_answer)
+
+    assert blocks
+    assert all(block["end"] - block["start"] <= selector.preferred_max_duration + 40 for block in blocks)
