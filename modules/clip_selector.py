@@ -67,6 +67,14 @@ class ClipSelector:
     # a transcript; a mismatch of whole minutes means a timeline mismatch instead.
     MAX_SEED_ANCHOR_GAP_S = 60.0
 
+    # How far a clip's start may move forward to land on a sentence. Beyond this
+    # the window was chosen wrong and trimming would hide the real problem.
+    MAX_OPENING_TRIM_S = 15.0
+
+    # Words of the answer that must be inside the clip before a question can be
+    # considered closed. Fewer than this and the viewer still gets no payoff.
+    MIN_ANSWER_WORDS = 12
+
     # Share of a candidate that may sit on labelled non-content before the
     # candidate is discarded instead of competing for a slot.
     NON_CONTENT_DROP_RATIO = 0.5
@@ -221,6 +229,13 @@ class ClipSelector:
 
         # Drop candidates sitting on stretches the Acervo already labelled as
         # holding no editorial content, before the candidate budget is spent.
+        # A window that opens on the tail of a sentence reads as broken even when
+        # the material inside it is right, so the boundary is repaired before any
+        # other judgement is made about the candidate.
+        clips = self._trim_opening_fragment(clips, emit_progress)
+
+        clips = self._close_open_question(clips, sentences, emit_progress)
+
         clips = self._drop_labelled_non_content(clips, settings, sentences, emit_progress)
 
         # Every surviving candidate inherits what the Acervo established about the
@@ -1191,6 +1206,126 @@ Retorne APENAS o JSON.
             float(item.get("campaign_hub", {}).get("confidence", 0) or 0),
         ), reverse=True)
         return proposals[:self.max_clips]
+
+    def _trim_opening_fragment(self, clips, emit_progress=None):
+        """Start a clip at a sentence instead of in the middle of one.
+
+        The existing repair expands backwards by a whole block, which only helps
+        when the missing context sits immediately before and the gap is short. It
+        cannot fix the common case: the chosen window opens on the tail of a
+        sentence whose beginning belongs to the previous subject. There the
+        editor does not want more material, but less — the clip should simply
+        start a few seconds later, on the first sentence that stands on its own.
+
+        Start times inside a caption line are interpolated by character position,
+        because captions carry one timestamp per line and several sentences can
+        share it. Speech rate is close enough to uniform within a line for this
+        to land on the right words; the estimate is never allowed to move the
+        start by more than ``MAX_OPENING_TRIM_S``.
+        """
+        for clip in clips or []:
+            text = str(clip.get("text") or "")
+            start = float(clip.get("start", 0) or 0)
+            end = float(clip.get("end", 0) or 0)
+            if not text or end - start <= self.min_duration:
+                continue
+            # A caption that opens in lower case is continuing a sentence that
+            # started earlier. Names and acronyms legitimately open a clip, so
+            # only the case of the very first character is consulted.
+            first = text.lstrip()[:1]
+            if not first or not first.islower():
+                continue
+
+            offset = self._first_standalone_sentence_offset(text)
+            if offset <= 0:
+                continue
+            shift = (end - start) * (offset / len(text))
+            if shift <= 0.4 or shift > self.MAX_OPENING_TRIM_S:
+                continue
+            if (end - start) - shift < self.min_duration:
+                continue
+
+            clip["start"] = round(start + shift, 3)
+            clip["duration"] = round(end - clip["start"], 3)
+            clip["text"] = text[offset:].strip()
+            clip["opening_trimmed_s"] = round(shift, 3)
+            if emit_progress:
+                emit_progress(
+                    f"[Início] Corte {start:.0f}s começava no meio da frase; "
+                    f"avançado {shift:.1f}s para abrir em \"{clip['text'][:48]}...\".",
+                    "info",
+                )
+        return clips
+
+    def _close_open_question(self, clips, sentences, emit_progress=None):
+        """Never end a clip on the question and leave the answer outside it.
+
+        A window that closes on the interviewer's question is the most frustrating
+        shape a clip can have: it sets up an expectation the viewer cannot satisfy.
+        The gates already record ``question_answer_complete``, but they only mark
+        the candidate — by then the boundary is fixed. Here the boundary itself is
+        moved, taking in whatever follows until the answer has actually started.
+        """
+        if not sentences:
+            return clips
+        ordered = sorted(sentences, key=lambda item: float(item.get("start", 0) or 0))
+        for clip in clips or []:
+            text = str(clip.get("text") or "").strip()
+            end = float(clip.get("end", 0) or 0)
+            start = float(clip.get("start", 0) or 0)
+            if not text.endswith("?") or end <= start:
+                continue
+
+            answer_words, new_end = 0, end
+            for sentence in ordered:
+                sentence_start = float(sentence.get("start", 0) or 0)
+                sentence_end = float(sentence.get("end", 0) or 0)
+                if sentence_end <= end:
+                    continue
+                if sentence_start > end + 3.0 and answer_words == 0:
+                    # Nothing follows closely enough to be the answer to this
+                    # question; extending would splice unrelated material.
+                    break
+                if sentence_end - start > self.max_duration:
+                    break
+                answer_words += len(str(sentence.get("text") or "").split())
+                new_end = sentence_end
+                if answer_words >= self.MIN_ANSWER_WORDS:
+                    break
+
+            if answer_words >= self.MIN_ANSWER_WORDS and new_end > end:
+                clip["end"] = round(new_end, 3)
+                clip["duration"] = round(clip["end"] - start, 3)
+                clip["answer_extended_s"] = round(new_end - end, 3)
+                if emit_progress:
+                    emit_progress(
+                        f"[Pergunta] Corte terminava na pergunta; estendido {new_end - end:.1f}s "
+                        "para incluir o começo da resposta.",
+                        "info",
+                    )
+        return clips
+
+    @staticmethod
+    def _first_standalone_sentence_offset(text):
+        """Character offset of the first sentence long enough to open a clip.
+
+        Short fragments left over from the previous idea — "Não atua." — are
+        skipped as well, because opening on them reads as badly as opening
+        mid-sentence.
+        """
+        offset = 0
+        for _ in range(4):
+            match = re.search(r"[.!?]\s+", text[offset:])
+            if not match:
+                return 0
+            offset += match.end()
+            remainder = text[offset:]
+            if len(remainder.split()) < 8:
+                return 0
+            first_sentence = re.split(r"[.!?]", remainder, maxsplit=1)[0]
+            if len(first_sentence.split()) >= 4:
+                return offset
+        return 0
 
     def _attach_block_evidence(self, clips, settings):
         """Give every candidate the editorial context of the block it sits in.
