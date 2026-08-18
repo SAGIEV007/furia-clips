@@ -1,0 +1,2393 @@
+{
+  "schema_version": "furia-lexico-chub-v1",
+  "origem": "Campaign Hub, tabela entities (52.282 menções, 12.998 grafias distintas)",
+  "nota": "Agrupamento e papel vêm do Campaign Hub. A grafia canônica NÃO vem: o Hub extraiu esses nomes de legendas automáticas e herdou os erros delas — 'Nicolas Ferreira' aparece mais vezes que 'Nikolas Ferreira', e a forma rara é a certa. Só entradas com confirmado=true reescrevem legenda. As demais ficam como sugestão para o editor aprovar.",
+  "contrato": "confirmado=false nunca corrige em silêncio; no máximo sinaliza.",
+  "total": 337,
+  "confirmados": 22,
+  "aguardando_revisao": 7,
+  "entradas": [
+    {
+      "canonico": "Renan Santos",
+      "confirmado": true,
+      "variantes": [],
+      "papel": "ally",
+      "mencoes_chub": 2806
+    },
+    {
+      "canonico": "Lula",
+      "confirmado": true,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 1625
+    },
+    {
+      "canonico": "Brasil",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 797
+    },
+    {
+      "canonico": "Flávio Bolsonaro",
+      "confirmado": false,
+      "variantes": [
+        "Flavio Bolsonaro"
+      ],
+      "papel": "villain",
+      "mencoes_chub": 726
+    },
+    {
+      "canonico": "Renan",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "ally",
+      "mencoes_chub": 668
+    },
+    {
+      "canonico": "Banco Master",
+      "confirmado": false,
+      "variantes": [
+        "Banco Máster"
+      ],
+      "papel": "institution",
+      "mencoes_chub": 644
+    },
+    {
+      "canonico": "Comando Vermelho",
+      "confirmado": true,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 594
+    },
+    {
+      "canonico": "Bolsonaro",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 537
+    },
+    {
+      "canonico": "STF",
+      "confirmado": true,
+      "variantes": [],
+      "papel": "institution",
+      "mencoes_chub": 440
+    },
+    {
+      "canonico": "Nordeste",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 347
+    },
+    {
+      "canonico": "Centrão",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "institution",
+      "mencoes_chub": 332
+    },
+    {
+      "canonico": "PCC",
+      "confirmado": true,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 309
+    },
+    {
+      "canonico": "São Paulo",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 309
+    },
+    {
+      "canonico": "MBL",
+      "confirmado": true,
+      "variantes": [],
+      "papel": "institution",
+      "mencoes_chub": 290
+    },
+    {
+      "canonico": "Rio de Janeiro",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 268
+    },
+    {
+      "canonico": "Estados Unidos",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 266
+    },
+    {
+      "canonico": "Jair Bolsonaro",
+      "confirmado": true,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 260
+    },
+    {
+      "canonico": "Partido Missão",
+      "confirmado": true,
+      "variantes": [],
+      "papel": "party",
+      "mencoes_chub": 258
+    },
+    {
+      "canonico": "Bolsa Família",
+      "confirmado": true,
+      "variantes": [],
+      "papel": "policy",
+      "mencoes_chub": 248
+    },
+    {
+      "canonico": "Maranhão",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 246
+    },
+    {
+      "canonico": "Alexandre de Moraes",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 238
+    },
+    {
+      "canonico": "Daniel Vorcaro",
+      "confirmado": false,
+      "variantes": [
+        "Daniel Vorkaro",
+        "Daniel Forcaro",
+        "Daniel Borkaro"
+      ],
+      "papel": "villain",
+      "mencoes_chub": 204
+    },
+    {
+      "canonico": "China",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 177
+    },
+    {
+      "canonico": "Polícia Federal",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "institution",
+      "mencoes_chub": 152
+    },
+    {
+      "canonico": "Bahia",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 145
+    },
+    {
+      "canonico": "Kim Kataguiri",
+      "confirmado": true,
+      "variantes": [],
+      "papel": "ally",
+      "mencoes_chub": 140
+    },
+    {
+      "canonico": "Ceará",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 136
+    },
+    {
+      "canonico": "PSOL",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "party",
+      "mencoes_chub": 135
+    },
+    {
+      "canonico": "Erika Hilton",
+      "confirmado": true,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 127
+    },
+    {
+      "canonico": "Ciro Nogueira",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 118
+    },
+    {
+      "canonico": "Wesley Safadão",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 115
+    },
+    {
+      "canonico": "Santa Catarina",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 110
+    },
+    {
+      "canonico": "Tarcísio",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "ally",
+      "mencoes_chub": 108
+    },
+    {
+      "canonico": "Flávio",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 106
+    },
+    {
+      "canonico": "Janja",
+      "confirmado": true,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 106
+    },
+    {
+      "canonico": "Brasília",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 105
+    },
+    {
+      "canonico": "Rede Globo",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "institution",
+      "mencoes_chub": 104
+    },
+    {
+      "canonico": "Donald Trump",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 99
+    },
+    {
+      "canonico": "Dilma Rousseff",
+      "confirmado": true,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 95
+    },
+    {
+      "canonico": "Zema",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "ally",
+      "mencoes_chub": 95
+    },
+    {
+      "canonico": "Pará",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 94
+    },
+    {
+      "canonico": "Dias Toffoli",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 92
+    },
+    {
+      "canonico": "Congresso Nacional",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "institution",
+      "mencoes_chub": 91
+    },
+    {
+      "canonico": "Neymar",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 91
+    },
+    {
+      "canonico": "Valdemar da Costa Neto",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 89
+    },
+    {
+      "canonico": "Nikolas Ferreira",
+      "confirmado": true,
+      "variantes": [
+        "Nicolas Ferreira",
+        "Nicolás Ferreira"
+      ],
+      "papel": "villain",
+      "mencoes_chub": 83
+    },
+    {
+      "canonico": "Câmara dos Deputados",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "institution",
+      "mencoes_chub": 81
+    },
+    {
+      "canonico": "Gilmar Mendes",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 79
+    },
+    {
+      "canonico": "Globo",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "institution",
+      "mencoes_chub": 79
+    },
+    {
+      "canonico": "Missão",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "party",
+      "mencoes_chub": 79
+    },
+    {
+      "canonico": "Lava Jato",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "institution",
+      "mencoes_chub": 71
+    },
+    {
+      "canonico": "Senado",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "institution",
+      "mencoes_chub": 70
+    },
+    {
+      "canonico": "Flávio Dino",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "institution",
+      "mencoes_chub": 69
+    },
+    {
+      "canonico": "Ministério Público",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "institution",
+      "mencoes_chub": 66
+    },
+    {
+      "canonico": "Renato Santos",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "ally",
+      "mencoes_chub": 64
+    },
+    {
+      "canonico": "Trump",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "ally",
+      "mencoes_chub": 64
+    },
+    {
+      "canonico": "Caiado",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "ally",
+      "mencoes_chub": 63
+    },
+    {
+      "canonico": "ONGs",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "institution",
+      "mencoes_chub": 63
+    },
+    {
+      "canonico": "Venezuela",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 61
+    },
+    {
+      "canonico": "Romeu Zema",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 59
+    },
+    {
+      "canonico": "Piauí",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 58
+    },
+    {
+      "canonico": "Eduardo Bolsonaro",
+      "confirmado": true,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 57
+    },
+    {
+      "canonico": "Haddad",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 57
+    },
+    {
+      "canonico": "Tarcísio de Freitas",
+      "confirmado": true,
+      "variantes": [],
+      "papel": "ally",
+      "mencoes_chub": 56
+    },
+    {
+      "canonico": "Globo News",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "institution",
+      "mencoes_chub": 55
+    },
+    {
+      "canonico": "Guido Mantega",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 55
+    },
+    {
+      "canonico": "Pablo Marçal",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 55
+    },
+    {
+      "canonico": "Minas Gerais",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 54
+    },
+    {
+      "canonico": "Movimento Brasil Livre",
+      "confirmado": true,
+      "variantes": [],
+      "papel": "institution",
+      "mencoes_chub": 54
+    },
+    {
+      "canonico": "Belém",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 53
+    },
+    {
+      "canonico": "Toffoli",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 52
+    },
+    {
+      "canonico": "Alcolumbre",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 50
+    },
+    {
+      "canonico": "Goiás",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 50
+    },
+    {
+      "canonico": "Paraná",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 50
+    },
+    {
+      "canonico": "Tocantins",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 50
+    },
+    {
+      "canonico": "Índia",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 50
+    },
+    {
+      "canonico": "Jacques Wagner",
+      "confirmado": false,
+      "variantes": [
+        "Jaques Wagner"
+      ],
+      "papel": "villain",
+      "mencoes_chub": 49
+    },
+    {
+      "canonico": "Judiciário",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "institution",
+      "mencoes_chub": 49
+    },
+    {
+      "canonico": "Pernambuco",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 49
+    },
+    {
+      "canonico": "Vorcaro",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 48
+    },
+    {
+      "canonico": "Argentina",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 47
+    },
+    {
+      "canonico": "COP30",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "event",
+      "mencoes_chub": 47
+    },
+    {
+      "canonico": "Fabiano Zettel",
+      "confirmado": false,
+      "variantes": [
+        "Fabiano Zetel"
+      ],
+      "papel": "villain",
+      "mencoes_chub": 47
+    },
+    {
+      "canonico": "Guilherme Boulos",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 47
+    },
+    {
+      "canonico": "Recife",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 47
+    },
+    {
+      "canonico": "André Valadão",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 46
+    },
+    {
+      "canonico": "Arthur Lira",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 46
+    },
+    {
+      "canonico": "Rússia",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 46
+    },
+    {
+      "canonico": "MST",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "institution",
+      "mencoes_chub": 45
+    },
+    {
+      "canonico": "Nayib Bukele",
+      "confirmado": false,
+      "variantes": [
+        "Naib Bukele"
+      ],
+      "papel": "ally",
+      "mencoes_chub": 45
+    },
+    {
+      "canonico": "Kim",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "ally",
+      "mencoes_chub": 44
+    },
+    {
+      "canonico": "Nicolas",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 44
+    },
+    {
+      "canonico": "Petrobras",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "company",
+      "mencoes_chub": 44
+    },
+    {
+      "canonico": "João Campos",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 43
+    },
+    {
+      "canonico": "Salvador",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 43
+    },
+    {
+      "canonico": "Dilma",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 41
+    },
+    {
+      "canonico": "Tabata Amaral",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 41
+    },
+    {
+      "canonico": "União Brasil",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "party",
+      "mencoes_chub": 41
+    },
+    {
+      "canonico": "Igreja Lagoinha",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "institution",
+      "mencoes_chub": 39
+    },
+    {
+      "canonico": "Lula",
+      "confirmado": true,
+      "variantes": [
+        "Luiz Inácio Lula da Silva"
+      ],
+      "papel": "villain",
+      "mencoes_chub": 39
+    },
+    {
+      "canonico": "Bukele",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "ally",
+      "mencoes_chub": 38
+    },
+    {
+      "canonico": "Cláudio Castro",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "ally",
+      "mencoes_chub": 38
+    },
+    {
+      "canonico": "Japão",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 38
+    },
+    {
+      "canonico": "Rio Grande do Sul",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 38
+    },
+    {
+      "canonico": "TSE",
+      "confirmado": true,
+      "variantes": [],
+      "papel": "institution",
+      "mencoes_chub": 38
+    },
+    {
+      "canonico": "Fernando Haddad",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 37
+    },
+    {
+      "canonico": "Sérgio Moro",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 36
+    },
+    {
+      "canonico": "Milei",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "ally",
+      "mencoes_chub": 35
+    },
+    {
+      "canonico": "Partido Novo",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "party",
+      "mencoes_chub": 35
+    },
+    {
+      "canonico": "Ronaldo Caiado",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 35
+    },
+    {
+      "canonico": "SUS",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "institution",
+      "mencoes_chub": 35
+    },
+    {
+      "canonico": "Javier Milei",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "ally",
+      "mencoes_chub": 34
+    },
+    {
+      "canonico": "Ratinho",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 34
+    },
+    {
+      "canonico": "BRB",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "institution",
+      "mencoes_chub": 33
+    },
+    {
+      "canonico": "Jerônimo Rodrigues",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 33
+    },
+    {
+      "canonico": "Marina Silva",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 33
+    },
+    {
+      "canonico": "Polícia Militar",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "institution",
+      "mencoes_chub": 33
+    },
+    {
+      "canonico": "Ricardo Lewandowski",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 33
+    },
+    {
+      "canonico": "Rio Grande do Norte",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 33
+    },
+    {
+      "canonico": "Amapá",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 32
+    },
+    {
+      "canonico": "Eduardo Leite",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "ally",
+      "mencoes_chub": 30
+    },
+    {
+      "canonico": "Forças Armadas",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "institution",
+      "mencoes_chub": 30
+    },
+    {
+      "canonico": "Rui Costa",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 30
+    },
+    {
+      "canonico": "Eduardo Paes",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 29
+    },
+    {
+      "canonico": "El Salvador",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 29
+    },
+    {
+      "canonico": "Felipe Neto",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 29
+    },
+    {
+      "canonico": "Fortaleza",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 29
+    },
+    {
+      "canonico": "Marcinho VP",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 29
+    },
+    {
+      "canonico": "Charlie Kirk",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "victim",
+      "mencoes_chub": 28
+    },
+    {
+      "canonico": "Embraer",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "company",
+      "mencoes_chub": 28
+    },
+    {
+      "canonico": "Renan Santos",
+      "confirmado": true,
+      "variantes": [
+        "Hernan Santos"
+      ],
+      "papel": "ally",
+      "mencoes_chub": 28
+    },
+    {
+      "canonico": "Banco Central",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "institution",
+      "mencoes_chub": 27
+    },
+    {
+      "canonico": "Faria Lima",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 27
+    },
+    {
+      "canonico": "Pelé",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "ally",
+      "mencoes_chub": 27
+    },
+    {
+      "canonico": "Queiroz",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 27
+    },
+    {
+      "canonico": "Valdemar Costa Neto",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 27
+    },
+    {
+      "canonico": "Aniele Franco",
+      "confirmado": false,
+      "variantes": [
+        "Anielle Franco"
+      ],
+      "papel": "villain",
+      "mencoes_chub": 26
+    },
+    {
+      "canonico": "Mato Grosso",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 26
+    },
+    {
+      "canonico": "Roberto Campos Neto",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "institution",
+      "mencoes_chub": 26
+    },
+    {
+      "canonico": "BPC",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "policy",
+      "mencoes_chub": 25
+    },
+    {
+      "canonico": "Mensalão",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "policy",
+      "mencoes_chub": 25
+    },
+    {
+      "canonico": "Petrolão",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "policy",
+      "mencoes_chub": 25
+    },
+    {
+      "canonico": "Alagoas",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 24
+    },
+    {
+      "canonico": "Arthur",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "ally",
+      "mencoes_chub": 24
+    },
+    {
+      "canonico": "Daniela Lima",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "ally",
+      "mencoes_chub": 24
+    },
+    {
+      "canonico": "Lulinha",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 24
+    },
+    {
+      "canonico": "PSDB",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "party",
+      "mencoes_chub": 24
+    },
+    {
+      "canonico": "Paraíba",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 24
+    },
+    {
+      "canonico": "Ratinho Júnior",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 24
+    },
+    {
+      "canonico": "Receita Federal",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "institution",
+      "mencoes_chub": 24
+    },
+    {
+      "canonico": "Temer",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "ally",
+      "mencoes_chub": 24
+    },
+    {
+      "canonico": "Acre",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 23
+    },
+    {
+      "canonico": "Arthur Duval",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "ally",
+      "mencoes_chub": 23
+    },
+    {
+      "canonico": "Estadão",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "institution",
+      "mencoes_chub": 23
+    },
+    {
+      "canonico": "Ayrton Senna",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "ally",
+      "mencoes_chub": 22
+    },
+    {
+      "canonico": "CNN",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "company",
+      "mencoes_chub": 22
+    },
+    {
+      "canonico": "Israel",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 22
+    },
+    {
+      "canonico": "Jerônimo",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 22
+    },
+    {
+      "canonico": "Maduro",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 22
+    },
+    {
+      "canonico": "Michel Temer",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "institution",
+      "mencoes_chub": 22
+    },
+    {
+      "canonico": "Netflix",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "company",
+      "mencoes_chub": 22
+    },
+    {
+      "canonico": "PSD",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "party",
+      "mencoes_chub": 22
+    },
+    {
+      "canonico": "TCP",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 22
+    },
+    {
+      "canonico": "Ucrânia",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 22
+    },
+    {
+      "canonico": "Alessandro Vieira",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "ally",
+      "mencoes_chub": 21
+    },
+    {
+      "canonico": "Barbalho",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 21
+    },
+    {
+      "canonico": "Elon Musk",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "ally",
+      "mencoes_chub": 21
+    },
+    {
+      "canonico": "Everton Rocha",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 21
+    },
+    {
+      "canonico": "Helder Barbalho",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 21
+    },
+    {
+      "canonico": "Kassab",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 21
+    },
+    {
+      "canonico": "Nicolás Maduro",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 21
+    },
+    {
+      "canonico": "Silas Malafaia",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 21
+    },
+    {
+      "canonico": "André Mendonça",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "ally",
+      "mencoes_chub": 20
+    },
+    {
+      "canonico": "Anitta",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 20
+    },
+    {
+      "canonico": "Coaf",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "institution",
+      "mencoes_chub": 20
+    },
+    {
+      "canonico": "João Roma",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "ally",
+      "mencoes_chub": 20
+    },
+    {
+      "canonico": "MDB",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "party",
+      "mencoes_chub": 20
+    },
+    {
+      "canonico": "Porto de Santos",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 20
+    },
+    {
+      "canonico": "Renan Calheiros",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 20
+    },
+    {
+      "canonico": "TCU",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "institution",
+      "mencoes_chub": 20
+    },
+    {
+      "canonico": "Bacelar",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 19
+    },
+    {
+      "canonico": "Colômbia",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 19
+    },
+    {
+      "canonico": "Deolane",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 19
+    },
+    {
+      "canonico": "George Soros",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 19
+    },
+    {
+      "canonico": "Lagoinha",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "institution",
+      "mencoes_chub": 19
+    },
+    {
+      "canonico": "Lewandowski",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 19
+    },
+    {
+      "canonico": "USP",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "institution",
+      "mencoes_chub": 19
+    },
+    {
+      "canonico": "Cargill",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "company",
+      "mencoes_chub": 18
+    },
+    {
+      "canonico": "Folha de São Paulo",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "institution",
+      "mencoes_chub": 18
+    },
+    {
+      "canonico": "INSS",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "institution",
+      "mencoes_chub": 18
+    },
+    {
+      "canonico": "Nelson Santos",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "ally",
+      "mencoes_chub": 18
+    },
+    {
+      "canonico": "Rocinha",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 18
+    },
+    {
+      "canonico": "Virgínia",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 18
+    },
+    {
+      "canonico": "Augusto de Arruda Botelho",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 17
+    },
+    {
+      "canonico": "Brandão",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 17
+    },
+    {
+      "canonico": "Cristiano Zanin",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "institution",
+      "mencoes_chub": 17
+    },
+    {
+      "canonico": "ONU",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "institution",
+      "mencoes_chub": 17
+    },
+    {
+      "canonico": "BYD",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "company",
+      "mencoes_chub": 16
+    },
+    {
+      "canonico": "Campinas",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 16
+    },
+    {
+      "canonico": "Cracolândia",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 16
+    },
+    {
+      "canonico": "Fabiano Zeta",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "ally",
+      "mencoes_chub": 16
+    },
+    {
+      "canonico": "Hamas",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 16
+    },
+    {
+      "canonico": "Intercept",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "institution",
+      "mencoes_chub": 16
+    },
+    {
+      "canonico": "Juiz de Fora",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 16
+    },
+    {
+      "canonico": "MTST",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "institution",
+      "mencoes_chub": 16
+    },
+    {
+      "canonico": "Twitter",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "company",
+      "mencoes_chub": 16
+    },
+    {
+      "canonico": "Uber",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "company",
+      "mencoes_chub": 16
+    },
+    {
+      "canonico": "Valdemar",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 16
+    },
+    {
+      "canonico": "Vietnã",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 16
+    },
+    {
+      "canonico": "Viviane Barsi",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "ally",
+      "mencoes_chub": 16
+    },
+    {
+      "canonico": "Aécio Neves",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "ally",
+      "mencoes_chub": 15
+    },
+    {
+      "canonico": "CBF",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "institution",
+      "mencoes_chub": 15
+    },
+    {
+      "canonico": "Carlos Bolsonaro",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 15
+    },
+    {
+      "canonico": "Curitiba",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 15
+    },
+    {
+      "canonico": "Daniel Vorcar",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 15
+    },
+    {
+      "canonico": "Davi Alcolumbre",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 15
+    },
+    {
+      "canonico": "FUNAI",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "institution",
+      "mencoes_chub": 15
+    },
+    {
+      "canonico": "Ferrogrão",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "policy",
+      "mencoes_chub": 15
+    },
+    {
+      "canonico": "Flamengo",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "institution",
+      "mencoes_chub": 15
+    },
+    {
+      "canonico": "Geraldo Alckmin",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "ally",
+      "mencoes_chub": 15
+    },
+    {
+      "canonico": "Getúlio Vargas",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 15
+    },
+    {
+      "canonico": "Hugo Mota",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 15
+    },
+    {
+      "canonico": "Instagram",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "company",
+      "mencoes_chub": 15
+    },
+    {
+      "canonico": "JBS",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "company",
+      "mencoes_chub": 15
+    },
+    {
+      "canonico": "Otto Lobo",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 15
+    },
+    {
+      "canonico": "Paraguai",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 15
+    },
+    {
+      "canonico": "Peru",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 15
+    },
+    {
+      "canonico": "Richard Rasmussen",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "ally",
+      "mencoes_chub": 15
+    },
+    {
+      "canonico": "Roraima",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 15
+    },
+    {
+      "canonico": "São Luís",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 15
+    },
+    {
+      "canonico": "YouTube",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "company",
+      "mencoes_chub": 15
+    },
+    {
+      "canonico": "Deltan Dallagnol",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "ally",
+      "mencoes_chub": 14
+    },
+    {
+      "canonico": "Eduardo Cunha",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 14
+    },
+    {
+      "canonico": "Gilberto Kassab",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 14
+    },
+    {
+      "canonico": "Jornal Nacional",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "institution",
+      "mencoes_chub": 14
+    },
+    {
+      "canonico": "Jovem Pan",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "company",
+      "mencoes_chub": 14
+    },
+    {
+      "canonico": "Messi",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "ally",
+      "mencoes_chub": 14
+    },
+    {
+      "canonico": "Porto de Pecém",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 14
+    },
+    {
+      "canonico": "Rondônia",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 14
+    },
+    {
+      "canonico": "Veja",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "institution",
+      "mencoes_chub": 14
+    },
+    {
+      "canonico": "Amazônia",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 13
+    },
+    {
+      "canonico": "Bonde dos 40",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 13
+    },
+    {
+      "canonico": "Google",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "company",
+      "mencoes_chub": 13
+    },
+    {
+      "canonico": "Jorge Messias",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "institution",
+      "mencoes_chub": 13
+    },
+    {
+      "canonico": "MC Rian",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 13
+    },
+    {
+      "canonico": "Marajó",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 13
+    },
+    {
+      "canonico": "Michele Bolsonaro",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "ally",
+      "mencoes_chub": 13
+    },
+    {
+      "canonico": "Nike",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "company",
+      "mencoes_chub": 13
+    },
+    {
+      "canonico": "Portugal",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 13
+    },
+    {
+      "canonico": "Ricardo Nunes",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 13
+    },
+    {
+      "canonico": "Sergipe",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 13
+    },
+    {
+      "canonico": "Zé Dirceu",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 13
+    },
+    {
+      "canonico": "Avenida Paulista",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 12
+    },
+    {
+      "canonico": "Band",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "company",
+      "mencoes_chub": 12
+    },
+    {
+      "canonico": "CLT",
+      "confirmado": true,
+      "variantes": [],
+      "papel": "policy",
+      "mencoes_chub": 12
+    },
+    {
+      "canonico": "Complexo da Penha",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 12
+    },
+    {
+      "canonico": "Discord",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "company",
+      "mencoes_chub": 12
+    },
+    {
+      "canonico": "Eduardo Campos",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 12
+    },
+    {
+      "canonico": "IPTU",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "policy",
+      "mencoes_chub": 12
+    },
+    {
+      "canonico": "Joesley Batista",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 12
+    },
+    {
+      "canonico": "MC Melody",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "celebrity",
+      "mencoes_chub": 12
+    },
+    {
+      "canonico": "Oruam",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 12
+    },
+    {
+      "canonico": "Ronaldinho Gaúcho",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "ally",
+      "mencoes_chub": 12
+    },
+    {
+      "canonico": "Singapura",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 12
+    },
+    {
+      "canonico": "Wesley Batista",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 12
+    },
+    {
+      "canonico": "Adriano da Nóbrega",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 11
+    },
+    {
+      "canonico": "Belo Horizonte",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 11
+    },
+    {
+      "canonico": "Coreia do Sul",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 11
+    },
+    {
+      "canonico": "Datafolha",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "institution",
+      "mencoes_chub": 11
+    },
+    {
+      "canonico": "Léo Lins",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "ally",
+      "mencoes_chub": 11
+    },
+    {
+      "canonico": "Marçal",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 11
+    },
+    {
+      "canonico": "Moro",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 11
+    },
+    {
+      "canonico": "Nando Moura",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 11
+    },
+    {
+      "canonico": "UOL",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "institution",
+      "mencoes_chub": 11
+    },
+    {
+      "canonico": "BOPE",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "institution",
+      "mencoes_chub": 10
+    },
+    {
+      "canonico": "BRICS",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "institution",
+      "mencoes_chub": 10
+    },
+    {
+      "canonico": "Bad Bunny",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 10
+    },
+    {
+      "canonico": "Bolívia",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 10
+    },
+    {
+      "canonico": "Buenos Aires",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 10
+    },
+    {
+      "canonico": "Complexo do Alemão",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 10
+    },
+    {
+      "canonico": "Danilo Gentili",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "ally",
+      "mencoes_chub": 10
+    },
+    {
+      "canonico": "Fabiano Zé",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "ally",
+      "mencoes_chub": 10
+    },
+    {
+      "canonico": "Leonardo DiCaprio",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "celebrity",
+      "mencoes_chub": 10
+    },
+    {
+      "canonico": "Letícia Sabatella",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 10
+    },
+    {
+      "canonico": "México",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 10
+    },
+    {
+      "canonico": "Mônica Bergamo",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "ally",
+      "mencoes_chub": 10
+    },
+    {
+      "canonico": "Oakberry",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "company",
+      "mencoes_chub": 10
+    },
+    {
+      "canonico": "PCdoB",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "party",
+      "mencoes_chub": 10
+    },
+    {
+      "canonico": "STJ",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "institution",
+      "mencoes_chub": 10
+    },
+    {
+      "canonico": "Silvio Almeida",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 10
+    },
+    {
+      "canonico": "Vera Magalhães",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "institution",
+      "mencoes_chub": 10
+    },
+    {
+      "canonico": "Alckmin",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "ally",
+      "mencoes_chub": 9
+    },
+    {
+      "canonico": "Carla Zambelli",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 9
+    },
+    {
+      "canonico": "Coxixola",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 9
+    },
+    {
+      "canonico": "Felipe Nunes",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 9
+    },
+    {
+      "canonico": "Frei Gilson",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "ally",
+      "mencoes_chub": 9
+    },
+    {
+      "canonico": "Fátima Bezerra",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 9
+    },
+    {
+      "canonico": "IBGE",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "institution",
+      "mencoes_chub": 9
+    },
+    {
+      "canonico": "Ibama",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "institution",
+      "mencoes_chub": 9
+    },
+    {
+      "canonico": "Irã",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 9
+    },
+    {
+      "canonico": "Itaú",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "company",
+      "mencoes_chub": 9
+    },
+    {
+      "canonico": "Ivete Sangalo",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "ally",
+      "mencoes_chub": 9
+    },
+    {
+      "canonico": "José Dirceu",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "ally",
+      "mencoes_chub": 9
+    },
+    {
+      "canonico": "Malu Gaspar",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "ally",
+      "mencoes_chub": 9
+    },
+    {
+      "canonico": "Oruan",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 9
+    },
+    {
+      "canonico": "Oruã",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 9
+    },
+    {
+      "canonico": "Pedro Álvares Cabral",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "historical",
+      "mencoes_chub": 9
+    },
+    {
+      "canonico": "Porto Alegre",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 9
+    },
+    {
+      "canonico": "Record",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "institution",
+      "mencoes_chub": 9
+    },
+    {
+      "canonico": "Romário",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 9
+    },
+    {
+      "canonico": "Sarney",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 9
+    },
+    {
+      "canonico": "TH Joias",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 9
+    },
+    {
+      "canonico": "TikTok",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "company",
+      "mencoes_chub": 9
+    },
+    {
+      "canonico": "Uruguai",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 9
+    },
+    {
+      "canonico": "Vinícius Júnior",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 9
+    },
+    {
+      "canonico": "Wagner Moura",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 9
+    },
+    {
+      "canonico": "Zico",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "ally",
+      "mencoes_chub": 9
+    },
+    {
+      "canonico": "Alok",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "ally",
+      "mencoes_chub": 8
+    },
+    {
+      "canonico": "BNDES",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "institution",
+      "mencoes_chub": 8
+    },
+    {
+      "canonico": "Barroso",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 8
+    },
+    {
+      "canonico": "Belford Roxo",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 8
+    },
+    {
+      "canonico": "Boulos",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 8
+    },
+    {
+      "canonico": "Deltan",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "ally",
+      "mencoes_chub": 8
+    },
+    {
+      "canonico": "Efraim Filho",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 8
+    },
+    {
+      "canonico": "Girão",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 8
+    },
+    {
+      "canonico": "Guedes",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "other",
+      "mencoes_chub": 8
+    },
+    {
+      "canonico": "Henry Ford",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 8
+    },
+    {
+      "canonico": "Hernando Santos",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "ally",
+      "mencoes_chub": 8
+    },
+    {
+      "canonico": "MEI",
+      "confirmado": true,
+      "variantes": [],
+      "papel": "policy",
+      "mencoes_chub": 8
+    },
+    {
+      "canonico": "Marcola",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 8
+    },
+    {
+      "canonico": "Marrocos",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "place",
+      "mencoes_chub": 8
+    },
+    {
+      "canonico": "Mercosul",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "institution",
+      "mencoes_chub": 8
+    },
+    {
+      "canonico": "Neymar pai",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "antagonist",
+      "mencoes_chub": 8
+    },
+    {
+      "canonico": "PDT",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "party",
+      "mencoes_chub": 8
+    },
+    {
+      "canonico": "Paulo Guedes",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "villain",
+      "mencoes_chub": 8
+    },
+    {
+      "canonico": "Polícia Civil",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "institution",
+      "mencoes_chub": 8
+    },
+    {
+      "canonico": "Previdência",
+      "confirmado": false,
+      "variantes": [],
+      "papel": "policy",
+      "mencoes_chub": 8
+    }
+  ]
+}

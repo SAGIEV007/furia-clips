@@ -218,8 +218,44 @@ class Transcriber:
                 f"{len(result['full_text'])} caracteres ({elapsed:.0f}s)"
             )
 
+        self._revise_captions(result, emit_progress)
         self._save_to_cache(audio_path, result)
         return result
+
+    @staticmethod
+    def _revise_captions(result, emit_progress=None):
+        """Fix the names and the numbers before anything downstream reads them.
+
+        This pass existed as a module and was wired to nothing, which is why the
+        editor kept seeing "Quim Catagui" on screen after it was written: every
+        clip, every caption and every headline was reading the raw recogniser
+        output. It runs here, at the one point both engines pass through, so no
+        later path can skip it.
+
+        What it changes is narrow on purpose — proper nouns somebody vouched for,
+        the digits that were spoken as articles, and question marks on sentences
+        that are unambiguously questions. Words whose twin would change the
+        meaning are counted and reported, never rewritten.
+        """
+        from .caption_lexicon import review_caption
+
+        changed = 0
+        to_check: list[str] = []
+        for segment in result.get("segments") or []:
+            verdict = review_caption(segment.get("text", ""))
+            if verdict["alterado"]:
+                segment["text"] = verdict["texto"]
+                changed += 1
+            for item in verdict["conferir"]:
+                to_check.append(str(item.get("palavra") or ""))
+        if changed:
+            result["full_text"] = " ".join(
+                str(segment.get("text") or "") for segment in result.get("segments") or []
+            ).strip()
+        result["revisao_legenda"] = {"linhas_corrigidas": changed, "conferir_no_audio": sorted(set(to_check))}
+        if emit_progress and changed:
+            aviso = f"; {len(set(to_check))} palavra(s) para conferir no áudio" if to_check else ""
+            emit_progress(f"[Léxico] {changed} linha(s) corrigidas (nomes, números, interrogação){aviso}.", "info")
 
     def _transcribe_faster_whisper(self, audio_path, emit_progress=None, cancel_check=None):
         segments_iter, info = self.model.transcribe(

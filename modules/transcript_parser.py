@@ -139,13 +139,35 @@ def parse_transcript_text(text: str, duration: float | None = None) -> dict:
     normalized = _normalize(_deduplicate_progressive_segments(segments), duration=duration)
     if not normalized:
         raise ValueError("Nenhum segmento com timestamp reconhecível foi encontrado")
+    review = _revise(normalized)
     return {
         "segments": normalized,
         "full_text": " ".join(segment["text"] for segment in normalized),
         "source": "manual",
         "format": detect_format(raw),
         "segment_count": len(normalized),
+        "revisao_legenda": review,
     }
+
+
+def _revise(segments: list[dict]) -> dict:
+    """Fix names and numbers on an imported caption, same as on a fresh one.
+
+    This is the path that actually gets used: the editor downloads the caption
+    from the source rather than waiting on Whisper, so a correction wired only
+    into the transcriber would never run on the material being cut.
+    """
+    from .caption_lexicon import review_caption
+
+    changed = 0
+    to_check: list[str] = []
+    for segment in segments:
+        verdict = review_caption(segment.get("text", ""))
+        if verdict["alterado"]:
+            segment["text"] = verdict["texto"]
+            changed += 1
+        to_check.extend(str(item.get("palavra") or "") for item in verdict["conferir"])
+    return {"linhas_corrigidas": changed, "conferir_no_audio": sorted(set(to_check))}
 
 
 def _parse_timestamp_lines(raw: str) -> list[dict]:

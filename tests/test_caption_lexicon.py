@@ -89,3 +89,76 @@ def test_the_lexicon_ships_with_the_repository():
     assert lexicon["schema_version"] == "furia-lexico-nomes-v1"
     canonicals = {entry["canonico"] for entry in lexicon["nomes"]}
     assert {"Kim Kataguiri", "Renan Santos", "Partido Missão", "CLT"} <= canonicals
+
+
+# ── O que o editor corrigia à mão em todo corte ────────────────────────────────
+
+def test_a_name_that_lost_a_syllable_is_still_recognised():
+    """The case that kept going out wrong after the corrector already existed.
+
+    A recogniser that has never heard "Kataguiri" does not merely respell it, it
+    drops sound. Exact phonetic equality never matched "Quim Catagui", so the
+    name reached the screen uncorrected on clip after clip.
+    """
+    corrected, corrections = correct_names("falei com o Quim Catagui ontem")
+
+    assert corrected == "falei com o Kim Kataguiri ontem"
+    assert corrections == [{"de": "Quim Catagui", "para": "Kim Kataguiri"}]
+
+
+def test_short_names_stay_exact():
+    """Tolerance on short words would merge different people. Lula is not Lira."""
+    corrected, _ = correct_names("a Lula e o Lira são a mesma coisa")
+
+    assert "Lira" in corrected
+
+
+def test_no_canonical_name_is_rewritten_into_another():
+    """The guard on the whole lexicon: every correct spelling survives a pass."""
+    from modules.caption_lexicon import load_lexicon
+
+    for entry in load_lexicon()["nomes"]:
+        canonical = str(entry["canonico"])
+        assert correct_names(canonical)[0] == canonical
+
+
+def test_a_number_spoken_as_a_word_is_written_as_one():
+    from modules.caption_lexicon import restore_number_words
+
+    assert restore_number_words("eu tenho 1 casa")[0] == "eu tenho uma casa"
+    assert restore_number_words("comprou 1 carro")[0] == "comprou um carro"
+    # The plural hides the gender, and "moto" is feminine despite the -o.
+    assert restore_number_words("comprou 2 motos")[0] == "comprou duas motos"
+    # A real figure is not an article and must be left alone.
+    assert restore_number_words("subiu 1,5% no ano")[0] == "subiu 1,5% no ano"
+
+
+def test_a_question_is_closed_only_when_it_is_unambiguously_one():
+    from modules.caption_lexicon import restore_question_mark
+
+    assert restore_question_mark("qual é a punição")[0] == "qual é a punição?"
+    assert restore_question_mark("e os custos subindo, né")[0] == "e os custos subindo, né?"
+    # "Como" and "que" open statements as often as questions; inventing a mark
+    # there turns a sentence into a challenge nobody made.
+    assert restore_question_mark("como eu disse na semana passada")[1] is False
+    assert restore_question_mark("que bom que você veio")[1] is False
+
+
+def test_the_hub_never_decides_a_spelling_on_its_own():
+    """The Hub says "Nicolas Ferreira" four times as often as the real name.
+
+    It learned that from the same automatic captions Furia is trying to fix, so
+    its frequency is not authority. Only a spelling a person vouched for wins.
+    """
+    corrected, _ = correct_names("o Nicolas Ferreira falou disso")
+
+    assert corrected == "o Nikolas Ferreira falou disso"
+
+
+def test_the_role_of_an_entity_comes_from_the_hub():
+    """What the headline generator needs: who is the villain of this material."""
+    from modules.caption_lexicon import role_of
+
+    assert role_of("Lula") == "villain"
+    assert role_of("Kim Kataguiri") == "ally"
+    assert role_of("São Paulo") == "place"

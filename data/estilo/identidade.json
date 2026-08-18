@@ -13,12 +13,12 @@
     "palavras_por_linha_max": 4,
     "linhas_max": 2,
     "destaque_por_palavra": {
-      "observado": true,
-      "confirmar_com_editor": true,
-      "nota": "Nas capturas dos posts publicados a legenda não aparece toda amarela: o texto é branco e UMA palavra por linha vem em amarelo — 'A PESSOA INOCENTE', 'DA GLOBO NEWS', 'TÁ GERANDO UMA'. O editor descreveu a legenda como amarela, então as duas leituras estão registradas até ele confirmar qual vale.",
+      "confirmado_pelo_editor": true,
+      "efeito": "karaoke",
+      "nota": "Confirmado em 18/08/2026. A legenda é branca; a palavra que está sendo dita naquele instante fica amarela, e o amarelo passa para a seguinte conforme a fala avança. Não é uma palavra-chave escolhida: é a palavra corrente. O SubtitleGenerator já implementa isso em _generate_word_by_word com style='word_by_word'; o que faltava era a cor e a fonte da identidade.",
       "cor_base": "#FFFFFF",
       "cor_destaque": "#FFD400",
-      "palavras_por_linha_max": 1
+      "requer": "timestamps por palavra na transcrição"
     }
   },
   "headline_1x1": {
