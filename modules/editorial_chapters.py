@@ -101,13 +101,16 @@ def annotate_clip_with_chapters(clip: dict, editorial_context: dict | None) -> d
     context = editorial_context or {}
     chapters = context.get("editorial_chapters", [])
     hook_candidates = context.get("hook_candidates", [])
+    local_bridge = bool(result.get("qa_bridge_local"))
+    local_basis = str(result.get("qa_boundary_basis_local") or "turnos_do_entrevistador")
+
     if not chapters:
         result.setdefault("editorial_chapter_available", False)
         result.setdefault("chapter_coherence_score", None)
         result.setdefault("editorial_chapter_ids", [])
         result.setdefault("chapter_count", 0)
-        result.setdefault("qa_bridge", False)
-        result.setdefault("qa_boundary_basis", None)
+        result.setdefault("qa_bridge", local_bridge)
+        result.setdefault("qa_boundary_basis", local_basis if local_bridge else None)
         result.setdefault("qa_boundary_review_required", False)
         _attach_nearest_hook(result, hook_candidates)
         return result
@@ -138,6 +141,16 @@ def annotate_clip_with_chapters(clip: dict, editorial_context: dict | None) -> d
             qa_boundary_basis = str(candidate.get("boundary_basis") or "sem_diarização")
             qa_boundary_review_required = bool(candidate.get("needs_speaker_review") or candidate.get("overlap_suspected"))
             break
+
+    # A window computed in the context stage is the strongest evidence, but its
+    # absence is not evidence of absence: those windows are proposed by their own
+    # heuristic and a selector rarely lands on one edge to edge. When the clip
+    # itself contains the interviewer's turn and enough of the answer, the bridge
+    # is there to be heard, and refusing to render it holds back exactly the clips
+    # that carry a question.
+    if not qa_bridge and local_bridge:
+        qa_bridge = True
+        qa_boundary_basis = local_basis
 
     if not overlaps:
         coherence = 35.0

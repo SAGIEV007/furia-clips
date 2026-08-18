@@ -155,3 +155,47 @@ def test_boundaries_are_left_alone_when_the_source_is_not_an_interview():
     clips = selector._align_to_interview_turns([dict(original)], live)
 
     assert clips == [original]
+
+
+def test_a_clip_that_carries_question_and_answer_validates_its_own_bridge():
+    """The gate that held back fourteen of nineteen candidates.
+
+    A clip is refused when a question is heard and the bridge to its answer was
+    never validated. Validation used to require the clip to line up, edge to
+    edge, with a question-and-answer window computed in the context stage — which
+    a selected window almost never does. On the sabatina that left only the five
+    candidates containing no question at all, which is precisely the shape the
+    editor complained about: the middle and the end of an answer, never the
+    question that provoked it.
+    """
+    selector = ClipSelector()
+    clip = {}
+    turns = detect_interviewer_turns(SEGURANCA)
+
+    selector._mark_local_qa_bridge(clip, 450.0, 520.0, turns, SEGURANCA)
+
+    assert clip["qa_bridge_local"] is True
+    assert clip["qa_boundary_basis_local"] == "turnos_do_entrevistador"
+    assert clip["qa_bridge_answer_words"] >= 12
+
+
+def test_the_bridge_needs_the_answer_and_not_only_the_question():
+    """A question with nothing after it is the dangling clip the gate exists for."""
+    selector = ClipSelector()
+    clip = {}
+    turns = detect_interviewer_turns(SEGURANCA)
+
+    selector._mark_local_qa_bridge(clip, 450.0, 472.0, turns, SEGURANCA)
+
+    assert clip == {}
+
+
+def test_local_evidence_reaches_the_gate_when_the_context_stage_produced_nothing():
+    from modules.editorial_chapters import annotate_clip_with_chapters
+
+    annotated = annotate_clip_with_chapters(
+        {"start": 450.0, "end": 520.0, "qa_bridge_local": True}, {}
+    )
+
+    assert annotated["qa_bridge"] is True
+    assert annotated["qa_boundary_basis"] == "turnos_do_entrevistador"

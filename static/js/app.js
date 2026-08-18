@@ -331,16 +331,30 @@ function addConsoleLog(message, level = "info") {
     const console_el = document.getElementById("consoleOutput");
     const text = String(message ?? "");
     state.consoleHistory.push({ text, level, recorded_at: new Date().toISOString() });
+    // Whether the reader was already at the bottom before this line arrived. If
+    // they scrolled up to read something, yanking the panel back down loses their
+    // place; if they were at the bottom, they want to keep following.
+    const followingTail = console_el.scrollHeight - console_el.scrollTop - console_el.clientHeight < 40;
+
     const line = document.createElement("div");
     line.className = `console-line ${level}`;
     line.textContent = text;
     console_el.appendChild(line);
-    console_el.scrollTop = console_el.scrollHeight;
     updateProcessingJourney(text, level);
 
     // The visible panel stays bounded for performance; copying uses the full session history.
     while (console_el.children.length > 200) {
         console_el.removeChild(console_el.firstChild);
+    }
+
+    // Scrolling only after the trim, and on the next frame, so the height the
+    // browser reports already accounts for the new line and for any wrapping it
+    // caused. Doing it inline left the panel one line short of the bottom, which
+    // is why the newest message was almost never the one on screen.
+    if (followingTail) {
+        requestAnimationFrame(() => {
+            console_el.scrollTop = console_el.scrollHeight;
+        });
     }
     if (state.consoleHistory.length > 5000) {
         state.consoleHistory.splice(0, state.consoleHistory.length - 5000);

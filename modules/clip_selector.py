@@ -16,7 +16,11 @@ from collections import Counter
 
 from .political_profile import PROFILE_NAME, build_political_prompt_fragment
 from .editorial_chapters import annotate_clip_with_chapters
-from .interview_turns import detect_interviewer_turns, looks_like_an_interview
+from .interview_turns import (
+    detect_interviewer_turns,
+    is_interviewer_sentence,
+    looks_like_an_interview,
+)
 
 PREFERRED_MAX_DURATION = 180.0
 TECHNICAL_MAX_DURATION = 600.0
@@ -1426,6 +1430,8 @@ Retorne APENAS o JSON.
             if abs(end - original_end) > self.MAX_TURN_END_SHIFT_S:
                 end = original_end
 
+            self._mark_local_qa_bridge(clip, start, end, turns, sentences)
+
             if abs(start - original_start) < 0.05 and abs(end - original_end) < 0.05:
                 kept.append(clip)
                 continue
@@ -1457,6 +1463,45 @@ Retorne APENAS o JSON.
                 "info",
             )
         return kept
+
+    def _mark_local_qa_bridge(self, clip, start, end, turns, sentences):
+        """Record that the clip carries a question and the answer to it.
+
+        The editorial gate refuses to render a clip where a question is heard and
+        the bridge to its answer was never validated — the right rule, and the one
+        that made this run unusable. Validation depended on the clip matching a
+        question-and-answer window computed in the context stage, within two and a
+        half seconds on both edges and covering 72% of it. A window chosen by the
+        selector almost never lines up with one of those, so on a 31-minute
+        sabatina fourteen of nineteen candidates were held back and the five that
+        rendered were the only ones containing no question at all. The editor read
+        exactly that back: clips that "catch the middle and the end, never the
+        question".
+
+        The bridge does not need a precomputed window to be evident. A clip that
+        opens on the interviewer taking the floor and then carries enough of the
+        guest answering *is* the bridge, and the turns say so from the transcript
+        alone. This is recorded separately from the chapter evidence so the
+        context stage stays authoritative whenever it did produce a window.
+        """
+        inside = [turn for turn in turns if start - 1.0 <= turn["start_s"] < end]
+        if not inside:
+            return
+        answer_words = 0
+        after = inside[0]["end_s"]
+        for sentence in sentences or []:
+            sentence_start = float(sentence.get("start", 0) or 0)
+            if not after <= sentence_start < end:
+                continue
+            text = str(sentence.get("text") or "")
+            if is_interviewer_sentence(text):
+                continue
+            answer_words += len(text.split())
+        if answer_words < self.MIN_ANSWER_WORDS:
+            return
+        clip["qa_bridge_local"] = True
+        clip["qa_boundary_basis_local"] = "turnos_do_entrevistador"
+        clip["qa_bridge_answer_words"] = answer_words
 
     def _nearest_seam_end(self, start, end, seams):
         """Where the clip should stop, given where the selector wanted to stop.
