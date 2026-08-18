@@ -242,3 +242,66 @@ def test_an_exchange_longer_than_a_clip_is_divided_at_sentences():
 
     assert blocks
     assert all(block["end"] - block["start"] <= selector.preferred_max_duration + 40 for block in blocks)
+
+
+def test_an_imported_caption_is_broken_back_into_sentences():
+    """Where the whole turn machinery went silent on a real run.
+
+    A 31-minute sabatina imported as 62 caption segments produced sentences of
+    forty seconds, each holding a question and its answer in one lump. The
+    detector found five turns instead of nineteen and the source was not even
+    recognised as an interview, so every seam rule sat idle.
+    """
+    selector = ClipSelector()
+    lump = [{
+        "start": 440.0,
+        "end": 480.0,
+        "text": (
+            "O estado brasileiro se torna uma inutilidade que só cobra impostos. "
+            "Candidato, eu queria continuar nesse tema da segurança pública. "
+            "Há uma discussão muito grande hoje em torno das facções criminosas."
+        ),
+    }]
+
+    pieces = selector._split_long_segments(lump)
+
+    assert len(pieces) == 3
+    assert pieces[1]["text"].startswith("Candidato")
+    # Times are shared out and stay inside the original span, in order.
+    assert pieces[0]["start"] == 440.0
+    assert pieces[-1]["end"] <= 480.0
+    assert pieces[0]["end"] <= pieces[1]["start"] + 0.01 <= pieces[1]["end"]
+
+
+def test_a_short_segment_is_left_whole():
+    selector = ClipSelector()
+    short = [{"start": 10.0, "end": 14.0, "text": "Nunca. Eu acho isso humilhante."}]
+
+    assert selector._split_long_segments(short) == short
+
+
+def test_the_studio_opening_is_not_a_clip():
+    """The anchor reading the running order before the guest has said anything.
+
+    Verbatim from the top of the sabatina, where one run rendered fifty-two
+    seconds of the studio introducing the programme as its fifth clip.
+    """
+    selector = ClipSelector()
+    abertura = _talk([
+        (7.0, 24.0, "O jornal do SBT News está de volta com o início das sabatinas."),
+        (24.0, 31.6, "Os seis candidatos mais bem colocados serão entrevistados nesta semana."),
+        (31.6, 44.2, "De acordo com o sorteio, o primeiro a detalhar suas propostas é o candidato do Missão."),
+        (44.2, 51.6, "Candidato, boa noite, obrigado por estar com a gente."),
+        (51.6, 59.2, "A gente começa falando de segurança pública, com o senhor."),
+        (59.2, 90.0, "Boa noite. O Brasil tem uma das maiores populações carcerárias do mundo."),
+        (300.0, 330.0, "Mas o senhor defende ampliar as prisões e construir superpresídios?"),
+        (330.0, 360.0, "Defendo, porque a punição hoje é baixa demais para o crime violento."),
+        (600.0, 630.0, "Candidato, eu queria continuar nesse tema da segurança pública."),
+        (630.0, 660.0, "Pode perguntar, estou à disposição para detalhar a proposta."),
+    ])
+
+    clips = selector._align_to_interview_turns(
+        [{"start": 7.0, "end": 59.2, "text": "..."}], abertura
+    )
+
+    assert clips == []

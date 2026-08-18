@@ -58,8 +58,11 @@ _SHIFT = (
 # "Senhor manter então para a extrema pobreza até fazer a transição." The guest
 # resumes the same argument straight after, so a cut may run through it.
 INTERJECTION_MAX_WORDS = 12
-# Consecutive flagged sentences this close together are one turn, not several.
+# Consecutive flagged sentences this close together are one turn, not several —
+# in the order of the transcript and in the clock, because on a coarsely
+# segmented source the two come apart.
 _TURN_GAP_SENTENCES = 3
+_TURN_GAP_SECONDS = 25.0
 
 
 def _normalize(text: str) -> str:
@@ -67,10 +70,30 @@ def _normalize(text: str) -> str:
     return " " + " ".join(lowered.split()) + " "
 
 
+def _phrases(terms: tuple[str, ...]) -> "re.Pattern[str]":
+    """Match the terms as whole words.
+
+    Substring matching read "os seis **candidato**s mais bem colocados" — the
+    anchor listing who will be interviewed — as the vocative "candidato", and
+    with it the whole opening of the broadcast became an interviewer turn.
+    """
+    import re as _re
+
+    return _re.compile(r"(?:^|(?<=\W))(?:" + "|".join(_re.escape(term.strip()) for term in terms) + r")(?=\W|$)")
+
+
+_ADDRESS_RE = None
+_ASKS_RE = None
+
+
 def is_interviewer_sentence(text: str) -> bool:
     """True when this sentence is the interviewer speaking, not the guest."""
+    global _ADDRESS_RE, _ASKS_RE
+    if _ADDRESS_RE is None:
+        _ADDRESS_RE = _phrases(_ADDRESS)
+        _ASKS_RE = _phrases(_ASKS)
     normalized = _normalize(text)
-    return any(k in normalized for k in _ADDRESS) or any(k in normalized for k in _ASKS)
+    return bool(_ADDRESS_RE.search(normalized) or _ASKS_RE.search(normalized))
 
 
 def detect_interviewer_turns(sentences: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -95,7 +118,16 @@ def detect_interviewer_turns(sentences: list[dict[str, Any]]) -> list[dict[str, 
 
     groups: list[list[int]] = []
     for index in flagged:
-        if groups and index - groups[-1][-1] <= _TURN_GAP_SENTENCES:
+        near_in_order = bool(groups) and index - groups[-1][-1] <= _TURN_GAP_SENTENCES
+        # Proximity in the transcript is not proximity in time. On a source
+        # transcribed in long segments, two questions five minutes apart can sit
+        # three sentences apart, and merging them produced a single "turn"
+        # spanning the whole interview.
+        near_in_time = bool(groups) and (
+            float(ordered[index].get("start", 0) or 0)
+            - float(ordered[groups[-1][-1]].get("end", 0) or 0)
+        ) <= _TURN_GAP_SECONDS
+        if near_in_order and near_in_time:
             groups[-1].append(index)
         else:
             groups.append([index])
@@ -128,6 +160,40 @@ def detect_interviewer_turns(sentences: list[dict[str, Any]]) -> list[dict[str, 
             "provenance": "furia_interview_turns",
         })
     return turns
+
+
+_VOCATIVE = None
+
+
+def addresses_the_guest(text: str) -> bool:
+    """Whether the speaker is turning to the guest, not talking about him.
+
+    "Candidato, boa noite" is the moment the programme hands over. "o candidato
+    do Missão" and "o primeiro a detalhar suas propostas" are the anchor still
+    presenting, in the third person, to the audience. Only the first marks where
+    the interview actually begins.
+    """
+    global _VOCATIVE
+    if _VOCATIVE is None:
+        import re as _re
+
+        _VOCATIVE = _re.compile(
+            r"(?:^\s*|[,;.!?]\s*)(?:candidato|senhor|senhora|deputado|governador)\s*[,?!.]"
+        )
+    return bool(_VOCATIVE.search(_normalize(text)))
+
+
+def first_address_to_guest(sentences: list[dict[str, Any]]) -> float | None:
+    """When the programme stops presenting itself and starts the interview.
+
+    Read off the sentences rather than the turns: a turn can span the anchor's
+    whole introduction, and what is wanted is the instant inside it where the
+    programme hands over.
+    """
+    for item in sorted(sentences or [], key=lambda entry: float(entry.get("start", 0) or 0)):
+        if addresses_the_guest(str(item.get("text") or "")):
+            return float(item.get("start", 0) or 0)
+    return None
 
 
 def looks_like_an_interview(turns: list[dict[str, Any]], duration_s: float) -> bool:

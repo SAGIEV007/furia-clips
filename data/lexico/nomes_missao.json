@@ -5,109 +5,253 @@
   "nomes": [
     {
       "canonico": "Kim Kataguiri",
-      "variantes": ["kim cataguiri", "quim cataguiri", "kin cataguiri", "king cataguiri", "kim catagiri", "kim katagiri", "kim cataguire", "quim katagiri"],
+      "variantes": [
+        "kim cataguiri",
+        "quim cataguiri",
+        "kin cataguiri",
+        "king cataguiri",
+        "kim catagiri",
+        "kim katagiri",
+        "kim cataguire",
+        "quim katagiri"
+      ],
       "papel": "deputado federal, MBL"
     },
     {
       "canonico": "Renan Santos",
-      "variantes": ["renam santos", "renan sanches", "renan sanctos", "hernan santos"],
+      "variantes": [
+        "renam santos",
+        "renan sanches",
+        "renan sanctos",
+        "hernan santos"
+      ],
       "papel": "Partido Missão"
     },
     {
       "canonico": "Rubens Nunes",
-      "variantes": ["rubem nunes", "rubens nunez", "hubens nunes"],
+      "variantes": [
+        "rubem nunes",
+        "rubens nunez",
+        "hubens nunes"
+      ],
       "papel": "MBL"
     },
     {
       "canonico": "Pedro D'Eyrot",
-      "variantes": ["pedro deirot", "pedro deiro", "pedro deirote", "pedro d eyrot"],
+      "variantes": [
+        "pedro deirot",
+        "pedro deiro",
+        "pedro deirote",
+        "pedro d eyrot"
+      ],
       "papel": "MBL"
     },
     {
       "canonico": "Arthur do Val",
-      "variantes": ["artur do val", "arthur doval", "artur doval"],
+      "variantes": [
+        "artur do val",
+        "arthur doval",
+        "artur doval"
+      ],
       "papel": "MBL"
     },
     {
       "canonico": "Partido Missão",
-      "variantes": ["partido missao", "partido de missao", "partido da missao"],
+      "variantes": [
+        "partido missao",
+        "partido de missao",
+        "partido da missao"
+      ],
       "papel": "partido"
     },
     {
       "canonico": "Movimento Brasil Livre",
-      "variantes": ["movimento brasil livre", "movimento brazil livre"],
+      "variantes": [
+        "movimento brasil livre",
+        "movimento brazil livre"
+      ],
       "papel": "movimento"
     },
     {
       "canonico": "MBL",
-      "variantes": ["m b l", "eme be ele", "embele"],
+      "variantes": [
+        "m b l",
+        "eme be ele",
+        "embele"
+      ],
       "papel": "sigla"
     },
     {
       "canonico": "Erika Hilton",
-      "variantes": ["erica hilton", "erika ilton", "erica ilton", "erika rilton", "erica rilton"],
+      "variantes": [
+        "erica hilton",
+        "erika ilton",
+        "erica ilton",
+        "erika rilton",
+        "erica rilton"
+      ],
       "papel": "deputada federal"
     },
     {
       "canonico": "Dilma Rousseff",
-      "variantes": ["dilma roussef", "dilma rousef", "dilma russef", "dilma russeff", "dilma rouseff"],
+      "variantes": [
+        "dilma roussef",
+        "dilma rousef",
+        "dilma russef",
+        "dilma russeff",
+        "dilma rouseff"
+      ],
       "papel": "ex-presidente"
     },
     {
       "canonico": "Fernando Collor",
-      "variantes": ["fernando color", "fernando colar", "fernando collor de mello"],
+      "variantes": [
+        "fernando color",
+        "fernando colar",
+        "fernando collor de mello"
+      ],
       "papel": "ex-presidente"
     },
     {
       "canonico": "Janja",
-      "variantes": ["jamja", "janga", "jânja"],
+      "variantes": [
+        "jamja",
+        "janga",
+        "jânja"
+      ],
       "papel": "primeira-dama"
     },
     {
       "canonico": "Comando Vermelho",
-      "variantes": ["comando vermelho", "commando vermelho"],
+      "variantes": [
+        "comando vermelho",
+        "commando vermelho"
+      ],
       "papel": "facção"
     },
     {
       "canonico": "PCC",
-      "variantes": ["p c c", "pe ce ce", "pcc"],
+      "variantes": [
+        "p c c",
+        "pe ce ce",
+        "pcc"
+      ],
       "papel": "facção"
     },
     {
       "canonico": "Bolsa Família",
-      "variantes": ["bolsa familia", "bolsa-familia", "bolsafamilia"],
+      "variantes": [
+        "bolsa familia",
+        "bolsa-familia",
+        "bolsafamilia"
+      ],
       "papel": "programa"
     },
     {
       "canonico": "CLT",
-      "variantes": ["c l t", "ce ele te", "celete"],
+      "variantes": [
+        "c l t",
+        "ce ele te",
+        "celete"
+      ],
       "papel": "sigla"
     },
     {
       "canonico": "MEI",
-      "variantes": ["m e i", "mei", "me i"],
+      "variantes": [
+        "m e i",
+        "mei",
+        "me i"
+      ],
       "papel": "sigla"
     },
     {
       "canonico": "Pix",
-      "variantes": ["pics", "pix", "picks"],
+      "variantes": [
+        "pics",
+        "pix",
+        "picks"
+      ],
       "papel": "sistema de pagamento"
     },
     {
       "canonico": "STF",
-      "variantes": ["s t f", "esse te efe", "supremo tribunal federal"],
+      "variantes": [
+        "s t f",
+        "esse te efe",
+        "supremo tribunal federal"
+      ],
       "papel": "sigla",
       "manter_forma_longa": true
     },
     {
       "canonico": "TSE",
-      "variantes": ["t s e", "te esse e", "tse", "tss", "ts"],
+      "variantes": [
+        "t s e",
+        "te esse e",
+        "tse",
+        "tss",
+        "ts"
+      ],
       "papel": "sigla"
     },
     {
       "canonico": "Livro Amarelo",
-      "variantes": ["livro amarelo"],
+      "variantes": [
+        "livro amarelo"
+      ],
       "papel": "documento do Partido Missão"
+    },
+    {
+      "canonico": "Augusto Cury",
+      "variantes": [
+        "augusto curiante",
+        "augusto curi",
+        "augusto cure",
+        "augusto curian"
+      ],
+      "papel": "escritor citado em entrevistas"
+    },
+    {
+      "canonico": "Nikolas Ferreira",
+      "variantes": [
+        "nicolas ferreira",
+        "nikolas ferreira",
+        "nicolau ferreira"
+      ],
+      "papel": "deputado federal"
+    },
+    {
+      "canonico": "Eduardo Bolsonaro",
+      "variantes": [
+        "eduardo bolsonaro"
+      ],
+      "papel": "deputado federal"
+    },
+    {
+      "canonico": "Jair Bolsonaro",
+      "variantes": [
+        "jair bolsonaro",
+        "jair messias bolsonaro"
+      ],
+      "papel": "ex-presidente"
+    },
+    {
+      "canonico": "Lula",
+      "variantes": [
+        "luiz inacio lula da silva",
+        "luis inacio lula da silva"
+      ],
+      "papel": "presidente"
+    },
+    {
+      "canonico": "Tarcísio de Freitas",
+      "variantes": [
+        "tarcisio de freitas",
+        "tarcisio freitas",
+        "tarcizio de freitas"
+      ],
+      "papel": "governador de São Paulo"
     }
   ]
 }

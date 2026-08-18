@@ -18,6 +18,7 @@ from .political_profile import PROFILE_NAME, build_political_prompt_fragment
 from .editorial_chapters import annotate_clip_with_chapters
 from .interview_turns import (
     detect_interviewer_turns,
+    first_address_to_guest,
     is_interviewer_sentence,
     looks_like_an_interview,
 )
@@ -427,12 +428,58 @@ class ClipSelector:
                     names.append(clean)
         return names
 
+    @staticmethod
+    def _split_long_segments(segments):
+        """Break oversized segments back into the sentences they contain.
+
+        The builder below only ever joins; it has no way to take a segment apart.
+        That is fine for Whisper, which emits a few seconds at a time, and wrong
+        for an imported caption: a 31-minute sabatina arrived as 62 segments, so a
+        single "sentence" ran forty seconds and held the reporter's question and
+        the answer to it in one lump. Everything downstream reads sentences — the
+        turn detector, the seams, the name pass — and none of it can see a seam
+        that sits inside one unit. On that run the interviewer's turns were never
+        detected at all.
+
+        Only segments that really carry several sentences are divided, and the
+        times are shared out by how much text each piece holds. Speech rate is
+        close enough to uniform inside one caption line for that to land on the
+        right words, and nothing is invented: the text is the same, only cut.
+        """
+        detailed = []
+        for segment in segments or []:
+            text = str(segment.get("text") or "")
+            try:
+                start = float(segment.get("start", 0.0))
+                end = float(segment.get("end", start))
+            except (TypeError, ValueError):
+                continue
+            span = end - start
+            pieces = [piece for piece in re.split(r"(?<=[.!?])\s+", text.strip()) if piece.strip()]
+            if span <= 12.0 or len(pieces) < 2:
+                detailed.append(segment)
+                continue
+            total = sum(len(piece) for piece in pieces) or 1
+            cursor = start
+            for piece in pieces:
+                share = span * (len(piece) / total)
+                detailed.append({
+                    **segment,
+                    "text": piece,
+                    "start": round(cursor, 3),
+                    "end": round(min(end, cursor + share), 3),
+                    "split_from_segment": segment.get("id"),
+                })
+                cursor += share
+        return detailed
+
     def _build_sentences(self, segments):
         """Group transcript segments while preserving technical metadata.
 
         Caps sentence length at 30s, but carries speaker labels, overlap flags,
         timing confidence and source segment ids into every editorial block.
         """
+        segments = self._split_long_segments(segments)
         sentences = []
         current_text = ""
         current_start = None
@@ -1460,6 +1507,22 @@ Retorne APENAS o JSON.
             "interview_major_turns": len(majors),
         })
 
+        # Before the interviewer first addresses the guest, the broadcast is
+        # presenting itself: the anchor reads the running order and names who is
+        # coming. It is speech, it transcribes cleanly, and it is not a clip —
+        # the guest has not said a word yet. One run rendered exactly that as its
+        # fifth clip, fifty-two seconds of the studio introducing the programme.
+        #
+        # This only holds when the transcript really begins at the top of the
+        # source. Given an excerpt that opens in the middle of an answer, the
+        # first turn found is just the next question, and everything before it is
+        # the guest talking — dropping that would throw away the material.
+        opens_the_source = min(
+            (float(item.get("start", 0) or 0) for item in sentences), default=0.0
+        ) <= 30.0
+        handover = first_address_to_guest(sentences)
+        content_start = handover if (opens_the_source and handover is not None) else 0.0
+
         kept, dropped = [], 0
         for clip in clips or []:
             start = float(clip.get("start", 0) or 0)
@@ -1468,6 +1531,12 @@ Retorne APENAS o JSON.
                 kept.append(clip)
                 continue
             original_start, original_end = start, end
+
+            if start < content_start - 0.5:
+                if end - content_start < max(self.min_duration, (end - start) * 0.5):
+                    dropped += 1
+                    continue
+                start = content_start
 
             # Opening on the tail of the previous answer is the complaint the
             # editor phrased as "it started in the middle of a sentence": the
