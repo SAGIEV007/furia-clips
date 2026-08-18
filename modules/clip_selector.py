@@ -257,6 +257,12 @@ class ClipSelector:
         # middle of an answer or run past the next change of subject.
         clips = self._align_to_interview_turns(clips, sentences, emit_progress)
 
+        # Two candidates that merely touch are one answer served twice. Cutting
+        # a long block into pieces makes neighbours by construction, and the
+        # ranker scored each on its own merits without ever seeing that the clip
+        # before it ended where this one begins.
+        clips = self._drop_touching_siblings(clips, emit_progress)
+
         clips = self._drop_labelled_non_content(clips, settings, sentences, emit_progress)
 
         # Every surviving candidate inherits what the Acervo established about the
@@ -1046,25 +1052,117 @@ Retorne APENAS o JSON.
         return blocks
 
     def _split_to_clip_length(self, group):
-        """Cut an over-long exchange into pieces a clip can actually hold."""
+        """Cut an over-long exchange into pieces a clip can actually hold.
+
+        Where the cut falls is the whole question. Closing each piece the moment
+        the stopwatch reached the preferred ceiling put back, one level up, the
+        defect the seam detection had just removed: on a 73-minute press
+        conference it produced four candidates of exactly 180.0 seconds, three of
+        them consecutive tiles of the same answer, each opening mid-argument and
+        stopping mid-argument. The editor read them as random.
+
+        So the ceiling decides how much may be taken and the material decides
+        where to stop. Inside the window the piece is allowed to end, the best
+        boundary wins: the interviewer taking the floor first, since that is a
+        real change of speaker; otherwise the longest silence, which is where the
+        speaker themselves finished a thought.
+        """
         if not group:
             return []
         span = float(group[-1]["end"]) - float(group[0]["start"])
         if span <= self.preferred_max_duration:
             return [group]
-        pieces, current = [], []
-        for sentence in group:
-            current.append(sentence)
-            if float(sentence["end"]) - float(current[0]["start"]) >= self.preferred_max_duration:
-                pieces.append(current)
-                current = []
-        if current:
-            # A tail too short to stand alone belongs to the piece before it.
-            if pieces and float(current[-1]["end"]) - float(current[0]["start"]) < self.min_duration:
-                pieces[-1].extend(current)
-            else:
-                pieces.append(current)
+
+        pieces: list[list[dict]] = []
+        remaining = list(group)
+        while remaining:
+            opening = float(remaining[0]["start"])
+            if float(remaining[-1]["end"]) - opening <= self.preferred_max_duration:
+                pieces.append(remaining)
+                break
+            cut = self._best_cut_index(remaining, opening)
+            pieces.append(remaining[:cut])
+            remaining = remaining[cut:]
+
+        if len(pieces) > 1:
+            tail_span = float(pieces[-1][-1]["end"]) - float(pieces[-1][0]["start"])
+            if tail_span < self.min_duration:
+                pieces[-2].extend(pieces.pop())
         return pieces
+
+    # Below this a gap between two candidates is not a gap: they are the same
+    # stretch of talk handed over in two files.
+    TOUCHING_GAP_S = 3.0
+
+    def _drop_touching_siblings(self, clips, emit_progress=None):
+        """Keep one of two candidates that sit end to end.
+
+        Measured on a 73-minute press conference: three of the seven rendered
+        clips were consecutive pieces of one answer — 1137→1158, 1158→1227,
+        1227→1407 — and the editor recognised the second as "just the beginning
+        of" the third. Each had been judged alone and none knew of the others.
+
+        The longer one is kept when the scores are close, because the complaint
+        about the short neighbours was that they end before the idea does.
+        """
+        ordered = sorted(clips or [], key=lambda clip: float(clip.get("start", 0) or 0))
+        kept: list[dict] = []
+        dropped = 0
+        for clip in ordered:
+            start = float(clip.get("start", 0) or 0)
+            previous = kept[-1] if kept else None
+            gap = start - float(previous.get("end", 0) or 0) if previous is not None else None
+            # Overlap is a different problem with its own handling and its own
+            # diagnostics; swallowing it here hid which candidate had lost to
+            # which. This pass only owns the case where one clip ends and the
+            # next begins.
+            if gap is not None and 0.0 <= gap <= self.TOUCHING_GAP_S:
+                current_score = float(clip.get("viral_score", 0) or 0)
+                previous_score = float(previous.get("viral_score", 0) or 0)
+                current_span = float(clip.get("end", 0) or 0) - start
+                previous_span = float(previous.get("end", 0) or 0) - float(previous.get("start", 0) or 0)
+                # A clearly better score wins; a tie goes to the longer stretch.
+                better = (current_score > previous_score + 5) or (
+                    abs(current_score - previous_score) <= 5 and current_span > previous_span
+                )
+                dropped += 1
+                if better:
+                    kept[-1] = clip
+                continue
+            kept.append(clip)
+        if dropped and emit_progress:
+            emit_progress(
+                f"[Vizinhos] {dropped} candidato(s) descartado(s) por serem a continuação imediata de outro corte.",
+                "info",
+            )
+        return kept
+
+    def _best_cut_index(self, sentences, opening):
+        """How many sentences the next piece takes, cutting where the talk breaks.
+
+        Only positions that leave a piece long enough to stand alone and short
+        enough to keep are considered; among those, a change of speaker beats a
+        pause and a pause beats the arbitrary ceiling.
+        """
+        allowed = []
+        for index in range(1, len(sentences)):
+            duration = float(sentences[index - 1]["end"]) - opening
+            if duration < self.min_duration:
+                continue
+            if duration > self.preferred_max_duration:
+                break
+            gap = float(sentences[index]["start"]) - float(sentences[index - 1]["end"])
+            allowed.append((index, gap, is_interviewer_sentence(str(sentences[index].get("text") or ""))))
+        if not allowed:
+            # Nothing inside the window: fall back to the ceiling rather than
+            # emit a piece too short to be a clip.
+            for index in range(1, len(sentences)):
+                if float(sentences[index - 1]["end"]) - opening >= self.preferred_max_duration:
+                    return index
+            return len(sentences)
+        handover = [item for item in allowed if item[2]]
+        pool = handover or allowed
+        return max(pool, key=lambda item: (item[1], item[0]))[0]
 
     def _timed_transcript_blocks(self, sentences):
         """Group sentences into compact editorial blocks for analysis."""
