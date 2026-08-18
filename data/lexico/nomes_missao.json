@@ -1,0 +1,113 @@
+{
+  "schema_version": "furia-lexico-nomes-v1",
+  "nota": "Nomes próprios que a legenda automática erra com frequência. O Acervo marca nome próprio como faixa de risco de áudio: numa sabatina de 31 minutos, 40 das marcações eram nomes. Corrigir um nome é seguro — um nome é um nome, e o áudio não é ambíguo quanto a ele. Palavras de conteúdo (custos/cursos) NÃO entram aqui: essas dependem do sentido da frase e são sinalizadas, nunca reescritas em silêncio.",
+  "como_estender": "Acrescente entradas em 'nomes'. 'variantes' são erros já vistos; não é preciso listar todos, porque a comparação também é fonética — 'cataguiri', 'katagiri' e 'catagüiri' caem no mesmo som.",
+  "nomes": [
+    {
+      "canonico": "Kim Kataguiri",
+      "variantes": ["kim cataguiri", "quim cataguiri", "kin cataguiri", "king cataguiri", "kim catagiri", "kim katagiri", "kim cataguire", "quim katagiri"],
+      "papel": "deputado federal, MBL"
+    },
+    {
+      "canonico": "Renan Santos",
+      "variantes": ["renam santos", "renan sanches", "renan sanctos", "hernan santos"],
+      "papel": "Partido Missão"
+    },
+    {
+      "canonico": "Rubens Nunes",
+      "variantes": ["rubem nunes", "rubens nunez", "hubens nunes"],
+      "papel": "MBL"
+    },
+    {
+      "canonico": "Pedro D'Eyrot",
+      "variantes": ["pedro deirot", "pedro deiro", "pedro deirote", "pedro d eyrot"],
+      "papel": "MBL"
+    },
+    {
+      "canonico": "Arthur do Val",
+      "variantes": ["artur do val", "arthur doval", "artur doval"],
+      "papel": "MBL"
+    },
+    {
+      "canonico": "Partido Missão",
+      "variantes": ["partido missao", "partido de missao", "partido da missao"],
+      "papel": "partido"
+    },
+    {
+      "canonico": "Movimento Brasil Livre",
+      "variantes": ["movimento brasil livre", "movimento brazil livre"],
+      "papel": "movimento"
+    },
+    {
+      "canonico": "MBL",
+      "variantes": ["m b l", "eme be ele", "embele"],
+      "papel": "sigla"
+    },
+    {
+      "canonico": "Erika Hilton",
+      "variantes": ["erica hilton", "erika ilton", "erica ilton", "erika rilton", "erica rilton"],
+      "papel": "deputada federal"
+    },
+    {
+      "canonico": "Dilma Rousseff",
+      "variantes": ["dilma roussef", "dilma rousef", "dilma russef", "dilma russeff", "dilma rouseff"],
+      "papel": "ex-presidente"
+    },
+    {
+      "canonico": "Fernando Collor",
+      "variantes": ["fernando color", "fernando colar", "fernando collor de mello"],
+      "papel": "ex-presidente"
+    },
+    {
+      "canonico": "Janja",
+      "variantes": ["jamja", "janga", "jânja"],
+      "papel": "primeira-dama"
+    },
+    {
+      "canonico": "Comando Vermelho",
+      "variantes": ["comando vermelho", "commando vermelho"],
+      "papel": "facção"
+    },
+    {
+      "canonico": "PCC",
+      "variantes": ["p c c", "pe ce ce", "pcc"],
+      "papel": "facção"
+    },
+    {
+      "canonico": "Bolsa Família",
+      "variantes": ["bolsa familia", "bolsa-familia", "bolsafamilia"],
+      "papel": "programa"
+    },
+    {
+      "canonico": "CLT",
+      "variantes": ["c l t", "ce ele te", "celete"],
+      "papel": "sigla"
+    },
+    {
+      "canonico": "MEI",
+      "variantes": ["m e i", "mei", "me i"],
+      "papel": "sigla"
+    },
+    {
+      "canonico": "Pix",
+      "variantes": ["pics", "pix", "picks"],
+      "papel": "sistema de pagamento"
+    },
+    {
+      "canonico": "STF",
+      "variantes": ["s t f", "esse te efe", "supremo tribunal federal"],
+      "papel": "sigla",
+      "manter_forma_longa": true
+    },
+    {
+      "canonico": "TSE",
+      "variantes": ["t s e", "te esse e", "tse", "tss", "ts"],
+      "papel": "sigla"
+    },
+    {
+      "canonico": "Livro Amarelo",
+      "variantes": ["livro amarelo"],
+      "papel": "documento do Partido Missão"
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "schema_version": "furia-estilo-v1",
+  "nota": "A identidade visual usada de verdade na publicação, ditada pelo editor. Fica aqui para que legenda e headline saiam prontas do Furia em vez de serem refeitas no CapCut. Fontes não acompanham o repositório: precisam estar instaladas na máquina que renderiza.",
+  "legenda": {
+    "fonte": "Melvin One",
+    "cor_texto": "#FFD400",
+    "cor_texto_nota": "Amarelo. O modelo de referência do CapCut é vermelho; o editor usa amarelo.",
+    "caixa": "maiuscula",
+    "contorno": true,
+    "posicao": "inferior_centro",
+    "palavras_por_linha_max": 4,
+    "linhas_max": 2
+  },
+  "headline_1x1": {
+    "fonte": "Stilu-BD",
+    "formato": "square_alfinetei",
+    "estrutura": "chamada superior curta + headline branca curta",
+    "caracteres_max": 40
+  },
+  "headline_9x16": {
+    "fonte": "Stilu-BD",
+    "fundo": "#FFD400",
+    "cor_texto": "#000000",
+    "destaque": "#E01B24",
+    "destaque_nota": "Branco sobre vermelho, e só quando existe conflito explicitamente dito no corte.",
+    "linhas_max": 3,
+    "caracteres_por_linha": 19
+  }
+}
