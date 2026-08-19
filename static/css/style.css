@@ -4655,3 +4655,116 @@ body { font-size: 14px; line-height: 1.55; -webkit-font-smoothing: antialiased; 
     border-color: transparent;
     color: #0B0B0C;
 }
+
+/* ═══════════════════════════════════════════════════
+   Camada de interação
+   ───────────────────────────────────────────────────
+   O que separa uma ferramenta que passa credibilidade de uma que não passa
+   quase nunca é um recurso a mais: é o acabamento das mesmas coisas. Resposta
+   ao toque, foco visível, movimento curto e uniforme, e nada piscando sem
+   motivo. Acento é um só; hierarquia vem de tamanho, não de cor.
+   ═══════════════════════════════════════════════════ */
+
+/* ─── Barra de rolagem ─── */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+    background: var(--border-light);
+    border: 3px solid transparent;
+    background-clip: content-box;
+    border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--border-strong); background-clip: content-box; }
+* { scrollbar-width: thin; scrollbar-color: var(--border-light) transparent; }
+
+/* ─── Botões ───
+   Elevação mínima ao passar, afundar ao pressionar. O toque de descer 1px na
+   hora do clique é o que faz um botão parecer físico; sem ele o clique some. */
+.btn {
+    position: relative;
+    cursor: pointer;
+    -webkit-user-select: none;
+    user-select: none;
+}
+.btn:hover:not(:disabled) { transform: translateY(-1px); }
+.btn:active:not(:disabled) { transform: translateY(0); }
+.btn:disabled { cursor: not-allowed; opacity: .45; transform: none; }
+.btn-primary:hover:not(:disabled), .btn-gold:hover:not(:disabled) {
+    box-shadow: 0 4px 16px rgba(232, 185, 59, .18);
+}
+
+/* Um trabalho em andamento é a única coisa da tela que se move sozinha. */
+.btn.is-working { pointer-events: none; color: transparent !important; }
+.btn.is-working::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    width: 14px; height: 14px;
+    border: 2px solid currentColor;
+    border-top-color: var(--gold);
+    border-radius: 50%;
+    animation: btn-spin .7s linear infinite;
+}
+@keyframes btn-spin { to { transform: rotate(360deg); } }
+
+/* ─── Cartões ─── */
+.section, .media-card, .action-card, .clip-card {
+    transition: border-color .16s var(--ease), background-color .16s var(--ease),
+                box-shadow .16s var(--ease), transform .16s var(--ease);
+}
+.action-card:hover:not(.is-locked), .media-card:hover {
+    border-color: var(--border-strong);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+}
+
+/* ─── Cursor de onça ───
+   Contextual de propósito. Ligado o tempo todo, um cursor personalizado atrasa
+   em relação ao ponteiro do sistema, some sobre campo de texto e cansa numa
+   jornada de horas. Ligado só enquanto o editor arrasta uma borda, ele vira
+   assinatura em vez de obstáculo — e some quando não serve. */
+.furia-dragging, .furia-dragging * {
+    cursor: url("/static/img/cursor-onca.svg") 12 12, grabbing !important;
+}
+.timeline-handle, .reading-timeline-unit, .clip-boundary-handle { cursor: grab; }
+
+/* ─── Estados vazios ───
+   Um painel em branco enquanto pensa parece travado. Carregando, vazio e erro
+   são estados de projeto, não improviso. */
+.is-loading-skeleton {
+    background: linear-gradient(90deg, var(--bg-card) 25%, var(--bg-hover) 50%, var(--bg-card) 75%);
+    background-size: 200% 100%;
+    animation: skeleton 1.4s var(--ease) infinite;
+    border-radius: var(--radius-sm);
+    color: transparent !important;
+}
+@keyframes skeleton { to { background-position: -200% 0; } }
+
+/* ─── Notificação ───
+   Ela carrega a ação. Aviso que só avisa vira ruído e em duas semanas é
+   ignorado. */
+.toast { display: flex; align-items: center; gap: var(--space-3); }
+.toast-action {
+    margin-left: auto;
+    padding: 4px 10px;
+    border: 1px solid var(--gold-quiet);
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--gold);
+    font-size: var(--text-sm);
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.toast-action:hover { background: var(--gold-glow); }
+
+/* Quem pediu menos movimento recebe menos movimento — sem perder informação. */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .01ms !important;
+    }
+    .btn:hover:not(:disabled), .action-card:hover, .media-card:hover { transform: none; }
+}

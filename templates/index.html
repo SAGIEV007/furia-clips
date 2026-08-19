@@ -25,23 +25,23 @@
         <div class="sidebar-content">
             <!-- Video Selection -->
             <div class="sidebar-section">
-                <h3><span class="material-icons-round">movie</span> Video Selecionado</h3>
+                <h3><span class="material-icons-round">movie</span> Vídeo selecionado</h3>
                 <div class="selected-video" id="selectedVideoInfo">
                     <div class="no-video">
                         <span class="material-icons-round">videocam_off</span>
-                        <p>Nenhum video selecionado</p>
+                        <p>Nenhum vídeo selecionado</p>
                     </div>
                 </div>
             </div>
 
             <!-- Settings -->
             <div class="sidebar-section">
-                <h3><span class="material-icons-round">settings</span> Configuracoes</h3>
+                <h3><span class="material-icons-round">settings</span> Configurações</h3>
 
                 <div class="setting-group">
-                    <label>Modelo Whisper (fallback local)</label>
+                    <label>Modelo Whisper (reserva local)</label>
                     <select id="settingWhisperModel" class="setting-select">
-                        <option value="tiny">Tiny (mais rapido)</option>
+                        <option value="tiny">Tiny (mais rápido)</option>
                         <option value="base">Base</option>
                         <option value="small" selected>Small (recomendado)</option>
                         <option value="medium">Medium (mais preciso)</option>
@@ -51,7 +51,7 @@
                 </div>
 
                 <div class="setting-group">
-                    <label>Foco Editorial</label>
+                    <label>Foco editorial</label>
                     <select id="settingEditorialFocus" class="setting-select">
                         <option value="auto" selected>Automático (detectar pelo vídeo)</option>
                         <option value="renan_santos">Renan Santos / MBL</option>
@@ -61,10 +61,10 @@
                 </div>
 
                 <div class="setting-group">
-                    <label>Preset de Plataforma</label>
+                    <label>Formato de saída</label>
                     <select id="settingRenderPreset" class="setting-select">
                         <option value="shorts" selected>YouTube Shorts — 9:16</option>
-                        <option value="political_shorts">Politica Editorial — 9:16</option>
+                        <option value="political_shorts">Política editorial — 9:16</option>
                         <option value="reels">Instagram Reels — 9:16</option>
                         <option value="tiktok">TikTok — 9:16</option>
                         <option value="square">Quadrado — 1:1</option>
@@ -74,21 +74,21 @@
                 </div>
 
                 <div class="setting-group">
-                    <label>Pausa Minima (s) <span class="setting-value" id="silenceValue">0.5s</span></label>
+                    <label>Pausa mínima (s) <span class="setting-value" id="silenceValue">0.5s</span></label>
                     <input type="range" id="settingSilenceDuration" min="0.2" max="2.0" step="0.1" value="0.5" class="setting-range">
                 </div>
 
                 <div class="setting-group">
-                    <label>Idioma do Audio</label>
+                    <label>Idioma do áudio</label>
                     <select id="settingLanguage" class="setting-select">
-                        <option value="pt" selected>Portugues</option>
+                        <option value="pt" selected>Português</option>
                         <option value="en">English</option>
-                        <option value="es">Espanol</option>
+                        <option value="es">Espanhol</option>
                     </select>
                 </div>
 
                 <div class="setting-group">
-                    <label>Fonte da Transcricao</label>
+                    <label>Fonte da transcrição</label>
                     <select id="settingTranscriptionSource" class="setting-select">
                         <option value="auto" selected>Automático: Gemini → legenda → Whisper</option>
                         <option value="public_subtitle">Preferir legenda encontrada → Whisper</option>
@@ -98,23 +98,23 @@
                 </div>
 
                 <div class="setting-group">
-                    <label>Genero do Video</label>
+                    <label>Gênero do vídeo</label>
                     <select id="settingVideoGenre" class="setting-select">
-                        <option value="" selected>Automatico (detectar)</option>
-                        <option value="debate">Debate / Painel</option>
-                        <option value="podcast">Podcast / Entrevista</option>
-                        <option value="palestra">Palestra / Apresentacao</option>
-                        <option value="vlog">Vlog / Single Speaker</option>
+                        <option value="" selected>Automático (detectar)</option>
+                        <option value="debate">Debate ou painel</option>
+                        <option value="podcast">Podcast ou entrevista</option>
+                        <option value="palestra">Palestra ou apresentação</option>
+                        <option value="vlog">Vlog ou orador único</option>
                     </select>
                 </div>
 
                 <div class="setting-group">
-                    <label>Perfil Editorial</label>
+                    <label>Perfil editorial</label>
                     <select id="settingEditorialProfile" class="setting-select">
-                        <option value="renan_santos_politics" selected>Politica — Renan Santos/MBL</option>
-                        <option value="generic">Generico — todos os temas</option>
+                        <option value="renan_santos_politics" selected>Política — Renan Santos e MBL</option>
+                        <option value="generic">Genérico — todos os temas</option>
                     </select>
-                    <small class="setting-hint">Prioriza tese, conflito, proposta, evidencia e conclusao.</small>
+                    <small class="setting-hint">Prioriza tese, conflito, proposta, evidência e conclusão.</small>
                 </div>
 
                 <div class="setting-group">
@@ -140,7 +140,7 @@
 
             <!-- AI Backend -->
             <div class="sidebar-section">
-                <h3><span class="material-icons-round">smart_toy</span> Backend de IA</h3>
+                <h3><span class="material-icons-round">smart_toy</span> Motor de análise</h3>
 
                 <div class="setting-group">
                     <label>Motor de IA</label>
@@ -197,14 +197,14 @@
 
             <!-- Output Directory -->
             <div class="sidebar-section">
-                <h3><span class="material-icons-round">folder_open</span> Pasta de Saida</h3>
+                <h3><span class="material-icons-round">folder_open</span> Pasta de saída</h3>
                 <div class="setting-group">
                     <div class="output-dir-display" id="outputDirDisplay">
                         <span class="material-icons-round">folder</span>
                         <span id="outputDirText">workspace/exports</span>
                     </div>
                     <button class="btn btn-sm btn-outline" id="btnChangeOutputDir" style="margin-top:8px; width:100%">
-                        <span class="material-icons-round">edit</span> Alterar Pasta de Saida
+                        <span class="material-icons-round">edit</span> Alterar Pasta de saída
                     </button>
                     <button class="btn btn-sm btn-outline" id="btnOpenDownloadsDir" style="margin-top:8px; width:100%">
                         <span class="material-icons-round">folder_open</span> Abrir Pasta de Downloads
@@ -214,7 +214,7 @@
 
             <button class="btn btn-save-settings" id="btnSaveSettings">
                 <span class="material-icons-round">save</span>
-                Salvar Configuracoes
+                Salvar Configurações
             </button>
         </div>
     </aside>
@@ -266,17 +266,17 @@
         <!-- Media Library (like CapCut) -->
         <section class="section" id="mediaLibrarySection">
             <div class="section-header">
-                <h3><span class="material-icons-round">video_library</span> Biblioteca de Midias</h3>
+                <h3><span class="material-icons-round">video_library</span> Biblioteca de mídias</h3>
                 <div class="section-actions">
                     <button class="btn btn-sm btn-primary" id="btnImportMedia">
-                        <span class="material-icons-round">add</span> Importar Video
+                        <span class="material-icons-round">add</span> Importar vídeo
                     </button>
                 </div>
             </div>
 
             <div class="media-drop-zone" id="mediaDropZone">
                 <span class="material-icons-round">cloud_upload</span>
-                <p>Arraste um video aqui ou clique em <strong>Importar Video</strong></p>
+                <p>Arraste um vídeo aqui ou clique em <strong>Importar vídeo</strong></p>
                 <span class="drop-formats">MP4, MKV, AVI, MOV, WebM</span>
             </div>
 
@@ -299,7 +299,7 @@
                 <button class="source-tab" data-source-tab="link" type="button"><span class="material-icons-round">link</span> Link público</button>
             </div>
             <div class="source-panel active" id="sourcePanelUpload">
-                <p class="source-help">Use <strong>Importar Video</strong> ou arraste a live na biblioteca acima. A análise política do Renan será aplicada automaticamente.</p>
+                <p class="source-help">Use <strong>Importar vídeo</strong> ou arraste a live na biblioteca acima. A análise política do Renan será aplicada automaticamente.</p>
             </div>
             <div class="source-panel" id="sourcePanelTranscript" style="display:none">
                 <p class="source-help">Cole a transcrição do Tactiq ou importe um arquivo <code>.txt</code>, <code>.srt</code> ou <code>.vtt</code>. Com timestamps válidos, o Whisper não será executado.</p>
@@ -406,7 +406,7 @@
         <!-- Video Preview -->
         <section class="section" id="videoPreviewSection" style="display:none">
             <div class="section-header">
-                <h3><span class="material-icons-round">play_circle</span> Preview do Video</h3>
+                <h3><span class="material-icons-round">play_circle</span> Prévia do vídeo</h3>
                 <div class="section-actions">
                     <span class="preview-video-name" id="previewVideoName"></span>
                     <button class="btn btn-sm btn-icon" id="btnClosePreview" title="Fechar preview">
@@ -792,7 +792,7 @@
         <!-- Console -->
         <section class="section" id="consoleSection">
             <div class="section-header collapsible" id="consoleToggle">
-                <h3><span class="material-icons-round">terminal</span> Console de Processamento</h3>
+                <h3><span class="material-icons-round">terminal</span> Console</h3>
                 <div class="console-header-actions"><button class="btn btn-sm btn-outline" id="btnCopyConsoleLog" type="button" title="Copiar o log completo"><span class="material-icons-round">content_copy</span> Copiar log</button><span class="material-icons-round toggle-icon">expand_more</span></div>
             </div>
             <div class="console-content" id="consoleContent">
@@ -826,7 +826,7 @@
     <div class="modal-overlay" id="subtitleModal">
         <div class="modal">
             <div class="modal-header">
-                <h3><span class="material-icons-round">subtitles</span> Configurar Legendas</h3>
+                <h3><span class="material-icons-round">subtitles</span> Configurar legendas</h3>
                 <button class="btn btn-icon modal-close" onclick="closeSubtitleModal()">
                     <span class="material-icons-round">close</span>
                 </button>
@@ -898,7 +898,7 @@
                     <div class="subtitle-preview" id="subtitlePreview">
                         <div class="preview-placeholder">
                             <span class="material-icons-round">preview</span>
-                            <p>Preview das legendas aparecera aqui</p>
+                            <p>A prévia da legenda aparece aqui</p>
                         </div>
                     </div>
                 </div>
@@ -916,7 +916,7 @@
     <div class="modal-overlay" id="helpModal">
         <div class="modal modal-lg">
             <div class="modal-header">
-                <h3><span class="material-icons-round">help</span> Como Usar o Furia Clips</h3>
+                <h3><span class="material-icons-round">help</span> Como usar o Furia</h3>
                 <button class="btn btn-icon modal-close" onclick="closeHelpModal()">
                     <span class="material-icons-round">close</span>
                 </button>
@@ -926,21 +926,21 @@
                     <div class="help-step">
                         <div class="step-number">1</div>
                         <div>
-                            <h4>Importe seu video</h4>
-                            <p>Arraste o video para a area de "Biblioteca de Midias" ou clique em "Importar Video". O video aparecera com preview automatico.</p>
+                            <h4>Importe seu vídeo</h4>
+                            <p>Arraste o video para a area de "Biblioteca de mídias" ou clique em "Importar vídeo". O video aparecera com preview automatico.</p>
                         </div>
                     </div>
                     <div class="help-step">
                         <div class="step-number">2</div>
                         <div>
-                            <h4>Selecione o video</h4>
+                            <h4>Selecione o vídeo</h4>
                             <p>Clique no video na biblioteca. Ele sera selecionado automaticamente e voce vera o preview acima.</p>
                         </div>
                     </div>
                     <div class="help-step">
                         <div class="step-number">3</div>
                         <div>
-                            <h4>Configure as opcoes</h4>
+                            <h4>Configure as opções</h4>
                             <p>Ajuste modelo Whisper, duracao dos cortes, e backend de IA na barra lateral. Escolha a pasta de saida.</p>
                         </div>
                     </div>
@@ -978,7 +978,7 @@
             </div>
             <div class="modal-body">
                 <div class="setting-group">
-                    <label>Texto da Thumbnail</label>
+                    <label>Texto da thumbnail</label>
                     <input type="text" id="thumbText" class="setting-input" placeholder="Texto impactante para a capa">
                 </div>
                 <div class="setting-group">
@@ -1007,7 +1007,7 @@
     <div class="modal-overlay" id="outputDirModal">
         <div class="modal">
             <div class="modal-header">
-                <h3><span class="material-icons-round">folder_open</span> Escolher Pasta de Saida</h3>
+                <h3><span class="material-icons-round">folder_open</span> Escolher Pasta de saída</h3>
                 <button class="btn btn-icon modal-close" onclick="closeOutputDirModal()">
                     <span class="material-icons-round">close</span>
                 </button>

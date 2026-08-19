@@ -115,6 +115,80 @@ document.getElementById("runBarCancel")?.addEventListener("click", () => {
     describeRun("Cancelamento pedido; aguardando a etapa atual terminar…");
 });
 
+let toastContainer = null;
+
+// ─── Acabamento de interação ───
+//
+// O cursor de onça é contextual de propósito: ligado o tempo todo ele atrasa em
+// relação ao ponteiro do sistema, some sobre campo de texto e cansa numa jornada
+// de horas. Ligado só enquanto o editor arrasta uma borda, vira assinatura.
+
+const DRAG_HANDLES = ".timeline-handle, .reading-timeline-unit, .clip-boundary-handle";
+
+document.addEventListener("pointerdown", (event) => {
+    if (event.target.closest?.(DRAG_HANDLES)) document.body.classList.add("furia-dragging");
+});
+["pointerup", "pointercancel", "blur"].forEach((nome) => {
+    window.addEventListener(nome, () => document.body.classList.remove("furia-dragging"));
+});
+
+// Um botão que disparou trabalho não pode continuar parecendo disponível. Isto
+// cobre os 45 botões que não se desabilitavam sozinhos, sem ter de mexer em cada
+// um deles.
+function trabalhando(botao, ligado = true) {
+    if (!botao) return;
+    botao.classList.toggle("is-working", ligado);
+    botao.disabled = ligado;
+}
+
+// Aviso que só avisa vira ruído. Cada notificação carrega o que fazer com ela.
+function avisar(mensagem, tipo = "info", acao = null) {
+    if (!toastContainer) {
+        toastContainer = document.createElement("div");
+        toastContainer.className = "toast-container";
+        document.body.appendChild(toastContainer);
+    }
+    const caixa = toastContainer;
+    const item = document.createElement("div");
+    item.className = `toast toast-${tipo}`;
+    const texto = document.createElement("span");
+    texto.textContent = mensagem;
+    item.appendChild(texto);
+    if (acao?.label && typeof acao.onClick === "function") {
+        const botao = document.createElement("button");
+        botao.className = "toast-action";
+        botao.type = "button";
+        botao.textContent = acao.label;
+        botao.addEventListener("click", () => { acao.onClick(); item.remove(); });
+        item.appendChild(botao);
+    }
+    caixa.appendChild(item);
+    window.setTimeout(() => item.remove(), acao ? 12000 : 5000);
+    return item;
+}
+
+// Som desligado por padrão, um toque curto ao fim de processo longo, e um jeito
+// de calar. Ferramenta que apita sem permissão é desinstalada.
+const SOM_CHAVE = "furia.som";
+function somLigado() { return window.localStorage?.getItem(SOM_CHAVE) === "1"; }
+function tocarFim() {
+    if (!somLigado()) return;
+    try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const ganho = ctx.createGain();
+        osc.frequency.setValueAtTime(660, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.12);
+        ganho.gain.setValueAtTime(0.0001, ctx.currentTime);
+        ganho.gain.exponentialRampToValueAtTime(0.06, ctx.currentTime + 0.02);
+        ganho.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.3);
+        osc.connect(ganho).connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.32);
+        osc.onended = () => ctx.close();
+    } catch { /* som é conforto, nunca requisito */ }
+}
+
 socket.on("connect", () => {
     const recovered = socketRecoveryNotice;
     state.connected = true;
@@ -297,7 +371,7 @@ function handleStatusUpdate(data) {
                 state.manualTranscriptVideo = state.selectedVideo || "";
                 hydrateTranscriptEditor(data.data, data.data.archive_metadata || data.data.archive);
             }
-            showToast("Transcricao concluida!", "success");
+            showToast("Transcrição concluída.", "success");
             break;
         case "source_import_complete":
             hideProgressBar();
@@ -1363,6 +1437,7 @@ function handleJobUpdate(job, options = {}) {
         if (!run.active) beginRun(RUN_TITLES[job.type] || "Processando", job.type, job.message || job.stage || "Preparando…");
         describeRun(job.message || job.stage);
     } else {
+        if (run.active && job.state === "completed") tocarFim();
         endRun();
     }
     const existingIndex = (state.operationJobs || []).findIndex((item) => item.id === job.id);
@@ -1592,8 +1667,8 @@ function selectVideo(item, sourceElement = null) {
     if (changedVideo && state.activeJob && ["queued", "running", "cancel_requested"].includes(state.activeJob.state)) {
         addConsoleLog("[Sistema] A nova seleção foi liberada; a tarefa anterior continua na fila persistente.", "info");
     }
-    addConsoleLog(`[Sistema] Video selecionado: ${item.name}`, "info");
-    showToast(`Video selecionado: ${truncateName(item.name, 30)}`, "success");
+    addConsoleLog(`[Sistema] Vídeo selecionado: ${item.name}`, "info");
+    showToast(`Vídeo selecionado: ${truncateName(item.name, 30)}`, "success");
     if (typeof loadEditorialBlocks === "function") loadEditorialBlocks();
 }
 
@@ -1666,7 +1741,7 @@ function deselectVideo() {
     info.innerHTML = `
         <div class="no-video">
             <span class="material-icons-round">videocam_off</span>
-            <p>Nenhum video selecionado</p>
+            <p>Nenhum vídeo selecionado</p>
         </div>`;
 
     // Hide preview
@@ -1831,7 +1906,7 @@ document.getElementById("btnClosePreview").addEventListener("click", () => {
 
 function requireVideo() {
     if (!state.selectedVideo) {
-        showToast("Selecione um video primeiro na biblioteca!", "warning");
+        showToast("Selecione um vídeo primeiro na biblioteca!", "warning");
         return false;
     }
     return true;
@@ -4169,8 +4244,6 @@ document.querySelectorAll(".modal-overlay").forEach(overlay => {
 });
 
 // ─── Toast Notifications ───
-
-let toastContainer = null;
 
 function showToast(message, type = "info") {
     if (!toastContainer) {
