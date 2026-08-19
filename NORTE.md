@@ -290,25 +290,93 @@ houver máquina dedicada, o mesmo desenho serve sem mudança.
 
 ---
 
-## 10. Interface
+## 10. Design e experiência de uso
 
-Ela precisa passar credibilidade antes de estar completa.
+O CHUB foi cedido pelo chefe do editor, e o site é frio e mal acabado. O Furia
+precisa causar a impressão contrária — inclusive antes de estar pronto. Aparência
+não é enfeite aqui: é o que faz alguém confiar numa ferramenta que ainda erra.
 
-- **Uma coisa de cada vez.** Enquanto há trabalho rodando, a interface diz o quê,
-  há quanto tempo, e não aceita clique que vai descartar.
-- **Toda notificação carrega a ação.** "7 cortes prontos · revisar", não "processo
-  concluído". Aviso sem ação vira ruído e em duas semanas é ignorado.
-- **Quanto mais automático, mais o Furia se explica.** Cada corte responde "por
-  que este trecho?" em uma linha. Sem isso, automação vira desconfiança e o
-  editor volta a conferir tudo à mão.
-- **Preto, dourado e branco** — as cores da Missão. O dourado é acento, não
-  pintura: quando tudo é destaque, nada é.
-- **Só mostrar o que é usado.** Todo controle na tela deve chegar a algum lugar no
-  servidor. Três não chegavam e saíram.
+Isto é item de primeira classe do projeto, não acabamento para o fim.
+
+### Os princípios, e por que cada um
+
+Levantados de como as boas interfaces escuras de 2026 são construídas, e
+filtrados pelo que serve a alguém que passa horas na tela.
+
+**Um acento só.** Uma cor saturada contra uma paleta dessaturada, reservada para
+a ação principal e para a marca. O dourado da Missão é esse acento. Quando ele
+aparece em título, ícone, borda e botão ao mesmo tempo, nada é destaque — foi o
+que fazia a tela parecer amadora.
+
+**Hierarquia por tamanho, não por cor.** O que mais importa é o maior elemento da
+tela. Métrica secundária, gráfico e tabela descem em tamanho e peso. Colorir tudo
+para diferenciar é o atalho que produz poluição.
+
+**Contraste calibrado para sessão longa.** Preto puro sobre monitor grande lê como
+buraco e cansa; branco puro sobre preto vibra. Fundos com traço quente e texto
+levemente abaixo do branco puro sustentam horas de trabalho.
+
+**Movimento curto e uniforme.** Uma duração e uma curva para toda a interface.
+Durações diferentes por componente fazem a tela parecer montada por pessoas
+diferentes. Nada acima de 200 ms em elemento que o editor usa toda hora.
+
+**Estado sempre visível.** Carregando, vazio, erro e sucesso são estados de
+projeto, não improviso. Um painel que fica em branco enquanto pensa parece
+travado.
+
+### O que fica e o que não fica
+
+**Fica:** resposta ao passar o mouse em tudo que é clicável; foco visível para
+teclado; barra de rolagem discreta; transição suave entre as áreas; som curto e
+opcional no fim de um processo longo; notificação que carrega a ação.
+
+**Cursor de onça:** sim, mas contextual. Um cursor personalizado ligado o tempo
+todo atrapalha — atrasa em relação ao ponteiro do sistema, some sobre campo de
+texto e cansa em jornada longa. Ligado **enquanto o editor arrasta na linha do
+tempo ou reposiciona a borda de um corte**, ele vira assinatura em vez de
+obstáculo, e some quando não serve.
+
+**Não fica:** animação de entrada em cada bloco, brilho pulsante decorativo,
+sombra colorida, mais de um acento. Cada um desses parece impressionante na
+primeira vez e irrita na centésima.
+
+**Som:** desligado por padrão, um único toque curto ao terminar processo longo, e
+um botão para calar. Ferramenta que apita sem permissão é desinstalada.
+
+### Acessibilidade não é opcional
+
+`prefers-reduced-motion` respeitado, foco de teclado visível, contraste mínimo
+cumprido, e nenhuma informação transmitida só por cor — verde, âmbar e vermelho
+sempre acompanhados de palavra.
 
 ---
 
-## 11. Onde estamos
+## 11. Os blocos precisam ser úteis, não só existir
+
+O sistema de blocos, a leitura da fonte e o contexto já funcionam. Falta o que
+transforma isso em ferramenta: **o bloco tem que sugerir o corte.**
+
+Clicar num bloco deve responder, ali mesmo:
+
+- **de onde até onde cortar**, com a borda já caindo numa costura da conversa;
+- **por que ali** — a pergunta que abre, a tese, a frase que fecha;
+- **quem fala**, e com que confiança;
+- **o que enfraquece** — termina antes da conclusão, alguém de fora fala no meio,
+  nome citado que a legenda pode ter errado;
+- **quanto vale**, comparado ao resto da fonte.
+
+E o editor deve poder ajustar a borda arrastando, com o texto acompanhando, sem
+sair da tela.
+
+**A precisão do contexto é a condição de tudo isso.** Um bloco que sugere um corte
+errado é pior que um bloco que não sugere nada: ensina a desconfiar da sugestão e
+o editor volta a percorrer o vídeo inteiro à mão. Por isso a sugestão só aparece
+quando as medições fecham, e quando não fecham o bloco diz o que faltou em vez de
+chutar.
+
+---
+
+## 12. Onde estamos
 
 Etapa 1, quase no fim. Falta confirmar em fonte real que as bordas melhoraram e
 que o caminho de qualidade parou de desabar.
