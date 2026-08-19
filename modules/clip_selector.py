@@ -577,8 +577,25 @@ class ClipSelector:
     # GEMINI — Google Gemini Flash API (most capable)
     # ═══════════════════════════════════════════════════
 
+    # How many blocks travel in one request. The whole transcript used to go at
+    # once — the old docstring said so out loud — and on a 73-minute press
+    # conference that meant 28 blocks in a single prompt, which timed out at 180
+    # seconds. Every candidate for that source then came from the keyword
+    # fallback, and that fallback is where the four clips of exactly 180.0
+    # seconds came from. Several small requests cost more time and buy back the
+    # only path that reads the argument.
+    GEMINI_BLOCKS_PER_REQUEST = 8
+    # A lot this size answers in well under a minute; the old ceiling was sized
+    # for a prompt that no longer exists, and a slow answer is still an answer.
+    GEMINI_TIMEOUT_S = 240
+
     def _select_with_gemini(self, sentences, energy_profile, user_context, settings, emit_progress):
-        """Use Google Gemini Flash API to select clips — sends FULL transcript at once."""
+        """Select clips with Gemini, a few blocks at a time.
+
+        Partial success is kept. A lot that fails no longer discards the lots
+        that answered: losing a quarter of a source to the fallback is bad,
+        losing all of it is what actually happened.
+        """
         api_key = settings.get("gemini_api_key", "").strip()
         if not api_key:
             if emit_progress:
@@ -590,14 +607,45 @@ class ClipSelector:
             return []
 
         system_prompt = self._get_gemini_system_prompt(settings.get("editorial_profile", PROFILE_NAME))
+        size = max(1, int(self.GEMINI_BLOCKS_PER_REQUEST))
+        lots = [transcript_blocks[at:at + size] for at in range(0, len(transcript_blocks), size)]
+        if emit_progress:
+            emit_progress(
+                f"[Gemini] {len(transcript_blocks)} blocos em {len(lots)} lote(s) de até {size}.", "info"
+            )
+
+        selections, failed = [], 0
+        for position, lot in enumerate(lots, start=1):
+            if emit_progress:
+                emit_progress(f"[Gemini] Lote {position}/{len(lots)}...", "info")
+            found = self._gemini_lot(
+                lot, sentences, transcript_blocks, system_prompt,
+                user_context, settings, api_key, emit_progress,
+            )
+            if found is None:
+                failed += 1
+                continue
+            selections.extend(found)
+
+        if emit_progress:
+            if failed and selections:
+                emit_progress(
+                    f"[Gemini] {failed} lote(s) sem resposta; os outros renderam "
+                    f"{len(selections)} candidato(s).", "warning",
+                )
+            elif selections:
+                emit_progress(f"[Gemini] {len(selections)} candidato(s) encontrados.", "info")
+        selections.sort(key=lambda item: item.get("viral_score", 0), reverse=True)
+        return selections
+
+    def _gemini_lot(self, blocks, sentences, all_blocks, system_prompt,
+                    user_context, settings, api_key, emit_progress):
+        """One request. ``None`` says this lot failed and the others still count."""
         user_prompt = self._build_gemini_prompt(
-            transcript_blocks,
+            blocks,
             user_context,
             settings.get("editorial_context"),
         )
-
-        if emit_progress:
-            emit_progress(f"[Gemini] Enviando {len(transcript_blocks)} blocos para analise...", "info")
 
         import time as _time
 
@@ -626,7 +674,7 @@ class ClipSelector:
                                 "maxOutputTokens": 16384,
                             },
                         },
-                        timeout=180,
+                        timeout=self.GEMINI_TIMEOUT_S,
                     )
 
                     if response.status_code == 503:
@@ -650,7 +698,7 @@ class ClipSelector:
                     if response.status_code == 403:
                         if emit_progress:
                             emit_progress("[Gemini] API key invalida ou sem permissao.", "warning")
-                        return []
+                        return None
 
                     if response.status_code != 200:
                         try:
@@ -696,7 +744,7 @@ class ClipSelector:
                     if emit_progress:
                         emit_progress(f"[Gemini] Resposta recebida de {model_name} ({len(text)} chars). Parseando...", "info")
 
-                    selections = self._parse_llm_response(text, sentences, transcript_blocks, 0, source="gemini")
+                    selections = self._parse_llm_response(text, sentences, all_blocks, 0, source="gemini")
 
                     if not selections:
                         if emit_progress:
@@ -708,18 +756,27 @@ class ClipSelector:
                     if emit_progress:
                         emit_progress(f"[Gemini] {model_name} encontrou {len(selections)} clips candidatos!", "info")
 
-                    selections.sort(key=lambda x: x.get("viral_score", 0), reverse=True)
                     return selections
 
                 except requests.exceptions.ConnectionError:
                     if emit_progress:
                         emit_progress("[Gemini] Sem conexao com internet.", "warning")
-                    return []
+                    return None
                 except requests.exceptions.Timeout:
+                    # O laço de tentativas existia e o timeout saía dele na
+                    # primeira falha, que é justamente quando tentar de novo
+                    # vale a pena: um lote lento não é um lote impossível.
                     if emit_progress:
-                        emit_progress(f"[Gemini] Timeout com {model_name} (>180s).", "warning")
+                        emit_progress(
+                            f"[Gemini] Timeout com {model_name} (>{self.GEMINI_TIMEOUT_S}s) "
+                            f"na tentativa {attempt + 1}/3.",
+                            "warning",
+                        )
                     last_error = "timeout"
-                    break  # Try next model
+                    if attempt < 2:
+                        _time.sleep(2 * (attempt + 1))
+                        continue
+                    break
                 except Exception as e:
                     if emit_progress:
                         emit_progress(f"[Gemini] Erro com {model_name}: {str(e)[:200]}", "warning")
@@ -727,8 +784,8 @@ class ClipSelector:
                     break  # Try next model
 
         if emit_progress and last_error:
-            emit_progress(f"[Gemini] Todos os modelos falharam. Ultimo erro: {last_error}", "warning")
-        return []
+            emit_progress(f"[Gemini] Lote sem resposta. Ultimo erro: {last_error}", "warning")
+        return None
 
     def _get_gemini_system_prompt(self, editorial_profile=PROFILE_NAME):
         political_fragment = ""
