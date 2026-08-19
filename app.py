@@ -2556,7 +2556,6 @@ def api_remove_silence():
         return jsonify({"error": "Video nao encontrado"}), 404
 
     def task():
-        current_task["active"] = True
         try:
             from modules.silence_remover import SilenceRemover
             settings = get_all_settings()
@@ -2576,10 +2575,12 @@ def api_remove_silence():
             emit_progress(f"Erro: {str(e)}", "error")
             emit_status("error", {"message": str(e)})
         finally:
-            current_task["active"] = False
+            _set_legacy_task("", active=False)
 
-    if current_task["active"]:
-        return jsonify({"error": "Ja existe um processamento em andamento"}), 409
+    with processing_lock:
+        if current_task["active"]:
+            return jsonify({"error": "Já existe um processamento em andamento"}), 409
+        _set_legacy_task("silence_removal", active=True)
 
     threading.Thread(target=task, daemon=True).start()
     return jsonify({"success": True, "message": "Remocao de silencio iniciada"})
@@ -3400,7 +3401,6 @@ def api_generate_subtitles():
         return jsonify({"error": "Video nao encontrado"}), 404
 
     def task():
-        current_task["active"] = True
         try:
             settings = get_all_settings()
             settings.update(subtitle_settings)
@@ -3455,10 +3455,12 @@ def api_generate_subtitles():
             emit_progress(f"Erro nas legendas: {str(e)}", "error")
             emit_status("error", {"message": str(e)})
         finally:
-            current_task["active"] = False
+            _set_legacy_task("", active=False)
 
-    if current_task["active"]:
-        return jsonify({"error": "Ja existe um processamento em andamento"}), 409
+    with processing_lock:
+        if current_task["active"]:
+            return jsonify({"error": "Já existe um processamento em andamento"}), 409
+        _set_legacy_task("subtitles", active=True)
 
     threading.Thread(target=task, daemon=True).start()
     return jsonify({"success": True, "message": "Geracao de legendas iniciada"})
@@ -3474,7 +3476,6 @@ def api_generate_seo():
         return jsonify({"error": "Transcricao nao informada"}), 400
 
     def task():
-        current_task["active"] = True
         try:
             settings = get_all_settings()
             from modules.ai_backend import AIBackend
@@ -3504,10 +3505,12 @@ def api_generate_seo():
             emit_progress(f"Erro no SEO: {str(e)}", "error")
             emit_status("error", {"message": str(e)})
         finally:
-            current_task["active"] = False
+            _set_legacy_task("", active=False)
 
-    if current_task["active"]:
-        return jsonify({"error": "Ja existe um processamento em andamento"}), 409
+    with processing_lock:
+        if current_task["active"]:
+            return jsonify({"error": "Já existe um processamento em andamento"}), 409
+        _set_legacy_task("seo", active=True)
 
     threading.Thread(target=task, daemon=True).start()
     return jsonify({"success": True, "message": "Geracao de SEO iniciada"})
@@ -3705,7 +3708,6 @@ def api_generate_thumbnail():
         return jsonify({"error": "Video nao encontrado"}), 404
 
     def task():
-        current_task["active"] = True
         try:
             from modules.thumbnail_generator import ThumbnailGenerator
             gen = ThumbnailGenerator()
@@ -3730,10 +3732,12 @@ def api_generate_thumbnail():
             emit_progress(f"Erro na thumbnail: {str(e)}", "error")
             emit_status("error", {"message": str(e)})
         finally:
-            current_task["active"] = False
+            _set_legacy_task("", active=False)
 
-    if current_task["active"]:
-        return jsonify({"error": "Ja existe um processamento em andamento"}), 409
+    with processing_lock:
+        if current_task["active"]:
+            return jsonify({"error": "Já existe um processamento em andamento"}), 409
+        _set_legacy_task("processing", active=True)
 
     threading.Thread(target=task, daemon=True).start()
     return jsonify({"success": True, "message": "Geracao de thumbnail iniciada"})
@@ -3753,7 +3757,6 @@ def api_process_complete():
         return jsonify({"error": "Video nao encontrado"}), 404
 
     def task(ctx):
-        current_task["active"] = True
         try:
             settings = get_all_settings()
             if transcription_source:
@@ -4243,7 +4246,7 @@ def api_process_complete():
             traceback.print_exc()
             raise
         finally:
-            current_task["active"] = False
+            _set_legacy_task("", active=False)
 
     if current_task["active"]:
         return jsonify({"error": "Ja existe um processamento em andamento"}), 409
