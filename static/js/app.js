@@ -3757,6 +3757,14 @@ function renderHeadlineStudioResults(studio, options = {}) {
             <div class="artwork-suggestion-grid">${suggestions.map(item => renderArtworkHeadline(item, format, clipIndex)).join("") || `<p class="artwork-empty">${escapeHtml(studio.recommendation_reason || "Sem alternativa disponível.")}</p>`}</div>
         </section>`;
     }).join("");
+    // Esta atribuição foi apagada junto com o cartão do formato descartado na
+    // 6.7: o script que removeu aquele bloco cortava linhas até achar uma que
+    // terminasse em crase-ponto-e-vírgula, e essa linha era exatamente esta. O
+    // resultado passou dois ciclos montando o HTML e jogando fora, com a tela em
+    // branco e a mensagem verde de sucesso — e `node --check` passando, porque o
+    // código continuava válido. Só não fazia nada.
+    container.innerHTML = `<div class="headline-studio-result-summary">
+<div><span class="artwork-format-kicker">LEITURA EDITORIAL</span><h4>${escapeHtml(artworkFormatLabels[recommended] || recommended)}</h4><p>${escapeHtml(studio.recommendation_reason || "")}</p></div><div class="artwork-analysis-metrics"><span>Tema: <strong>${escapeHtml(studio.topic || "geral")}</strong></span><span>Contexto: <strong>${Math.round(Number(studio.analysis?.context_completeness || 0))}/100</strong></span><span>Fonte: <strong>${studio.generation_source === "ai_refined" ? "IA + regras" : "regras editoriais"}</strong></span><span>Preferência: <strong>${escapeHtml(learningLabel)}</strong></span></div></div><div class="artwork-review-chips">${reviewChips || '<span class="artwork-review-chip safe"><span class="material-icons-round">verified</span>sem alerta lexical automático</span>'}</div><div class="artwork-format-results">${formatCards}</div>`;
     container.style.display = "block";
     container.querySelectorAll(".artwork-copy-button").forEach(button => {
         button.addEventListener("click", () => copyToClipboard(decodeURIComponent(button.dataset.artworkCopy || "")));
