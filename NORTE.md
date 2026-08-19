@@ -383,7 +383,22 @@ partir da transcrição. O que muda de natureza:
   continua a anterior, cortesia do programa, legenda cortada no meio, fala que o
   entrevistado está encenando na voz de outra pessoa;
 - quando nenhuma frase se sustenta, **isso é dito** em vez de um genérico sair no
-  lugar.
+  lugar — e é dito *na tela*, não só no objeto de resposta.
+
+**Onde a fonte não pontua, a fronteira vem da pausa (6.7).** Metade das
+ferramentas de legenda não põe um único ponto final, e o gerador exigia pontuação:
+numa legenda real de 111 linhas ele recusou tudo e devolveu tela em branco. Onde
+não há pontuação não há fronteira de frase para encontrar, e fingir que há seria
+pior que admitir — então a fronteira vem do silêncio, que é real porque o orador
+respirou ali, e a citação sai **marcada** (`boundary_source: "pausa"`) para ser
+conferida no áudio antes de virar aspas.
+
+Como se distingue uma fonte da outra: pela **densidade** de pontuação, nunca por
+cada linha terminar em ponto. Medido em três fontes do editor — 0,16 e 0,61 marcas
+por cem palavras nas sem pontuação, 6,10 na pontuada. Perguntar linha a linha
+classificava a legenda do YouTube como sem pontuação, porque ela quebra a linha
+onde ela encheu e o ponto cai no meio; enquanto essa versão esteve de pé, os
+cortes voltaram a abrir no meio da frase.
 
 O formato "fake tweet" saiu do módulo, da interface, do seletor de formato e do
 CSS, como o editor pediu. Não confundir com o `visual_format: "fake_tweet"` de

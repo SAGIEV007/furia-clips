@@ -89,6 +89,13 @@ _SPEECH_CUE = re.compile(
     r"respond(?:e|i|eu)|grit(?:a|ei|ou)|chega\s+e\s+fala)\b"
 )
 
+# O verbo de fala nem sempre está na frase anterior. Quando o entrevistado entra
+# na voz do personagem, o que denuncia é o vocativo de conversa de rua: "ô quantos
+# votos vou trazer aqui, pô". Sem esta recusa, uma fala que ele estava *imitando*
+# saiu como citação atribuída a ele — o erro mais caro que este módulo pode
+# cometer, e ele apareceu numa legenda real do editor.
+_ROLEPLAY_MARKER = re.compile(r"(?:^|\s)(?:ô|pô|ó|opa|ué|hein|oxe)(?:\s|[,.!?]|$)", re.IGNORECASE)
+
 # Onde uma citação pode ser cortada sem virar outra frase. São fronteiras de
 # oração: cortar antes delas deixa a oração principal inteira.
 _CLAUSE_BREAKS = (
@@ -156,6 +163,11 @@ class Quote:
     end_s: float | None = None
     score: float = 0.0
     reasons: tuple[str, ...] = field(default=())
+    # "pontuacao" quando a fonte fecha frases, "pausa" quando a fronteira veio do
+    # silêncio. O editor precisa da diferença: uma fronteira de pausa é real mas
+    # não é fim de frase, e a citação tem de ser conferida no áudio antes das
+    # aspas irem para a arte.
+    boundary_source: str = "pontuacao"
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -166,6 +178,7 @@ class Quote:
             "character_count": len(self.text),
             "word_count": len(self.text.split()),
             "reasons": list(self.reasons),
+            "boundary_source": self.boundary_source,
         }
 
 
@@ -188,18 +201,103 @@ class Speaker:
         return self.level in {"audio", "editor"} and bool(self.name.strip())
 
 
+# Uma pausa a partir daqui é fronteira de fôlego, e numa legenda sem pontuação é
+# a única fronteira que existe. Não é fronteira de frase e não se finge que é.
+PAUSE_BOUNDARY_S = 0.3
+# Teto de uma unidade tirada de pausas. Sem pontuação nada fecha sozinho, e um
+# bloco de cem palavras não é citação de coisa nenhuma.
+UNIT_MAX_WORDS = 24
+
+
+# Marcas de fim de frase por cem palavras. Medido em três fontes reais do editor:
+# a legenda sobre compra de votos tem 0,16, o corte que ele montou à mão tem 0,61,
+# e a entrevista do Metrópoles tem 6,10. O limiar fica no meio do vão, longe dos
+# dois lados.
+PUNCTUATION_PER_100_WORDS = 2.0
+
+
+def transcript_is_punctuated(items: list[dict[str, Any]] | None) -> bool:
+    """A fonte pontua? Metade das ferramentas de legenda não pontua nada.
+
+    Sem essa pergunta o gerador exigia ponto final de uma legenda que não tem
+    nenhum: numa fonte real de 111 linhas ele recusou tudo e devolveu a tela em
+    branco.
+
+    A pergunta é sobre a *densidade* de pontuação na fonte inteira, não sobre
+    cada linha terminar em ponto. Uma legenda do YouTube quebra a linha onde ela
+    encheu, então o ponto cai no meio dela constantemente — e perguntar linha a
+    linha classificava uma fonte bem pontuada como sem pontuação, jogando fora as
+    fronteiras de frase que ela de fato tinha.
+    """
+    texto = " ".join(str(item.get("text") or "") for item in items or [])
+    palavras = len(texto.split())
+    if palavras < 40:
+        return True
+    marcas = len(re.findall(r"[.!?]", texto))
+    return (marcas / palavras) * 100 >= PUNCTUATION_PER_100_WORDS
+
+
+def units_from_pauses(segments: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
+    """Unidades de fala tiradas do silêncio, para legendas sem pontuação.
+
+    Onde não há ponto final, a fronteira que existe é a pausa — e ela é real, o
+    orador respirou ali. O que ela não é: uma fronteira de frase. Por isso cada
+    unidade sai marcada com ``boundary_source``, e quem citar uma delas tem de
+    dizer ao editor que o limite veio do silêncio e precisa ser conferido no
+    áudio antes de virar aspas.
+    """
+    ordenados = sorted(
+        (s for s in segments or [] if str(s.get("text") or "").strip()),
+        key=lambda s: float(s.get("start", 0) or 0),
+    )
+    unidades: list[dict[str, Any]] = []
+    atual: list[dict[str, Any]] = []
+
+    def fechar():
+        if not atual:
+            return
+        texto = " ".join(str(s.get("text") or "").strip() for s in atual).strip()
+        texto = " ".join(texto.split())
+        if texto:
+            unidades.append({
+                "text": texto,
+                "start": float(atual[0].get("start", 0) or 0),
+                "end": float(atual[-1].get("end", 0) or 0),
+                "boundary_source": "pausa",
+            })
+        atual.clear()
+
+    for posicao, segmento in enumerate(ordenados):
+        atual.append(segmento)
+        palavras = sum(len(str(s.get("text") or "").split()) for s in atual)
+        proximo = ordenados[posicao + 1] if posicao + 1 < len(ordenados) else None
+        pausa = (
+            float(proximo.get("start", 0) or 0) - float(segmento.get("end", 0) or 0)
+            if proximo else float("inf")
+        )
+        if palavras >= UNIT_MAX_WORDS or (pausa >= PAUSE_BOUNDARY_S and palavras >= HEADLINE_MIN_WORDS):
+            fechar()
+    fechar()
+    return unidades
+
+
 def sentences_from_segments(segments: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
     """As frases do corte, com o tempo de cada uma.
 
-    Usa o mesmo construtor do seletor de cortes de propósito. Uma linha de
-    legenda não é uma frase — o ponto final cai no meio dela — e uma headline
-    montada sobre a fronteira errada citaria o rabo de uma frase colado no começo
-    da seguinte, que é literalmente uma citação falsa.
+    Onde a fonte pontua, usa o mesmo construtor do seletor de cortes de
+    propósito. Uma linha de legenda não é uma frase — o ponto final cai no meio
+    dela — e uma headline montada sobre a fronteira errada citaria o rabo de uma
+    frase colado no começo da seguinte, que é literalmente uma citação falsa.
+
+    Onde a fonte não pontua, não há fronteira de frase para encontrar e fingir
+    que há seria pior que admitir. Aí a fronteira vem da pausa, e vem marcada.
     """
     if not segments:
         return []
     from .clip_selector import ClipSelector
 
+    if not transcript_is_punctuated(segments):
+        return units_from_pauses(segments)
     return ClipSelector()._build_sentences(segments)
 
 
@@ -227,7 +325,7 @@ def _content_words(folded: str) -> list[str]:
     ]
 
 
-def _disqualify(text: str, cased: bool) -> str:
+def _disqualify(text: str, cased: bool, punctuated: bool = True) -> str:
     """Por que esta frase não pode virar citação. Vazio quando pode.
 
     São recusas, não descontos. Uma frase que abre no meio de outra, que não
@@ -247,6 +345,13 @@ def _disqualify(text: str, cased: bool) -> str:
     if any(term in folded for term in _PLEASANTRY):
         return "cortesia ou protocolo do programa"
 
+    if _ROLEPLAY_MARKER.search(stripped):
+        return "fala encenada na voz de outra pessoa"
+    # "votos votos", "a a gente": repetição de reconhecimento. Numa arte isso lê
+    # como defeito, e limpar seria reescrever — então escolhe-se outra frase.
+    if _STUTTER.search(folded):
+        return "repetição de palavra na transcrição"
+
     tokens = re.findall(r"[a-z0-9]+", folded)
     if not tokens:
         return "sem texto aproveitável"
@@ -262,20 +367,25 @@ def _disqualify(text: str, cased: bool) -> str:
     if not ClipSelector._opens_a_thought(stripped, cased):
         return "continua a frase anterior em vez de começar uma"
 
-    if not stripped.endswith((".", "!", "?")):
-        return "sem fechamento de frase"
+    # Numa fonte que pontua, a falta de ponto final denuncia frase cortada. Numa
+    # que não pontua, exigir ponto final recusa a fonte inteira — foi o que
+    # devolveu tela em branco numa legenda real de 111 linhas.
+    if punctuated:
+        if not stripped.endswith((".", "!", "?")):
+            return "sem fechamento de frase"
+        if stripped.endswith("?") and not (set(tokens) & _INTERROGATIVE):
+            return "ponto de interrogação sem pergunta"
+    # Terminar em palavra funcional é fragmento com pontuação ou sem ela.
     if tokens[-1] in _DANGLING_TAIL:
-        return "a legenda cortou a frase no meio"
-    if stripped.endswith("?") and not (set(tokens) & _INTERROGATIVE):
-        return "ponto de interrogação sem pergunta"
+        return "termina no meio de uma oração"
 
     return ""
 
 
-def _score(text: str, cased: bool = False) -> tuple[float, list[str]]:
+def _score(text: str, cased: bool = False, punctuated: bool = True) -> tuple[float, list[str]]:
     """O quanto esta frase se sustenta sozinha numa arte."""
     stripped = text.strip()
-    impedimento = _disqualify(stripped, cased)
+    impedimento = _disqualify(stripped, cased, punctuated)
     if impedimento:
         return -1.0, [impedimento]
 
@@ -364,6 +474,7 @@ def pick_quotes(
 
     ordenadas = list(sentences or [])
     cased = ClipSelector._casing_is_meaningful(ordenadas)
+    punctuated = transcript_is_punctuated(ordenadas)
 
     marcados: list[Quote] = []
     for posicao, frase in enumerate(ordenadas):
@@ -377,7 +488,7 @@ def pick_quotes(
         if posicao and _SPEECH_CUE.search(normalize(str(ordenadas[posicao - 1].get("text") or ""))):
             continue
 
-        pontos, motivos = _score(bruto, cased)
+        pontos, motivos = _score(bruto, cased, punctuated)
         if pontos < 0:
             continue
 
@@ -398,6 +509,7 @@ def pick_quotes(
             end_s=frase.get("end"),
             score=round(pontos, 2),
             reasons=tuple(motivos),
+            boundary_source=str(frase.get("boundary_source") or "pontuacao"),
         ))
 
     marcados.sort(key=lambda item: (-item.score, len(item.text)))

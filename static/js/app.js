@@ -3711,6 +3711,8 @@ function renderHeadlineStudioResults(studio, options = {}) {
         flags.transcript_ends_incomplete ? '<span class="artwork-review-chip warning"><span class="material-icons-round">pending</span>final da transcrição incompleto</span>' : "",
         flags.needs_fact_review ? '<span class="artwork-review-chip"><span class="material-icons-round">fact_check</span>revisar afirmação factual</span>' : "",
         flags.needs_legal_review ? '<span class="artwork-review-chip legal"><span class="material-icons-round">gavel</span>revisar formulação jurídica</span>' : "",
+        flags.quote_boundary_from_pause ? '<span class="artwork-review-chip warning"><span class="material-icons-round">graphic_eq</span>a legenda não pontua: a citação foi cortada na pausa, confira no áudio</span>' : "",
+        flags.speaker_unconfirmed ? '<span class="artwork-review-chip warning"><span class="material-icons-round">person_off</span>ninguém confirmou quem fala: a arte sai sem atribuição</span>' : "",
     ].filter(Boolean).join("");
     const selectedFormat = studio.generated_format || recommended;
     const availableFormats = [selectedFormat].filter(format => ["vertical_916", "square_alfinetei"].includes(format));
@@ -3719,7 +3721,7 @@ function renderHeadlineStudioResults(studio, options = {}) {
         const suggestions = Array.isArray(config.suggestions) ? config.suggestions : [];
         return `<section class="artwork-format-result ${format === recommended ? "recommended" : ""}">
             <div class="artwork-format-result-head"><div><span class="artwork-format-kicker">${format === recommended ? "FORMATO RECOMENDADO" : "ALTERNATIVA"}</span><h4>${escapeHtml(config.label || artworkFormatLabels[format])}</h4></div><span class="artwork-limit">${escapeHtml(config.description || "")}</span></div>
-            <div class="artwork-suggestion-grid">${suggestions.map(item => renderArtworkHeadline(item, format, clipIndex)).join("") || '<p class="artwork-empty">Sem alternativa disponível.</p>'}</div>
+            <div class="artwork-suggestion-grid">${suggestions.map(item => renderArtworkHeadline(item, format, clipIndex)).join("") || `<p class="artwork-empty">${escapeHtml(studio.recommendation_reason || "Sem alternativa disponível.")}</p>`}</div>
         </section>`;
     }).join("");
     container.style.display = "block";

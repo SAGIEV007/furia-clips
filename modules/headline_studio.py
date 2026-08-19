@@ -350,6 +350,12 @@ def _fallback_result(
         "speaker_unconfirmed": not falante.confirmed,
         # Silêncio é defeito: quando nenhuma frase se sustenta, isso é dito.
         "no_quote_found": not montadas,
+        # A fonte não pontua, então a fronteira da citação veio do silêncio. Ela
+        # é real — o orador respirou ali — mas não é fim de frase, e as aspas
+        # precisam ser conferidas no áudio antes de irem para a arte.
+        "quote_boundary_from_pause": any(
+            item["quote"].get("boundary_source") == "pausa" for item in montadas
+        ),
     }
     recommendation_reason = {
         FORMAT_SQUARE: "A tese tem desenvolvimento suficiente para uma chamada curta no topo e a citação em até três linhas.",
