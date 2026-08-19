@@ -2739,7 +2739,7 @@ def api_cut_shorts():
     if audit_mode not in {"fast", "standard", "full"}:
         audit_mode = "standard"
     preferred_format = str(data.get("preferred_format", "auto") or "auto").strip().lower()
-    if preferred_format not in {"auto", "vertical_916", "square_alfinetei", "fake_tweet"}:
+    if preferred_format not in {"auto", "vertical_916", "square_alfinetei"}:
         preferred_format = "auto"
 
     if not os.path.exists(video_path):
@@ -2923,6 +2923,9 @@ def api_cut_shorts():
                         ai_backend=None,
                         emit_progress=None,
                         editorial_learning=get_headline_learning_preferences(),
+                        # A citação precisa do instante em que foi dita: é ele
+                        # que deixa conferir no áudio antes de publicar.
+                        segments=selection_transcription.get("segments"),
                     )
                     emit_progress(
                         f"[Auditoria editorial] Formato recomendado: {editorial_audit.get('recommended_format', 'auto')}; "
@@ -3681,6 +3684,13 @@ def api_analyze_headline_studio():
         return jsonify({"success": False, "error": "Cole ou importe uma transcrição antes de gerar o texto de arte."}), 400
     if len(transcript) > 60000:
         return jsonify({"success": False, "error": "A transcrição excede o limite de 60.000 caracteres para esta análise."}), 400
+    # Um formato que não existe mais é defeito de quem chamou. Cair calado em
+    # "auto" esconderia isso — e o "fake tweet" saiu a pedido do editor.
+    if preferred_format not in {"auto", "vertical_916", "square_alfinetei"}:
+        return jsonify({
+            "success": False,
+            "error": f"Formato de arte desconhecido: {preferred_format}. Use vertical_916, square_alfinetei ou auto.",
+        }), 400
 
     try:
         from modules.ai_backend import AIBackend
@@ -3690,12 +3700,18 @@ def api_analyze_headline_studio():
         ai = None
         if use_ai:
             ai = AIBackend(backend=settings.get("ai_backend", "ollama"), settings=settings)
+        # O verbo forte na atribuição só é honesto quando o áudio respondeu por
+        # quem fala; qualquer outro nível vira atribuição do editor, e um nível
+        # desconhecido não atribui nada.
+        speaker_level = str(data.get("speaker_level", "") or "").strip().lower()
         result = generate_artwork_copy(
             transcript,
             mini_context=mini_context,
             preferred_format=preferred_format,
             ai_backend=ai,
             editorial_learning=get_headline_learning_preferences(),
+            speaker_name=str(data.get("speaker_name", "") or "").strip(),
+            speaker_level=speaker_level if speaker_level in {"audio", "editor"} else "",
         )
         result["clip_id"] = clip_id
         result["editorial_key"] = str((clip or {}).get("editorial_key") or "")
@@ -3742,7 +3758,7 @@ def api_save_headline_studio_feedback():
             return jsonify({"success": False, "error": "Corte não encontrado no backup local."}), 404
         project_id = project_id or clip.get("project_id")
         editorial_key = editorial_key or str(clip.get("editorial_key") or "")
-    if format_id not in {"vertical_916", "square_alfinetei", "fake_tweet"}:
+    if format_id not in {"vertical_916", "square_alfinetei"}:
         return jsonify({"success": False, "error": "Formato editorial inválido."}), 400
     if not artwork_text or len(artwork_text) > 300:
         return jsonify({"success": False, "error": "Texto de arte inválido ou longo demais."}), 400

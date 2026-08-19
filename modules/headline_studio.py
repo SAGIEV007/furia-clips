@@ -1,10 +1,16 @@
 """Headline studio for short-form political video artwork.
 
-This module turns a finished-cut transcript into *text for the artwork*, not SEO
-metadata.  It keeps the three production formats used by the editor separate:
-vertical headline, square "Alfinetei" and simulated post.  Local suggestions are
-always available; an online model may improve wording but can never remove
-context, attribution or review warnings.
+Turns a finished cut into *text for the artwork*, not SEO metadata, in the two
+production formats the editor uses: vertical headline and square "Alfinetei".
+
+The copy itself is built in ``headline_quote``, in three parts — stamp,
+attribution and a **literal** quote. This module is the studio around it: the
+format profiles, the line budget, the topic reading, the learning from the
+editor's past choices and the optional online refinement.
+
+Local suggestions are always available. An online model may improve the stamp
+and the attribution; it can never touch the quote, because a quote it rewrote is
+a quote nobody said.
 """
 
 from __future__ import annotations
@@ -14,14 +20,24 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
+from modules.headline_quote import (
+    Speaker,
+    compose,
+    pick_quotes,
+    sentences_from_segments,
+    sentences_from_text,
+)
 from modules.political_profile import analyze_political_text, normalize
 from modules.transcript_parser import parse_transcript_text
 
 
 FORMAT_VERTICAL = "vertical_916"
 FORMAT_SQUARE = "square_alfinetei"
-FORMAT_TWEET = "fake_tweet"
-FORMAT_IDS = {FORMAT_VERTICAL, FORMAT_SQUARE, FORMAT_TWEET}
+# O formato "fake tweet" saiu: o editor pediu para descartá-lo e ele continuava
+# no módulo, na interface e no seletor de formato. Não confundir com o
+# `visual_format: "fake_tweet"` de `editorial_format`, que é outra coisa — lá é a
+# composição observada *dentro* da fonte, e essa continua existindo.
+FORMAT_IDS = {FORMAT_VERTICAL, FORMAT_SQUARE}
 
 FORMAT_PROFILES = {
     FORMAT_VERTICAL: {
@@ -41,15 +57,6 @@ FORMAT_PROFILES = {
         "max_lines": 3,
         "ideal_line_chars": 23,
         "copy_role": "chamada superior curta e tese branca complementar",
-    },
-    FORMAT_TWEET: {
-        "label": "Fake tweet — publicação simulada",
-        "description": "Texto em primeira pessoa somente quando ele estiver inequívoco no corte; revisar antes de atribuir a postagem ao perfil.",
-        "headline_limit": 180,
-        "eyebrow_limit": 0,
-        "max_lines": 5,
-        "ideal_line_chars": 36,
-        "copy_role": "rascunho conciso de publicação atribuível após revisão",
     },
 }
 
@@ -142,7 +149,14 @@ def _break_headline(value: str, max_lines: int = 3, ideal_line_chars: int = 22) 
     return lines
 
 
-def _coerce_text(transcript: str) -> tuple[str, dict[str, Any]]:
+def _coerce_text(transcript: str) -> tuple[str, dict[str, Any], list[dict[str, Any]]]:
+    """O texto, o que se sabe sobre ele, e as linhas com tempo quando existem.
+
+    As linhas passaram a ser devolvidas porque a citação precisa do instante em
+    que foi dita: é ele que deixa o editor conferir no áudio, e o áudio é a fonte
+    da verdade. Antes só o texto corrido saía daqui, e o timestamp — que a fonte
+    trazia — era jogado fora na porta de entrada.
+    """
     raw = str(transcript or "").strip()
     if not raw:
         raise ValueError("Cole ou importe uma transcrição antes de gerar o texto de arte.")
@@ -152,13 +166,13 @@ def _coerce_text(transcript: str) -> tuple[str, dict[str, Any]]:
             "format": parsed.get("format", "timestamped"),
             "segment_count": parsed.get("segment_count", 0),
             "timestamped": True,
-        }
+        }, list(parsed.get("segments") or [])
     except ValueError:
         # Finished edits often arrive as a clean text export without timestamps.
         plain = re.sub(r"\s+", " ", raw).strip()
         if len(plain.split()) < 4:
             raise ValueError("A transcrição precisa ter ao menos uma frase curta para análise.")
-        return plain, {"format": "plain_text", "segment_count": 0, "timestamped": False}
+        return plain, {"format": "plain_text", "segment_count": 0, "timestamped": False}, []
 
 
 def _topic(text: str) -> str:
@@ -200,103 +214,46 @@ def _topic_evidence(text: str, topic: str) -> list[str]:
     return []
 
 
-def _attention_word(text: str, signals: dict[str, Any]) -> str:
-    folded = normalize(text)
-    if "arcaic" in folded:
-        return "ARCAICO"
-    if any(term in folded for term in ("urgente", "agora", "alerta")):
-        return "ALERTA"
-    if signals.get("conflict_or_stakes", 0) >= 55:
-        return "ABSURDO"
-    if signals.get("claim_strength", 0) >= 55:
-        return "ATENÇÃO"
-    return "IMPRESSIONANTE"
+def _speaker_from_context(mini_context: str, speaker_name: str = "", speaker_level: str = "") -> Speaker:
+    """Quem assina a fala, e quem respondeu por isso.
 
-
-def _speaker_prefix(mini_context: str) -> str:
-    """Return a short, explicit attribution only when the editor supplied it."""
+    Deduzir o locutor do próprio texto é o chute que o NORTE proíbe: um corte que
+    atribui uma fala a quem não a disse não custa um corte, custa a conta. Então
+    o nome só entra por dois caminhos, e os dois têm alguém por trás — o
+    reconhecimento de voz, que bateu com a amostra cadastrada, ou o editor, que
+    escreveu de quem é a fonte. Sem nenhum dos dois a headline sai sem nome.
+    """
+    if speaker_name.strip() and speaker_level in {"audio", "editor"}:
+        return Speaker(name=speaker_name.strip(), level=speaker_level)
     folded = normalize(mini_context)
-    if "renan santos" in folded or re.search(r"\brenan\b", folded):
-        return "RENAN:"
-    return ""
+    if "renan santos" in folded:
+        return Speaker(name="Renan Santos", level="editor")
+    if re.search(r"\brenan\b", folded):
+        return Speaker(name="Renan", level="editor")
+    return Speaker()
 
 
-def _claim_candidates(text: str, topic: str, speaker_prefix: str = "") -> list[str]:
-    folded = normalize(text)
-    candidates: list[str] = []
-    if "caminho arcaico" in folded:
-        candidates.append("BRASIL ESCOLHEU O CAMINHO ARCAICO")
-    if "com ou sem o estado" in folded or "vao ocorrer de qualquer forma" in folded:
-        candidates.append("AS CRIPTOS AVANÇAM COM OU SEM O ESTADO")
-    if "reserva de valor" in folded and topic == "cripto":
-        candidates.append("CRIPTOS SÃO O FUTURO DA RESERVA DE VALOR")
-    if "tribut" in folded and topic in {"cripto", "impostos"}:
-        candidates.append("RENAN CRITICA A TRIBUTAÇÃO DAS CRIPTOS")
-    if "estado" in folded and "amig" in folded:
-        candidates.append("O ESTADO VAI ACOLHER OU AFASTAR AS CRIPTOS?")
-    if "liberdade" in folded:
-        candidates.append("A LIBERDADE NÃO CABE EM MAIS CONTROLE")
-    if "nao tenham medo" in folded and ("ato" in folded or "faculdade" in folded):
-        candidates.extend([
-            "NÃO TENHAM MEDO DE IR AO ATO",
-            "A AMEAÇA NÃO VAI IMPEDIR O ATO",
-            "VÃO AO ATO: NÃO SEJAM COVARDES",
-        ])
-    elif "ameac" in folded and "ato" in folded:
-        candidates.extend([
-            "A AMEAÇA NÃO VAI IMPEDIR O ATO",
-            "NÃO TENHAM MEDO DAS AMEAÇAS",
-        ])
-    elif "seguran" in folded:
-        candidates.append("SEGURANÇA NÃO SE RESOLVE COM DISCURSO")
-    if "emenda" in folded or "emendas" in folded:
-        if "flavio dino" in folded and "jornalista" in folded:
-            candidates.append("FLÁVIO DINO E A CONTRADIÇÃO DAS EMENDAS")
-        if "politica publica" in folded or "indicador" in folded or "resultado" in folded:
-            candidates.append("EMENDAS PRECISAM ENTREGAR RESULTADOS")
-        if "parlamentar" in folded and "orcamento" in folded:
-            candidates.append("EMENDA NÃO PODE VIRAR ORÇAMENTO DE PARLAMENTAR")
-        if "agua potavel" in folded and "praca" in folded:
-            candidates.append("SEM ÁGUA, NÃO TEM PRAÇA")
-    if "imposto" in folded or "tribut" in folded:
-        candidates.append("O BRASIL QUER TRIBUTAR O PRÓPRIO FUTURO?")
-    if not candidates:
-        label = topic.upper()
-        generic_claims = [
-            f"EXPLICA O IMPASSE DA {label}",
-            f"O BRASIL PRECISA DECIDIR O RUMO DA {label}",
-            f"A VERDADE INCÔMODA SOBRE {label}",
-        ]
-        candidates.extend(
-            [f"{speaker_prefix} {generic_claims[0]}".strip(), *generic_claims[1:]]
-            if speaker_prefix
-            else generic_claims
-        )
-    unique: list[str] = []
-    for candidate in candidates:
-        candidate_folded = normalize(candidate)
-        already_attributed = candidate_folded.startswith("renan ") or candidate_folded.startswith("renan:")
-        attributed = f"{speaker_prefix} {candidate}".strip() if speaker_prefix and not already_attributed else candidate
-        item = _compact(attributed, 64).upper()
-        if item and item not in unique:
-            unique.append(item)
-    return unique[:4]
+def _quote_span(headline: str) -> str:
+    """O trecho entre aspas de uma headline montada."""
+    match = re.search(r"[\u201c\"']([^\u201d\"']{4,})[\u201d\"']", str(headline or ""))
+    return match.group(1).strip() if match else ""
 
 
-def _safe_fake_tweet(text: str, topic: str, mini_context: str) -> list[str]:
-    folded = normalize(text)
-    lead = ""
-    if "caminho arcaico" in folded:
-        lead = "O Brasil escolheu o caminho arcaico ao lidar com as criptos."
-    elif "reserva de valor" in folded and topic == "cripto":
-        lead = "As criptos já são uma reserva de valor para as novas gerações."
-    elif "estado" in folded and "amig" in folded:
-        lead = "A pergunta é simples: o Estado será amigável ou hostil à inovação?"
-    else:
-        lead = f"O debate sobre {topic} precisa olhar para o futuro, não para o medo."
-    if mini_context:
-        lead = _compact(f"{lead} {mini_context}", 180)
-    return [_compact(lead, 180)]
+def _quote_is_verbatim(headline: str, source_text: str) -> bool:
+    """A citação dentro desta headline foi mesmo dita, palavra por palavra?
+
+    É o portão do caminho de IA. O modelo pode melhorar a estampa e a atribuição;
+    ele não pode tocar na citação, porque uma citação reescrita é uma citação
+    falsa, ainda que o sentido pareça o mesmo. O corte por reticências é aceito
+    porque ele remove pelo fim e diz que removeu.
+    """
+    trecho = _quote_span(headline)
+    if not trecho:
+        return False
+    alvo = normalize(trecho.rstrip("\u2026. ")).strip()
+    if len(alvo.split()) < 4:
+        return False
+    return alvo in normalize(source_text)
 
 
 def _format_from_learning(editorial_learning: dict[str, Any] | None) -> tuple[str, int, str]:
@@ -316,33 +273,61 @@ def _format_from_learning(editorial_learning: dict[str, Any] | None) -> tuple[st
     return "", 0, ""
 
 
+def _suggestion_from_quote(built: dict[str, Any], format_id: str) -> dict[str, Any]:
+    """Uma sugestão de arte no contrato que a interface já lê.
+
+    A estampa vira a chamada de cima e a citação, com a atribuição na frente,
+    vira a headline — exatamente a forma da headline que o editor aprovou. A
+    citação não passa por `_compact`: truncar no meio de uma palavra é
+    parafrasear sem dizer que parafraseou, e é o que o invariante proíbe.
+    """
+    profile = FORMAT_PROFILES[format_id]
+    headline = built["headline"]
+    return {
+        "eyebrow": _compact(built["stamp"], int(profile["eyebrow_limit"])).upper() if profile["eyebrow_limit"] else "",
+        "headline": headline,
+        "headline_lines": _break_headline(
+            headline,
+            max_lines=int(profile["max_lines"]),
+            ideal_line_chars=int(profile["ideal_line_chars"]),
+        ),
+        "emphasis": "",
+        "accent": "red_on_white" if format_id == FORMAT_VERTICAL else "white",
+        "character_count": len(headline),
+        "word_count": len(headline.split()),
+        "layout_hint": f"até {profile['max_lines']} linhas de cerca de {profile['ideal_line_chars']} caracteres",
+        # O que permite conferir a citação no áudio, que é a fonte da verdade.
+        "quote": built["quote"],
+        "attribution": built["attribution"],
+        "attribution_level": built["attribution_level"],
+        "stamp_alternatives": built["stamp_alternatives"],
+        "within_preferred_limit": len(headline) <= int(profile["headline_limit"]),
+    }
+
+
 def _fallback_result(
     text: str,
     mini_context: str,
     preferred_format: str,
     editorial_learning: dict[str, Any] | None = None,
+    segments: list[dict[str, Any]] | None = None,
+    speaker: Speaker | None = None,
 ) -> dict[str, Any]:
+    from modules.interview_turns import is_interviewer_sentence
+
     signals = analyze_political_text(text, user_context=mini_context)
     topic = _topic(text)
-    attention = _attention_word(text, signals)
-    claims = _claim_candidates(text, topic, speaker_prefix=_speaker_prefix(mini_context))
+    falante = speaker or Speaker()
+
+    frases = sentences_from_segments(segments) if segments else sentences_from_text(text)
+    citacoes = pick_quotes(frases, wanted=3, is_other_speaker=is_interviewer_sentence)
+    montadas = [compose(item, falante, signals) for item in citacoes]
+
     selected_only = preferred_format if preferred_format in FORMAT_IDS else ""
-    square = [
-        ArtworkSuggestion(attention, claim, emphasis="", accent="white", note=FORMAT_SQUARE).as_dict()
-        for claim in claims[:3]
-    ] if not selected_only or selected_only == FORMAT_SQUARE else []
-    vertical = [
-        ArtworkSuggestion("", claim, emphasis=_compact(claim.split()[-1], 18), accent="red_on_white", note=FORMAT_VERTICAL).as_dict()
-        for claim in claims[:3]
-    ] if not selected_only or selected_only == FORMAT_VERTICAL else []
-    fake_tweet = [
-        {
-            "post_text": copy,
-            "character_count": len(copy),
-            "attribution_note": "Use como rascunho de publicação; confirme a redação final antes de atribuir ao perfil.",
-        }
-        for copy in _safe_fake_tweet(text, topic, mini_context)
-    ] if not selected_only or selected_only == FORMAT_TWEET else []
+    square = [_suggestion_from_quote(item, FORMAT_SQUARE) for item in montadas] \
+        if not selected_only or selected_only == FORMAT_SQUARE else []
+    vertical = [_suggestion_from_quote(item, FORMAT_VERTICAL) for item in montadas] \
+        if not selected_only or selected_only == FORMAT_VERTICAL else []
 
     learning_format, learning_count, learning_scope = _format_from_learning(editorial_learning)
     learning_applied = False
@@ -353,8 +338,6 @@ def _fallback_result(
         learning_applied = True
     elif signals.get("claim_strength", 0) >= 45 and len(text.split()) >= 35:
         recommended = FORMAT_SQUARE
-    elif signals.get("editorial_family") in {"reacao", "humor"}:
-        recommended = FORMAT_VERTICAL
     else:
         recommended = FORMAT_VERTICAL
 
@@ -363,27 +346,37 @@ def _fallback_result(
         "needs_fact_review": bool(signals.get("needs_fact_review")),
         "needs_legal_review": bool(signals.get("needs_legal_review")),
         "transcript_ends_incomplete": not is_complete,
+        # Sem atribuição a arte sai sem nome, e o editor precisa saber por quê.
+        "speaker_unconfirmed": not falante.confirmed,
+        # Silêncio é defeito: quando nenhuma frase se sustenta, isso é dito.
+        "no_quote_found": not montadas,
     }
     recommendation_reason = {
-        FORMAT_SQUARE: "A tese tem desenvolvimento suficiente para uma chamada curta no topo e uma headline branca em até três linhas.",
-        FORMAT_VERTICAL: "O argumento possui conflito ou contraste que funciona melhor como headline central de leitura imediata.",
-        FORMAT_TWEET: "O corte possui uma posição autoral que pode virar rascunho de publicação, desde que a atribuição final seja revisada.",
+        FORMAT_SQUARE: "A tese tem desenvolvimento suficiente para uma chamada curta no topo e a citação em até três linhas.",
+        FORMAT_VERTICAL: "A citação é curta o bastante para ser lida de uma vez como headline central.",
     }[recommended]
     if learning_applied:
         recommendation_reason = (
             f"O formato foi priorizado por {learning_count} escolha(s) aprovada(s) {learning_scope}; "
             "o texto continua sendo gerado a partir desta transcrição."
         )
+    if not montadas:
+        recommendation_reason = (
+            "Nenhuma frase deste corte se sustenta sozinha como citação: todas continuam a "
+            "anterior, são protocolo do programa ou vieram cortadas pela legenda."
+        )
+
     return {
         "recommended_format": recommended,
         "recommendation_reason": recommendation_reason,
         "topic": topic,
         "topic_evidence": _topic_evidence(text, topic),
-        "attention_word": attention,
+        "attention_word": montadas[0]["stamp"] if montadas else "",
+        "speaker": {"name": falante.name, "level": falante.level, "confirmed": falante.confirmed},
+        "quotes_rejected": len(frases) - len(citacoes),
         "formats": {
             FORMAT_VERTICAL: {**FORMAT_PROFILES[FORMAT_VERTICAL], "suggestions": vertical},
             FORMAT_SQUARE: {**FORMAT_PROFILES[FORMAT_SQUARE], "suggestions": square},
-            FORMAT_TWEET: {**FORMAT_PROFILES[FORMAT_TWEET], "suggestions": fake_tweet},
         },
         "review_flags": review_flags,
         "analysis": {
@@ -392,7 +385,7 @@ def _fallback_result(
             "claim_strength": signals.get("claim_strength", 0),
             "conflict_or_stakes": signals.get("conflict_or_stakes", 0),
         },
-        "generation_source": "editorial_fallback",
+        "generation_source": "literal_quote",
         "learning_applied": {
             "applied": learning_applied,
             "format_id": learning_format if learning_applied else "",
@@ -434,62 +427,74 @@ def _merge_ai_suggestions(
     source_text: str = "",
     preferred_format: str = "auto",
 ) -> dict[str, Any]:
-    """Accept only short, evidence-backed AI variations; deterministic safety stays intact."""
+    """Aceitar variações do modelo apenas onde a citação continua sendo literal.
+
+    O portão mudou de natureza. Antes bastava a headline compartilhar palavras
+    com a transcrição, e por isso o modelo podia reescrever a frase mantendo o
+    vocabulário — que é exatamente uma paráfrase. Agora a citação entre aspas tem
+    de aparecer palavra por palavra na fonte, senão a variação é descartada e a
+    versão determinística fica de pé.
+    """
     suggested = payload.get("formats") if isinstance(payload, dict) else None
     if not isinstance(suggested, dict):
         return base
     allowed_formats = (preferred_format,) if preferred_format in FORMAT_IDS else (FORMAT_VERTICAL, FORMAT_SQUARE)
+    aceitou_alguma = False
     for format_id in allowed_formats:
         variants = suggested.get(format_id)
         if not isinstance(variants, list):
             continue
+        profile = FORMAT_PROFILES[format_id]
+        originais = {
+            item.get("quote", {}).get("text", ""): item
+            for item in base["formats"][format_id]["suggestions"]
+        }
         accepted = []
         for item in variants[:3]:
             if not isinstance(item, dict):
                 continue
-            headline = _compact(str(item.get("headline", "")), FORMAT_PROFILES[format_id]["headline_limit"])
-            eyebrow = _compact(str(item.get("eyebrow", "")), FORMAT_PROFILES[format_id]["eyebrow_limit"])
-            if len(headline.split()) < 2:
+            headline = re.sub(r"\s+", " ", str(item.get("headline", ""))).strip()
+            if len(headline.split()) < 3:
                 continue
-            profile = FORMAT_PROFILES[format_id]
-            if source_text and not _suggestion_has_evidence(headline, source_text):
+            if not _quote_is_verbatim(headline, source_text):
                 continue
-            normalized_headline = headline.upper()
+            # A sugestão do modelo herda a proveniência da citação que ela cita,
+            # para o editor continuar podendo conferir no áudio.
+            trecho = _quote_span(headline).rstrip("\u2026. ")
+            origem = next(
+                (valor for chave, valor in originais.items() if normalize(trecho) in normalize(chave)),
+                None,
+            )
+            eyebrow = _compact(str(item.get("eyebrow", "")), int(profile["eyebrow_limit"])).upper()
             accepted.append({
-                "eyebrow": eyebrow.upper(),
-                "headline": normalized_headline,
+                "eyebrow": eyebrow,
+                "headline": headline,
                 "headline_lines": _break_headline(
-                    normalized_headline,
-                    max_lines=int(profile.get("max_lines", 3)),
-                    ideal_line_chars=int(profile.get("ideal_line_chars", 22)),
+                    headline,
+                    max_lines=int(profile["max_lines"]),
+                    ideal_line_chars=int(profile["ideal_line_chars"]),
                 ),
-                "emphasis": _compact(str(item.get("emphasis", "")), 18).upper(),
+                "emphasis": "",
                 "accent": "red_on_white" if item.get("accent") == "red_on_white" else "white",
                 "character_count": len(headline),
                 "word_count": len(headline.split()),
-                "layout_hint": f"até {profile.get('max_lines', 3)} linhas de cerca de {profile.get('ideal_line_chars', 22)} caracteres",
+                "layout_hint": f"até {profile['max_lines']} linhas de cerca de {profile['ideal_line_chars']} caracteres",
+                "quote": (origem or {}).get("quote", {"text": trecho, "verbatim": True, "start_s": None, "end_s": None}),
+                "attribution": (origem or {}).get("attribution", ""),
+                "attribution_level": (origem or {}).get("attribution_level", "nao_atribuida"),
+                "stamp_alternatives": (origem or {}).get("stamp_alternatives", []),
+                "within_preferred_limit": len(headline) <= int(profile["headline_limit"]),
             })
         if accepted:
             base["formats"][format_id]["suggestions"] = accepted
-    tweets = suggested.get(FORMAT_TWEET) if preferred_format in {"auto", FORMAT_TWEET} else None
-    if isinstance(tweets, list):
-        accepted_tweets = []
-        for item in tweets[:2]:
-            text = _compact(str(item.get("post_text", "")), FORMAT_PROFILES[FORMAT_TWEET]["headline_limit"])
-            if len(text.split()) >= 4 and (not source_text or _suggestion_has_evidence(text, source_text)):
-                accepted_tweets.append({
-                    "post_text": text,
-                    "character_count": len(text),
-                    "attribution_note": "Rascunho de publicação: revise a atribuição e a redação antes de usar o perfil.",
-                })
-        if accepted_tweets:
-            base["formats"][FORMAT_TWEET]["suggestions"] = accepted_tweets
+            aceitou_alguma = True
     requested = payload.get("recommended_format")
     if requested in FORMAT_IDS:
         base["recommended_format"] = requested
     if isinstance(payload.get("recommendation_reason"), str):
         base["recommendation_reason"] = _compact(payload["recommendation_reason"], 220)
-    base["generation_source"] = "ai_refined"
+    if aceitou_alguma:
+        base["generation_source"] = "ai_refined"
     return base
 
 
@@ -500,12 +505,29 @@ def generate_artwork_copy(
     ai_backend: Any | None = None,
     emit_progress=None,
     editorial_learning: dict[str, Any] | None = None,
+    segments: list[dict[str, Any]] | None = None,
+    speaker_name: str = "",
+    speaker_level: str = "",
 ) -> dict[str, Any]:
-    """Generate short, format-aware artwork copy from a finished-cut transcript."""
-    text, transcript_meta = _coerce_text(transcript)
+    """Texto de arte a partir de um corte pronto: estampa, atribuição e citação.
+
+    ``segments`` são as linhas com tempo, quando quem chama as tem. Sem elas a
+    citação continua literal, mas sai sem o instante em que foi dita — e o
+    instante é o que permite ao editor conferir no áudio, que é a fonte da
+    verdade. ``speaker_level`` é ``"audio"`` quando o reconhecimento de voz
+    respondeu por quem fala, e só nesse caso a atribuição ganha verbo forte.
+    """
+    text, transcript_meta, parsed_segments = _coerce_text(transcript)
     context = _compact(mini_context, 280)
     preferred = preferred_format if preferred_format in FORMAT_IDS else "auto"
-    result = _fallback_result(text, context, preferred, editorial_learning=editorial_learning)
+    falante = _speaker_from_context(context, speaker_name, speaker_level)
+    linhas = segments if segments else parsed_segments
+    result = _fallback_result(
+        text, context, preferred,
+        editorial_learning=editorial_learning,
+        segments=linhas,
+        speaker=falante,
+    )
     result["transcript"] = {
         **transcript_meta,
         "word_count": len(text.split()),
@@ -515,41 +537,46 @@ def generate_artwork_copy(
 
     if ai_backend is not None:
         if emit_progress:
-            emit_progress("[Texto de arte] Refinando opções curtas pelo modo de IA configurado...", "info")
-        attribution_rule = (
-            "Só use 'RENAN:' ou 'RENAN CRITICA' se a transcrição ou o minic contexto identificar explicitamente Renan; caso contrário, não atribua a fala a uma pessoa específica."
-            if _speaker_prefix(context) or "renan" in normalize(text)
-            else "Não atribua a fala a Renan nem a qualquer pessoa específica sem identificação explícita na transcrição ou no minic contexto."
+            emit_progress("[Texto de arte] Refinando estampa e atribuição pelo modo de IA configurado...", "info")
+        citacoes = [
+            item["quote"]["text"]
+            for formato in result["formats"].values()
+            for item in formato["suggestions"]
+        ]
+        system = (
+            "Você é editor de vídeos políticos curtos no Brasil e escreve texto de ARTE, não SEO.\n"
+            "A headline tem três partes: uma estampa curta, a atribuição e a CITAÇÃO entre aspas.\n"
+            "A CITAÇÃO É LITERAL. Copie-a exatamente de uma das citações fornecidas, sem trocar, "
+            "acrescentar ou remover uma única palavra. Você pode escolher qual citação usar e pode "
+            "mudar a estampa; reescrever a citação invalida a sugestão inteira.\n"
+            "Não invente fatos, crimes, números, intenções ou acusações. Não atribua a fala a "
+            "ninguém que não esteja na atribuição fornecida.\n"
+            "Responda somente JSON válido."
         )
-        system = f"""Você é editor de vídeos políticos curtos no Brasil. Gere texto de ARTE, não SEO.
-Use somente ideias claramente presentes na transcrição. Intensifique o contraste sem inventar fatos, crimes, números, intenções ou acusações. {attribution_rule}
-A resposta deve ser somente JSON válido. Para 1:1 e 9:16, headline é curta, em caixa alta e sem descrição complementar. Respeite rigorosamente os limites informados."""
-        format_scope = preferred if preferred in FORMAT_IDS else "todos os três formatos para recomendação"
-        prompt = f"""FORMATO SOLICITADO: {format_scope}
-
-TRANSCRIÇÃO DO CORTE:
-{text[:5000]}
-
-MINICONTEXTO DO EDITOR:
-{context or '(nenhum)'}
-
-Produza JSON neste formato:
-{{
-  "recommended_format": "vertical_916|square_alfinetei|fake_tweet",
-  "recommendation_reason": "motivo breve",
-  "formats": {{
-    "vertical_916": [{{"eyebrow":"", "headline":"até 58 caracteres", "emphasis":"até 18 caracteres", "accent":"white|red_on_white"}}],
-    "square_alfinetei": [{{"eyebrow":"até 18 caracteres", "headline":"até 64 caracteres", "emphasis":"", "accent":"white"}}],
-    "fake_tweet": [{{"post_text":"até 180 caracteres"}}]
-  }}
-}}
-Gere no máximo 3 alternativas por formato permitido. Se houver um formato solicitado, não gere alternativas para os demais."""
+        aspas = "\n".join(f'- "{item}"' for item in citacoes) or "(nenhuma)"
+        atribuicao = result["formats"][preferred if preferred in FORMAT_IDS else FORMAT_VERTICAL]["suggestions"]
+        prefixo = atribuicao[0]["attribution"] if atribuicao else ""
+        prompt = (
+            f"CITAÇÕES DISPONÍVEIS (copie uma delas ao pé da letra):\n{aspas}\n\n"
+            f"ATRIBUIÇÃO A USAR (ou vazio, e então não atribua a ninguém): {prefixo or '(nenhuma)'}\n\n"
+            f"MINICONTEXTO DO EDITOR: {context or '(nenhum)'}\n\n"
+            "Produza JSON:\n"
+            "{\n"
+            '  "recommended_format": "vertical_916|square_alfinetei",\n'
+            '  "recommendation_reason": "motivo breve",\n'
+            '  "formats": {\n'
+            '    "vertical_916": [{"eyebrow":"estampa curta", "headline":"ATRIBUIÇÃO \u201ccitação literal\u201d"}],\n'
+            '    "square_alfinetei": [{"eyebrow":"estampa curta", "headline":"ATRIBUIÇÃO \u201ccitação literal\u201d"}]\n'
+            "  }\n"
+            "}\n"
+            "No máximo 3 alternativas por formato."
+        )
         try:
             refined = _extract_json(ai_backend.generate(prompt, system, emit_progress))
             if refined:
                 result = _merge_ai_suggestions(result, refined, source_text=text, preferred_format=preferred)
         except Exception:
-            # A deterministic, explainable output is preferable to a failed screen.
+            # Uma saída determinística e explicável é melhor que uma tela quebrada.
             pass
     result["generated_format"] = preferred if preferred in FORMAT_IDS else result.get("recommended_format", FORMAT_VERTICAL)
     return result

@@ -1533,7 +1533,6 @@ function mediaUrlForClip(clip) {
 const editorialFormatLabels = {
     vertical_916: "9:16 — headline central",
     square_alfinetei: "1:1 — Alfinetei",
-    fake_tweet: "Fake tweet",
 };
 
 function renderEditorialAudit(audit, mode = "standard") {
@@ -1755,7 +1754,6 @@ function renderResultsGrid() {
             unboxing: "unboxing",
             humor_bastidor: "humor / bastidor",
             text_panel: "painel textual",
-            fake_tweet: "fake tweet / post social",
             visual_meme: "meme / arte composta",
             desconhecido: "formato a revisar",
         };
@@ -2005,7 +2003,6 @@ function renderResultsGrid() {
                                     <option value="auto">Escolher por mim</option>
                                     <option value="vertical_916">9:16 central</option>
                                     <option value="square_alfinetei">1:1 Alfinetei</option>
-                                    <option value="fake_tweet">Fake tweet</option>
                                 </select>
                             </label>
                             <label>Minicontexto opcional
@@ -2547,7 +2544,6 @@ const artworkFormatLabels = {
     auto: "Escolher por mim",
     vertical_916: "9:16 — headline central",
     square_alfinetei: "1:1 — Alfinetei",
-    fake_tweet: "Fake tweet — publicação simulada",
 };
 
 function selectedArtworkFormat() {
@@ -2613,12 +2609,7 @@ function renderHeadlineStudioResults(studio, options = {}) {
             <div class="artwork-suggestion-grid">${suggestions.map(item => renderArtworkHeadline(item, format, clipIndex)).join("") || '<p class="artwork-empty">Sem alternativa disponível.</p>'}</div>
         </section>`;
     }).join("");
-    const tweets = Array.isArray(formats.fake_tweet?.suggestions) ? formats.fake_tweet.suggestions : [];
-    const tweetCard = `<section class="artwork-format-result fake-tweet ${recommended === "fake_tweet" ? "recommended" : ""}">
-        <div class="artwork-format-result-head"><div><span class="artwork-format-kicker">${recommended === "fake_tweet" ? "FORMATO RECOMENDADO" : "ALTERNATIVA"}</span><h4>Fake tweet — rascunho de publicação</h4></div><span class="artwork-limit">Revisar antes de atribuir ao perfil</span></div>
-        <div class="fake-tweet-options">${tweets.map(item => `<article class="fake-tweet-card"><p>${escapeHtml(item.post_text || "")}</p><footer><span>${Number(item.character_count || 0)} caracteres</span><div>${artworkCopyButton(item.post_text || "", "Copiar texto")}${artworkFeedbackButton("fake_tweet", item.post_text || "", clipIndex)}</div></footer></article>`).join("") || '<p class="artwork-empty">Sem alternativa disponível.</p>'}</div>
-    </section>`;
-    container.innerHTML = `<div class="headline-studio-result-summary"><div><span class="artwork-format-kicker">LEITURA EDITORIAL</span><h4>${escapeHtml(artworkFormatLabels[recommended] || recommended)}</h4><p>${escapeHtml(studio.recommendation_reason || "")}</p></div><div class="artwork-analysis-metrics"><span>Tema: <strong>${escapeHtml(studio.topic || "geral")}</strong></span><span>Contexto: <strong>${Math.round(Number(studio.analysis?.context_completeness || 0))}/100</strong></span><span>Fonte: <strong>${studio.generation_source === "ai_refined" ? "IA + regras" : "regras editoriais"}</strong></span><span>Preferência: <strong>${escapeHtml(learningLabel)}</strong></span></div></div><div class="artwork-review-chips">${reviewChips || '<span class="artwork-review-chip safe"><span class="material-icons-round">verified</span>sem alerta lexical automático</span>'}</div><div class="artwork-format-results">${formatCards}${tweetCard}</div>`;
+    container.innerHTML = `<div class="headline-studio-result-summary"><div><span class="artwork-format-kicker">LEITURA EDITORIAL</span><h4>${escapeHtml(artworkFormatLabels[recommended] || recommended)}</h4><p>${escapeHtml(studio.recommendation_reason || "")}</p></div><div class="artwork-analysis-metrics"><span>Tema: <strong>${escapeHtml(studio.topic || "geral")}</strong></span><span>Contexto: <strong>${Math.round(Number(studio.analysis?.context_completeness || 0))}/100</strong></span><span>Fonte: <strong>${studio.generation_source === "ai_refined" ? "IA + regras" : "regras editoriais"}</strong></span><span>Preferência: <strong>${escapeHtml(learningLabel)}</strong></span></div></div><div class="artwork-review-chips">${reviewChips || '<span class="artwork-review-chip safe"><span class="material-icons-round">verified</span>sem alerta lexical automático</span>'}</div><div class="artwork-format-results">${formatCards}</div>`;
     container.style.display = "block";
     container.querySelectorAll(".artwork-copy-button").forEach(button => {
         button.addEventListener("click", () => copyToClipboard(decodeURIComponent(button.dataset.artworkCopy || "")));

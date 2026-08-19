@@ -355,9 +355,9 @@ medida vira parâmetro; correção sobre impressão vira nada.
 O editor nomeou isto como gargalo diário, e é a parte da ferramenta com a maior
 distância entre o que está prometido e o que está construído.
 
-### 9.1 O estado real, sem eufemismo
+### 9.1 O que existia, e o que foi construído no lugar
 
-O `headline_studio.py` não gera headline. Ele é uma cadeia de condições fixas
+O `headline_studio.py` não gerava headline. Era uma cadeia de condições fixas
 extraídas de um vídeo específico sobre criptomoedas:
 
 ```python
@@ -367,12 +367,34 @@ if "reserva de valor" in folded and topic == "cripto":
     candidates.append("CRIPTOS SÃO O FUTURO DA RESERVA DE VALOR")
 ```
 
-Para qualquer fonte nova ele cai no genérico — `"A VERDADE INCÔMODA SOBRE
-{TEMA}"`. A rota de feedback existe e funciona; o que ela realimenta não existe.
-Substituir isto é trabalho de construção, não de ajuste.
+Para qualquer fonte nova ele caía no genérico — `"A VERDADE INCÔMODA SOBRE
+{TEMA}"`. Num corte sobre cotas e ensino básico ele respondeu `"O BRASIL QUER
+TRIBUTAR O PRÓPRIO FUTURO?"`, porque o trecho continha a palavra "imposto", e
+nada daquilo tinha sido dito.
 
-O formato "fake tweet" sai: o editor pediu para descartá-lo e ele continua no
-módulo, na interface e no seletor de formato.
+**Substituído na 6.6 por `headline_quote.py`**, que monta as três partes da 9.2 a
+partir da transcrição. O que muda de natureza:
+
+- a citação é **escolhida**, não composta: o gerador ordena as frases do corte e
+  entrega as que se sustentam sozinhas, palavra por palavra;
+- cada citação sai com **o instante em que foi dita**, que é o que permite
+  conferir no áudio antes de publicar;
+- o que não pode virar citação é recusado com motivo, não descontado: frase que
+  continua a anterior, cortesia do programa, legenda cortada no meio, fala que o
+  entrevistado está encenando na voz de outra pessoa;
+- quando nenhuma frase se sustenta, **isso é dito** em vez de um genérico sair no
+  lugar.
+
+O formato "fake tweet" saiu do módulo, da interface, do seletor de formato e do
+CSS, como o editor pediu. Não confundir com o `visual_format: "fake_tweet"` de
+`editorial_format`, que é outra coisa — lá é a composição observada *dentro* da
+fonte, e essa continua existindo.
+
+Medido nos oito cortes reais da entrevista do Metrópoles: **8 de 8 citações
+conferidas palavra por palavra contra a transcrição**, cada uma com timestamp. A
+primeira versão do gerador, antes dos critérios apertarem, escolhia "Eu vou dar um
+exemplo.", "Seja muito bem-vindo." e — o pior caso — uma fala em que o entrevistado
+encenava a voz de um pai de família, que atribuída a ele seria citação falsa.
 
 ### 9.2 A forma, tirada de uma headline aprovada
 
@@ -787,7 +809,16 @@ sentença: a costura da conversa, a detecção de turno, o texto do corte e as d
 bordas. Onde houver um passe que dependa de fronteira de frase, a primeira
 pergunta é se a fronteira é real.
 
-**O que não existe ainda:** gerador de headline de verdade, composição com
+**A transcrição parou de morrer com a placa (6.5).** A queda para CPU existia e
+estava na carga do modelo; o ctranslate2 só abre a cuBLAS quando a inferência
+começa, então numa máquina com placa presente e runtime ausente o modelo carregava
+e morria quinze segundos depois. A decisão passou para onde o defeito aparece.
+
+**A headline passou a ser gerada (6.6).** Ver §9.1. Oito de oito citações
+conferidas palavra por palavra na entrevista do Metrópoles, cada uma com o
+instante em que foi dita.
+
+**O que não existe ainda:** composição com
 headline e faixa, enquadramento guiado por voz, corte de silêncio ligado ao fluxo,
 sincronismo entre as duas máquinas, caminho sem interface, entrada por arquivo
 local, aprendizado com o gosto do editor, e a experiência visual da seção 12.
@@ -822,9 +853,13 @@ serem redescobertas, não para interromper o item 1:
    fontes medidas; o que continua aberto é o julgamento que nenhuma medida minha
    alcança — se o raciocínio terminou. Isso só o editor decide, e é por isso que o
    item 3 sustenta este item.
-2. **Gerador de headline** — gargalo diário declarado pelo editor; a parte difícil
-   (citação literal) já está resolvida.
-3. **Aprovar, reprovar e o motivo** — é o que faz 1 e 2 melhorarem sem mim.
+2. **Gerador de headline** — construído na 6.6. Falta o critério que o fecha, e
+   ele é do editor: §9.4 diz que a etapa 2 só fecha quando ele **editar em vez de
+   reescrever**. Enquanto a maioria for jogada fora, o item continua aberto por
+   mais verde que a suíte fique.
+3. **Aprovar, reprovar e o motivo** — é o que faz 1 e 2 melhorarem sem mim, e
+   agora é o gargalo dos dois: sem o motivo do editor eu não tenho como medir nem
+   "o raciocínio terminou" nem "esta headline presta".
 4. **Entrada por arquivo local e cookies do download** — barato, serve hoje.
 5. **Silêncio virar mensagem** — todo zero explica seu motivo.
 6. **A experiência da seção 12** — começando pela espera e pela linha do tempo.

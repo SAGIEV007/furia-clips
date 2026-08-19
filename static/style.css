@@ -3419,13 +3419,9 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 .square_alfinetei .artwork-headline { font-size: 18px; }
 .artwork-preview.has-red-accent .artwork-emphasis { background: #d63232; color: #fff; }
 .artwork-emphasis { display: inline-block; align-self: flex-start; margin-top: 10px; padding: 4px 6px; color: #5f4211; background: rgba(0,0,0,.08); font-size: 9px; font-weight: 800; }
-.artwork-suggestion-footer, .fake-tweet-card footer { display: flex; justify-content: space-between; gap: 8px; align-items: center; padding: 8px 9px; color: #7f8d98; font-size: 9px; background: #10161c; }
+.artwork-suggestion-footer { display: flex; justify-content: space-between; gap: 8px; align-items: center; padding: 8px 9px; color: #7f8d98; font-size: 9px; background: #10161c; }
 .artwork-copy-button { padding: 5px 7px; font-size: 9px; }
 .artwork-copy-button .material-icons-round { font-size: 13px; }
-.fake-tweet-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; }
-.fake-tweet-card { border: 1px solid rgba(160, 180, 196, .14); border-radius: 11px; background: #fbfcfd; overflow: hidden; }
-.fake-tweet-card p { color: #17202a; padding: 15px; font-size: 13px; line-height: 1.42; }
-.fake-tweet-card footer { background: #edf1f4; color: #657480; }
 .artwork-empty { color: #7d8c97; font-size: 11px; padding: 10px 0; }
 
 @media (max-width: 840px) {
@@ -3441,7 +3437,7 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 }
 
 .headline-learning-status { color: #9db7ca; background: rgba(59, 130, 246, .07); border: 1px solid rgba(59, 130, 246, .14); border-radius: 9px; padding: 9px 10px; font-size: 10px; line-height: 1.4; }
-.artwork-suggestion-footer > div, .fake-tweet-card footer > div { display: inline-flex; gap: 5px; align-items: center; }
+.artwork-suggestion-footer > div { display: inline-flex; gap: 5px; align-items: center; }
 .artwork-feedback-button { padding: 5px 7px; border-color: rgba(244, 200, 74, .38); color: var(--gold-light); background: rgba(244, 200, 74, .06); font-size: 9px; }
 .artwork-feedback-button .material-icons-round { font-size: 13px; }
 .artwork-feedback-button:hover { background: rgba(244, 200, 74, .15); border-color: var(--gold); }
