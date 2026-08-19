@@ -15,6 +15,7 @@ from pathlib import Path
 RAIZ = Path(__file__).resolve().parent.parent
 JS = (RAIZ / "static" / "js" / "app.js").read_text(encoding="utf-8")
 HTML = (RAIZ / "templates" / "index.html").read_text(encoding="utf-8")
+CSS = (RAIZ / "static" / "css" / "style.css").read_text(encoding="utf-8")
 
 IDS_NO_HTML = set(re.findall(r'id="([^"]+)"', HTML))
 
@@ -59,3 +60,30 @@ def test_o_conflito_de_processamento_tem_mensagem_propria():
     """409 é a guarda funcionando, não uma falha inexplicável."""
     assert "response.status === 409" in JS
     assert "Já existe um processamento em andamento" in JS
+
+
+# ── Navegação por etapa ────────────────────────────────────────────────────────
+
+def test_toda_secao_pertence_a_uma_etapa():
+    """Uma seção fora do mapa some da tela e não volta por nenhum caminho."""
+    mapa = re.search(r"const STAGE_SECTIONS = \{(.*?)\n\};", JS, re.DOTALL)
+    assert mapa, "o mapa de etapas sumiu"
+    mapeadas = set(re.findall(r'"([A-Za-z0-9_]+)"', mapa.group(1)))
+
+    for secao in re.findall(r'<section class="section[^"]*" id="([^"]+)"', HTML):
+        # O console é o registro do que está acontecendo e fica alcançável de
+        # qualquer etapa, por isso não entra no agrupamento.
+        if secao == "consoleSection":
+            continue
+        assert secao in mapeadas, f"{secao} não pertence a nenhuma etapa"
+
+
+def test_a_etapa_esconde_com_classe_e_nao_com_o_atributo():
+    """Prévia e resultados carregam `display` embutido, que ganha de `[hidden]`."""
+    assert "stage-off" in JS and "stage-off" in CSS
+    assert "secao.hidden = !visivel" not in JS
+
+
+def test_as_etapas_sao_alcancaveis_pelo_teclado():
+    assert 'setAttribute("role", "button")' in JS
+    assert 'setAttribute("tabindex", "0")' in JS

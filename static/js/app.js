@@ -555,13 +555,85 @@ function hideProcessingControls() {
     if (button) button.disabled = false;
 }
 
+// ─── Etapas da tela ───
+//
+// Eram doze seções empilhadas numa página só: para chegar nos resultados o
+// editor rolava por biblioteca, fonte, leitura, blocos, prévia, refinamento,
+// estúdio, métricas e ações. A barra de etapas do topo já existia e era
+// enfeite — indicava progresso e não levava a lugar nenhum.
+//
+// Agora ela navega. As mesmas seções, agrupadas pelo momento em que servem.
+
+const STAGE_SECTIONS = {
+    source: ["mediaLibrarySection", "sourceSection", "videoPreviewSection"],
+    analysis: ["sourceReadingSection", "editorialBlocksSection", "contextSection", "actionsSection"],
+    review: ["resultsSection", "headlineStudioSection"],
+    learning: ["operationDashboard", "performanceMetricsSection"],
+};
+// O console fica fora do agrupamento: é o registro do que está acontecendo e
+// precisa estar alcançável de qualquer etapa.
+const STAGE_ORDER = ["source", "analysis", "review", "learning"];
+
+let currentStage = "source";
+let stageChosenAt = 0;
+
+function showStage(stage, { manual = false } = {}) {
+    if (!STAGE_SECTIONS[stage]) return;
+    currentStage = stage;
+    if (manual) stageChosenAt = Date.now();
+
+    Object.entries(STAGE_SECTIONS).forEach(([nome, ids]) => {
+        const visivel = nome === stage;
+        ids.forEach((id) => {
+            const secao = document.getElementById(id);
+            if (!secao) return;
+            // Uma classe, e não o atributo `hidden`: prévia e resultados se
+            // escondem com `display:none` embutido e voltam com `display:block`
+            // vindo de outro trecho do código. Estilo embutido ganha de
+            // `[hidden]`, então esconder assim não teria efeito nenhum nelas —
+            // e mostrar de novo faria reaparecerem na etapa errada.
+            secao.classList.toggle("stage-off", !visivel);
+        });
+    });
+
+    document.querySelectorAll(".workflow-step").forEach((passo, indice) => {
+        const nome = STAGE_ORDER[indice];
+        passo.classList.toggle("current", nome === stage);
+        passo.setAttribute("aria-current", nome === stage ? "step" : "false");
+    });
+}
+
+document.querySelectorAll(".workflow-step").forEach((passo, indice) => {
+    passo.setAttribute("role", "button");
+    passo.setAttribute("tabindex", "0");
+    const abrir = () => showStage(STAGE_ORDER[indice], { manual: true });
+    passo.addEventListener("click", abrir);
+    passo.addEventListener("keydown", (evento) => {
+        if (evento.key === "Enter" || evento.key === " ") { evento.preventDefault(); abrir(); }
+    });
+});
+
+// O pipeline avança sozinho, mas não arranca o editor da tela que ele acabou de
+// escolher. Puxar alguém para outra aba no meio de uma leitura é pior que
+// deixá-lo trocar de aba sozinho.
+function avancarEtapa(stage) {
+    if (Date.now() - stageChosenAt < 45000 && stage !== currentStage) {
+        const passo = document.querySelectorAll(".workflow-step")[STAGE_ORDER.indexOf(stage)];
+        passo?.classList.add("has-news");
+        return;
+    }
+    showStage(stage);
+}
+
 function updateWorkspaceWorkflow(stage = "source", stateLabel = "") {
     const order = ["source", "analysis", "review", "learning"];
     const index = Math.max(0, order.indexOf(stage));
     document.querySelectorAll(".workflow-step").forEach((step, stepIndex) => {
         step.classList.toggle("active", stepIndex === index);
         step.classList.toggle("complete", stepIndex < index);
+        if (stepIndex === index) step.classList.remove("has-news");
     });
+    avancarEtapa(order[index] || "source");
     const state = document.getElementById("workspaceState");
     if (state) {
         const label = state.querySelector("span:last-child");
@@ -4400,6 +4472,7 @@ document.addEventListener("keydown", (e) => {
 
 document.addEventListener("DOMContentLoaded", () => {
     loadSettings();
+    showStage("source");
     startCampaignHubLocalStatusPolling();
     loadMediaFiles();
     loadTranscriptArchive();

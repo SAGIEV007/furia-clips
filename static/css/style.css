@@ -4768,3 +4768,26 @@ body { font-size: 14px; line-height: 1.55; -webkit-font-smoothing: antialiased; 
     }
     .btn:hover:not(:disabled), .action-card:hover, .media-card:hover { transform: none; }
 }
+
+/* ─── Navegação por etapa ───
+   Doze seções empilhadas viraram quatro momentos. A classe usa !important de
+   propósito: prévia e resultados carregam `display` embutido, que ganharia de
+   qualquer regra normal. */
+.stage-off { display: none !important; }
+
+.workflow-step { cursor: pointer; position: relative; }
+.workflow-step:hover { background: var(--bg-hover); }
+.workflow-step.current { border-color: var(--gold); background: var(--bg-raised); }
+.workflow-step.current .workflow-index { color: var(--gold); }
+
+/* Uma etapa que avançou enquanto o editor lia outra não o arranca da tela —
+   avisa e espera. */
+.workflow-step.has-news::after {
+    content: "";
+    position: absolute;
+    top: 8px; right: 8px;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--gold);
+    box-shadow: 0 0 0 3px var(--gold-glow);
+}
