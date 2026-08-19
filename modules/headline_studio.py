@@ -3,14 +3,16 @@
 Turns a finished cut into *text for the artwork*, not SEO metadata, in the two
 production formats the editor uses: vertical headline and square "Alfinetei".
 
-The copy itself is built in ``headline_quote``, in three parts — stamp,
-attribution and a **literal** quote. This module is the studio around it: the
-format profiles, the line budget, the topic reading, the learning from the
-editor's past choices and the optional online refinement.
+The copy itself is built in ``headline_copy``, in three parts — hook, sentence
+and a highlighted span. This module is the studio around it: the format
+profiles, the line budget, the topic reading, the learning from the editor's
+past choices and the online refinement.
 
-Local suggestions are always available. An online model may improve the stamp
-and the attribution; it can never touch the quote, because a quote it rewrote is
-a quote nobody said.
+Two modes, and the line between them is the whole safety story. ``resumo`` is a
+reading of the excerpt: no quotation marks, and rewording is allowed because
+nothing promises literalidade. ``citacao`` carries quotation marks and stays
+verbatim. An online model may rewrite a ``resumo`` freely as long as every word
+of it exists in the source; it may never touch a ``citacao``.
 """
 
 from __future__ import annotations
@@ -22,8 +24,6 @@ from typing import Any
 
 from modules.headline_quote import (
     Speaker,
-    compose,
-    pick_quotes,
     sentences_from_segments,
     sentences_from_text,
 )
@@ -273,34 +273,39 @@ def _format_from_learning(editorial_learning: dict[str, Any] | None) -> tuple[st
     return "", 0, ""
 
 
-def _suggestion_from_quote(built: dict[str, Any], format_id: str) -> dict[str, Any]:
+def _suggestion_from_headline(built: dict[str, Any], format_id: str) -> dict[str, Any]:
     """Uma sugestão de arte no contrato que a interface já lê.
 
-    A estampa vira a chamada de cima e a citação, com a atribuição na frente,
-    vira a headline — exatamente a forma da headline que o editor aprovou. A
-    citação não passa por `_compact`: truncar no meio de uma palavra é
-    parafrasear sem dizer que parafraseou, e é o que o invariante proíbe.
+    O gancho vira a chamada de cima, a frase vira a headline e o trecho em
+    destaque vira o `emphasis` — que existia no modelo desde sempre e nunca era
+    preenchido com nada útil: ele recebia a última palavra da frase, o que na
+    arte destacava uma preposição.
+
+    A headline sai em caixa de frase, não em caixa alta. É a forma da arte que o
+    editor aprovou, e o NORTE mediu que caixa alta na primeira linha anda junto
+    com menos views. Quem fica em caixa alta é o gancho e o trecho destacado.
     """
     profile = FORMAT_PROFILES[format_id]
-    headline = built["headline"]
+    headline = built["text"]
     return {
-        "eyebrow": _compact(built["stamp"], int(profile["eyebrow_limit"])).upper() if profile["eyebrow_limit"] else "",
+        "eyebrow": _compact(built["hook"], int(profile["eyebrow_limit"])).upper() if profile["eyebrow_limit"] else "",
+        "eyebrow_alternatives": [str(item) for item in built.get("hook_alternatives") or []],
         "headline": headline,
         "headline_lines": _break_headline(
             headline,
             max_lines=int(profile["max_lines"]),
             ideal_line_chars=int(profile["ideal_line_chars"]),
         ),
-        "emphasis": "",
-        "accent": "red_on_white" if format_id == FORMAT_VERTICAL else "white",
+        "emphasis": built.get("emphasis", ""),
+        "accent": "red_on_white" if built.get("emphasis") else "white",
         "character_count": len(headline),
         "word_count": len(headline.split()),
         "layout_hint": f"até {profile['max_lines']} linhas de cerca de {profile['ideal_line_chars']} caracteres",
-        # O que permite conferir a citação no áudio, que é a fonte da verdade.
-        "quote": built["quote"],
-        "attribution": built["attribution"],
-        "attribution_level": built["attribution_level"],
-        "stamp_alternatives": built["stamp_alternatives"],
+        # "resumo" é leitura do trecho e pode reescrever; "citacao" sai com aspas
+        # e é literal palavra por palavra. A fronteira entre os dois é o que
+        # mantém o invariante do NORTE de pé sem engessar a arte.
+        "mode": built.get("mode", "resumo"),
+        "source_interval": {"start_s": built.get("start_s"), "end_s": built.get("end_s")},
         "within_preferred_limit": len(headline) <= int(profile["headline_limit"]),
     }
 
@@ -313,20 +318,22 @@ def _fallback_result(
     segments: list[dict[str, Any]] | None = None,
     speaker: Speaker | None = None,
 ) -> dict[str, Any]:
-    from modules.interview_turns import is_interviewer_sentence
+    from modules.headline_copy import build as build_headlines
 
     signals = analyze_political_text(text, user_context=mini_context)
     topic = _topic(text)
     falante = speaker or Speaker()
 
-    frases = sentences_from_segments(segments) if segments else sentences_from_text(text)
-    citacoes = pick_quotes(frases, wanted=3, is_other_speaker=is_interviewer_sentence)
-    montadas = [compose(item, falante, signals) for item in citacoes]
+    unidades = sentences_from_segments(segments) if segments else sentences_from_text(text)
+    montadas = [
+        item.as_dict()
+        for item in build_headlines(unidades, falante, mini_context=mini_context, signals=signals, wanted=3)
+    ]
 
     selected_only = preferred_format if preferred_format in FORMAT_IDS else ""
-    square = [_suggestion_from_quote(item, FORMAT_SQUARE) for item in montadas] \
+    square = [_suggestion_from_headline(item, FORMAT_SQUARE) for item in montadas] \
         if not selected_only or selected_only == FORMAT_SQUARE else []
-    vertical = [_suggestion_from_quote(item, FORMAT_VERTICAL) for item in montadas] \
+    vertical = [_suggestion_from_headline(item, FORMAT_VERTICAL) for item in montadas] \
         if not selected_only or selected_only == FORMAT_VERTICAL else []
 
     learning_format, learning_count, learning_scope = _format_from_learning(editorial_learning)
@@ -350,16 +357,17 @@ def _fallback_result(
         "speaker_unconfirmed": not falante.confirmed,
         # Silêncio é defeito: quando nenhuma frase se sustenta, isso é dito.
         "no_quote_found": not montadas,
-        # A fonte não pontua, então a fronteira da citação veio do silêncio. Ela
-        # é real — o orador respirou ali — mas não é fim de frase, e as aspas
-        # precisam ser conferidas no áudio antes de irem para a arte.
-        "quote_boundary_from_pause": any(
-            item["quote"].get("boundary_source") == "pausa" for item in montadas
+        # A fonte não pontua: a leitura foi feita sobre fronteiras de silêncio.
+        # Nomeada pelo que ela é, e não por "citação vinda de pausa", que com o
+        # desenho atual nunca acontece — citação com aspas só sai de fonte
+        # pontuada, e uma bandeira que nunca acende é código órfão.
+        "source_not_punctuated": bool(unidades) and any(
+            unidade.get("boundary_source") == "pausa" for unidade in unidades
         ),
     }
     recommendation_reason = {
-        FORMAT_SQUARE: "A tese tem desenvolvimento suficiente para uma chamada curta no topo e a citação em até três linhas.",
-        FORMAT_VERTICAL: "A citação é curta o bastante para ser lida de uma vez como headline central.",
+        FORMAT_SQUARE: "A tese tem desenvolvimento suficiente para uma chamada curta no topo e a headline em até três linhas.",
+        FORMAT_VERTICAL: "A headline é curta o bastante para ser lida de uma vez no centro da arte.",
     }[recommended]
     if learning_applied:
         recommendation_reason = (
@@ -368,8 +376,9 @@ def _fallback_result(
         )
     if not montadas:
         recommendation_reason = (
-            "Nenhuma frase deste corte se sustenta sozinha como citação: todas continuam a "
-            "anterior, são protocolo do programa ou vieram cortadas pela legenda."
+            "Nenhuma headline saiu deste trecho: não há um assunto que a fonte repita e "
+            "nenhuma frase se sustenta sozinha. Escreva quem fala no minicontexto — sem isso "
+            "a forma em terceira pessoa não pode ser montada."
         )
 
     return {
@@ -377,9 +386,8 @@ def _fallback_result(
         "recommendation_reason": recommendation_reason,
         "topic": topic,
         "topic_evidence": _topic_evidence(text, topic),
-        "attention_word": montadas[0]["stamp"] if montadas else "",
+        "attention_word": montadas[0]["hook"] if montadas else "",
         "speaker": {"name": falante.name, "level": falante.level, "confirmed": falante.confirmed},
-        "quotes_rejected": len(frases) - len(citacoes),
         "formats": {
             FORMAT_VERTICAL: {**FORMAT_PROFILES[FORMAT_VERTICAL], "suggestions": vertical},
             FORMAT_SQUARE: {**FORMAT_PROFILES[FORMAT_SQUARE], "suggestions": square},
@@ -391,7 +399,7 @@ def _fallback_result(
             "claim_strength": signals.get("claim_strength", 0),
             "conflict_or_stakes": signals.get("conflict_or_stakes", 0),
         },
-        "generation_source": "literal_quote",
+        "generation_source": "editorial_local",
         "learning_applied": {
             "applied": learning_applied,
             "format_id": learning_format if learning_applied else "",
@@ -427,19 +435,55 @@ def _suggestion_has_evidence(value: str, source_text: str) -> bool:
     return bool(meaningful and any(token in source_tokens for token in meaningful))
 
 
+def _headline_invents_nothing(headline: str, source_text: str) -> bool:
+    """Toda palavra de conteúdo da headline existe na fonte?
+
+    É o portão que substitui a exigência de literalidade no modo resumo. O
+    modelo pode reescrever à vontade — trocar a ordem, cortar, mudar a
+    construção — e não pode trazer para a headline um nome, um número ou um fato
+    que ninguém disse. Parafrasear é dizer com outras palavras o que foi dito;
+    acrescentar o que não foi é outra coisa, e é a que custa a conta.
+    """
+    # O minicontexto entra como fonte legítima: o nome de quem fala vem de lá,
+    # não da fala — ninguém diz o próprio nome no meio de uma entrevista.
+    fonte = set(re.findall(r"[a-z0-9]+", normalize(source_text)))
+    palavras = re.findall(r"[a-z0-9]+", normalize(headline))
+    conteudo = [p for p in palavras if len(p) >= 4 and p not in _ARTWORK_CONNECTIVES]
+    if not conteudo:
+        return False
+    # Números nunca podem ser inventados, nem os curtos.
+    numeros = [p for p in palavras if p.isdigit()]
+    if any(n not in fonte for n in numeros):
+        return False
+    return all(p in fonte for p in conteudo)
+
+
+# Palavras de ligação e de papel que a headline pode usar mesmo sem estarem na
+# fala: elas não afirmam nada sobre o mundo, só sustentam a frase.
+_ARTWORK_CONNECTIVES = {
+    "sobre", "contra", "para", "como", "quando", "porque", "entao", "assim",
+    "presidenciavel", "candidato", "deputado", "critica", "denuncia", "expoe",
+    "alerta", "promete", "quer", "diz", "explica", "acabar", "enfrentar", "funciona",
+}
+
+
 def _merge_ai_suggestions(
     base: dict[str, Any],
     payload: dict[str, Any],
     source_text: str = "",
     preferred_format: str = "auto",
 ) -> dict[str, Any]:
-    """Aceitar variações do modelo apenas onde a citação continua sendo literal.
+    """Aceitar a reescrita do modelo onde ela não inventa nada.
 
-    O portão mudou de natureza. Antes bastava a headline compartilhar palavras
-    com a transcrição, e por isso o modelo podia reescrever a frase mantendo o
-    vocabulário — que é exatamente uma paráfrase. Agora a citação entre aspas tem
-    de aparecer palavra por palavra na fonte, senão a variação é descartada e a
-    versão determinística fica de pé.
+    Esta é a metade do gerador que produz copy de verdade, e a razão é honesta:
+    sem modelo de linguagem não dá para escrever paráfrase gramatical a partir de
+    fala sem pontuação. A primeira tentativa recortava janelas da própria fala e
+    produziu "Existe compra de voto é um quanto." O caminho local passou a montar
+    a frase por molde, que é sempre gramatical e às vezes plano; o modelo é quem
+    tira o plano.
+
+    O que ele não pode: mexer numa headline em modo ``citacao``, que promete
+    literalidade, e trazer palavra de conteúdo que não está na fonte.
     """
     suggested = payload.get("formats") if isinstance(payload, dict) else None
     if not isinstance(suggested, dict):
@@ -451,48 +495,42 @@ def _merge_ai_suggestions(
         if not isinstance(variants, list):
             continue
         profile = FORMAT_PROFILES[format_id]
-        originais = {
-            item.get("quote", {}).get("text", ""): item
-            for item in base["formats"][format_id]["suggestions"]
-        }
+        originais = base["formats"][format_id]["suggestions"]
+        modelo = originais[0] if originais else {}
         accepted = []
         for item in variants[:3]:
             if not isinstance(item, dict):
                 continue
-            headline = re.sub(r"\s+", " ", str(item.get("headline", ""))).strip()
-            if len(headline.split()) < 3:
+            headline = " ".join(str(item.get("headline", "")).split())
+            if len(headline.split()) < 4 or len(headline) > 120:
                 continue
-            if not _quote_is_verbatim(headline, source_text):
+            if not _headline_invents_nothing(headline, source_text):
                 continue
-            # A sugestão do modelo herda a proveniência da citação que ela cita,
-            # para o editor continuar podendo conferir no áudio.
-            trecho = _quote_span(headline).rstrip("\u2026. ")
-            origem = next(
-                (valor for chave, valor in originais.items() if normalize(trecho) in normalize(chave)),
-                None,
-            )
-            eyebrow = _compact(str(item.get("eyebrow", "")), int(profile["eyebrow_limit"])).upper()
+            gancho = _compact(str(item.get("eyebrow", "")), int(profile["eyebrow_limit"])).upper()
+            destaque = " ".join(str(item.get("emphasis", "")).split()).upper()
+            if destaque and normalize(destaque) not in normalize(headline):
+                destaque = ""
             accepted.append({
-                "eyebrow": eyebrow,
+                **modelo,
+                "eyebrow": gancho or modelo.get("eyebrow", ""),
                 "headline": headline,
                 "headline_lines": _break_headline(
                     headline,
                     max_lines=int(profile["max_lines"]),
                     ideal_line_chars=int(profile["ideal_line_chars"]),
                 ),
-                "emphasis": "",
-                "accent": "red_on_white" if item.get("accent") == "red_on_white" else "white",
+                "emphasis": destaque,
+                "accent": "red_on_white" if destaque else "white",
                 "character_count": len(headline),
                 "word_count": len(headline.split()),
-                "layout_hint": f"até {profile['max_lines']} linhas de cerca de {profile['ideal_line_chars']} caracteres",
-                "quote": (origem or {}).get("quote", {"text": trecho, "verbatim": True, "start_s": None, "end_s": None}),
-                "attribution": (origem or {}).get("attribution", ""),
-                "attribution_level": (origem or {}).get("attribution_level", "nao_atribuida"),
-                "stamp_alternatives": (origem or {}).get("stamp_alternatives", []),
+                "mode": "resumo",
                 "within_preferred_limit": len(headline) <= int(profile["headline_limit"]),
             })
+        # As citações literais do caminho local ficam, para o editor comparar a
+        # leitura com o que foi dito ao pé da letra.
+        literais = [item for item in originais if item.get("mode") == "citacao"]
         if accepted:
-            base["formats"][format_id]["suggestions"] = accepted
+            base["formats"][format_id]["suggestions"] = accepted + literais[:1]
             aceitou_alguma = True
     requested = payload.get("recommended_format")
     if requested in FORMAT_IDS:
@@ -543,44 +581,46 @@ def generate_artwork_copy(
 
     if ai_backend is not None:
         if emit_progress:
-            emit_progress("[Texto de arte] Refinando estampa e atribuição pelo modo de IA configurado...", "info")
-        citacoes = [
-            item["quote"]["text"]
-            for formato in result["formats"].values()
-            for item in formato["suggestions"]
-        ]
+            emit_progress("[Texto de arte] Reescrevendo as opções pelo modo de IA configurado...", "info")
+        base = result["formats"][preferred if preferred in FORMAT_IDS else FORMAT_VERTICAL]["suggestions"]
+        gancho = base[0]["eyebrow"] if base else ""
+        destaque = next((item["emphasis"] for item in base if item.get("emphasis")), "")
+        moldes = "\n".join(f"- {item['headline']}" for item in base if item.get("mode") == "resumo") or "(nenhuma)"
         system = (
             "Você é editor de vídeos políticos curtos no Brasil e escreve texto de ARTE, não SEO.\n"
-            "A headline tem três partes: uma estampa curta, a atribuição e a CITAÇÃO entre aspas.\n"
-            "A CITAÇÃO É LITERAL. Copie-a exatamente de uma das citações fornecidas, sem trocar, "
-            "acrescentar ou remover uma única palavra. Você pode escolher qual citação usar e pode "
-            "mudar a estampa; reescrever a citação invalida a sugestão inteira.\n"
-            "Não invente fatos, crimes, números, intenções ou acusações. Não atribua a fala a "
-            "ninguém que não esteja na atribuição fornecida.\n"
-            "Responda somente JSON válido."
+            "A headline tem duas partes: um GANCHO curto em caixa alta e uma FRASE em caixa de "
+            "frase, com um trecho em destaque.\n"
+            "A frase é a sua leitura do trecho — pode reescrever, encurtar e mudar a construção. "
+            "Ela precisa ser provocativa, específica e gramaticalmente correta.\n"
+            "REGRA DURA: não use nenhum nome, número, lugar ou fato que não esteja na "
+            "transcrição. Reescrever o que foi dito é o trabalho; acrescentar o que não foi "
+            "invalida a sugestão.\n"
+            "Não use aspas: a frase não é citação.\n"
+            "Curta vence. Responda somente JSON válido."
         )
-        aspas = "\n".join(f'- "{item}"' for item in citacoes) or "(nenhuma)"
-        atribuicao = result["formats"][preferred if preferred in FORMAT_IDS else FORMAT_VERTICAL]["suggestions"]
-        prefixo = atribuicao[0]["attribution"] if atribuicao else ""
         prompt = (
-            f"CITAÇÕES DISPONÍVEIS (copie uma delas ao pé da letra):\n{aspas}\n\n"
-            f"ATRIBUIÇÃO A USAR (ou vazio, e então não atribua a ninguém): {prefixo or '(nenhuma)'}\n\n"
+            f"TRANSCRIÇÃO DO CORTE:\n{text[:5000]}\n\n"
             f"MINICONTEXTO DO EDITOR: {context or '(nenhum)'}\n\n"
+            f"GANCHO SUGERIDO: {gancho or '(escolha um)'}\n"
+            f"TRECHO PARA DESTACAR: {destaque or '(escolha um que esteja na frase)'}\n"
+            f"VERSÕES LOCAIS, PARA VOCÊ SUPERAR:\n{moldes}\n\n"
             "Produza JSON:\n"
             "{\n"
             '  "recommended_format": "vertical_916|square_alfinetei",\n'
             '  "recommendation_reason": "motivo breve",\n'
             '  "formats": {\n'
-            '    "vertical_916": [{"eyebrow":"estampa curta", "headline":"ATRIBUIÇÃO \u201ccitação literal\u201d"}],\n'
-            '    "square_alfinetei": [{"eyebrow":"estampa curta", "headline":"ATRIBUIÇÃO \u201ccitação literal\u201d"}]\n'
+            '    "vertical_916": [{"eyebrow":"GANCHO!", "headline":"A frase.", "emphasis":"TRECHO EM DESTAQUE"}],\n'
+            '    "square_alfinetei": [{"eyebrow":"GANCHO!", "headline":"A frase.", "emphasis":"TRECHO EM DESTAQUE"}]\n'
             "  }\n"
             "}\n"
-            "No máximo 3 alternativas por formato."
+            "No máximo 3 alternativas por formato. O destaque tem de aparecer dentro da frase."
         )
         try:
             refined = _extract_json(ai_backend.generate(prompt, system, emit_progress))
             if refined:
-                result = _merge_ai_suggestions(result, refined, source_text=text, preferred_format=preferred)
+                result = _merge_ai_suggestions(
+                    result, refined, source_text=f"{text} {context}", preferred_format=preferred
+                )
         except Exception:
             # Uma saída determinística e explicável é melhor que uma tela quebrada.
             pass

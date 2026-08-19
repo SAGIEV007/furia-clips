@@ -2600,7 +2600,7 @@ function renderHeadlineStudioResults(studio, options = {}) {
         flags.transcript_ends_incomplete ? '<span class="artwork-review-chip warning"><span class="material-icons-round">pending</span>final da transcrição incompleto</span>' : "",
         flags.needs_fact_review ? '<span class="artwork-review-chip"><span class="material-icons-round">fact_check</span>revisar afirmação factual</span>' : "",
         flags.needs_legal_review ? '<span class="artwork-review-chip legal"><span class="material-icons-round">gavel</span>revisar formulação jurídica</span>' : "",
-        flags.quote_boundary_from_pause ? '<span class="artwork-review-chip warning"><span class="material-icons-round">graphic_eq</span>a legenda não pontua: a citação foi cortada na pausa, confira no áudio</span>' : "",
+        flags.source_not_punctuated ? '<span class="artwork-review-chip warning"><span class="material-icons-round">graphic_eq</span>a legenda não pontua: a leitura saiu das pausas, confira no áudio</span>' : "",
         flags.speaker_unconfirmed ? '<span class="artwork-review-chip warning"><span class="material-icons-round">person_off</span>ninguém confirmou quem fala: a arte sai sem atribuição</span>' : "",
     ].filter(Boolean).join("");
     const formatCards = ["vertical_916", "square_alfinetei"].map(format => {

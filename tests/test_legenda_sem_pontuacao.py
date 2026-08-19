@@ -72,6 +72,10 @@ As pessoas sempre darão um jeito de transacionar entre elas.
 3
 00:00:09,000 --> 00:00:14,000
 O Brasil escolheu o caminho arcaico para tratar essa tecnologia.
+
+4
+00:00:14,000 --> 00:00:19,000
+O caminho arcaico das criptos afasta as novas gerações.
 """
 
 
@@ -130,12 +134,14 @@ def test_a_legenda_do_editor_volta_a_produzir_headline():
     sugestoes = result["formats"][FORMAT_SQUARE]["suggestions"]
     assert sugestoes, "a legenda sem pontuação voltou a devolver tela em branco"
     assert result["review_flags"]["no_quote_found"] is False
-    assert result["review_flags"]["quote_boundary_from_pause"] is True
+    assert result["review_flags"]["source_not_punctuated"] is True
+    # A forma em terceira pessoa não promete literalidade, então ela é o que sai
+    # de uma fonte cuja fronteira veio do silêncio. Citação com aspas, que
+    # promete, não sai daqui.
+    assert all(item["mode"] == "resumo" for item in sugestoes)
     for item in sugestoes:
-        assert item["quote"]["boundary_source"] == "pausa"
-        assert item["quote"]["text"].lower() in " ".join(
-            linha["text"] for linha in _linhas(SEM_PONTUACAO)
-        ).lower()
+        assert item["eyebrow"].strip(), "toda headline sai com gancho"
+        assert '"' not in item["headline"] and "“" not in item["headline"]
 
 
 def test_fonte_pontuada_continua_usando_a_fronteira_de_frase():
@@ -145,8 +151,9 @@ def test_fonte_pontuada_continua_usando_a_fronteira_de_frase():
     )
     sugestoes = result["formats"][FORMAT_SQUARE]["suggestions"]
     assert sugestoes
-    assert all(item["quote"]["boundary_source"] == "pontuacao" for item in sugestoes)
-    assert result["review_flags"]["quote_boundary_from_pause"] is False
+    assert result["review_flags"]["source_not_punctuated"] is False
+    # Onde a fonte pontua, a citação literal volta a ser uma opção possível.
+    assert any(item["mode"] == "citacao" for item in sugestoes)
 
 
 # ── o que continua sendo recusado mesmo sem pontuação ──────────────────────

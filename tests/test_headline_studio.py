@@ -20,6 +20,8 @@ from modules.headline_studio import (
 from modules.political_profile import normalize
 
 
+# Um corte de verdade repete o próprio assunto; é disso que sai o trecho em
+# destaque. Uma fixture de três frases não repete nada e não tem assunto.
 CRYPTO_SRT = """1
 00:00:00,000 --> 00:00:04,000
 As criptos são uma nova lógica de reserva de valor.
@@ -31,6 +33,18 @@ As pessoas sempre darão um jeito de transacionar entre elas.
 3
 00:00:09,000 --> 00:00:14,000
 O Brasil escolheu o caminho arcaico para tratar essa tecnologia.
+
+4
+00:00:14,000 --> 00:00:19,000
+O caminho arcaico afasta as novas gerações do Brasil.
+
+5
+00:00:19,000 --> 00:00:24,000
+Quem escolhe o caminho arcaico paga com o próprio futuro.
+
+6
+00:00:24,000 --> 00:00:29,000
+E o caminho arcaico das criptos é uma escolha do Estado brasileiro.
 """
 
 
@@ -38,134 +52,192 @@ def _headlines(result, format_id):
     return [item["headline"] for item in result["formats"][format_id]["suggestions"]]
 
 
-def _quotes(result, format_id):
-    return [item["quote"] for item in result["formats"][format_id]["suggestions"]]
+def _sugestoes(result, format_id):
+    return result["formats"][format_id]["suggestions"]
 
 
-# ── o invariante ───────────────────────────────────────────────────────────
+CONTEXTO = "Fala do presidenciável Renan Santos sobre a tributação das criptos."
 
-def test_toda_citacao_aparece_palavra_por_palavra_na_transcricao():
+
+# ── o gancho não é opcional ────────────────────────────────────────────────
+
+def test_toda_headline_sai_com_gancho():
+    """As três primeiras headlines geradas foram reprovadas por não terem.
+
+    Antes de qualquer discussão sobre a frase, o editor disse: "não tem uma coisa
+    para chamar a atenção como eu fiz no meu". O gancho vem primeiro.
+    """
     result = generate_artwork_copy(
-        CRYPTO_SRT,
-        mini_context="Fala de Renan Santos sobre criptoativos.",
-        preferred_format=FORMAT_SQUARE,
-        ai_backend=None,
+        CRYPTO_SRT, mini_context=CONTEXTO, preferred_format=FORMAT_SQUARE, ai_backend=None
     )
-    fonte = normalize(result["transcript"]["excerpt"] + " " + CRYPTO_SRT)
-    citacoes = _quotes(result, FORMAT_SQUARE)
-    assert citacoes, "o gerador precisa devolver ao menos uma citação"
-    for citacao in citacoes:
-        alvo = normalize(citacao["text"].rstrip("… ."))
-        assert alvo in fonte, (
-            f"a citação {citacao['text']!r} não está na transcrição; "
-            f"uma citação reescrita é uma citação que ninguém disse"
+    sugestoes = _sugestoes(result, FORMAT_SQUARE)
+    assert sugestoes
+    for item in sugestoes:
+        assert item["eyebrow"].strip(), f"headline sem gancho: {item['headline']!r}"
+        assert item["eyebrow_alternatives"], "o editor precisa poder trocar o gancho"
+
+
+# ── a fronteira entre reescrever e citar ───────────────────────────────────
+
+def test_o_resumo_nao_usa_aspas_e_pode_reescrever():
+    """Sem aspas não há promessa de literalidade, então parafrasear é legítimo."""
+    result = generate_artwork_copy(
+        CRYPTO_SRT, mini_context=CONTEXTO, preferred_format=FORMAT_SQUARE, ai_backend=None
+    )
+    resumos = [item for item in _sugestoes(result, FORMAT_SQUARE) if item["mode"] == "resumo"]
+    assert resumos, "a forma em terceira pessoa é a que o editor usa"
+    for item in resumos:
+        assert "“" not in item["headline"] and '"' not in item["headline"]
+
+
+def test_a_citacao_com_aspas_continua_literal():
+    """Com aspas o invariante do NORTE volta a valer, palavra por palavra."""
+    result = generate_artwork_copy(
+        CRYPTO_SRT, mini_context=CONTEXTO, preferred_format=FORMAT_SQUARE, ai_backend=None
+    )
+    fonte = normalize(CRYPTO_SRT)
+    for item in _sugestoes(result, FORMAT_SQUARE):
+        if item["mode"] != "citacao":
+            continue
+        dentro = item["headline"].strip("“”\" ").rstrip("… ")
+        assert normalize(dentro) in fonte, (
+            f"a citação {dentro!r} não está na fonte; com aspas isso é uma "
+            f"citação que ninguém disse"
         )
 
 
-def test_a_headline_carrega_a_frase_e_nao_um_molde():
+def test_nenhuma_headline_traz_palavra_que_a_fonte_nao_tem():
+    """Parafrasear é dizer com outras palavras o que foi dito.
+
+    Acrescentar o que não foi é outra coisa, e vale para os dois modos.
+    """
+    from modules.headline_studio import _headline_invents_nothing
+
+    fonte = f"{CRYPTO_SRT} {CONTEXTO}"
+    assert _headline_invents_nothing(
+        "Renan Santos critica o caminho arcaico das criptos.", fonte
+    )
+    assert not _headline_invents_nothing(
+        "Renan Santos critica o caminho arcaico e defende o bitcoin argentino.", fonte
+    )
+
+
+def test_numero_nunca_e_inventado_mesmo_curto():
+    from modules.headline_studio import _headline_invents_nothing
+
+    assert not _headline_invents_nothing(
+        "Renan Santos critica os 7 impostos sobre as criptos.", f"{CRYPTO_SRT} {CONTEXTO}"
+    )
+
+
+# ── a frase tem de fazer sentido ───────────────────────────────────────────
+
+def test_a_frase_do_resumo_e_uma_frase():
+    """A gramática vem do molde, e o molde não produz frase quebrada.
+
+    Recortar uma janela da própria fala produzia "Existe compra de voto é um
+    quanto." — que foi por que essa família passou a ser montada, não recortada.
+    """
     result = generate_artwork_copy(
-        CRYPTO_SRT, preferred_format=FORMAT_SQUARE, ai_backend=None
+        CRYPTO_SRT, mini_context=CONTEXTO, preferred_format=FORMAT_SQUARE, ai_backend=None
     )
-    headlines = _headlines(result, FORMAT_SQUARE)
-    assert headlines
-    assert all("A VERDADE INCÔMODA SOBRE" not in item for item in headlines), (
-        "o genérico do módulo antigo voltou"
-    )
-    assert any("caminho arcaico" in item for item in headlines)
+    for item in _sugestoes(result, FORMAT_SQUARE):
+        if item["mode"] != "resumo":
+            continue
+        texto = item["headline"]
+        assert texto[:1].isupper(), f"headline começa em minúscula: {texto!r}"
+        assert texto.endswith((".", "!", "?")), f"headline sem fechamento: {texto!r}"
+        assert len(texto.split()) >= 4
 
 
-def test_uma_frase_longa_e_cortada_numa_fronteira_de_oracao_e_o_corte_e_declarado():
-    longa = (
-        "A modalidade de emenda como nós temos hoje, que é a emenda roubalheira "
-        "vinda de um acordo velho entre o Congresso e o governo de plantão, ela "
-        "não pode de jeito nenhum ser a modalidade com a qual eu vou trabalhar."
+def test_o_trecho_destacado_esta_dentro_da_frase():
+    result = generate_artwork_copy(
+        CRYPTO_SRT, mini_context=CONTEXTO, preferred_format=FORMAT_SQUARE, ai_backend=None
     )
-    result = generate_artwork_copy(longa, preferred_format=FORMAT_VERTICAL, ai_backend=None)
-    citacoes = _quotes(result, FORMAT_VERTICAL)
-    assert citacoes
-    citacao = citacoes[0]
-    if not citacao["verbatim"]:
-        assert citacao["text"].endswith("…"), "o corte tem de ser visível na própria citação"
-        assert normalize(citacao["text"].rstrip("… ")) in normalize(longa)
+    for item in _sugestoes(result, FORMAT_SQUARE):
+        if not item["emphasis"]:
+            continue
+        assert normalize(item["emphasis"]) in normalize(item["headline"])
+        assert item["accent"] == "red_on_white"
+
+
+def test_a_headline_sai_em_caixa_de_frase_e_nao_em_caixa_alta():
+    """A caixa alta fica no gancho e no destaque, como na arte aprovada."""
+    result = generate_artwork_copy(
+        CRYPTO_SRT, mini_context=CONTEXTO, preferred_format=FORMAT_SQUARE, ai_backend=None
+    )
+    resumos = [item for item in _sugestoes(result, FORMAT_SQUARE) if item["mode"] == "resumo"]
+    assert resumos
+    assert any(item["headline"] != item["headline"].upper() for item in resumos)
 
 
 # ── atribuição: nunca chutada ──────────────────────────────────────────────
 
-def test_sem_ninguem_respondendo_por_quem_fala_a_headline_sai_sem_nome():
+def test_sem_ninguem_respondendo_por_quem_fala_a_forma_em_terceira_pessoa_nao_sai():
+    """Ela nomeia a pessoa e afirma o que ela fez; as duas coisas exigem quem."""
     result = generate_artwork_copy(
         "O conselho precisa decidir se aprova a proposta e quais serão as consequências disso.",
         preferred_format=FORMAT_VERTICAL,
         ai_backend=None,
     )
-    headlines = _headlines(result, FORMAT_VERTICAL)
-    assert headlines
-    assert all("RENAN" not in item for item in headlines)
+    assert all("RENAN" not in item.upper() for item in _headlines(result, FORMAT_VERTICAL))
     assert result["review_flags"]["speaker_unconfirmed"] is True
 
 
-def test_o_editor_dizendo_de_quem_e_a_fonte_atribui_o_nome_sem_verbo_forte():
-    """O editor responde por "quem"; só o áudio responde por "com que força"."""
-    result = generate_artwork_copy(
-        CRYPTO_SRT,
-        mini_context="Fala de Renan Santos sobre criptoativos.",
-        preferred_format=FORMAT_SQUARE,
-        ai_backend=None,
-    )
-    sugestao = result["formats"][FORMAT_SQUARE]["suggestions"][0]
-    assert sugestao["attribution"].startswith("RENAN"), sugestao["attribution"]
-    assert sugestao["attribution"].endswith(":")
-    assert sugestao["attribution_level"] == "editor"
-    assert not any(
-        verbo in sugestao["attribution"] for verbo in ("DETONA", "CRAVA", "PROMETE", "DIZ")
-    ), "verbo de força sem o áudio ter confirmado o locutor"
+def test_o_papel_so_entra_com_evidencia():
+    """Chamar alguém de presidenciável sem evidência é inventar um fato."""
+    from modules.headline_copy import detect_role
+
+    assert detect_role("Fala do presidenciável Renan Santos", "") == "Presidenciável"
+    assert detect_role("Renan Santos comentando o mercado", "sobre criptos e bancos") == ""
 
 
-def test_o_audio_confirmando_o_locutor_autoriza_o_verbo_da_atribuicao():
-    result = generate_artwork_copy(
-        CRYPTO_SRT,
-        preferred_format=FORMAT_SQUARE,
-        ai_backend=None,
-        speaker_name="Renan Santos",
-        speaker_level="audio",
-    )
-    sugestao = result["formats"][FORMAT_SQUARE]["suggestions"][0]
-    assert sugestao["attribution_level"] == "audio"
-    assert sugestao["attribution"].startswith("RENAN SANTOS ")
-    assert sugestao["attribution"].rstrip(":").split()[-1] in {"DETONA", "CRAVA", "PROMETE", "DIZ"}
+# ── o caminho de IA ────────────────────────────────────────────────────────
 
-
-# ── o que não vira citação ─────────────────────────────────────────────────
-
-def test_cortesia_do_programa_nao_vira_citacao():
-    result = generate_artwork_copy(
-        "Seja muito bem-vindo ao nosso programa de hoje. Prazer todo meu, obrigado pelo convite. "
-        "O Estado brasileiro se tornou uma inutilidade que só cobra impostos do trabalhador.",
-        mini_context="Renan Santos",
-        preferred_format=FORMAT_VERTICAL,
-        ai_backend=None,
-    )
-    headlines = _headlines(result, FORMAT_VERTICAL)
-    assert headlines
-    assert all("bem-vindo" not in item and "Prazer" not in item for item in headlines)
-    assert any("inutilidade" in item for item in headlines)
-
-
-def test_frase_que_continua_a_anterior_nao_vira_citacao():
-    result = generate_artwork_copy(
-        "O Brasil precisa enfrentar o crime organizado com seriedade e método. "
-        "E aí a gente vai ver o resultado disso lá na frente, sem pressa nenhuma.",
-        mini_context="Renan Santos",
-        preferred_format=FORMAT_VERTICAL,
-        ai_backend=None,
-    )
-    for citacao in _quotes(result, FORMAT_VERTICAL):
-        assert not citacao["text"].startswith("E aí"), (
-            "uma citação que abre continuando outra frase tem o mesmo defeito de "
-            "um corte que abre ali"
+class _ModeloQueInventa:
+    def generate(self, prompt, system, emit_progress=None):
+        return (
+            '{"formats": {"square_alfinetei": [{"eyebrow": "BOMBA!", '
+            '"headline": "Renan Santos critica a tributação e cita o dólar argentino."}]}}'
         )
 
 
-def test_quando_nenhuma_frase_se_sustenta_o_silencio_explica_o_motivo():
+class _ModeloQueReescreve:
+    def generate(self, prompt, system, emit_progress=None):
+        return (
+            '{"formats": {"square_alfinetei": [{"eyebrow": "BOMBA!", '
+            '"headline": "O Brasil escolheu o caminho arcaico para as criptos.", '
+            '"emphasis": "CAMINHO ARCAICO"}]}}'
+        )
+
+
+def test_a_variacao_que_inventa_uma_palavra_e_descartada():
+    base = generate_artwork_copy(
+        CRYPTO_SRT, mini_context=CONTEXTO, preferred_format=FORMAT_SQUARE, ai_backend=None
+    )
+    refinado = generate_artwork_copy(
+        CRYPTO_SRT, mini_context=CONTEXTO, preferred_format=FORMAT_SQUARE,
+        ai_backend=_ModeloQueInventa(),
+    )
+    assert refinado["generation_source"] == "editorial_local"
+    assert _headlines(refinado, FORMAT_SQUARE) == _headlines(base, FORMAT_SQUARE)
+
+
+def test_a_variacao_que_so_reescreve_e_aceita():
+    refinado = generate_artwork_copy(
+        CRYPTO_SRT, mini_context=CONTEXTO, preferred_format=FORMAT_SQUARE,
+        ai_backend=_ModeloQueReescreve(),
+    )
+    assert refinado["generation_source"] == "ai_refined"
+    principal = _sugestoes(refinado, FORMAT_SQUARE)[0]
+    assert "caminho arcaico" in principal["headline"]
+    assert principal["emphasis"] == "CAMINHO ARCAICO"
+    assert principal["eyebrow"] == "BOMBA!"
+
+
+# ── silêncio explica o motivo ──────────────────────────────────────────────
+
+def test_quando_nada_sai_a_tela_recebe_o_motivo():
     result = generate_artwork_copy(
         "Boa noite. Obrigado. Prazer todo meu. Muito obrigado mesmo, viu.",
         preferred_format=FORMAT_VERTICAL,
@@ -173,52 +245,19 @@ def test_quando_nenhuma_frase_se_sustenta_o_silencio_explica_o_motivo():
     )
     assert result["formats"][FORMAT_VERTICAL]["suggestions"] == []
     assert result["review_flags"]["no_quote_found"] is True
-    assert "sustenta" in result["recommendation_reason"]
+    assert result["recommendation_reason"].strip()
 
 
-def test_a_citacao_guarda_o_instante_em_que_foi_dita():
-    """É o timestamp que deixa conferir no áudio, e o áudio é a fonte da verdade."""
-    result = generate_artwork_copy(CRYPTO_SRT, preferred_format=FORMAT_SQUARE, ai_backend=None)
-    citacao = _quotes(result, FORMAT_SQUARE)[0]
-    assert citacao["start_s"] is not None
-    assert citacao["end_s"] is not None and citacao["end_s"] > citacao["start_s"]
-
-
-# ── o caminho de IA não pode reescrever ────────────────────────────────────
-
-class _ModeloQueParafraseia:
-    def generate(self, prompt, system, emit_progress=None):
-        return (
-            '{"formats": {"square_alfinetei": [{"eyebrow": "ABSURDO!", '
-            '"headline": "RENAN: \\u201cO Brasil optou pela via ultrapassada de tratar a tecnologia\\u201d"}]}}'
-        )
-
-
-class _ModeloQueCita:
-    def generate(self, prompt, system, emit_progress=None):
-        return (
-            '{"formats": {"square_alfinetei": [{"eyebrow": "OLHA ISSO", '
-            '"headline": "RENAN: \\u201cO Brasil escolheu o caminho arcaico para tratar essa tecnologia.\\u201d"}]}}'
-        )
-
-
-def test_a_variacao_do_modelo_que_reescreve_a_citacao_e_descartada():
-    base = generate_artwork_copy(CRYPTO_SRT, preferred_format=FORMAT_SQUARE, ai_backend=None)
-    refinado = generate_artwork_copy(
-        CRYPTO_SRT, preferred_format=FORMAT_SQUARE, ai_backend=_ModeloQueParafraseia()
+def test_texto_sem_timestamp_continua_aceito():
+    result = generate_artwork_copy(
+        "O Estado brasileiro se tornou uma inutilidade que só cobra impostos do trabalhador. "
+        "O Estado brasileiro cobra imposto e não entrega nada em troca ao trabalhador.",
+        mini_context="Renan Santos, candidato, sobre impostos",
+        preferred_format=FORMAT_VERTICAL,
+        ai_backend=None,
     )
-    assert refinado["generation_source"] == "literal_quote", (
-        "a paráfrase do modelo foi aceita; a citação deixou de ser literal"
-    )
-    assert _headlines(refinado, FORMAT_SQUARE) == _headlines(base, FORMAT_SQUARE)
-
-
-def test_a_variacao_do_modelo_que_cita_ao_pe_da_letra_e_aceita():
-    refinado = generate_artwork_copy(
-        CRYPTO_SRT, preferred_format=FORMAT_SQUARE, ai_backend=_ModeloQueCita()
-    )
-    assert refinado["generation_source"] == "ai_refined"
-    assert any("caminho arcaico" in item for item in _headlines(refinado, FORMAT_SQUARE))
+    assert result["transcript"]["format"] == "plain_text"
+    assert _sugestoes(result, FORMAT_VERTICAL)
 
 
 # ── o formato que saiu ─────────────────────────────────────────────────────
@@ -258,17 +297,6 @@ def test_o_vertical_tem_orcamento_de_linha_mais_apertado_que_o_quadrado():
     assert "cerca de 19 caracteres" in vertical["layout_hint"]
     assert "cerca de 23 caracteres" in square["layout_hint"]
     assert len(vertical["headline_lines"]) <= 3
-
-
-def test_texto_sem_timestamp_continua_aceito():
-    result = generate_artwork_copy(
-        "O Estado brasileiro se tornou uma inutilidade que só cobra impostos do trabalhador.",
-        preferred_format=FORMAT_VERTICAL,
-        ai_backend=None,
-    )
-    assert result["transcript"]["format"] == "plain_text"
-    assert result["formats"][FORMAT_VERTICAL]["suggestions"]
-    assert _quotes(result, FORMAT_VERTICAL)[0]["start_s"] is None
 
 
 def test_o_tema_continua_saindo_da_evidencia_do_texto():
