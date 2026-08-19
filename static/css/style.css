@@ -3507,17 +3507,36 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 .artwork-format-result-head { display: flex; gap: 14px; align-items: flex-start; justify-content: space-between; margin-bottom: 11px; }
 .artwork-format-result h4 { color: #e7eef3; font-size: 13px; margin-top: 3px; }
 .artwork-limit { max-width: 365px; color: #758591; font-size: 10px; line-height: 1.35; text-align: right; }
-.artwork-suggestion-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
-.artwork-suggestion-card { overflow: hidden; border: 1px solid rgba(160, 180, 196, .14); border-radius: 11px; background: #0a0e13; }
-.artwork-preview { min-height: 130px; display: flex; flex-direction: column; justify-content: center; padding: 16px; }
-.artwork-suggestion-card.vertical_916 .artwork-preview { background: #f2c521; color: #0a0a0a; }
-.artwork-suggestion-card.square_alfinetei .artwork-preview { min-height: 150px; justify-content: flex-start; background: linear-gradient(160deg, #17222c, #070a0d); color: #fff; }
-.artwork-eyebrow { display: inline-flex; align-self: flex-start; margin-bottom: 9px; padding: 4px 6px; background: #fff; color: #111; font-size: 11px; font-weight: 900; letter-spacing: .35px; }
-.artwork-headline { display: flex; flex-direction: column; gap: 2px; font-size: 19px; font-weight: 900; line-height: 1.03; letter-spacing: -.55px; }
-.square_alfinetei .artwork-headline { font-size: 18px; }
-.artwork-preview.has-red-accent .artwork-emphasis { background: #d63232; color: #fff; }
-.artwork-emphasis { display: inline-block; align-self: flex-start; margin-top: 10px; padding: 4px 6px; color: #5f4211; background: rgba(0,0,0,.08); font-size: 9px; font-weight: 800; }
-.artwork-suggestion-footer { display: flex; justify-content: space-between; gap: 8px; align-items: center; padding: 8px 9px; color: #7f8d98; font-size: 9px; background: #10161c; }
+/* align-items: start, senao o cartao 9:16 estica os 1:1 ate a altura dele e
+   sobra um vazio preto embaixo de cada um deles. */
+.artwork-suggestion-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; align-items: start; }
+.artwork-suggestion-card { overflow: hidden; border: 1px solid rgba(160, 180, 196, .14); border-radius: 12px; background: #0a0e13; }
+
+/* A pre-visualizacao e a arte, nao um resumo dela. A proporcao e real para o
+   editor ver de uma vez se a headline cabe, que era a duvida que sobrava. */
+.artwork-canvas { display: flex; flex-direction: column; overflow: hidden; }
+.artwork-suggestion-card.square_alfinetei .artwork-canvas { aspect-ratio: 1 / 1; }
+.artwork-suggestion-card.vertical_916 .artwork-canvas { aspect-ratio: 9 / 16; }
+.artwork-band { padding: 15px 15px 17px; }
+.artwork-suggestion-card.square_alfinetei .artwork-band { background: #fff; color: #0c0c0c; }
+.artwork-suggestion-card.vertical_916 .artwork-band { background: #f2c521; color: #0a0a0a; }
+.artwork-eyebrow { font-size: 20px; font-weight: 900; letter-spacing: -.4px; line-height: 1; margin-bottom: 7px; }
+.artwork-headline { font-size: 15px; font-weight: 800; line-height: 1.22; letter-spacing: -.25px; overflow-wrap: anywhere; }
+.artwork-suggestion-card.vertical_916 .artwork-headline { font-size: 16px; }
+/* O destaque dentro da frase, como na arte publicada. */
+.artwork-mark { background: #d92121; color: #fff; padding: 0 4px; border-radius: 2px; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+.artwork-frame { flex: 1; min-height: 44px; display: flex; align-items: center; justify-content: center; background: linear-gradient(160deg, #253039, #0d1216); color: rgba(231, 238, 243, .22); }
+.artwork-frame .material-icons-round { font-size: 26px; }
+
+.artwork-hook-swap { display: flex; flex-wrap: wrap; gap: 5px; padding: 9px 9px 0; }
+.artwork-hook-option { border: 1px solid rgba(160, 180, 196, .2); background: transparent; color: #93a3b0; border-radius: 999px; padding: 4px 9px; font-size: 9px; font-weight: 700; cursor: pointer; }
+.artwork-hook-option:hover { border-color: rgba(244, 200, 74, .5); color: #f4c84a; }
+.artwork-hook-option.active { background: rgba(244, 200, 74, .14); border-color: rgba(244, 200, 74, .55); color: #f4c84a; }
+.artwork-meta { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; min-width: 0; }
+.artwork-mode { flex: none; white-space: nowrap; padding: 3px 7px; border-radius: 999px; background: rgba(160, 180, 196, .12); color: #9fb0bd; font-weight: 700; }
+.artwork-mode.literal { background: rgba(98, 216, 131, .12); color: #a7e1b7; }
+
+.artwork-suggestion-footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; align-items: center; padding: 9px; color: #7f8d98; font-size: 9px; background: #10161c; }
 .artwork-copy-button { padding: 5px 7px; font-size: 9px; }
 .artwork-copy-button .material-icons-round { font-size: 13px; }
 .artwork-empty { color: #7d8c97; font-size: 11px; padding: 10px 0; }
@@ -3806,7 +3825,7 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 .clip-headline-results .artwork-format-results { gap: 9px; }
 .clip-headline-results .artwork-format-result { padding: 10px; }
 .clip-headline-results .artwork-suggestion-grid { grid-template-columns: repeat(auto-fit, minmax(175px, 1fr)); }
-.clip-headline-results .artwork-preview { min-height: 104px; padding: 12px; }
+.clip-headline-results .artwork-band { padding: 12px; }
 .clip-headline-results .artwork-headline { font-size: 16px; }
 .clip-headline-results .artwork-suggestion-footer { flex-wrap: wrap; }
 .clip-headline-feedback { margin: 0; padding: 9px 10px; border-radius: 8px; color: #9cadb7; background: rgba(255,255,255,.025); font-size: 10px; line-height: 1.4; }

@@ -3677,21 +3677,54 @@ function artworkFeedbackButton(format, value, clipIndex = null) {
     return `<button class="btn btn-sm artwork-feedback-button" type="button" data-artwork-format="${escapeHtml(format)}" data-artwork-feedback="${encodeURIComponent(value)}"${clipAttribute}><span class="material-icons-round">bookmark_add</span>Escolher</button>`;
 }
 
+function artworkHeadlineHtml(headline, emphasis) {
+    // O trecho em destaque vai dentro da frase, com fundo vermelho, e não numa
+    // linha "Destaque sugerido:" embaixo dela. Na arte que o editor produz o
+    // destaque é parte da leitura, não uma anotação sobre ela.
+    const texto = escapeHtml(headline || "");
+    const alvo = escapeHtml(emphasis || "");
+    if (!alvo) return texto;
+    const posicao = texto.toLowerCase().indexOf(alvo.toLowerCase());
+    if (posicao < 0) return texto;
+    return texto.slice(0, posicao)
+        + `<mark class="artwork-mark">${texto.slice(posicao, posicao + alvo.length)}</mark>`
+        + texto.slice(posicao + alvo.length);
+}
+
 function renderArtworkHeadline(suggestion, format, clipIndex = null) {
-    const eyebrow = escapeHtml(suggestion.eyebrow || "");
-    const lines = Array.isArray(suggestion.headline_lines) && suggestion.headline_lines.length
-        ? suggestion.headline_lines : [suggestion.headline || ""];
-    const headline = escapeHtml(suggestion.headline || "");
-    const emphasis = escapeHtml(suggestion.emphasis || "");
-    const artwork = lines.map(line => `<span>${escapeHtml(line)}</span>`).join("");
-    return `<article class="artwork-suggestion-card ${format}">
-        <div class="artwork-preview ${suggestion.accent === "red_on_white" ? "has-red-accent" : ""}">
-            ${eyebrow ? `<div class="artwork-eyebrow">${eyebrow}</div>` : ""}
-            <div class="artwork-headline">${artwork}</div>
-            ${emphasis ? `<div class="artwork-emphasis">Destaque sugerido: ${emphasis}</div>` : ""}
+    const gancho = escapeHtml(suggestion.eyebrow || "");
+    const alternativas = Array.isArray(suggestion.eyebrow_alternatives) ? suggestion.eyebrow_alternatives : [];
+    const headline = String(suggestion.headline || "");
+    const destaque = String(suggestion.emphasis || "");
+    const corpo = artworkHeadlineHtml(headline, destaque);
+    const modo = suggestion.mode === "citacao" ? "citação literal" : "leitura do trecho";
+    const inicio = suggestion.source_interval && suggestion.source_interval.start_s;
+    const marca = Number.isFinite(inicio) ? formatTimecode(inicio) : "";
+    const fora = suggestion.within_preferred_limit === false;
+
+    const trocas = alternativas.length > 1
+        ? `<div class="artwork-hook-swap">${alternativas.map(item => `
+            <button type="button" class="artwork-hook-option ${escapeHtml(item) === gancho ? "active" : ""}"
+                data-hook="${encodeURIComponent(item)}">${escapeHtml(item)}</button>`).join("")}</div>`
+        : "";
+
+    return `<article class="artwork-suggestion-card ${format}" data-headline="${encodeURIComponent(headline)}" data-emphasis="${encodeURIComponent(destaque)}">
+        <div class="artwork-canvas">
+            <div class="artwork-band">
+                ${gancho ? `<div class="artwork-eyebrow">${gancho}</div>` : ""}
+                <div class="artwork-headline">${corpo}</div>
+            </div>
+            <div class="artwork-frame"><span class="material-icons-round">movie</span></div>
         </div>
-        <div class="artwork-suggestion-footer"><span>${Number(suggestion.character_count || headline.length)} caracteres · ${Number(suggestion.word_count || String(suggestion.headline || "").trim().split(/\s+/).filter(Boolean).length)} palavras</span><div>${artworkCopyButton(suggestion.headline || "", "Copiar headline")}${artworkFeedbackButton(format, suggestion.headline || "", clipIndex)}</div></div>
-        ${suggestion.layout_hint ? `<p class="artwork-layout-hint"><span class="material-icons-round">grid_view</span>${escapeHtml(suggestion.layout_hint)}</p>` : ""}
+        ${trocas}
+        <div class="artwork-suggestion-footer">
+            <span class="artwork-meta">
+                <span class="artwork-mode ${suggestion.mode === "citacao" ? "literal" : ""}">${modo}</span>
+                <span>${Number(suggestion.character_count || headline.length)} car${fora ? " · acima do ideal" : ""}</span>
+                ${marca ? `<span>${marca}</span>` : ""}
+            </span>
+            <div>${artworkCopyButton(headline, "Copiar headline")}${artworkFeedbackButton(format, headline, clipIndex)}</div>
+        </div>
     </article>`;
 }
 
@@ -3730,6 +3763,23 @@ function renderHeadlineStudioResults(studio, options = {}) {
     });
     container.querySelectorAll(".artwork-feedback-button").forEach(button => {
         button.addEventListener("click", () => saveArtworkFeedback(button));
+    });
+    // Trocar o gancho sem reescrever a headline. As alternativas já vêm do
+    // gerador, e sem isto elas eram só um dado no objeto de resposta.
+    container.querySelectorAll(".artwork-hook-option").forEach(button => {
+        button.addEventListener("click", () => {
+            const card = button.closest(".artwork-suggestion-card");
+            if (!card) return;
+            const gancho = decodeURIComponent(button.dataset.hook || "");
+            const alvo = card.querySelector(".artwork-eyebrow");
+            if (alvo) alvo.textContent = gancho;
+            card.querySelectorAll(".artwork-hook-option").forEach(item => item.classList.remove("active"));
+            button.classList.add("active");
+            const headline = decodeURIComponent(card.dataset.headline || "");
+            card.querySelectorAll(".artwork-copy-button").forEach(item => {
+                item.dataset.artworkCopy = encodeURIComponent(`${gancho}\n${headline}`);
+            });
+        });
     });
 }
 
