@@ -138,6 +138,25 @@
 
             </div>
 
+            <!-- Voz de referência -->
+            <div class="sidebar-section">
+                <h3><span class="material-icons-round">record_voice_over</span> Voz de referência</h3>
+                <div class="voice-panel" id="voicePanel">
+                    <div class="voice-status" id="voiceStatus" role="status" aria-live="polite">
+                        <span class="status-dot offline"></span><span>Verificando…</span>
+                    </div>
+                    <small class="setting-hint">
+                        Uma amostra limpa — só ele falando, sem música e sem outra voz — permite ao Furia
+                        dizer que um trecho <em>não</em> é dele e cortar antes. Serve qualquer vídeo ou
+                        áudio: MP4, MP3, WAV, M4A. Não precisa converter nada.
+                    </small>
+                    <button class="btn btn-sm btn-outline" id="btnEnrollVoice" type="button">
+                        <span class="material-icons-round">upload</span> Enviar amostra
+                    </button>
+                    <input type="file" id="voiceFileInput" accept="video/*,audio/*" hidden>
+                </div>
+            </div>
+
             <!-- AI Backend -->
             <div class="sidebar-section">
                 <h3><span class="material-icons-round">smart_toy</span> Motor de análise</h3>

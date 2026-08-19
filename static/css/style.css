@@ -4791,3 +4791,11 @@ body { font-size: 14px; line-height: 1.55; -webkit-font-smoothing: antialiased; 
     background: var(--gold);
     box-shadow: 0 0 0 3px var(--gold-glow);
 }
+
+/* ─── Voz de referência ─── */
+.voice-panel { display: flex; flex-direction: column; gap: var(--space-3); }
+.voice-status {
+    display: flex; align-items: center; gap: var(--space-2);
+    font-size: var(--text-sm); color: var(--text-secondary);
+}
+.voice-panel .btn { justify-content: center; }

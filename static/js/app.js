@@ -115,6 +115,59 @@ document.getElementById("runBarCancel")?.addEventListener("click", () => {
     describeRun("Cancelamento pedido; aguardando a etapa atual terminar…");
 });
 
+// ─── Voz de referência ───
+//
+// As rotas de cadastro existiam desde a 4.8 e não havia botão nenhum para
+// alcançá-las — o mesmo padrão de módulo pronto e desligado que este projeto
+// repete. O editor perguntou como cadastrar e a resposta honesta era "não dá".
+
+async function carregarVoz() {
+    const painel = document.getElementById("voiceStatus");
+    if (!painel) return;
+    try {
+        const resposta = await fetch("/api/voz/status", { cache: "no-store" });
+        const dados = await parseJsonResponse(resposta, "Voz de referência");
+        const ponto = painel.querySelector(".status-dot");
+        const texto = painel.querySelector("span:last-child");
+        if (ponto) ponto.className = `status-dot ${dados.cadastrada ? "online" : "offline"}`;
+        if (texto) {
+            texto.textContent = dados.cadastrada
+                ? `Voz cadastrada · ${dados.quadros} quadros de fala`
+                : "Nenhuma voz cadastrada";
+        }
+    } catch {
+        const texto = painel.querySelector("span:last-child");
+        if (texto) texto.textContent = "Não foi possível ler o cadastro";
+    }
+}
+
+document.getElementById("btnEnrollVoice")?.addEventListener("click", () => {
+    document.getElementById("voiceFileInput")?.click();
+});
+
+document.getElementById("voiceFileInput")?.addEventListener("change", async (evento) => {
+    const arquivo = evento.target.files?.[0];
+    if (!arquivo) return;
+    const botao = document.getElementById("btnEnrollVoice");
+    trabalhando(botao, true);
+    try {
+        const corpo = new FormData();
+        corpo.append("file", arquivo);
+        const resposta = await fetch("/api/voz/cadastrar", { method: "POST", body: corpo });
+        const dados = await parseJsonResponse(resposta, "Cadastro de voz");
+        if (!resposta.ok || !dados.success) throw new Error(dados.error || "Não foi possível cadastrar a voz.");
+        showToast(`Voz cadastrada: ${dados.frames} quadros de fala.`, "success");
+        addConsoleLog(`[Voz] Amostra cadastrada com ${dados.frames} quadros; o Furia passa a checar o locutor de cada corte.`, "success");
+        carregarVoz();
+    } catch (erro) {
+        showToast(erro.message, "error");
+        addConsoleLog(`[Voz] Cadastro não concluído: ${erro.message}`, "warning");
+    } finally {
+        trabalhando(botao, false);
+        evento.target.value = "";
+    }
+});
+
 let toastContainer = null;
 
 // ─── Acabamento de interação ───
@@ -4473,6 +4526,7 @@ document.addEventListener("keydown", (e) => {
 document.addEventListener("DOMContentLoaded", () => {
     loadSettings();
     showStage("source");
+    carregarVoz();
     startCampaignHubLocalStatusPolling();
     loadMediaFiles();
     loadTranscriptArchive();

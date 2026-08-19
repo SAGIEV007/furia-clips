@@ -87,3 +87,23 @@ def test_a_etapa_esconde_com_classe_e_nao_com_o_atributo():
 def test_as_etapas_sao_alcancaveis_pelo_teclado():
     assert 'setAttribute("role", "button")' in JS
     assert 'setAttribute("tabindex", "0")' in JS
+
+
+# ── Voz de referência ──────────────────────────────────────────────────────────
+
+def test_a_voz_tem_como_ser_cadastrada_pela_interface():
+    """As rotas existiam desde a 4.8 sem nenhum botão que chegasse nelas.
+
+    O editor perguntou como cadastrar e a resposta honesta era "não dá" — o
+    mesmo padrão de peça pronta e desligada que este projeto repete.
+    """
+    for elemento in ("voicePanel", "voiceStatus", "btnEnrollVoice", "voiceFileInput"):
+        assert f'id="{elemento}"' in HTML, f"{elemento} não existe na interface"
+    assert "/api/voz/cadastrar" in JS
+    assert "/api/voz/status" in JS
+
+
+def test_a_rota_de_voz_existe_no_servidor():
+    servidor = (RAIZ / "app.py").read_text(encoding="utf-8")
+    assert '"/api/voz/cadastrar"' in servidor
+    assert '"/api/voz/status"' in servidor
