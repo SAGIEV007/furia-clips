@@ -4799,3 +4799,14 @@ body { font-size: 14px; line-height: 1.55; -webkit-font-smoothing: antialiased; 
     font-size: var(--text-sm); color: var(--text-secondary);
 }
 .voice-panel .btn { justify-content: center; }
+
+/* O modo "sempre" existe porque o editor pediu, com o aviso registrado de que
+   um cursor personalizado permanente atrasa em relação ao ponteiro do sistema. */
+body.furia-cursor-always, body.furia-cursor-always * {
+    cursor: url("/static/img/cursor-onca.svg") 12 12, default;
+}
+body.furia-cursor-always input, body.furia-cursor-always textarea { cursor: text; }
+body.furia-cursor-off.furia-dragging, body.furia-cursor-off.furia-dragging * { cursor: grabbing !important; }
+
+.setting-switch { width: 38px; height: 21px; accent-color: var(--gold); cursor: pointer; }
+.setting-toggle { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }

@@ -107,3 +107,43 @@ def test_a_rota_de_voz_existe_no_servidor():
     servidor = (RAIZ / "app.py").read_text(encoding="utf-8")
     assert '"/api/voz/cadastrar"' in servidor
     assert '"/api/voz/status"' in servidor
+
+
+# ── Órfãos de CSS ──────────────────────────────────────────────────────────────
+
+def test_seletor_de_interacao_aponta_para_algo_que_existe():
+    """A classe de defeito que eu cometi duas vezes no mesmo commit.
+
+    O cursor de onça respondia a `.timeline-handle` e `.clip-boundary-handle`,
+    classes que não estavam em elemento nenhum — nem no HTML, nem criadas por
+    script. O CSS estava escrito, o comportamento estava ligado, e não havia como
+    o editor ver aquilo nem uma vez. A varredura de órfãos até então olhava
+    módulo Python e id de elemento, e não enxergava isto.
+
+    Vale para as classes que existem para *responder a um gesto*: se nada na tela
+    as carrega, o gesto nunca acontece.
+    """
+    gestos = re.search(r"const DRAG_HANDLES = \"([^\"]+)\"", JS)
+    assert gestos, "a lista de alvos de arrasto sumiu"
+
+    script = JS.replace(gestos.group(0), "")
+    for classe in [parte.strip().lstrip(".") for parte in gestos.group(1).split(",")]:
+        # A prova é alguém *atribuir* a classe, não alguém consultá-la. Consultar
+        # é exatamente o que o CSS órfão fazia: `.timeline-handle` aparecia em
+        # seletor e em lugar nenhum mais.
+        no_html = re.search(rf'class="[^"]*\b{re.escape(classe)}\b', HTML)
+        no_script = re.search(
+            rf'(className\s*=\s*[`"\'][^`"\']*\b{re.escape(classe)}\b'
+            rf'|classList\.add\([^)]*\b{re.escape(classe)}\b)',
+            script,
+        )
+        assert no_html or no_script, (
+            f".{classe} não é atribuída a nenhum elemento: o gesto nunca dispara"
+        )
+
+
+def test_o_som_e_o_cursor_tem_como_ser_ligados():
+    """Som com função de tocar e sem botão nunca toca."""
+    assert 'id="settingSound"' in HTML
+    assert 'id="settingCursor"' in HTML
+    assert "SOM_CHAVE" in JS and "CURSOR_CHAVE" in JS

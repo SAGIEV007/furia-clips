@@ -168,6 +168,37 @@ document.getElementById("voiceFileInput")?.addEventListener("change", async (eve
     }
 });
 
+// ─── Aparência ───
+//
+// O som tinha função para tocar e nenhum jeito de ser ligado; o cursor apontava
+// para classes que não existiam. Duas capacidades escritas e inalcançáveis, no
+// mesmo commit. Agora as duas têm controle.
+
+const CURSOR_CHAVE = "furia.cursor";
+
+function aplicarCursor() {
+    const modo = window.localStorage?.getItem(CURSOR_CHAVE) || "drag";
+    document.body.classList.toggle("furia-cursor-always", modo === "always");
+    document.body.classList.toggle("furia-cursor-off", modo === "off");
+    const seletor = document.getElementById("settingCursor");
+    if (seletor) seletor.value = modo;
+}
+
+document.getElementById("settingCursor")?.addEventListener("change", (evento) => {
+    window.localStorage?.setItem(CURSOR_CHAVE, evento.target.value);
+    aplicarCursor();
+});
+
+function aplicarSom() {
+    const caixa = document.getElementById("settingSound");
+    if (caixa) caixa.checked = somLigado();
+}
+
+document.getElementById("settingSound")?.addEventListener("change", (evento) => {
+    window.localStorage?.setItem(SOM_CHAVE, evento.target.checked ? "1" : "0");
+    if (evento.target.checked) tocarFim();
+});
+
 let toastContainer = null;
 
 // ─── Acabamento de interação ───
@@ -176,7 +207,10 @@ let toastContainer = null;
 // relação ao ponteiro do sistema, some sobre campo de texto e cansa numa jornada
 // de horas. Ligado só enquanto o editor arrasta uma borda, vira assinatura.
 
-const DRAG_HANDLES = ".timeline-handle, .reading-timeline-unit, .clip-boundary-handle";
+// Só o que de fato existe e se arrasta hoje. As três classes anteriores —
+// timeline-handle, clip-boundary-handle e companhia — não estavam em elemento
+// nenhum: o cursor não tinha como aparecer nem uma vez.
+const DRAG_HANDLES = ".reading-timeline, .reading-timeline-unit, .setting-range, .media-drop-zone";
 
 document.addEventListener("pointerdown", (event) => {
     if (event.target.closest?.(DRAG_HANDLES)) document.body.classList.add("furia-dragging");
@@ -4526,6 +4560,8 @@ document.addEventListener("keydown", (e) => {
 document.addEventListener("DOMContentLoaded", () => {
     loadSettings();
     showStage("source");
+    aplicarCursor();
+    aplicarSom();
     carregarVoz();
     startCampaignHubLocalStatusPolling();
     loadMediaFiles();
