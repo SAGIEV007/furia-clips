@@ -61,6 +61,21 @@ class VideoCutter:
             raise RuntimeError((result.stderr or "ffprobe falhou").strip()[-500:])
         return json.loads(result.stdout or "{}")
 
+    @staticmethod
+    def _probe_duration_seconds(video_path):
+        """How long the source runs, or ``None`` when it cannot be read.
+
+        Used only to size a budget, so a failure here is not an error: it simply
+        falls back to the fixed one.
+        """
+        try:
+            from .media_validation import probe_media
+
+            duration = (probe_media(video_path).get("format") or {}).get("duration")
+            return float(duration) if duration else None
+        except Exception:
+            return None
+
     def detect_scenes(self, video_path, threshold=27.0, emit_progress=None, timeout=None):
         """Detect scene changes without allowing ffmpeg to take down a job.
 
@@ -70,12 +85,29 @@ class VideoCutter:
         if emit_progress:
             emit_progress("Detectando mudancas de cena...")
 
+        # Only keyframes are decoded, and at a fraction of the resolution. Full
+        # decode of a 73-minute press conference did not finish inside the two
+        # minutes allowed: the run gave up and continued with no visual
+        # boundaries at all, which on a two-hour source would be the guaranteed
+        # outcome. Encoders place a keyframe at a cut, so the frames that matter
+        # are exactly the ones still being read, and a coarser answer that
+        # arrives beats an exact one that never does.
         cmd = [
-            "ffmpeg", "-hide_banner", "-nostats", "-hwaccel", "none", "-i", video_path,
-            "-an", "-vf", f"select='gt(scene,{threshold / 100.0})',showinfo",
+            "ffmpeg", "-hide_banner", "-nostats", "-hwaccel", "none",
+            "-skip_frame", "nokey", "-i", video_path,
+            "-an", "-vf", f"scale=320:-2,select='gt(scene,{threshold / 100.0})',showinfo",
             "-f", "null", "-",
         ]
-        timeout_seconds = timeout if timeout is not None else SCENE_DETECTION_TIMEOUT_SECONDS
+        # The budget follows the length of the source. A fixed two minutes was
+        # generous for a ten-minute clip and impossible for a two-hour live, and
+        # the editor was explicit that they prefer precision to speed.
+        if timeout is not None:
+            timeout_seconds = timeout
+        else:
+            duration = self._probe_duration_seconds(video_path)
+            timeout_seconds = SCENE_DETECTION_TIMEOUT_SECONDS
+            if duration:
+                timeout_seconds = max(timeout_seconds, min(900.0, duration / 6.0))
         try:
             result = subprocess.run(
                 cmd,

@@ -606,6 +606,13 @@ class ClipSelector:
         if not transcript_blocks:
             return []
 
+        # The audio was already measured and then thrown away on this path. The
+        # profile was computed for every source — 4.418 windows on a 73-minute
+        # one — passed into this function, and read by nobody: only the keyword
+        # fallback ever looked at it. Where the voice rises is exactly the signal
+        # the editor keeps asking for, so the blocks carry it into the prompt.
+        self._mark_energy(transcript_blocks, energy_profile)
+
         system_prompt = self._get_gemini_system_prompt(settings.get("editorial_profile", PROFILE_NAME))
         size = max(1, int(self.GEMINI_BLOCKS_PER_REQUEST))
         lots = [transcript_blocks[at:at + size] for at in range(0, len(transcript_blocks), size)]
@@ -637,6 +644,41 @@ class ClipSelector:
                 emit_progress(f"[Gemini] {len(selections)} candidato(s) encontrados.", "info")
         selections.sort(key=lambda item: item.get("viral_score", 0), reverse=True)
         return selections
+
+    # A block sitting this far above the source's own median counts as raised
+    # voice. Relative, because a studio and a street have different floors and an
+    # absolute level would mean nothing on the next source.
+    ENERGY_RAISED = 1.35
+    ENERGY_CALM = 0.7
+
+    @staticmethod
+    def _mark_energy(blocks, energy_profile):
+        """Tell each block whether the voice rises inside it.
+
+        Left as a plain word rather than a number on purpose: the model reads it
+        as a hint about intensity, and a number would invite it to rank by
+        loudness. Shouting is not the same as saying something, and the editorial
+        rule stands — energy may not compensate a structural failure.
+        """
+        levels = [float(value) for value in (energy_profile or []) if value is not None]
+        if not levels or not blocks:
+            return blocks
+        ordered = sorted(levels)
+        median = ordered[len(ordered) // 2] or 0.0
+        if median <= 0:
+            return blocks
+        for block in blocks:
+            start = int(max(0.0, float(block.get("start", 0) or 0)))
+            end = int(max(start + 1, float(block.get("end", 0) or 0)))
+            window = levels[start:end]
+            if not window:
+                continue
+            peak = max(window) / median
+            if peak >= ClipSelector.ENERGY_RAISED:
+                block["energy_mark"] = "voz elevada"
+            elif peak <= ClipSelector.ENERGY_CALM:
+                block["energy_mark"] = "voz baixa"
+        return blocks
 
     def _gemini_lot(self, blocks, sentences, all_blocks, system_prompt,
                     user_context, settings, api_key, emit_progress):
@@ -856,7 +898,8 @@ FORMATO DE RESPOSTA — retorne APENAS um array JSON valido:
         lines = []
         for b in blocks:
             timestamp = f"[{self._format_time(b['start'])} - {self._format_time(b['end'])}]"
-            lines.append(f"BLOCO {b['index']}: {timestamp} ({b['duration']}s)\n{b['text']}\n")
+            energy = f" [{b['energy_mark']}]" if b.get("energy_mark") else ""
+            lines.append(f"BLOCO {b['index']}: {timestamp} ({b['duration']}s){energy}\n{b['text']}\n")
 
         transcript_text = "\n".join(lines)
 
@@ -921,6 +964,7 @@ Retorne APENAS o array JSON. Nenhum texto antes ou depois."""
         transcript_blocks = self._build_transcript_blocks(sentences)
         if not transcript_blocks:
             return []
+        self._mark_energy(transcript_blocks, energy_profile)
 
         all_selections = []
         chunk_size = 25
@@ -1009,7 +1053,8 @@ FORMATO — retorne APENAS JSON valido:
         lines = []
         for b in blocks:
             timestamp = f"[{self._format_time(b['start'])} - {self._format_time(b['end'])}]"
-            lines.append(f"BLOCO {b['index']}: {timestamp} ({b['duration']}s)\n{b['text']}\n")
+            energy = f" [{b['energy_mark']}]" if b.get("energy_mark") else ""
+            lines.append(f"BLOCO {b['index']}: {timestamp} ({b['duration']}s){energy}\n{b['text']}\n")
 
         transcript_text = "\n".join(lines)
 
