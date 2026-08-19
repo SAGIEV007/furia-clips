@@ -21,8 +21,30 @@ def _blocks():
     ]
 
 
-# Median 1.0; the middle block peaks well above it and the first sits below.
-PROFILE = [0.4] * 10 + [1.0] * 5 + [2.4] * 5 + [1.0] * 10
+def _perfil(valores, janela=1.0):
+    """O formato que o AudioAnalyzer realmente devolve.
+
+    Este teste passava com uma lista de números soltos — formato que a produção
+    nunca produziu. O analisador devolve uma janela por segundo como dicionário,
+    e ler isso como número derrubou o corte inteiro por dois dias: `float()`
+    sobre um dicionário levanta TypeError, e o job morria em "Erro no corte"
+    logo depois de dividir a transcrição.
+
+    Uma fixture que não é o que a produção gera não prova nada.
+    """
+    return [
+        {
+            "time": round(indice * janela, 3),
+            "energy_rms": round(valor, 6),
+            "energy_db": round(valor, 2),
+            "energy_normalized": round(valor, 4),
+        }
+        for indice, valor in enumerate(valores)
+    ]
+
+
+# Mediana 1.0; o bloco do meio sobe bem acima dela e o primeiro fica abaixo.
+PROFILE = _perfil([0.4] * 10 + [1.0] * 5 + [2.4] * 5 + [1.0] * 10)
 
 
 def test_a_raised_voice_is_marked():
@@ -58,8 +80,41 @@ def test_no_audio_is_not_an_error():
     assert "energy_mark" not in ClipSelector._mark_energy(_blocks(), [])[1]
 
 
+def test_um_perfil_estranho_nao_derruba_o_corte():
+    """O que faltou: qualquer coisa inesperada aqui não pode matar o job.
+
+    Marcar energia é enfeite editorial. O corte tem de sair mesmo que o áudio
+    não tenha sido medido, tenha sido medido errado ou venha noutro formato.
+    """
+    for perfil in ([{"sem": "energia"}], ["texto"], [None], [{"time": None, "energy_rms": None}]):
+        assert ClipSelector._mark_energy(_blocks(), perfil) is not None
+
+
 def test_the_comparison_is_relative_to_the_source():
     """A studio and a street have different floors; an absolute level travels badly."""
-    loud_room = [value * 50 for value in PROFILE]
+    loud_room = _perfil([item["energy_normalized"] * 50 for item in PROFILE])
 
     assert ClipSelector._mark_energy(_blocks(), loud_room)[1]["energy_mark"] == "voz elevada"
+
+
+def test_a_selecao_inteira_roda_com_o_perfil_de_producao():
+    """O teste que faltava, e que teria pegado a quebra no mesmo dia.
+
+    Provar a função isolada não bastou: o defeito só aparecia quando a seleção
+    inteira rodava com o que o AudioAnalyzer devolve de verdade. Foram dois dias
+    com o corte morto em "Erro no corte" e uma suíte inteira verde.
+    """
+    perfil = [
+        {"time": float(i), "energy_rms": 0.05, "energy_db": -26.0, "energy_normalized": 0.5}
+        for i in range(300)
+    ]
+    transcricao = {"segments": [
+        {"start": i * 6.0, "end": i * 6.0 + 5.5,
+         "text": f"Frase completa número {i} com assunto próprio e uma conclusão clara."}
+        for i in range(50)
+    ]}
+
+    seletor = ClipSelector(target_duration=45, max_clips=10, min_duration=20, max_duration=600)
+    clips = seletor.select_clips(transcricao, energy_profile=perfil, settings={"ai_backend": "nlp"})
+
+    assert clips, "a seleção não devolveu candidato nenhum"

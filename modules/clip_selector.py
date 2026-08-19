@@ -660,17 +660,36 @@ class ClipSelector:
         loudness. Shouting is not the same as saying something, and the editorial
         rule stands — energy may not compensate a structural failure.
         """
-        levels = [float(value) for value in (energy_profile or []) if value is not None]
-        if not levels or not blocks:
+        # O analisador devolve uma janela por segundo como dicionário —
+        # {"time", "energy_rms", "energy_db", "energy_normalized"} — e não um
+        # número solto. Ler isso como número quebrou o corte inteiro por dois
+        # dias: `float()` sobre um dicionário levanta TypeError, o job morria em
+        # "Erro no corte" logo depois de dividir a transcrição, e nenhum teste
+        # pegou porque a fixture que escrevi usava uma lista de floats que a
+        # produção nunca produziu.
+        janelas = []
+        for item in energy_profile or []:
+            if isinstance(item, dict):
+                valor = item.get("energy_normalized", item.get("energy_rms"))
+                instante = item.get("time")
+            else:
+                valor, instante = item, None
+            try:
+                if valor is None:
+                    continue
+                janelas.append((float(instante) if instante is not None else float(len(janelas)), float(valor)))
+            except (TypeError, ValueError):
+                continue
+        if not janelas or not blocks:
             return blocks
-        ordered = sorted(levels)
+        ordered = sorted(valor for _, valor in janelas)
         median = ordered[len(ordered) // 2] or 0.0
         if median <= 0:
             return blocks
         for block in blocks:
-            start = int(max(0.0, float(block.get("start", 0) or 0)))
-            end = int(max(start + 1, float(block.get("end", 0) or 0)))
-            window = levels[start:end]
+            start = max(0.0, float(block.get("start", 0) or 0))
+            end = max(start + 1.0, float(block.get("end", 0) or 0))
+            window = [valor for instante, valor in janelas if start <= instante < end]
             if not window:
                 continue
             peak = max(window) / median
