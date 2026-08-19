@@ -1858,7 +1858,12 @@ Retorne APENAS o JSON.
                 and start - turn["start_s"] <= self.MAX_TURN_START_SNAP_S
             ]
             if opening:
-                start = opening[-1]["start_s"]
+                # Never back past the handover. A turn can begin before the
+                # programme has handed over — the anchor is still presenting —
+                # and snapping onto it undoes the guard applied just above,
+                # which is how a clip came to open on the studio reading the
+                # running order.
+                start = max(opening[-1]["start_s"], content_start)
 
             # A window that opens a few seconds before the next question is
             # carrying the tail of the previous answer — the "it started in the

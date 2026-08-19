@@ -772,15 +772,56 @@ por áudio, energia alimentando a decisão, guarda contra duas ações ao mesmo 
 supressão de candidatos irmãos, descarte de não-conteúdo, teto no alongamento de
 pergunta.
 
+**A borda do corte, medida em duas fontes reais (6.3).** Na sabatina do SBT
+completa, 602 segmentos: 15 cortes, nenhum abrindo no meio da fala, nenhum
+fechando em conjunção pendurada, nenhum dentro da apresentação do estúdio. Na
+entrevista do Metrópoles, sobre as 455 linhas de legenda que a corrida do editor
+gravou: cortes abrindo no meio da fala caíram de 5 em 8 para 1 em 10.
+
+A causa raiz não estava na seleção e vale registrar, porque ela vai reaparecer em
+outra forma: **uma linha de legenda não é uma frase.** O YouTube quebra a linha
+onde ela encheu, então o ponto final cai no meio dela, e o construtor de sentenças
+só fechava uma sentença quando o texto acumulado terminava em ponto. Toda sentença
+da fonte nascia com o rabo da anterior pendurada, e isso envenenava tudo o que lê
+sentença: a costura da conversa, a detecção de turno, o texto do corte e as duas
+bordas. Onde houver um passe que dependa de fronteira de frase, a primeira
+pergunta é se a fronteira é real.
+
 **O que não existe ainda:** gerador de headline de verdade, composição com
 headline e faixa, enquadramento guiado por voz, corte de silêncio ligado ao fluxo,
 sincronismo entre as duas máquinas, caminho sem interface, entrada por arquivo
 local, aprendizado com o gosto do editor, e a experiência visual da seção 12.
 
+**Dívidas conhecidas, todas contornáveis pelo editor hoje.** Estão aqui para não
+serem redescobertas, não para interromper o item 1:
+
+- **A tela não sai de "Processando" quando o job falha.** O editor apertou parar
+  três vezes depois de o trabalho já ter morrido no erro. Não é o cancelamento que
+  trava; é o estado da tela que não acompanha o fim do job.
+- **O download público é recusado com HTTP 403.** É o item 4 abaixo, e o editor
+  baixa por fora enquanto isso.
+- **O Whisper local morre em `cublas64_12.dll` em vez de voltar para a CPU.**
+  Escolher CUDA e não achar a biblioteca tem de degradar, não abortar.
+- **A voz cadastrada não decidiu nada.** Numa fonte inteira: zero cortes com a voz
+  reconhecida, zero com outra voz, oito sem decisão pelo áudio. Ou ela decide, ou
+  para de ser pedida — cadastrar custa um passo do editor e devolveu nada.
+- **O log promete mais do que o resultado faz.** "Escutando e observando a fonte
+  para validar o cenário, tom e participantes" descreve um envio que, quando
+  funciona, apenas *anota* cortes já escolhidos, com confiança limitada enquanto a
+  identidade da fonte não é validada — ele não escolhe corte nenhum. Em três
+  corridas seguidas ele caiu em 503 e custou de quatro a seis minutos cada. Um log
+  que promete mais do que entrega é a mesma doença do relatório de ciclo.
+- **Som e notificação ao terminar não existem como item.** Uma fonte de duas horas
+  transcreve por mais de uma hora; o editor sai da máquina e não tem como saber
+  que acabou. Entra na seção 12, junto da espera.
+
 **A ordem de trabalho**, e a justificativa de cada posição:
 
 1. **Qualidade do corte na fonte real** — é a razão de existir da ferramenta, e é
-   o que a quebra da 5.0 deixou por confirmar.
+   o que a quebra da 5.0 deixou por confirmar. As bordas fecharam na 6.3 nas duas
+   fontes medidas; o que continua aberto é o julgamento que nenhuma medida minha
+   alcança — se o raciocínio terminou. Isso só o editor decide, e é por isso que o
+   item 3 sustenta este item.
 2. **Gerador de headline** — gargalo diário declarado pelo editor; a parte difícil
    (citação literal) já está resolvida.
 3. **Aprovar, reprovar e o motivo** — é o que faz 1 e 2 melhorarem sem mim.

@@ -112,6 +112,61 @@ def _corte(inicio, fim):
     return {"start": inicio, "end": fim, "viral_score": 70, "text": ""}
 
 
+# ── 0b. o estúdio lendo a ordem do programa não é corte ────────────────────
+
+# Verbatim da abertura da sabatina do SBT, com os tempos do arquivo de 31min03.
+# A âncora fala do convidado em terceira pessoa antes de entregar a palavra.
+_ABERTURA = [
+    (7.0, 24.0, "O jornal do SBT News está de volta com o início das sabatinas com os candidatos."),
+    (24.0, 31.6, "Os seis candidatos à presidência mais bem colocados nas pesquisas serão entrevistados."),
+    (31.6, 38.2, "De acordo com o sorteio, o primeiro a detalhar suas propostas é o candidato do Missão, Renan Santos."),
+    (38.2, 44.2, "Também estão com a gente a analista de política Natália Fruet e a apresentadora Luana Castilho."),
+    (44.2, 51.6, "Candidato, boa noite. A entrevista terá a duração de trinta minutos que passam a contar agora."),
+    (51.6, 70.7, "O senhor defende abertamente a aplicação do direito penal do inimigo contra as facções."),
+    (70.7, 110.0, "Tudo é absolutamente constitucional, porque a ideia já foi recebida pela nossa Constituição."),
+    (110.0, 150.0, "Existe, por exemplo, uma coisa chamada lei do abate, e ela parte da mesma doutrina."),
+    (150.0, 190.0, "Nós vamos implementar o direito penal do inimigo e atuar de maneira muito dura."),
+    # Mais duas perguntas, afastadas no relógio, para a fonte passar do mínimo
+    # de três turnos abaixo do qual o passe não reconhece uma entrevista.
+    (260.0, 290.0, "Agora, o senhor fala em construção de superpresídios; qual será o custo disso?"),
+    (290.0, 340.0, "Nós vamos gastar cerca de dois a três bilhões construindo as vagas que precisamos."),
+    (420.0, 450.0, "Mudando de assunto, o senhor é favorável a ações militares estrangeiras aqui?"),
+    (450.0, 500.0, "Nunca. Eu acho isso humilhante para nós como nação, e para os nossos policiais."),
+]
+
+
+def test_a_mencao_em_terceira_pessoa_ao_candidato_nao_e_turno_do_entrevistador():
+    """"é o candidato do Missão" é a âncora apresentando, não alguém perguntando.
+
+    Contar essa frase como turno colocava uma costura aos 31,6 s da sabatina,
+    dentro da apresentação do estúdio.
+    """
+    from modules.interview_turns import is_interviewer_sentence
+
+    assert not is_interviewer_sentence(
+        "De acordo com o sorteio, o primeiro a detalhar propostas é o candidato do Missão."
+    )
+    assert is_interviewer_sentence("Candidato, boa noite, obrigado por estar com a gente.")
+
+
+def test_nenhum_corte_abre_antes_de_o_programa_entregar_a_palavra():
+    """O convidado ainda não disse nada; não há corte ali."""
+    from modules.interview_turns import first_address_to_guest
+
+    seletor = ClipSelector(target_duration=45, max_clips=20, min_duration=8)
+    sentencas = _sentencas(_ABERTURA)
+    entrega = first_address_to_guest(sentencas)
+    assert entrega == 44.2, "a fixture depende de a entrega ser reconhecida"
+
+    clipes = seletor._align_to_interview_turns([_corte(31.6, 168.8)], sentencas)
+    assert clipes, "o corte não devia ser descartado, só começar mais tarde"
+    inicio = float(clipes[0]["start"])
+    assert inicio >= entrega - 0.01, (
+        f"o corte abre em {inicio}s, na âncora lendo a ordem do programa; a "
+        f"guarda moveu a borda para a entrega e algo a puxou de volta"
+    )
+
+
 # ── 1. abrir no meio da frase ──────────────────────────────────────────────
 
 def test_corte_que_abre_no_meio_da_frase_recua_ate_o_comeco_dela():

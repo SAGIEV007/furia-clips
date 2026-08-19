@@ -32,8 +32,16 @@ from typing import Any
 # in the first person and addresses the room as "você"; these forms belong to
 # whoever is questioning him.
 _ADDRESS = (
+    # "candidato" is deliberately absent: on its own the word is as often the
+    # anchor talking *about* the guest ("é o candidato do Missão, Renan Santos")
+    # as it is somebody talking *to* him. Whole-word matching already stopped
+    # "os seis candidatos" from counting; it cannot tell those two apart, and
+    # counting the third-person mention put a turn at 31.6s of the sabatina —
+    # inside the studio reading the running order. The alignment pass then
+    # opened a clip there, undoing the guard that had just moved it past the
+    # presentation. The vocative form is picked up by ``addresses_the_guest``.
     " o senhor ", " ao senhor ", " do senhor ", " pro senhor ", " para o senhor ",
-    " senhor ", " candidato", " deputado ", " governador ", " presidente eleito",
+    " senhor ", " deputado ", " governador ", " presidente eleito",
     " seu plano", " seu programa", " seu governo", " sua proposta", " suas propostas",
     " no seu livro", " as suas ", " os seus ", " sua candidatura",
 )
@@ -92,7 +100,12 @@ def is_interviewer_sentence(text: str) -> bool:
         _ADDRESS_RE = _phrases(_ADDRESS)
         _ASKS_RE = _phrases(_ASKS)
     normalized = _normalize(text)
-    return bool(_ADDRESS_RE.search(normalized) or _ASKS_RE.search(normalized))
+    if _ADDRESS_RE.search(normalized) or _ASKS_RE.search(normalized):
+        return True
+    # "Candidato, boa noite." is the interviewer; "o candidato do Missão" is the
+    # anchor. Only the vocative counts, and that distinction already lives in
+    # ``addresses_the_guest``.
+    return addresses_the_guest(text)
 
 
 def detect_interviewer_turns(sentences: list[dict[str, Any]]) -> list[dict[str, Any]]:
