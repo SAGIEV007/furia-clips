@@ -3264,7 +3264,16 @@ def api_cut_shorts():
                 "source_boundary": source_boundary,
             })
 
-            source_label = "IA Inteligente" if selection_source == "llm" else "NLP Basico"
+            # A linha final anunciava "NLP Basico" para toda origem que não fosse
+            # Ollama, então uma corrida inteira do Gemini terminava dizendo que
+            # tinha sido local. O editor lê essa linha para saber com o que está
+            # trabalhando; ela tem de dizer a mesma coisa que o seletor disse.
+            source_label = {
+                "gemini": "Gemini Flash",
+                "llm": "IA Inteligente",
+                "campaign_hub_guided": "Campaign Hub + selecao local",
+                "nlp": "NLP Basico",
+            }.get(str(selection_source or "nlp"), "NLP Basico")
             if results:
                 emit_progress(f"Corte completo! {len(results)} clips gerados via {source_label}.", "success")
             else:

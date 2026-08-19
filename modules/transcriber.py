@@ -9,6 +9,23 @@ import re as _re
 CACHE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "workspace", "cache")
 
 
+# Marcas de uma falha da pilha de GPU, e não do áudio nem do modelo. A biblioteca
+# só é aberta de verdade quando a inferência começa, então a queda para CPU que
+# existia na carga nunca chegava a valer: numa máquina com placa presente, driver
+# presente e cuBLAS ausente o modelo carregava em CUDA e morria quinze segundos
+# depois, com o vídeo inteiro por transcrever.
+_GPU_FAILURE_MARKS = (
+    "cublas", "cudnn", "cudart", "libcu", "cuda", "nvidia",
+    "no kernel image", "out of memory", "device-side assert",
+)
+
+
+def _looks_like_a_gpu_failure(exc):
+    """Whether this exception is the GPU stack failing, not the audio."""
+    text = f"{type(exc).__name__}: {exc}".lower()
+    return any(mark in text for mark in _GPU_FAILURE_MARKS)
+
+
 class Transcriber:
     def __init__(self, model_name="small", language="pt", word_timestamps=False, beam_size=1, device="auto"):
         self.model_name = model_name
@@ -73,7 +90,12 @@ class Transcriber:
                 emit_progress("faster-whisper nao encontrado. Usando openai-whisper como fallback...")
             import whisper
             import torch
-            device = "cuda" if torch.cuda.is_available() else "cpu"
+            # ``requested_device`` is honoured here too, otherwise a fall back to
+            # CPU after a GPU failure would reload straight back onto the card.
+            if self.requested_device in {"cpu", "cuda"}:
+                device = self.requested_device
+            else:
+                device = "cuda" if torch.cuda.is_available() else "cpu"
             self.device = device
             self.compute_type = "float16" if device == "cuda" else "float32"
             self.model = whisper.load_model(self.model_name, device=device)
@@ -206,10 +228,21 @@ class Transcriber:
 
         start_time = time.time()
 
-        if self._engine == "faster-whisper":
-            result = self._transcribe_faster_whisper(working_path, emit_progress, cancel_check)
-        else:
-            result = self._transcribe_openai_whisper(working_path, emit_progress, cancel_check)
+        try:
+            result = self._run_engine(working_path, emit_progress, cancel_check)
+        except Exception as exc:
+            # Cancellation and audio problems carry none of these marks and are
+            # re-raised untouched.
+            if self.device != "cuda" or not _looks_like_a_gpu_failure(exc):
+                raise
+            if emit_progress:
+                emit_progress(
+                    f"[Whisper] A placa aceitou o modelo mas falhou ao transcrever "
+                    f"({str(exc)[:120]}). Recomeçando na CPU; vai demorar mais e vai terminar.",
+                    "warning",
+                )
+            self._fall_back_to_cpu(emit_progress)
+            result = self._run_engine(working_path, emit_progress, cancel_check)
 
         elapsed = time.time() - start_time
         if emit_progress:
@@ -256,6 +289,26 @@ class Transcriber:
         if emit_progress and changed:
             aviso = f"; {len(set(to_check))} palavra(s) para conferir no áudio" if to_check else ""
             emit_progress(f"[Léxico] {changed} linha(s) corrigidas (nomes, números, interrogação){aviso}.", "info")
+
+    def _run_engine(self, audio_path, emit_progress=None, cancel_check=None):
+        if self._engine == "faster-whisper":
+            return self._transcribe_faster_whisper(audio_path, emit_progress, cancel_check)
+        return self._transcribe_openai_whisper(audio_path, emit_progress, cancel_check)
+
+    def _fall_back_to_cpu(self, emit_progress=None):
+        """Rebuild the model on the CPU after the GPU failed mid-transcription.
+
+        The device is pinned rather than re-detected: detection is what chose
+        CUDA in the first place, and it will choose it again — a card that is
+        present and a runtime that is missing look identical to
+        ``get_cuda_device_count``.
+        """
+        self.model = None
+        self.requested_device = "cpu"
+        self.device = "cpu"
+        self.load_model(emit_progress)
+        if self.device != "cpu":
+            raise RuntimeError("A queda para CPU não foi respeitada ao recarregar o modelo.")
 
     def _transcribe_faster_whisper(self, audio_path, emit_progress=None, cancel_check=None):
         segments_iter, info = self.model.transcribe(
