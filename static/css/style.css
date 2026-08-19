@@ -3,42 +3,93 @@
    Theme: Black + Gold + White
    ═══════════════════════════════════════════════════ */
 
+/* O tema já era preto, dourado e branco — as cores da Missão. O que fazia a
+   interface parecer amadora não era a paleta, era a dosagem: o dourado era
+   #FFD700, um amarelo de aviso, aplicado em título, ícone, borda e botão ao
+   mesmo tempo. Quando tudo é destaque, nada é.
+
+   Aqui o dourado da marca fica reservado para o momento de marca e para a ação
+   principal. O resto da interface usa um dourado envelhecido, de brilho baixo,
+   que convive com texto branco sem competir com ele. Os fundos ganham um traço
+   quente de propósito: preto puro sobre monitor grande lê como buraco, e alguns
+   pontos de vermelho no cinza dão a impressão de superfície em vez de vazio. */
 :root {
-    --bg-primary: #0a0a0a;
-    --bg-secondary: #111111;
-    --bg-tertiary: #1a1a1a;
-    --bg-card: #151515;
-    --bg-hover: #1f1f1f;
-    --bg-input: #1a1a1a;
+    --bg-primary: #0B0B0C;
+    --bg-secondary: #101012;
+    --bg-tertiary: #17171A;
+    --bg-card: #131316;
+    --bg-hover: #1D1D21;
+    --bg-input: #161619;
+    --bg-raised: #1A1A1E;
 
-    --gold: #FFD700;
-    --gold-dark: #B8860B;
-    --gold-light: #FFE44D;
-    --gold-glow: rgba(255, 215, 0, 0.15);
+    /* Dourado da marca: identidade e ação principal, nada além disso. */
+    --gold: #E8B93B;
+    --gold-brand: #FFD400;
+    --gold-dark: #8A6D1F;
+    --gold-light: #F5D174;
+    --gold-glow: rgba(232, 185, 59, 0.12);
+    --gold-quiet: rgba(232, 185, 59, 0.55);
 
-    --text-primary: #FFFFFF;
-    --text-secondary: #A0A0A0;
-    --text-muted: #666666;
+    --text-primary: #F5F5F4;
+    --text-secondary: #A8A8A5;
+    --text-muted: #6E6E6B;
 
-    --border: #2a2a2a;
-    --border-light: #333333;
+    --border: #232327;
+    --border-light: #2E2E33;
+    --border-strong: #3A3A40;
 
-    --success: #44CF6C;
-    --warning: #F59E0B;
-    --error: #EF4444;
-    --info: #3B82F6;
+    --success: #4ECB71;
+    --warning: #E0A227;
+    --error: #E5484D;
+    --info: #6BA5F5;
 
-    --sidebar-width: 320px;
+    --sidebar-width: 300px;
     --header-height: 80px;
 
-    --radius-sm: 8px;
-    --radius-md: 12px;
-    --radius-lg: 16px;
-    --radius-xl: 20px;
+    /* Uma escala, não valores avulsos: é o que faz o espaçamento parecer
+       intencional em vez de acidental. */
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-5: 24px;
+    --space-6: 32px;
+    --space-7: 48px;
 
-    --shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
-    --shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.6);
-    --shadow-gold: 0 0 20px rgba(255, 215, 0, 0.1);
+    --text-xs: 10px;
+    --text-sm: 11px;
+    --text-base: 13px;
+    --text-md: 15px;
+    --text-lg: 19px;
+    --text-xl: 26px;
+
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 14px;
+    --radius-xl: 18px;
+
+    /* Sombras mais fechadas e mais escuras: elevação sutil lê como acabamento,
+       halo dourado ao redor de tudo lê como enfeite. */
+    --shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+    --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.55);
+    --shadow-gold: 0 0 0 1px rgba(232, 185, 59, 0.18);
+
+    --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+/* Movimento curto e uniforme. Durações diferentes por componente fazem a
+   interface parecer montada por pessoas diferentes. */
+button, .btn, .setting-select, .setting-input, input, select, textarea, .media-card, .section {
+    transition: background-color .16s var(--ease), border-color .16s var(--ease),
+                color .16s var(--ease), box-shadow .16s var(--ease), opacity .16s var(--ease);
+}
+
+/* O anel de foco existe para quem navega por teclado e não pode ser removido
+   sem substituto — sem ele a interface fica inoperável sem mouse. */
+:focus-visible {
+    outline: 2px solid var(--gold-quiet);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -4535,3 +4586,72 @@ body { font-size: 14px; line-height: 1.55; -webkit-font-smoothing: antialiased; 
 .reading-timeline-unit.has-highlight { background: #7d6320; }
 .reading-timeline-unit.has-highlight:nth-child(even) { background: #9a7a20; }
 .reading-timeline-unit:hover, .reading-timeline-unit.active { background: var(--gold); }
+
+/* ─── Barra de execução ───
+   Uma única fonte de verdade sobre o que está acontecendo. Antes o editor
+   descobria pelo console, que rola sozinho, ou não descobria: apertava outro
+   botão e nada acontecia, sem explicação. */
+
+.run-bar {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    margin: 0 0 var(--space-5);
+    padding: var(--space-3) var(--space-4);
+    border: 1px solid var(--border-light);
+    border-left: 2px solid var(--gold);
+    border-radius: var(--radius-md);
+    background: linear-gradient(90deg, var(--gold-glow), transparent 55%), var(--bg-card);
+    box-shadow: var(--shadow);
+}
+.run-bar[hidden] { display: none; }
+
+.run-bar-pulse {
+    width: 7px; height: 7px; flex: none;
+    border-radius: 50%;
+    background: var(--gold);
+    box-shadow: 0 0 0 0 var(--gold-glow);
+    animation: run-pulse 1.8s var(--ease) infinite;
+}
+@keyframes run-pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(232, 185, 59, .35); }
+    70%  { box-shadow: 0 0 0 8px rgba(232, 185, 59, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(232, 185, 59, 0); }
+}
+/* Quem prefere menos movimento não perde informação: o ponto continua lá. */
+@media (prefers-reduced-motion: reduce) {
+    .run-bar-pulse { animation: none; }
+}
+
+.run-bar-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.run-bar-body strong { font-size: var(--text-base); color: var(--text-primary); font-weight: 600; }
+.run-bar-body span {
+    font-size: var(--text-sm); color: var(--text-secondary);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.run-bar-clock {
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    font-size: var(--text-base); color: var(--gold-light); flex: none;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Ações indisponíveis enquanto há trabalho. Deixar o botão clicável e recusar
+   depois ensina o editor que o programa ignora cliques. */
+.action-card.is-locked { opacity: .42; pointer-events: none; filter: saturate(.4); }
+.action-card.is-running { border-color: var(--gold); box-shadow: var(--shadow-gold); opacity: 1; }
+.action-card.is-running .action-icon { background: var(--gold); color: #0B0B0C; }
+
+/* ─── Ícones de ação ───
+   Eram seis gradientes de cores diferentes — vermelho, verde-água, roxo,
+   laranja, rosa — sobre uma marca preta e dourada. O dourado fica para a ação
+   principal; o resto é superfície neutra, e a cor volta a significar algo. */
+.action-icon {
+    background: var(--bg-raised);
+    border: 1px solid var(--border-light);
+    color: var(--gold);
+}
+.action-icon-primary {
+    background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+    border-color: transparent;
+    color: #0B0B0C;
+}

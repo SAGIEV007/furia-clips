@@ -51,15 +51,6 @@
                 </div>
 
                 <div class="setting-group">
-                    <label>Metodo de Corte</label>
-                    <select id="settingCutMethod" class="setting-select">
-                        <option value="intelligent" selected>Inteligente (Whisper/Fala)</option>
-                        <option value="scene">Por Cena</option>
-                        <option value="fixed">Duracao Fixa</option>
-                    </select>
-                </div>
-
-                <div class="setting-group">
                     <label>Foco Editorial</label>
                     <select id="settingEditorialFocus" class="setting-select">
                         <option value="auto" selected>Automático (detectar pelo vídeo)</option>
@@ -67,16 +58,6 @@
                         <option value="generic_political">Político genérico / participante principal</option>
                     </select>
                     <small class="setting-hint">Use Político genérico quando o vídeo não for centrado no Renan.</small>
-                </div>
-
-                <div class="setting-group">
-                    <label>Duracao dos Cortes</label>
-                    <select id="settingCutDuration" class="setting-select">
-                        <option value="15">15 segundos</option>
-                        <option value="30">30 segundos</option>
-                        <option value="45" selected>45 segundos</option>
-                        <option value="60">60 segundos</option>
-                    </select>
                 </div>
 
                 <div class="setting-group">
@@ -155,12 +136,6 @@
                     <small class="setting-hint">Importa um export autorizado e mescla apenas registros novos/alterados. O processamento continua offline.</small>
                 </div>
 
-                <div class="setting-group setting-toggle">
-                    <label>Correcao com IA</label>
-                    <div class="toggle" id="settingAiCorrection" data-active="true">
-                        <div class="toggle-slider"></div>
-                    </div>
-                </div>
             </div>
 
             <!-- AI Backend -->
@@ -261,6 +236,22 @@
                 </button>
             </div>
         </header>
+
+        <!-- O que está rodando agora. O editor descreveu o sintoma: apertar um
+             botão enquanto outra função roda. O servidor já recusa, mas antes
+             disso a interface não contava nada — nem o que estava em andamento,
+             nem há quanto tempo, nem por que o segundo clique não fez efeito. -->
+        <div class="run-bar" id="runBar" hidden role="status" aria-live="polite">
+            <span class="run-bar-pulse" aria-hidden="true"></span>
+            <div class="run-bar-body">
+                <strong id="runBarTitle">Processando</strong>
+                <span id="runBarDetail">Preparando…</span>
+            </div>
+            <span class="run-bar-clock" id="runBarClock">00:00</span>
+            <button class="btn btn-sm btn-outline" id="runBarCancel" type="button">
+                <span class="material-icons-round">stop_circle</span> Cancelar
+            </button>
+        </div>
 
         <nav class="workflow-steps" aria-label="Fluxo editorial">
             <div class="workflow-step active"><span class="workflow-index">01</span><span><strong>Fonte</strong><small>Importar e validar</small></span></div>
@@ -599,7 +590,7 @@
         <section class="section" id="actionsSection">
             <div class="section-header">
                 <div>
-                    <h3><span class="material-icons-round">bolt</span> Acoes Disponiveis</h3>
+                    <h3><span class="material-icons-round">bolt</span> Ações</h3>
                     <p class="section-hint">Escolha uma operação. O corte inteligente usa contexto antes de selecionar.</p>
                 </div>
                 <span class="section-kicker">Atalho: Ctrl/Cmd + Enter</span>
@@ -607,55 +598,55 @@
 
             <div class="action-cards">
                 <div class="action-card" id="actionSilence" data-action="silence" hidden>
-                    <div class="action-icon" style="background: linear-gradient(135deg, #FF6B6B, #FF8E53)">
+                    <div class="action-icon">
                         <span class="material-icons-round">content_cut</span>
                     </div>
-                    <h4>Remover Silencio</h4>
-                    <p>Detecta e remove automaticamente pausas e silencios do video</p>
+                    <h4>Remover silêncio</h4>
+                    <p>Remove as pausas longas antes de qualquer outra etapa.</p>
                     <button class="btn btn-action">Executar Corte</button>
                 </div>
 
                 <div class="action-card" id="actionSubtitles" data-action="subtitles" hidden>
-                    <div class="action-icon" style="background: linear-gradient(135deg, #4ECDC4, #44CF6C)">
+                    <div class="action-icon">
                         <span class="material-icons-round">subtitles</span>
                     </div>
-                    <h4>Gerar Legendas</h4>
-                    <p>Transcreve o audio e adiciona legendas dinamicas estilo CapCut</p>
+                    <h4>Gerar legendas</h4>
+                    <p>Legenda karaokê queimada no vídeo, com os nomes já corrigidos.</p>
                     <button class="btn btn-action" onclick="openSubtitleModal()">Configurar e Gerar</button>
                 </div>
 
                 <div class="action-card" id="actionCut" data-action="cut">
-                    <div class="action-icon" style="background: linear-gradient(135deg, #A78BFA, #7C3AED)">
+                    <div class="action-icon">
                         <span class="material-icons-round">auto_awesome</span>
                     </div>
-                    <h4>Cortar Shorts</h4>
-                    <p>Selecao inteligente via IA com cortes precisos em limites de frase</p>
+                    <h4>Cortar shorts</h4>
+                    <p>Lê a fonte, escolhe os trechos e corta nas costuras da conversa.</p>
                     <button class="btn btn-action">Cortar e Ranquear</button>
                 </div>
 
                 <div class="action-card" id="actionArtwork" data-action="artwork">
-                    <div class="action-icon" style="background: linear-gradient(135deg, #F59E0B, #D97706)">
+                    <div class="action-icon">
                         <span class="material-icons-round">format_quote</span>
                     </div>
-                    <h4>Texto de Arte</h4>
+                    <h4>Texto de arte</h4>
                     <p>Headlines curtas para 9:16, 1:1 e fake tweet a partir da transcrição</p>
                     <button class="btn btn-action">Abrir Estúdio</button>
                 </div>
 
                 <div class="action-card non-core-panel" id="actionThumbnail" data-action="thumbnail" hidden>
-                    <div class="action-icon" style="background: linear-gradient(135deg, #EC4899, #BE185D)">
+                    <div class="action-icon">
                         <span class="material-icons-round">image</span>
                     </div>
-                    <h4>Gerar Thumbnail</h4>
-                    <p>Sugestao de capa com identidade visual do canal</p>
+                    <h4>Gerar thumbnail</h4>
+                    <p>Sugestão de capa com a identidade da Missão.</p>
                     <button class="btn btn-action">Gerar Capa</button>
                 </div>
 
                 <div class="action-card action-card-complete" id="actionComplete" data-action="complete">
-                    <div class="action-icon" style="background: linear-gradient(135deg, #FFD700, #B8860B)">
+                    <div class="action-icon action-icon-primary">
                         <span class="material-icons-round">rocket_launch</span>
                     </div>
-                    <h4>Processo Completo</h4>
+                    <h4>Processo completo</h4>
                     <p>Silêncio + transcrição + contexto + seleção IA + cortes</p>
                     <button class="btn btn-action btn-gold">Executar Tudo</button>
                 </div>

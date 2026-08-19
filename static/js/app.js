@@ -52,6 +52,69 @@ const socket = io({
 });
 let socketRecoveryNotice = false;
 
+// ─── Barra de execução ───
+//
+// O editor descreveu o sintoma assim: apertar o botão de uma função enquanto
+// outra está rodando. O servidor já recusa a segunda — mas até aqui a interface
+// não contava nada: nem o que estava em andamento, nem há quanto tempo, nem por
+// que o segundo clique não fez efeito. Um clique ignorado sem explicação ensina
+// que o programa está travado.
+
+const run = { active: false, title: "", startedAt: 0, timer: null };
+
+function paintRun() {
+    const bar = document.getElementById("runBar");
+    if (!bar) return;
+    bar.hidden = !run.active;
+    document.querySelectorAll(".action-card").forEach((card) => {
+        card.classList.toggle("is-locked", run.active && card.dataset.action !== run.action);
+        card.classList.toggle("is-running", run.active && card.dataset.action === run.action);
+    });
+    if (!run.active) return;
+    document.getElementById("runBarTitle").textContent = run.title || "Processando";
+    const seconds = Math.max(0, Math.round((Date.now() - run.startedAt) / 1000));
+    document.getElementById("runBarClock").textContent =
+        `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
+}
+
+function beginRun(title, action = "", detail = "Preparando…") {
+    run.active = true;
+    run.title = title;
+    run.action = action;
+    run.startedAt = Date.now();
+    const line = document.getElementById("runBarDetail");
+    if (line) line.textContent = detail;
+    window.clearInterval(run.timer);
+    run.timer = window.setInterval(paintRun, 1000);
+    paintRun();
+}
+
+function describeRun(detail) {
+    if (!run.active) return;
+    const line = document.getElementById("runBarDetail");
+    // A mensagem de progresso já vem carimbada com versão e etapa; o que
+    // interessa na barra é a última coisa dita, sem o carimbo.
+    if (line && detail) line.textContent = String(detail).replace(/^\[[^\]]*\]\s*/, "").slice(0, 140);
+}
+
+function endRun() {
+    run.active = false;
+    run.action = "";
+    window.clearInterval(run.timer);
+    run.timer = null;
+    paintRun();
+}
+
+document.getElementById("runBarCancel")?.addEventListener("click", () => {
+    const id = state.activeJob?.id;
+    if (id) {
+        fetch(`/api/jobs/${id}/cancel`, { method: "POST" }).catch(() => {});
+    } else {
+        fetch("/api/process/cancel", { method: "POST" }).catch(() => {});
+    }
+    describeRun("Cancelamento pedido; aguardando a etapa atual terminar…");
+});
+
 socket.on("connect", () => {
     const recovered = socketRecoveryNotice;
     state.connected = true;
@@ -97,6 +160,7 @@ socket.on("progress", (data) => {
         ? `[Versão ${data.program_version}${data.program_revision ? ` · ${data.program_revision}` : ""}] `
         : "";
     addConsoleLog(`[${time}] ${version}${data.message || "Progresso recebido"}`, data.level);
+    describeRun(data.message);
     showProgressBar();
 });
 
@@ -1281,8 +1345,26 @@ async function loadOperationDashboard() {
 
 checkRepositorySync(false);
 
+const RUN_TITLES = {
+    complete_process: "Processo completo",
+    clip_generation: "Cortando shorts",
+    source_import: "Importando fonte",
+    source_transcription: "Transcrevendo",
+    silence_removal: "Removendo silêncio",
+    subtitles: "Gerando legendas",
+    thumbnail: "Gerando thumbnail",
+};
+
 function handleJobUpdate(job, options = {}) {
     state.activeJob = job;
+    // Um job em andamento é a definição de "ocupado"; o resto da interface
+    // passa a se comportar de acordo em vez de aceitar cliques e descartá-los.
+    if (["queued", "running", "cancel_requested"].includes(job.state)) {
+        if (!run.active) beginRun(RUN_TITLES[job.type] || "Processando", job.type, job.message || job.stage || "Preparando…");
+        describeRun(job.message || job.stage);
+    } else {
+        endRun();
+    }
     const existingIndex = (state.operationJobs || []).findIndex((item) => item.id === job.id);
     if (existingIndex >= 0) state.operationJobs[existingIndex] = job;
     else state.operationJobs = [job, ...(state.operationJobs || [])];
@@ -3146,6 +3228,12 @@ function copyToClipboard(text) {
 // ─── Source Intake ───
 
 async function parseJsonResponse(response, context = "servidor") {
+    // 409 é a recusa deliberada do servidor quando já existe trabalho em
+    // andamento. Tratada como erro genérico, ela chegava ao editor como uma
+    // falha inexplicável — quando na verdade é a guarda funcionando.
+    if (response.status === 409) {
+        throw new Error("Já existe um processamento em andamento. Espere ele terminar ou cancele na barra do topo.");
+    }
     const raw = await response.text();
     if (!raw) {
         throw new Error(`${context}: resposta vazia (HTTP ${response.status}). Veja o console do launcher.`);
@@ -3926,8 +4014,6 @@ function applySettings() {
         runtimeVersion.title = `Versão em uso: ${s.program_version || "desconhecida"} · revisão ${s.program_revision || "local"}`;
     }
     if (s.whisper_model) document.getElementById("settingWhisperModel").value = s.whisper_model;
-    if (s.cut_method) document.getElementById("settingCutMethod").value = s.cut_method;
-    if (s.cut_duration) document.getElementById("settingCutDuration").value = s.cut_duration;
     if (s.render_preset) document.getElementById("settingRenderPreset").value = s.render_preset;
     if (s.editorial_profile) document.getElementById("settingEditorialProfile").value = s.editorial_profile;
     if (s.editorial_focus) document.getElementById("settingEditorialFocus").value = s.editorial_focus;
@@ -3937,9 +4023,6 @@ function applySettings() {
     }
     if (s.language) document.getElementById("settingLanguage").value = s.language;
     if (s.transcription_source) document.getElementById("settingTranscriptionSource").value = s.transcription_source;
-    if (s.ai_correction != null) {
-        document.getElementById("settingAiCorrection").dataset.active = s.ai_correction;
-    }
     if (s.ai_backend) {
         document.getElementById("settingAiBackend").value = s.ai_backend;
         updateAiConfigVisibility(s.ai_backend);
@@ -4017,8 +4100,6 @@ document.getElementById("btnSaveSettings").addEventListener("click", async () =>
         const settings = {
 
         whisper_model: document.getElementById("settingWhisperModel").value,
-        cut_method: document.getElementById("settingCutMethod").value,
-        cut_duration: parseInt(document.getElementById("settingCutDuration").value),
         render_preset: document.getElementById("settingRenderPreset").value,
         editorial_profile: document.getElementById("settingEditorialProfile").value,
         editorial_focus: document.getElementById("settingEditorialFocus").value,
@@ -4026,7 +4107,6 @@ document.getElementById("btnSaveSettings").addEventListener("click", async () =>
         padding: 0.25,
         language: document.getElementById("settingLanguage").value,
         transcription_source: document.getElementById("settingTranscriptionSource").value,
-        ai_correction: document.getElementById("settingAiCorrection").dataset.active === "true",
         ai_backend: document.getElementById("settingAiBackend").value,
         ollama_model: document.getElementById("settingOllamaModel").value,
         gemini_model: document.getElementById("settingGeminiModel").value.trim(),
@@ -4058,13 +4138,6 @@ document.getElementById("btnSaveSettings").addEventListener("click", async () =>
 // Range sliders
 document.getElementById("settingSilenceDuration").addEventListener("input", (e) => {
     document.getElementById("silenceValue").textContent = e.target.value + "s";
-});
-
-// Toggle
-document.getElementById("settingAiCorrection").addEventListener("click", (e) => {
-    const toggle = e.currentTarget;
-    const active = toggle.dataset.active === "true";
-    toggle.dataset.active = !active;
 });
 
 // ─── Console Toggle ───
