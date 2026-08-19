@@ -442,6 +442,55 @@ def _clip_transcript(segments, start, end):
     return lines
 
 
+def _annotate_speakers(clips, video_path, duration_s, emit_progress=None):
+    """Say, for each clip, whether the enrolled voice is the one talking.
+
+    The console has been printing "Locutor: Renan Santos · 0%" on every clip
+    while he speaks in all of them, because nothing was ever measuring it. This
+    fills that in where the audio settles it and leaves it unknown where it does
+    not — which is the same rule the rest of the program follows: a clip may not
+    attribute speech to somebody on a guess.
+    """
+    if not clips:
+        return clips
+    try:
+        from modules.speaker_id import background_from_source, features, identify, load, read_pcm
+
+        voice = load("renan")
+        if voice is None:
+            if emit_progress:
+                emit_progress(
+                    "[Locutor] Nenhuma voz cadastrada; o Furia não tem como saber quem fala. "
+                    "Cadastre uma amostra limpa para habilitar essa verificação.",
+                    "info",
+                )
+            return clips
+        background = background_from_source(video_path, float(duration_s or 0))
+        if background is None:
+            return clips
+
+        counted = {"dele": 0, "outro": 0, "indefinido": 0}
+        for clip in clips:
+            start, end = float(clip.get("start", 0) or 0), float(clip.get("end", 0) or 0)
+            try:
+                verdict = identify(features(read_pcm(video_path, start, end)), voice, background)
+            except (OSError, ValueError, subprocess.CalledProcessError):
+                continue
+            clip["speaker_verdict"] = verdict
+            counted["dele" if verdict["e_o_locutor"] is True else
+                    "outro" if verdict["e_o_locutor"] is False else "indefinido"] += 1
+        if emit_progress:
+            emit_progress(
+                f"[Locutor] {counted['dele']} corte(s) com a voz cadastrada, "
+                f"{counted['outro']} com outra voz, {counted['indefinido']} sem decisão pelo áudio.",
+                "info",
+            )
+    except (ImportError, FileNotFoundError) as exc:
+        if emit_progress:
+            emit_progress(f"[Locutor] Verificação indisponível: {str(exc)[:160]}", "warning")
+    return clips
+
+
 def _write_selection_diagnostics(
     *, job_id, video_path, duration_s, selection_source, diagnostics, clips, deferred,
     segments=None, transcript_review=None, emit_progress=None,
@@ -480,6 +529,7 @@ def _write_selection_diagnostics(
                 "review_flags": clip.get("review_flags"),
                 "alinhamento_entrevista": clip.get("turn_aligned"),
                 "speaker_status": campaign_block.get("speaker_status"),
+                "locutor_pelo_audio": clip.get("speaker_verdict"),
                 "bloco_chub": campaign_block.get("title"),
                 "density_rank": campaign_block.get("density_rank"),
                 "risk_flags": campaign_block.get("risk_flags"),
@@ -1350,6 +1400,63 @@ def api_acervo_status():
     payload["youtube_id"] = youtube_id_from_name(os.path.basename(str(video_path or ""))) or ""
     payload["source_recognised"] = bool(payload["youtube_id"])
     return jsonify(payload)
+
+
+@app.route("/api/voz/status", methods=["GET"])
+def api_voice_status():
+    """Whether Furia has a voice on file to compare against."""
+    from modules.speaker_id import load, storage_dir
+
+    voice = load("renan")
+    return jsonify({
+        "cadastrada": voice is not None,
+        "quadros": voice.frames if voice else 0,
+        "pasta": str(storage_dir()),
+        "nota": (
+            "Uma amostra limpa — só ele falando, sem música e sem outra voz — é o que permite "
+            "ao Furia dizer que um trecho não é dele e cortar antes."
+        ),
+    })
+
+
+@app.route("/api/voz/cadastrar", methods=["POST"])
+def api_voice_enroll():
+    """Learn the speaker's voice from a clean sample the editor supplies."""
+    from modules.speaker_id import enroll
+
+    temp_path = None
+    try:
+        upload = request.files.get("file")
+        if upload is not None and upload.filename:
+            import tempfile
+            suffix = os.path.splitext(upload.filename)[1][:8] or ".mp4"
+            handle, temp_path = tempfile.mkstemp(suffix=suffix)
+            os.close(handle)
+            upload.save(temp_path)
+            media_path = temp_path
+        else:
+            media_path = _resolve_media_input(request.form.get("media_path", ""))
+        if not media_path or not os.path.isfile(media_path):
+            return jsonify({"success": False, "error": "Envie um arquivo de áudio ou vídeo com a voz."}), 400
+        stored = enroll(
+            media_path,
+            label="renan",
+            start_s=float(request.form.get("start_s") or 0.0),
+            end_s=float(request.form["end_s"]) if request.form.get("end_s") else None,
+        )
+        return jsonify({"success": True, **stored})
+    except FileNotFoundError:
+        return jsonify({"success": False, "error": "ffmpeg não foi encontrado; ele é necessário para ler o áudio."}), 500
+    except ValueError as exc:
+        return jsonify({"success": False, "error": str(exc)[:300]}), 400
+    except Exception as exc:
+        return jsonify({"success": False, "error": f"Não foi possível cadastrar a voz: {str(exc)[:300]}"}), 500
+    finally:
+        if temp_path:
+            try:
+                os.unlink(temp_path)
+            except OSError:
+                pass
 
 
 @app.route("/api/source/reading", methods=["POST"])
@@ -2888,6 +2995,10 @@ def api_cut_shorts():
                     f"[Gate editorial] {len(editorial_gate_rejections)} candidato(s) adiados: contexto ou revisão técnica explícita.",
                     "warning",
                 )
+
+            # Who is speaking is measured before the decision is written down,
+            # so the diagnostics carry it and the render stage can act on it.
+            top_clips = _annotate_speakers(top_clips, video_path, video_duration, emit_progress)
 
             _write_selection_diagnostics(
                 job_id=getattr(ctx, "job_id", None),
