@@ -15,9 +15,14 @@ def _clip(start, end, text):
 
 def test_long_transcript_uses_local_fallback_when_primary_pool_is_thin(monkeypatch):
     selector = ClipSelector(target_duration=30, max_clips=15, min_duration=8, max_duration=180)
+    # Frases de oito palavras: o construtor só fecha uma sentença com cinco ou
+    # mais, e com quatro os segmentos se acumulavam em blocos de trinta segundos.
+    # O candidato dos 45 s caía então no meio de uma sentença, e a reparação de
+    # abertura o recuava — legítimo, mas este teste é sobre a contagem do pool.
     transcription = {
         "segments": [
-            {"start": index * 15.0, "end": (index + 1) * 15.0, "text": f"Ideia completa número {index}."}
+            {"start": index * 15.0, "end": (index + 1) * 15.0,
+             "text": f"Ideia completa e bem formada de número {index}."}
             for index in range(20)
         ]
     }

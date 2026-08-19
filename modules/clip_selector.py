@@ -95,6 +95,16 @@ class ClipSelector:
     # instead of on the tail of the previous answer.
     MAX_TURN_START_SNAP_S = 20.0
 
+    # How far a clip's start may rewind to reach the sentence where the thought
+    # actually begins. Twenty-five seconds covers "the answer started three or
+    # four sentences ago"; past it the window was chosen in the wrong place and
+    # rewinding would build a different clip instead of repairing this one.
+    MAX_OPENING_REWIND_S = 25.0
+
+    # A pause this long before a sentence is a natural opening: the speaker
+    # stopped, and whatever comes next stands on its own.
+    OPENING_PAUSE_S = 1.2
+
     # How far a clip's end may move to land on a seam of the conversation. The
     # selector already had a view on how much material the idea needs; beyond
     # this the boundary is not being repaired, it is being replaced. Growth is
@@ -254,7 +264,7 @@ class ClipSelector:
         # A window that opens on the tail of a sentence reads as broken even when
         # the material inside it is right, so the boundary is repaired before any
         # other judgement is made about the candidate.
-        clips = self._trim_opening_fragment(clips, emit_progress)
+        clips = self._trim_opening_fragment(clips, emit_progress, sentences)
 
         clips = self._close_open_question(clips, sentences, emit_progress)
 
@@ -262,6 +272,12 @@ class ClipSelector:
         # and they have the last word on both boundaries: no clip may stop in the
         # middle of an answer or run past the next change of subject.
         clips = self._align_to_interview_turns(clips, sentences, emit_progress)
+
+        # The alignment above only repairs a start that already sits near a
+        # question. A window that opens deep inside an answer is untouched by it
+        # and is the defect the editor reported on four of five clips: the clip
+        # begins mid-sentence, with the subject of the sentence left outside.
+        clips = self._open_where_the_thought_begins(clips, sentences, emit_progress)
 
         # Two candidates that merely touch are one answer served twice. Cutting
         # a long block into pieces makes neighbours by construction, and the
@@ -457,6 +473,24 @@ class ClipSelector:
         times are shared out by how much text each piece holds. Speech rate is
         close enough to uniform inside one caption line for that to land on the
         right words, and nothing is invented: the text is the same, only cut.
+
+        Duration is not what qualifies a segment for splitting, and requiring
+        twelve seconds of it was the single most expensive line in this file.
+        A YouTube caption line runs two or three seconds and breaks wherever the
+        line filled up, so a full stop lands mid-line constantly:
+
+            {"t": 1595.84, "texto": "premiando por boas práticas. você cria"}
+
+        The builder below can only close a sentence when the accumulated text
+        *ends* on a stop, so that full stop was invisible and the sentence it
+        closes ran on into the next one. Measured on the Metrópoles interview,
+        five of the eight rendered clips opened on the leftover — "premiando por
+        boas práticas", "a gente tem que pensar no interesse nacional",
+        "cometimento de crime dentro daquela comunidade" — which is exactly what
+        the editor reported as "começa no meio da fala". Worse, the interviewer's
+        question inherited the tail of the answer before it, so the turn detector
+        placed every seam a few seconds early and the alignment pass then opened
+        clips on those seams, on purpose.
         """
         detailed = []
         for segment in segments or []:
@@ -468,7 +502,7 @@ class ClipSelector:
                 continue
             span = end - start
             pieces = [piece for piece in re.split(r"(?<=[.!?])\s+", text.strip()) if piece.strip()]
-            if span <= 12.0 or len(pieces) < 2:
+            if span <= 0 or len(pieces) < 2:
                 detailed.append(segment)
                 continue
             total = sum(len(piece) for piece in pieces) or 1
@@ -1623,7 +1657,7 @@ Retorne APENAS o JSON.
         ), reverse=True)
         return proposals[:self.max_clips]
 
-    def _trim_opening_fragment(self, clips, emit_progress=None):
+    def _trim_opening_fragment(self, clips, emit_progress=None, sentences=None):
         """Start a clip at a sentence instead of in the middle of one.
 
         The existing repair expands backwards by a whole block, which only helps
@@ -1639,6 +1673,7 @@ Retorne APENAS o JSON.
         to land on the right words; the estimate is never allowed to move the
         start by more than ``MAX_OPENING_TRIM_S``.
         """
+        cased = self._casing_is_meaningful(sentences)
         for clip in clips or []:
             text = str(clip.get("text") or "")
             start = float(clip.get("start", 0) or 0)
@@ -1654,6 +1689,17 @@ Retorne APENAS o JSON.
 
             offset = self._first_standalone_sentence_offset(text)
             if offset <= 0:
+                continue
+            # Landing on a sentence is not the same as landing on a beginning.
+            # Measured on the Metrópoles interview, this pass moved four of the
+            # eight rendered clips onto "Ela só tá iludida...", "E aí o deputado
+            # então...", "você cria uma...", "Então este reconhecimento..." — a
+            # whole sentence every time, and every time a sentence leaning on the
+            # one before it. The editor read all four back as "começa no meio da
+            # fala e não dá contexto". Where the remainder does not open a
+            # thought, the boundary is left alone for the rewind below, which can
+            # go back to where the thought started instead of forward past it.
+            if not self._opens_a_thought(text[offset:], cased):
                 continue
             shift = (end - start) * (offset / len(text))
             if shift <= 0.4 or shift > self.MAX_OPENING_TRIM_S:
@@ -1886,6 +1932,174 @@ Retorne APENAS o JSON.
                 "info",
             )
         return kept
+
+    @staticmethod
+    def _casing_is_meaningful(sentences):
+        """Whether an initial capital in this transcript means anything.
+
+        Whisper and imported captions punctuate and capitalise, so a sentence
+        opening in lower case is continuing the one before it. Other tools emit
+        everything in lower case, and there the same test would condemn every
+        sentence in the source and rewind every clip to the first second. The
+        share of capitalised openings separates the two cases without anybody
+        having to declare which transcriber was used.
+        """
+        firsts = [
+            str(item.get("text") or "").strip()[:1]
+            for item in sentences or []
+            if str(item.get("text") or "").strip()
+        ]
+        firsts = [char for char in firsts if char.isalpha()]
+        if len(firsts) < 8:
+            return False
+        return sum(1 for char in firsts if char.isupper()) / len(firsts) >= 0.6
+
+    @staticmethod
+    def _opens_a_thought(text, cased=False):
+        """Whether a sentence can be the first thing the viewer hears.
+
+        Three things disqualify it. Two are already named at the top of this
+        module, because the gates use them to *flag* the defect: a conjunction
+        continuing the previous sentence ("e", "mas", "então"), and a pronoun
+        pointing at something said before it ("isso", "ela", "por isso").
+
+        The third is the one that let four bad clips through on the Metrópoles
+        interview. "premiando por boas práticas" is neither a conjunction nor a
+        pronoun, so both lists cleared it — and it is the tail end of a sentence
+        that began fifteen words earlier. What gives it away is the lower-case
+        first letter, and that test is only trustworthy on a transcript that
+        capitalises at all, which ``_casing_is_meaningful`` decides.
+
+        Discourse openers the guest uses to turn to the camera — "Veja,",
+        "Olha," — are not continuations: they introduce their own subject, and a
+        clip that begins on one of them reads as a beginning.
+        """
+        raw = str(text or "").strip()
+        if not raw:
+            return False
+        if cased and raw[:1].isalpha() and raw[:1].islower():
+            return False
+        words = re.findall(r"[\wÀ-ÿ-]+", raw.lower())
+        if not words:
+            return False
+        first = words[0]
+        pair = " ".join(words[:2]) if len(words) >= 2 else first
+        if first in {item.lower() for item in CONTINUATION_STARTERS_PT}:
+            return False
+        references = {item.lower() for item in CONTEXT_REFERENCE_STARTERS_PT}
+        if first in references or pair in references:
+            return False
+        return True
+
+    def _open_where_the_thought_begins(self, clips, sentences, emit_progress=None):
+        """Make every clip start where somebody starts saying something.
+
+        The turn alignment above puts a boundary on a question when the window
+        already lands near one. It has nothing to say about the far more common
+        shape the editor reported on five consecutive clips: the window opens
+        deep inside an answer, tens of seconds from any turn, so nothing moves
+        it and the clip begins mid-sentence — "começa no meio da fala", "sem
+        contexto suficiente".
+
+        The repair is the smallest one that fixes it. The end is never touched,
+        because on the same five clips the endings were right. Only the start
+        moves, and only backwards to where the sentence — or the thought that
+        sentence continues — began. Rewinding is bounded twice: by
+        ``MAX_OPENING_REWIND_S`` and by the preferred duration ceiling, so a clip
+        never grows into a different clip while looking for its beginning.
+
+        A rewind stops as soon as it reaches solid ground: the interviewer's
+        turn (the answer begins the instant the question ends), a real pause, or
+        a sentence that already stands on its own. When rewinding is not
+        affordable the start goes *forward* instead, onto the next sentence
+        boundary, so the clip still opens on a whole sentence — shorter, but
+        never broken.
+        """
+        if not sentences:
+            return clips
+        ordered = sorted(sentences, key=lambda item: float(item.get("start", 0) or 0))
+        starts = [float(item.get("start", 0) or 0) for item in ordered]
+        cased = self._casing_is_meaningful(ordered)
+        repaired = 0
+
+        for clip in clips or []:
+            start = float(clip.get("start", 0) or 0)
+            end = float(clip.get("end", 0) or 0)
+            if end - start <= self.min_duration:
+                continue
+
+            # The sentence the start falls in, or the first one after it.
+            index = None
+            for position, item in enumerate(ordered):
+                if float(item.get("start", 0) or 0) - 0.25 <= start < float(item.get("end", 0) or 0):
+                    index = position
+                    break
+            forward_only = index is None
+            if forward_only:
+                index = next((position for position, value in enumerate(starts) if value >= start - 0.25), None)
+                if index is None:
+                    continue
+
+            mid_sentence = starts[index] < start - 0.35
+            if not mid_sentence:
+                # A clip already opening on the interviewer is opening on the
+                # question, and the answer follows inside it. That is a shape the
+                # editor approved — the turn alignment puts boundaries there on
+                # purpose — so it is left exactly where it is.
+                if is_interviewer_sentence(str(ordered[index].get("text") or "")):
+                    continue
+                if self._opens_a_thought(ordered[index].get("text"), cased):
+                    continue
+
+            floor = max(start - self.MAX_OPENING_REWIND_S, end - self.preferred_max_duration)
+            target = index
+            while starts[target] >= floor:
+                item = ordered[target]
+                # Reaching the question is reaching solid ground: the clip opens
+                # on what was asked and carries the answer to it.
+                if is_interviewer_sentence(str(item.get("text") or "")):
+                    break
+                if self._opens_a_thought(item.get("text"), cased):
+                    break
+                if target == 0:
+                    break
+                previous = ordered[target - 1]
+                if starts[target] - float(previous.get("end", 0) or 0) >= self.OPENING_PAUSE_S:
+                    break
+                target -= 1
+
+            new_start = starts[target]
+            if new_start < floor or (mid_sentence and forward_only):
+                new_start = None
+            if new_start is None or new_start > start + 0.05:
+                # Rewinding is not affordable, or the walk landed ahead of where
+                # the clip already began: open on the next whole sentence.
+                ahead = next(
+                    (value for value in starts if start + 0.35 < value <= start + self.MAX_OPENING_TRIM_S),
+                    None,
+                )
+                if ahead is None or end - ahead < self.min_duration:
+                    continue
+                new_start = ahead
+
+            if abs(new_start - start) < 0.35 or end - new_start < self.min_duration:
+                continue
+
+            clip["start"] = round(new_start, 3)
+            clip["duration"] = round(end - new_start, 3)
+            rebuilt = self._text_between(sentences, new_start, end)
+            if rebuilt:
+                clip["text"] = rebuilt
+            clip["opening_repaired_s"] = round(new_start - start, 2)
+            repaired += 1
+
+        if repaired and emit_progress:
+            emit_progress(
+                f"[Início] {repaired} corte(s) abriam no meio da fala; a borda recuou até "
+                "onde o raciocínio começa.",
+                "info",
+            )
+        return clips
 
     def _mark_local_qa_bridge(self, clip, start, end, turns, sentences):
         """Record that the clip carries a question and the answer to it.

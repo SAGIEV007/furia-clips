@@ -895,6 +895,90 @@ def _enrich_editorial_context_locally(video_path, transcription, editorial_conte
     return enriched
 
 
+def _realign_offset_transcription(transcription, duration, emit_progress=None):
+    """Rebase a manual transcript whose clock belongs to the longer broadcast.
+
+    The editor's normal way of getting a caption for a 31-minute excerpt is to
+    take the transcript of the whole programme and keep the stretch that matters.
+    The timestamps that come with it are the broadcast's — the sabatina opens at
+    36:04 of a 1h07 stream — so every one of them sits past the end of the
+    excerpt and the coverage report calls the file a different video. It refused
+    the import outright, twice, and the editor had no way through.
+
+    The two cases are told apart by span, not by offset. A transcript whose
+    material runs longer than the video really is a different, longer video and
+    is still refused. A transcript whose material *fits* the video and merely
+    starts late is the same material on the broadcast's clock: it is rebased to
+    the first timestamp and the shift is stated in the log, because a rebase that
+    is off by a few seconds moves every boundary in the source and the editor has
+    to be able to see that it happened.
+
+    Returns the shift applied, or ``0.0`` when nothing was touched.
+    """
+    if not isinstance(transcription, dict):
+        return 0.0
+    if str(transcription.get("source", "") or "").lower() not in {"manual", "manual_confirmed"}:
+        return 0.0
+    try:
+        video_duration = float(duration or 0)
+    except (TypeError, ValueError):
+        return 0.0
+    if video_duration <= 0:
+        return 0.0
+
+    segments = transcription.get("segments")
+    if not isinstance(segments, list) or not segments:
+        return 0.0
+    bounds = []
+    for segment in segments:
+        if not isinstance(segment, dict):
+            continue
+        try:
+            start = float(segment.get("start", 0))
+            end = float(segment.get("end", start))
+        except (TypeError, ValueError):
+            continue
+        if start >= 0 and end > start:
+            bounds.append((start, end))
+    if not bounds:
+        return 0.0
+
+    first = min(start for start, _ in bounds)
+    last = max(end for _, end in bounds)
+    if last <= video_duration * 1.05:
+        return 0.0
+    span = last - first
+    # Room for the excerpt to start a little before the first word and for the
+    # caption's last line to overhang the final frame.
+    if span > video_duration * 1.05 or span < video_duration * 0.5 or first <= 0:
+        return 0.0
+
+    for segment in segments:
+        if not isinstance(segment, dict):
+            continue
+        for key in ("start", "end"):
+            try:
+                segment[key] = round(float(segment[key]) - first, 3)
+            except (TypeError, ValueError, KeyError):
+                continue
+    raw_last = transcription.get("raw_last_timestamp")
+    try:
+        if raw_last is not None:
+            transcription["raw_last_timestamp"] = round(float(raw_last) - first, 3)
+    except (TypeError, ValueError):
+        pass
+    transcription["timeline_rebased_s"] = round(first, 3)
+    if emit_progress:
+        emit_progress(
+            f"[Transcrição] A legenda vem do programa inteiro: ela começa em "
+            f"{first / 60:.0f}min{first % 60:02.0f}s e cobre {span:.0f}s, que é a duração "
+            f"deste vídeo. Realinhada ao primeiro segundo do arquivo — confira uma citação "
+            f"no vídeo antes de publicar.",
+            "warning",
+        )
+    return round(first, 3)
+
+
 def _transcription_coverage_report(transcription, duration):
     """Summarize temporal coverage without pretending to verify semantic identity."""
     try:
@@ -2728,6 +2812,7 @@ def api_cut_shorts():
                 emit_progress(f"[Whisper] Motor: {transcriber._engine}", "info")
 
             if transcription:
+                _realign_offset_transcription(transcription, video_duration, emit_progress)
                 coverage = _transcription_coverage_report(transcription, video_duration)
                 transcription["coverage"] = coverage
                 if coverage["status"] == "mismatch_suspected" and transcription.get("source") in {"manual", "manual_confirmed"}:
@@ -3285,6 +3370,7 @@ def api_analyze_editorial_context():
             transcription = _transcription_from_gemini_result(multimodal_result, settings.get("language", "pt"))
         if not transcription:
             raise ValueError("Não foi possível obter uma transcrição para analisar o contexto.")
+        _realign_offset_transcription(transcription, video_duration, progress)
         coverage = _transcription_coverage_report(transcription, video_duration)
         transcription["coverage"] = coverage
         transcription["provenance"] = _transcription_provenance(transcription, manual_supplied=manual_supplied)
@@ -3834,6 +3920,7 @@ def api_process_complete():
                     cancel_check=ctx.check_cancel,
                 )
             video_duration = _probe_video_duration_seconds(working_video)
+            _realign_offset_transcription(transcription, video_duration, emit_progress)
             coverage = _transcription_coverage_report(transcription, video_duration)
             transcription["coverage"] = coverage
             if coverage["status"] == "mismatch_suspected" and transcription.get("source") == "manual":

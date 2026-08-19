@@ -273,11 +273,28 @@ def test_an_imported_caption_is_broken_back_into_sentences():
     assert pieces[0]["end"] <= pieces[1]["start"] + 0.01 <= pieces[1]["end"]
 
 
-def test_a_short_segment_is_left_whole():
+def test_a_segment_carrying_one_sentence_is_left_whole():
+    """Nothing is divided that does not hold a boundary.
+
+    A short segment used to be exempt on duration alone, and that exemption is
+    what hid the full stop in the middle of a two-second YouTube caption line —
+    the defect that made five of eight clips open mid-speech on the Metrópoles
+    interview. What qualifies a segment for splitting is now the boundary
+    itself, so a segment with a single sentence still comes back untouched.
+    """
+    selector = ClipSelector()
+    whole = [{"start": 10.0, "end": 14.0, "text": "Eu acho isso humilhante pra gente"}]
+
+    assert selector._split_long_segments(whole) == whole
+
+
+def test_a_full_stop_inside_a_short_caption_line_still_splits():
     selector = ClipSelector()
     short = [{"start": 10.0, "end": 14.0, "text": "Nunca. Eu acho isso humilhante."}]
 
-    assert selector._split_long_segments(short) == short
+    pieces = selector._split_long_segments(short)
+    assert [piece["text"] for piece in pieces] == ["Nunca.", "Eu acho isso humilhante."]
+    assert pieces[0]["start"] == 10.0 and pieces[-1]["end"] <= 14.0
 
 
 def test_the_studio_opening_is_not_a_clip():
