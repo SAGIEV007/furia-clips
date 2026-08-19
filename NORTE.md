@@ -36,10 +36,21 @@ legenda sai com os nomes certos, e o caminho de qualidade não desaba para o
 fallback. *Critério de saída: numa fonte longa e real, a maioria dos cortes é
 aproveitável sem retrabalho de borda.*
 
-**Etapa 2 — Especializar.** Reconhecer quem fala, entender o argumento, gerar
-headline com contexto, medir energia e reação, aproveitar o que o Campaign Hub
-sabe. *Critério de saída: o Furia acerta a headline com frequência suficiente
-para o editor editar em vez de reescrever.*
+**Etapa 2 — Especializar.** Entender o argumento, gerar headline com contexto,
+medir energia e reação, aproveitar o que o Campaign Hub sabe.
+
+E, antes de tudo isso, **saber quem fala — antes de escolher o que cortar.** A
+leitura da fonte hoje conhece só o texto: sabe o que foi dito e não faz ideia de
+quem disse. Passar o reconhecimento de voz sobre a fonte inteira antes da seleção
+produz uma linha do tempo de locutor, e ela resolve três coisas de uma vez: o
+enquadramento passa a ter em quem focar, o trecho de terceiro é reconhecido antes
+de virar candidato, e **a troca de voz vira costura** — uma fronteira melhor que a
+detecção por forma de tratamento no texto, que funcionou numa sabatina e achou só
+catorze costuras em setenta e três minutos de coletiva. Voz não depende de
+vocabulário: funciona em live, debate, podcast e coletiva igualmente.
+
+*Critério de saída: o Furia acerta a headline com frequência suficiente para o
+editor editar em vez de reescrever.*
 
 **Etapa 3 — Automatizar.** Enquadramento, silêncio, composição e legenda saem
 prontos. O editor entra para escolher e para inserir imagem e música.
@@ -83,9 +94,22 @@ projeto e custou corte ruim.
 - **Descartar fala real é pior que manter um candidato fraco.** Um corte fraco se
   ignora; um trecho bom descartado não volta.
 - **Um argumento cortado antes da conclusão pode virar o oposto do que foi dito.**
-- **O último portão antes de publicar é humano.** A automação pode corrigir forma
-  — enquadramento, legenda, duração, ruído. Não pode decidir sozinha que um corte
-  está pronto para o público. O custo dos dois erros é assimétrico.
+- **O portão antes de publicar encolhe, mas não some.** Ele é calibrado, não
+  binário, e encolhe na exata proporção do trabalho de especialização:
+
+  - **Verde** — tudo que dá para medir fechou: voz confirmada, borda em costura,
+    pergunta respondida, nomes conferidos, headline sustentada pela transcrição,
+    nada sensível. Aprovação em lote, olhando só as headlines.
+  - **Âmbar** — alguma medição não fechou, e o motivo específico vem junto:
+    "o áudio não confirma o locutor", "termina 2s antes da conclusão".
+  - **Vermelho** — alegação factual forte, terceiro falando, tema sensível.
+
+  Com a especialização feita, o verde vira a maioria e a revisão de trinta cortes
+  leva trinta segundos. O que o portão continua cobrindo não é incompetência da
+  ferramenta: é informação que não está no vídeo. Uma notícia de duas horas atrás
+  muda o que uma frase significa, e nenhum treino sobre o material alcança isso.
+  O custo dos dois erros é assimétrico — perder um corte bom custa um corte;
+  publicar um que inverte o sentido de uma fala custa a conta.
 
 ---
 
@@ -115,11 +139,61 @@ relatório de ciclo, prompt de transferência ou registro de estado.
   com o porquê em três palavras. Exemplo positivo sozinho não ensina fronteira.
 - Grafia canônica de nome novo.
 - O veredito sobre corte bom e corte ruim.
-- Prints da arte publicada quando o formato mudar.
+- Baixar os MP4 já publicados e largar numa pasta. O Furia não alcança o
+  Instagram; a partir do arquivo local, o resto ele extrai sozinho.
 
 ---
 
-## 7. Etapa 4, desenhada
+## 7. Como o Furia aprende
+
+Ele não treina no sentido de gerar um modelo próprio. Ele **calibra** a partir de
+decisões que já existem. Três fontes, em ordem de quanto custam ao editor:
+
+**a) O ida e volta do CapCut — custo zero.**
+
+O editor exporta um corte, edita no CapCut e reimporta no Furia para legendar.
+Esse caminho de volta já está no fluxo. O Furia guarda a impressão digital do
+áudio no que exportou e compara com o que voltou: a duração mudou, e de que lado;
+o começo foi aparado; o arquivo nunca voltou.
+
+É aprendizado de **borda**, que é justamente o que mais erra. E é o melhor sinal
+disponível porque não custa um minuto: sai do trabalho normal, sem formulário,
+sem o editor precisar lembrar de anotar nada.
+
+O que ele **não** mede: alinhamento de texto, altura de faixa, tamanho de
+headline. Quando o vídeo volta ele tem imagem, música e arte por cima —
+visualmente é outro vídeo. O áudio ainda casa; a imagem não.
+
+**b) Os MP4 já publicados — custo de baixar e largar numa pasta.**
+
+De um corte publicado o Furia extrai a headline queimada por leitura de texto na
+imagem, o estilo da legenda, as proporções da faixa medidas em pixels, e a fala
+do trecho por transcrição.
+
+Os dois últimos juntos formam o par que falta hoje: **isto foi dito → esta
+headline foi escrita.** Dezenas ou centenas de exemplos reais, em vez de padrões
+deduzidos de capturas de tela. É o que dá ao gerador o mesmo material que uma
+pessoa tem ao escrever uma headline boa: o argumento inteiro e o que se escolheu
+destacar dele.
+
+De brinde, as proporções exatas da arte saem medidas em vez de perguntadas.
+
+Leitura de texto em fonte estilizada erra às vezes. O que sair duvidoso é marcado
+como duvidoso, nunca apresentado como certo.
+
+**c) Aprovado e reprovado — custo de um arrastar.**
+
+Descrito na etapa 4. Cada corte exportado leva um arquivo irmão com a origem, os
+tempos, a transcrição e os sinais da decisão; mover o vídeo de pasta vira o
+veredito, e o irmão carrega o significado.
+
+**O que nenhuma das três alcança** é o erro por omissão: o corte bom que o Furia
+nunca propôs. Para isso ele registra o que ficou em segundo e terceiro lugar, e
+o editor olha a lista de vez em quando — padrão de cegueira aparece rápido assim.
+
+---
+
+## 8. Etapa 4, desenhada
 
 O editor descreveu duas pastas: uma para o que aprova, outra para o que rejeita.
 O gesto é ótimo — arrastar um arquivo é o feedback de menor atrito que existe.
@@ -152,7 +226,7 @@ houver máquina dedicada, o mesmo desenho serve sem mudança.
 
 ---
 
-## 8. Interface
+## 9. Interface
 
 Ela precisa passar credibilidade antes de estar completa.
 
@@ -170,7 +244,7 @@ Ela precisa passar credibilidade antes de estar completa.
 
 ---
 
-## 9. Onde estamos
+## 10. Onde estamos
 
 Etapa 1, quase no fim. Falta confirmar em fonte real que as bordas melhoraram e
 que o caminho de qualidade parou de desabar.
