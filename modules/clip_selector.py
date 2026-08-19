@@ -81,6 +81,12 @@ class ClipSelector:
     # considered closed. Fewer than this and the viewer still gets no payoff.
     MIN_ANSWER_WORDS = 12
 
+    # Teto do alongamento que fecha uma pergunta. Ele não tinha teto próprio: o
+    # único limite era a duração técnica de dez minutos, e numa coletiva real
+    # isso esticou um corte em 157 segundos. Mostrar que a resposta começou é o
+    # bastante — a resposta inteira é outro corte.
+    MAX_ANSWER_EXTENSION_S = 30.0
+
     # Share of a candidate that may sit on labelled non-content before the
     # candidate is discarded instead of competing for a slot.
     NON_CONTENT_DROP_RATIO = 0.5
@@ -1661,9 +1667,17 @@ Retorne APENAS o JSON.
                 sentence_end = float(sentence.get("end", 0) or 0)
                 if sentence_end <= end:
                     continue
-                if sentence_start > end + 3.0 and answer_words == 0:
-                    # Nothing follows closely enough to be the answer to this
-                    # question; extending would splice unrelated material.
+                # A continuidade tem de valer em cada passo, não só no primeiro.
+                # Exigi-la apenas enquanto nada tinha sido tomado deixava o laço
+                # atravessar buracos de qualquer tamanho depois da primeira frase,
+                # emendando material que não é a resposta daquela pergunta.
+                if sentence_start > new_end + 3.0:
+                    break
+                # E o alongamento precisa de teto próprio. O único limite era a
+                # duração máxima técnica, de dez minutos: numa coletiva real isso
+                # esticou um corte em 157 segundos. Mostrar que a resposta começou
+                # é o suficiente; a resposta inteira é outro corte.
+                if sentence_end - end > self.MAX_ANSWER_EXTENSION_S:
                     break
                 if sentence_end - start > self.max_duration:
                     break
