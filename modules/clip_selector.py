@@ -384,7 +384,7 @@ class ClipSelector:
             "que", "com", "dos", "das", "nos", "nas", "por", "mais",
             "uma", "uns", "umas", "este", "esta", "esse", "essa",
             "ele", "ela", "eles", "elas", "seu", "sua", "seus", "suas",
-            "nos", "pontos", "fala", "fale", "deste", "desta",
+            "pontos", "fala", "fale", "deste", "desta",
         }
         words = user_context.split()
         keywords = []
@@ -2343,20 +2343,18 @@ Retorne APENAS o JSON.
 
         stop_words_pt = {
             "quero", "quando", "como", "onde", "sobre", "para", "este", "esta",
-            "esse", "essa", "principalmente", "extrair", "momentos", "onde",
-            "esteja", "falando", "clips", "cortes", "video", "fazer", "pedir",
+            "esse", "essa", "principalmente", "extrair", "momentos", "esteja", "falando", "clips", "cortes", "video", "fazer", "pedir",
             "quais", "melhor", "mais", "menos", "muito", "pouco", "todos",
             "todas", "cada", "outro", "outra", "outros", "outras", "aqui",
             "ali", "isso", "isto", "aquilo", "dele", "dela", "deles", "delas",
             "nele", "nela", "neles", "nelas", "meu", "minha", "seu", "sua",
             "nosso", "nossa", "vosso", "vossa", "com", "sem", "por", "entre",
             "contra", "desde", "ate", "apos", "antes", "depois", "durante",
-            "pode", "deve", "quer", "tem", "vai", "vem", "esta", "estao",
-            "foram", "seria", "seria", "fosse", "sendo", "sido", "tendo",
-            "tendo", "faz", "fez", "faria", "somente", "apenas", "tambem",
+            "pode", "deve", "quer", "tem", "vai", "vem", "estao",
+            "foram", "seria", "fosse", "sendo", "sido", "tendo",
+            "faz", "fez", "faria", "somente", "apenas", "tambem",
             "ainda", "agora", "logo", "sempre", "nunca", "talvez", "sim",
-            "nao", "bem", "mal", "assim", "entao", "pois", "porque", "como",
-            "sobresaia", "estaja", "respondendo", "perguntas", "mitando",
+            "nao", "bem", "mal", "assim", "entao", "pois", "porque", "sobresaia", "estaja", "respondendo", "perguntas", "mitando",
             "debate", "neste", "nesta", "deste", "desta",
         }
 

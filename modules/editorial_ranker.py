@@ -306,8 +306,6 @@ class EditorialRanker:
             "starts_with_context_reference": bool(clip.get("starts_with_context_reference")),
             "question_requires_answer": bool(clip.get("question_requires_answer")),
             "payoff_weak_ending": bool(clip.get("payoff_weak_ending")),
-            "transcription_review_required": bool(clip.get("transcription_review_required")),
-            "transcription_coverage_status": str(clip.get("transcription_coverage_status", "") or ""),
             "breakdown": breakdown,
             "factors": {key: round(value, 1) for key, value in factors.items()},
             "confidence": round(confidence, 2),

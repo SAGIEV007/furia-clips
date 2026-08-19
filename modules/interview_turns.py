@@ -23,6 +23,7 @@ ideal, while an invented seam would end a cut in the middle of a sentence.
 
 from __future__ import annotations
 
+import re
 import unicodedata
 from typing import Any
 
@@ -70,16 +71,14 @@ def _normalize(text: str) -> str:
     return " " + " ".join(lowered.split()) + " "
 
 
-def _phrases(terms: tuple[str, ...]) -> "re.Pattern[str]":
+def _phrases(terms: tuple[str, ...]) -> re.Pattern[str]:
     """Match the terms as whole words.
 
     Substring matching read "os seis **candidato**s mais bem colocados" — the
     anchor listing who will be interviewed — as the vocative "candidato", and
     with it the whole opening of the broadcast became an interviewer turn.
     """
-    import re as _re
-
-    return _re.compile(r"(?:^|(?<=\W))(?:" + "|".join(_re.escape(term.strip()) for term in terms) + r")(?=\W|$)")
+    return re.compile(r"(?:^|(?<=\W))(?:" + "|".join(re.escape(term.strip()) for term in terms) + r")(?=\W|$)")
 
 
 _ADDRESS_RE = None
@@ -175,9 +174,7 @@ def addresses_the_guest(text: str) -> bool:
     """
     global _VOCATIVE
     if _VOCATIVE is None:
-        import re as _re
-
-        _VOCATIVE = _re.compile(
+        _VOCATIVE = re.compile(
             r"(?:^\s*|[,;.!?]\s*)(?:candidato|senhor|senhora|deputado|governador)\s*[,?!.]"
         )
     return bool(_VOCATIVE.search(_normalize(text)))

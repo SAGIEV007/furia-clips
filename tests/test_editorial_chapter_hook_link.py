@@ -46,7 +46,7 @@ def test_clip_without_context_keeps_legacy_defaults():
 
 def test_clip_exposes_qa_boundary_basis_for_review():
     context = {
-        "editorial_chapters": [{"id": "chapter-1", "index": 0, "start": 0.0, "end": 60.0, "end": 60.0, "label": "pergunta e resposta"}],
+        "editorial_chapters": [{"id": "chapter-1", "index": 0, "start": 0.0, "end": 60.0, "label": "pergunta e resposta"}],
         "hook_candidates": [],
         "qa_candidates": [{
             "start": 10.0,

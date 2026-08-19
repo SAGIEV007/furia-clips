@@ -3541,12 +3541,12 @@ def api_save_performance_snapshot():
 @app.route("/api/performance/summary", methods=["GET"])
 def api_performance_summary():
     format_id = request.args.get("format_id", "")
-    platform = request.args.get("platform", "")
+    platform_id = request.args.get("platform", "")
     observation_window = request.args.get("observation_window", "")
     region = request.args.get("region", "")
     filters = {
         "format_id": format_id or None,
-        "platform": platform or None,
+        "platform": platform_id or None,
         "observation_window": observation_window or None,
         "region": region or None,
     }
@@ -3752,6 +3752,11 @@ def api_process_complete():
     user_context = data.get("user_context", "")
     video_genre = data.get("video_genre", "")
     transcription_source = data.get("transcription_source")
+    # O processo completo lia este sinalizador em lugar nenhum e mesmo assim o
+    # usava lá dentro, na decisão de reenquadrar. Era NameError garantido — a
+    # etapa de enquadramento do "Executar Tudo" nunca chegou a rodar até o fim.
+    # A rota de cortes já lia assim; esta ficou para trás.
+    use_face_tracking = _coerce_bool(data.get("face_tracking"), default=True)
 
     if not os.path.exists(video_path):
         return jsonify({"error": "Video nao encontrado"}), 404

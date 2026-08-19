@@ -126,7 +126,7 @@ def test_qa_candidates_explain_speaker_boundary_and_review_need():
 
     with_speaker_change = analyze_transcript_context({
         "segments": [
-            {"start": 0, "end": 4, "end": 4, "text": "Qual é a proposta?", "speaker": "entrevistador"},
+            {"start": 0, "end": 4, "text": "Qual é a proposta?", "speaker": "entrevistador"},
             {"start": 4, "end": 12, "text": "A proposta é reduzir o desperdício.", "speaker": "renan"},
         ]
     })

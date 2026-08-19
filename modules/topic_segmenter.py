@@ -38,7 +38,7 @@ _STOPWORDS = {
     "num", "numa", "o", "os", "ou", "para", "pela", "pelo", "por", "porque", "que",
     "quando", "se", "sem", "ser", "seu", "sua", "são", "só", "também", "te", "tem",
     "ter", "teu", "um", "uma", "vai", "vamos", "você", "vocês", "aí", "então", "né",
-    "assim", "coisa", "gente", "cara", "tá", "pra", "pro", "lo", "la", "das", "dessa",
+    "assim", "coisa", "gente", "cara", "tá", "pra", "pro", "lo", "la", "dessa",
 }
 
 

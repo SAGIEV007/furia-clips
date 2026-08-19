@@ -52,7 +52,7 @@ _PRESERVE_COMPOSITION = {
     "desconhecido",
 }
 
-_TRUE_VALUES = {True, 1, "1", "true", "yes", "sim", "y"}
+_TRUE_VALUES = {True, "1", "true", "yes", "sim", "y"}
 
 
 def classify_editorial_format(clip: dict[str, Any] | None, text: str = "") -> dict[str, Any]:
