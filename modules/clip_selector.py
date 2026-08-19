@@ -267,7 +267,7 @@ class ClipSelector:
         # a long block into pieces makes neighbours by construction, and the
         # ranker scored each on its own merits without ever seeing that the clip
         # before it ended where this one begins.
-        clips = self._drop_touching_siblings(clips, emit_progress)
+        clips = self._drop_touching_siblings(clips, emit_progress, sentences)
 
         clips = self._drop_labelled_non_content(clips, settings, sentences, emit_progress)
 
@@ -1221,7 +1221,7 @@ Retorne APENAS o JSON.
     # stretch of talk handed over in two files.
     TOUCHING_GAP_S = 3.0
 
-    def _drop_touching_siblings(self, clips, emit_progress=None):
+    def _drop_touching_siblings(self, clips, emit_progress=None, sentences=None):
         """Keep one of two candidates that sit end to end.
 
         Measured on a 73-minute press conference: three of the seven rendered
@@ -1231,7 +1231,32 @@ Retorne APENAS o JSON.
 
         The longer one is kept when the scores are close, because the complaint
         about the short neighbours was that they end before the idea does.
+
+        **Encostar não basta.** A regra nasceu de blocos esparsos, onde dois
+        candidatos colados eram mesmo a mesma resposta servida duas vezes. No
+        caminho local os blocos particionam a fonte inteira, então encostar é o
+        estado normal e não um defeito: numa sabatina real este passe apagava
+        nove de dezoito candidatos, cada um respondendo a uma pergunta
+        diferente. O que separa os dois casos é quem fala no meio — se o
+        entrevistador toma a palavra na junta, são respostas a perguntas
+        distintas e as duas vivem.
         """
+        juntas_de_pergunta: list[float] = []
+        if sentences:
+            try:
+                turnos = detect_interviewer_turns(sentences)
+                duracao = max((float(s.get("end", 0) or 0) for s in sentences), default=0.0)
+                if looks_like_an_interview(turnos, duracao):
+                    juntas_de_pergunta = [
+                        float(t["start_s"]) for t in turnos if not t.get("interjection")
+                    ]
+            except (TypeError, ValueError, KeyError):
+                juntas_de_pergunta = []
+
+        def pergunta_entre(fim_anterior, inicio_atual):
+            baixo, alto = min(fim_anterior, inicio_atual) - 2.0, max(fim_anterior, inicio_atual) + 2.0
+            return any(baixo <= marca <= alto for marca in juntas_de_pergunta)
+
         ordered = sorted(clips or [], key=lambda clip: float(clip.get("start", 0) or 0))
         kept: list[dict] = []
         dropped = 0
@@ -1243,7 +1268,11 @@ Retorne APENAS o JSON.
             # diagnostics; swallowing it here hid which candidate had lost to
             # which. This pass only owns the case where one clip ends and the
             # next begins.
-            if gap is not None and 0.0 <= gap <= self.TOUCHING_GAP_S:
+            if (
+                gap is not None
+                and 0.0 <= gap <= self.TOUCHING_GAP_S
+                and not pergunta_entre(float(previous.get("end", 0) or 0), start)
+            ):
                 current_score = float(clip.get("viral_score", 0) or 0)
                 previous_score = float(previous.get("viral_score", 0) or 0)
                 current_span = float(clip.get("end", 0) or 0) - start
@@ -1535,19 +1564,21 @@ Retorne APENAS o JSON.
         )
 
         # SPEAKER FILTERING: When names are specified, EXCLUDE clips without them
-        if context_data and context_data["names"]:
-            target_names = context_data["names"]
-            filtered = []
-            for clip in clips:
-                clip_text_lower = clip["text"].lower()
-                has_target = any(name in clip_text_lower for name in target_names)
-                if has_target:
-                    filtered.append(clip)
-            # If filtering removes too many, keep at least some clips
-            if len(filtered) >= 3:
-                clips = filtered
-            elif emit_progress:
-                emit_progress(f"[NLP] Poucos clips com '{', '.join(target_names)}' na transcricao. Mostrando melhores disponiveis.", "warning")
+        # O nome citado no contexto é preferência, nunca portão. Quem fala é
+        # decidido pelo áudio e pelos turnos da entrevista; citar um nome no
+        # texto significa que ALGUÉM FALOU DAQUELA PESSOA, que é quase o oposto.
+        # Numa sabatina o entrevistado não diz o próprio nome nem o do canal, e
+        # o descarte por citação apagava 12 dos 19 candidatos de uma fonte real.
+        # _compute_context_score já dá +25 por nome e teto maior a quem cita.
+        if context_data and context_data["names"] and emit_progress:
+            citam = sum(
+                1 for clip in clips
+                if any(name in clip["text"].lower() for name in context_data["names"])
+            )
+            emit_progress(
+                f"[NLP] {citam} de {len(clips)} candidatos citam o contexto; "
+                f"eles sobem no ranqueamento, os outros continuam disponíveis."
+            )
 
         clips.sort(key=lambda x: x["viral_score"], reverse=True)
 
@@ -2693,13 +2724,12 @@ Retorne APENAS o JSON.
                     or opening_flags.get("starts_with_context_reference")
                     or (qa_start is not None and float(previous_block.get("start", 0)) <= qa_start + 2.5)
                 )
-                if not needs_previous or gap > 2.5 or joined_duration > self.max_duration:
+                if not needs_previous or gap > 2.5 or joined_duration > self.preferred_max_duration:
                     break
                 clip_blocks.insert(0, previous_block)
                 clip_duration = joined_duration
                 start_idx -= 1
 
-            preferred_stop = min(float(self.target_duration or 45), 30.0)
             clip_text_preview = " ".join(b["text"] for b in clip_blocks)
             preview_flags = self._editorial_flags(
                 clip_text_preview,
@@ -2712,6 +2742,7 @@ Retorne APENAS o JSON.
                 and preview_flags.get("context_complete")
                 and preview_flags.get("payoff_complete")
             )
+            desfecho_encontrado = bool(start_is_complete)
             if not start_is_complete:
                 for next_idx in range(start_idx + 1, len(scored_blocks)):
                     if next_idx in used_indices:
@@ -2719,7 +2750,14 @@ Retorne APENAS o JSON.
                     next_block = scored_blocks[next_idx][0]
                     new_duration = next_block["end"] - clip_blocks[0]["start"]
 
-                    if new_duration > self.max_duration:
+                    # O teto aqui é o preferido, não o técnico. Com o teto
+                    # técnico (600 s) a procura por um desfecho completo
+                    # atravessava blocos inteiros: numa sabatina real um bloco de
+                    # 176 s virou candidato de 471 s, e outro de 173 s virou 293 s.
+                    # Um trecho de cinco minutos não é corte — é pedaço do
+                    # programa. Se o desfecho não aparece em 180 s, ele não
+                    # pertence a este corte.
+                    if new_duration > self.preferred_max_duration:
                         break
 
                     clip_blocks.append(next_block)
@@ -2740,6 +2778,7 @@ Retorne APENAS o JSON.
                         and natural_flags.get("payoff_complete")
                     ):
                         clip_end_idx = next_idx
+                        desfecho_encontrado = True
                         break
 
             if clip_duration < self.min_duration:
@@ -2764,12 +2803,33 @@ Retorne APENAS o JSON.
                 },
             )
 
-            # ENFORCE max_duration — truncate if clip exceeds limit
-            if clip_end - clip_start > self.max_duration:
-                clip_end = clip_start + self.max_duration
-                clip_duration = self.max_duration
-            else:
-                clip_duration = clip_end - clip_start
+            # Teto: quando o trecho estoura o preferido, quem decide onde ele
+            # termina é o material, não o cronômetro. Cortar em
+            # clip_start + teto reintroduzia o defeito dos candidatos de 180.0 s
+            # exatos, que abriam e fechavam no meio do argumento. _split_to_clip_length
+            # fecha no turno do entrevistador ou no maior silêncio.
+            estourou = clip_end - clip_start > self.preferred_max_duration
+            # Quando a expansão desiste de achar um desfecho, o fim do corte é
+            # onde o laço parou — e isso é arbitrário tanto se parou no teto de
+            # 180 s quanto se parou porque o próximo bloco não cabia. Foi o que
+            # produziu candidatos fechando no meio do argumento. Havendo mais de
+            # um bloco, quem escolhe a saída é o material: o turno do
+            # entrevistador primeiro, senão o maior silêncio.
+            desistiu_no_meio = not desfecho_encontrado and len(clip_blocks) > 1
+            if estourou or desistiu_no_meio:
+                sentencas = [s for block in clip_blocks for s in (block.get("sentences") or [])]
+                # _best_cut_index, e não _split_to_clip_length: o divisor não faz
+                # nada quando o trecho já cabe no teto, e o caso comum aqui é
+                # justamente esse — o corte fechou em 164 s numa fronteira de
+                # bloco tendo um silêncio aos 140 s.
+                corte = self._best_cut_index(sentencas, clip_start) if len(sentencas) > 1 else 0
+                if 0 < corte <= len(sentencas):
+                    clip_end = float(sentencas[corte - 1]["end"])
+                    clip_blocks = [b for b in clip_blocks if float(b["start"]) < clip_end] or clip_blocks[:1]
+                    clip_text = " ".join(b["text"] for b in clip_blocks)
+                elif estourou:
+                    clip_end = clip_start + self.preferred_max_duration
+            clip_duration = clip_end - clip_start
 
             avg_score = sum(scored_blocks[i][1] for i in range(start_idx, clip_end_idx + 1)) / (clip_end_idx - start_idx + 1)
 
