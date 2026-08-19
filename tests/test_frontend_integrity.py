@@ -147,3 +147,28 @@ def test_o_som_e_o_cursor_tem_como_ser_ligados():
     assert 'id="settingSound"' in HTML
     assert 'id="settingCursor"' in HTML
     assert "SOM_CHAVE" in JS and "CURSOR_CHAVE" in JS
+
+
+# ── Destaque da etapa ──────────────────────────────────────────────────────────
+
+def test_uma_classe_so_desenha_a_etapa_corrente():
+    """Duas classes disputando o mesmo papel deixavam a marca visual parada.
+
+    O destaque dourado é desenhado por `.active`, e a navegação escrevia
+    `.current`. Clicar numa etapa trocava o conteúdo e a marca continuava onde o
+    pipeline tinha posto — só apareceu quando abri a página num navegador de
+    verdade, porque nenhum teste de arquivo enxerga estilo aplicado.
+    """
+    assert 'passo.classList.toggle("active", nome === stage)' in JS
+    progresso = re.search(r"function updateWorkspaceWorkflow.*?\n\}", JS, re.DOTALL)
+    assert progresso and 'toggle("active"' not in progresso.group(0)
+
+
+def test_o_fake_tweet_saiu_da_interface():
+    """O editor decidiu fazer esse formato à mão."""
+    assert "fake" not in HTML.lower()
+
+
+def test_a_pagina_tem_icone():
+    """O 404 que o navegador registrava a cada carga."""
+    assert 'rel="icon"' in HTML

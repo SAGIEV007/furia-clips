@@ -686,6 +686,7 @@ function showStage(stage, { manual = false } = {}) {
     document.querySelectorAll(".workflow-step").forEach((passo, indice) => {
         const nome = STAGE_ORDER[indice];
         passo.classList.toggle("current", nome === stage);
+        passo.classList.toggle("active", nome === stage);
         passo.setAttribute("aria-current", nome === stage ? "step" : "false");
     });
 }
@@ -716,7 +717,7 @@ function updateWorkspaceWorkflow(stage = "source", stateLabel = "") {
     const order = ["source", "analysis", "review", "learning"];
     const index = Math.max(0, order.indexOf(stage));
     document.querySelectorAll(".workflow-step").forEach((step, stepIndex) => {
-        step.classList.toggle("active", stepIndex === index);
+        // `active` pertence à navegação; aqui só o progresso.
         step.classList.toggle("complete", stepIndex < index);
         if (stepIndex === index) step.classList.remove("has-news");
     });
