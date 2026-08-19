@@ -420,8 +420,31 @@ def _selection_coverage_plan(source_video, video_duration):
     return {"previous_clip_fingerprints": fingerprints, "adaptive_max_clips": max_clips}
 
 
+def _clip_transcript(segments, start, end):
+    """The lines actually inside a clip, with their times.
+
+    The diagnostics carried 400 characters of the clip's text, which is enough
+    to recognise the clip and not enough to judge it. Reading whether a cut opens
+    mid-argument or stops before the answer needs the sentences and where they
+    fall, so they travel with the decision.
+    """
+    lines = []
+    for item in segments or []:
+        try:
+            at, until = float(item.get("start", 0) or 0), float(item.get("end", 0) or 0)
+        except (TypeError, ValueError):
+            continue
+        if until <= start or at >= end:
+            continue
+        text = " ".join(str(item.get("text") or "").split())
+        if text:
+            lines.append({"t": round(at, 2), "fim": round(until, 2), "texto": text})
+    return lines
+
+
 def _write_selection_diagnostics(
-    *, job_id, video_path, duration_s, selection_source, diagnostics, clips, deferred, emit_progress=None
+    *, job_id, video_path, duration_s, selection_source, diagnostics, clips, deferred,
+    segments=None, transcript_review=None, emit_progress=None,
 ):
     """Record why each candidate survived, in one file the editor can hand over.
 
@@ -462,6 +485,22 @@ def _write_selection_diagnostics(
                 "risk_flags": campaign_block.get("risk_flags"),
                 "motivo_adiamento": clip.get("reason"),
                 "texto": str(clip.get("text") or "")[:400],
+                # How this boundary came to be where it is. Without these the
+                # only way to tell a deliberate edge from an arbitrary one was
+                # to notice that several clips shared the same duration.
+                "fronteiras": {
+                    "alinhado_a_turno": clip.get("turn_aligned"),
+                    "inicio_ajustado_s": clip.get("start_adjustment_s"),
+                    "fim_estendido_s": clip.get("end_extension_s"),
+                    "abertura_aparada": clip.get("opening_trimmed"),
+                    "costura_usada": clip.get("seam_used"),
+                    "ponte_pergunta_resposta": (clip.get("review_flags") or {}).get("qa_bridge"),
+                    "base_da_ponte": (clip.get("review_flags") or {}).get("qa_boundary_basis"),
+                },
+                "assunto_local": clip.get("local_topic") or clip.get("topic_terms"),
+                "transcricao": _clip_transcript(
+                    segments, float(clip.get("start", 0) or 0), float(clip.get("end", 0) or 0)
+                ),
             }
 
         payload = {
@@ -469,6 +508,7 @@ def _write_selection_diagnostics(
             "versao": PROGRAM_VERSION,
             "job_id": job_id,
             "fonte": {"arquivo": Path(str(video_path)).name, "duracao_s": duration_s},
+            "legenda": transcript_review or {},
             "selecao": {"origem": selection_source, "diagnostico": diagnostics},
             "cortes_renderizados": [_describe(clip, index + 1) for index, clip in enumerate(clips or [])],
             "candidatos_adiados": [_describe(item) for item in (deferred or [])],
@@ -2857,6 +2897,8 @@ def api_cut_shorts():
                 diagnostics=candidate_diagnostics,
                 clips=top_clips,
                 deferred=editorial_gate_rejections,
+                segments=(selection_transcription or {}).get("segments"),
+                transcript_review=(selection_transcription or {}).get("revisao_legenda"),
                 emit_progress=emit_progress,
             )
 

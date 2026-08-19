@@ -4,8 +4,8 @@
   "nota": "Agrupamento e papel vêm do Campaign Hub. A grafia canônica NÃO vem: o Hub extraiu esses nomes de legendas automáticas e herdou os erros delas — 'Nicolas Ferreira' aparece mais vezes que 'Nikolas Ferreira', e a forma rara é a certa. Só entradas com confirmado=true reescrevem legenda. As demais ficam como sugestão para o editor aprovar.",
   "contrato": "confirmado=false nunca corrige em silêncio; no máximo sinaliza.",
   "total": 337,
-  "confirmados": 22,
-  "aguardando_revisao": 7,
+  "confirmados": 32,
+  "aguardando_revisao": 0,
   "entradas": [
     {
       "canonico": "Renan Santos",
@@ -30,7 +30,7 @@
     },
     {
       "canonico": "Flávio Bolsonaro",
-      "confirmado": false,
+      "confirmado": true,
       "variantes": [
         "Flavio Bolsonaro"
       ],
@@ -46,7 +46,7 @@
     },
     {
       "canonico": "Banco Master",
-      "confirmado": false,
+      "confirmado": true,
       "variantes": [
         "Banco Máster"
       ],
@@ -160,7 +160,7 @@
     },
     {
       "canonico": "Daniel Vorcaro",
-      "confirmado": false,
+      "confirmado": true,
       "variantes": [
         "Daniel Vorkaro",
         "Daniel Forcaro",
@@ -551,10 +551,10 @@
       "mencoes_chub": 50
     },
     {
-      "canonico": "Jacques Wagner",
-      "confirmado": false,
+      "canonico": "Jaques Wagner",
+      "confirmado": true,
       "variantes": [
-        "Jaques Wagner"
+        "Jacques Wagner"
       ],
       "papel": "villain",
       "mencoes_chub": 49
@@ -596,7 +596,7 @@
     },
     {
       "canonico": "Fabiano Zettel",
-      "confirmado": false,
+      "confirmado": true,
       "variantes": [
         "Fabiano Zetel"
       ],
@@ -647,7 +647,7 @@
     },
     {
       "canonico": "Nayib Bukele",
-      "confirmado": false,
+      "confirmado": true,
       "variantes": [
         "Naib Bukele"
       ],
@@ -981,10 +981,10 @@
       "mencoes_chub": 27
     },
     {
-      "canonico": "Aniele Franco",
-      "confirmado": false,
+      "canonico": "Anielle Franco",
+      "confirmado": true,
       "variantes": [
-        "Anielle Franco"
+        "Aniele Franco"
       ],
       "papel": "villain",
       "mencoes_chub": 26
@@ -1431,9 +1431,11 @@
       "mencoes_chub": 16
     },
     {
-      "canonico": "Fabiano Zeta",
-      "confirmado": false,
-      "variantes": [],
+      "canonico": "Fabiano Zettel",
+      "confirmado": true,
+      "variantes": [
+        "Fabiano Zeta"
+      ],
       "papel": "ally",
       "mencoes_chub": 16
     },
@@ -1529,9 +1531,11 @@
       "mencoes_chub": 15
     },
     {
-      "canonico": "Daniel Vorcar",
-      "confirmado": false,
-      "variantes": [],
+      "canonico": "Daniel Vorcaro",
+      "confirmado": true,
+      "variantes": [
+        "Daniel Vorcar"
+      ],
       "papel": "villain",
       "mencoes_chub": 15
     },
@@ -1998,9 +2002,11 @@
       "mencoes_chub": 10
     },
     {
-      "canonico": "Fabiano Zé",
-      "confirmado": false,
-      "variantes": [],
+      "canonico": "Fabiano Zettel",
+      "confirmado": true,
+      "variantes": [
+        "Fabiano Zé"
+      ],
       "papel": "ally",
       "mencoes_chub": 10
     },

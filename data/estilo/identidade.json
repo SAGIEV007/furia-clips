@@ -1,39 +1,70 @@
 {
-  "schema_version": "furia-estilo-v1",
-  "nota": "A identidade visual usada de verdade na publicação, ditada pelo editor. Fica aqui para que legenda e headline saiam prontas do Furia em vez de serem refeitas no CapCut. Fontes não acompanham o repositório: precisam estar instaladas na máquina que renderiza.",
+  "schema_version": "furia-estilo-v2",
+  "fonte_da_verdade": "MODELOS PARA CORTEIROS.pdf, entregue pelo editor em 18/08/2026",
+  "nota": "Este arquivo era uma reconstrução minha a partir de descrições e capturas, e errava em três pontos: a fonte da headline 9:16 (é Bebas Neue, não Stilu-BD), o formato da headline branca (é 3:4, não 1:1) e a existência de duas variantes de 9:16. O PDF do editor manda; o que estiver aqui e não estiver lá é suposição e está marcado como tal.",
+
   "legenda": {
-    "fonte": "Melvin One",
-    "cor_texto": "#FFD400",
-    "cor_texto_nota": "Amarelo. O modelo de referência do CapCut é vermelho; o editor usa amarelo.",
+    "aplica_se_a": "todos os formatos",
+    "fonte": "Melvins One",
+    "cor_texto": "#FFFFFF",
+    "cor_destaque": "#FFD400",
+    "contorno": "#000000",
+    "efeito": "karaoke",
+    "efeito_nota": "O texto é branco e a palavra que está sendo dita fica amarela, passando para a seguinte conforme a fala avança. Não é uma palavra-chave escolhida: é a palavra corrente. Implementado em SubtitleGenerator._generate_word_by_word; exige timestamps por palavra.",
     "caixa": "maiuscula",
-    "contorno": true,
-    "posicao": "inferior_centro",
     "posicao_9x16": "superior",
-    "posicao_9x16_nota": "No formato 9:16 a legenda fica no topo do vídeo, não embaixo: a parte de baixo do quadro é reservada para a imagem que o editor insere depois.",
+    "posicao_9x16_nota": "No 9:16 a legenda fica no topo do vídeo — a parte de baixo é da faixa da headline e da imagem que o editor insere depois.",
     "palavras_por_linha_max": 4,
-    "linhas_max": 2,
-    "destaque_por_palavra": {
-      "confirmado_pelo_editor": true,
-      "efeito": "karaoke",
-      "nota": "Confirmado em 18/08/2026. A legenda é branca; a palavra que está sendo dita naquele instante fica amarela, e o amarelo passa para a seguinte conforme a fala avança. Não é uma palavra-chave escolhida: é a palavra corrente. O SubtitleGenerator já implementa isso em _generate_word_by_word com style='word_by_word'; o que faltava era a cor e a fonte da identidade.",
-      "cor_base": "#FFFFFF",
-      "cor_destaque": "#FFD400",
-      "requer": "timestamps por palavra na transcrição"
+    "linhas_max": 2
+  },
+
+  "formatos": {
+    "9x16_amarelo": {
+      "proporcao": "9:16",
+      "composicao": "vídeo principal em cima (Renan falando), faixa da headline embaixo",
+      "fundo_faixa": "#FFD400",
+      "fonte_headline": "Bebas Neue",
+      "cor_texto": "#000000",
+      "caixa": "maiuscula",
+      "alinhamento": "centralizado",
+      "uso": "o padrão para fala do Renan sobre um assunto comentado"
+    },
+    "9x16_preto": {
+      "proporcao": "9:16",
+      "composicao": "vídeo principal em cima, faixa da headline embaixo",
+      "fundo_faixa": "#000000",
+      "fonte_headline": "Bebas Neue",
+      "cor_texto": "#FFFFFF",
+      "cor_destaque": "#E01B24",
+      "caixa": "maiuscula",
+      "alinhamento": "centralizado",
+      "faixa_mais_estreita_que_a_amarela": true,
+      "margem_obrigatoria": true,
+      "margem_nota": "O PDF avisa expressamente para o texto não encostar nas bordas da faixa preta. Ela é mais estreita que a amarela, então a mesma headline que cabe numa não cabe na outra.",
+      "uso": "variante da anterior; o destaque em vermelho marca o conflito"
+    },
+    "3x4_branco": {
+      "proporcao": "3:4",
+      "pixels": "1080x1350",
+      "composicao": "bloco branco com hook e subheadline, vídeo abaixo",
+      "fundo_faixa": "#FFFFFF",
+      "fonte_headline": "Stilu-BD",
+      "cor_texto": "#000000",
+      "alinhamento": "esquerda",
+      "estrutura": [
+        {"linha": "hook", "caixa": "maiuscula", "termina_em": "!"},
+        {"linha": "subheadline", "caixa": "baixa", "conteudo": "o assunto"}
+      ],
+      "uso": "é este o formato da headline branca, e não 1:1 — o 1:1 no guia é só o fake tweet"
     }
   },
-  "headline_1x1": {
-    "fonte": "Stilu-BD",
-    "formato": "square_alfinetei",
-    "estrutura": "chamada superior curta + headline branca curta",
-    "caracteres_max": 40
+
+  "descartado": {
+    "fake_tweet_1x1": "O guia traz um 1:1 de fake tweet (fonte Canva Sans, nome em negrito). O editor decidiu em 18/08/2026 que faz isso manualmente quando fizer; o Furia não implementa."
   },
-  "headline_9x16": {
-    "fonte": "Stilu-BD",
-    "fundo": "#FFD400",
-    "cor_texto": "#000000",
-    "destaque": "#E01B24",
-    "destaque_nota": "Branco sobre vermelho, e só quando existe conflito explicitamente dito no corte.",
-    "linhas_max": 3,
-    "caracteres_por_linha": 19
-  }
+
+  "a_confirmar": [
+    "Proporção exata da altura da faixa amarela e da faixa preta em relação à altura total — o PDF mostra o exemplo visual mas não dá o número, e eu não consigo medir a imagem.",
+    "Quantos caracteres cabem por linha em Bebas Neue na largura de 1080 — depende da fonte instalada na máquina que renderiza."
+  ]
 }

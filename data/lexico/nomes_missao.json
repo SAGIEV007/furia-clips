@@ -245,6 +245,44 @@
       "papel": "presidente"
     },
     {
+      "canonico": "Anielle Franco",
+      "variantes": ["aniele franco", "anielli franco", "aniele franca"],
+      "papel": "ministra",
+      "nota": "O Campaign Hub tinha 'Aniele Franco' como forma dominante. O editor confirmou que a certa é 'Anielle', com dois eles."
+    },
+    {
+      "canonico": "Flávio Bolsonaro",
+      "variantes": ["flavio bolsonaro", "flavio bolsonario"],
+      "papel": "senador"
+    },
+    {
+      "canonico": "Daniel Vorcaro",
+      "variantes": ["daniel vorkaro", "daniel forcaro", "daniel borkaro", "daniel vorcar", "daniel vorcarro"],
+      "papel": "banqueiro, Banco Master"
+    },
+    {
+      "canonico": "Banco Master",
+      "variantes": ["banco master", "banco maste"],
+      "papel": "instituição financeira",
+      "nota": "Sem acento. A legenda automática escreve 'Banco Máster' porque é assim que soa."
+    },
+    {
+      "canonico": "Jaques Wagner",
+      "variantes": ["jacques wagner", "jaque wagner", "jaques vagner"],
+      "papel": "senador",
+      "nota": "Sem o 'c'. O Campaign Hub tinha a grafia francesa como dominante; o editor confirmou a brasileira."
+    },
+    {
+      "canonico": "Fabiano Zettel",
+      "variantes": ["fabiano zetel", "fabiano zeta", "fabiano ze", "fabiano zetell"],
+      "papel": "citado em entrevistas"
+    },
+    {
+      "canonico": "Nayib Bukele",
+      "variantes": ["naib bukele", "nayb bukele", "naiib bukele", "nayib bukelet"],
+      "papel": "presidente de El Salvador"
+    },
+    {
       "canonico": "Tarcísio de Freitas",
       "variantes": [
         "tarcisio de freitas",
