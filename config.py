@@ -37,6 +37,15 @@ PERSISTENT_BACKUPS_DIR = os.path.join(PERSISTENT_DATA_DIR, "backups")
 PERSISTENT_MEDIA_INDEX_DIR = os.path.join(PERSISTENT_DATA_DIR, "media_index")
 PERSISTENT_SCHEMA_PATH = os.path.join(PERSISTENT_DATA_DIR, "schema_version.json")
 
+# O corte pronto é resultado do editor, não subproduto do checkout. Ele nascia em
+# ``workspace/exports``, dentro da pasta do programa — e o editor atualiza
+# substituindo essa pasta inteira, o que apagava os cortes exportados a cada
+# atualização. Pior: apagaria junto o arquivo irmão que carrega a origem e a
+# decisão de cada corte, que é o que torna o aprendizado por aprovação possível.
+#
+# ``PERSISTENT_EXPORTS_DIR`` já existia e já era criado. Ninguém escrevia nele.
+EXPORT_DIR = PERSISTENT_EXPORTS_DIR
+
 # Mantém DATA_DIR como alias de compatibilidade para os módulos existentes.
 DATA_DIR = PERSISTENT_DATABASE_DIR
 DB_PATH = os.path.join(PERSISTENT_DATABASE_DIR, "editorial_learning.sqlite3")

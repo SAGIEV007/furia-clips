@@ -193,7 +193,71 @@ o editor olha a lista de vez em quando — padrão de cegueira aparece rápido a
 
 ---
 
-## 8. Etapa 4, desenhada
+## 8. Onde o conhecimento mora, e como ele viaja
+
+O editor atualiza substituindo a pasta do programa inteira, e usa dois notebooks.
+As duas coisas afetam o mesmo problema.
+
+**O que já está resolvido.** Tudo que ele produz vive em `~/FuriaClipsData`, fora
+do checkout: banco de decisões, projetos, transcrições, calibração, acervo, a voz
+cadastrada. Substituir a pasta do GitHub não toca nisso. Foi decisão deliberada
+de quem construiu, e o comentário no `config.py` diz o porquê.
+
+**O que estava quebrado e foi corrigido.** Os cortes exportados nasciam em
+`workspace/exports`, dentro da pasta do programa. Sumiam a cada atualização — e
+levariam junto o arquivo irmão de cada corte, que é o que torna o aprendizado por
+aprovação possível. `PERSISTENT_EXPORTS_DIR` já existia, já era criado, e nada
+escrevia nele. Agora escreve.
+
+**O que falta: sincronizar as duas máquinas.** O desenho:
+
+- **O canal é um repositório privado só de dados**, separado do código. Não é o
+  repositório do programa: código e evidência têm ciclos diferentes, e misturar
+  os dois faz cada atualização de código carregar megabytes de decisão.
+- **Ao abrir, o Furia tenta buscar.** Conseguiu, funde. Não conseguiu — sem
+  internet, sem credencial, o que for — roda com o que tem local e diz isso na
+  interface, sem travar nada.
+- **A fusão é por registro, nunca por sobrescrita.** As duas máquinas geram
+  decisões em paralelo; o último a subir não pode apagar o trabalho do outro.
+  Cada decisão tem identidade própria e as duas listas se juntam.
+- **Enviar é explícito e também automático ao fechar.** Botão para quando a
+  internet voltar, e envio ao encerrar o dia para o caso de ele esquecer.
+- **Aprovar ou rejeitar um corte já entra na fila de envio**, sem etapa extra.
+- **Vídeo não sobe.** Só a decisão, os tempos, a transcrição e a calibração. O
+  arquivo pesado fica na máquina; o que ensina é leve.
+- **Chave de API nunca sobe.** Ela mora fora do checkout e fora do canal.
+
+### Onde entram o Campaign Hub, os blocos e o site de cortes
+
+São três nomes para dois papéis, e vale separar.
+
+**O Campaign Hub é memória de desempenho.** Ele sabe quem são as pessoas, que
+papel cada uma cumpre no material, e o que rendeu view nas contas. Só existe na
+sessão do agente, nunca na máquina do editor — então o Furia offline jamais o
+consulta ao vivo. O caminho real é: o agente consulta, gera um arquivo, comita, o
+editor puxa. Foi assim que as 337 entidades com papel chegaram. "Atualização
+constante" aqui significa "toda vez que conversarmos", e é honesto dizer isso em
+vez de prometer um fluxo que não existe.
+
+**Os blocos do Acervo são leitura revisada por pessoa.** Quando existem para uma
+fonte, ganham de qualquer heurística: alguém checou as bordas e escreveu o
+título. Hoje entram por importação manual de um arquivo por vídeo. Devem passar a
+viajar pelo mesmo canal de sincronismo, para valerem nos dois notebooks sem o
+editor importar duas vezes.
+
+**O site de cortes da Missão é a frente do Campaign Hub.** Não é uma terceira
+fonte: o que ele mostra são os mesmos blocos. O que o Furia pode aproveitar dele
+é a busca — achar, por palavra, todos os vídeos do acervo que falam de um assunto,
+e trazer os blocos correspondentes. Isso é conveniência de pauta, não de corte, e
+por isso vem depois do resto.
+
+**A regra que vale para os três:** nenhum campo vindo de fora aprova um corte
+sozinho, e nenhuma métrica histórica compensa um portão de contexto, transcrição,
+locutor ou evidência. Eles informam; quem decide é a leitura do trecho.
+
+---
+
+## 9. Etapa 4, desenhada
 
 O editor descreveu duas pastas: uma para o que aprova, outra para o que rejeita.
 O gesto é ótimo — arrastar um arquivo é o feedback de menor atrito que existe.
@@ -226,7 +290,7 @@ houver máquina dedicada, o mesmo desenho serve sem mudança.
 
 ---
 
-## 9. Interface
+## 10. Interface
 
 Ela precisa passar credibilidade antes de estar completa.
 
@@ -244,7 +308,7 @@ Ela precisa passar credibilidade antes de estar completa.
 
 ---
 
-## 10. Onde estamos
+## 11. Onde estamos
 
 Etapa 1, quase no fim. Falta confirmar em fonte real que as bordas melhoraram e
 que o caminho de qualidade parou de desabar.
