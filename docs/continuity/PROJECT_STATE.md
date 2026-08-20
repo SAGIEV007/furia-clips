@@ -8,12 +8,12 @@
 | --- | --- |
 | Projeto | Furia Clips |
 | Repositório | `SAGIEV007/furia-clips` |
-| Versão pública atual | `6.13` |
-| Última release funcional anterior | `6.12` |
-| Natureza da release atual | Gate observável Renan-first: identidade de locutor ausente deixa de passar como contexto completo e corte pronto |
+| Versão pública atual | `6.14` |
+| Última release funcional anterior | `6.13` |
+| Natureza da release atual | Snapshot rico do Campaign Hub passa a ser consumido pelo caminho persistido; evidência alinhada owner/allied resolve parte da identidade Renan-first sem aprovação automática |
 | Fonte da versão | [`VERSION`](../../VERSION) |
 | Branch de trabalho | `claude/repo-access-commits-imgjmk` |
-| Última publicação conhecida | `c434802` — `fix: exigir identidade de locutor no modo Renan-first (6.13)` |
+| Última publicação conhecida | Commit funcional da 6.14 será registrado após o fechamento desta rodada |
 | Commit funcional 2.6 | `fec34fe` — `feat: primeira ponte funcional Campaign Hub para propostas (2.6)` |
 | Commit funcional 2.7 | `a0452d3` — `fix: declarar confiabilidade da medição no benchmark editorial (2.7)` |
 | Commit funcional 2.8 | `fdf5e6b` — `fix: alinhar seeds do Campaign Hub com a mídia local em processamento (2.8)` |
@@ -21,21 +21,27 @@
 | Commit funcional 3.0 | `f83d1fb` — `feat: governar o orçamento de candidatos pela fonte, com precisão medida (3.0)` |
 | Commit funcional 3.1 | `a170aab` — `feat: entregar todo candidato com contexto, locutor e veredito de revisão (3.1)` |
 | Última atualização | 2026-08-20 |
-| Baseline editorial | Duas fontes medidas na 3.1. `3XJfcqn56Rw` (live 98 min): recall `50/66`, cobertura `25/27`. `j9FRVbb8CAI` (entrevista 31 min): recall `30/34`, cobertura `11/11`. Precisão `1.00`, zero fora de bloco e zero desperdício **nas duas**. O ciclo 6.13 mediu uma transcrição sem diarização: no modo Renan-first, `9/9` candidatos ficaram para revisão de locutor. |
-| Suíte no checkout | 537 aprovados, 4 ignorados após provisionamento temporário do asset BlazeFace; sem asset, 1 falha ambiental |
+| Baseline editorial | Duas fontes medidas na 3.1. `3XJfcqn56Rw` (live 98 min): recall `50/66`, cobertura `25/27`. `j9FRVbb8CAI` (entrevista 31 min): recall `30/34`, cobertura `11/11`. Precisão `1.00`, zero fora de bloco e zero desperdício **nas duas**. O ciclo 6.14 mediu `3/30` identidades disponíveis no Renan-first com snapshot rico, contra `0/30` sem snapshot. |
+| Suíte no checkout | 541 aprovados, 4 ignorados após provisionamento temporário do asset BlazeFace; sem asset, 1 falha ambiental |
 | Objetivo | Gerar cortes Renan Santos/MBL concisos, autossuficientes, contextualizados e editorialmente úteis |
 
 A branch de trabalho deve ser confirmada no checkout real. O GitHub é a fonte da revisão técnica; este arquivo não pode manter um hash diferente do `HEAD` final publicado. Antes de alterar qualquer arquivo, preserve mudanças locais e confirme `git status`.
 
 ## Norte imediato
 
-A release 6.13 corrige uma permissividade real do modo Renan-first: uma transcrição sem diarização não pode ser tratada como prova de que o trecho é fala do Renan. Os candidatos continuam disponíveis para diagnóstico, mas entram explicitamente na revisão e não podem ser tratados como cortes prontos. O download autenticado da 6.12 continua pendente de teste no notebook do usuário e permanece separado desta hipótese editorial.
+A release 6.14 confirma que o Campaign Hub é útil, mas ainda não suficiente: o snapshot rico elevou o recall exploratório de IoU 0,10 de `7,58%` para `27,27%` no genérico e resolveu `3/30` identidades no Renan-first, mas a precisão de borda e a aprovação humana ainda não foram demonstradas. O problema de ingestão autenticada da 6.12 continua separado e não verificado no sandbox.
 
-A próxima hipótese única é usar, quando houver snapshot local autorizado e alinhado, a evidência temporal do Acervo (`renanSpeaking`, `speakersNote`, tier e intervalos) para resolver parte da identidade sem liberar automaticamente candidatos de baixa confiança. O Campaign Hub continua como memória, seed e benchmark; contexto, payoff, locutor e evidência vencem viralidade.
+A próxima hipótese única é fundir candidatos guiados e locais por sobreposição temporal, deduplicação e quota de origem antes do ranking. A concatenação atual pode colocar propostas guiadas demais no topo e reduzir o recall Renan-first, mesmo quando o Chub encontra highlights reais.
 
 As prioridades editoriais Renan-first continuam preservadas: contexto e payoff antes de hook, gates de locutor antes do ranking, Campaign Hub como memória/seed e não como aprovação, e uma hipótese principal por ciclo.
 
-## Release atual — 6.13
+## Release atual — 6.14
+
+A 6.14 corrige a integração incompleta do snapshot rico. O job normal passa o arquivo por `campaign_hub_snapshot_path`, mas o anexo de evidência local ignorava esse caminho; agora ele carrega o snapshot e anexa blocos, riscos, proveniência e identidade aos candidatos locais. Quando o candidato cobre pelo menos 75% de um bloco owner/allied com `renanSpeaking=true`, a identidade fica disponível como evidência alinhada, nunca como aprovação automática.
+
+Na fonte real `3XJfcqn56Rw`, com 5.905 segundos, 27 blocos e 66 highlights, `3/30` candidatos Renan-first passaram a ter identidade disponível e `3/30` contexto completo, contra `0/30` sem snapshot rico. No genérico, o Chub elevou recall exploratório de IoU 0,10 de `7,58%` para `27,27%`, mas a precisão de borda em IoU 0,25 ficou em `9,09%`. Isso confirma utilidade para cobertura e evidência, não superioridade geral. Relatório em [`CYCLE_29_REPORT_2026-08-20.md`](CYCLE_29_REPORT_2026-08-20.md).
+
+## Release anterior — 6.13
 
 A 6.13 adiciona um contrato explícito de identidade de locutor ao fluxo Renan-first. O sistema diferencia uma fronteira de fala limpa de uma identidade realmente disponível. Quando o perfil/foco é Renan Santos/MBL e a transcrição não tem diarização ou marcador de locutor, `context_complete` e `qa_bridge` não passam, o candidato recebe `review_required=true` e o ranker registra a razão técnica. O modo genérico não recebe esse bloqueio.
 
@@ -255,12 +261,13 @@ As decisões duráveis estão em [`DECISIONS.md`](DECISIONS.md). As mais importa
 
 A validação da release 2.6 incluiu suíte com **333 testes aprovados**, `compileall`, `node --check static/js/app.js`, `git diff --check` e verificação SHA-256 do BlazeFace temporário. O payload real do Campaign Hub confirmou duas seeds e duas propostas guiadas com `context_complete=true`, mas o benchmark b354 não foi reprocessado porque o snapshot correspondente não estava instalado localmente. Esses resultados não substituem a medição futura de recall em mídia b354.
 
-Em qualquer rodada, classifique conclusões como `confirmado`, `reproduzido`, `corrigido`, `provável`, `não verificado` ou `bloqueado`. O relatório desta rodada está em [`CYCLE_28_REPORT_2026-08-20.md`](CYCLE_28_REPORT_2026-08-20.md).
+Em qualquer rodada, classifique conclusões como `confirmado`, `reproduzido`, `corrigido`, `provável`, `não verificado` ou `bloqueado`. O relatório desta rodada está em [`CYCLE_29_REPORT_2026-08-20.md`](CYCLE_29_REPORT_2026-08-20.md).
 
 ## Histórico resumido
 
 | Release | Foco | Resultado principal | Relatório |
 | --- | --- | --- | --- |
+| 6.14 | Snapshot rico e identidade alinhada | `0/30`→`3/30` identidades Renan-first; recall exploratório genérico `7,58%`→`27,27%` em IoU 0,10 | [`CYCLE_29_REPORT_2026-08-20.md`](CYCLE_29_REPORT_2026-08-20.md) |
 | 6.13 | Identidade Renan-first | `9/9` candidatos sem diarização ficaram para revisão; modo genérico preservado | [`CYCLE_28_REPORT_2026-08-20.md`](CYCLE_28_REPORT_2026-08-20.md) |
 | 6.12 | Ingestão pública segura | Cookies locais opcionais e diagnóstico anti-bot/403; download com sessão do usuário ainda não verificado | [`CYCLE_27_REPORT_2026-08-20.md`](CYCLE_27_REPORT_2026-08-20.md) |
 | 3.3 | Destilação do corpus | 885k frases em 3 KB; ganho no detector refutado e o sinal mantido fora do veredito | [`CYCLE_23_REPORT_2026-08-17.md`](CYCLE_23_REPORT_2026-08-17.md) |

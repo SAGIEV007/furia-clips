@@ -85,3 +85,7 @@ A ingestão pública pode aceitar apenas o nome normalizado do navegador local e
 ## D-022 — Fronteira de fala não prova identidade Renan-first
 
 Uma transcrição pode ter timestamps limpos e ainda não informar quem falou. No foco Renan Santos/MBL, `speaker_turn_valid` ou uma fronteira de entrevista não substitui `speaker_identity_available`. Sem diarização, marcador confiável ou evidência temporal alinhada do Campaign Hub, `context_complete` e `qa_bridge` não liberam o candidato como corte pronto; ele permanece disponível para diagnóstico e revisão humana. O modo genérico não herda esse bloqueio automaticamente.
+
+## D-023 — Snapshot rico melhora cobertura antes de melhorar precisão
+
+O Campaign Hub é útil quando fornece blocos, highlights, intervalos, riscos e `renanSpeaking` alinhados à fonte local, mas sua influência deve ser medida separadamente em cobertura, borda, contexto, locutor e aprovação humana. Um match temporal com `renanSpeaking=true` só pode preencher evidência de identidade quando cobre substancialmente o candidato e vem de tier `owner` ou `allied`; permanece `evidence_only` e não libera renderização sozinho. Tiers `third_party`, `critical`, `renanSpeaking=false`, snapshots ausentes ou desalinhados ficam em revisão. A concatenação de propostas guiadas antes do pool local não é considerada fusão final; o próximo ciclo deve usar quota, deduplicação e ranking conjunto.

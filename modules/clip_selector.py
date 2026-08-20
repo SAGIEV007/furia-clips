@@ -2298,6 +2298,15 @@ Retorne APENAS o JSON.
         score or clears a gate.
         """
         snapshot = settings.get("campaign_hub_snapshot") if isinstance(settings, dict) else None
+        # The normal job passes a path, not the parsed snapshot. Read it here as
+        # well as in the guided-seed path; otherwise local candidates silently
+        # lose Chub block evidence while only guided proposals see it.
+        if snapshot is None and isinstance(settings, dict) and settings.get("campaign_hub_snapshot_path"):
+            try:
+                from .campaign_hub import load_snapshot
+                snapshot = load_snapshot(settings.get("campaign_hub_snapshot_path"))
+            except (ImportError, OSError, ValueError):
+                snapshot = None
         records = snapshot.get("records") if isinstance(snapshot, dict) else None
         blocks = [item for item in (records or {}).get("blocks") or [] if isinstance(item, dict)]
         if not blocks or not clips:
@@ -2330,6 +2339,17 @@ Retorne APENAS o JSON.
             )
             risk_flags = list(_block_field(best, "risk_flags", "riskFlags") or [])
             gate_warnings = list(_block_field(best, "gate_warnings", "gateWarnings") or [])
+            trust_tier = str(_block_field(best, "trust_tier", "trustTier") or "").strip().lower()
+            coverage_of_candidate = round(best_overlap / (end - start), 3)
+            # A rich Acervo block can provide identity evidence, but only when
+            # the source is trusted, the block explicitly says Renan is speaking,
+            # and the local candidate is substantially inside that same interval.
+            # This is not diarization and it never approves a render by itself.
+            aligned_renan_evidence = bool(
+                renan_speaking is True
+                and trust_tier in {"owner", "allied"}
+                and coverage_of_candidate >= 0.75
+            )
             clip["campaign_hub_block"] = {
                 "block_id": best.get("id") or best.get("blockId"),
                 "title": best.get("title"),
@@ -2345,10 +2365,32 @@ Retorne APENAS o JSON.
                 "speakers_note": _block_field(best, "speakers_note", "speakersNote"),
                 "risk_flags": risk_flags,
                 "gate_warnings": gate_warnings,
-                "trust_tier": _block_field(best, "trust_tier", "trustTier"),
-                "coverage_of_candidate": round(best_overlap / (end - start), 3),
+                "trust_tier": trust_tier,
+                "coverage_of_candidate": coverage_of_candidate,
+                "identity_evidence": "campaign_hub_aligned_owner_or_allied" if aligned_renan_evidence else "not_sufficient",
                 "evidence_only": True,
             }
+            if aligned_renan_evidence and self._speaker_identity_required:
+                clip["speaker_identity_available"] = True
+                clip["speaker_identity_basis"] = "campaign_hub_aligned_owner_or_allied"
+                clip["speaker_identity_evidence_only"] = True
+                refreshed = self._editorial_flags(
+                    clip.get("text", ""),
+                    {
+                        "overlap_suspected": clip.get("overlap_suspected"),
+                        "timing_ambiguous": clip.get("timing_ambiguous"),
+                        "speaker_turn_valid": clip.get("speaker_turn_valid", True),
+                        "speaker_identity_required": True,
+                        "speaker_identity_available": True,
+                        "timing_confidence": clip.get("timing_confidence"),
+                    },
+                )
+                for key in ("context_complete", "qa_bridge", "speaker_identity_review_required"):
+                    clip[key] = refreshed[key]
+                clip["review_reasons"] = [
+                    reason for reason in (clip.get("review_reasons") or [])
+                    if "identidade do locutor" not in reason and "locutor não confirmado como Renan" not in reason
+                ]
             if speaker_status != "renan_confirmado" or risk_flags:
                 clip["review_required"] = True
                 reasons = list(clip.get("review_reasons") or [])

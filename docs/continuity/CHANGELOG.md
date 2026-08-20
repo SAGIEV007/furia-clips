@@ -1,5 +1,27 @@
 # Changelog de continuidade
 
+## 6.14 — Snapshot rico do Chub no gate Renan-first
+
+### Hipótese e descoberta
+
+O Campaign Hub precisava ser avaliado pela utilidade real, não pela quantidade de dados integrada. Na live real `3XJfcqn56Rw` — 5.905 segundos, 27 blocos e 66 highlights — o snapshot rico aumentou o recall exploratório de IoU 0,10 de `7,58%` para `27,27%` no modo genérico, mas a condição Renan-first continuava com `0/30` identidades disponíveis. A auditoria encontrou que o caminho normal fornecia `campaign_hub_snapshot_path`, enquanto `_attach_block_evidence()` lia somente o snapshot já embutido.
+
+### Incluído
+
+- `modules/clip_selector.py`: leitura do snapshot pelo caminho persistido também no anexo de evidência local.
+- `modules/clip_selector.py`: evidência conservadora `campaign_hub_aligned_owner_or_allied` quando o candidato cobre pelo menos 75% de bloco `renanSpeaking=true` em tier `owner`/`allied`.
+- `tests/test_speaker_identity_context.py`: regressões para snapshot embutido, snapshot por caminho, tiers de baixa confiança e ausência de identidade.
+
+### Resultado verificado
+
+Na mesma fonte real, o Renan-first com snapshot rico passou de `0/30` para `3/30` candidatos com identidade disponível e `3/30` com contexto completo. Os demais permaneceram em revisão. O genérico não recebeu bloqueio novo. O prior lexical agregado do Acervo não alterou as 12 janelas do project-57 sem snapshot rico, confirmando que ele é um detector auxiliar de não-conteúdo, não uma seleção especializada.
+
+### Validação e limitação
+
+A rodada teve **45 testes focados aprovados** e **541 testes aprovados com 4 ignorados** na suíte completa, além de `compileall`, `node --check`, `git diff --check` e scanner de segredos limpos. A integração é útil, mas ainda parcial: cobertura melhorou mais do que precisão de borda, e nenhum resultado autoriza publicar automaticamente. O próximo ciclo deve fundir candidatos guiados e locais com quota, deduplicação e ranking, em vez de concatenar propostas guiadas antes do pool local.
+
+Relatório: [`CYCLE_29_REPORT_2026-08-20.md`](CYCLE_29_REPORT_2026-08-20.md).
+
 ## 6.13 — Gate Renan-first para identidade de locutor
 
 ### Incluído
