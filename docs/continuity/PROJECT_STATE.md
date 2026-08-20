@@ -13,7 +13,7 @@
 | Natureza da release atual | Snapshot rico do Campaign Hub passa a ser consumido pelo caminho persistido; evidência alinhada owner/allied resolve parte da identidade Renan-first sem aprovação automática |
 | Fonte da versão | [`VERSION`](../../VERSION) |
 | Branch de trabalho | `claude/repo-access-commits-imgjmk` |
-| Última publicação conhecida | Commit funcional da 6.14 será registrado após o fechamento desta rodada |
+| Última publicação conhecida | `6f9c70d` — `fix: conectar snapshot rico do Chub ao gate Renan-first (6.14)` |
 | Commit funcional 2.6 | `fec34fe` — `feat: primeira ponte funcional Campaign Hub para propostas (2.6)` |
 | Commit funcional 2.7 | `a0452d3` — `fix: declarar confiabilidade da medição no benchmark editorial (2.7)` |
 | Commit funcional 2.8 | `fdf5e6b` — `fix: alinhar seeds do Campaign Hub com a mídia local em processamento (2.8)` |
