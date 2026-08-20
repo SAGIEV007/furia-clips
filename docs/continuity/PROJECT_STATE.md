@@ -13,7 +13,7 @@
 | Natureza da release atual | Processamento opcional por intervalo de fonte, timeline local rebased, timestamps absolutos de origem e modal visual compartilhado para corte inteligente/processo completo |
 | Fonte da versão | [`VERSION`](../../VERSION) |
 | Branch de trabalho | `claude/repo-access-commits-imgjmk` |
-| Última publicação conhecida | Pendente até o commit final deste ciclo — `feat: processar intervalo de fonte e unificar UX de execução (6.17)` |
+| Última publicação conhecida | `ab7cb23` — `feat: processar intervalos de fontes e unificar UX (6.17)` |
 | Commit funcional 2.6 | `fec34fe` — `feat: primeira ponte funcional Campaign Hub para propostas (2.6)` |
 | Commit funcional 2.7 | `a0452d3` — `fix: declarar confiabilidade da medição no benchmark editorial (2.7)` |
 | Commit funcional 2.8 | `fdf5e6b` — `fix: alinhar seeds do Campaign Hub com a mídia local em processamento (2.8)` |

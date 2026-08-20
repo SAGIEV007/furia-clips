@@ -78,3 +78,8 @@ A transcrição manual é tratada como fonte inteira quando seus timestamps exce
 A próxima IA deve confirmar `git status`, ler este relatório, `PROJECT_STATE.md`, `NEXT_CYCLE.md`, `DECISIONS.md` e `REFERENCE_UX_NOTES_2026-08-20.md`. Deve preservar a branch `claude/repo-access-commits-imgjmk`, não tocar a branch principal e não adicionar mídia, banco, cookies ou credenciais.
 
 A próxima hipótese recomendada é persistir uma identidade de intervalo no banco e na trilha editorial, permitindo deduplicação correta entre execuções parciais sem bloquear material de outras faixas. Somente depois disso deve ser retomada a visualização read-only da fila de descoberta Chub prevista no ciclo anterior. Não alterar ranking, pesos Chub ou gates Renan-first nesta próxima rodada.
+
+
+## Publicação
+
+A release foi commitada como `ab7cb23` (`feat: processar intervalos de fontes e unificar UX (6.17)`) e publicada na branch `claude/repo-access-commits-imgjmk`. A atualização final de `PROJECT_STATE.md` com esse hash será publicada em um commit documental imediatamente posterior. A branch principal não foi alterada.
