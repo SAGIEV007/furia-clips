@@ -13,7 +13,7 @@
 | Natureza da release atual | Fila Chub de descoberta separada da fila guiada publicável, com motivos de exclusão e contagens expostos no diagnóstico, backend e aviso da interface |
 | Fonte da versão | [`VERSION`](../../VERSION) |
 | Branch de trabalho | `claude/repo-access-commits-imgjmk` |
-| Última publicação conhecida | A publicar após a suíte final: release 6.16 com separação de descoberta e pool publicável |
+| Última publicação conhecida | `c9727e3` — `feat: separar descoberta Chub do pool publicavel (6.16)` |
 | Commit funcional 2.6 | `fec34fe` — `feat: primeira ponte funcional Campaign Hub para propostas (2.6)` |
 | Commit funcional 2.7 | `a0452d3` — `fix: declarar confiabilidade da medição no benchmark editorial (2.7)` |
 | Commit funcional 2.8 | `fdf5e6b` — `fix: alinhar seeds do Campaign Hub com a mídia local em processamento (2.8)` |
