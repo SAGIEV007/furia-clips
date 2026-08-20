@@ -89,3 +89,7 @@ Uma transcrição pode ter timestamps limpos e ainda não informar quem falou. N
 ## D-023 — Snapshot rico melhora cobertura antes de melhorar precisão
 
 O Campaign Hub é útil quando fornece blocos, highlights, intervalos, riscos e `renanSpeaking` alinhados à fonte local, mas sua influência deve ser medida separadamente em cobertura, borda, contexto, locutor e aprovação humana. Um match temporal com `renanSpeaking=true` só pode preencher evidência de identidade quando cobre substancialmente o candidato e vem de tier `owner` ou `allied`; permanece `evidence_only` e não libera renderização sozinho. Tiers `third_party`, `critical`, `renanSpeaking=false`, snapshots ausentes ou desalinhados ficam em revisão. A concatenação de propostas guiadas antes do pool local não é considerada fusão final; o próximo ciclo deve usar quota, deduplicação e ranking conjunto.
+
+## D-024 — Benchmark divergente bloqueia calibração
+
+Uma integração do Campaign Hub não pode ser considerada útil nem publicada porque anexou evidência a candidatos: ela precisa demonstrar ganho reproduzível em cobertura, borda, contexto ou revisão contra o mesmo manifesto de benchmark. Quando dois harnesses produzem resultados incompatíveis na mesma fonte e fixture, a divergência é o problema principal do ciclo; pesos, quotas e precedência permanecem congelados até que cada seed, fusão e descarte seja auditável. A release 6.14 continua sendo a referência funcional enquanto essa reconciliação não estiver concluída.

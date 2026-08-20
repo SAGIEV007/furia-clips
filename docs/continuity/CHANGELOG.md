@@ -1,5 +1,23 @@
 # Changelog de continuidade
 
+## Ciclo 30 — Fusão Chub-local medida e revertida
+
+### Hipótese
+
+Fusão semântica entre propostas guiadas pelo Campaign Hub e candidatos locais poderia preservar as bordas locais, aproveitar highlights alinhados e evitar que propostas guiadas largas ocupassem o orçamento no modo Renan-first.
+
+### Resultado
+
+A hipótese foi refutada para publicação. No checkout limpo da 6.14 e na fonte real `3XJfcqn56Rw`, o harness reproduziu `5/66` em IoU 0,10 no genérico sem e com Chub e `7/66` no Renan-first sem e com Chub. Em IoU 0,25, os resultados foram `0/66`, `0/66`, `1/66` e `1/66`. A tentativa chegou a anexar evidência Chub fundida a cinco candidatos locais, mas não aumentou recall nem precisão temporal.
+
+A rodada também identificou que `renan_speaking` não era copiado para o dossiê da proposta materializada; a correção foi usada apenas durante o experimento e revertida junto com a fusão. A discrepância entre o resultado histórico de `27,27%` do ciclo 29 e o harness atual ficou registrada como problema de reprodutibilidade, não como ganho.
+
+### Validação
+
+As regressões focadas passaram com **72 testes**. A suíte completa passou com **541 aprovados e 4 ignorados** após o asset BlazeFace ser provisionado temporariamente, conferido e removido. O checkout final está limpo em `e360e74`; a versão permanece `6.14` e nenhum commit funcional novo foi publicado.
+
+Relatório: [`CYCLE_30_REPORT_2026-08-20.md`](CYCLE_30_REPORT_2026-08-20.md).
+
 ## 6.14 — Snapshot rico do Chub no gate Renan-first
 
 ### Hipótese e descoberta

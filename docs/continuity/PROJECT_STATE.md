@@ -31,7 +31,9 @@ A branch de trabalho deve ser confirmada no checkout real. O GitHub é a fonte d
 
 A release 6.14 confirma que o Campaign Hub é útil, mas ainda não suficiente: o snapshot rico elevou o recall exploratório de IoU 0,10 de `7,58%` para `27,27%` no genérico e resolveu `3/30` identidades no Renan-first, mas a precisão de borda e a aprovação humana ainda não foram demonstradas. O problema de ingestão autenticada da 6.12 continua separado e não verificado no sandbox.
 
-A próxima hipótese única é fundir candidatos guiados e locais por sobreposição temporal, deduplicação e quota de origem antes do ranking. A concatenação atual pode colocar propostas guiadas demais no topo e reduzir o recall Renan-first, mesmo quando o Chub encontra highlights reais.
+O ciclo 30 testou a fusão semântica Chub-local e a precedência conservadora para seeds `renanSpeaking=true`. No checkout limpo, o benchmark real reproduziu `7,58%` genérico sem Chub e `10,61%` Renan-first sem Chub; o caminho com Chub permaneceu igual. A tentativa foi revertida e não houve release 6.15.
+
+A próxima hipótese única é reconciliar a divergência entre o benchmark histórico do ciclo 29 (`27,27%` genérico com Chub) e o harness atual (`7,58%`): instrumentar cada etapa para separar seeds guiadas, candidatos locais enriquecidos por evidência Chub, candidatos fundidos e descartes por cada gate. Só depois dessa reconciliação deve ser testada uma fila de cobertura Chub separada do pool publicável.
 
 As prioridades editoriais Renan-first continuam preservadas: contexto e payoff antes de hook, gates de locutor antes do ranking, Campaign Hub como memória/seed e não como aprovação, e uma hipótese principal por ciclo.
 
@@ -261,12 +263,13 @@ As decisões duráveis estão em [`DECISIONS.md`](DECISIONS.md). As mais importa
 
 A validação da release 2.6 incluiu suíte com **333 testes aprovados**, `compileall`, `node --check static/js/app.js`, `git diff --check` e verificação SHA-256 do BlazeFace temporário. O payload real do Campaign Hub confirmou duas seeds e duas propostas guiadas com `context_complete=true`, mas o benchmark b354 não foi reprocessado porque o snapshot correspondente não estava instalado localmente. Esses resultados não substituem a medição futura de recall em mídia b354.
 
-Em qualquer rodada, classifique conclusões como `confirmado`, `reproduzido`, `corrigido`, `provável`, `não verificado` ou `bloqueado`. O relatório desta rodada está em [`CYCLE_29_REPORT_2026-08-20.md`](CYCLE_29_REPORT_2026-08-20.md).
+Em qualquer rodada, classifique conclusões como `confirmado`, `reproduzido`, `corrigido`, `provável`, `não verificado` ou `bloqueado`. O relatório da rodada anterior está em [`CYCLE_29_REPORT_2026-08-20.md`](CYCLE_29_REPORT_2026-08-20.md). O ciclo 30 está em [`CYCLE_30_REPORT_2026-08-20.md`](CYCLE_30_REPORT_2026-08-20.md).
 
 ## Histórico resumido
 
 | Release | Foco | Resultado principal | Relatório |
 | --- | --- | --- | --- |
+| Ciclo 30 | Fusão Chub-local medida e revertida | Sem ganho reproduzível; release 6.14 preservada; divergência histórica do benchmark aberta | [`CYCLE_30_REPORT_2026-08-20.md`](CYCLE_30_REPORT_2026-08-20.md) |
 | 6.14 | Snapshot rico e identidade alinhada | `0/30`→`3/30` identidades Renan-first; recall exploratório genérico `7,58%`→`27,27%` em IoU 0,10 | [`CYCLE_29_REPORT_2026-08-20.md`](CYCLE_29_REPORT_2026-08-20.md) |
 | 6.13 | Identidade Renan-first | `9/9` candidatos sem diarização ficaram para revisão; modo genérico preservado | [`CYCLE_28_REPORT_2026-08-20.md`](CYCLE_28_REPORT_2026-08-20.md) |
 | 6.12 | Ingestão pública segura | Cookies locais opcionais e diagnóstico anti-bot/403; download com sessão do usuário ainda não verificado | [`CYCLE_27_REPORT_2026-08-20.md`](CYCLE_27_REPORT_2026-08-20.md) |
