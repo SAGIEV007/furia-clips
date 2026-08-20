@@ -462,6 +462,8 @@ def test_selection_diagnostics_expose_stage_counts_without_changing_output():
     assert stages["final"]["count"] == len(clips)
     assert stages["post_overlap"]["count"] >= stages["final"]["count"]
     assert stages["final"]["campaign_hub_guided"] + stages["final"]["campaign_hub_block_evidence"] >= 1
+    assert diagnostics["campaign_hub_publishable_guided_count"] == len(diagnostics["campaign_hub_publishable_candidates"])
+    assert diagnostics["final_count"] == len(diagnostics["final_candidates"])
 
 
 def test_renan_first_excludes_guided_proposals_without_positive_speaker_evidence():
@@ -483,3 +485,10 @@ def test_renan_first_excludes_guided_proposals_without_positive_speaker_evidence
     diagnostics = selector.get_candidate_diagnostics()
     assert not any(clip.get("source") == "campaign_hub_guided" for clip in clips)
     assert diagnostics["campaign_hub_guided_filtered_by_speaker"] >= 1
+    assert diagnostics["campaign_hub_discovery_count"] >= 1
+    assert diagnostics["campaign_hub_publishable_guided_count"] == 0
+    assert any(
+        item.get("publication_status") == "speaker_gate_review"
+        and item.get("exclusion_reason")
+        for item in diagnostics["campaign_hub_discovery_candidates"]
+    )

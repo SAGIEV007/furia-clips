@@ -97,3 +97,7 @@ Uma integração do Campaign Hub não pode ser considerada útil nem publicada p
 ## D-025 — Evidência positiva de locutor antes do pool Renan-first
 
 Quando o foco editorial é Renan Santos/MBL, uma proposta guiada pelo Campaign Hub só pode competir no pool primário se o snapshot alinhado declarar `renanSpeaking=true`. Seeds `false` ou desconhecidas continuam úteis para descoberta, auditoria e revisão, mas não devem ocupar os slots de cortes do Renan. A evidência positiva de locutor não substitui contexto, payoff, risco, proveniência, timing, diarização ou revisão humana.
+
+## D-026 — Descoberta Chub não é publicação
+
+A partir da 6.16, toda proposta encontrada pelo Campaign Hub deve poder permanecer em uma fila de descoberta auditável, mesmo quando não passe no pool publicável do foco editorial. `campaign_hub_discovery_candidates` preserva a memória e o motivo de exclusão; `campaign_hub_publishable_candidates` contém somente propostas promovidas; `final_candidates` contém a seleção final geral. Nenhuma visualização, diagnóstico ou futura ação de promoção pode renderizar ou aprovar um item sem reexecutar os gates de identidade, contexto, payoff, risco, timing e revisão técnica.

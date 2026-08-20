@@ -1,5 +1,29 @@
 # Changelog de continuidade
 
+## 6.16 — Fila de descoberta Chub separada da fila publicável
+
+### Hipótese
+
+As propostas descobertas pelo Campaign Hub deveriam permanecer auditáveis mesmo quando não pudessem competir no pool Renan-first. Separar descoberta de publicação permitiria manter cobertura e motivos de exclusão sem confundir uma sugestão incerta com um corte pronto para revisão.
+
+### Incluído
+
+- `modules/clip_selector.py`: nova coleção sanitizada `campaign_hub_discovery_candidates`, com seed, bloco, highlight, intervalo, locutor, gate e motivo de exclusão.
+- `modules/clip_selector.py`: `campaign_hub_publishable_candidates` passa a conter somente propostas Chub promovidas ao pool guiado; `final_candidates` representa o conjunto final geral.
+- `modules/clip_selector.py`: diagnósticos adicionais para descoberta, promoção, filtragem por locutor e candidatos finais.
+- `app.py`: os diagnósticos já são enviados nos eventos `selection_mode` e `cut_complete` e persistidos pelo relatório de seleção.
+- `static/js/app.js`: o aviso de volume mostra quantos trechos o Chub encontrou, quantos entraram na fila publicável e quantos ficaram para revisão de locutor.
+- Regressões para lista de descoberta, semântica dos campos e preservação dos gates.
+
+### Resultado medido
+
+Na live `3XJfcqn56Rw`, o Renan-first com Chub produziu 30 descobertas, promoveu 6 e deixou 24 em `speaker_gate_review`. O recall permaneceu em `7/66` no IoU 0,10 e `1/66` no IoU 0,25; o genérico com Chub permaneceu em `18/66` e `6/66`. A mudança não altera o ranking; melhora a observabilidade e a auditabilidade.
+
+### Validação
+
+A suíte terminou com 546 testes aprovados e 4 ignorados após o asset BlazeFace temporário ser removido. Relatório: [`CYCLE_32_REPORT_2026-08-20.md`](CYCLE_32_REPORT_2026-08-20.md).
+
+
 ## 6.15 — Filtro de locutor positivo no Renan-first e benchmark auditável
 
 ### Hipótese

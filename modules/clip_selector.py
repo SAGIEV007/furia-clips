@@ -143,6 +143,11 @@ class ClipSelector:
             "previous_discarded_approved": 0,
             "previous_discarded_rejected": 0,
             "campaign_hub_guided_filtered_by_speaker": 0,
+            "campaign_hub_discovery_count": 0,
+            "campaign_hub_discovery_candidates": [],
+            "campaign_hub_publishable_guided_count": 0,
+            "campaign_hub_publishable_candidates": [],
+            "final_candidates": [],
             "stage_counts": {},
             "reason": "not_evaluated",
         }
@@ -152,6 +157,7 @@ class ClipSelector:
                      video_layout=None):
         settings = settings or {}
         self._campaign_hub_guided_filtered_by_speaker = 0
+        self._campaign_hub_discovery_candidates = []
         editorial_context = settings.get("editorial_context") if isinstance(settings.get("editorial_context"), dict) else {}
         focus = str(
             editorial_context.get("focus")
@@ -227,6 +233,10 @@ class ClipSelector:
             settings,
             emit_progress=emit_progress,
         )
+        self._campaign_hub_discovery_candidates = [
+            self._campaign_hub_discovery_record(clip, "eligible")
+            for clip in (guided_clips or [])
+        ]
         if guided_clips and self._speaker_identity_required:
             original_guided_count = len(guided_clips)
             guided_clips = [
@@ -234,12 +244,24 @@ class ClipSelector:
                 if (clip.get("campaign_hub") or {}).get("renan_speaking") is True
             ]
             self._campaign_hub_guided_filtered_by_speaker = original_guided_count - len(guided_clips)
+            publishable_ids = {
+                str((clip.get("campaign_hub") or {}).get("seed_id") or "")
+                for clip in guided_clips
+            }
+            for record in self._campaign_hub_discovery_candidates:
+                if str(record.get("seed_id") or "") not in publishable_ids:
+                    record["publication_status"] = "speaker_gate_review"
+                    record["exclusion_reason"] = "sem evidência positiva de fala do Renan"
             if self._campaign_hub_guided_filtered_by_speaker and emit_progress:
                 emit_progress(
                     f"[Campaign Hub] {self._campaign_hub_guided_filtered_by_speaker} proposta(s) guiada(s) "
                     "ficaram fora do pool Renan-first por não terem evidência positiva de fala do Renan.",
                     "info",
                 )
+        self._campaign_hub_publishable_candidates = [
+            self._campaign_hub_discovery_record(clip, "publishable_pool")
+            for clip in (guided_clips or [])
+        ]
         if guided_clips:
             legacy_clips = list(clips or [])
             clips = guided_clips + legacy_clips
@@ -267,6 +289,11 @@ class ClipSelector:
             "previous_discarded_approved": 0,
             "previous_discarded_rejected": 0,
             "campaign_hub_guided_filtered_by_speaker": int(getattr(self, "_campaign_hub_guided_filtered_by_speaker", 0) or 0),
+            "campaign_hub_discovery_count": len(getattr(self, "_campaign_hub_discovery_candidates", []) or []),
+            "campaign_hub_discovery_candidates": list(getattr(self, "_campaign_hub_discovery_candidates", []) or []),
+            "campaign_hub_publishable_guided_count": len(getattr(self, "_campaign_hub_publishable_candidates", []) or []),
+            "campaign_hub_publishable_candidates": list(getattr(self, "_campaign_hub_publishable_candidates", []) or []),
+            "final_candidates": [],
             "reason": "short_source" if expected_count == 0 else ("adequate_pool" if len(primary_clips) >= expected_count else "primary_pool_thin"),
         }
         self._record_candidate_stage("primary_pool", primary_clips)
@@ -408,6 +435,16 @@ class ClipSelector:
         # fill the queue with genuinely new moments instead of truncating repetitions.
         clips = clips[:self.max_clips]
         self._candidate_diagnostics["final_count"] = len(clips)
+        self._candidate_diagnostics["campaign_hub_publishable_candidate_count"] = len(clips)
+        self._candidate_diagnostics["final_candidates"] = [
+            {
+                "start": round(float(clip.get("start", 0) or 0), 3),
+                "end": round(float(clip.get("end", 0) or 0), 3),
+                "candidate_origin": clip.get("candidate_origin"),
+                "review_required": bool(clip.get("review_required")),
+            }
+            for clip in clips
+        ]
         self._record_candidate_stage("final", clips)
 
         if emit_progress:
@@ -428,6 +465,25 @@ class ClipSelector:
     def get_candidate_diagnostics(self):
         """Return explainable candidate-volume diagnostics for the review UI."""
         return dict(self._candidate_diagnostics)
+
+    @staticmethod
+    def _campaign_hub_discovery_record(clip, publication_status):
+        """Return bounded Chub provenance for discovery and audit surfaces."""
+        campaign_hub = clip.get("campaign_hub") if isinstance(clip, dict) else {}
+        campaign_hub = campaign_hub if isinstance(campaign_hub, dict) else {}
+        return {
+            "seed_id": campaign_hub.get("seed_id"),
+            "block_id": campaign_hub.get("block_id"),
+            "highlight_id": campaign_hub.get("highlight_id"),
+            "start": round(float(clip.get("start", 0) or 0), 3),
+            "end": round(float(clip.get("end", 0) or 0), 3),
+            "duration": round(float(clip.get("duration", 0) or 0), 3),
+            "source_kind": campaign_hub.get("source_kind"),
+            "renan_speaking": campaign_hub.get("renan_speaking"),
+            "speaker_gate": campaign_hub.get("speaker_gate"),
+            "review_required": bool(clip.get("review_required")),
+            "publication_status": publication_status,
+        }
 
     def _record_candidate_stage(self, stage, clips):
         """Store bounded, explainable counts for each selection stage.

@@ -3331,7 +3331,13 @@ function renderCandidateVolumeNotice(diagnostics = {}) {
     const discardedOverlap = Number(diagnostics.fallback_discarded_overlap || 0);
     const discardedSimilarity = Number(diagnostics.fallback_discarded_similarity || 0);
     const finalCount = Number(diagnostics.final_count || 0);
-    if (!expected && !primary && !finalCount) {
+    const chubDiscovery = Number(diagnostics.campaign_hub_discovery_count || 0);
+    const chubPublishable = Number(diagnostics.campaign_hub_publishable_guided_count || 0);
+    const chubFiltered = Number(diagnostics.campaign_hub_guided_filtered_by_speaker || 0);
+    const chubNote = chubDiscovery > 0
+        ? ` Campaign Hub encontrou ${chubDiscovery} trecho(s); ${chubPublishable} entraram na fila publicável${chubFiltered > 0 ? ` e ${chubFiltered} ficaram para revisão de locutor` : ""}.`
+        : "";
+    if (!expected && !primary && !finalCount && !chubDiscovery) {
         notice.hidden = true;
         notice.textContent = "";
         return;
@@ -3343,15 +3349,15 @@ function renderCandidateVolumeNotice(diagnostics = {}) {
         const discardedNote = discarded > 0
             ? ` ${discarded} alternativa(s) foram descartadas por redundância${discardedOverlap > 0 ? ` (${discardedOverlap} por sobreposição` : " ("}${discardedSimilarity > 0 ? `${discardedOverlap > 0 ? ", " : ""}${discardedSimilarity} por repetição textual` : ""}).`
             : " Nenhuma alternativa foi descartada por redundância.";
-        notice.innerHTML = `<span class="material-icons-round">alt_route</span><span>Pool ampliado com segurança: ${primary} candidato(s) da fonte principal + ${fallback} alternativa(s) locais.${discardedNote} Os gates de contexto permaneceram ativos.</span>`;
+        notice.innerHTML = `<span class="material-icons-round">alt_route</span><span>Pool ampliado com segurança: ${primary} candidato(s) da fonte principal + ${fallback} alternativa(s) locais.${discardedNote} Os gates de contexto permaneceram ativos.${chubNote}</span>`;
         return;
     }
     if (expected && finalCount < expected) {
         notice.classList.add("warning");
-        notice.innerHTML = `<span class="material-icons-round">info</span><span>${finalCount} candidato(s) chegaram à revisão; a referência estrutural era ${expected}. O vídeo pode ter pouco material autossuficiente ou gates editoriais rigorosos.</span>`;
+        notice.innerHTML = `<span class="material-icons-round">info</span><span>${finalCount} candidato(s) chegaram à revisão; a referência estrutural era ${expected}. O vídeo pode ter pouco material autossuficiente ou gates editoriais rigorosos.${chubNote}</span>`;
         return;
     }
-    notice.innerHTML = `<span class="material-icons-round">check_circle</span><span>Pool editorial adequado: ${finalCount} candidato(s) distintos chegaram à revisão.</span>`;
+    notice.innerHTML = `<span class="material-icons-round">check_circle</span><span>Pool editorial adequado: ${finalCount} candidato(s) distintos chegaram à revisão.${chubNote}</span>`;
 }
 
 // --- Open Folder Button ---

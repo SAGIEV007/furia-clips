@@ -8,12 +8,12 @@
 | --- | --- |
 | Projeto | Furia Clips |
 | Repositório | `SAGIEV007/furia-clips` |
-| Versão pública atual | `6.15` |
-| Última release funcional anterior | `6.14` |
-| Natureza da release atual | Filtro Renan-first exige evidência positiva `renanSpeaking=true` nas propostas guiadas; diagnóstico por etapas e scorer explícito do benchmark |
+| Versão pública atual | `6.16` |
+| Última release funcional anterior | `6.15` |
+| Natureza da release atual | Fila Chub de descoberta separada da fila guiada publicável, com motivos de exclusão e contagens expostos no diagnóstico, backend e aviso da interface |
 | Fonte da versão | [`VERSION`](../../VERSION) |
 | Branch de trabalho | `claude/repo-access-commits-imgjmk` |
-| Última publicação conhecida | `07c51b0` — `feat: proteger o pool Renan-first com evidência de locutor (6.15)` |
+| Última publicação conhecida | A publicar após a suíte final: release 6.16 com separação de descoberta e pool publicável |
 | Commit funcional 2.6 | `fec34fe` — `feat: primeira ponte funcional Campaign Hub para propostas (2.6)` |
 | Commit funcional 2.7 | `a0452d3` — `fix: declarar confiabilidade da medição no benchmark editorial (2.7)` |
 | Commit funcional 2.8 | `fdf5e6b` — `fix: alinhar seeds do Campaign Hub com a mídia local em processamento (2.8)` |
@@ -33,17 +33,19 @@ A release 6.14 confirma que o Campaign Hub é útil, mas ainda não suficiente: 
 
 O ciclo 31 corrigiu o scorer para receber explicitamente o benchmark e instrumentou as etapas de seleção. No modo Renan-first, apenas propostas Chub com `renanSpeaking=true` entram no pool primário. Na fonte real, o recall Renan-first com Chub passou de `5/66` para `7/66` em IoU 0,10, igualando o caminho sem Chub; o modo genérico permaneceu em `18/66` com Chub. Vinte e quatro propostas sem evidência positiva foram filtradas antes do ranking.
 
-A próxima hipótese única é separar formalmente a fila de descoberta Chub da fila de candidatos publicáveis: highlights com locutor incerto devem continuar disponíveis para auditoria, mas não ocupar o pool de cortes Renan-first sem passar pelos gates.
+O ciclo 32 separou a descoberta da publicação. Na mesma fonte, o Chub produziu 30 propostas de descoberta no Renan-first, 6 foram promovidas ao pool guiado e 24 permaneceram em `speaker_gate_review`; o recall publicável ficou em `7/66`, sem alteração do ranking. A interface agora mostra essa diferença, e os diagnósticos persistidos distinguem descoberta, propostas Chub promovidas e candidatos finais gerais.
+
+A próxima hipótese única é uma visualização read-only da fila de descoberta, com filtros por locutor, bloco, highlight e motivo de exclusão, sem renderização automática.
 
 As prioridades editoriais Renan-first continuam preservadas: contexto e payoff antes de hook, gates de locutor antes do ranking, Campaign Hub como memória/seed e não como aprovação, e uma hipótese principal por ciclo.
 
-## Release atual — 6.15
+## Release atual — 6.16
 
-A 6.15 preserva a integração da 6.14 e corrige sua utilização no foco Renan-first. O seletor materializa `renan_speaking` e `speaker_gate` dentro do dossiê da proposta e exclui do pool primário as seeds Chub marcadas como `false` ou sem evidência positiva de fala do Renan. O benchmark também registra contagens por etapa e o scorer exige o arquivo de resultado explicitamente.
+A 6.16 preserva o filtro de locutor da 6.15 e torna explícita a separação entre descoberta e publicação. Cada job registra `campaign_hub_discovery_candidates`, `campaign_hub_publishable_candidates`, `final_candidates` e os motivos de exclusão. O backend já transmite o diagnóstico nos eventos de seleção e conclusão; o aviso de volume mostra quantos trechos do Chub foram encontrados, promovidos ou deixados para revisão. A fila publicável Chub não é sobrescrita pelo conjunto geral de candidatos finais.
 
 A 6.14 corrigia a integração incompleta do snapshot rico. O job normal passa o arquivo por `campaign_hub_snapshot_path`, mas o anexo de evidência local ignorava esse caminho; agora ele carrega o snapshot e anexa blocos, riscos, proveniência e identidade aos candidatos locais. Quando o candidato cobre pelo menos 75% de um bloco owner/allied com `renanSpeaking=true`, a identidade fica disponível como evidência alinhada, nunca como aprovação automática.
 
-Na fonte real `3XJfcqn56Rw`, o filtro reduziu propostas guiadas finais Renan-first de `12` para `5` e recuperou o recall de IoU 0,10 de `5/66` para `7/66`, sem alterar o genérico com Chub (`18/66`) ou o recall em IoU 0,25 (`1/66`). A identidade disponível permaneceu `3/30`, pois a mudança é um gate de seleção, não diarização. Relatório em [`CYCLE_31_REPORT_2026-08-20.md`](CYCLE_31_REPORT_2026-08-20.md).
+Na fonte real `3XJfcqn56Rw`, a 6.16 encontrou 30 propostas Chub no Renan-first, promoveu 6 e deixou 24 para revisão de locutor. O recall publicável permaneceu em `7/66` no IoU 0,10 e `1/66` no IoU 0,25; o genérico com Chub permaneceu em `18/66` e `6/66`. Relatório em [`CYCLE_32_REPORT_2026-08-20.md`](CYCLE_32_REPORT_2026-08-20.md).
 
 ## Release anterior — 6.13
 
@@ -271,6 +273,7 @@ Em qualquer rodada, classifique conclusões como `confirmado`, `reproduzido`, `c
 
 | Release | Foco | Resultado principal | Relatório |
 | --- | --- | --- | --- |
+| Ciclo 32 / 6.16 | Separação de descoberta e pool publicável | 30 descobertas Chub, 6 promovidas, 24 em revisão; recall preservado e diagnóstico visível | [`CYCLE_32_REPORT_2026-08-20.md`](CYCLE_32_REPORT_2026-08-20.md) |
 | Ciclo 31 / 6.15 | Diagnóstico do benchmark e filtro Renan-first | Recall Renan-first com Chub `5/66`→`7/66`; propostas guiadas finais `12`→`5`; genérico preservado | [`CYCLE_31_REPORT_2026-08-20.md`](CYCLE_31_REPORT_2026-08-20.md) |
 | Ciclo 30 | Fusão Chub-local medida e revertida | Sem ganho reproduzível; release 6.14 preservada; divergência histórica do benchmark aberta | [`CYCLE_30_REPORT_2026-08-20.md`](CYCLE_30_REPORT_2026-08-20.md) |
 | 6.14 | Snapshot rico e identidade alinhada | `0/30`→`3/30` identidades Renan-first; recall exploratório genérico `7,58%`→`27,27%` em IoU 0,10 | [`CYCLE_29_REPORT_2026-08-20.md`](CYCLE_29_REPORT_2026-08-20.md) |
