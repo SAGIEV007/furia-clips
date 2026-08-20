@@ -91,6 +91,22 @@ _FALSE_STARTS = (
 
 _STUTTER = re.compile(r"\b(\w+)(\s+\1\b)+", re.IGNORECASE)
 
+# Fala corrente vira arte em registro escrito. Isso é reescrita, e só é legítimo
+# no modo resumo — numa citação com aspas seria falsificar o que a pessoa disse.
+_CONTRACTIONS = (
+    (r"\btá\b", "está"), (r"\btão\b", "estão"), (r"\btô\b", "estou"),
+    (r"\btava\b", "estava"), (r"\btavam\b", "estavam"),
+    (r"\bpra\b", "para"), (r"\bpro\b", "para o"), (r"\bcê\b", "você"),
+    (r"\bnum\b", "não"), (r"\bpr'a\b", "para"),
+)
+
+# "eu acho que o STF está uma porcaria" — o que vira headline é o que vem depois
+# do "acho que". A moldura de opinião é do falante, não da afirmação.
+_OPINION_FRAME = re.compile(
+    r"^\s*(?:tenho\s+)?(?:eu\s+)?(?:acho|penso|diria|acredito|entendo|considero)\s+que\s+",
+    re.IGNORECASE,
+)
+
 # Uma headline lida de uma vez. O NORTE mediu que curto vence: da faixa mais
 # curta para a mais longa a mediana de views cai 36%. Aqui isso ordena e limita,
 # nunca recusa.
@@ -140,6 +156,8 @@ def clean_for_artwork(text: str) -> str:
         return ""
 
     limpo = _STUTTER.sub(r"\1", limpo)
+    for padrao, escrito in _CONTRACTIONS:
+        limpo = re.sub(padrao, escrito, limpo, flags=re.IGNORECASE)
     for muleta in sorted(_FILLERS, key=len, reverse=True):
         limpo = re.sub(rf"(?<!\w){re.escape(muleta)}(?!\w)[,\s]*", " ", limpo, flags=re.IGNORECASE)
     limpo = " ".join(limpo.split())
@@ -175,6 +193,16 @@ def clean_for_artwork(text: str) -> str:
 
 _ARTICLES = {"o", "a", "os", "as"}
 
+# Verbos conjugados que abrem uma oração sem sujeito. Depois de "Fulano diz que"
+# elas ficam penduradas — "diz que estão envolvido em escândalo" não diz quem.
+_SUBJECTLESS_VERB_START = {
+    "esta", "estao", "estou", "estamos", "tem", "temos", "tinha", "vai", "vou",
+    "vamos", "sao", "foi", "foram", "era", "eram", "fica", "ficam", "custa",
+    "custam", "passa", "passam", "precisa", "precisam", "quer", "querem", "faz",
+    "fazem", "diz", "dizem", "sabe", "sabem", "parece", "parecem", "continua",
+    "continuam", "chega", "chegam", "entra", "entram", "pode", "podem", "deve",
+}
+
 
 def key_term(texts: list[str]) -> tuple[str, str]:
     """O assunto da fonte, na forma em que ele foi dito, e o artigo que o rege.
@@ -194,8 +222,21 @@ def key_term(texts: list[str]) -> tuple[str, str]:
     if len(palavras) < 8:
         return "", ""
 
-    contagem: Counter[str] = Counter()
+    ocorrencias: Counter[str] = Counter()
     artigos: dict[str, Counter[str]] = {}
+
+    # Uma sigla é candidata sozinha. "STF", "PCC", "INSS" são exatamente o que o
+    # editor destaca, e o contador de expressões nunca as via: ele só montava
+    # gramas de duas a quatro palavras, e sigla tem uma. Num corte de dezoito
+    # segundos sobre o STF isso significou nenhum assunto e nenhuma headline.
+    siglas = {s.lower() for s in re.findall(r"\b[A-ZÀ-Þ]{2,6}\b", bruto)}
+    for posicao, palavra in enumerate(palavras):
+        if palavra in siglas:
+            ocorrencias[palavra] += 1
+            anterior = palavras[posicao - 1] if posicao else ""
+            if anterior in _ARTICLES:
+                artigos.setdefault(palavra, Counter())[anterior] += 1
+
     for tamanho in (2, 3, 4):
         for i in range(len(palavras) - tamanho + 1):
             grama = palavras[i:i + tamanho]
@@ -203,19 +244,30 @@ def key_term(texts: list[str]) -> tuple[str, str]:
                 continue
             if sum(1 for p in grama if normalize(p) not in _FUNCTION_WORDS) < 2:
                 continue
-            # Expressões mais longas valem mais por ocorrência: "compra de voto"
-            # diz o assunto, "compra" sozinho não diz nada.
             chave = " ".join(grama)
-            contagem[chave] += tamanho
+            ocorrencias[chave] += 1
             anterior = palavras[i - 1] if i else ""
             if anterior in _ARTICLES:
                 artigos.setdefault(chave, Counter())[anterior] += 1
-    if not contagem:
+    if not ocorrencias:
         return "", ""
-    melhor, peso = contagem.most_common(1)[0]
-    # Uma expressão que aparece uma vez só não é o assunto da fonte.
-    if peso < 6:
+
+    # Repetição é o que faz de uma expressão o assunto da fonte; o comprimento só
+    # desempata. Antes o critério era peso — ocorrências vezes o tamanho do grama
+    # — e isso exigia de uma fonte de setenta palavras a mesma repetição que uma
+    # de mil, o que na prática recusava todo corte curto.
+    # A repetição é o filtro, e ela vem antes do desempate — aplicá-la só ao
+    # vencedor deixava um grama de quatro palavras visto uma única vez ganhar de
+    # "STF" visto duas, e então cair no filtro levando o assunto junto.
+    repetidos = {termo: vezes for termo, vezes in ocorrencias.items() if vezes >= 2}
+    if not repetidos:
         return "", ""
+
+    def valor(item: tuple[str, int]) -> tuple[float, int]:
+        expressao, vezes = item
+        return (vezes * (1 + 0.4 * (len(expressao.split()) - 1)), len(expressao))
+
+    melhor, _ = max(repetidos.items(), key=valor)
     regente = artigos.get(melhor)
     return melhor.upper(), (regente.most_common(1)[0][0] if regente else "")
 
@@ -289,6 +341,101 @@ def summary_headlines(
     return [" ".join(item.split()) for item in saidas]
 
 
+def claim_headlines(units: list[dict[str, Any]], speaker: Speaker, termo: str) -> list[tuple[str, dict[str, Any]]]:
+    """`Renan Santos diz que o STF está uma porcaria.`
+
+    A família do assunto diz sobre *o que* ele falou; esta diz *o que ele disse*,
+    e é a que carrega a força. Faltava, e por isso um corte de dezoito segundos
+    sobre o STF — cuja frase mais forte estava inteira na fonte — não rendia
+    headline nenhuma.
+
+    A gramática continua vindo do molde: "Fulano diz que" é fixo, e o que entra
+    depois é uma oração limpa da própria fala, sem a moldura de opinião do
+    falante. Nada aqui recorta pelo meio; ou a unidade vira oração inteira, ou
+    ela não entra.
+    """
+    if not speaker.confirmed:
+        return []
+    from .clip_selector import ClipSelector
+    from .headline_quote import _disqualify, transcript_is_punctuated
+
+    cased = ClipSelector._casing_is_meaningful(units)
+    punctuated = transcript_is_punctuated(units)
+
+    saidas: list[tuple[str, dict[str, Any]]] = []
+    for unidade in units or []:
+        bruto = str(unidade.get("text") or "")
+        # Os mesmos portões de todo o resto. Sem esta linha a família nova
+        # atribuiu ao entrevistado uma fala que ele estava *encenando* na voz de
+        # um cabo eleitoral — a citação falsa mais cara que este módulo produz, e
+        # que já tinha sido recusada uma vez por outro caminho.
+        if _disqualify(bruto, cased, punctuated):
+            continue
+        limpo = clean_for_artwork(bruto).rstrip(".!?")
+        limpo = _OPINION_FRAME.sub("", limpo).strip()
+        if not limpo:
+            continue
+        palavras = limpo.split()
+        if not (4 <= len(palavras) <= 16):
+            continue
+        primeira = normalize(palavras[0])
+        if primeira in _FUNCTION_WORDS and primeira not in _ARTICLES:
+            continue
+        # "estão envolvido em escândalo…" é oração sem sujeito: depois de "diz
+        # que" ela fica pendurada, e o molde só garante a gramática do que ele
+        # próprio escreve.
+        if primeira in _SUBJECTLESS_VERB_START:
+            continue
+        frase = f"{speaker.name} diz que {limpo[0].lower() + limpo[1:]}."
+        if len(frase) > HEADLINE_MAX_CHARS:
+            continue
+        saidas.append((frase, unidade))
+    # A afirmação que fala do assunto da fonte vem primeiro, e entre iguais a
+    # mais curta — curto vence, medido no Campaign Hub.
+    saidas.sort(key=lambda item: (
+        0 if termo and normalize(termo) in normalize(item[0]) else 1, len(item[0])
+    ))
+    return saidas
+
+
+# O verbo da atribuição, na forma que o editor usa na arte. Cada um afirma algo
+# sobre *como* a pessoa falou, então cada um exige evidência no próprio trecho.
+ATTRIBUTION_VERBS = {
+    "denuncia": "DETONA",
+    "promessa": "CRAVA",
+    "alerta": "ALERTA",
+    "neutro": "DIZ",
+}
+
+
+def attributed_headlines(
+    units: list[dict[str, Any]], speaker: Speaker, termo: str, stance: str
+) -> list[tuple[str, dict[str, Any]]]:
+    """`RENAN SANTOS DETONA: "O STF ESTÁ UMA PORCARIA"`
+
+    A forma da arte que o editor produziu e aprovou para este corte. Ela difere
+    da família do resumo em duas coisas que importam: o verbo diz com que força
+    ele falou, e a afirmação vai entre aspas.
+
+    Sobre as aspas: elas carregam a afirmação como ela foi dita, passada para o
+    registro escrito — "tá" vira "está", como o próprio editor escreveu na arte
+    dele. Nenhuma palavra é acrescentada nem trocada por sinônimo. É a única
+    flexibilização do invariante do NORTE nesta forma, ela é deliberada, e está
+    registrada lá.
+    """
+    verbo = ATTRIBUTION_VERBS[stance]
+    saidas = []
+    for frase, unidade in claim_headlines(units, speaker, termo):
+        afirmacao = frase.split(" diz que ", 1)[-1].rstrip(".")
+        if not afirmacao:
+            continue
+        texto = f"{speaker.name} {verbo}: “{afirmacao}”".upper()
+        if len(texto) > HEADLINE_MAX_CHARS:
+            continue
+        saidas.append((texto, unidade))
+    return saidas
+
+
 def apply_emphasis(texto: str, termo: str) -> str:
     """O trecho destacado, se ele estiver mesmo na headline."""
     if not termo:
@@ -328,6 +475,25 @@ def build(
             mode="resumo", hook_alternatives=ganchos, score=100.0 - posicao,
         ))
 
+    # A forma da arte aprovada vem primeiro: é a que o editor de fato publica.
+    for frase, unidade in attributed_headlines(units, speaker, termo, stance)[:2]:
+        variacoes.append(Headline(
+            hook=ganchos[0], text=frase, emphasis=apply_emphasis(frase, termo),
+            mode="atribuicao", hook_alternatives=ganchos,
+            start_s=unidade.get("start"), end_s=unidade.get("end"),
+            score=110.0 - max(0, len(frase) - HEADLINE_IDEAL_CHARS) * 0.3,
+        ))
+
+    # A afirmação vem logo depois do assunto e à frente da citação: ela diz o que
+    # ele disse, que é o que o editor publica.
+    for frase, unidade in claim_headlines(units, speaker, termo)[:2]:
+        variacoes.append(Headline(
+            hook=ganchos[0], text=frase, emphasis=apply_emphasis(frase, termo),
+            mode="resumo", hook_alternatives=ganchos,
+            start_s=unidade.get("start"), end_s=unidade.get("end"),
+            score=95.0 - max(0, len(frase) - HEADLINE_IDEAL_CHARS) * 0.3,
+        ))
+
     # A citação literal continua existindo, e agora como o que ela sempre foi:
     # uma opção entre outras, com aspas. Ela passa pelos mesmos portões de
     # `pick_quotes` — fragmento, cortesia, fala encenada, legenda cortada — em
@@ -349,10 +515,19 @@ def build(
 
     variacoes.sort(key=lambda item: (-item.score, len(item.text)))
 
+    # O nome de quem fala está em toda headline e por isso não distingue nenhuma.
+    # Deixá-lo na assinatura fazia "Renan Santos" sozinho valer dois terços da
+    # sobreposição, e a melhor variação do corte sobre o STF era descartada como
+    # repetição da mais fraca.
+    do_nome = {t for t in re.findall(r"[a-z0-9]+", normalize(speaker.name)) if len(t) >= 5}
+
     escolhidas: list[Headline] = []
     vistas: list[set[str]] = []
     for candidata in variacoes:
-        assinatura = {t for t in re.findall(r"[a-z0-9]+", normalize(candidata.text)) if len(t) >= 5}
+        assinatura = {
+            t for t in re.findall(r"[a-z0-9]+", normalize(candidata.text))
+            if len(t) >= 5 and t not in do_nome
+        }
         if any(assinatura and len(assinatura & anterior) / len(assinatura) > 0.6 for anterior in vistas):
             continue
         escolhidas.append(candidata)

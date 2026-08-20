@@ -144,6 +144,11 @@ _ATTACK = {
     "corrupto", "corruptos", "roubalheira", "mentira", "mentiroso", "farsa",
     "vergonha", "absurdo", "podre", "inutilidade", "humilhante", "covarde",
     "malandro", "malandros", "hipocrisia", "descarado",
+    # Calibrado contra a arte que o editor publicou: para a fala "o STF está uma
+    # porcaria" ele escolheu BOMBA! e DETONA, e eu tinha lido apenas "alerta".
+    # Desqualificação direta é confronto, e é o que decide o gancho e o verbo.
+    "porcaria", "lixo", "palhacada", "vergonhoso", "escandalo", "escandalos",
+    "desastre", "fracasso", "nojento", "asqueroso", "podridao", "picaretagem",
 }
 
 # Estampas, da mais forte para a mais branda. Nenhuma é obrigatória: um trecho

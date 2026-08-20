@@ -135,12 +135,16 @@ def test_a_legenda_do_editor_volta_a_produzir_headline():
     assert sugestoes, "a legenda sem pontuação voltou a devolver tela em branco"
     assert result["review_flags"]["no_quote_found"] is False
     assert result["review_flags"]["source_not_punctuated"] is True
-    # A forma em terceira pessoa não promete literalidade, então ela é o que sai
-    # de uma fonte cuja fronteira veio do silêncio. Citação com aspas, que
-    # promete, não sai daqui.
-    assert all(item["mode"] == "resumo" for item in sugestoes)
+    # Numa fonte sem pontuação não há frase fechada para citar ao pé da letra,
+    # então o modo `citacao` — que promete literalidade palavra por palavra — não
+    # sai daqui. Saem a leitura em terceira pessoa e a forma atribuída, cujas
+    # aspas carregam a afirmação passada para o registro escrito.
+    assert all(item["mode"] in {"resumo", "atribuicao"} for item in sugestoes)
     for item in sugestoes:
         assert item["eyebrow"].strip(), "toda headline sai com gancho"
+    resumos = [item for item in sugestoes if item["mode"] == "resumo"]
+    assert resumos
+    for item in resumos:
         assert '"' not in item["headline"] and "“" not in item["headline"]
 
 

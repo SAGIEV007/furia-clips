@@ -30,7 +30,8 @@ uma decisão**. Se uma frase não muda o que alguém faria amanhã, ela sai.
 11. [Etapa 4, desenhada](#11-etapa-4-desenhada)
 12. [Design](#12-design)
 13. [Os blocos precisam ser úteis](#13-os-blocos-precisam-ser-úteis-não-só-existir)
-14. [Onde estamos](#14-onde-estamos)
+14. [Pedir o corte por intenção](#13b-pedir-o-corte-por-intenção-não-só-por-fonte)
+15. [Onde estamos](#14-onde-estamos)
 
 ---
 
@@ -439,6 +440,27 @@ se reescreve o que ele disse para caber.
 quando o áudio confirmou. Sem confirmação, a headline sai sem atribuição ou não
 sai — nunca com atribuição chutada.
 
+### 9.2b A forma atribuída, e a única flexibilização do invariante
+
+Do corte de dezoito segundos sobre o STF, a arte que o editor publicou:
+
+> **BOMBA!**
+> **RENAN SANTOS DETONA: "O STF ESTA UMA PORCARIA"**
+
+Duas coisas a registrar. A primeira: ele **normalizou a fala** — o áudio diz "tá"
+e a arte escreve "ESTA". Isso é reescrita dentro de aspas, e contraria a leitura
+literal do invariante. É deliberado, é prática dele, e a regra que fica é
+estreita: as aspas carregam a afirmação **como ela foi dita, passada para o
+registro escrito**. Contração vira forma plena, muleta de conversa sai, gagueira
+de reconhecimento sai. Nenhuma palavra é acrescentada e nenhuma é trocada por
+sinônimo. Fora disso o invariante segue inteiro.
+
+A segunda: o verbo e o gancho saem do **tom**, e o tom dele foi mais duro que o
+meu. Para "o STF está uma porcaria" eu li "alerta" e ele leu denúncia — porque
+"porcaria" não estava no meu vocabulário de confronto. Desqualificação direta é
+confronto. Essa calibração veio do julgamento dele, e é o tipo de correção que só
+vem daí.
+
 ### 9.3 O que o desempenho real mostra
 
 Medido no Campaign Hub sobre 983 publicações do `@renansantosmbl` no Instagram em
@@ -476,7 +498,30 @@ igualmente fiéis ao que foi dito, o gerador prefere a mais curta, aceita bem a 
 termina em pergunta e não grita por padrão no texto da legenda. Nenhuma headline é
 rejeitada por ter 62 caracteres.
 
-### 9.4 Como se sabe que ficou bom
+### 9.4 O teto que o gerador local não alcança
+
+O editor foi explícito sobre a própria régua: **"quase toda headline que eu faço
+não fica tão boa; digamos que isso é o mínimo aceitável."** O que ele quer são
+headlines mais polêmicas e cativantes do que as dele — e isso é um alvo acima do
+que qualquer molde alcança.
+
+Registrado para a etapa de aprimoramento, sem promessa de prazo:
+
+- **Aprender o que viraliza, e não só o que o Renan diz.** A hipótese do editor é
+  usar o Campaign Hub para calibrar o gerador pelo que de fato performou. O
+  material está lá: 983 publicações de 2026 com views, e o §9.3 já mostra que ele
+  responde a perguntas dessa natureza.
+- **Capacidade viral geral, não só a conta.** A intuição dele é que a força de uma
+  headline não é específica de Renan Santos — que existe uma forma de fazer
+  headline que funciona em qualquer assunto, e que aprender isso separado da
+  conta pode render mais. Ele mesmo disse não ter certeza. Vale investigar antes
+  de construir: comparar o desempenho das headlines por forma, não por tema, e ver
+  se a forma explica alguma coisa.
+
+Nada disso substitui o §9.5. O critério de fechamento continua sendo o editor
+editar em vez de reescrever.
+
+### 9.5 Como se sabe que ficou bom
 
 O critério é o do editor e é simples: **ele edita em vez de reescrever.** Enquanto
 a maioria das headlines geradas for jogada fora e escrita do zero, a etapa 2 não
@@ -795,6 +840,32 @@ errado é pior que um bloco que não sugere nada: ensina a desconfiar da sugest�
 o editor volta a percorrer o vídeo inteiro à mão. Por isso a sugestão só aparece
 quando as medições fecham, e quando não fecham o bloco diz o que faltou em vez de
 chutar.
+
+---
+
+## 13b. Pedir o corte por intenção, não só por fonte
+
+O chefe do editor vira para ele e pede **"todas as perguntas daquela entrevista"**.
+Hoje não há como pedir isso: o Furia lê a fonte e devolve o que ele julga melhor,
+e um pedido desses vira trabalho manual de novo.
+
+O que falta é uma forma de dizer *o que se quer* antes de cortar. Duas portas, e
+elas não competem:
+
+- **Opções prontas que realmente funcionem** — "todas as perguntas", "só as
+  respostas sobre X", "os momentos de confronto", "a íntegra de um bloco". Cada
+  uma tem de ser uma regra de seleção de verdade, não um filtro cosmético sobre o
+  ranking: pedir as perguntas e receber os cortes de sempre reordenados é pior que
+  não ter a opção.
+- **Uma caixa para escrever o pedido** em português, quando nenhuma opção serve.
+
+A estrutura para a primeira já existe e está medida: `detect_interviewer_turns`
+acha os turnos do entrevistador com precisão alta numa sabatina, e "todas as
+perguntas" é exatamente uma lista de turnos com o começo da resposta. Isso é
+provavelmente o pedido mais barato de atender de todos, e é o que o chefe pede.
+
+**O que decide se isso funciona** é o mesmo de sempre: numa fonte real, o editor
+recebe o que pediu, ou recebe outra coisa com nome novo.
 
 ---
 

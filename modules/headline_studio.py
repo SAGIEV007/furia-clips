@@ -464,6 +464,10 @@ _ARTWORK_CONNECTIVES = {
     "sobre", "contra", "para", "como", "quando", "porque", "entao", "assim",
     "presidenciavel", "candidato", "deputado", "critica", "denuncia", "expoe",
     "alerta", "promete", "quer", "diz", "explica", "acabar", "enfrentar", "funciona",
+    # Formas que a limpeza escreve por extenso a partir da fala corrente:
+    # "tá" vira "está", "pra" vira "para". São cópulas e preposições — não
+    # afirmam nada sobre o mundo, então não são invenção.
+    "esta", "estao", "estou", "estava", "estavam", "voce",
 }
 
 
