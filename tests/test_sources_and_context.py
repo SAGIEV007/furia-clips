@@ -1,7 +1,13 @@
 import pytest
 
 from modules.editorial_context import analyze_transcript_context
-from modules.source_ingest import SourceIngestError, normalize_public_url, validate_public_url
+from modules.source_ingest import (
+    SourceIngestError,
+    _source_error,
+    normalize_cookie_browser,
+    normalize_public_url,
+    validate_public_url,
+)
 from modules.transcript_parser import parse_transcript_text
 
 
@@ -143,13 +149,77 @@ def test_download_public_audio_uses_audio_format_and_validates_audio(monkeypatch
     assert captured["options"]["format"] == "ba/b"
 
 
-def test_public_source_403_is_actionable():
-    from modules.source_ingest import _source_error
+def test_normalize_cookie_browser_accepts_supported_browsers():
+    assert normalize_cookie_browser("Chrome") == "chrome"
+    assert normalize_cookie_browser("Chromium") == "chromium"
+    assert normalize_cookie_browser("Opera GX") == "opera"
+    assert normalize_cookie_browser("nenhum") == ""
 
+
+def test_normalize_cookie_browser_rejects_unsupported():
+    with pytest.raises(SourceIngestError, match="Navegador local não suportado"):
+        normalize_cookie_browser("safari")
+
+
+def test_source_error_produces_actionable_antibot_message():
+    message = str(_source_error(
+        "Não foi possível baixar a fonte pública",
+        RuntimeError("Sign in to confirm you're not a bot"),
+    ))
+    assert "verificação anti-bot" in message
+    assert "escolha o navegador" in message
+    assert "cookies" in message
+
+
+def test_source_error_produces_actionable_403_message():
+    message = str(_source_error(
+        "Não foi possível baixar a fonte pública",
+        RuntimeError("HTTP Error 403: Forbidden"),
+        cookie_browser="chrome",
+    ))
+    assert "HTTP 403" in message
+    assert "cookies locais" in message
+    assert "Importar vídeo" in message
+
+
+def test_public_source_403_is_actionable():
     message = str(_source_error("Não foi possível baixar a fonte pública", RuntimeError("HTTP Error 403: Forbidden")))
     assert "HTTP 403" in message
-    assert "link é público" in message
-    assert "yt-dlp" in message
+    assert "cookies locais" in message
+    assert "Importar vídeo" in message
+
+
+def test_source_probe_route_passes_local_browser_preferences(monkeypatch):
+    import app as app_module
+
+    captured = {}
+
+    def fake_probe(url, cookie_browser="", user_agent=""):
+        captured.update(url=url, cookie_browser=cookie_browser, user_agent=user_agent)
+        return {"title": "Fonte", "duration": 10}
+
+    monkeypatch.setattr(app_module, "probe_public_url", fake_probe)
+    client = app_module.app.test_client()
+    response = client.post(
+        "/api/source/probe",
+        json={"url": "https://example.com/video", "cookie_browser": "Opera GX", "user_agent": " UA de teste "},
+    )
+    assert response.status_code == 200
+    assert captured == {
+        "url": "https://example.com/video",
+        "cookie_browser": "opera",
+        "user_agent": "UA de teste",
+    }
+
+
+def test_source_auth_helper_falls_back_to_settings_without_cookie_material():
+    import app as app_module
+
+    captured = app_module._source_download_auth(
+        {},
+        {"source_cookie_browser": "brave", "source_user_agent": "Agent salvo"},
+    )
+    assert captured == ("brave", "Agent salvo")
 
 
 def test_parser_collapses_progressive_public_caption_windows_and_decodes_entities():

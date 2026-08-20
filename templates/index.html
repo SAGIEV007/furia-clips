@@ -384,6 +384,22 @@
                          </label>
                      </div>
                  </div>
+                 <div class="source-option-row source-browser-auth-row">
+                     <label for="sourceCookieBrowser">Navegador local para cookies (opcional)
+                         <select id="sourceCookieBrowser" class="setting-select">
+                             <option value="">Sem cookies (padrão)</option>
+                             <option value="chrome">Chrome / Chromium</option>
+                             <option value="firefox">Firefox</option>
+                             <option value="edge">Edge</option>
+                             <option value="opera">Opera / Opera GX</option>
+                             <option value="brave">Brave</option>
+                         </select>
+                     </label>
+                     <label for="sourceUserAgent">User-Agent (opcional)
+                         <input id="sourceUserAgent" class="setting-input" type="text" autocomplete="off" placeholder="Reservado; deixe vazio no uso normal">
+                     </label>
+                     <small class="source-help-inline">Os cookies são lidos localmente pelo yt-dlp e nunca enviados ao GitHub ou ao servidor.</small>
+                 </div>
                  <div class="source-status" id="sourceStatus">Nenhuma fonte pública verificada.</div>
              </div>
 

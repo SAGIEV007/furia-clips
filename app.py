@@ -104,6 +104,8 @@ from modules.source_ingest import (
     download_public_video,
     download_public_audio,
     download_public_subtitles,
+    normalize_cookie_browser,
+    normalize_user_agent,
     validate_public_url,
 )
 from modules.job_manager import JobManager, JobCancelled
@@ -365,6 +367,24 @@ def _resolve_source_destination(requested, settings=None):
         raise OSError("O destino escolhido é um arquivo; selecione uma pasta para salvar o vídeo.")
     os.makedirs(target, exist_ok=True)
     return target
+
+
+def _source_download_auth(data=None, settings=None):
+    """Return local browser auth preferences; never accept cookie material."""
+    payload = data if isinstance(data, dict) else {}
+    settings = settings or get_all_settings()
+    browser_value = payload.get("cookie_browser")
+    if browser_value is None:
+        browser_value = payload.get("source_cookie_browser")
+    if browser_value is None:
+        browser_value = settings.get("source_cookie_browser", "")
+    browser = normalize_cookie_browser(browser_value)
+    user_agent = normalize_user_agent(
+        payload.get("user_agent")
+        if payload.get("user_agent") is not None
+        else settings.get("source_user_agent", "")
+    )
+    return browser, user_agent
 
 
 def _probe_video_duration_seconds(video_path):
@@ -2200,8 +2220,13 @@ def api_delete_file():
 @app.route("/api/source/probe", methods=["POST"])
 def api_source_probe():
     data = request.get_json(silent=True) or {}
+    settings = get_all_settings()
     try:
-        return jsonify({"success": True, "source": probe_public_url(data.get("url", ""))})
+        cookie_browser, user_agent = _source_download_auth(data, settings)
+        return jsonify({
+            "success": True,
+            "source": probe_public_url(data.get("url", ""), cookie_browser=cookie_browser, user_agent=user_agent),
+        })
     except SourceIngestError as exc:
         return jsonify({"success": False, "error": str(exc)}), 400
 
@@ -2231,6 +2256,7 @@ def api_source_import():
     try:
         url = validate_public_url(url)
         destination = _resolve_source_destination(data.get("destination_dir"), settings)
+        cookie_browser, user_agent = _source_download_auth(data, settings)
     except (SourceIngestError, OSError) as exc:
         return jsonify({"success": False, "error": str(exc)}), 400
     with processing_lock:
@@ -2242,19 +2268,26 @@ def api_source_import():
     auto_transcribe = bool(data.get("auto_transcribe", True))
     set_setting("source_download_dir", destination)
     set_setting("source_max_height", max_height)
+    set_setting("source_cookie_browser", cookie_browser)
+    set_setting("source_user_agent", user_agent)
 
     def task():
         try:
             check_current_task_cancel()
             emit_progress("[Fonte] Preparando download de URL pública...", "info")
-            result = download_public_video(
-                url,
-                destination,
-                max_height=max_height,
-                retries=settings.get("source_download_retries", 3),
-                cancel_check=check_current_task_cancel,
-                progress=lambda update: emit_progress(_format_source_import_progress(update), "info"),
-            )
+            download_kwargs = {
+                "max_height": max_height,
+                "retries": settings.get("source_download_retries", 3),
+                "cancel_check": check_current_task_cancel,
+                "progress": lambda update: emit_progress(_format_source_import_progress(update), "info"),
+            }
+            if cookie_browser:
+                download_kwargs["cookie_browser"] = cookie_browser
+            if user_agent:
+                download_kwargs["user_agent"] = user_agent
+            if cookie_browser:
+                emit_progress(f"[Download] Cookies locais do navegador {cookie_browser} serão usados somente neste computador.", "info")
+            result = download_public_video(url, destination, **download_kwargs)
             result_path = os.path.abspath(result["path"])
             display_path = os.path.relpath(result_path, WORKSPACE_DIR) if _is_under(result_path, WORKSPACE_DIR) else result_path
             project_id = create_project(result.get("title") or os.path.basename(result_path), result_path)
@@ -2306,7 +2339,13 @@ def api_source_import():
                 transcription_settings = {**settings, "transcription_source": transcription_mode}
                 if transcription_mode != "whisper":
                     emit_progress("[Transcrição] Procurando legenda pública timestampada para a opção escolhida...", "info")
-                    subtitle_path = download_public_subtitles(url, destination, cancel_check=check_current_task_cancel)
+                    subtitle_path = download_public_subtitles(
+                        url,
+                        destination,
+                        cancel_check=check_current_task_cancel,
+                        cookie_browser=cookie_browser,
+                        user_agent=user_agent,
+                    )
                     if subtitle_path:
                         emit_progress(f"[Transcrição] Legenda pública encontrada: {os.path.basename(subtitle_path)}", "success")
                 else:
@@ -2392,6 +2431,7 @@ def api_source_transcribe():
     try:
         url = validate_public_url(data.get("url", ""))
         destination = _resolve_source_destination(data.get("destination_dir"), settings)
+        cookie_browser, user_agent = _source_download_auth(data, settings)
     except (SourceIngestError, OSError) as exc:
         return jsonify({"success": False, "error": str(exc)}), 400
 
@@ -2409,6 +2449,8 @@ def api_source_transcribe():
     transcription_settings = {**settings, "transcription_source": transcription_mode}
     set_setting("source_download_dir", destination)
     set_setting("source_max_height", max_height)
+    set_setting("source_cookie_browser", cookie_browser)
+    set_setting("source_user_agent", user_agent)
 
     def task(ctx):
         def job_message(message, level="info", stage=None, progress=None):
@@ -2440,22 +2482,25 @@ def api_source_transcribe():
                     message=message[:500],
                 )
 
+            download_kwargs = {
+                "retries": settings.get("source_download_retries", 3),
+                "cancel_check": ctx.check_cancel,
+                "progress": on_download_progress,
+            }
+            if cookie_browser:
+                download_kwargs["cookie_browser"] = cookie_browser
+            if user_agent:
+                download_kwargs["user_agent"] = user_agent
+            if cookie_browser:
+                emit_progress(f"[Download] Cookies locais do navegador {cookie_browser} serão usados somente neste computador.", "info")
             if media_type == "audio":
-                result = download_public_audio(
-                    url,
-                    destination,
-                    retries=settings.get("source_download_retries", 3),
-                    cancel_check=ctx.check_cancel,
-                    progress=on_download_progress,
-                )
+                result = download_public_audio(url, destination, **download_kwargs)
             else:
                 result = download_public_video(
                     url,
                     destination,
                     max_height=max_height,
-                    retries=settings.get("source_download_retries", 3),
-                    cancel_check=ctx.check_cancel,
-                    progress=on_download_progress,
+                    **download_kwargs,
                 )
             result_path = os.path.abspath(result["path"])
             source_duration = result.get("duration") or _probe_video_duration_seconds(result_path)
@@ -2472,6 +2517,8 @@ def api_source_transcribe():
                     url,
                     destination,
                     cancel_check=ctx.check_cancel,
+                    cookie_browser=cookie_browser,
+                    user_agent=user_agent,
                 )
                 if subtitle_path:
                     emit_progress(f"[Transcrição por URL] Legenda pública encontrada: {os.path.basename(subtitle_path)}", "success")

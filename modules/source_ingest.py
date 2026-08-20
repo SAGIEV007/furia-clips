@@ -22,7 +22,29 @@ class SourceIngestError(RuntimeError):
     pass
 
 
-BLOCKED_HOSTS = {"localhost", "localhost.localdomain", "0.0.0.0", "127.0.0.1", "::1"}
+BLOCKED_HOSTS = {"localhost", "localhost.localdomain", "0.0.0.0", "127.0.0.0", "127.0.0.1", "::1"}
+SUPPORTED_COOKIE_BROWSERS = {"chrome", "chromium", "edge", "firefox", "brave", "opera", "vivaldi"}
+
+
+def normalize_cookie_browser(value: str | None) -> str:
+    """Normalize a local browser name without reading or storing its cookies."""
+    normalized = str(value or "").strip().lower().replace(" ", "_").replace("-", "_")
+    aliases = {
+        "": "",
+        "none": "",
+        "nenhum": "",
+        "opera_gx": "opera",
+        "opera_software": "opera",
+    }
+    normalized = aliases.get(normalized, normalized)
+    if normalized and normalized not in SUPPORTED_COOKIE_BROWSERS:
+        choices = ", ".join(sorted(SUPPORTED_COOKIE_BROWSERS))
+        raise SourceIngestError(f"Navegador local não suportado para cookies: {value}. Escolha: {choices}.")
+    return normalized
+
+
+def normalize_user_agent(value: str | None) -> str:
+    return str(value or "").strip()[:500]
 
 
 def normalize_public_url(url: str) -> str:
@@ -70,11 +92,11 @@ def _yt_dlp():
     return yt_dlp
 
 
-def probe_public_url(url: str) -> dict:
+def probe_public_url(url: str, cookie_browser: str = "", user_agent: str = "") -> dict:
     value = validate_public_url(url)
     yt_dlp = _yt_dlp()
     options = {
-        **_common_yt_dlp_options(),
+        **_common_yt_dlp_options(cookie_browser, user_agent),
         "quiet": True,
         "no_warnings": True,
         "skip_download": True,
@@ -84,7 +106,7 @@ def probe_public_url(url: str) -> dict:
         with yt_dlp.YoutubeDL(options) as downloader:
             info = downloader.extract_info(value, download=False)
     except Exception as exc:
-        raise _source_error("Não foi possível ler a fonte pública", exc) from exc
+        raise _source_error("Não foi possível ler a fonte pública", exc, cookie_browser=cookie_browser) from exc
     return {
         "url": value,
         "id": info.get("id", ""),
@@ -97,8 +119,8 @@ def probe_public_url(url: str) -> dict:
     }
 
 
-def _common_yt_dlp_options():
-    return {
+def _common_yt_dlp_options(cookie_browser: str = "", user_agent: str = ""):
+    options = {
         "retries": 3,
         "fragment_retries": 3,
         "extractor_retries": 3,
@@ -106,19 +128,44 @@ def _common_yt_dlp_options():
         "continuedl": True,
         "noplaylist": True,
     }
+    browser = normalize_cookie_browser(cookie_browser)
+    if browser:
+        # yt-dlp reads the browser's local cookie store in this process. The
+        # cookie database is never copied to the repository, API response or log.
+        options["cookiesfrombrowser"] = (browser, None, None, None)
+    agent = normalize_user_agent(user_agent)
+    if agent:
+        options["http_headers"] = {"User-Agent": agent}
+    return options
 
 
-def _source_error(prefix: str, exc: Exception) -> SourceIngestError:
-    detail = str(exc)[:240]
-    if "403" in detail or "Forbidden" in detail:
-        return SourceIngestError(
-            f"{prefix}: a fonte recusou o download (HTTP 403). "
-            "O programa tentou novamente; verifique se o link é público, atualize o yt-dlp e tente outra vez."
+def _source_error(prefix: str, exc: Exception, *, cookie_browser: str = "") -> SourceIngestError:
+    detail = str(exc)[:300]
+    lowered = detail.lower()
+    browser = normalize_cookie_browser(cookie_browser)
+    if "sign in to confirm" in lowered or "not a bot" in lowered or "captcha" in lowered:
+        if browser:
+            action = (
+                f"Os cookies locais de {browser} não resolveram a verificação; abra o YouTube nesse mesmo navegador, "
+                "conclua a verificação e tente novamente."
+            )
+        else:
+            action = (
+                "Na aba Link público, escolha o navegador em que o YouTube está autenticado; os cookies serão lidos "
+                "somente localmente e nunca enviados ao GitHub ou ao servidor."
+            )
+        return SourceIngestError(f"{prefix}: o YouTube exigiu verificação anti-bot. {action}")
+    if "http error 403" in lowered or "403 forbidden" in lowered or "unable to download video data" in lowered:
+        action = (
+            f"O stream foi recusado pelo YouTube após a metadata. "
+            f"Use cookies locais de {browser or 'um navegador autenticado'} e tente novamente; "
+            "se persistir, baixe o MP4 no navegador autorizado e use Importar vídeo."
         )
+        return SourceIngestError(f"{prefix}: HTTP 403 no stream. {action}")
     return SourceIngestError(f"{prefix}: {detail}")
 
 
-def download_public_subtitles(url: str, destination: str, progress=None, cancel_check=None) -> str | None:
+def download_public_subtitles(url: str, destination: str, progress=None, cancel_check=None, cookie_browser: str = "", user_agent: str = "") -> str | None:
     """Try public Portuguese subtitles before the expensive CPU fallback."""
     if cancel_check:
         cancel_check()
@@ -127,7 +174,7 @@ def download_public_subtitles(url: str, destination: str, progress=None, cancel_
     target = Path(destination).expanduser().resolve()
     target.mkdir(parents=True, exist_ok=True)
     options = {
-        **_common_yt_dlp_options(),
+        **_common_yt_dlp_options(cookie_browser, user_agent),
         "quiet": True,
         "no_warnings": True,
         "skip_download": True,
@@ -175,7 +222,7 @@ def _stream_label(status: dict) -> str:
     return "mídia"
 
 
-def download_public_video(url: str, destination: str, progress=None, max_height: int = 1080, retries: int = 3, cancel_check=None) -> dict:
+def download_public_video(url: str, destination: str, progress=None, max_height: int = 1080, retries: int = 3, cancel_check=None, cookie_browser: str = "", user_agent: str = "") -> dict:
     """Download the best public source up to the requested vertical resolution."""
     value = validate_public_url(url)
     yt_dlp = _yt_dlp()
@@ -251,7 +298,7 @@ def download_public_video(url: str, destination: str, progress=None, max_height:
         "nooverwrites": True,
         "quiet": True,
         "no_warnings": True,
-        **_common_yt_dlp_options(),
+        **_common_yt_dlp_options(cookie_browser, user_agent),
         "retries": max(1, min(int(retries or 3), 5)),
         "progress_hooks": hooks,
         "postprocessor_hooks": postprocessor_hooks,
@@ -296,7 +343,7 @@ def download_public_video(url: str, destination: str, progress=None, max_height:
                     time.sleep(min(0.5, deadline - time.monotonic()))
 
     if last_error is not None and (not output or not output.exists()):
-        raise _source_error("Não foi possível baixar a fonte pública", last_error) from last_error
+        raise _source_error("Não foi possível baixar a fonte pública", last_error, cookie_browser=cookie_browser) from last_error
 
     if not output.exists() or not output.is_file():
         raise SourceIngestError("O download terminou sem produzir um arquivo de vídeo.")
@@ -331,7 +378,7 @@ def download_public_video(url: str, destination: str, progress=None, max_height:
     }
 
 
-def download_public_audio(url: str, destination: str, progress=None, retries: int = 3, cancel_check=None) -> dict:
+def download_public_audio(url: str, destination: str, progress=None, retries: int = 3, cancel_check=None, cookie_browser: str = "", user_agent: str = "") -> dict:
     """Download an audio-only public source for transcript-only operations.
 
     This deliberately does not replace ``download_public_video``: cutting still
@@ -377,7 +424,7 @@ def download_public_audio(url: str, destination: str, progress=None, retries: in
     except (TypeError, ValueError):
         max_attempts = 3
     options = {
-        **_common_yt_dlp_options(),
+        **_common_yt_dlp_options(cookie_browser, user_agent),
         "format": "ba/b",
         "outtmpl": str(target / "%(title).120B [%(id)s].%(ext)s"),
         "noplaylist": True,
@@ -417,7 +464,7 @@ def download_public_audio(url: str, destination: str, progress=None, retries: in
                     time.sleep(min(0.5, deadline - time.monotonic()))
 
     if last_error is not None and (not output or not output.exists()):
-        raise _source_error("Não foi possível baixar o áudio público", last_error) from last_error
+        raise _source_error("Não foi possível baixar o áudio público", last_error, cookie_browser=cookie_browser) from last_error
     if not output or not output.exists() or not output.is_file():
         raise SourceIngestError("O download terminou sem produzir um arquivo de áudio.")
 

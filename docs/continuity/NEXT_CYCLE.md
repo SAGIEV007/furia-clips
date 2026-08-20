@@ -1,99 +1,49 @@
-# Próximo ciclo — medir recall da ponte Chub em mídia local
+# Próximo ciclo — validar a ingestão pública no contexto autenticado do usuário
 
-## Objetivo da rodada
+## Estado de partida
 
-A release 2.6 adicionou a primeira ponte funcional **Campaign Hub → seeds → expansão contextual → gates → propostas guiadas**. Ela já transforma snapshots em propostas auditáveis quando o contexto autorizado está disponível, mas ainda não foi medida no benchmark b354 com a mídia local correspondente. O próximo ciclo deve testar a ponte no mesmo lote e separar claramente proposta reconhecida, recuperação temporal e corte revisado.
+A release `6.12` está na branch `claude/repo-access-commits-imgjmk`. Ela adiciona a escolha opcional de navegador local para cookies, User-Agent opcional e mensagens distintas para anti-bot e HTTP 403. A suíte completa passou com `532` testes aprovados e `4` ignorados depois de o asset BlazeFace ser provisionado temporariamente e removido antes do commit. A validação foi feita no sandbox; a sessão autenticada do notebook do usuário não está disponível nele.
 
-Reels e posts publicados continuam `reference_only`. Lives longas e gravações cruas continuam `processing_source`. O Estúdio de Texto de Arte, reframe social, diarização completa, publicação automática e download remoto por range continuam adiados.
+Lives longas e arquivos crus continuam sendo `processing_source`. Reels e posts publicados continuam `reference_only` e não devem ser baixados para processamento. A prioridade editorial continua sendo Renan Santos/MBL, com contexto, tese, payoff, locutor correto e headlines fiéis somente depois dos gates.
 
 ## Hipótese única
 
-> Se o MP4 local do bloco b354 for instalado e o Furia reprocessar o caso com a ponte da release 2.6 e o alinhamento da release 2.8, obtendo `measurement.reliable=true`, então o recall temporal medido será o recall real da seleção e poderá ser confrontado com o baseline `0/3`, sem aumentar falsos positivos, atribuições erradas, truncamentos ou confusão entre quem fala e quem é foco editorial.
+> **Se o usuário selecionar no Furia o mesmo navegador em que concluiu a verificação do YouTube e executar a importação no mesmo computador/IP, então o anti-bot deve deixar de ocorrer; se o stream continuar em HTTP 403, o programa deverá produzir diagnóstico acionável e o usuário deverá conseguir seguir pelo fallback de MP4 local, sem cookies ou credenciais saírem do computador.**
 
-## O que a release 2.8 já resolveu
+## Procedimento de validação
 
-O alinhamento temporal deixou de ser um obstáculo. As seeds nasciam em segundos
-absolutos porque o mapeamento usava a duração declarada no snapshot (a live inteira)
-em vez da duração do arquivo em processamento. Agora o job passa
-`settings["media_duration"]`, medido por `ffprobe`, e o mapeamento prefere esse valor.
+1. Confirmar no notebook a versão `6.12` e a revisão Git mostrada pelo console.
+2. Abrir o YouTube no navegador que passou pela verificação; não copiar cookies, tokens, senhas ou arquivos do perfil para a conversa ou para o repositório.
+3. Abrir a aba **Link público**, manter User-Agent vazio no primeiro teste e selecionar o mesmo navegador autenticado.
+4. Usar primeiro o botão **Verificar**, depois **Baixar somente** com um link público autorizado de teste. Registrar apenas se o probe e o download passaram, a mensagem sanitizada e a porcentagem de progresso.
+5. Se o anti-bot persistir, confirmar que a seleção corresponde ao navegador correto e que o navegador está fechado ou disponível conforme a política do sistema; não tentar extrair a base de cookies manualmente.
+6. Se ocorrer HTTP 403 depois da metadata, atualizar o yt-dlp pelo procedimento normal do ambiente autorizado e repetir uma única vez. Não tratar três retries idênticos como solução.
+7. Se ainda falhar, usar o fluxo seguro **Importar vídeo** com um MP4 obtido de fonte autorizada. Registrar o bloqueio do provedor e não alterar seleção, ranking ou headlines para mascarar uma falha de ingestão.
+8. Validar que o MP4 importado tem áudio, duração, resolução e codec corretos antes de iniciar transcrição ou corte.
+9. Se a ingestão passar, repetir com **Transcrever sem cortar** e com **Baixar e transcrever**, verificando que ambas as rotas preservam a preferência local e que nenhuma rotina de cookies aparece no log.
+10. Só depois de a aquisição estar confirmada, retomar uma hipótese editorial única: medir a completude contextual de um lote real de Renan/MBL com transcrição canônica e feedback aprovado/rejeitado.
 
-Duas consequências práticas para esta rodada:
+## Critério de sucesso
 
-1. **Passe a duração da mídia.** Ao chamar `build_campaign_hub_guided_seeds()` fora do
-   job, informe `media_duration`. Sem ela o comportamento antigo é preservado — as
-   seeds continuam em segundos absolutos.
-2. **Zero propostas agora significa zero propostas.** Antes da 2.8, uma seed fora da
-   transcrição era ancorada na frase mais próxima e virava uma proposta falsa. Se
-   aparecerem propostas repetidas na mesma janela, é regressão desta correção.
+O ciclo só será considerado bem-sucedido se um link público autorizado for verificado e baixado com a sessão local, ou se o bloqueio for reproduzido com uma mensagem correta e o fallback por MP4 funcionar. Em qualquer cenário, nenhum cookie, token, senha, base de navegador, mídia grande ou transcrição privada pode entrar no GitHub.
 
-A duração real da live `57nyfP9IDW4` é **`11230s`**, conferida no Acervo. Registros
-anteriores diziam `7241s`.
+## Critério de falha e classificação
 
-## Pré-condição obrigatória de medição — release 2.7
+Um anti-bot ou 403 persistente não prova que o vídeo é privado. Deve ser classificado como bloqueio de provedor/contexto local, com a mensagem recebida e a versão do yt-dlp registradas de forma sanitizada. Não usar sites paralelos desconhecidos como parte automática do produto; quando o usuário já possuir um MP4 autorizado, importar esse arquivo é o fallback preferencial.
 
-Antes de comparar qualquer métrica com o baseline, confirme no payload do benchmark:
+## Escopo excluído desta hipótese
 
-- `measurement.reliable == true`;
-- `measurement.status == "reliable"`;
-- nas referências, `timeline_mapping == "downloaded_block_timeline"`;
-- os destaques mapeados em `146.80` / `223.24` / `488.48` na timeline local.
+Não alterar ranking, seleção contextual, Campaign Hub, diarização, facetracking, reframe, headlines, Estúdio de Texto de Arte, formatos sociais, publicação automática, editor estilo CapCut ou download remoto por range. Não transformar cookies em configuração obrigatória. Não implementar captura de cookies nem sincronização entre computadores.
 
-Se `measurement.reliable` for `false`, o resultado é **bloqueado**, não `0/3`. A
-release 2.7 emite os avisos correspondentes no `stderr` do script e na resposta da
-rota `POST /api/editorial/benchmark`.
+## Próximo ciclo editorial após ingestão
 
-Atenção a três armadilhas registradas em `CYCLE_17_REPORT_2026-08-17.md`:
-
-1. `normalize_snapshot()` descarta o snapshot inteiro se faltar a chave `accounts`
-   com pelo menos uma conta suportada, mesmo que blocos e highlights estejam corretos;
-2. `Path.home()` pode não apontar para o diretório do usuário conforme o ambiente —
-   confirme onde os artefatos estão sendo gravados;
-3. passe caminhos absolutos ou confie no `expanduser()` adicionado na 2.7.
-
-## Procedimento
-
-1. Ler `docs/continuity/START_HERE.md`, `docs/continuity/PROMPT_MESTRE_IA.md`, `docs/continuity/CHUB_INTEGRATION_CONTRACT.md`, `AGENTS.md`, `README.md`, `VERSION`, `docs/continuity/PROJECT_STATE.md`, `docs/continuity/DECISIONS.md`, `docs/continuity/COMMIT_MESSAGE_TEMPLATE.md`, `docs/VERSIONING.md` e este arquivo.
-2. Confirmar branch, commit, diff e baseline; não apagar alterações locais.
-3. Confirmar a suíte, a versão e o benchmark `b354-v1` antes de alterar qualquer lógica.
-4. Instalar somente um snapshot autorizado, sanitizado e local usando `scripts/convert_chub_blocks_export.py` ou a importação equivalente da UI; não chamar o MCP a cada corte e não versionar o snapshot privado.
-5. Confirmar o vínculo entre o snapshot, o bloco `b3545938-e3a5-4287-82b1-5f7dcdc218c3`, a fonte do YouTube e o MP4 local `workspace/exports/bloco-b354-0-549_*.mp4`; registrar cobertura, hash e método fora do Git quando necessário.
-6. Reprocessar o mesmo lote com os sete candidatos antigos e as propostas `campaign_hub_guided`, preservando a transcrição canônica e `renanSpeaking=false` quando terceiro fala.
-7. Comparar baseline e propostas com recall, IoU, erro temporal de início/fim, duração, duplicatas, autossuficiência, pergunta–resposta, payoff, locutor, risco, proveniência e flags de revisão.
-8. Confirmar que as propostas guiadas permanecem separadas de cortes aprovados e que `third_party`/`gateWarnings` não viram aprovação automática.
-9. Se houver ganho reproduzível, exportar somente uma amostra aprovada pela revisão humana e validar FFprobe, duração, resolução, áudio, início e encerramento. Se não houver ganho, registrar o caso divergente e não ampliar o escopo.
-10. Repetir o processamento para medir estabilidade entre execuções e verificar que não surgem falsos positivos nem atribuições erradas.
-11. Não implementar nesta rodada reframe, headlines, editor estilo CapCut, tradução, avatars, voz, música, branding, publicação automática, múltiplas câmeras, formatos sociais ou download remoto por range.
-12. Atualizar `VERSION`, `CHANGELOG.md`, `PROJECT_STATE.md`, `START_HERE.md`, este arquivo e o relatório do ciclo somente se houver alteração observável; documentar hipótese, baseline, métricas e limitações no commit.
-13. Executar a suíte completa, `compileall`, `node --check`, `git diff --check`, verificação de segredos, revisão de mídia e revisão do diff. Publicar somente a branch de trabalho, sem merge na principal.
-
-## Contrato de continuidade
-
-Toda alteração relevante deve deixar no GitHub a hipótese, o baseline, o escopo excluído, os testes, as métricas, as limitações e a próxima hipótese. Não deixar essa informação apenas na conversa, no terminal ou no título do commit. Se a rodada não medir recall real, declarar explicitamente que o resultado está bloqueado ou não verificado.
-
-## Limites
-
-O aplicativo local não deve chamar o MCP por job. O agente ou uma ação administrativa explícita pode consultar o MCP para pesquisa e gerar snapshots sanitizados antes do job; o corte normal usa a última memória local válida. O contexto do Chub deve influenciar a geração de propostas quando o snapshot estiver disponível, mas continua não sendo verdade absoluta nem aprovação automática.
-
-A proposta guiada deve alimentar contexto e gates antes do score, sem forçar aprovação. Ela não pode substituir a transcrição canônica, inventar locutor ou apagar candidatos de terceiros. Ausência de cobertura continua desconhecida, nunca zero; uma unidade do Acervo pode estar incompleta ou conter erro de ASR. Blocos e highlights são seeds e referências auditáveis, não cortes finais por definição.
-
-## Formato do relatório
-
-O relatório deve separar **confirmado**, **reproduzido**, **corrigido**, **provável**, **não verificado** e **bloqueado**. Inclua versão, revisão, branch, hipótese, arquivos, benchmark usado, mídia analisada, candidatos antigos e guiados, métricas antes/depois, casos divergentes, testes, limitações e uma única próxima hipótese.
-
-## Referências internas
-
-- [`CHUB_INTEGRATION_CONTRACT.md`](CHUB_INTEGRATION_CONTRACT.md)
-- [`PROJECT_STATE.md`](PROJECT_STATE.md)
-- [`PROMPT_EXECUCAO_CHUB_CORTES.md`](PROMPT_EXECUCAO_CHUB_CORTES.md)
-- [`COMMIT_MESSAGE_TEMPLATE.md`](COMMIT_MESSAGE_TEMPLATE.md)
-- [`docs/VERSIONING.md`](../VERSIONING.md)
+Quando a ingestão estiver confirmada, escolher uma única fonte longa de Renan/MBL com transcrição timestampada. Medir baseline de candidatos, autossuficiência, pergunta–resposta, referências anafóricas, tese, payoff, encerramento natural, locutor e headline. Implementar somente a maior falha observada, criar regressões, comparar antes/depois e publicar apenas se o ganho for reproduzível.
 
 ## Referências
 
-Não há fontes externas necessárias para esta hipótese; ela é derivada dos artefatos versionados do próprio projeto e do benchmark local autorizado.
-
-[1]: CHUB_INTEGRATION_CONTRACT.md
-[2]: PROJECT_STATE.md
-[3]: PROMPT_EXECUCAO_CHUB_CORTES.md
-[4]: COMMIT_MESSAGE_TEMPLATE.md
-[5]: ../VERSIONING.md
+- [`PROJECT_STATE.md`](PROJECT_STATE.md)
+- [`DECISIONS.md`](DECISIONS.md)
+- [`CYCLE_27_REPORT_2026-08-20.md`](CYCLE_27_REPORT_2026-08-20.md)
+- [`PROMPT_PROXIMOS_CICLOS_6_12.md`](PROMPT_PROXIMOS_CICLOS_6_12.md)
+- [`docs/VERSIONING.md`](../VERSIONING.md)
+- [FAQ oficial do yt-dlp](https://github.com/yt-dlp/yt-dlp/wiki/FAQ)

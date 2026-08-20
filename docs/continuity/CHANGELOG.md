@@ -1,5 +1,29 @@
 # Changelog de continuidade
 
+## 6.12 — Download público com cookies locais opcionais
+
+### Incluído
+
+- `modules/source_ingest.py`: normalização segura de navegadores, suporte local a `cookiesfrombrowser`, User-Agent limitado e mensagens distintas para anti-bot e HTTP 403.
+- `config.py`: preferências persistentes `source_cookie_browser` e `source_user_agent`, vazias por padrão.
+- `app.py`: passagem validada das preferências para probe, importação de vídeo, importação de áudio e busca de legendas públicas.
+- `templates/index.html` e `static/js/app.js`: seletor de navegador, User-Agent opcional e payloads consistentes na aba Link público.
+- `tests/test_sources_and_context.py`: regressões para navegadores aceitos, entradas inválidas, mensagens acionáveis e passagem pela rota de probe.
+
+### Hipótese e baseline
+
+O baseline 6.11 reproduzia `Sign in to confirm you’re not a bot` antes do download e HTTP 403 após aproximadamente `0,5%` do stream. A hipótese foi permitir que o usuário escolha o navegador local autenticado sem transportar cookies ou credenciais.
+
+### Validação da rodada
+
+A suíte focada terminou com **27 testes aprovados**. A suíte completa terminou com **532 aprovados e 4 ignorados** depois de o modelo BlazeFace ser baixado temporariamente, conferido pelo SHA-256 esperado e removido antes do commit. `node --check static/js/app.js` e `git diff --check` também passaram. O download real usando a sessão autenticada do notebook do usuário permanece não verificado no sandbox.
+
+### Limitações e próxima hipótese
+
+A implementação não contorna CAPTCHA nem garante que todo stream 403 será aceito: ela usa o mecanismo suportado pelo yt-dlp e oferece fallback por MP4 local. A próxima hipótese é testar no mesmo computador/IP e navegador que concluiu a verificação, registrando somente o status sanitizado do download.
+
+Relatório: [`CYCLE_27_REPORT_2026-08-20.md`](CYCLE_27_REPORT_2026-08-20.md).
+
 ## 3.1 — De candidato bruto a corte pronto e ranqueado
 
 ### Incluído

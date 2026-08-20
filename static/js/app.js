@@ -4071,7 +4071,7 @@ document.getElementById("btnProbeSource")?.addEventListener("click", async () =>
         const res = await fetch("/api/source/probe", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ url }),
+            body: JSON.stringify({ url, ...getSourceDownloadAuthPayload() }),
         });
         const data = await parseJsonResponse(res, "Verificação da fonte");
         if (!res.ok || !data.success) throw new Error(data.error || "Fonte indisponível");
@@ -4155,6 +4155,13 @@ async function ensureSourceDirectory() {
     return chooseSourceDirectory();
 }
 
+function getSourceDownloadAuthPayload() {
+    return {
+        cookie_browser: document.getElementById("sourceCookieBrowser")?.value || "",
+        user_agent: document.getElementById("sourceUserAgent")?.value?.trim() || "",
+    };
+}
+
 async function transcribeSourceOnly() {
     if (state.sourceTranscriptionActive || state.sourceImportActive) return;
     const input = document.getElementById("sourceUrlInput");
@@ -4183,6 +4190,7 @@ async function transcribeSourceOnly() {
                 max_height: maxHeight,
                 media_type: "audio",
                 transcription_source: document.getElementById("settingTranscriptionSource")?.value || "auto",
+                ...getSourceDownloadAuthPayload(),
             }),
         });
         const data = await parseJsonResponse(res, "Transcrição por URL");
@@ -4248,6 +4256,7 @@ async function importSource(autoTranscribe = false) {
                 auto_transcribe: autoTranscribe,
                 manual_transcript: confirmedTranscript,
                 transcription_source: document.getElementById("settingTranscriptionSource")?.value || "auto",
+                ...getSourceDownloadAuthPayload(),
             }),
         });
         const data = await parseJsonResponse(res, "Importação da fonte");
@@ -4338,6 +4347,14 @@ function applySettings() {
         state.sourceMaxHeight = Math.min(1080, Number(s.source_max_height) || 1080);
         const quality = document.getElementById("sourceMaxHeight");
         if (quality) quality.value = String(state.sourceMaxHeight);
+    }
+    const sourceCookieBrowser = document.getElementById("sourceCookieBrowser");
+    if (sourceCookieBrowser && typeof s.source_cookie_browser === "string") {
+        sourceCookieBrowser.value = s.source_cookie_browser || "";
+    }
+    const sourceUserAgent = document.getElementById("sourceUserAgent");
+    if (sourceUserAgent && typeof s.source_user_agent === "string") {
+        sourceUserAgent.value = s.source_user_agent || "";
     }
 }
 

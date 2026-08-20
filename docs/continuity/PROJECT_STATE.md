@@ -8,9 +8,9 @@
 | --- | --- |
 | Projeto | Furia Clips |
 | Repositório | `SAGIEV007/furia-clips` |
-| Versão pública atual | `3.3` |
-| Última release funcional anterior | `3.2` |
-| Natureza da release atual | Corpus do Acervo destilado em 3 KB locais; ganho no detector refutado e registrado |
+| Versão pública atual | `6.12` |
+| Última release funcional anterior | `6.11` |
+| Natureza da release atual | Correção observável do download público: cookies locais opcionais, User-Agent limitado e diagnóstico anti-bot/403 |
 | Fonte da versão | [`VERSION`](../../VERSION) |
 | Branch de trabalho | `claude/repo-access-commits-imgjmk` |
 | Última publicação conhecida antes desta rodada | `a0452d3` — `fix: declarar confiabilidade da medição no benchmark editorial (2.7)` |
@@ -20,22 +20,28 @@
 | Commit funcional 2.9 | `10c1fad` — `feat: medir recall em fonte longa inteira e descartar não-conteúdo rotulado (2.9)` |
 | Commit funcional 3.0 | `f83d1fb` — `feat: governar o orçamento de candidatos pela fonte, com precisão medida (3.0)` |
 | Commit funcional 3.1 | `a170aab` — `feat: entregar todo candidato com contexto, locutor e veredito de revisão (3.1)` |
-| Última atualização | 2026-08-17 |
+| Última atualização | 2026-08-20 |
 | Baseline editorial | Duas fontes medidas na 3.1. `3XJfcqn56Rw` (live 98 min): recall `50/66`, cobertura `25/27`. `j9FRVbb8CAI` (entrevista 31 min): recall `30/34`, cobertura `11/11`. Precisão `1.00`, zero fora de bloco e zero desperdício **nas duas**. O b354 permanece como regressão de locutor. |
-| Suíte no checkout | 355 aprovados, 7 falhas ambientais (`ffmpeg`/`ffprobe` ausentes e asset BlazeFace) |
+| Suíte no checkout | 532 aprovados, 4 ignorados após provisionamento temporário do asset BlazeFace; sem asset, 1 falha ambiental |
 | Objetivo | Gerar cortes Renan Santos/MBL concisos, autossuficientes, contextualizados e editorialmente úteis |
 
 A branch de trabalho deve ser confirmada no checkout real. O GitHub é a fonte da revisão técnica; este arquivo não pode manter um hash diferente do `HEAD` final publicado. Antes de alterar qualquer arquivo, preserve mudanças locais e confirme `git status`.
 
 ## Norte imediato
 
-A release 2.2 tornou mensurável o caso b354: sete candidatos locais cobriram `0/3` highlights QA-gated do Campaign Hub, com IoU médio `0.0`, embora o mapeamento da timeline e a exportação individual tenham funcionado. A release 2.6 implementa a primeira ponte funcional que converte contexto autorizado em seeds e propostas guiadas.
+A release 6.12 corrige o contrato de ingestão pública, mas o download real com a sessão autenticada do usuário ainda precisa ser confirmado no notebook que concluiu a verificação do YouTube. O job normal continua sem transportar cookies, tokens ou credenciais. A próxima hipótese é testar o navegador local selecionado no mesmo computador/IP e, se o stream continuar em 403, orientar atualização do yt-dlp ou o fallback seguro por MP4 local.
 
-A ponte carrega o snapshot uma vez por job, preserva proveniência e riscos, expande a seed dentro da transcrição local e aplica gates antes do ranking. Ela não transforma o Campaign Hub em aprovador automático: propostas guiadas continuam separadas de cortes aprovados e podem exigir revisão humana. A hipótese seguinte está em [`NEXT_CYCLE.md`](NEXT_CYCLE.md): instalar snapshot autorizado do b354 e medir recall real em mídia local, sem ampliar escopo para reframe, headlines, editor estilo CapCut, tradução, avatars, voz, música, branding, publicação automática, múltiplas câmeras ou download remoto por range.
+As prioridades editoriais Renan-first continuam preservadas: contexto e payoff antes de hook, gates de locutor antes do ranking, Campaign Hub como memória/seed e não como aprovação, e uma hipótese principal por ciclo. O problema de ingestão não altera seleção, ranking, headlines ou formatos.
 
-O caso b354 deve preservar `renanSpeaking=false` quando Kim ou outro terceiro fala. O fato de um bloco ser sobre Renan não autoriza atribuir a fala a Renan. Propostas guiadas devem permanecer separadas de cortes aprovados e não podem apagar candidatos de terceiros.
+## Release atual — 6.12
 
-## Release atual — 3.3
+A 6.12 adiciona a ponte operacional que faltava entre a interface de Link público e o suporte local do yt-dlp. O usuário pode escolher Chrome/Chromium, Firefox, Edge, Opera/Opera GX ou Brave; o valor é normalizado, validado e usado apenas localmente pelo processo. Um User-Agent opcional é encaminhado com limite de tamanho e permanece vazio por padrão.
+
+O probe, a importação de vídeo, a importação de áudio, a transcrição por URL e a busca de legendas recebem os mesmos parâmetros. Anti-bot e HTTP 403 agora produzem mensagens diferentes e acionáveis. A mudança foi testada com 27 regressões focadas e 532 testes aprovados em suíte completa, com 4 testes ignorados; o modelo BlazeFace usado para separar a falha ambiental foi removido antes do commit.
+
+O download com a sessão real do notebook do usuário permanece **não verificado** no sandbox. O relatório da rodada está em [`CYCLE_27_REPORT_2026-08-20.md`](CYCLE_27_REPORT_2026-08-20.md).
+
+## Release anterior — 3.3
 
 A 3.3 destilou o corpus do Acervo — 517 vídeos, 16.559 blocos, 885.215 frases — em
 `data/chub_priors/acervo_priors.json`, com **3 KB**. O cálculo roda no servidor do
@@ -241,12 +247,13 @@ As decisões duráveis estão em [`DECISIONS.md`](DECISIONS.md). As mais importa
 
 A validação da release 2.6 incluiu suíte com **333 testes aprovados**, `compileall`, `node --check static/js/app.js`, `git diff --check` e verificação SHA-256 do BlazeFace temporário. O payload real do Campaign Hub confirmou duas seeds e duas propostas guiadas com `context_complete=true`, mas o benchmark b354 não foi reprocessado porque o snapshot correspondente não estava instalado localmente. Esses resultados não substituem a medição futura de recall em mídia b354.
 
-Em qualquer rodada, classifique conclusões como `confirmado`, `reproduzido`, `corrigido`, `provável`, `não verificado` ou `bloqueado`. O relatório desta rodada está em [`CYCLE_16_REPORT_2026-08-17.md`](CYCLE_16_REPORT_2026-08-17.md).
+Em qualquer rodada, classifique conclusões como `confirmado`, `reproduzido`, `corrigido`, `provável`, `não verificado` ou `bloqueado`. O relatório desta rodada está em [`CYCLE_27_REPORT_2026-08-20.md`](CYCLE_27_REPORT_2026-08-20.md).
 
 ## Histórico resumido
 
 | Release | Foco | Resultado principal | Relatório |
 | --- | --- | --- | --- |
+| 6.12 | Ingestão pública segura | Cookies locais opcionais e diagnóstico anti-bot/403; download com sessão do usuário ainda não verificado | [`CYCLE_27_REPORT_2026-08-20.md`](CYCLE_27_REPORT_2026-08-20.md) |
 | 3.3 | Destilação do corpus | 885k frases em 3 KB; ganho no detector refutado e o sinal mantido fora do veredito | [`CYCLE_23_REPORT_2026-08-17.md`](CYCLE_23_REPORT_2026-08-17.md) |
 | 3.2 | Interpretação própria | Segmentação temática nativa cobre 85% e 82% dos blocos do Acervo em duas fontes | [`CYCLE_22_REPORT_2026-08-17.md`](CYCLE_22_REPORT_2026-08-17.md) |
 | 3.1 | Corte pronto e ranqueado | 100% dos candidatos com contexto, locutor e veredito; ranqueamento confirmado (top 20 = 100% com destaque) | [`CYCLE_21_REPORT_2026-08-17.md`](CYCLE_21_REPORT_2026-08-17.md) |

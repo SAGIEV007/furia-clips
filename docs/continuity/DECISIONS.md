@@ -78,3 +78,6 @@ O aplicativo local continua usando snapshots autorizados fora do checkout. O age
 ## D-020 — Ferramentas profissionais inspiram capacidades, não escopo indiscriminado
 
 Recursos observados em OpusClip, Descript e Riverside — foco por locutor/tópico, busca editorial, score multifatorial, presets, reframe com preservação de evidência e edição baseada em transcrição — podem orientar melhorias no núcleo de seleção. Editor geral estilo CapCut, edição pós-renderização de legendas/headlines, avatars, voz, música e publicação automática permanecem adiados até que precisão contextual, benchmark e estabilidade estejam maduros.
+
+## D-021 — Cookies de navegador são locais e descartáveis
+A ingestão pública pode aceitar apenas o nome normalizado do navegador local e um User-Agent opcional. O yt-dlp pode ler a base de cookies no mesmo computador por `cookiesfrombrowser`, mas o Furia não deve receber, armazenar, logar, versionar ou transmitir o conteúdo dos cookies, tokens ou senhas. A preferência persistida deve começar vazia, e mensagens anti-bot/403 devem oferecer fallback seguro por MP4 local sem prometer que retries idênticos resolverão o bloqueio.
