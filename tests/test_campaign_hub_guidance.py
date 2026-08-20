@@ -443,3 +443,43 @@ def test_block_evidence_is_inert_without_a_snapshot():
 
     assert selector._attach_block_evidence(clips, {}) == clips
     assert "campaign_hub_block" not in clips[0]
+
+
+def test_selection_diagnostics_expose_stage_counts_without_changing_output():
+    selector = ClipSelector(min_duration=8, max_duration=180, max_clips=5)
+    clips = selector.select_clips(
+        {"segments": _sentences()},
+        settings={
+            "campaign_hub_snapshot": _snapshot(),
+            "campaign_hub_account": "@renansantosmbl",
+            "editorial_context": {},
+        },
+    )
+
+    diagnostics = selector.get_candidate_diagnostics()
+    stages = diagnostics["stage_counts"]
+    assert {"primary_pool", "post_fallback", "after_non_content_filter", "after_context_enrichment", "pre_overlap", "post_overlap", "final"} <= set(stages)
+    assert stages["final"]["count"] == len(clips)
+    assert stages["post_overlap"]["count"] >= stages["final"]["count"]
+    assert stages["final"]["campaign_hub_guided"] + stages["final"]["campaign_hub_block_evidence"] >= 1
+
+
+def test_renan_first_excludes_guided_proposals_without_positive_speaker_evidence():
+    snapshot = _snapshot()
+    snapshot["records"]["blocks"][0]["renan_speaking"] = False
+    selector = ClipSelector(min_duration=8, max_duration=180, max_clips=5)
+    clips = selector.select_clips(
+        {"segments": _sentences()},
+        settings={
+            "campaign_hub_snapshot": snapshot,
+            "campaign_hub_account": "@renansantosmbl",
+            "editorial_focus": "renan_santos_politics",
+            "editorial_profile": "renan_santos_politics",
+            "channel_context": "Renan Santos / MBL",
+            "editorial_context": {"focus": "renan_santos_politics"},
+        },
+    )
+
+    diagnostics = selector.get_candidate_diagnostics()
+    assert not any(clip.get("source") == "campaign_hub_guided" for clip in clips)
+    assert diagnostics["campaign_hub_guided_filtered_by_speaker"] >= 1

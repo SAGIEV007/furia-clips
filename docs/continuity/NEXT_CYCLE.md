@@ -10,38 +10,39 @@ Lives longas e arquivos crus continuam sendo `processing_source`. Reels e posts 
 
 ## Hipótese única
 
-> **Se o benchmark registrar separadamente cada seed guiada, cada candidato local enriquecido, cada fusão e cada descarte por gate, então será possível reconciliar o resultado histórico de `27,27%` com o harness atual de `7,58%` e escolher a próxima melhoria sem otimizar contra uma métrica inconsistente.**
+> **Se o Furia separar a fila de descoberta do Campaign Hub da fila de candidatos publicáveis, então poderá preservar highlights de locutor incerto para auditoria sem permitir que eles ocupem o pool Renan-first ou contaminem a seleção pronta para revisão editorial.**
 
 ## Procedimento de validação
 
-1. Fixar a fonte `3XJfcqn56Rw`, a fixture do snapshot, a transcrição, a conta `@renansantosmbl`, o perfil editorial, a duração e o orçamento em um manifesto de benchmark.
-2. Executar quatro condições: genérico sem Chub, genérico com Chub, Renan-first sem Chub e Renan-first com Chub. Salvar a mesma lista de candidatos, não apenas os intervalos finais.
-3. Instrumentar as etapas `seeds → propostas → reparos de borda → descarte de não-conteúdo → fusão → anti-overlap → limite final`, contando origem, `renan_speaking`, `context_complete`, `payoff_complete`, `review_required`, intervalo, motivo de descarte e relação com highlight.
-4. Reproduzir o benchmark histórico do ciclo 29 com a mesma implementação ou identificar exatamente qual mudança de código, fixture ou configuração explica a diferença. Não comparar resultados de harnesses diferentes como se fossem baseline.
-5. Medir recall IoU 0,10 e 0,25, cobertura de blocos, candidatos fundidos, destaques tocados por cada origem, precisão temporal e falsos `renan_confirmado`.
-6. Criar regressões para seed positiva, seed `false`, seed desconhecida, proposta fundida, proposta órfã, candidato descartado por overlap e fonte sem snapshot.
-7. Só depois da reconciliação escolher a fila de cobertura Chub ou uma nova fusão. Reexecutar a suíte completa e não alterar ranking, quota ou versão se a explicação da divergência continuar aberta.
+1. Fixar a fonte `3XJfcqn56Rw`, a fixture do snapshot, a transcrição, a conta `@renansantosmbl`, o perfil editorial, a duração e o orçamento no manifesto do benchmark.
+2. Manter duas coleções explícitas: `discovery_candidates`, com todas as seeds e propostas auditáveis, e `publishable_candidates`, com apenas o pool que pode seguir para ranking e revisão.
+3. Para cada item da descoberta, registrar `renan_speaking`, origem, intervalo, bloco, highlight, motivo de revisão e motivo de exclusão do pool publicável.
+4. Garantir que o modo genérico possa consultar a descoberta sem filtro Renan-first, enquanto o modo Renan-first só promova evidência positiva de locutor e preserve os demais itens em revisão.
+5. Medir recall IoU 0,10 e 0,25 separadamente para descoberta e pool publicável, além de contexto, payoff, identidade, duplicação e quantidade de itens filtrados.
+6. Criar regressões para seed positiva, seed `false`, seed desconhecida, snapshot sem match, fonte sem snapshot e preservação da proveniência fora do pool publicável.
+7. Executar a suíte completa e comparar a fila publicável com a 6.15. Nenhum item de descoberta deve ser tratado como corte aprovado automaticamente.
 
 ## Critério de sucesso
 
-A hipótese será considerada confirmada se o mesmo manifesto e a mesma fixture reproduzirem o resultado histórico, ou se a divergência puder ser atribuída a uma diferença documentada e testável. O relatório deve explicar quantos destaques foram encontrados por seeds, por candidatos locais, por evidência fundida e por cada etapa de descarte. Nenhum peso ou quota será alterado apenas para fazer os números coincidirem.
+A hipótese será confirmada se a fila de descoberta mantiver a cobertura do Chub, enquanto a fila publicável Renan-first não contiver propostas sem evidência positiva de locutor, não perder o recall da 6.15 e preservar a proveniência e o motivo de revisão de cada item excluído.
 
 ## Critério de falha
 
-Se o resultado continuar divergente sem causa identificável, o benchmark será classificado como não comparável e nenhuma melhoria Chub será publicada com base nele. Se o Chub aumentar apenas a quantidade de candidatos, reduzir recall, criar janelas duplicadas ou aumentar revisão sem elevar cobertura ou identidade, ele continuará como benchmark read-only. Se a fonte não tiver snapshot alinhado, o sistema deve voltar ao caminho local e informar que a memória não foi usada para aquela fonte.
+Se a separação esconder propostas, perder highlights legítimos ou permitir que itens sem identidade sejam apresentados como cortes Renan-first prontos, a mudança será revertida. A descoberta pode continuar existindo como diagnóstico, mas não poderá alterar o ranking publicável sem evidência editorial suficiente.
 
 ## Escopo excluído
 
 Não treinar modelo vocal, não usar views como aprovação, não consultar MCP durante cada job, não baixar Reels publicados, não misturar contas, não copiar cookies ou tokens, não alterar headlines ou reframe nesta rodada, e não fazer merge na branch principal. O download autenticado da 6.12 permanece uma validação operacional separada.
 
-## Depois da reconciliação
+## Depois da separação
 
-Só depois de reconciliar a medição e estabilizar a fila de cobertura deve ser iniciado o lote de feedback editorial humano. Para cada candidato, registrar aprovação, rejeição, ajuste de borda, locutor, contexto, payoff, headline e formato. O objetivo é medir se o Chub reduz correções reais do editor, não apenas se aumenta recall de um rótulo do próprio Chub.
+Só depois de estabilizar as duas filas deve ser iniciado o lote de feedback editorial humano. Para cada candidato, registrar aprovação, rejeição, ajuste de borda, locutor, contexto, payoff, headline e formato. O objetivo é medir se o Chub reduz correções reais do editor, não apenas se aumenta recall de um rótulo do próprio Chub.
 
 ## Referências
 
 - [`PROJECT_STATE.md`](PROJECT_STATE.md)
 - [`DECISIONS.md`](DECISIONS.md)
+- [`CYCLE_31_REPORT_2026-08-20.md`](CYCLE_31_REPORT_2026-08-20.md)
 - [`CYCLE_30_REPORT_2026-08-20.md`](CYCLE_30_REPORT_2026-08-20.md)
 - [`CYCLE_29_REPORT_2026-08-20.md`](CYCLE_29_REPORT_2026-08-20.md)
 - [`docs/VERSIONING.md`](../VERSIONING.md)

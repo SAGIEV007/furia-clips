@@ -93,3 +93,7 @@ O Campaign Hub é útil quando fornece blocos, highlights, intervalos, riscos e 
 ## D-024 — Benchmark divergente bloqueia calibração
 
 Uma integração do Campaign Hub não pode ser considerada útil nem publicada porque anexou evidência a candidatos: ela precisa demonstrar ganho reproduzível em cobertura, borda, contexto ou revisão contra o mesmo manifesto de benchmark. Quando dois harnesses produzem resultados incompatíveis na mesma fonte e fixture, a divergência é o problema principal do ciclo; pesos, quotas e precedência permanecem congelados até que cada seed, fusão e descarte seja auditável. A release 6.14 continua sendo a referência funcional enquanto essa reconciliação não estiver concluída.
+
+## D-025 — Evidência positiva de locutor antes do pool Renan-first
+
+Quando o foco editorial é Renan Santos/MBL, uma proposta guiada pelo Campaign Hub só pode competir no pool primário se o snapshot alinhado declarar `renanSpeaking=true`. Seeds `false` ou desconhecidas continuam úteis para descoberta, auditoria e revisão, mas não devem ocupar os slots de cortes do Renan. A evidência positiva de locutor não substitui contexto, payoff, risco, proveniência, timing, diarização ou revisão humana.

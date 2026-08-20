@@ -142,6 +142,8 @@ class ClipSelector:
             "previous_discarded_count": 0,
             "previous_discarded_approved": 0,
             "previous_discarded_rejected": 0,
+            "campaign_hub_guided_filtered_by_speaker": 0,
+            "stage_counts": {},
             "reason": "not_evaluated",
         }
 
@@ -149,6 +151,7 @@ class ClipSelector:
                      settings=None, emit_progress=None, scene_changes=None,
                      video_layout=None):
         settings = settings or {}
+        self._campaign_hub_guided_filtered_by_speaker = 0
         editorial_context = settings.get("editorial_context") if isinstance(settings.get("editorial_context"), dict) else {}
         focus = str(
             editorial_context.get("focus")
@@ -224,6 +227,19 @@ class ClipSelector:
             settings,
             emit_progress=emit_progress,
         )
+        if guided_clips and self._speaker_identity_required:
+            original_guided_count = len(guided_clips)
+            guided_clips = [
+                clip for clip in guided_clips
+                if (clip.get("campaign_hub") or {}).get("renan_speaking") is True
+            ]
+            self._campaign_hub_guided_filtered_by_speaker = original_guided_count - len(guided_clips)
+            if self._campaign_hub_guided_filtered_by_speaker and emit_progress:
+                emit_progress(
+                    f"[Campaign Hub] {self._campaign_hub_guided_filtered_by_speaker} proposta(s) guiada(s) "
+                    "ficaram fora do pool Renan-first por não terem evidência positiva de fala do Renan.",
+                    "info",
+                )
         if guided_clips:
             legacy_clips = list(clips or [])
             clips = guided_clips + legacy_clips
@@ -239,6 +255,7 @@ class ClipSelector:
         primary_clips = list(clips or [])
         self._candidate_diagnostics = {
             "expected_count": expected_count,
+            "stage_counts": {},
             "primary_count": len(primary_clips),
             "fallback_count": 0,
             "final_count": 0,
@@ -249,8 +266,10 @@ class ClipSelector:
             "previous_discarded_count": 0,
             "previous_discarded_approved": 0,
             "previous_discarded_rejected": 0,
+            "campaign_hub_guided_filtered_by_speaker": int(getattr(self, "_campaign_hub_guided_filtered_by_speaker", 0) or 0),
             "reason": "short_source" if expected_count == 0 else ("adequate_pool" if len(primary_clips) >= expected_count else "primary_pool_thin"),
         }
+        self._record_candidate_stage("primary_pool", primary_clips)
         if primary_clips and expected_count and len(primary_clips) < expected_count:
             fallback_clips = self._select_with_nlp(
                 sentences,
@@ -276,6 +295,7 @@ class ClipSelector:
                         f"foram acrescentadas {len(additions)} alternativas locais para revisão, sem relaxar os gates.",
                         "warning",
                     )
+        self._record_candidate_stage("post_fallback", clips)
 
         # Drop candidates sitting on stretches the Acervo already labelled as
         # holding no editorial content, before the candidate budget is spent.
@@ -304,6 +324,7 @@ class ClipSelector:
         clips = self._drop_touching_siblings(clips, emit_progress, sentences)
 
         clips = self._drop_labelled_non_content(clips, settings, sentences, emit_progress)
+        self._record_candidate_stage("after_non_content_filter", clips)
 
         # Every surviving candidate inherits what the Acervo established about the
         # stretch it covers, so the reviewer never sees an anonymous window.
@@ -311,6 +332,7 @@ class ClipSelector:
 
         # Where the Acervo has nothing to say, Furia reads the subjects itself.
         clips = self._attach_local_topic_context(clips, sentences, emit_progress)
+        self._record_candidate_stage("after_context_enrichment", clips)
 
         # Scene changes are camera switches. On material where the picture tells
         # the story that is a good place to cut; in an interview the direction
@@ -342,6 +364,7 @@ class ClipSelector:
                     if coverage_status == "partial"
                     else "identidade temporal da transcrição não validada; confirme o trecho no vídeo"
                 )
+        self._record_candidate_stage("pre_origin_label", clips)
         fallback_used = bool(self._candidate_diagnostics.get("fallback_used"))
         for clip in clips:
             source = str(clip.get("source") or "nlp").lower()
@@ -371,17 +394,21 @@ class ClipSelector:
                 else "Origem registrada para transparência da revisão."
             )
 
+        self._record_candidate_stage("pre_overlap", clips)
         # Apply anti-overlap filter after origin labels are available so a
         # primary candidate wins deterministic conflicts with local fallback.
         clips = self._remove_overlaps(clips)
+        self._record_candidate_stage("post_overlap", clips)
 
         # Do not recreate intervals already generated in a previous run of the same source.
         clips = self._remove_previous_fingerprints(clips)
+        self._record_candidate_stage("post_previous_fingerprints", clips)
 
         # Limit to the adaptive maximum only after deduplication, so a second run can
         # fill the queue with genuinely new moments instead of truncating repetitions.
         clips = clips[:self.max_clips]
         self._candidate_diagnostics["final_count"] = len(clips)
+        self._record_candidate_stage("final", clips)
 
         if emit_progress:
             source_labels = {
@@ -401,6 +428,42 @@ class ClipSelector:
     def get_candidate_diagnostics(self):
         """Return explainable candidate-volume diagnostics for the review UI."""
         return dict(self._candidate_diagnostics)
+
+    def _record_candidate_stage(self, stage, clips):
+        """Store bounded, explainable counts for each selection stage.
+
+        This is diagnostic-only: it never changes ordering or gate decisions. The
+        benchmark uses it to distinguish Chub seeds, local candidates that merely
+        inherited block evidence, and candidates lost to a later filter.
+        """
+        items = [item for item in (clips or []) if isinstance(item, dict)]
+        source_counts = {}
+        origin_counts = {}
+        for item in items:
+            source = str(item.get("source") or "nlp").lower()
+            source_counts[source] = source_counts.get(source, 0) + 1
+            origin = str(item.get("candidate_origin") or "unlabelled")
+            origin_counts[origin] = origin_counts.get(origin, 0) + 1
+        guided = [item for item in items if str(item.get("source") or "").lower() == "campaign_hub_guided"]
+        block_evidence = [item for item in items if isinstance(item.get("campaign_hub_block"), dict)]
+        stage_summary = {
+            "count": len(items),
+            "source_counts": dict(sorted(source_counts.items())),
+            "origin_counts": dict(sorted(origin_counts.items())),
+            "campaign_hub_guided": len(guided),
+            "campaign_hub_block_evidence": len(block_evidence),
+            "campaign_hub_renan_true": sum(
+                1 for item in guided
+                if (item.get("campaign_hub") or {}).get("renan_speaking") is True
+            ),
+            "identity_available": sum(1 for item in items if item.get("speaker_identity_available") is True),
+            "context_complete": sum(1 for item in items if item.get("context_complete") is True),
+            "payoff_complete": sum(1 for item in items if item.get("payoff_complete") is True),
+            "review_required": sum(1 for item in items if item.get("review_required") is True),
+        }
+        stages = self._candidate_diagnostics.setdefault("stage_counts", {})
+        stages[str(stage)] = stage_summary
+        return stage_summary
 
     def _expected_candidate_count(self, sentences):
         """Estimate a review pool size without turning the daily goal into a quota."""
@@ -2664,6 +2727,8 @@ Retorne APENAS o JSON.
                 "seed_text": seed.get("seed_text"),
                 "summary": seed.get("summary"),
                 "trigger_question": seed.get("trigger_question"),
+                "renan_speaking": seed.get("renan_speaking"),
+                "speaker_gate": seed.get("speaker_gate"),
                 "topics": seed.get("topics") or [],
                 "timeline_mapping": seed.get("timeline_mapping"),
                 "absolute_start": seed.get("absolute_start"),

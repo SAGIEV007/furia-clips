@@ -1,5 +1,30 @@
 # Changelog de continuidade
 
+## 6.15 — Filtro de locutor positivo no Renan-first e benchmark auditável
+
+### Hipótese
+
+Propostas guiadas pelo Campaign Hub sem evidência positiva de `renanSpeaking=true` estavam ocupando o pool primário Renan-first e reduzindo o recall. O benchmark também precisava deixar de pontuar um arquivo histórico fixo sem informar ao operador.
+
+### Incluído
+
+- `modules/clip_selector.py`: propostas guiadas preservam `renan_speaking` e `speaker_gate` no dossiê materializado.
+- `modules/clip_selector.py`: no modo Renan-first, propostas Chub com locutor `false` ou desconhecido ficam fora do pool primário; a quantidade filtrada aparece em `campaign_hub_guided_filtered_by_speaker`.
+- `modules/clip_selector.py`: `candidate_diagnostics.stage_counts` registra volume, origem, evidência Chub, identidade, contexto, payoff e revisão em cada etapa da seleção.
+- `scripts/score_chub_recall.py`: scorer versionado exige explicitamente o JSON do benchmark e o arquivo de highlights, eliminando a leitura silenciosa de resultado histórico.
+- Regressões para propagação do locutor, filtro Renan-first, diagnóstico por etapas e scorer explícito.
+
+### Resultado medido
+
+Na live `3XJfcqn56Rw`, com 66 highlights, o modo Renan-first com Chub passou de `5/66` para `7/66` em IoU 0,10, igualando o caminho sem Chub. Em IoU 0,25 permaneceu em `1/66`. As propostas guiadas finais caíram de `12` para `5`, com 24 propostas sem evidência positiva filtradas antes do ranking. O modo genérico permaneceu inalterado em `18/66` no IoU 0,10 e `6/66` no IoU 0,25.
+
+A mudança melhora a estabilidade e impede que o Chub prejudique o foco Renan-first; não constitui diarização e não libera renderização automaticamente.
+
+### Validação
+
+Relatório: [`CYCLE_31_REPORT_2026-08-20.md`](CYCLE_31_REPORT_2026-08-20.md).
+
+
 ## Ciclo 30 — Fusão Chub-local medida e revertida
 
 ### Hipótese

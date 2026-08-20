@@ -8,12 +8,12 @@
 | --- | --- |
 | Projeto | Furia Clips |
 | Repositório | `SAGIEV007/furia-clips` |
-| Versão pública atual | `6.14` |
-| Última release funcional anterior | `6.13` |
-| Natureza da release atual | Snapshot rico do Campaign Hub passa a ser consumido pelo caminho persistido; evidência alinhada owner/allied resolve parte da identidade Renan-first sem aprovação automática |
+| Versão pública atual | `6.15` |
+| Última release funcional anterior | `6.14` |
+| Natureza da release atual | Filtro Renan-first exige evidência positiva `renanSpeaking=true` nas propostas guiadas; diagnóstico por etapas e scorer explícito do benchmark |
 | Fonte da versão | [`VERSION`](../../VERSION) |
 | Branch de trabalho | `claude/repo-access-commits-imgjmk` |
-| Última publicação conhecida | `6f9c70d` — `fix: conectar snapshot rico do Chub ao gate Renan-first (6.14)` |
+| Última publicação conhecida | `a93e274` — documentação do ciclo 30; commit funcional 6.15 ainda será publicado após a suíte final |
 | Commit funcional 2.6 | `fec34fe` — `feat: primeira ponte funcional Campaign Hub para propostas (2.6)` |
 | Commit funcional 2.7 | `a0452d3` — `fix: declarar confiabilidade da medição no benchmark editorial (2.7)` |
 | Commit funcional 2.8 | `fdf5e6b` — `fix: alinhar seeds do Campaign Hub com a mídia local em processamento (2.8)` |
@@ -31,17 +31,19 @@ A branch de trabalho deve ser confirmada no checkout real. O GitHub é a fonte d
 
 A release 6.14 confirma que o Campaign Hub é útil, mas ainda não suficiente: o snapshot rico elevou o recall exploratório de IoU 0,10 de `7,58%` para `27,27%` no genérico e resolveu `3/30` identidades no Renan-first, mas a precisão de borda e a aprovação humana ainda não foram demonstradas. O problema de ingestão autenticada da 6.12 continua separado e não verificado no sandbox.
 
-O ciclo 30 testou a fusão semântica Chub-local e a precedência conservadora para seeds `renanSpeaking=true`. No checkout limpo, o benchmark real reproduziu `7,58%` genérico sem Chub e `10,61%` Renan-first sem Chub; o caminho com Chub permaneceu igual. A tentativa foi revertida e não houve release 6.15.
+O ciclo 31 corrigiu o scorer para receber explicitamente o benchmark e instrumentou as etapas de seleção. No modo Renan-first, apenas propostas Chub com `renanSpeaking=true` entram no pool primário. Na fonte real, o recall Renan-first com Chub passou de `5/66` para `7/66` em IoU 0,10, igualando o caminho sem Chub; o modo genérico permaneceu em `18/66` com Chub. Vinte e quatro propostas sem evidência positiva foram filtradas antes do ranking.
 
-A próxima hipótese única é reconciliar a divergência entre o benchmark histórico do ciclo 29 (`27,27%` genérico com Chub) e o harness atual (`7,58%`): instrumentar cada etapa para separar seeds guiadas, candidatos locais enriquecidos por evidência Chub, candidatos fundidos e descartes por cada gate. Só depois dessa reconciliação deve ser testada uma fila de cobertura Chub separada do pool publicável.
+A próxima hipótese única é separar formalmente a fila de descoberta Chub da fila de candidatos publicáveis: highlights com locutor incerto devem continuar disponíveis para auditoria, mas não ocupar o pool de cortes Renan-first sem passar pelos gates.
 
 As prioridades editoriais Renan-first continuam preservadas: contexto e payoff antes de hook, gates de locutor antes do ranking, Campaign Hub como memória/seed e não como aprovação, e uma hipótese principal por ciclo.
 
-## Release atual — 6.14
+## Release atual — 6.15
 
-A 6.14 corrige a integração incompleta do snapshot rico. O job normal passa o arquivo por `campaign_hub_snapshot_path`, mas o anexo de evidência local ignorava esse caminho; agora ele carrega o snapshot e anexa blocos, riscos, proveniência e identidade aos candidatos locais. Quando o candidato cobre pelo menos 75% de um bloco owner/allied com `renanSpeaking=true`, a identidade fica disponível como evidência alinhada, nunca como aprovação automática.
+A 6.15 preserva a integração da 6.14 e corrige sua utilização no foco Renan-first. O seletor materializa `renan_speaking` e `speaker_gate` dentro do dossiê da proposta e exclui do pool primário as seeds Chub marcadas como `false` ou sem evidência positiva de fala do Renan. O benchmark também registra contagens por etapa e o scorer exige o arquivo de resultado explicitamente.
 
-Na fonte real `3XJfcqn56Rw`, com 5.905 segundos, 27 blocos e 66 highlights, `3/30` candidatos Renan-first passaram a ter identidade disponível e `3/30` contexto completo, contra `0/30` sem snapshot rico. No genérico, o Chub elevou recall exploratório de IoU 0,10 de `7,58%` para `27,27%`, mas a precisão de borda em IoU 0,25 ficou em `9,09%`. Isso confirma utilidade para cobertura e evidência, não superioridade geral. Relatório em [`CYCLE_29_REPORT_2026-08-20.md`](CYCLE_29_REPORT_2026-08-20.md).
+A 6.14 corrigia a integração incompleta do snapshot rico. O job normal passa o arquivo por `campaign_hub_snapshot_path`, mas o anexo de evidência local ignorava esse caminho; agora ele carrega o snapshot e anexa blocos, riscos, proveniência e identidade aos candidatos locais. Quando o candidato cobre pelo menos 75% de um bloco owner/allied com `renanSpeaking=true`, a identidade fica disponível como evidência alinhada, nunca como aprovação automática.
+
+Na fonte real `3XJfcqn56Rw`, o filtro reduziu propostas guiadas finais Renan-first de `12` para `5` e recuperou o recall de IoU 0,10 de `5/66` para `7/66`, sem alterar o genérico com Chub (`18/66`) ou o recall em IoU 0,25 (`1/66`). A identidade disponível permaneceu `3/30`, pois a mudança é um gate de seleção, não diarização. Relatório em [`CYCLE_31_REPORT_2026-08-20.md`](CYCLE_31_REPORT_2026-08-20.md).
 
 ## Release anterior — 6.13
 
@@ -269,6 +271,7 @@ Em qualquer rodada, classifique conclusões como `confirmado`, `reproduzido`, `c
 
 | Release | Foco | Resultado principal | Relatório |
 | --- | --- | --- | --- |
+| Ciclo 31 / 6.15 | Diagnóstico do benchmark e filtro Renan-first | Recall Renan-first com Chub `5/66`→`7/66`; propostas guiadas finais `12`→`5`; genérico preservado | [`CYCLE_31_REPORT_2026-08-20.md`](CYCLE_31_REPORT_2026-08-20.md) |
 | Ciclo 30 | Fusão Chub-local medida e revertida | Sem ganho reproduzível; release 6.14 preservada; divergência histórica do benchmark aberta | [`CYCLE_30_REPORT_2026-08-20.md`](CYCLE_30_REPORT_2026-08-20.md) |
 | 6.14 | Snapshot rico e identidade alinhada | `0/30`→`3/30` identidades Renan-first; recall exploratório genérico `7,58%`→`27,27%` em IoU 0,10 | [`CYCLE_29_REPORT_2026-08-20.md`](CYCLE_29_REPORT_2026-08-20.md) |
 | 6.13 | Identidade Renan-first | `9/9` candidatos sem diarização ficaram para revisão; modo genérico preservado | [`CYCLE_28_REPORT_2026-08-20.md`](CYCLE_28_REPORT_2026-08-20.md) |
