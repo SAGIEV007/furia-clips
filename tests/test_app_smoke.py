@@ -443,3 +443,30 @@ def test_benchmark_api_persists_and_lists_local_comparison(tmp_path):
     assert payload["metrics"]["coverage_recall"] == 1.0
     assert listing.status_code == 200
     assert listing.get_json()["benchmarks"][0]["benchmark_id"].endswith("api-test")
+
+
+    def test_cut_endpoint_rejects_invalid_processing_interval_before_queueing(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            source = Path(tmp_dir) / "live.mp4"
+            source.write_bytes(b"placeholder")
+            with patch.object(furia_app, "_resolve_media_input", return_value=str(source)), \
+                 patch.object(furia_app, "_probe_video_duration_seconds", return_value=7200.0):
+                response = self.client.post(
+                    "/api/process/cut",
+                    json={"video_path": str(source), "processing_start": "01:00", "processing_end": "00:30"},
+                )
+        assert response.status_code == 400
+        assert "maior que o início" in response.get_json()["error"]
+
+    def test_complete_endpoint_rejects_interval_outside_source_before_queueing(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            source = Path(tmp_dir) / "live.mp4"
+            source.write_bytes(b"placeholder")
+            with patch.object(furia_app, "_resolve_media_input", return_value=str(source)), \
+                 patch.object(furia_app, "_probe_video_duration_seconds", return_value=600.0):
+                response = self.client.post(
+                    "/api/process/complete",
+                    json={"video_path": str(source), "processing_start": "00:00", "processing_end": "20:00"},
+                )
+        assert response.status_code == 400
+        assert "ultrapassa a duração" in response.get_json()["error"]

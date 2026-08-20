@@ -1088,7 +1088,22 @@
                 </button>
             </div>
             <div class="modal-body">
-                <p class="cut-options-lead">Você vai gerar os cortes de <strong id="cutOptionsVideoName">vídeo selecionado</strong>. Escolha como o quadro deve se comportar nesta execução.</p>
+                <p class="cut-options-lead">Você vai processar <strong id="cutOptionsVideoName">vídeo selecionado</strong>. Escolha a faixa da fonte e como o quadro deve se comportar nesta execução.</p>
+                <div class="processing-interval-card" id="processingIntervalCard">
+                    <div class="processing-interval-head">
+                        <div>
+                            <strong><span class="material-icons-round">timelapse</span> Processar apenas um trecho</strong>
+                            <small>Útil para lives longas: a fonte original permanece intacta e só a faixa escolhida entra na transcrição, contexto, seleção e renderização.</small>
+                        </div>
+                        <span class="processing-interval-chip" id="processingIntervalChip">Fonte inteira</span>
+                    </div>
+                    <div class="processing-interval-fields">
+                        <label for="processingStartInput">Início <input type="text" id="processingStartInput" class="setting-input" placeholder="00:00" inputmode="numeric" autocomplete="off"></label>
+                        <span class="processing-interval-separator">até</span>
+                        <label for="processingEndInput">Fim <input type="text" id="processingEndInput" class="setting-input" placeholder="05:00" inputmode="numeric" autocomplete="off"></label>
+                    </div>
+                    <small class="setting-hint" id="processingIntervalHint">Deixe os dois campos vazios para usar a fonte inteira. Aceita segundos, mm:ss ou hh:mm:ss.</small>
+                </div>
                 <label class="cut-option-toggle" for="faceTrackingEnabled">
                     <span class="cut-option-copy">
                         <strong>Usar facetracking quando disponível</strong>
@@ -1100,7 +1115,7 @@
             </div>
             <div class="modal-footer">
                 <button class="btn" id="btnCloseCutOptionsSecondary">Cancelar</button>
-                <button class="btn btn-primary" id="btnStartSmartCut"><span class="material-icons-round">auto_awesome</span> Gerar e ranquear cortes</button>
+                <button class="btn btn-primary" id="btnStartSmartCut"><span class="material-icons-round" id="btnStartSmartCutIcon">auto_awesome</span><span id="btnStartSmartCutLabel">Gerar e ranquear cortes</span></button>
             </div>
         </div>
     </div>

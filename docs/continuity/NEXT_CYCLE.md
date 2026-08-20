@@ -1,48 +1,48 @@
-# Próximo ciclo — auditoria read-only da descoberta Chub
+# Próximo ciclo
 
 ## Estado de partida
 
-A release `6.16` está na branch `claude/repo-access-commits-imgjmk`. O snapshot rico do Campaign Hub alimenta duas coleções: descoberta auditável e propostas guiadas promovidas. No Renan-first, apenas match com `renanSpeaking=true` entra no pool primário; itens filtrados permanecem visíveis no diagnóstico com motivo de revisão. Candidatos locais podem herdar blocos, riscos, proveniência e evidência alinhada de locutor. A regra continua conservadora: apenas match temporal de pelo menos 75% em bloco `renanSpeaking=true` de tier `owner` ou `allied` fornece `speaker_identity_available=true` como `evidence_only`.
+A release `6.17` está na branch `claude/repo-access-commits-imgjmk`, aguardando apenas o commit e a publicação finais deste ciclo. A 6.17 preserva o filtro Renan-first e a separação de descoberta/publicação da 6.16. O editor agora pode informar uma faixa de fonte em segundos, `mm:ss` ou `hh:mm:ss`; o Furia cria uma cópia temporária, processa a timeline local e devolve também `source_start`, `source_end` e `processing_interval`.
 
-Na fonte real `3XJfcqn56Rw`, com 5.905 segundos, 27 blocos e 66 highlights, a 6.16 registrou 30 propostas de descoberta no Renan-first, promoveu 6 e deixou 24 em `speaker_gate_review`. O recall publicável permaneceu em `7/66` no IoU 0,10 e `1/66` no IoU 0,25; o genérico com Chub permaneceu em `18/66` e `6/66`. Lives longas e arquivos crus continuam sendo `processing_source`. Reels e posts publicados continuam `reference_only`. A prioridade é Renan Santos/MBL, mas nenhum sinal do Campaign Hub substitui contexto, payoff, risco, transcrição ou revisão audiovisual.
+A fonte original continua canônica. Reels e posts publicados continuam `reference_only`; lives longas e arquivos crus continuam `processing_source`. Nenhum snapshot do Campaign Hub é consultado durante o job normal fora dos arquivos locais autorizados. A interface visual consultada foi `manus/rebuild-opus-parity-2`; apenas padrões visuais/UX foram considerados.
 
 ## Hipótese única
 
-> **Se o Furia oferecer uma visualização read-only da fila de descoberta Chub, com filtros por locutor, bloco, highlight e motivo de exclusão, então o editor e futuras IAs poderão auditar a cobertura sem transformar propostas incertas em cortes renderizáveis.**
+> **Se cada execução parcial receber uma identidade persistente de intervalo no banco e nos bundles editoriais, então a deduplicação poderá comparar somente a mesma faixa da fonte, evitando tanto duplicatas na faixa já processada quanto o bloqueio indevido de faixas diferentes.**
 
 ## Procedimento de validação
 
-1. Fixar a fonte `3XJfcqn56Rw`, a fixture do snapshot, a transcrição, a conta `@renansantosmbl`, o perfil editorial, a duração e o orçamento no manifesto do benchmark.
-2. Adicionar uma superfície read-only no diagnóstico da seleção para listar `campaign_hub_discovery_candidates` sem permitir renderização direta.
-3. Implementar filtros por `renan_speaking`, `publication_status`, `exclusion_reason`, bloco, highlight e intervalo temporal.
-4. Exibir a proveniência completa — seed, bloco, highlight, intervalo, gate e motivo — sem expor transcrição real, tokens, cookies ou credenciais.
-5. Garantir que qualquer ação futura de promoção reexecute os gates de identidade, contexto, payoff, risco e timing; a visualização não pode funcionar como aprovação.
-6. Criar regressões para lista vazia, descoberta com 30 itens, 24 itens em `speaker_gate_review`, modo genérico, snapshot sem match e tentativa de renderização direta.
-7. Medir se a visualização reduz diagnósticos ambíguos e acelera a correção editorial. Não alterar pesos, quotas ou bordas temporais nesta rodada.
+1. Fixar uma fonte local curta e uma fonte longa autorizada, além de duas faixas não sobrepostas e uma faixa repetida.
+2. Definir um identificador estável composto por assinatura da fonte original, início, fim e versão do contrato de intervalo; nunca usar o caminho da cópia temporária como identidade.
+3. Persistir o identificador no projeto, no bundle de transcrição, nos diagnósticos e nos clips gerados sem incluir mídia, transcrição real ou credenciais no Git.
+4. Executar a mesma faixa duas vezes e confirmar que fingerprints equivalentes são evitados; executar uma faixa diferente e confirmar que seus candidatos não são bloqueados pela primeira.
+5. Reexecutar o fluxo integral sem intervalo e confirmar que a deduplicação e o ranking atuais permanecem iguais.
+6. Criar regressões para intervalo vazio, início/fim parcial, faixas adjacentes, fonte substituída, caminho temporário removido e fonte inteira.
+7. Só depois retomar a visualização read-only da fila de descoberta Chub, com filtros por locutor, bloco, highlight e motivo de exclusão; a visualização não poderá renderizar nem aprovar.
 
 ## Critério de sucesso
 
-A hipótese será confirmada se a visualização mostrar todas as descobertas sem alterar o conjunto publicável, permitir localizar por que uma proposta foi filtrada e mantiver o recall e os gates da 6.16. Nenhuma ação de auditoria deve renderizar ou aprovar automaticamente um item.
+A hipótese será confirmada se duas execuções da mesma faixa compartilham a identidade e evitam duplicatas, enquanto faixas diferentes da mesma live continuam independentes. A fonte inteira deve conservar o comportamento anterior e nenhum gate Renan-first, contexto, payoff, risco ou Campaign Hub pode ser relaxado.
 
 ## Critério de falha
 
-Se a superfície ocultar itens, misturar descoberta com publicáveis, vazar dados sensíveis, criar uma rota de promoção sem gates ou alterar o ranking, a mudança será revertida. A fila poderá continuar existindo somente no diagnóstico persistido.
+Se a identidade depender do caminho temporário, colidir entre fontes com o mesmo nome, bloquear faixas distintas, vazar conteúdo sensível ou alterar o ranking integral, a mudança será revertida. Nesse caso, a deduplicação parcial continuará desativada até existir um contrato seguro.
 
 ## Escopo excluído
 
-Não treinar modelo vocal, não usar views como aprovação, não consultar MCP durante cada job, não baixar Reels publicados, não misturar contas, não copiar cookies ou tokens, não alterar headlines ou reframe nesta rodada, e não fazer merge na branch principal. O download autenticado da 6.12 permanece uma validação operacional separada.
+Não alterar pesos do ranking, quota Chub, bordas temporais, diarização, headlines, reframe, download autenticado ou integração MCP. Não baixar Reels publicados. Não adicionar rotas de promoção automática. Não tocar a branch principal.
 
-## Depois da auditoria
+## Arquivos para ler primeiro
 
-Só depois de estabilizar a visualização read-only deve ser iniciado o lote de feedback editorial humano. Para cada candidato, registrar aprovação, rejeição, ajuste de borda, locutor, contexto, payoff, headline e formato. O objetivo é medir se o Chub reduz correções reais do editor, não apenas se aumenta recall de um rótulo do próprio Chub.
+`PROJECT_STATE.md`, `CYCLE_33_REPORT_2026-08-20.md`, `DECISIONS.md`, `REFERENCE_UX_NOTES_2026-08-20.md`, `INTERVAL_UX_CHECK_2026-08-20.md`, `modules/source_interval.py`, `tests/test_source_interval.py` e `docs/VERSIONING.md`.
 
 ## Referências
 
 - [`PROJECT_STATE.md`](PROJECT_STATE.md)
 - [`DECISIONS.md`](DECISIONS.md)
+- [`CYCLE_33_REPORT_2026-08-20.md`](CYCLE_33_REPORT_2026-08-20.md)
 - [`CYCLE_32_REPORT_2026-08-20.md`](CYCLE_32_REPORT_2026-08-20.md)
-- [`CYCLE_31_REPORT_2026-08-20.md`](CYCLE_31_REPORT_2026-08-20.md)
-- [`CYCLE_30_REPORT_2026-08-20.md`](CYCLE_30_REPORT_2026-08-20.md)
-- [`CYCLE_29_REPORT_2026-08-20.md`](CYCLE_29_REPORT_2026-08-20.md)
+- [`REFERENCE_UX_NOTES_2026-08-20.md`](REFERENCE_UX_NOTES_2026-08-20.md)
+- [`INTERVAL_UX_CHECK_2026-08-20.md`](INTERVAL_UX_CHECK_2026-08-20.md)
 - [`docs/VERSIONING.md`](../VERSIONING.md)
 - [Branch de trabalho no GitHub](https://github.com/SAGIEV007/furia-clips/tree/claude/repo-access-commits-imgjmk)

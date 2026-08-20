@@ -37,6 +37,9 @@ const state = {
     campaignHubSnapshotStatus: null,
     campaignHubStatusTimer: null,
     faceTracking: true,
+    pendingProcessMode: "smart",
+    processingStart: "",
+    processingEnd: "",
     previewToken: 0,
     consoleHistory: [],
 };
@@ -2082,30 +2085,100 @@ document.getElementById("actionSilence").querySelector(".btn-action").addEventLi
     });
 });
 
-function openCutOptionsModal() {
+function openCutOptionsModal(mode = "smart") {
     if (!requireVideo()) return;
     const modal = document.getElementById("cutOptionsModal");
     if (!modal) return;
+    state.pendingProcessMode = mode === "complete" ? "complete" : "smart";
     const name = document.getElementById("cutOptionsVideoName");
     if (name) name.textContent = state.selectedVideoName || "vídeo selecionado";
     const enabled = document.getElementById("faceTrackingEnabled");
     if (enabled) enabled.checked = state.faceTracking !== false;
+    const title = document.getElementById("cutOptionsTitle");
+    if (title) title.innerHTML = `<span class="material-icons-round">${state.pendingProcessMode === "complete" ? "rocket_launch" : "center_focus_strong"}</span> ${state.pendingProcessMode === "complete" ? "Opções do processo completo" : "Opções do corte"}`;
+    const buttonIcon = document.getElementById("btnStartSmartCutIcon");
+    const buttonLabel = document.getElementById("btnStartSmartCutLabel");
+    if (buttonIcon) buttonIcon.textContent = state.pendingProcessMode === "complete" ? "rocket_launch" : "auto_awesome";
+    if (buttonLabel) buttonLabel.textContent = state.pendingProcessMode === "complete" ? "Executar processo completo" : "Gerar e ranquear cortes";
+    const startInput = document.getElementById("processingStartInput");
+    const endInput = document.getElementById("processingEndInput");
+    if (startInput) startInput.value = state.processingStart || "";
+    if (endInput) endInput.value = state.processingEnd || "";
+    updateProcessingIntervalHint();
     modal.classList.add("active");
 }
 function closeCutOptionsModal() {
     document.getElementById("cutOptionsModal")?.classList.remove("active");
 }
+function parseProcessingTime(value) {
+    const text = String(value || "").trim().replace(",", ".");
+    if (!text) return null;
+    if (/^\d+(?:\.\d+)?$/.test(text)) return Number(text);
+    const parts = text.split(":").map(Number);
+    if (parts.some((part) => !Number.isFinite(part)) || ![2, 3].includes(parts.length)) return NaN;
+    if (parts.slice(1).some((part) => part < 0 || part >= 60)) return NaN;
+    return parts.length === 2 ? parts[0] * 60 + parts[1] : parts[0] * 3600 + parts[1] * 60 + parts[2];
+}
+function formatProcessingTime(seconds) {
+    if (!Number.isFinite(seconds)) return "tempo inválido";
+    const total = Math.max(0, Math.round(seconds));
+    const hours = Math.floor(total / 3600);
+    const minutes = Math.floor((total % 3600) / 60);
+    const rest = total % 60;
+    return hours ? `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(rest).padStart(2, "0")}` : `${String(minutes).padStart(2, "0")}:${String(rest).padStart(2, "0")}`;
+}
+function readProcessingInterval() {
+    const start = document.getElementById("processingStartInput")?.value.trim() || "";
+    const end = document.getElementById("processingEndInput")?.value.trim() || "";
+    const startSeconds = parseProcessingTime(start);
+    const endSeconds = parseProcessingTime(end);
+    if (!start && !end) return { valid: true, start: null, end: null, label: "fonte inteira" };
+    if ((start && !Number.isFinite(startSeconds)) || (end && !Number.isFinite(endSeconds))) {
+        return { valid: false, error: "Use segundos, mm:ss ou hh:mm:ss no início e no fim." };
+    }
+    if ((startSeconds ?? 0) < 0 || (endSeconds ?? Infinity) <= (startSeconds ?? 0)) {
+        return { valid: false, error: "O fim do intervalo precisa ser maior que o início." };
+    }
+    return {
+        valid: true,
+        start: start || null,
+        end: end || null,
+        label: `${start ? formatProcessingTime(startSeconds ?? 0) : "início da fonte"}–${end ? formatProcessingTime(endSeconds) : "fim da fonte"}`,
+    };
+}
+function updateProcessingIntervalHint() {
+    const hint = document.getElementById("processingIntervalHint");
+    const chip = document.getElementById("processingIntervalChip");
+    const interval = readProcessingInterval();
+    if (chip) chip.textContent = interval.valid ? (interval.label || "Fonte inteira") : "Verificar faixa";
+    if (!hint) return;
+    hint.textContent = interval.valid
+        ? (interval.start || interval.end ? `Esta execução usará somente ${interval.label}. A mídia original não será alterada.` : "Deixe os dois campos vazios para usar a fonte inteira. Aceita segundos, mm:ss ou hh:mm:ss.")
+        : interval.error;
+    hint.classList.toggle("interval-error", !interval.valid);
+}
 async function startSmartCut() {
+    const interval = readProcessingInterval();
+    if (!interval.valid) {
+        updateProcessingIntervalHint();
+        showToast(interval.error, "warning");
+        return;
+    }
+    state.processingStart = interval.start || "";
+    state.processingEnd = interval.end || "";
     closeCutOptionsModal();
     if (!requireVideo()) return;
     state.faceTracking = Boolean(document.getElementById("faceTrackingEnabled")?.checked);
+    const mode = state.pendingProcessMode === "complete" ? "complete" : "smart";
     const userContext = document.getElementById("userContextInput").value.trim();
-    addConsoleLog("[Acao] Iniciando corte inteligente de shorts...", "info");
-    addConsoleLog(`[Enquadramento] Facetracking ${state.faceTracking ? "ativado" : "desativado"}; o fallback mantém a proporção original quando necessário.`, "info");
-    if (userContext) addConsoleLog(`[Contexto] "${userContext}"`, "info");
     const videoGenre = document.getElementById("settingVideoGenre").value;
     const geminiKey = document.getElementById("settingGeminiKey").value.trim();
     const aiBackend = document.getElementById("settingAiBackend").value;
+    const modeLabel = mode === "complete" ? "processo completo" : "corte inteligente de shorts";
+    addConsoleLog(`[Acao] Iniciando ${modeLabel}...`, "info");
+    addConsoleLog(`[Intervalo] ${interval.label}; a fonte original não será alterada.`, "info");
+    if (mode === "smart") addConsoleLog(`[Enquadramento] Facetracking ${state.faceTracking ? "ativado" : "desativado"}; o fallback mantém a proporção original quando necessário.`, "info");
+    if (userContext) addConsoleLog(`[Contexto] "${userContext}"`, "info");
     if (geminiKey.length > 10 || aiBackend) {
         await fetch("/api/settings", {
             method: "POST",
@@ -2117,28 +2190,32 @@ async function startSmartCut() {
             }),
         });
     }
-    const response = await fetch("/api/process/cut", {
+    const endpoint = mode === "complete" ? "/api/process/complete" : "/api/process/cut";
+    const response = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
             video_path: state.selectedVideo,
+            output_dir: state.outputDir || "",
             face_tracking: state.faceTracking,
             user_context: userContext,
             video_genre: videoGenre,
             transcription_source: document.getElementById("settingTranscriptionSource")?.value || "auto",
             audit_mode: document.getElementById("settingAuditMode")?.value || "standard",
             preferred_format: document.getElementById("settingPreferredFormat")?.value || "auto",
+            processing_start: interval.start,
+            processing_end: interval.end,
             ...(state.manualTranscript ? {
                 transcript_segments: state.manualTranscript.segments,
                 transcript_language: state.manualTranscript.language || "pt",
             } : {}),
         }),
     });
-    const started = await parseJsonResponse(response, "Corte inteligente");
-    if (!response.ok || started.error) throw new Error(started.error || "Não foi possível iniciar o corte");
+    const started = await parseJsonResponse(response, mode === "complete" ? "Processo completo" : "Corte inteligente");
+    if (!response.ok || started.error) throw new Error(started.error || `Não foi possível iniciar o ${modeLabel}`);
     if (started.job_id) {
         state.activeJob = { id: started.job_id, state: started.state || "queued" };
-        showProcessingControls("Corte adicionado à fila persistente.");
+        showProcessingControls(`${mode === "complete" ? "Processo completo" : "Corte"} adicionado à fila persistente.`);
     }
 }
 document.getElementById("actionCut").querySelector(".btn-action").addEventListener("click", openCutOptionsModal);
@@ -2156,34 +2233,8 @@ document.getElementById("actionThumbnail").querySelector(".btn-action").addEvent
     openThumbnailModal();
 });
 
-document.getElementById("actionComplete").querySelector(".btn-action").addEventListener("click", async () => {
-    if (!requireVideo()) return;
-    if (!confirm("Executar o pipeline completo? Isso pode demorar alguns minutos dependendo do tamanho do video.")) return;
-    const userContext = document.getElementById("userContextInput").value.trim();
-    addConsoleLog("[Acao] Iniciando processo completo...", "info");
-    if (userContext) addConsoleLog(`[Contexto] "${userContext}"`, "info");
-    const videoGenreComplete = document.getElementById("settingVideoGenre").value;
-    const response = await fetch("/api/process/complete", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            video_path: state.selectedVideo,
-            output_dir: state.outputDir || "",
-            user_context: userContext,
-            video_genre: videoGenreComplete,
-            transcription_source: document.getElementById("settingTranscriptionSource")?.value || "auto",
-            ...(state.manualTranscript ? {
-                transcript_segments: state.manualTranscript.segments,
-                transcript_language: state.manualTranscript.language || "pt",
-            } : {}),
-        }),
-    });
-    const started = await parseJsonResponse(response, "Processo completo");
-    if (!response.ok || started.error) throw new Error(started.error || "Não foi possível iniciar o processo completo");
-    if (started.job_id) {
-        state.activeJob = { id: started.job_id, state: started.state || "queued" };
-        showProcessingControls("Processo completo adicionado à fila persistente.");
-    }
+document.getElementById("actionComplete").querySelector(".btn-action").addEventListener("click", () => {
+    openCutOptionsModal("complete");
 });
 
 // ─── Subtitle Modal ───

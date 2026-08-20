@@ -98,6 +98,12 @@ from modules.editorial_block import build_editorial_block
 from modules.performance_metrics import normalize_snapshot, metric_labels
 from modules.transcript_archive import archive_transcription, list_archived_transcriptions, validate_transcription
 from modules.source_boundary import detect_live_content_start, trim_transcription_to_live_start
+from modules.source_interval import (
+    interval_source_boundary,
+    normalize_processing_interval,
+    trim_media_to_interval,
+    trim_transcription_to_interval,
+)
 from modules.source_ingest import (
     SourceIngestError,
     probe_public_url,
@@ -405,6 +411,38 @@ def _probe_video_duration_seconds(video_path):
         return None
 
 
+def _requested_processing_interval(data, video_path):
+    """Validate the optional operator-selected range against measured media."""
+    return normalize_processing_interval(
+        data.get("processing_start") if "processing_start" in data else data.get("interval_start"),
+        data.get("processing_end") if "processing_end" in data else data.get("interval_end"),
+        _probe_video_duration_seconds(video_path),
+    )
+
+
+def _prepare_processing_media(video_path, processing_interval, emit_progress, cancel_check):
+    """Return the source used by heavy processing and its optional temp path."""
+    if not processing_interval.get("active"):
+        return video_path, None
+    temporary_path = trim_media_to_interval(
+        video_path,
+        processing_interval["start_seconds"],
+        processing_interval["end_seconds"],
+        emit_progress=emit_progress,
+        cancel_check=cancel_check,
+    )
+    return temporary_path, temporary_path
+
+
+def _remove_temporary_processing_media(path):
+    if not path:
+        return
+    try:
+        os.unlink(path)
+    except OSError:
+        pass
+
+
 # Roughly one candidate per this many seconds of source. Calibrated against the
 # Acervo benchmark: on a 98-minute live the pipeline stopped producing new
 # candidates at 121, about one per 49s, so a budget below that only discards
@@ -416,7 +454,7 @@ MIN_CANDIDATE_BUDGET = 15
 MAX_CANDIDATE_BUDGET = 400
 
 
-def _selection_coverage_plan(source_video, video_duration):
+def _selection_coverage_plan(source_video, video_duration, *, allow_previous=True):
     """Build a local-only plan for adaptive candidate coverage and deduplication.
 
     The budget follows the length of the source instead of a fixed ceiling. The
@@ -425,7 +463,7 @@ def _selection_coverage_plan(source_video, video_duration):
     a budget, not a target: the pipeline stops on its own when the material runs
     out, and no minimum number of clips is ever produced to fill it.
     """
-    fingerprints = get_existing_clip_fingerprints(source_video)
+    fingerprints = get_existing_clip_fingerprints(source_video) if allow_previous else []
     try:
         span = max(0.0, float(video_duration or 0.0))
     except (TypeError, ValueError):
@@ -2791,19 +2829,31 @@ def api_cut_shorts():
 
     if not os.path.exists(video_path):
         return jsonify({"error": "Video nao encontrado"}), 404
+    try:
+        processing_interval = _requested_processing_interval(data, video_path)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    source_video_path = video_path
 
     def task(ctx):
+        temporary_interval_path = None
+        working_video = source_video_path
         try:
             ctx.update(stage="transcription", progress=5, message="Preparando transcrição e contexto")
             ctx.check_cancel()
-            settings = _settings_with_acervo(get_all_settings(), video_path)
+            working_video, temporary_interval_path = _prepare_processing_media(
+                source_video_path, processing_interval, emit_progress, ctx.check_cancel
+            )
+            video_path = working_video
+            settings = _settings_with_acervo(get_all_settings(), source_video_path)
+            settings["processing_interval"] = dict(processing_interval)
             if transcription_source:
                 settings = {**settings, "transcription_source": transcription_source}
             _announce_acervo_source(settings, video_path)
             active_project_id = project_id
             if not active_project_id:
-                auto_project_name = os.path.splitext(os.path.basename(video_path))[0]
-                active_project_id = create_project(auto_project_name, data.get("video_path", video_path))
+                auto_project_name = os.path.splitext(os.path.basename(source_video_path))[0]
+                active_project_id = create_project(auto_project_name, data.get("video_path", source_video_path))
                 emit_progress("[Projeto] Sessão de revisão criada automaticamente para salvar seus feedbacks.", "info")
 
             # Check AI status before starting
@@ -2823,7 +2873,8 @@ def api_cut_shorts():
             from modules.transcriber import Transcriber
             video_duration = _probe_video_duration_seconds(video_path)
             manual_supplied = _manual_transcript_was_supplied(data)
-            transcription = _transcription_from_request(data, duration=video_duration)
+            manual_duration = None if processing_interval.get("active") else video_duration
+            transcription = _transcription_from_request(data, duration=manual_duration)
             multimodal_result = None
             selected_transcription_mode = _transcription_source_mode(settings)
             if not transcription and selected_transcription_mode in {"whisper", "public_subtitle"}:
@@ -2858,6 +2909,17 @@ def api_cut_shorts():
                 )
                 emit_progress(f"[Whisper] Motor: {transcriber._engine}", "info")
 
+            if transcription and processing_interval.get("active"):
+                raw_last = transcription.get("raw_last_timestamp")
+                if raw_last is not None and float(raw_last or 0) > processing_interval["duration_seconds"] + 2.0:
+                    transcription = trim_transcription_to_interval(
+                        transcription,
+                        processing_interval["start_seconds"],
+                        processing_interval["end_seconds"],
+                    )
+                else:
+                    transcription["selection_scope"] = "processing_interval"
+                    transcription["processing_interval"] = dict(processing_interval)
             if transcription:
                 _realign_offset_transcription(transcription, video_duration, emit_progress)
                 coverage = _transcription_coverage_report(transcription, video_duration)
@@ -2885,12 +2947,20 @@ def api_cut_shorts():
                     emit_progress(f"[Transcrição canônica] {transcription['segment_count']} segmentos serão usados no contexto e na seleção.", "success")
 
             full_transcription = transcription
-            source_boundary = detect_live_content_start(
-                full_transcription,
-                duration_seconds=video_duration,
-                manual_start_seconds=data.get("content_start_seconds"),
+            source_boundary = (
+                interval_source_boundary(processing_interval)
+                if processing_interval.get("active")
+                else detect_live_content_start(
+                    full_transcription,
+                    duration_seconds=video_duration,
+                    manual_start_seconds=data.get("content_start_seconds"),
+                )
             )
-            selection_transcription = trim_transcription_to_live_start(full_transcription, source_boundary)
+            selection_transcription = (
+                dict(full_transcription)
+                if processing_interval.get("active")
+                else trim_transcription_to_live_start(full_transcription, source_boundary)
+            )
             # Keep temporal validation/provenance on the live-only view. Without
             # this, the context analyzer sees a new dict with no coverage and
             # marks every otherwise valid candidate as technically unverified.
@@ -2898,7 +2968,14 @@ def api_cut_shorts():
             selection_transcription["provenance"] = dict(full_transcription.get("provenance") or {})
             selection_transcription["source"] = full_transcription.get("source", "")
             settings["source_boundary"] = source_boundary
-            if source_boundary.get("status") in {"detected", "manual"} and source_boundary.get("content_start_seconds", 0) > 0:
+            settings["processing_interval"] = dict(processing_interval)
+            if processing_interval.get("active"):
+                emit_progress(
+                    f"[Fonte] Processando somente {processing_interval['label']} ({processing_interval['duration_seconds']:.1f}s); "
+                    "a timeline dos candidatos começa em 00:00 dentro desta faixa.",
+                    "info",
+                )
+            elif source_boundary.get("status") in {"detected", "manual"} and source_boundary.get("content_start_seconds", 0) > 0:
                 emit_progress(
                     f"[Fonte] Conteúdo de live começa em {source_boundary['content_start_seconds']:.1f}s; "
                     "o pré-roll permanece arquivado, mas não entra na seleção.",
@@ -2914,7 +2991,7 @@ def api_cut_shorts():
             save_transcription_bundle(
                 full_transcription,
                 project_id=active_project_id,
-                source_video=video_path,
+                source_video=source_video_path,
                 selection_transcription=selection_transcription,
             )
 
@@ -3038,7 +3115,12 @@ def api_cut_shorts():
             except Exception as exc:
                 emit_progress(f"[Contexto] Hooks com áudio não disponíveis; mantendo sinais textuais: {str(exc)[:140]}", "warning")
 
-            coverage_plan = _selection_coverage_plan(data.get("video_path", video_path), video_duration)
+            coverage_source = data.get("video_path", source_video_path)
+            coverage_plan = _selection_coverage_plan(
+                coverage_source,
+                video_duration,
+                allow_previous=not processing_interval.get("active"),
+            )
             if coverage_plan["previous_clip_fingerprints"]:
                 emit_progress(
                     f"[Deduplicação] {len(coverage_plan['previous_clip_fingerprints'])} intervalos já gerados para esta fonte serão evitados.",
@@ -3069,6 +3151,7 @@ def api_cut_shorts():
             selection_source = selector.get_selection_source()
             candidate_diagnostics = selector.get_candidate_diagnostics()
             candidate_diagnostics["source_boundary"] = source_boundary
+            candidate_diagnostics["processing_interval"] = dict(processing_interval)
             candidate_diagnostics["selection_scope"] = selection_transcription.get("selection_scope", "full_source")
             socketio.emit("selection_mode", {"source": selection_source, "candidate_diagnostics": candidate_diagnostics})
 
@@ -3138,7 +3221,7 @@ def api_cut_shorts():
 
             _write_selection_diagnostics(
                 job_id=getattr(ctx, "job_id", None),
-                video_path=video_path,
+                video_path=source_video_path,
                 duration_s=video_duration,
                 selection_source=selection_source,
                 diagnostics=candidate_diagnostics,
@@ -3224,7 +3307,9 @@ def api_cut_shorts():
                     }
                 emit_progress("[Layout] Composição ambígua ou multi-sujeito; preservando o quadro original.", "info")
 
-            project_name = os.path.splitext(os.path.basename(video_path))[0]
+            project_name = os.path.splitext(os.path.basename(source_video_path))[0]
+            if processing_interval.get("active"):
+                project_name += f"_interval_{int(processing_interval['start_seconds'])}-{int(processing_interval['end_seconds'])}"
             output_dir = settings.get("output_dir", "") or ""
             results = cutter.batch_cut(
                 video_path, top_clips, project_name,
@@ -3298,6 +3383,9 @@ def api_cut_shorts():
                         "mode": "original",
                         "reason": "composição original preservada por segurança",
                     }),
+                    "processing_interval": dict(processing_interval),
+                    "source_start": round(float(res.get("start", 0) or 0) + processing_interval.get("offset_seconds", 0.0), 3),
+                    "source_end": round(float(res.get("end", 0) or 0) + processing_interval.get("offset_seconds", 0.0), 3),
                 })
 
             emit_status("cut_complete", {
@@ -3312,6 +3400,7 @@ def api_cut_shorts():
                 "audit_mode": audit_mode,
                 "preferred_format": preferred_format,
                 "source_boundary": source_boundary,
+                "processing_interval": dict(processing_interval),
             })
 
             # A linha final anunciava "NLP Basico" para toda origem que não fosse
@@ -3364,6 +3453,7 @@ def api_cut_shorts():
             emit_status("error", {"message": friendly, "technical": str(e)})
             raise
         finally:
+            _remove_temporary_processing_media(temporary_interval_path)
             _set_legacy_task("", active=False)
 
     with processing_lock:
@@ -3918,16 +4008,30 @@ def api_process_complete():
 
     if not os.path.exists(video_path):
         return jsonify({"error": "Video nao encontrado"}), 404
+    try:
+        processing_interval = _requested_processing_interval(data, video_path)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    source_video_path = video_path
 
     def task(ctx):
+        temporary_interval_path = None
+        working_video = source_video_path
         try:
+            working_video, temporary_interval_path = _prepare_processing_media(
+                source_video_path, processing_interval, emit_progress, ctx.check_cancel
+            )
+            video_path = working_video
             settings = get_all_settings()
+            settings["processing_interval"] = dict(processing_interval)
             if transcription_source:
                 settings = {**settings, "transcription_source": transcription_source}
             ctx.update(stage="project", progress=3, message="Criando projeto")
             ctx.check_cancel()
-            video_name = os.path.splitext(os.path.basename(video_path))[0]
-            project_id = create_project(video_name, video_path)
+            video_name = os.path.splitext(os.path.basename(source_video_path))[0]
+            project_id = create_project(video_name, source_video_path)
+            if processing_interval.get("active"):
+                video_name += f"_interval_{int(processing_interval['start_seconds'])}-{int(processing_interval['end_seconds'])}"
 
             # ── Step 1: Remove silence ──
             emit_progress("━━━ ETAPA 1/6: Removendo Silencio ━━━", "info")
@@ -3954,7 +4058,8 @@ def api_process_complete():
             # ── Step 2: Import manual transcript or transcribe ──
             emit_progress("━━━ ETAPA 2/6: Transcrição e contexto ━━━", "info")
             from modules.transcriber import Transcriber
-            transcription = _transcription_from_request(data)
+            manual_duration = None if processing_interval.get("active") else _probe_video_duration_seconds(working_video)
+            transcription = _transcription_from_request(data, duration=manual_duration)
             multimodal_result = None
             selected_transcription_mode = _transcription_source_mode(settings)
             if not transcription and selected_transcription_mode in {"whisper", "public_subtitle"}:
@@ -3992,6 +4097,17 @@ def api_process_complete():
                     cancel_check=ctx.check_cancel,
                 )
             video_duration = _probe_video_duration_seconds(working_video)
+            if transcription and processing_interval.get("active"):
+                raw_last = transcription.get("raw_last_timestamp")
+                if raw_last is not None and float(raw_last or 0) > processing_interval["duration_seconds"] + 2.0:
+                    transcription = trim_transcription_to_interval(
+                        transcription,
+                        processing_interval["start_seconds"],
+                        processing_interval["end_seconds"],
+                    )
+                else:
+                    transcription["selection_scope"] = "processing_interval"
+                    transcription["processing_interval"] = dict(processing_interval)
             _realign_offset_transcription(transcription, video_duration, emit_progress)
             coverage = _transcription_coverage_report(transcription, video_duration)
             transcription["coverage"] = coverage
@@ -4026,6 +4142,15 @@ def api_process_complete():
                 ),
             )
             settings["editorial_context"] = editorial_context
+            source_boundary = interval_source_boundary(processing_interval)
+            settings["source_boundary"] = source_boundary
+            settings["processing_interval"] = dict(processing_interval)
+            if processing_interval.get("active"):
+                emit_progress(
+                    f"[Fonte] Processo completo limitado a {processing_interval['label']} ({processing_interval['duration_seconds']:.1f}s); "
+                    "a timeline dos candidatos começa em 00:00 dentro desta faixa.",
+                    "info",
+                )
             ctx.update(stage="transcription", progress=35, message="Transcrição e contexto concluídos")
             ctx.check_cancel()
 
@@ -4049,7 +4174,12 @@ def api_process_complete():
             except Exception as exc:
                 emit_progress(f"[Contexto] Hooks com áudio não disponíveis; mantendo sinais textuais: {str(exc)[:140]}", "warning")
 
-            coverage_plan = _selection_coverage_plan(data.get("video_path", video_path), video_duration)
+            coverage_source = data.get("video_path", source_video_path)
+            coverage_plan = _selection_coverage_plan(
+                coverage_source,
+                video_duration,
+                allow_previous=not processing_interval.get("active"),
+            )
             if coverage_plan["previous_clip_fingerprints"]:
                 emit_progress(
                     f"[Deduplicação] {len(coverage_plan['previous_clip_fingerprints'])} intervalos já gerados para esta fonte serão evitados.",
@@ -4075,6 +4205,12 @@ def api_process_complete():
                 emit_progress=emit_progress,
             )
             top_clips = _attach_multimodal_visual_observations(top_clips, multimodal_result)
+            selection_source = selector.get_selection_source()
+            candidate_diagnostics = selector.get_candidate_diagnostics()
+            candidate_diagnostics["source_boundary"] = source_boundary
+            candidate_diagnostics["processing_interval"] = dict(processing_interval)
+            candidate_diagnostics["selection_scope"] = transcription.get("selection_scope", "full_source")
+            socketio.emit("selection_mode", {"source": selection_source, "candidate_diagnostics": candidate_diagnostics})
             ctx.update(stage="candidate_generation", progress=55, message=f"{len(top_clips)} candidatos encontrados")
             ctx.check_cancel()
 
@@ -4107,6 +4243,19 @@ def api_process_complete():
                 top_clips,
                 user_context=user_context,
                 energy_profile=energy_profile,
+            )
+            candidate_diagnostics["final_count"] = len(top_clips)
+            _write_selection_diagnostics(
+                job_id=getattr(ctx, "job_id", None),
+                video_path=source_video_path,
+                duration_s=video_duration,
+                selection_source=selection_source,
+                diagnostics=candidate_diagnostics,
+                clips=top_clips,
+                deferred=[],
+                segments=(transcription or {}).get("segments"),
+                transcript_review=(transcription or {}).get("revisao_legenda"),
+                emit_progress=emit_progress,
             )
 
             cutter = VideoCutter(
@@ -4384,6 +4533,9 @@ def api_process_complete():
                     "seo": res.get("seo", {}),
                     "clip_id": res.get("clip_id"),
                     "framing": applied_framing,
+                    "processing_interval": dict(processing_interval),
+                    "source_start": round(float(res.get("start", 0) or 0) + processing_interval.get("offset_seconds", 0.0), 3),
+                    "source_end": round(float(res.get("end", 0) or 0) + processing_interval.get("offset_seconds", 0.0), 3),
                 })
 
             # Report where files are saved
@@ -4396,6 +4548,9 @@ def api_process_complete():
                 "total_clips": len(clip_results),
                 "video_layout": video_layout,
                 "output_dir": save_location,
+                "source_boundary": source_boundary,
+                "processing_interval": dict(processing_interval),
+                "candidate_diagnostics": candidate_diagnostics,
             })
             emit_progress(f"PROCESSO COMPLETO! {len(clip_results)} clips gerados, ranqueados e otimizados.", "success")
 
@@ -4410,8 +4565,8 @@ def api_process_complete():
             traceback.print_exc()
             raise
         finally:
+            _remove_temporary_processing_media(temporary_interval_path)
             _set_legacy_task("", active=False)
-
     if current_task["active"]:
         return jsonify({"error": "Ja existe um processamento em andamento"}), 409
 

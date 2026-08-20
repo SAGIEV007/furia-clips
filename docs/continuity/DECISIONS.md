@@ -101,3 +101,12 @@ Quando o foco editorial é Renan Santos/MBL, uma proposta guiada pelo Campaign H
 ## D-026 — Descoberta Chub não é publicação
 
 A partir da 6.16, toda proposta encontrada pelo Campaign Hub deve poder permanecer em uma fila de descoberta auditável, mesmo quando não passe no pool publicável do foco editorial. `campaign_hub_discovery_candidates` preserva a memória e o motivo de exclusão; `campaign_hub_publishable_candidates` contém somente propostas promovidas; `final_candidates` contém a seleção final geral. Nenhuma visualização, diagnóstico ou futura ação de promoção pode renderizar ou aprovar um item sem reexecutar os gates de identidade, contexto, payoff, risco, timing e revisão técnica.
+
+
+## D-027 — Intervalo é cópia operacional, não nova fonte
+
+Quando o editor informar início e fim de uma fonte longa, o Furia deve criar uma cópia temporária da faixa e usar a timeline local somente nas etapas de processamento. A fonte original continua canônica para projeto, diagnóstico e auditoria; o arquivo temporário deve ser removido em sucesso, erro ou cancelamento. Resultados precisam carregar o intervalo e os timestamps absolutos de origem. Até existir uma identidade persistente de intervalo no banco, execuções parciais não devem reutilizar fingerprints da fonte inteira, pois segundos locais de faixas diferentes podem colidir.
+
+## D-028 — Referência visual não autoriza mudança editorial
+
+Branches de outras IAs podem ser consultados para padrões de layout, hierarquia, acessibilidade e fluxo de revisão, mas commits de ranking, backend, pesos, Campaign Hub ou gates não podem ser importados sob uma hipótese visual/UX. Cada ciclo deve documentar quais commits foram consultados e quais foram deliberadamente excluídos.

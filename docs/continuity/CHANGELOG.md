@@ -1,5 +1,29 @@
 # Changelog de continuidade
 
+## 6.17 — Processamento parcial de fonte e UX de execução unificada
+
+### Hipótese
+
+Uma live longa deveria poder ser processada por faixa, sem alterar a fonte original. A mesma configuração visual deveria servir ao corte inteligente e ao processo completo, deixando claro ao editor qual timeline está sendo analisada.
+
+### Incluído
+
+- `modules/source_interval.py`: parsing de segundos, `mm:ss` e `hh:mm:ss`, validação, criação de cópia temporária por FFmpeg e rebase determinístico da transcrição.
+- `app.py`: suporte a `processing_start` e `processing_end` nas rotas de corte inteligente e processo completo, com limpeza em sucesso, erro e cancelamento.
+- `app.py`: resultados carregam `processing_interval`, `source_start` e `source_end`; a fonte original continua sendo usada como referência do projeto e dos diagnósticos.
+- `app.py`: deduplicação anterior fica desativada somente em timelines locais de intervalo, evitando colisão com fingerprints da live inteira.
+- `static/js/app.js`, `templates/index.html` e `static/css/style.css`: modal compartilhado, card de intervalo, chip de estado, validação amigável, responsividade e confirmação visual de que a fonte original não será alterada.
+- A referência visual `manus/rebuild-opus-parity-2` foi usada apenas para padrões de UX; mudanças de ranking, backend e Campaign Hub foram excluídas.
+- Regressões de parsing, limites, mídia real, transcrição, endpoints e integração com cobertura.
+
+### Resultado medido
+
+A cópia de intervalo da fixture audiovisual foi criada e medida por `ffprobe`, com a fonte original preservada. A interface local foi verificada visualmente em viewport de notebook. Nenhum job editorial externo foi iniciado nesta rodada; a integração pesada permanece coberta por testes, sintaxe e contratos de API.
+
+### Validação
+
+A suíte terminou com **552 testes aprovados e 4 ignorados** após o asset BlazeFace ser provisionado temporariamente, conferido e removido. Também passaram `node --check`, `py_compile` e `git diff --check`. Relatório: [`CYCLE_33_REPORT_2026-08-20.md`](CYCLE_33_REPORT_2026-08-20.md).
+
 ## 6.16 — Fila de descoberta Chub separada da fila publicável
 
 ### Hipótese

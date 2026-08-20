@@ -8,12 +8,12 @@
 | --- | --- |
 | Projeto | Furia Clips |
 | Repositório | `SAGIEV007/furia-clips` |
-| Versão pública atual | `6.16` |
-| Última release funcional anterior | `6.15` |
-| Natureza da release atual | Fila Chub de descoberta separada da fila guiada publicável, com motivos de exclusão e contagens expostos no diagnóstico, backend e aviso da interface |
+| Versão pública atual | `6.17` |
+| Última release funcional anterior | `6.16` |
+| Natureza da release atual | Processamento opcional por intervalo de fonte, timeline local rebased, timestamps absolutos de origem e modal visual compartilhado para corte inteligente/processo completo |
 | Fonte da versão | [`VERSION`](../../VERSION) |
 | Branch de trabalho | `claude/repo-access-commits-imgjmk` |
-| Última publicação conhecida | `c9727e3` — `feat: separar descoberta Chub do pool publicavel (6.16)` |
+| Última publicação conhecida | Pendente até o commit final deste ciclo — `feat: processar intervalo de fonte e unificar UX de execução (6.17)` |
 | Commit funcional 2.6 | `fec34fe` — `feat: primeira ponte funcional Campaign Hub para propostas (2.6)` |
 | Commit funcional 2.7 | `a0452d3` — `fix: declarar confiabilidade da medição no benchmark editorial (2.7)` |
 | Commit funcional 2.8 | `fdf5e6b` — `fix: alinhar seeds do Campaign Hub com a mídia local em processamento (2.8)` |
@@ -22,7 +22,7 @@
 | Commit funcional 3.1 | `a170aab` — `feat: entregar todo candidato com contexto, locutor e veredito de revisão (3.1)` |
 | Última atualização | 2026-08-20 |
 | Baseline editorial | Duas fontes medidas na 3.1. `3XJfcqn56Rw` (live 98 min): recall `50/66`, cobertura `25/27`. `j9FRVbb8CAI` (entrevista 31 min): recall `30/34`, cobertura `11/11`. Precisão `1.00`, zero fora de bloco e zero desperdício **nas duas**. O ciclo 6.14 mediu `3/30` identidades disponíveis no Renan-first com snapshot rico, contra `0/30` sem snapshot. |
-| Suíte no checkout | 546 aprovados, 4 ignorados após provisionamento temporário do asset BlazeFace; sem asset, 1 falha ambiental |
+| Suíte no checkout | 552 aprovados, 4 ignorados após provisionamento temporário do asset BlazeFace; o asset foi removido antes do commit |
 | Objetivo | Gerar cortes Renan Santos/MBL concisos, autossuficientes, contextualizados e editorialmente úteis |
 
 A branch de trabalho deve ser confirmada no checkout real. O GitHub é a fonte da revisão técnica; este arquivo não pode manter um hash diferente do `HEAD` final publicado. Antes de alterar qualquer arquivo, preserve mudanças locais e confirme `git status`.
@@ -35,13 +35,17 @@ O ciclo 31 corrigiu o scorer para receber explicitamente o benchmark e instrumen
 
 O ciclo 32 separou a descoberta da publicação. Na mesma fonte, o Chub produziu 30 propostas de descoberta no Renan-first, 6 foram promovidas ao pool guiado e 24 permaneceram em `speaker_gate_review`; o recall publicável ficou em `7/66`, sem alteração do ranking. A interface agora mostra essa diferença, e os diagnósticos persistidos distinguem descoberta, propostas Chub promovidas e candidatos finais gerais.
 
-A próxima hipótese única é uma visualização read-only da fila de descoberta, com filtros por locutor, bloco, highlight e motivo de exclusão, sem renderização automática.
+O ciclo 33 adicionou processamento parcial por intervalo. A próxima hipótese única é persistir uma identidade de intervalo no banco para deduplicar execuções parciais corretamente, sem bloquear faixas diferentes; a visualização read-only da fila Chub permanece depois dessa fundação.
 
 As prioridades editoriais Renan-first continuam preservadas: contexto e payoff antes de hook, gates de locutor antes do ranking, Campaign Hub como memória/seed e não como aprovação, e uma hipótese principal por ciclo.
 
-## Release atual — 6.16
+## Release atual — 6.17
 
-A 6.16 preserva o filtro de locutor da 6.15 e torna explícita a separação entre descoberta e publicação. Cada job registra `campaign_hub_discovery_candidates`, `campaign_hub_publishable_candidates`, `final_candidates` e os motivos de exclusão. O backend já transmite o diagnóstico nos eventos de seleção e conclusão; o aviso de volume mostra quantos trechos do Chub foram encontrados, promovidos ou deixados para revisão. A fila publicável Chub não é sobrescrita pelo conjunto geral de candidatos finais.
+A 6.17 preserva todo o contrato Chub/Renan-first da 6.16 e adiciona processamento opcional de intervalo. O editor pode informar início e fim em segundos, `mm:ss` ou `hh:mm:ss`; o Furia cria uma cópia temporária, processa somente essa faixa, rebases a transcrição para a timeline local e limpa o arquivo temporário ao terminar. A fonte original continua canônica e os resultados carregam `source_start`, `source_end` e `processing_interval`.
+
+O corte inteligente e o processo completo usam o mesmo modal de execução, com card visual de intervalo, chip de estado, validação amigável e confirmação de que a fonte original não será alterada. A referência visual do branch `manus/rebuild-opus-parity-2` foi usada somente para UX; nenhuma mudança de ranking, backend editorial ou peso do Campaign Hub foi importada.
+
+O ciclo 33 adicionou `CYCLE_33_REPORT_2026-08-20.md`, `REFERENCE_UX_NOTES_2026-08-20.md` e `INTERVAL_UX_CHECK_2026-08-20.md`. A suíte validada teve 552 aprovados e 4 ignorados; o modelo BlazeFace foi removido antes do commit.
 
 A 6.14 corrigia a integração incompleta do snapshot rico. O job normal passa o arquivo por `campaign_hub_snapshot_path`, mas o anexo de evidência local ignorava esse caminho; agora ele carrega o snapshot e anexa blocos, riscos, proveniência e identidade aos candidatos locais. Quando o candidato cobre pelo menos 75% de um bloco owner/allied com `renanSpeaking=true`, a identidade fica disponível como evidência alinhada, nunca como aprovação automática.
 
