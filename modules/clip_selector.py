@@ -1096,7 +1096,9 @@ class ClipSelector:
                     if emit_progress:
                         emit_progress(f"[Gemini] Resposta recebida de {model_name} ({len(text)} chars). Parseando...", "info")
 
-                    selections = self._parse_llm_response(text, sentences, all_blocks, 0, source="gemini")
+                    selections = self._parse_llm_response(
+                        text, sentences, all_blocks, 0, source="gemini", emit_progress=emit_progress
+                    )
 
                     if not selections:
                         if emit_progress:
@@ -1203,6 +1205,74 @@ FORMATO DE RESPOSTA — retorne APENAS um array JSON valido:
   }
 ]""" + political_fragment
 
+    def _render_editorial_context(self, editorial_context):
+        """A pré-análise em texto, com o mesmo relógio da transcrição.
+
+        Ela ia para o prompt como `repr` de dicionário do Python e ocupava mais
+        espaço que a própria transcrição num vídeo curto — com escrituração
+        interna que o modelo não tem como usar (`boundary_basis`,
+        `needs_speaker_review`, `qa_candidate_ids`, índices de segmento).
+
+        Pior: eram listas de `{'start': ..., 'end': ...}` logo acima do pedido de
+        `"blocks": [3, 4, 5]`, e na coletiva de João Pessoa o modelo respondeu
+        exatamente naquela forma. Aqui não há mais chave nenhuma para copiar, e
+        os tempos saem em MM:SS, como os blocos da transcrição.
+        """
+        if not editorial_context:
+            return ""
+
+        def intervalo(item):
+            return f"{self._format_time(float(item.get('start', 0) or 0))}–{self._format_time(float(item.get('end', 0) or 0))}"
+
+        linhas = ["", "PRÉ-ANÁLISE (determinística, feita antes de você):"]
+        description = str(editorial_context.get("description", "") or "").strip()
+        if description:
+            linhas.append(description)
+        linhas.append(
+            "Foco padrão: Renan Santos/MBL. Confiança inicial de participante: "
+            f"{editorial_context.get('participant_confidence', 0):.0%}."
+        )
+
+        windows = editorial_context.get("interview_windows", []) or []
+        if windows:
+            linhas.append(
+                "Trechos prováveis de entrevista: "
+                + ", ".join(intervalo(item) for item in windows[:8])
+                + "."
+            )
+
+        qa = editorial_context.get("qa_candidates", []) or []
+        if qa:
+            linhas.append(
+                "Pares pergunta–resposta detectados (a pergunta começa no primeiro tempo): "
+                + ", ".join(intervalo(item) for item in qa[:12])
+                + "."
+            )
+
+        chapters = editorial_context.get("editorial_chapters", []) or []
+        if chapters:
+            linhas.append("Capítulos temporais:")
+            for chapter in chapters[:24]:
+                rotulo = str(chapter.get("label", "") or "bloco editorial")
+                linhas.append(f"  {intervalo(chapter)}  {rotulo}")
+
+        contract = editorial_context.get("context_contract") or {}
+        reasons = [str(item) for item in (contract.get("review_reasons") or []) if str(item).strip()]
+        if reasons:
+            # O contrato já nomeia em português o que falta para o trecho se
+            # sustentar sozinho; ele entra como exigência, não como dicionário.
+            linhas.append("Antes de fechar um clip, garanta que ele já: " + "; ".join(reasons) + ".")
+
+        linhas.append(
+            "Respeite os capítulos como blocos editoriais contíguos. Não combine blocos de "
+            "capítulos separados sem uma ponte de fala clara. Quando a seleção for uma "
+            "pergunta–resposta, inclua a ponte completa: a pergunta inteira e a resposta "
+            "inteira. Se a fala abrir com uma referência ('isso', 'essa questão'), recupere a "
+            "menor frase anterior que a torne compreensível. Não termine antes da consequência. "
+            "Se houver dúvida sobre quem fala, rejeite o trecho."
+        )
+        return "\n".join(linhas) + "\n"
+
     def _build_gemini_prompt(self, blocks, user_context, editorial_context=None):
         """Build prompt with deterministic interview context plus the transcript."""
         lines = []
@@ -1232,21 +1302,7 @@ Se o nome nao aparece literalmente na transcricao, identifique pela posicao no d
 INSTRUCAO DO USUARIO: "{user_context}"
 Selecione clips que melhor atendam a esse pedido."""
 
-        editorial_instruction = ""
-        if editorial_context:
-            windows = editorial_context.get("interview_windows", [])[:8]
-            qa = editorial_context.get("qa_candidates", [])[:12]
-            chapters = editorial_context.get("editorial_chapters", [])[:24]
-            editorial_instruction = f"""
-
-PRÉ-ANÁLISE EDITORIAL DETERMINÍSTICA:
-{editorial_context.get('description', '')}
-Foco padrão: Renan Santos/MBL. Confiança inicial de participante: {editorial_context.get('participant_confidence', 0):.0%}.
-Janelas prováveis de entrevista: {windows}.
-Candidatos pergunta–resposta detectados: {qa}.
-Mapa de capítulos temporais: {chapters}.
-Respeite os capítulos como blocos editoriais contíguos. Não combine blocos de capítulos separados sem uma ponte de fala clara. Quando a seleção for uma pergunta–resposta, inclua o capítulo inteiro ou a ponte completa; se houver dúvida sobre locutor ou sobreposição, reduza a confiança ou rejeite.
-"""
+        editorial_instruction = self._render_editorial_context(editorial_context)
 
         num_clips = min(self.max_clips, max(5, len(blocks) // 4))
 
@@ -1311,7 +1367,10 @@ Retorne APENAS o array JSON. Nenhum texto antes ou depois."""
                 data = response.json()
                 text = data.get("response", "")
 
-                selections = self._parse_llm_response(text, sentences, transcript_blocks, chunk_idx, source="llm")
+                selections = self._parse_llm_response(
+                    text, sentences, transcript_blocks, chunk_idx,
+                    source="llm", emit_progress=emit_progress,
+                )
                 if not selections and text and emit_progress:
                     # Ollama responded but JSON was unparseable - log for debug
                     preview = text[:150].replace("\n", " ")
@@ -1383,18 +1442,7 @@ IMPORTANTE: SOMENTE selecione clips onde {names_str} esta falando. Clips de outr
 INSTRUCAO DO USUARIO: "{user_context}"
 Selecione clips que atendam a esse pedido."""
 
-        editorial_instruction = ""
-        if editorial_context:
-            chapters = editorial_context.get("editorial_chapters", [])[:16]
-            context_contract = editorial_context.get("context_contract", {})
-            editorial_instruction = (
-                f"\nPRÉ-ANÁLISE: {editorial_context.get('description', '')}\n"
-                f"CAPÍTULOS EDITORIAIS: {chapters}\n"
-                f"CONTRATO DE CONTEXTO: {context_contract}\n"
-                "Não atravesse capítulos desconectados; preserve perguntas e respostas no mesmo capítulo. "
-                "Se o contrato exigir antecedente, inclua a menor frase anterior que torne a referência compreensível. "
-                "Não termine antes da consequência/payoff e marque revisão quando o locutor estiver incerto.\n"
-            )
+        editorial_instruction = self._render_editorial_context(editorial_context)
 
         num_clips = min(self.max_clips, max(3, len(blocks) // 3))
         return f"""Selecione os {num_clips} MELHORES momentos para clips curtos.
@@ -1683,8 +1731,105 @@ Retorne APENAS o JSON.
             ),
         }
 
-    def _parse_llm_response(self, response_text, sentences, all_blocks, chunk_offset, source="llm"):
+    # Sobreposição mínima para dizer que um intervalo de tempo cobre um bloco.
+    # Abaixo disso é arredondamento na borda, não intenção de incluir o bloco.
+    SPAN_MATCH_S = 0.25
+
+    @staticmethod
+    def _span_from(obj):
+        """O intervalo de tempo declarado num objeto, ou None se não houver.
+
+        `start`/`end` dentro de um endereço de bloco são segundos do vídeo. É o que
+        o modelo quer dizer quando devolve `{"start": 219.0, "end": 223.0, "text":
+        "..."}`: aquele momento, não o bloco de índice 219.
+        """
+        if not isinstance(obj, dict):
+            return None
+        try:
+            start = float(obj["start"])
+            end = float(obj["end"])
+        except (KeyError, TypeError, ValueError):
+            return None
+        if end <= start:
+            return None
+        return start, end
+
+    def _blocks_for_span(self, all_blocks, start, end):
+        """Os blocos editoriais que um intervalo de tempo cobre."""
+        span = end - start
+        hits = []
+        for block in all_blocks:
+            try:
+                block_start = float(block["start"])
+                block_end = float(block["end"])
+            except (KeyError, TypeError, ValueError):
+                continue
+            overlap = min(block_end, end) - max(block_start, start)
+            if overlap > self.SPAN_MATCH_S or (overlap > 0 and overlap >= 0.5 * span):
+                hits.append(int(block["index"]))
+        if hits:
+            return hits
+        # Um intervalo inteiramente dentro de um bloco pode não cruzar a borda de
+        # nenhum outro; o bloco que contém o meio dele é a resposta.
+        middle = (start + end) / 2
+        for block in all_blocks:
+            if float(block["start"]) <= middle < float(block["end"]):
+                return [int(block["index"])]
+        return []
+
+    def _addressed_blocks(self, sel, all_blocks):
+        """Os blocos que uma seleção do modelo aponta, em índice ou em tempo.
+
+        O prompt pede índice (`"blocks": [3, 4, 5]`) e o modelo às vezes responde
+        em tempo, que é o endereço mais direto que existe: o índice depende de como
+        nós agrupamos as frases, o segundo não depende de nada. Recusar a resposta
+        por causa da forma custou uma coletiva inteira — vinte e dois mil
+        caracteres de análise descartados por um `dict` onde havia um `int`.
+
+        Devolve `(índices, endereçado_por_tempo, motivo_da_recusa)`.
+        """
+        raw = sel.get("blocks", [])
+        if not isinstance(raw, (list, tuple)):
+            return None, False, "campo 'blocks' não é uma lista"
+
+        if not raw:
+            # Sem `blocks`, mas talvez com o intervalo no próprio objeto do clip.
+            span = self._span_from(sel)
+            if span is None:
+                return None, False, "resposta sem blocos e sem intervalo de tempo"
+            hits = self._blocks_for_span(all_blocks, *span)
+            if not hits:
+                return None, True, f"nenhum bloco no intervalo {span[0]:.1f}-{span[1]:.1f}s"
+            return sorted(set(hits)), True, None
+
+        indices = []
+        by_time = False
+        for item in raw:
+            if isinstance(item, dict):
+                span = self._span_from(item)
+                if span is None:
+                    return None, True, "endereço em forma de objeto sem start/end válidos"
+                hits = self._blocks_for_span(all_blocks, *span)
+                if not hits:
+                    return None, True, f"nenhum bloco no intervalo {span[0]:.1f}-{span[1]:.1f}s"
+                by_time = True
+                indices.extend(hits)
+            else:
+                try:
+                    indices.append(int(item))
+                except (TypeError, ValueError):
+                    return None, False, "índice de bloco não é um número"
+
+        if by_time:
+            # Intervalos vizinhos encostam no mesmo bloco o tempo todo; aqui a
+            # repetição é geometria, não o modelo repetindo o índice.
+            return sorted(set(indices)), True, None
+        return indices, False, None
+
+    def _parse_llm_response(self, response_text, sentences, all_blocks, chunk_offset,
+                            source="llm", emit_progress=None):
         """Parse LLM/Gemini JSON response into clip data with timestamps."""
+        rejections = []
         try:
             json_str = response_text.strip()
             # Extract JSON from potential markdown code blocks
@@ -1733,29 +1878,30 @@ Retorne APENAS o JSON.
             if not isinstance(sel, dict):
                 continue
 
-            raw_indices = sel.get("blocks", [])
-            if not isinstance(raw_indices, (list, tuple)) or not raw_indices:
+            block_indices, addressed_by_time, rejection = self._addressed_blocks(sel, all_blocks)
+            if block_indices is None:
+                rejections.append(rejection or "endereço de bloco ilegível")
                 continue
-            try:
-                block_indices = [int(index) for index in raw_indices]
-            except (TypeError, ValueError):
-                continue
-            if len(set(block_indices)) != len(block_indices):
+            if not addressed_by_time and len(set(block_indices)) != len(block_indices):
+                rejections.append("o mesmo bloco foi listado duas vezes")
                 continue
 
-            zero_based_valid = all(0 <= index < len(all_blocks) for index in block_indices)
-            one_based_valid = all(1 <= index <= len(all_blocks) for index in block_indices)
-            # Our prompt exposes zero-based `BLOCO` indices. Only switch to
-            # one-based when zero-based mapping is impossible, avoiding the old
-            # silent off-by-one error for responses such as [1, 2].
-            if not zero_based_valid and one_based_valid:
-                block_indices = [index - 1 for index in block_indices]
-            elif not zero_based_valid:
-                continue
+            if not addressed_by_time:
+                zero_based_valid = all(0 <= index < len(all_blocks) for index in block_indices)
+                one_based_valid = all(1 <= index <= len(all_blocks) for index in block_indices)
+                # Our prompt exposes zero-based `BLOCO` indices. Only switch to
+                # one-based when zero-based mapping is impossible, avoiding the old
+                # silent off-by-one error for responses such as [1, 2].
+                if not zero_based_valid and one_based_valid:
+                    block_indices = [index - 1 for index in block_indices]
+                elif not zero_based_valid:
+                    rejections.append("índice de bloco fora da transcrição enviada")
+                    continue
 
             ordered_indices = sorted(block_indices)
             if ordered_indices != list(range(ordered_indices[0], ordered_indices[-1] + 1)):
                 # A model that skips a block skipped context; do not publish it.
+                rejections.append("a seleção pula um bloco, e pular bloco é pular contexto")
                 continue
             block_indices = ordered_indices
             valid_blocks = [all_blocks[index] for index in block_indices]
@@ -1792,6 +1938,9 @@ Retorne APENAS o JSON.
             # Validate duration. The technical ceiling prevents malformed
             # responses, while the editorial preference remains soft.
             if clip_duration < self.min_duration:
+                rejections.append(
+                    f"trecho de {clip_duration:.0f}s, abaixo do mínimo de {self.min_duration:.0f}s"
+                )
                 continue
             if clip_duration > self.max_duration:
                 clip_end = clip_start + self.max_duration
@@ -1844,6 +1993,19 @@ Retorne APENAS o JSON.
                 "source": source,
                 "duration_preference": self._duration_label(clip_duration, sel),
             })
+
+        if not clips and rejections and emit_progress:
+            # "0 clips parsed" não dizia por quê, e a corrida caía para o NLP sem
+            # que ninguém soubesse o que o modelo tinha respondido de errado.
+            motivos = []
+            for motivo in rejections:
+                if motivo not in motivos:
+                    motivos.append(motivo)
+            emit_progress(
+                f"[{source}] Resposta lida, {len(rejections)} seleção(oes) recusada(s): "
+                + "; ".join(motivos[:3]),
+                "warning",
+            )
 
         return clips
 

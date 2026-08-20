@@ -42,7 +42,11 @@ def build_editorial_chapters(
         current.append(segment)
         next_segment = normalized[index + 1] if index + 1 < len(normalized) else None
         if next_segment is None:
+            # O grupo corrente fecha aqui, e só aqui: sem esvaziá-lo, o `if
+            # current` logo abaixo fechava o mesmo grupo uma segunda vez e todo
+            # vídeo terminava com o último capítulo duplicado.
             groups.append(current)
+            current = []
             break
 
         start = float(current[0]["start"])
