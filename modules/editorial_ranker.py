@@ -375,6 +375,9 @@ class EditorialRanker:
                 "timing_ambiguous": bool(clip.get("timing_ambiguous")),
                 "speaker_turn_valid": clip.get("speaker_turn_valid"),
                 "speaker_review_required": bool(clip.get("needs_speaker_review")) or clip.get("speaker_turn_valid") is None,
+                "speaker_identity_required": bool(clip.get("speaker_identity_required")),
+                "speaker_identity_available": clip.get("speaker_identity_available"),
+                "speaker_identity_review_required": bool(clip.get("speaker_identity_review_required")),
                 "transcription_review_required": bool(clip.get("transcription_review_required")),
                 "transcription_coverage_status": str(clip.get("transcription_coverage_status", "") or ""),
                 "transcription_review_reason": str(clip.get("transcription_review_reason", "") or ""),
@@ -461,6 +464,7 @@ class EditorialRanker:
             "starts_mid_sentence", "question_detected", "question_requires_answer", "question_answer_complete",
             "evidence_present", "payoff_complete", "context_complete",
             "overlap_suspected", "timing_ambiguous", "speaker_turn_valid",
+            "speaker_identity_required", "speaker_identity_available", "speaker_identity_review_required",
         }
         has_contract = any(key in clip for key in contract_keys)
         inferred_context = bool(
@@ -507,6 +511,9 @@ class EditorialRanker:
         if clip.get("speaker_turn_valid") is False:
             penalty += 18
             reasons.append("troca de locutor incompatível")
+        if bool(clip.get("speaker_identity_required")) and clip.get("speaker_identity_available") is not True:
+            penalty += 20
+            reasons.append("identidade do locutor não confirmada para o foco Renan-first")
         normalized_clip_words = len(_normalize(str(clip.get("text") or "")).split())
         if has_contract and not context_complete and normalized_clip_words < 16:
             penalty += 8

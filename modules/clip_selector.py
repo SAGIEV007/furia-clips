@@ -126,6 +126,10 @@ class ClipSelector:
         self.min_duration = min_duration
         self.max_duration = max_duration
         self.preferred_max_duration = preferred_max_duration
+        # In the Renan-first pipeline, a clean turn boundary is not enough to
+        # claim who is speaking. The selection path carries this requirement
+        # from editorial_context into every backend and gate.
+        self._speaker_identity_required = False
         self._candidate_diagnostics = {
             "expected_count": 0,
             "primary_count": 0,
@@ -145,6 +149,20 @@ class ClipSelector:
                      settings=None, emit_progress=None, scene_changes=None,
                      video_layout=None):
         settings = settings or {}
+        editorial_context = settings.get("editorial_context") if isinstance(settings.get("editorial_context"), dict) else {}
+        focus = str(
+            editorial_context.get("focus")
+            or settings.get("editorial_focus")
+            or ""
+        ).strip().lower()
+        profile = str(settings.get("editorial_profile") or "").strip().lower()
+        channel_context = str(settings.get("channel_context") or "").strip().lower()
+        renan_profile = profile in {"renan", "renan_santos", "renan_santos_politics"}
+        renan_channel = "renan" in channel_context and "mbl" in channel_context
+        self._speaker_identity_required = bool(
+            focus in {"renan", "renan_santos", "renan_santos_politics"}
+            or focus in {"", "auto", "generic_political"} and (renan_profile or renan_channel)
+        )
         self._selection_source = None
         self._previous_clip_fingerprints = [
             item for item in (settings.get("previous_clip_fingerprints") or [])
@@ -1403,6 +1421,8 @@ Retorne APENAS o JSON.
             "sentences": sentences.copy(),
             "speaker": speakers[0] if len(speakers) == 1 else "",
             "speakers": speakers,
+            "speaker_identity_required": bool(self._speaker_identity_required),
+            "speaker_identity_available": bool(speakers),
             "speaker_change_detected": len(speakers) > 1,
             "overlap_suspected": any(bool(sentence.get("overlap_suspected")) for sentence in sentences),
             "speaker_turn_valid": not any(bool(sentence.get("overlap_suspected")) for sentence in sentences),
@@ -1496,6 +1516,8 @@ Retorne APENAS o JSON.
                 "overlap_suspected": any(bool(block.get("overlap_suspected")) for block in valid_blocks),
                 "timing_ambiguous": any(bool(block.get("timing_ambiguous")) for block in valid_blocks),
                 "speaker_turn_valid": all(block.get("speaker_turn_valid", True) is not False for block in valid_blocks),
+                "speaker_identity_required": bool(self._speaker_identity_required),
+                "speaker_identity_available": all(bool(block.get("speaker_identity_available")) for block in valid_blocks),
                 "timing_confidence": min(
                     [float(block.get("timing_confidence")) for block in valid_blocks if block.get("timing_confidence") is not None]
                     or [1.0]
@@ -1531,6 +1553,10 @@ Retorne APENAS o JSON.
                 # Ambiguous timing remains reviewable but should not be treated
                 # as a clean candidate by the model response parser.
                 sel["technical_review_required"] = True
+            if technical_flags.get("speaker_identity_review_required"):
+                sel["review_required"] = True
+                sel["review_reasons"] = list(sel.get("review_reasons") or [])
+                sel["review_reasons"].append("identidade do locutor não confirmada para o foco Renan-first")
 
             # Score scale: A=90, B=55, C=25 (wide spread for real differentiation)
             grade_to_score = {"A": 90, "B": 55, "C": 25}
@@ -2485,6 +2511,8 @@ Retorne APENAS o JSON.
                 "overlap_suspected": any(bool(item.get("overlap_suspected")) for item in window),
                 "timing_ambiguous": any(bool(item.get("timing_ambiguous")) for item in window),
                 "speaker_turn_valid": all(item.get("speaker_turn_valid", True) is not False for item in window),
+                "speaker_identity_required": bool(self._speaker_identity_required),
+                "speaker_identity_available": all(bool(item.get("speakers") or item.get("speaker")) for item in window),
                 "timing_confidence": min(
                     [float(item.get("timing_confidence")) for item in window if item.get("timing_confidence") is not None]
                     or [1.0]
@@ -2869,6 +2897,11 @@ Retorne APENAS o JSON.
         overlap_suspected = bool(metadata.get("overlap_suspected"))
         timing_ambiguous = bool(metadata.get("timing_ambiguous"))
         speaker_turn_valid = metadata.get("speaker_turn_valid")
+        speaker_identity_required = bool(metadata.get("speaker_identity_required"))
+        speaker_identity_available = metadata.get("speaker_identity_available")
+        speaker_identity_review_required = bool(
+            speaker_identity_required and speaker_identity_available is not True
+        )
         context_complete = bool(
             not starts_mid_sentence
             and not starts_with_context_reference
@@ -2878,6 +2911,7 @@ Retorne APENAS o JSON.
             and not overlap_suspected
             and not timing_ambiguous
             and speaker_turn_valid is not False
+            and not speaker_identity_review_required
         )
         return {
             "starts_mid_sentence": starts_mid_sentence,
@@ -2894,8 +2928,12 @@ Retorne APENAS o JSON.
                 and not overlap_suspected
                 and not timing_ambiguous
                 and speaker_turn_valid is not False
+                and not speaker_identity_review_required
             ),
             "speaker_turn_valid": speaker_turn_valid,
+            "speaker_identity_required": speaker_identity_required,
+            "speaker_identity_available": speaker_identity_available,
+            "speaker_identity_review_required": speaker_identity_review_required,
             "overlap_suspected": overlap_suspected,
             "timing_ambiguous": timing_ambiguous,
             "timing_confidence": metadata.get("timing_confidence"),
@@ -2954,6 +2992,8 @@ Retorne APENAS o JSON.
                 clip_text_preview,
                 {
                     "speaker_turn_valid": all(b.get("speaker_turn_valid", True) is not False for b in clip_blocks),
+                    "speaker_identity_required": bool(self._speaker_identity_required),
+                    "speaker_identity_available": all(bool(b.get("speaker_identity_available")) for b in clip_blocks),
                 },
             )
             start_is_complete = (
@@ -2989,6 +3029,8 @@ Retorne APENAS o JSON.
                         natural_end,
                         {
                             "speaker_turn_valid": all(b.get("speaker_turn_valid", True) is not False for b in clip_blocks),
+                            "speaker_identity_required": bool(self._speaker_identity_required),
+                            "speaker_identity_available": all(bool(b.get("speaker_identity_available")) for b in clip_blocks),
                         },
                     )
                     if (
@@ -3015,6 +3057,8 @@ Retorne APENAS o JSON.
                     "overlap_suspected": any(bool(block.get("overlap_suspected")) for block in clip_blocks),
                     "timing_ambiguous": any(bool(block.get("timing_ambiguous")) for block in clip_blocks),
                     "speaker_turn_valid": all(block.get("speaker_turn_valid", True) is not False for block in clip_blocks),
+                    "speaker_identity_required": bool(self._speaker_identity_required),
+                    "speaker_identity_available": all(bool(block.get("speaker_identity_available")) for block in clip_blocks),
                     "timing_confidence": min(
                         [float(block.get("timing_confidence")) for block in clip_blocks if block.get("timing_confidence") is not None]
                         or [1.0]
@@ -3097,6 +3141,7 @@ Retorne APENAS o JSON.
                     "energy": energy_grade,
                 },
                 "source": "nlp",
+                "review_required": bool(clip_flags.get("speaker_identity_review_required")),
                 "duration_preference": self._duration_label(clip_duration, {"flow": flow_grade}),
             })
 

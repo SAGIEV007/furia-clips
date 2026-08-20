@@ -8,12 +8,12 @@
 | --- | --- |
 | Projeto | Furia Clips |
 | Repositório | `SAGIEV007/furia-clips` |
-| Versão pública atual | `6.12` |
-| Última release funcional anterior | `6.11` |
-| Natureza da release atual | Correção observável do download público: cookies locais opcionais, User-Agent limitado e diagnóstico anti-bot/403 |
+| Versão pública atual | `6.13` |
+| Última release funcional anterior | `6.12` |
+| Natureza da release atual | Gate observável Renan-first: identidade de locutor ausente deixa de passar como contexto completo e corte pronto |
 | Fonte da versão | [`VERSION`](../../VERSION) |
 | Branch de trabalho | `claude/repo-access-commits-imgjmk` |
-| Última publicação conhecida | `ad2d18b` — `fix: conectar cookies locais ao download público (6.12)` |
+| Última publicação conhecida | Commit funcional da 6.13 será registrado após o fechamento desta rodada |
 | Commit funcional 2.6 | `fec34fe` — `feat: primeira ponte funcional Campaign Hub para propostas (2.6)` |
 | Commit funcional 2.7 | `a0452d3` — `fix: declarar confiabilidade da medição no benchmark editorial (2.7)` |
 | Commit funcional 2.8 | `fdf5e6b` — `fix: alinhar seeds do Campaign Hub com a mídia local em processamento (2.8)` |
@@ -21,19 +21,27 @@
 | Commit funcional 3.0 | `f83d1fb` — `feat: governar o orçamento de candidatos pela fonte, com precisão medida (3.0)` |
 | Commit funcional 3.1 | `a170aab` — `feat: entregar todo candidato com contexto, locutor e veredito de revisão (3.1)` |
 | Última atualização | 2026-08-20 |
-| Baseline editorial | Duas fontes medidas na 3.1. `3XJfcqn56Rw` (live 98 min): recall `50/66`, cobertura `25/27`. `j9FRVbb8CAI` (entrevista 31 min): recall `30/34`, cobertura `11/11`. Precisão `1.00`, zero fora de bloco e zero desperdício **nas duas**. O b354 permanece como regressão de locutor. |
-| Suíte no checkout | 532 aprovados, 4 ignorados após provisionamento temporário do asset BlazeFace; sem asset, 1 falha ambiental |
+| Baseline editorial | Duas fontes medidas na 3.1. `3XJfcqn56Rw` (live 98 min): recall `50/66`, cobertura `25/27`. `j9FRVbb8CAI` (entrevista 31 min): recall `30/34`, cobertura `11/11`. Precisão `1.00`, zero fora de bloco e zero desperdício **nas duas**. O ciclo 6.13 mediu uma transcrição sem diarização: no modo Renan-first, `9/9` candidatos ficaram para revisão de locutor. |
+| Suíte no checkout | 537 aprovados, 4 ignorados após provisionamento temporário do asset BlazeFace; sem asset, 1 falha ambiental |
 | Objetivo | Gerar cortes Renan Santos/MBL concisos, autossuficientes, contextualizados e editorialmente úteis |
 
 A branch de trabalho deve ser confirmada no checkout real. O GitHub é a fonte da revisão técnica; este arquivo não pode manter um hash diferente do `HEAD` final publicado. Antes de alterar qualquer arquivo, preserve mudanças locais e confirme `git status`.
 
 ## Norte imediato
 
-A release 6.12 corrige o contrato de ingestão pública, mas o download real com a sessão autenticada do usuário ainda precisa ser confirmado no notebook que concluiu a verificação do YouTube. O job normal continua sem transportar cookies, tokens ou credenciais. A próxima hipótese é testar o navegador local selecionado no mesmo computador/IP e, se o stream continuar em 403, orientar atualização do yt-dlp ou o fallback seguro por MP4 local.
+A release 6.13 corrige uma permissividade real do modo Renan-first: uma transcrição sem diarização não pode ser tratada como prova de que o trecho é fala do Renan. Os candidatos continuam disponíveis para diagnóstico, mas entram explicitamente na revisão e não podem ser tratados como cortes prontos. O download autenticado da 6.12 continua pendente de teste no notebook do usuário e permanece separado desta hipótese editorial.
 
-As prioridades editoriais Renan-first continuam preservadas: contexto e payoff antes de hook, gates de locutor antes do ranking, Campaign Hub como memória/seed e não como aprovação, e uma hipótese principal por ciclo. O problema de ingestão não altera seleção, ranking, headlines ou formatos.
+A próxima hipótese única é usar, quando houver snapshot local autorizado e alinhado, a evidência temporal do Acervo (`renanSpeaking`, `speakersNote`, tier e intervalos) para resolver parte da identidade sem liberar automaticamente candidatos de baixa confiança. O Campaign Hub continua como memória, seed e benchmark; contexto, payoff, locutor e evidência vencem viralidade.
 
-## Release atual — 6.12
+As prioridades editoriais Renan-first continuam preservadas: contexto e payoff antes de hook, gates de locutor antes do ranking, Campaign Hub como memória/seed e não como aprovação, e uma hipótese principal por ciclo.
+
+## Release atual — 6.13
+
+A 6.13 adiciona um contrato explícito de identidade de locutor ao fluxo Renan-first. O sistema diferencia uma fronteira de fala limpa de uma identidade realmente disponível. Quando o perfil/foco é Renan Santos/MBL e a transcrição não tem diarização ou marcador de locutor, `context_complete` e `qa_bridge` não passam, o candidato recebe `review_required=true` e o ranker registra a razão técnica. O modo genérico não recebe esse bloqueio.
+
+A mudança foi medida em uma transcrição persistida real com 247 segmentos e nenhum locutor identificado: `9/9` candidatos Renan-first ficaram com identidade indisponível, revisão obrigatória e contexto não completo. A rota genérica preservou `5/5` candidatos completos. A suíte terminou com 537 testes aprovados e 4 ignorados após asset ambiental temporário. Relatório em [`CYCLE_28_REPORT_2026-08-20.md`](CYCLE_28_REPORT_2026-08-20.md).
+
+## Release anterior — 6.12
 
 A 6.12 adiciona a ponte operacional que faltava entre a interface de Link público e o suporte local do yt-dlp. O usuário pode escolher Chrome/Chromium, Firefox, Edge, Opera/Opera GX ou Brave; o valor é normalizado, validado e usado apenas localmente pelo processo. Um User-Agent opcional é encaminhado com limite de tamanho e permanece vazio por padrão.
 
@@ -247,12 +255,13 @@ As decisões duráveis estão em [`DECISIONS.md`](DECISIONS.md). As mais importa
 
 A validação da release 2.6 incluiu suíte com **333 testes aprovados**, `compileall`, `node --check static/js/app.js`, `git diff --check` e verificação SHA-256 do BlazeFace temporário. O payload real do Campaign Hub confirmou duas seeds e duas propostas guiadas com `context_complete=true`, mas o benchmark b354 não foi reprocessado porque o snapshot correspondente não estava instalado localmente. Esses resultados não substituem a medição futura de recall em mídia b354.
 
-Em qualquer rodada, classifique conclusões como `confirmado`, `reproduzido`, `corrigido`, `provável`, `não verificado` ou `bloqueado`. O relatório desta rodada está em [`CYCLE_27_REPORT_2026-08-20.md`](CYCLE_27_REPORT_2026-08-20.md).
+Em qualquer rodada, classifique conclusões como `confirmado`, `reproduzido`, `corrigido`, `provável`, `não verificado` ou `bloqueado`. O relatório desta rodada está em [`CYCLE_28_REPORT_2026-08-20.md`](CYCLE_28_REPORT_2026-08-20.md).
 
 ## Histórico resumido
 
 | Release | Foco | Resultado principal | Relatório |
 | --- | --- | --- | --- |
+| 6.13 | Identidade Renan-first | `9/9` candidatos sem diarização ficaram para revisão; modo genérico preservado | [`CYCLE_28_REPORT_2026-08-20.md`](CYCLE_28_REPORT_2026-08-20.md) |
 | 6.12 | Ingestão pública segura | Cookies locais opcionais e diagnóstico anti-bot/403; download com sessão do usuário ainda não verificado | [`CYCLE_27_REPORT_2026-08-20.md`](CYCLE_27_REPORT_2026-08-20.md) |
 | 3.3 | Destilação do corpus | 885k frases em 3 KB; ganho no detector refutado e o sinal mantido fora do veredito | [`CYCLE_23_REPORT_2026-08-17.md`](CYCLE_23_REPORT_2026-08-17.md) |
 | 3.2 | Interpretação própria | Segmentação temática nativa cobre 85% e 82% dos blocos do Acervo em duas fontes | [`CYCLE_22_REPORT_2026-08-17.md`](CYCLE_22_REPORT_2026-08-17.md) |
@@ -272,4 +281,4 @@ Em qualquer rodada, classifique conclusões como `confirmado`, `reproduzido`, `c
 
 ## Leitura obrigatória para a próxima IA
 
-Leia [`AGENTS.md`](../../AGENTS.md), [`README.md`](../../README.md), [`VERSION`](../../VERSION), [`docs/VERSIONING.md`](../VERSIONING.md), [`START_HERE.md`](START_HERE.md), [`PROMPT_MESTRE_IA.md`](PROMPT_MESTRE_IA.md), este arquivo, [`DECISIONS.md`](DECISIONS.md), [`NEXT_CYCLE.md`](NEXT_CYCLE.md), [`COMMIT_MESSAGE_TEMPLATE.md`](COMMIT_MESSAGE_TEMPLATE.md) e o relatório mais recente. Depois confirme `git status`, branch, commit e testes no checkout real antes de propor qualquer alteração.
+Leia [`AGENTS.md`](../../AGENTS.md), [`README.md`](../../README.md), [`VERSION`](../../VERSION), [`docs/VERSIONING.md`](../VERSIONING.md), [`START_HERE.md`](START_HERE.md), [`PROMPT_MESTRE_IA.md`](PROMPT_MESTRE_IA.md), [`PROMPT_PROXIMOS_CICLOS_6_13.md`](PROMPT_PROXIMOS_CICLOS_6_13.md), este arquivo, [`DECISIONS.md`](DECISIONS.md), [`NEXT_CYCLE.md`](NEXT_CYCLE.md), [`COMMIT_MESSAGE_TEMPLATE.md`](COMMIT_MESSAGE_TEMPLATE.md) e o relatório mais recente. Depois confirme `git status`, branch, commit e testes no checkout real antes de propor qualquer alteração.

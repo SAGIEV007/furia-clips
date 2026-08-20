@@ -1,5 +1,27 @@
 # Changelog de continuidade
 
+## 6.13 — Gate Renan-first para identidade de locutor
+
+### Incluído
+
+- `modules/clip_selector.py`: propagação de `speaker_identity_required`, `speaker_identity_available` e `speaker_identity_review_required` por NLP, Gemini/Ollama, expansão contextual e propostas guiadas pelo Campaign Hub.
+- `modules/editorial_ranker.py`: penalidade técnica limitada e motivo explícito quando o foco Renan-first não tem identidade de locutor confirmada.
+- `tests/test_speaker_identity_context.py` e `tests/test_speaker_identity_ranker.py`: regressões para foco explícito, perfil Renan com `auto`, locutor rotulado e modo genérico.
+
+### Hipótese e baseline
+
+Uma transcrição local persistida tinha 247 segmentos e nenhum locutor identificado. Antes da mudança, o caminho genérico produzia candidatos `context_complete=true` mesmo sem prova de que a fala era do Renan. A hipótese foi impedir que essa ausência passasse como corte Renan-first pronto.
+
+### Validação da rodada
+
+A comparação real produziu 9 candidatos no foco Renan-first; todos ficaram com `speaker_identity_available=false`, `speaker_identity_review_required=true`, `context_complete=false` e `review_required=true`. O modo genérico preservou 5 candidatos completos sem bloqueio novo. As regressões focadas passaram com 28 testes; a suíte completa terminou com 537 aprovados e 4 ignorados depois do provisionamento temporário e remoção do BlazeFace. `git diff --check` passou.
+
+### Limitações e próxima hipótese
+
+A release não identifica automaticamente a voz do Renan nem substitui diarização ou conferência audiovisual. O próximo ciclo deve usar, quando disponível, evidência temporal do Acervo em snapshot local autorizado, mantendo revisão obrigatória para tiers incertos, fontes desalinhadas ou snapshot ausente.
+
+Relatório: [`CYCLE_28_REPORT_2026-08-20.md`](CYCLE_28_REPORT_2026-08-20.md).
+
 ## 6.12 — Download público com cookies locais opcionais
 
 ### Incluído

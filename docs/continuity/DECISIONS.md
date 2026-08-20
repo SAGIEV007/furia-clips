@@ -81,3 +81,7 @@ Recursos observados em OpusClip, Descript e Riverside — foco por locutor/tópi
 
 ## D-021 — Cookies de navegador são locais e descartáveis
 A ingestão pública pode aceitar apenas o nome normalizado do navegador local e um User-Agent opcional. O yt-dlp pode ler a base de cookies no mesmo computador por `cookiesfrombrowser`, mas o Furia não deve receber, armazenar, logar, versionar ou transmitir o conteúdo dos cookies, tokens ou senhas. A preferência persistida deve começar vazia, e mensagens anti-bot/403 devem oferecer fallback seguro por MP4 local sem prometer que retries idênticos resolverão o bloqueio.
+
+## D-022 — Fronteira de fala não prova identidade Renan-first
+
+Uma transcrição pode ter timestamps limpos e ainda não informar quem falou. No foco Renan Santos/MBL, `speaker_turn_valid` ou uma fronteira de entrevista não substitui `speaker_identity_available`. Sem diarização, marcador confiável ou evidência temporal alinhada do Campaign Hub, `context_complete` e `qa_bridge` não liberam o candidato como corte pronto; ele permanece disponível para diagnóstico e revisão humana. O modo genérico não herda esse bloqueio automaticamente.
