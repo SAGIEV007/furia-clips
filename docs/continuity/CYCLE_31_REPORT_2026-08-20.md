@@ -47,9 +47,9 @@ A identidade disponível permaneceu em `3/30`, pois o filtro não inventa diariz
 
 ## Validação
 
-Foram aprovados **77 testes focados**, incluindo regressões para o scorer, contagens por etapa, propagação de `renan_speaking` e exclusão de propostas sem evidência positiva no Renan-first. A suíte completa ainda deve ser executada com o asset BlazeFace temporário antes do commit final.
+Foram aprovados **77 testes focados** e **546 testes na suíte completa, com 4 ignorados** após o asset BlazeFace ser provisionado temporariamente, conferido e removido. Também passaram `compileall`, `node --check static/js/app.js` e `git diff --check`.
 
-Nenhum vídeo, snapshot, transcrição, banco, cookie, token ou chave foi adicionado ao Git. A próxima etapa é validar a suíte completa, atualizar a continuidade, incrementar para `6.15` e publicar somente se o resultado permanecer estável.
+Nenhum vídeo, snapshot, transcrição, banco, cookie, token ou chave foi adicionado ao Git. A versão `6.15` foi publicada na branch isolada pelo commit [`07c51b0`](https://github.com/SAGIEV007/furia-clips/commit/07c51b0).
 
 ## Próximo ciclo sugerido
 
