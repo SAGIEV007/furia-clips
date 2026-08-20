@@ -13,7 +13,7 @@
 | Natureza da release atual | Gate observável Renan-first: identidade de locutor ausente deixa de passar como contexto completo e corte pronto |
 | Fonte da versão | [`VERSION`](../../VERSION) |
 | Branch de trabalho | `claude/repo-access-commits-imgjmk` |
-| Última publicação conhecida | Commit funcional da 6.13 será registrado após o fechamento desta rodada |
+| Última publicação conhecida | `c434802` — `fix: exigir identidade de locutor no modo Renan-first (6.13)` |
 | Commit funcional 2.6 | `fec34fe` — `feat: primeira ponte funcional Campaign Hub para propostas (2.6)` |
 | Commit funcional 2.7 | `a0452d3` — `fix: declarar confiabilidade da medição no benchmark editorial (2.7)` |
 | Commit funcional 2.8 | `fdf5e6b` — `fix: alinhar seeds do Campaign Hub com a mídia local em processamento (2.8)` |
