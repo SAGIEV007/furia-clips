@@ -10,8 +10,8 @@ Este documento registra tudo que foi alterado depois do ponto de retomada identi
 | --- | --- |
 | Repositório | `SAGIEV007/furia-clips` |
 | Branch | `claude/repo-access-commits-imgjmk` |
-| Versão | `6.23` local; publicação pendente nesta etapa |
-| HEAD local/remoto | `6dabc14` publicado; release 6.23 local ainda sem commit |
+| Versão | `6.23` |
+| HEAD local/remoto | `ee2cc6d` — commit funcional da 6.23 publicado; fechamento documental em andamento |
 | Último commit funcional | `ce8dd98` — `feat: observabilidade estruturada com diagnóstico copiável (6.21)` |
 | Checkout | Com atualização documental local para registrar o hash publicado |
 | Branch principal | Não alterada |
@@ -98,7 +98,7 @@ A 6.23 não prova ganho editorial em live real, não habilita timestamps por pal
 
 ### 7. Fechamentos documentais
 
-Os commits `32b2c53` e `94b8c56` fecharam `PROJECT_STATE.md` com os hashes reais publicados de 6.18 e 6.19. O commit `6d88714` publicou a implementação funcional da 6.20. O commit `ce8dd98` publicou a implementação funcional da 6.21 e `042df18` publicou o fechamento documental, ambos na branch de trabalho remota. O commit `6dabc14` publicou a implementação funcional da 6.22 na mesma branch; o commit da 6.23 e seu fechamento documental serão publicados em seguida.
+Os commits `32b2c53` e `94b8c56` fecharam `PROJECT_STATE.md` com os hashes reais publicados de 6.18 e 6.19. O commit `6d88714` publicou a implementação funcional da 6.20. O commit `ce8dd98` publicou a implementação funcional da 6.21 e `042df18` publicou o fechamento documental, ambos na branch de trabalho remota. O commit `6dabc14` publicou a implementação funcional da 6.22 na mesma branch. O commit `ee2cc6d` publicou a implementação funcional da 6.23; este fechamento documental será publicado em seguida.
 
 ## O que não foi alterado
 

@@ -8,12 +8,12 @@
 | --- | --- |
 | Projeto | Furia Clips |
 | Repositório | `SAGIEV007/furia-clips` |
-| Versão pública atual | `6.23` local; publicação pendente nesta etapa |
+| Versão pública atual | `6.23` |
 | Última release funcional anterior | `6.20` |
 | Natureza da release atual | Refinamento conservador por timestamps de palavra e ledger de elegibilidade; pesquisa de precisão e arquitetura genérica + perfil Renan/MBL |
 | Fonte da versão | [`VERSION`](../../VERSION) |
 | Branch de trabalho | `claude/repo-access-commits-imgjmk` |
-| Última publicação conhecida | `6dabc14` — `feat: recuperar seeds Chub por alinhamento textual conservador (6.22)`; 6.23 local ainda sem commit |
+| Última publicação conhecida | `ee2cc6d` — `feat: refinar bordas por palavra e separar elegibilidade editorial (6.23)` |
 | Commit funcional 2.6 | `fec34fe` — `feat: primeira ponte funcional Campaign Hub para propostas (2.6)` |
 | Commit funcional 2.7 | `a0452d3` — `fix: declarar confiabilidade da medição no benchmark editorial (2.7)` |
 | Commit funcional 2.8 | `fdf5e6b` — `fix: alinhar seeds do Campaign Hub com a mídia local em processamento (2.8)` |
@@ -25,7 +25,7 @@
 | Suíte no checkout | 582 aprovados, 4 ignorados na validação da 6.23; o asset BlazeFace foi temporário e removido |
 | Objetivo | Gerar cortes Renan Santos/MBL concisos, autossuficientes, contextualizados e editorialmente úteis |
 
-A branch de trabalho deve ser confirmada no checkout real. O GitHub é a fonte da revisão técnica; o commit funcional publicado da 6.22 é `6dabc14`; o ciclo 6.23 está local até o commit e push. Antes de alterar qualquer arquivo, preserve mudanças locais e confirme `git status`.
+A branch de trabalho deve ser confirmada no checkout real. O GitHub é a fonte da revisão técnica; o commit funcional publicado da 6.23 é `ee2cc6d`. Antes de alterar qualquer arquivo, preserve mudanças locais e confirme `git status`.
 
 ## Norte imediato
 
@@ -49,7 +49,7 @@ A 6.23 consolidou pesquisa de FAVE, HIVE, OpusClip, Vizard, Descript, WhisperX, 
 
 A suíte completa terminou com **582 aprovados e 4 ignorados**; o BlazeFace foi temporário e removido. O relatório está em [`CYCLE_39_REPORT_2026-08-21.md`](CYCLE_39_REPORT_2026-08-21.md), a auditoria em [`AUDIT_CUTTING_PRECISION_CYCLE39_2026-08-21.md`](AUDIT_CUTTING_PRECISION_CYCLE39_2026-08-21.md) e o próximo experimento em [`NEXT_CYCLE.md`](NEXT_CYCLE.md).
 
-A 6.23 ainda não prova ganho editorial em uma live real, não habilita timestamps por palavra automaticamente no transcritor e não altera pesos do ranking. O próximo ciclo deve criar hard negatives e comparar erro de borda, contexto, payoff, locutor, headline e revisão.
+A 6.23 ainda não prova ganho editorial em uma live real, não habilita timestamps por palavra automaticamente no transcritor e não altera pesos do ranking. O commit funcional `ee2cc6d` está publicado na branch de trabalho. O próximo ciclo deve criar hard negatives e comparar erro de borda, contexto, payoff, locutor, headline e revisão.
 
 ## Release atual — 6.22 local
 
