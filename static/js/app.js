@@ -48,6 +48,45 @@ const state = {
     diagnosticLoading: false,
 };
 
+// Sistema de Toasts (Notificações UI)
+function showToast(title, message, type = "info", duration = 4000) {
+    let container = document.getElementById("toastContainer");
+    if (!container) {
+        container = document.createElement("div");
+        container.id = "toastContainer";
+        container.className = "toast-container";
+        document.body.appendChild(container);
+    }
+
+    const toast = document.createElement("div");
+    toast.className = `toast ${type}`;
+    
+    let icon = "info";
+    if (type === "success") icon = "check_circle";
+    if (type === "error") icon = "error";
+    if (type === "warning") icon = "warning";
+
+    toast.innerHTML = `
+        <span class="material-icons-round toast-icon">${icon}</span>
+        <div class="toast-content">
+            ${title ? `<span class="toast-title">${title}</span>` : ""}
+            <span class="toast-message">${message}</span>
+        </div>
+    `;
+
+    container.appendChild(toast);
+    
+    // Força o reflow para ativar a transição CSS
+    void toast.offsetWidth;
+    toast.classList.add("show");
+
+    setTimeout(() => {
+        toast.classList.add("hiding");
+        toast.classList.remove("show");
+        setTimeout(() => toast.remove(), 400);
+    }, duration);
+}
+
 // ─── WebSocket Connection ───
 
 const socket = io({
@@ -298,31 +337,7 @@ function trabalhando(botao, ligado = true) {
     botao.disabled = ligado;
 }
 
-// Aviso que só avisa vira ruído. Cada notificação carrega o que fazer com ela.
-function avisar(mensagem, tipo = "info", acao = null) {
-    if (!toastContainer) {
-        toastContainer = document.createElement("div");
-        toastContainer.className = "toast-container";
-        document.body.appendChild(toastContainer);
-    }
-    const caixa = toastContainer;
-    const item = document.createElement("div");
-    item.className = `toast toast-${tipo}`;
-    const texto = document.createElement("span");
-    texto.textContent = mensagem;
-    item.appendChild(texto);
-    if (acao?.label && typeof acao.onClick === "function") {
-        const botao = document.createElement("button");
-        botao.className = "toast-action";
-        botao.type = "button";
-        botao.textContent = acao.label;
-        botao.addEventListener("click", () => { acao.onClick(); item.remove(); });
-        item.appendChild(botao);
-    }
-    caixa.appendChild(item);
-    window.setTimeout(() => item.remove(), acao ? 12000 : 5000);
-    return item;
-}
+// A função 'avisar' foi substituída por showToast.
 
 // Som desligado por padrão, um toque curto ao fim de processo longo, e um jeito
 // de calar. Ferramenta que apita sem permissão é desinstalada.
@@ -805,7 +820,7 @@ function hideProcessingControls() {
 // Agora ela navega. As mesmas seções, agrupadas pelo momento em que servem.
 
 const STAGE_SECTIONS = {
-    source: ["mediaLibrarySection", "sourceSection", "videoPreviewSection"],
+    source: ["mediaLibrarySection", "sourceSection"],
     analysis: ["sourceReadingSection", "editorialBlocksSection", "contextSection", "actionsSection"],
     review: ["resultsSection", "headlineStudioSection"],
     learning: ["operationDashboard", "performanceMetricsSection"],
@@ -1446,7 +1461,7 @@ function renderEditorialBlocks(payload) {
         const sourceTitle = reviewed && block.source?.title ? ` · ${escapeHtml(block.source.title)}` : "";
         const highlights = Array.isArray(block.highlights) ? block.highlights.slice(0, 6) : [];
         const highlightsMarkup = highlights.length ? `<div class="editorial-block-highlights"><div class="editorial-block-highlights-title"><span class="material-icons-round">auto_awesome</span> Destaques de referência</div>${highlights.map((highlight) => `<div class="editorial-block-highlight"><div><b>${escapeHtml(formatTime(Number(highlight.start_s || 0)))}–${escapeHtml(formatTime(Number(highlight.end_s || 0)))}</b><span>${escapeHtml(highlight.text || "Destaque sem transcrição")}</span></div><button class="btn btn-sm btn-outline editorial-block-highlight-export" type="button" data-highlight-export="${escapeHtml(block.id)}" data-highlight-id="${escapeHtml(highlight.id)}" title="Exporta somente este destaque da fonte local"><span class="material-icons-round">download</span></button></div>`).join("")}</div>` : "";
-        return `<article class="editorial-block-card" data-block-id="${escapeHtml(block.id)}">
+        return `<article class="editorial-block-card" data-block-id="${escapeHtml(block.id)}" data-block-start="${Number(block.start || 0)}">
             <div class="editorial-block-time"><strong>${formatTime(Number(block.start || 0))}</strong>${formatTime(Number(block.end || 0))}<span>${Number(block.duration || 0).toFixed(0)}s</span></div>
             <div class="editorial-block-content">
                 <h4>${escapeHtml(block.title || block.label || "Bloco editorial")}</h4>
@@ -1456,7 +1471,7 @@ function renderEditorialBlocks(payload) {
                     <span class="editorial-block-chip ${renanClass}">${escapeHtml(renanLabel)}</span>
                     <span class="editorial-block-chip">${Number(block.highlight_count || 0)} destaque(s)</span>
                     ${block.self_contained_rank ? `<span class="editorial-block-chip good">contexto ${escapeHtml(block.self_contained_rank)}º percentil</span>` : ""}
-                    ${riskCount ? `<span class="editorial-block-chip warn">${riskCount} alerta(s)</span>` : ""}
+                    ${riskCount ? `<span class="editorial-block-chip warn">${riskCount} risco(s)</span>` : ""}
                     <span class="editorial-block-chip">${escapeHtml(block.trust_tier || "tier não informado")}${sourceTitle}</span>
                 </div>
                 ${highlightsMarkup}
@@ -1467,8 +1482,43 @@ function renderEditorialBlocks(payload) {
             </div>
         </article>`;
     }).join("");
+    // O card inteiro agora é clicável, seleciona o bloco e pula o preview
+    list.querySelectorAll(".editorial-block-card").forEach((card) => {
+        card.addEventListener("click", (e) => {
+            // Ignora se o clique foi num botão de ação (eles têm handlers próprios)
+            if (e.target.closest('button')) return;
+            
+            const blockId = card.dataset.blockId;
+            const startS = Number(card.dataset.blockStart);
+            const block = blocks.find((item) => String(item.id) === blockId);
+            
+            state.selectedEditorialBlock = block || null;
+            list.querySelectorAll(".editorial-block-card").forEach((c) => c.classList.toggle("selected", c.dataset.blockId === blockId));
+            
+            // Abre o player dock e pula para o tempo
+            const video = document.getElementById("videoPreview");
+            const dock = document.getElementById("playerDock");
+            if (video && dock && Number.isFinite(startS)) {
+                if (!dock.classList.contains("is-open") && state.selectedVideo) {
+                    showVideoPreview(state.selectedVideo);
+                }
+                // Aguarda o vídeo carregar se acabou de ser aberto
+                if (video.readyState >= 1) {
+                    video.currentTime = startS;
+                    video.play().catch(() => {});
+                } else {
+                    video.addEventListener('loadedmetadata', () => {
+                        video.currentTime = startS;
+                        video.play().catch(() => {});
+                    }, { once: true });
+                }
+            }
+        });
+    });
+
     list.querySelectorAll("[data-block-select]").forEach((button) => {
-        button.addEventListener("click", () => {
+        button.addEventListener("click", (e) => {
+            e.stopPropagation();
             const block = blocks.find((item) => String(item.id) === String(button.dataset.blockSelect));
             state.selectedEditorialBlock = block || null;
             list.querySelectorAll(".editorial-block-card").forEach((card) => card.classList.toggle("selected", card.dataset.blockId === String(button.dataset.blockSelect)));
@@ -2022,14 +2072,17 @@ async function openOutputFolderForVideo() {
     await openOutputFolder(folderPath);
 }
 function showVideoPreview(item) {
-    const section = document.getElementById("videoPreviewSection");
+    const section = document.getElementById("playerDock");
     const video = document.getElementById("videoPreview");
     const source = document.getElementById("videoPreviewSource");
     const nameEl = document.getElementById("previewVideoName");
     const status = document.getElementById("videoPreviewStatus");
+    const mainContent = document.querySelector(".main-content");
     if (!section || !video || !source || !item?.path) return;
     const token = ++state.previewToken;
-    section.style.display = "block";
+    
+    section.classList.add("is-open");
+    if (mainContent) mainContent.classList.add("dock-open");
     nameEl.textContent = item.name || "Vídeo selecionado";
     if (status) {
         status.textContent = "Carregando mídia…";
@@ -5033,10 +5086,22 @@ function focusReadingUnit(index) {
     document.querySelectorAll(".reading-unit, .reading-timeline-unit").forEach((node) => {
         node.classList.toggle("active", node.dataset.index === String(index));
     });
+    
     const video = document.getElementById("videoPreview");
-    if (video && Number.isFinite(Number(unit.start_s))) {
-        video.currentTime = Number(unit.start_s);
-        video.parentElement?.closest("section")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    const dock = document.getElementById("playerDock");
+    if (video && dock && Number.isFinite(Number(unit.start_s))) {
+        if (!dock.classList.contains("is-open") && state.selectedVideo) {
+            showVideoPreview(state.selectedVideo);
+        }
+        if (video.readyState >= 1) {
+            video.currentTime = Number(unit.start_s);
+            video.play().catch(() => {});
+        } else {
+            video.addEventListener('loadedmetadata', () => {
+                video.currentTime = Number(unit.start_s);
+                video.play().catch(() => {});
+            }, { once: true });
+        }
     }
 }
 

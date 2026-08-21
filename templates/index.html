@@ -29,8 +29,11 @@
                 <h3><span class="material-icons-round">movie</span> Vídeo selecionado</h3>
                 <div class="selected-video" id="selectedVideoInfo">
                     <div class="no-video">
-                        <span class="material-icons-round">videocam_off</span>
-                        <p>Nenhum vídeo selecionado</p>
+                        <div class="pulse-ring">
+                            <span class="material-icons-round">cloud_upload</span>
+                        </div>
+                        <p>Nenhum vídeo carregado</p>
+                        <small>Importe ou cole o link na etapa Fonte</small>
                     </div>
                 </div>
             </div>
@@ -476,28 +479,7 @@
             </div>
         </section>
 
-        <!-- Video Preview -->
-        <section class="section" id="videoPreviewSection" style="display:none">
-            <div class="section-header">
-                <h3><span class="material-icons-round">play_circle</span> Prévia do vídeo</h3>
-                <div class="section-actions">
-                    <span class="preview-video-name" id="previewVideoName"></span>
-                    <button class="btn btn-sm btn-icon" id="btnClosePreview" title="Fechar preview">
-                        <span class="material-icons-round">close</span>
-                    </button>
-                </div>
-            </div>
-            <div class="video-preview-container">
-                <video id="videoPreview" controls preload="metadata">
-                    <source id="videoPreviewSource" src="" type="video/mp4">
-                </video>
-                <div class="video-info-bar" id="videoInfoBar">
-                    <span id="videoDuration"></span>
-                    <span id="videoResolution"></span>
-                    <span id="videoPreviewStatus" class="preview-status" aria-live="polite"></span>
-                </div>
-            </div>
-        </section>
+        <!-- Video Preview removido daqui, foi para o dock fora da main-content -->
 
         <!-- User Context / ClipAnything -->
         <section class="section" id="contextSection">
@@ -980,9 +962,32 @@
                 </button>
             </div>
         </div>
-    </div>
+    </main>
 
-    <!-- Help Modal -->
+    <!-- Player Dock (Fixo à direita) -->
+    <aside class="player-dock" id="playerDock">
+        <div class="dock-header">
+            <h3><span class="material-icons-round">play_circle</span> Prévia do vídeo</h3>
+            <button class="btn btn-sm btn-icon" id="btnClosePreview" title="Recolher preview">
+                <span class="material-icons-round">close</span>
+            </button>
+        </div>
+        <div class="dock-content">
+            <span class="preview-video-name" id="previewVideoName"></span>
+            <div class="video-preview-container">
+                <video id="videoPreview" controls preload="metadata">
+                    <source id="videoPreviewSource" src="" type="video/mp4">
+                </video>
+                <div class="video-info-bar" id="videoInfoBar">
+                    <span id="videoDuration"></span>
+                    <span id="videoResolution"></span>
+                    <span id="videoPreviewStatus" class="preview-status" aria-live="polite"></span>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Modals -->
     <div class="modal-overlay" id="helpModal">
         <div class="modal modal-lg">
             <div class="modal-header">
