@@ -10,12 +10,12 @@ Este documento registra tudo que foi alterado depois do ponto de retomada identi
 | --- | --- |
 | Repositório | `SAGIEV007/furia-clips` |
 | Branch | `claude/repo-access-commits-imgjmk` |
-| Versão | `6.25` |
-| HEAD local/remoto | `6ae281f` — commit funcional da 6.25 publicado; fechamento documental em andamento |
+| Versão | `6.26` local; publicação pendente nesta etapa |
+| HEAD local/remoto | `ea9e19e` — fechamento documental da 6.25 publicado; release 6.26 local ainda sem commit |
 | Último commit funcional | `ce8dd98` — `feat: observabilidade estruturada com diagnóstico copiável (6.21)` |
 | Checkout | Com atualização documental local para registrar o hash publicado |
 | Branch principal | Não alterada |
-| Suíte completa | 588 aprovados, 4 ignorados |
+| Suíte completa | 594 aprovados, 4 ignorados |
 | Asset BlazeFace | Usado temporariamente para teste, conferido e removido |
 
 ## Alterações implementadas
@@ -116,9 +116,19 @@ Foram adicionadas regressões em `tests/test_editorial_benchmark.py` e `tests/te
 
 A 6.25 não prova ganho editorial em mídia real e não altera pesos. A API do Instagram retornou 403 por falta de permissão da aplicação; nenhum perfil foi usado nesta rodada.
 
-### 9. Fechamentos documentais
+### 9. Release 6.26 — importação append-only de decisões humanas
 
-Os commits `32b2c53` e `94b8c56` fecharam `PROJECT_STATE.md` com os hashes reais publicados de 6.18 e 6.19. O commit `6d88714` publicou a implementação funcional da 6.20. O commit `ce8dd98` publicou a implementação funcional da 6.21 e `042df18` publicou o fechamento documental, ambos na branch de trabalho remota. O commit `6dabc14` publicou a implementação funcional da 6.22 na mesma branch. O commit `ee2cc6d` publicou a implementação funcional da 6.23, seguido pelos fechamentos `7950346`, `c91cd52` e `41e52c3`. A 6.24 foi publicada no commit funcional `08d8429` e fechada em `b1af379`. A 6.25 foi publicada no commit funcional `6ae281f`; este fechamento documental ainda será publicado.
+A 6.26 adiciona `apply_hard_negative_decisions()` em `modules/editorial_benchmark.py` e a rota local `POST /api/editorial/benchmark/<benchmark_id>/decisions`. A função valida IDs, limita campos, anexa `decision_history`, preserva decisões anteriores e separa os estados `unlabeled`, `labeled`, `conflict` e `adjudicated`. Divergências não adjudicadas resultam em `needs_review`; uma adjudicação explícita resolve o estado sem apagar os votos anteriores.
+
+A criação inicial do benchmark também persiste o primeiro evento quando há decisão fornecida. `metrics` agora expõe status humano, contagens de estados, conflitos e adjudicações, mas mantém `measurement_status=descriptive_only`. Nenhum peso, gate Chub, locutor ou ranking foi alterado.
+
+Foram adicionadas regressões de módulo e API. A suíte completa terminou com **594 aprovados e 4 ignorados**; `py_compile`, `node --check` e `git diff --check` passaram; o BlazeFace temporário foi conferido e removido. Relatório em [`CYCLE_42_REPORT_2026-08-21.md`](CYCLE_42_REPORT_2026-08-21.md), pesquisa em [`RESEARCH_HUMAN_DECISIONS_2026-08-21.md`](RESEARCH_HUMAN_DECISIONS_2026-08-21.md) e procedimento em [`NEXT_CYCLE.md`](NEXT_CYCLE.md).
+
+A 6.26 ainda não contém decisões humanas de uma live real e não prova ganho editorial. O próximo ciclo deve selecionar uma fonte longa, revisar near-misses dentro da mesma timeline e importar as decisões pelo endpoint ou arquivo local antes de qualquer recalibração.
+
+### 10. Fechamentos documentais
+
+Os commits `32b2c53` e `94b8c56` fecharam `PROJECT_STATE.md` com os hashes reais publicados de 6.18 e 6.19. O commit `6d88714` publicou a implementação funcional da 6.20. O commit `ce8dd98` publicou a implementação funcional da 6.21 e `042df18` publicou o fechamento documental, ambos na branch de trabalho remota. O commit `6dabc14` publicou a implementação funcional da 6.22 na mesma branch. O commit `ee2cc6d` publicou a implementação funcional da 6.23, seguido pelos fechamentos `7950346`, `c91cd52` e `41e52c3`. A 6.24 foi publicada no commit funcional `08d8429` e fechada em `b1af379`. A 6.25 foi publicada no commit funcional `6ae281f` e fechada em `ea9e19e`. A 6.26 está local até o commit e push.
 
 ## O que não foi alterado
 

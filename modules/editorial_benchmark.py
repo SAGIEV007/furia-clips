@@ -52,6 +52,150 @@ def _decision_records_by_id(records: Any) -> dict[str, dict[str, Any]]:
     return {}
 
 
+def _normalize_decision_event(data: Any, *, default_annotator: str = "", default_source: str = "imported_file", default_decided_at: str = "") -> dict[str, Any]:
+    """Normalize one human decision without accepting secrets or unbounded text."""
+    if not isinstance(data, dict):
+        data = {"decision": data}
+    raw_decision = str(data.get("decision") or "unlabeled").strip().lower()
+    if raw_decision not in HARD_NEGATIVE_DECISIONS:
+        raise ValueError(
+            "Decisão humana inválida; use approved, rejected, needs_review ou unlabeled."
+        )
+    event = {
+        "decision": raw_decision,
+        "reason_code": _safe_text(data.get("reason_code") or data.get("reason"), 80),
+        "note": _safe_text(data.get("note") or data.get("human_note"), 280),
+        "annotator_id": _safe_text(data.get("annotator_id") or default_annotator, 80),
+        "source": _safe_text(data.get("source") or default_source, 40) or default_source,
+        "decided_at": _safe_text(data.get("decided_at") or default_decided_at, 40),
+        "adjudication": bool(data.get("adjudication") or data.get("is_adjudication")),
+    }
+    return event
+
+
+def _decision_state(history: list[dict[str, Any]]) -> tuple[str, str, bool]:
+    events = [event for event in history if isinstance(event, dict)]
+    if not events:
+        return "unlabeled", "unlabeled", False
+    adjudicated = next((event for event in reversed(events) if event.get("adjudication")), None)
+    if adjudicated:
+        return "adjudicated", _safe_decision(adjudicated.get("decision")), False
+    decisions = {
+        _safe_decision(event.get("decision"))
+        for event in events
+        if _safe_decision(event.get("decision")) != "unlabeled"
+    }
+    if len(decisions) > 1:
+        return "conflict", "needs_review", True
+    if not decisions:
+        return "unlabeled", "unlabeled", False
+    return "labeled", next(iter(decisions)), False
+
+
+def apply_hard_negative_decisions(
+    payload: dict[str, Any],
+    decision_records: Any,
+    *,
+    annotator_id: str = "",
+    source: str = "imported_file",
+    decided_at: str = "",
+) -> dict[str, Any]:
+    """Append human decisions to a hard-negative benchmark and return a new payload.
+
+    Original observations and prior decisions are retained. Divergent non-adjudicated
+    decisions become an explicit conflict and are surfaced as ``needs_review``; they
+    never silently overwrite one another.
+    """
+    if not isinstance(payload, dict) or payload.get("schema") != HARD_NEGATIVE_BENCHMARK_VERSION:
+        raise ValueError("Payload não é um benchmark hard-negative-v1 válido.")
+    records = _decision_records_by_id(decision_records)
+    items = payload.get("items")
+    if not isinstance(items, list):
+        raise ValueError("Benchmark sem lista de itens válida.")
+    known_ids = {str(item.get("id")) for item in items if isinstance(item, dict) and item.get("id")}
+    unknown_ids = sorted(set(records) - known_ids)
+    if unknown_ids:
+        raise ValueError("Decisão aponta para item inexistente: " + ", ".join(unknown_ids[:5]))
+
+    updated = json.loads(json.dumps(payload, ensure_ascii=False))
+    applied = 0
+    for item in updated.get("items") or []:
+        if not isinstance(item, dict) or str(item.get("id")) not in records:
+            continue
+        item_id = str(item.get("id"))
+        event = _normalize_decision_event(
+            records[item_id],
+            default_annotator=annotator_id,
+            default_source=source,
+            default_decided_at=decided_at,
+        )
+        history = item.get("decision_history")
+        if not isinstance(history, list):
+            history = []
+            previous = _safe_decision(item.get("human_decision"))
+            if previous != "unlabeled":
+                history.append({
+                    "decision": previous,
+                    "reason_code": _safe_text(item.get("human_reason_code"), 80),
+                    "note": _safe_text(item.get("human_note"), 280),
+                    "annotator_id": "legacy",
+                    "source": "benchmark_creation",
+                    "decided_at": _safe_text(payload.get("created_at"), 40),
+                    "adjudication": False,
+                })
+        if len(history) >= 50:
+            raise ValueError(f"Histórico de decisões cheio para o item {item_id}.")
+        history.append(event)
+        state, decision, conflict = _decision_state(history)
+        item["decision_history"] = history
+        item["decision_state"] = state
+        item["decision_conflict"] = conflict
+        item["human_decision"] = decision
+        item["human_reason_code"] = event["reason_code"]
+        item["human_note"] = event["note"]
+        applied += 1
+
+    counts = {decision: 0 for decision in HARD_NEGATIVE_DECISIONS}
+    states = {"unlabeled": 0, "labeled": 0, "conflict": 0, "adjudicated": 0}
+    for item in updated.get("items") or []:
+        decision = _safe_decision(item.get("human_decision")) if isinstance(item, dict) else "unlabeled"
+        counts[decision] += 1
+        state = str(item.get("decision_state") or ("unlabeled" if decision == "unlabeled" else "labeled")) if isinstance(item, dict) else "unlabeled"
+        states[state] = states.get(state, 0) + 1
+    metrics = updated.setdefault("metrics", {})
+    metrics.update({
+        "item_count": len(updated.get("items") or []),
+        "labeled_count": len(updated.get("items") or []) - counts["unlabeled"],
+        "decision_counts": counts,
+        "decision_state_counts": states,
+        "decision_conflict_count": states.get("conflict", 0),
+        "adjudicated_count": states.get("adjudicated", 0),
+        "human_decisions_complete": bool(updated.get("items")) and counts["unlabeled"] == 0 and states.get("conflict", 0) == 0,
+        "human_decision_status": (
+            "conflict" if states.get("conflict", 0) else
+            "complete" if updated.get("items") and counts["unlabeled"] == 0 else
+            "partial" if counts["unlabeled"] < len(updated.get("items") or []) else
+            "unlabeled"
+        ),
+        "measurement_status": "descriptive_only",
+    })
+    warnings = [warning for warning in metrics.get("warnings") or [] if "sem decisão humana" not in warning]
+    if counts["unlabeled"]:
+        warnings.append("Há itens sem decisão humana; eles não podem ser usados como aprovados ou rejeitados.")
+    if states.get("conflict", 0):
+        warnings.append("Há decisões divergentes sem adjudicação; esses itens permanecem needs_review.")
+    metrics["warnings"] = warnings
+    updated["decision_revision"] = int(updated.get("decision_revision", 0) or 0) + 1
+    updated["decision_history_updated_at"] = datetime.now(timezone.utc).isoformat()
+    updated["last_decision_import"] = {
+        "applied_count": applied,
+        "source": _safe_text(source, 40) or "imported_file",
+        "annotator_id": _safe_text(annotator_id, 80),
+        "decided_at": _safe_text(decided_at, 40),
+    }
+    return updated
+
+
 def _normalize_hard_negative(item: Any, index: int, decisions: dict[str, dict[str, Any]]) -> dict[str, Any] | None:
     if not isinstance(item, dict):
         return None
@@ -74,14 +218,28 @@ def _normalize_hard_negative(item: Any, index: int, decisions: dict[str, dict[st
         "confidence": _round(item.get("confidence"), 3),
         "text_preview": _safe_text(item.get("text_preview"), 280),
     }
+    human_decision = _safe_decision(decision_data.get("decision"))
     normalized = {
         "id": item_id,
         "reason_code": reason_code,
         "candidate": candidate,
-        "human_decision": _safe_decision(decision_data.get("decision")),
+        "human_decision": human_decision,
         "human_reason_code": _safe_text(decision_data.get("reason_code"), 80),
         "human_note": _safe_text(decision_data.get("note"), 280),
+        "decision_state": "labeled" if human_decision != "unlabeled" else "unlabeled",
+        "decision_conflict": False,
     }
+    if human_decision != "unlabeled":
+        normalized["decision_history"] = [{
+            **_normalize_decision_event(
+                decision_data,
+                default_source="benchmark_creation",
+                default_decided_at="",
+            ),
+            "adjudication": bool(decision_data.get("adjudication") or decision_data.get("is_adjudication")),
+        }]
+        if normalized["decision_history"][0]["adjudication"]:
+            normalized["decision_state"] = "adjudicated"
     winner = item.get("winner")
     if isinstance(winner, dict):
         try:
@@ -130,10 +288,13 @@ def build_hard_negative_benchmark(
         if normalized:
             items.append(normalized)
     decision_counts = {decision: 0 for decision in HARD_NEGATIVE_DECISIONS}
+    decision_state_counts = {"unlabeled": 0, "labeled": 0, "conflict": 0, "adjudicated": 0}
     reason_counts: dict[str, int] = {}
     for item in items:
         decision = item["human_decision"]
         decision_counts[decision] += 1
+        state = str(item.get("decision_state") or ("unlabeled" if decision == "unlabeled" else "labeled"))
+        decision_state_counts[state] = decision_state_counts.get(state, 0) + 1
         reason = item["reason_code"]
         reason_counts[reason] = reason_counts.get(reason, 0) + 1
     warnings = []
@@ -163,9 +324,18 @@ def build_hard_negative_benchmark(
             "item_count": len(items),
             "labeled_count": len(items) - decision_counts["unlabeled"],
             "decision_counts": decision_counts,
+            "decision_state_counts": decision_state_counts,
+            "decision_conflict_count": decision_state_counts.get("conflict", 0),
+            "adjudicated_count": decision_state_counts.get("adjudicated", 0),
+            "human_decision_status": (
+                "conflict" if decision_state_counts.get("conflict", 0) else
+                "complete" if items and decision_counts["unlabeled"] == 0 else
+                "partial" if decision_counts["unlabeled"] < len(items) else
+                "unlabeled"
+            ),
             "reason_counts": reason_counts,
             "pair_count": sum(1 for item in items if item.get("winner")),
-            "human_decisions_complete": bool(items) and decision_counts["unlabeled"] == 0,
+            "human_decisions_complete": bool(items) and decision_counts["unlabeled"] == 0 and decision_state_counts.get("conflict", 0) == 0,
             "measurement_status": "descriptive_only",
             "warnings": warnings,
         },

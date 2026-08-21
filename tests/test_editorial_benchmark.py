@@ -205,3 +205,76 @@ def test_empty_candidates_are_reported_as_such():
     )
     assert measurement["reliable"] is False
     assert measurement["status"] == "no_candidates"
+
+
+def _hard_negative_payload():
+    return build_hard_negative_benchmark(
+        [
+            {"id": "hn-1", "start": 10, "end": 20, "reason": "duplicate_overlap"},
+            {"id": "hn-2", "start": 30, "end": 42, "reason": "touching_sibling"},
+        ],
+        processing_identity="identity-1",
+        transcript_digest="digest-1",
+    )
+
+
+def test_hard_negative_decisions_are_append_only_and_conflicts_are_explicit():
+    from modules.editorial_benchmark import apply_hard_negative_decisions
+
+    payload = _hard_negative_payload()
+    first = apply_hard_negative_decisions(
+        payload,
+        {"hn-1": {"decision": "approved", "reason_code": "contexto", "note": "Tem contexto suficiente."}},
+        annotator_id="editor-1",
+        source="manual_ui",
+    )
+    assert first["items"][0]["human_decision"] == "approved"
+    assert first["items"][0]["decision_state"] == "labeled"
+    assert len(first["items"][0]["decision_history"]) == 1
+    assert first["metrics"]["human_decision_status"] == "partial"
+
+    conflicted = apply_hard_negative_decisions(
+        first,
+        {"hn-1": {"decision": "rejected", "reason_code": "borda", "note": "Começa tarde."}},
+        annotator_id="editor-2",
+        source="manual_ui",
+    )
+    item = conflicted["items"][0]
+    assert len(item["decision_history"]) == 2
+    assert item["human_decision"] == "needs_review"
+    assert item["decision_state"] == "conflict"
+    assert item["decision_conflict"] is True
+    assert conflicted["metrics"]["decision_conflict_count"] == 1
+    assert conflicted["metrics"]["human_decision_status"] == "conflict"
+    assert conflicted["metrics"]["measurement_status"] == "descriptive_only"
+
+
+def test_hard_negative_adjudication_resolves_conflict_without_deleting_votes():
+    from modules.editorial_benchmark import apply_hard_negative_decisions
+
+    payload = _hard_negative_payload()
+    payload = apply_hard_negative_decisions(payload, {"hn-1": {"decision": "approved"}}, annotator_id="a")
+    payload = apply_hard_negative_decisions(payload, {"hn-1": {"decision": "rejected"}}, annotator_id="b")
+    resolved = apply_hard_negative_decisions(
+        payload,
+        {"hn-1": {"decision": "approved", "note": "Adjudicado após revisão", "adjudication": True}},
+        annotator_id="lead",
+        source="adjudication",
+    )
+    item = resolved["items"][0]
+    assert len(item["decision_history"]) == 3
+    assert item["human_decision"] == "approved"
+    assert item["decision_state"] == "adjudicated"
+    assert item["decision_conflict"] is False
+    assert resolved["metrics"]["adjudicated_count"] == 1
+    assert resolved["metrics"]["human_decisions_complete"] is False
+    assert resolved["metrics"]["human_decision_status"] == "partial"
+
+
+def test_hard_negative_decisions_reject_unknown_item_ids():
+    from modules.editorial_benchmark import apply_hard_negative_decisions
+
+    import pytest
+
+    with pytest.raises(ValueError, match="item inexistente"):
+        apply_hard_negative_decisions(_hard_negative_payload(), {"does-not-exist": {"decision": "approved"}})

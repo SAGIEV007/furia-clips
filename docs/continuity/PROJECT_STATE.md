@@ -8,12 +8,12 @@
 | --- | --- |
 | Projeto | Furia Clips |
 | Repositório | `SAGIEV007/furia-clips` |
-| Versão pública atual | `6.25` |
+| Versão pública atual | `6.26` local; publicação pendente nesta etapa |
 | Última release funcional anterior | `6.20` |
-| Natureza da release atual | Contrato `hard-negative-v1` persistente no diagnóstico, decisões humanas opcionais e métricas descritivas |
+| Natureza da release atual | Importação append-only de decisões humanas no `hard-negative-v1`, conflitos explícitos, adjudicação e métricas descritivas |
 | Fonte da versão | [`VERSION`](../../VERSION) |
 | Branch de trabalho | `claude/repo-access-commits-imgjmk` |
-| Última publicação conhecida | `6ae281f` — `feat: persistir benchmark de hard negatives no diagnóstico (6.25)` |
+| Última publicação conhecida | `6ae281f` — `feat: persistir benchmark de hard negatives no diagnóstico (6.25)`; 6.26 local |
 | Commit funcional 2.6 | `fec34fe` — `feat: primeira ponte funcional Campaign Hub para propostas (2.6)` |
 | Commit funcional 2.7 | `a0452d3` — `fix: declarar confiabilidade da medição no benchmark editorial (2.7)` |
 | Commit funcional 2.8 | `fdf5e6b` — `fix: alinhar seeds do Campaign Hub com a mídia local em processamento (2.8)` |
@@ -22,10 +22,10 @@
 | Commit funcional 3.1 | `a170aab` — `feat: entregar todo candidato com contexto, locutor e veredito de revisão (3.1)` |
 | Última atualização | 2026-08-21 |
 | Baseline editorial | Duas fontes medidas na 3.1. `3XJfcqn56Rw` (live 98 min): recall `50/66`, cobertura `25/27`. `j9FRVbb8CAI` (entrevista 31 min): recall `30/34`, cobertura `11/11`. Precisão `1.00`, zero fora de bloco e zero desperdício **nas duas**. O ciclo 6.14 mediu `3/30` identidades disponíveis no Renan-first com snapshot rico, contra `0/30` sem snapshot. |
-| Suíte no checkout | 588 aprovados, 4 ignorados na validação da 6.25; o asset BlazeFace foi temporário e removido |
+| Suíte no checkout | 594 aprovados, 4 ignorados na validação da 6.26; o asset BlazeFace foi temporário e removido |
 | Objetivo | Gerar cortes Renan Santos/MBL concisos, autossuficientes, contextualizados e editorialmente úteis |
 
-A branch de trabalho deve ser confirmada no checkout real. O GitHub é a fonte da revisão técnica; o commit funcional publicado da 6.25 é `6ae281f`; o fechamento documental desta rodada ainda será publicado. Antes de alterar qualquer arquivo, preserve mudanças locais e confirme `git status`.
+A branch de trabalho deve ser confirmada no checkout real. O GitHub é a fonte da revisão técnica; o commit funcional publicado da 6.25 é `6ae281f`; a 6.26 está local até o commit e push. Antes de alterar qualquer arquivo, preserve mudanças locais e confirme `git status`.
 
 ## Norte imediato
 
@@ -39,13 +39,13 @@ O ciclo 33 adicionou processamento parcial por intervalo. O ciclo 34 concentrou-
 
 As prioridades editoriais Renan-first continuam preservadas: contexto e payoff antes de hook, gates de locutor antes do ranking, Campaign Hub como memória/seed e não como aprovação, e uma hipótese principal por ciclo.
 
-## Release atual — 6.25 local
+## Release atual — 6.26 local
 
-A 6.25 implementa o contrato `hard-negative-v1` no módulo `editorial_benchmark.py`. `build_hard_negative_benchmark()` normaliza near-misses do seletor, preserva `processing_identity` e `transcript_digest`, aceita somente decisões humanas `approved`, `rejected`, `needs_review` e `unlabeled`, limita previews e detalhes e marca o resultado como `measurement_status=descriptive_only`.
+A 6.26 mantém o contrato `hard-negative-v1` da 6.25 e adiciona `apply_hard_negative_decisions()` em `modules/editorial_benchmark.py`. Decisões humanas são anexadas a `decision_history`, limitadas, validadas e associadas a `decision_state`: `unlabeled`, `labeled`, `conflict` ou `adjudicated`. Divergências não são resolvidas pelo último escritor; ficam em `needs_review` até uma decisão com `adjudication=true`. A criação inicial também preserva o histórico da decisão fornecida.
 
-`app._write_selection_diagnostics()` agora grava automaticamente o benchmark separado em `FuriaClipsData/benchmarks/` quando a execução contém hard negatives. O relatório de seleção recebe apenas manifesto com schema, ID, contagem e nome do arquivo. Execuções sem near-misses não mudam o comportamento.
+`app.py` expõe `POST /api/editorial/benchmark/<benchmark_id>/decisions`, aceitando mapa ou lista de decisões e retornando somente resumo sanitizado. O armazenamento continua local em `FuriaClipsData/benchmarks/`. `measurement_status` permanece `descriptive_only`: nenhum rótulo humano foi convertido em ajuste automático de ranking.
 
-A suíte completa terminou com **588 aprovados e 4 ignorados**; o BlazeFace foi temporário e removido. Relatório em [`CYCLE_41_REPORT_2026-08-21.md`](CYCLE_41_REPORT_2026-08-21.md). A 6.25 não prova ganho editorial em live real nem altera pesos; o commit funcional `6ae281f` está publicado na branch de trabalho. O próximo ciclo precisa importar decisões humanas reais dentro da mesma fonte e medir before/after.
+A suíte completa terminou com **594 aprovados e 4 ignorados**; o BlazeFace foi temporário e removido. Relatório em [`CYCLE_42_REPORT_2026-08-21.md`](CYCLE_42_REPORT_2026-08-21.md). A 6.26 ainda não prova ganho editorial em live real; o próximo ciclo deve importar decisões reais, medir conflitos e produzir before/after antes de alterar qualquer peso.
 
 Instagram está habilitado, mas a API retornou 403 por falta de permissão da aplicação; nenhum perfil foi usado. O Chub permanece como memória/seed read-only e o job segue offline-first.
 

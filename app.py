@@ -2103,6 +2103,47 @@ def api_editorial_benchmark_detail(benchmark_id):
         return jsonify({"available": False, "error": f"Não foi possível ler o benchmark: {str(exc)[:240]}"}), 200
 
 
+@app.route("/api/editorial/benchmark/<benchmark_id>/decisions", methods=["POST"])
+def api_editorial_benchmark_decisions(benchmark_id):
+    """Append human decisions to a local hard-negative-v1 benchmark."""
+    data = request.get_json(silent=True) or {}
+    decisions = data.get("decisions")
+    if decisions is None:
+        decisions = data.get("decision_records")
+    if decisions is None:
+        return jsonify({"success": False, "error": "Informe decisions como lista ou objeto indexado por item."}), 400
+    try:
+        from modules.editorial_benchmark import apply_hard_negative_decisions, load_benchmark, save_benchmark
+        payload = load_benchmark(benchmark_id)
+        if not payload:
+            return jsonify({"success": False, "error": "Benchmark não encontrado."}), 404
+        updated = apply_hard_negative_decisions(
+            payload,
+            decisions,
+            annotator_id=str(data.get("annotator_id") or "")[:80],
+            source=str(data.get("source") or "manual_ui")[:40],
+            decided_at=str(data.get("decided_at") or "")[:40],
+        )
+        target = save_benchmark(updated)
+        metrics = updated.get("metrics") or {}
+        return jsonify({
+            "success": True,
+            "benchmark_id": updated.get("benchmark_id"),
+            "file": target.name,
+            "decision_revision": updated.get("decision_revision", 0),
+            "last_decision_import": updated.get("last_decision_import") or {},
+            "decision_status": metrics.get("human_decision_status", "unlabeled"),
+            "decision_counts": metrics.get("decision_counts") or {},
+            "decision_state_counts": metrics.get("decision_state_counts") or {},
+            "measurement_status": metrics.get("measurement_status", "descriptive_only"),
+            "message": "Decisões anexadas ao histórico; conflitos permanecem em needs_review e não alteram o ranking.",
+        })
+    except (TypeError, ValueError) as exc:
+        return jsonify({"success": False, "error": str(exc)[:300]}), 400
+    except Exception as exc:
+        return jsonify({"success": False, "error": f"Não foi possível importar as decisões: {str(exc)[:300]}"}), 500
+
+
 @app.route("/api/repository/status", methods=["GET"])
 def api_repository_status():
     """Report Git synchronization state without exposing remotes or secrets."""

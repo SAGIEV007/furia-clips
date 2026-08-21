@@ -1,5 +1,27 @@
 # Changelog de continuidade
 
+## 6.26 — Importação append-only de decisões humanas
+
+### Hipótese
+
+Se o editor puder devolver ao Furia decisões reais sobre near-misses sem apagar observações anteriores, o benchmark poderá acumular evidência editorial sobre contexto, payoff, bordas e locutor. Decisões divergentes devem permanecer explícitas até adjudicação; nenhuma decisão deve alterar pesos automaticamente.
+
+### Incluído
+
+- `modules/editorial_benchmark.py`: histórico limitado de decisões por item, estados `unlabeled`, `labeled`, `conflict` e `adjudicated`, detecção de conflito e adjudicação explícita.
+- `app.py`: `POST /api/editorial/benchmark/<benchmark_id>/decisions` para importar lista ou mapa de decisões no armazenamento local do benchmark.
+- `tests/test_editorial_benchmark.py`: regressões de append-only, conflito, adjudicação e IDs desconhecidos.
+- `tests/test_app_smoke.py`: regressão da API e preservação do histórico no arquivo persistido.
+- `docs/continuity/RESEARCH_HUMAN_DECISIONS_2026-08-21.md`: pesquisa e contrato de anotação humana.
+
+### Resultado medido
+
+A API anexa decisões ao histórico, limita texto e campos, rejeita IDs inexistentes e reporta `measurement_status=descriptive_only`. Dois rótulos divergentes não são resolvidos por último-escritor: o item fica `needs_review` com `decision_state=conflict`. Uma decisão marcada como adjudicação resolve o estado sem excluir os votos anteriores. O ranking, os pesos e os gates editoriais não foram alterados.
+
+### Validação
+
+A validação focada terminou com **45 aprovados** após a implementação inicial e com **40 aprovados** no conjunto editorial/aplicação após a extensão do contrato. A suíte completa terminou com **594 aprovados e 4 ignorados**. Também passaram `py_compile`, `node --check` e `git diff --check`; o asset BlazeFace foi temporário e removido. A primeira execução retornou código não-zero somente porque a checagem de ausência do asset ocorreu antes do `trap` de limpeza; a verificação posterior confirmou o checkout limpo de modelo.
+
 ## 6.25 — Benchmark hard-negative-v1 integrado ao diagnóstico
 
 ### Hipótese
