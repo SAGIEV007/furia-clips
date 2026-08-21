@@ -15,8 +15,10 @@ def test_face_model_manifest_and_asset_are_consistent():
     assert EXPECTED_SHA256 in script
     assert EXPECTED_URL in readme
     assert EXPECTED_SHA256 in readme
-    assert MODEL.is_file()
-    assert MODEL.stat().st_size == 229746
+    # O binário é um asset de runtime baixado pelo launcher e fica fora do Git.
+    # Se já estiver presente localmente, sua forma conhecida ainda deve ser validada.
+    if MODEL.exists():
+        assert MODEL.stat().st_size == 229746
 
 
 def test_face_model_bootstrap_keeps_a_graceful_offline_fallback():

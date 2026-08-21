@@ -163,3 +163,10 @@ O ranker passou a fornecer quatro dimensões independentes — contexto, força 
 A avaliação temporal agora inclui cobertura de referência e `HIT@K` para K=1, 3, 5 e 10, além de IoU, precision/recall, erro de bordas e taxa de redundância. Essas métricas só devem ser calculadas quando o editor fornecer intervalos de referência reais; sem referência, o sistema não inventa uma qualidade objetiva. Também foi corrigida a restauração de `start_time`/`end_time` no estado do frontend, evitando que um projeto reaberto perca os limites usados para pré-visualização e ajuste manual.
 
 A ausência de `faster-whisper` agora gera uma mensagem acionável sobre a instalação do projeto, em vez de um `ModuleNotFoundError` de um fallback não declarado. Nenhum peso do ranker foi recalibrado com esse vídeo porque ainda não existem rótulos humanos confiáveis dos melhores e piores intervalos dessa fonte. A próxima calibração válida deve usar decisões aprovadas/rejeitadas e, quando possível, intervalos de referência anotados.
+
+
+## 9. Reprodutibilidade do checkout limpo
+
+A verificação de um checkout limpo da branch publicada encontrou uma inconsistência no teste do modelo facial: o teste exigia o binário `blaze_face_short_range.tflite` dentro do Git, enquanto o contrato documentado pelo instalador é baixá-lo em runtime, validar o SHA-256 e continuar com composição original quando o download ou o MediaPipe não estiverem disponíveis. O teste foi ajustado para aceitar a ausência do binário no checkout e validar seu tamanho somente quando ele já estiver instalado. A mudança evita uma falsa falha de instalação e mantém o modelo fora do Git, conforme a política de não publicar assets gerados ou de runtime.
+
+Depois da correção, a suíte local voltou a passar com 512 testes. O asset facial continua opcional, e a ausência dele não deve ser interpretada como ausência de suporte ao facetracking: significa que o launcher ainda precisa preparar o modelo quando o recurso for ativado.
