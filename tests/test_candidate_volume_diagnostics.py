@@ -121,6 +121,43 @@ def test_previous_fingerprints_discard_overlap_and_preserve_new_moment():
     assert selector._candidate_diagnostics["previous_discarded_rejected"] == 0
 
 
+def test_hard_negative_ledger_records_duplicate_reason_and_winner():
+    selector = ClipSelector(max_clips=15)
+    winner = _clip(0.0, 30.0, "A tese primária completa e independente.")
+    loser = _clip(10.0, 40.0, "A tese primária completa e independente com repetição.")
+    winner["editorial_potential_score"] = 90
+    loser["editorial_potential_score"] = 70
+    winner["candidate_origin"] = "local_primary"
+    loser["candidate_origin"] = "local_fallback"
+
+    kept = selector._remove_overlaps([winner, loser])
+    diagnostics = selector.get_candidate_diagnostics()
+
+    assert kept == [winner]
+    assert diagnostics["hard_negative_count"] == 1
+    assert len(diagnostics["hard_negatives"]) == 1
+    item = diagnostics["hard_negatives"][0]
+    assert item["reason"] == "duplicate_overlap"
+    assert item["start"] == 10.0
+    assert item["winner"]["start"] == 0.0
+    assert len(item["text_preview"]) <= 280
+
+
+def test_hard_negative_ledger_is_bounded():
+    selector = ClipSelector()
+    selector._candidate_diagnostics = {"hard_negatives": [], "hard_negative_count": 0}
+
+    for index in range(100):
+        selector._record_hard_negative(
+            _clip(float(index), float(index + 10), f"Candidato quase válido {index}"),
+            "teste_limite",
+        )
+
+    diagnostics = selector.get_candidate_diagnostics()
+    assert len(diagnostics["hard_negatives"]) == 80
+    assert diagnostics["hard_negative_count"] == 100
+
+
 def test_expected_candidate_count_scales_with_long_source_but_stays_bounded():
     selector = ClipSelector(max_clips=36)
     short = [{"start": index * 15.0, "end": (index + 1) * 15.0, "text": "fala"} for index in range(7)]

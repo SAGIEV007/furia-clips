@@ -8,12 +8,12 @@
 | --- | --- |
 | Projeto | Furia Clips |
 | Repositório | `SAGIEV007/furia-clips` |
-| Versão pública atual | `6.23` |
+| Versão pública atual | `6.24` local; publicação pendente nesta etapa |
 | Última release funcional anterior | `6.20` |
-| Natureza da release atual | Refinamento conservador por timestamps de palavra e ledger de elegibilidade; pesquisa de precisão e arquitetura genérica + perfil Renan/MBL |
+| Natureza da release atual | Hard negatives sanitizados, timestamps por palavra como padrão e preparação de benchmark humano; 6.23 preservada |
 | Fonte da versão | [`VERSION`](../../VERSION) |
 | Branch de trabalho | `claude/repo-access-commits-imgjmk` |
-| Última publicação conhecida | `c91cd52` — `docs: registrar publicação do ciclo 39` (funcional: `ee2cc6d`) |
+| Última publicação conhecida | `41e52c3` — ponteiro final da 6.23; release 6.24 local ainda sem commit |
 | Commit funcional 2.6 | `fec34fe` — `feat: primeira ponte funcional Campaign Hub para propostas (2.6)` |
 | Commit funcional 2.7 | `a0452d3` — `fix: declarar confiabilidade da medição no benchmark editorial (2.7)` |
 | Commit funcional 2.8 | `fdf5e6b` — `fix: alinhar seeds do Campaign Hub com a mídia local em processamento (2.8)` |
@@ -22,10 +22,10 @@
 | Commit funcional 3.1 | `a170aab` — `feat: entregar todo candidato com contexto, locutor e veredito de revisão (3.1)` |
 | Última atualização | 2026-08-21 |
 | Baseline editorial | Duas fontes medidas na 3.1. `3XJfcqn56Rw` (live 98 min): recall `50/66`, cobertura `25/27`. `j9FRVbb8CAI` (entrevista 31 min): recall `30/34`, cobertura `11/11`. Precisão `1.00`, zero fora de bloco e zero desperdício **nas duas**. O ciclo 6.14 mediu `3/30` identidades disponíveis no Renan-first com snapshot rico, contra `0/30` sem snapshot. |
-| Suíte no checkout | 582 aprovados, 4 ignorados na validação da 6.23; o asset BlazeFace foi temporário e removido |
+| Suíte no checkout | 585 aprovados, 4 ignorados na validação da 6.24; o asset BlazeFace foi temporário e removido |
 | Objetivo | Gerar cortes Renan Santos/MBL concisos, autossuficientes, contextualizados e editorialmente úteis |
 
-A branch de trabalho deve ser confirmada no checkout real. O GitHub é a fonte da revisão técnica; o commit funcional publicado da 6.23 é `ee2cc6d`. Antes de alterar qualquer arquivo, preserve mudanças locais e confirme `git status`.
+A branch de trabalho deve ser confirmada no checkout real. O GitHub é a fonte da revisão técnica; a 6.23 terminou em `41e52c3`; o ciclo 6.24 está local até o commit e push. Antes de alterar qualquer arquivo, preserve mudanças locais e confirme `git status`.
 
 ## Norte imediato
 
@@ -38,6 +38,16 @@ O ciclo 32 separou a descoberta da publicação. Na mesma fonte, o Chub produziu
 O ciclo 33 adicionou processamento parcial por intervalo. O ciclo 34 concentrou-se exclusivamente em UX, tornando o estado do job visível sem rolagem. O ciclo 35 corrigiu a corrida de cancelamento entre a fila e o worker, e tornou a resposta de cancelamento de barra superior verificável. O ciclo 36 implementou identidade persistente de faixa, proveniência e digest de transcrição, contrato narrativo de contexto, gate final de locutor e fidelidade de headlines. O ciclo 37 adicionou eventos estruturados persistentes, retenção, breadcrumbs, endpoints de diagnóstico, captura de erros globais e cópia do resumo completo pela interface, sem alterar o motor editorial. O ciclo 38 pesquisou o MCP/Chub e adicionou recuperação textual conservadora de seeds com timeline incompatível, sempre em revisão. A próxima hipótese única é medir baseline temporal versus `text_anchor` em benchmark real; a observabilidade serve para tornar essa medição reproduzível.
 
 As prioridades editoriais Renan-first continuam preservadas: contexto e payoff antes de hook, gates de locutor antes do ranking, Campaign Hub como memória/seed e não como aprovação, e uma hipótese principal por ciclo.
+
+## Release atual — 6.24 local
+
+A 6.24 adiciona um ledger limitado de `hard_negatives` em `candidate_diagnostics`. Ele preserva até 80 near-misses por execução e conta todos os descartes observados. Cada item guarda intervalo, duração, origem, score, confiança, preview textual curto, motivo e vencedor, quando existe. Foram instrumentados descartes por fingerprint já exportado, duplicata temporal/lexical e irmão contíguo. O ledger é diagnóstico-only: não muda sobreviventes, ranking, gates Chub ou aprovação.
+
+`config.DEFAULT_SETTINGS["whisper_word_timestamps"]` passou a `True`. A configuração ainda pode ser desativada em máquinas com poucos recursos, mas timestamps por palavra são agora o padrão do fluxo editorial para que o refinamento seguro da 6.23 tenha evidência real no processamento local.
+
+A suíte completa terminou com **585 aprovados e 4 ignorados**; o BlazeFace foi temporário e removido. Relatório em [`CYCLE_40_REPORT_2026-08-21.md`](CYCLE_40_REPORT_2026-08-21.md). O próximo ciclo deve transformar hard negatives em benchmark versionado com decisões humanas rastreáveis.
+
+A 6.24 não prova ganho editorial em live real e não altera pesos. Instagram está habilitado, mas a API retornou 403 por falta de permissão da aplicação; nenhum perfil foi usado nesta rodada. O próximo ciclo continua dependente de fonte/decisão autorizada para medir recall, erro de borda, contexto, payoff e falso Renan.
 
 ## Release atual — 6.23 local
 

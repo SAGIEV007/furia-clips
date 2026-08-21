@@ -1,5 +1,27 @@
 # Changelog de continuidade
 
+## 6.24 — Hard negatives e timestamps por palavra por padrão
+
+### Hipótese
+
+Se o seletor preservar candidatos quase válidos que perderam por duplicata, fingerprint ou vizinhança, e se timestamps por palavra forem padrão, a calibração humana poderá diagnosticar falsos negativos e refinar bordas com evidência real sem alterar automaticamente o ranking.
+
+### Incluído
+
+- `modules/clip_selector.py`: ledger limitado de `hard_negatives` em `candidate_diagnostics`, com motivo, vencedor, intervalo, origem, score, confiança e preview textual sanitizado.
+- `modules/clip_selector.py`: instrumentação de candidatos descartados por fingerprint já exportado, duplicata temporal/lexical e irmão contíguo.
+- `config.py`: `whisper_word_timestamps=True` como padrão editorial, ainda sobrescritível para máquinas com poucos recursos.
+- Regressões em `tests/test_candidate_volume_diagnostics.py` e `tests/test_editing_scope.py`.
+- Relatório verificável em [`CYCLE_40_REPORT_2026-08-21.md`](CYCLE_40_REPORT_2026-08-21.md).
+
+### Resultado medido
+
+O ledger não altera candidatos sobreviventes, score, gates Chub ou ordem do ranking; ele torna near-misses recuperáveis para calibração. O refinamento por palavra da 6.23 passa a receber timestamps no fluxo local por padrão, mas o ganho editorial real ainda depende de benchmark com mídia e decisões humanas.
+
+### Validação
+
+A suíte focada terminou com **46 aprovados** e a suíte completa com **585 aprovados e 4 ignorados**. Também passaram `py_compile`, `node --check` e `git diff --check`; o BlazeFace foi temporário, conferido e removido.
+
 ## 6.20 — Proveniência, contrato de contexto e gate de locutor
 
 ### Hipótese

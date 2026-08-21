@@ -10,12 +10,12 @@ Este documento registra tudo que foi alterado depois do ponto de retomada identi
 | --- | --- |
 | Repositório | `SAGIEV007/furia-clips` |
 | Branch | `claude/repo-access-commits-imgjmk` |
-| Versão | `6.23` |
-| HEAD local/remoto | `ee2cc6d` — commit funcional da 6.23 publicado; fechamento documental em andamento |
+| Versão | `6.24` local; publicação pendente nesta etapa |
+| HEAD local/remoto | `41e52c3` — fechamento documental da 6.23 publicado; release 6.24 local ainda sem commit |
 | Último commit funcional | `ce8dd98` — `feat: observabilidade estruturada com diagnóstico copiável (6.21)` |
 | Checkout | Com atualização documental local para registrar o hash publicado |
 | Branch principal | Não alterada |
-| Suíte completa | 582 aprovados, 4 ignorados |
+| Suíte completa | 585 aprovados, 4 ignorados |
 | Asset BlazeFace | Usado temporariamente para teste, conferido e removido |
 
 ## Alterações implementadas
@@ -96,9 +96,19 @@ Foram adicionadas regressões para refinamento por palavra e para os três estad
 
 A 6.23 não prova ganho editorial em live real, não habilita timestamps por palavra automaticamente e não altera pesos. O próximo ciclo deve construir hard negatives, medir erro de borda e testar se o ledger reduz falsos aprovados/revisões demoradas.
 
-### 7. Fechamentos documentais
+### 7. Release 6.24 — hard negatives e timestamps por palavra por padrão
 
-Os commits `32b2c53` e `94b8c56` fecharam `PROJECT_STATE.md` com os hashes reais publicados de 6.18 e 6.19. O commit `6d88714` publicou a implementação funcional da 6.20. O commit `ce8dd98` publicou a implementação funcional da 6.21 e `042df18` publicou o fechamento documental, ambos na branch de trabalho remota. O commit `6dabc14` publicou a implementação funcional da 6.22 na mesma branch. O commit `ee2cc6d` publicou a implementação funcional da 6.23; este fechamento documental será publicado em seguida.
+A 6.24 adicionou `hard_negatives` a `candidate_diagnostics`. O seletor preserva no máximo 80 near-misses por execução e conta o total observado. Cada item mantém intervalo, duração, origem, score, confiança, preview textual curto, motivo e vencedor quando aplicável. Foram instrumentados descartes por fingerprint já exportado, duplicata temporal/lexical e irmão contíguo. O ledger é diagnóstico-only e não muda sobreviventes, score, gates Chub ou aprovação.
+
+`config.DEFAULT_SETTINGS["whisper_word_timestamps"]` passou a `True`. O usuário ainda pode desligar a opção para uma máquina de poucos recursos, mas o padrão editorial passa a coletar a evidência necessária ao refinamento de bordas da 6.23.
+
+Foram adicionadas regressões em `tests/test_candidate_volume_diagnostics.py` e `tests/test_editing_scope.py`. A suíte focada terminou com 46 aprovados; a suíte completa terminou com **585 aprovados e 4 ignorados**. O BlazeFace foi temporário e removido. Relatório em [`CYCLE_40_REPORT_2026-08-21.md`](CYCLE_40_REPORT_2026-08-21.md) e próximo ciclo em [`NEXT_CYCLE.md`](NEXT_CYCLE.md).
+
+A 6.24 não prova ganho editorial em mídia real e não altera pesos. A integração Instagram está habilitada, mas a API retornou 403 por falta de permissão da aplicação; nenhum perfil foi usado nesta rodada.
+
+### 8. Fechamentos documentais
+
+Os commits `32b2c53` e `94b8c56` fecharam `PROJECT_STATE.md` com os hashes reais publicados de 6.18 e 6.19. O commit `6d88714` publicou a implementação funcional da 6.20. O commit `ce8dd98` publicou a implementação funcional da 6.21 e `042df18` publicou o fechamento documental, ambos na branch de trabalho remota. O commit `6dabc14` publicou a implementação funcional da 6.22 na mesma branch. O commit `ee2cc6d` publicou a implementação funcional da 6.23, seguido pelos fechamentos `7950346`, `c91cd52` e `41e52c3`. A 6.24 está local até o commit e push.
 
 ## O que não foi alterado
 

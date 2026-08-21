@@ -167,6 +167,8 @@ class ClipSelector:
             "word_boundary_segments_available": False,
             "word_boundary_refined_count": 0,
             "word_boundary_review_count": 0,
+            "hard_negatives": [],
+            "hard_negative_count": 0,
             "reason": "not_evaluated",
         }
 
@@ -315,6 +317,8 @@ class ClipSelector:
             "word_boundary_segments_available": False,
             "word_boundary_refined_count": 0,
             "word_boundary_review_count": 0,
+            "hard_negatives": [],
+            "hard_negative_count": 0,
             "reason": "short_source" if expected_count == 0 else ("adequate_pool" if len(primary_clips) >= expected_count else "primary_pool_thin"),
         }
         self._record_candidate_stage("primary_pool", primary_clips)
@@ -495,6 +499,60 @@ class ClipSelector:
     def get_candidate_diagnostics(self):
         """Return explainable candidate-volume diagnostics for the review UI."""
         return dict(self._candidate_diagnostics)
+
+    def _record_hard_negative(self, clip, reason, *, winner=None, details=None):
+        """Keep bounded near-misses for later human calibration.
+
+        This is diagnostic-only. It never changes which candidate survives. The
+        ledger deliberately stores a short transcript preview and interval
+        metadata, never media, secrets or a complete transcription.
+        """
+        if not isinstance(clip, dict):
+            return
+        ledger = self._candidate_diagnostics.setdefault("hard_negatives", [])
+        if len(ledger) >= 80:
+            self._candidate_diagnostics["hard_negative_count"] = int(
+                self._candidate_diagnostics.get("hard_negative_count", 0) or 0
+            ) + 1
+            return
+        try:
+            start = round(float(clip.get("start", 0) or 0), 3)
+            end = round(float(clip.get("end", start) or start), 3)
+        except (TypeError, ValueError):
+            start, end = 0.0, 0.0
+        item = {
+            "start": start,
+            "end": end,
+            "duration": round(max(0.0, end - start), 3),
+            "reason": str(reason or "unspecified")[:80],
+            "candidate_origin": str(clip.get("candidate_origin") or "")[:48],
+            "source": str(clip.get("source") or "")[:48],
+            "score": clip.get("editorial_potential_score", clip.get("viral_score")),
+            "confidence": clip.get("confidence"),
+            "text_preview": " ".join(str(clip.get("text") or "").split())[:280],
+        }
+        if isinstance(winner, dict):
+            try:
+                winner_start = round(float(winner.get("start", 0) or 0), 3)
+                winner_end = round(float(winner.get("end", winner_start) or winner_start), 3)
+            except (TypeError, ValueError):
+                winner_start, winner_end = 0.0, 0.0
+            item["winner"] = {
+                "start": winner_start,
+                "end": winner_end,
+                "score": winner.get("editorial_potential_score", winner.get("viral_score")),
+                "text_preview": " ".join(str(winner.get("text") or "").split())[:180],
+            }
+        if isinstance(details, dict):
+            item["details"] = {
+                str(key)[:40]: value
+                for key, value in list(details.items())[:8]
+                if isinstance(value, (str, int, float, bool)) or value is None
+            }
+        ledger.append(item)
+        self._candidate_diagnostics["hard_negative_count"] = int(
+            self._candidate_diagnostics.get("hard_negative_count", 0) or 0
+        ) + 1
 
     @staticmethod
     def _campaign_hub_discovery_record(clip, publication_status):
@@ -1512,7 +1570,20 @@ Retorne APENAS o JSON.
                 )
                 dropped += 1
                 if better:
+                    self._record_hard_negative(
+                        previous,
+                        "touching_sibling_lost_to_better_candidate",
+                        winner=clip,
+                        details={"score_gap": round(current_score - previous_score, 2)},
+                    )
                     kept[-1] = clip
+                else:
+                    self._record_hard_negative(
+                        clip,
+                        "touching_sibling_lost_to_existing_candidate",
+                        winner=previous,
+                        details={"score_gap": round(previous_score - current_score, 2)},
+                    )
                 continue
             kept.append(clip)
         if dropped and emit_progress:
@@ -3634,6 +3705,11 @@ Retorne APENAS o JSON.
             if repeated is None:
                 selected.append(clip)
                 continue
+            self._record_hard_negative(
+                clip,
+                "already_exported_fingerprint",
+                details={"review_status": str(repeated.get("review_status") or "")[:24]},
+            )
             self._candidate_diagnostics["previous_discarded_count"] = int(
                 self._candidate_diagnostics.get("previous_discarded_count", 0) or 0
             ) + 1
@@ -3682,6 +3758,12 @@ Retorne APENAS o JSON.
                     duplicate_reason = "similarity"
                     break
             if duplicate:
+                self._record_hard_negative(
+                    clip,
+                    "duplicate_overlap" if duplicate_reason == "overlap" else "duplicate_similarity",
+                    winner=existing,
+                    details={"overlap_or_similarity": round(overlap if duplicate_reason == "overlap" else text_similarity, 3)},
+                )
                 if str(clip.get("candidate_origin") or "") == "local_fallback":
                     self._candidate_diagnostics["fallback_discarded_count"] = int(
                         self._candidate_diagnostics.get("fallback_discarded_count", 0) or 0

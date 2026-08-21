@@ -133,7 +133,9 @@ _ensure_persistent_data_layout()
 
 DEFAULT_SETTINGS = {
     "whisper_model": "small",
-    "whisper_word_timestamps": False,
+    # Needed by the conservative word-boundary refiner. Users can still
+    # disable it for low-resource runs, but precision is the default.
+    "whisper_word_timestamps": True,
     "whisper_beam_size": 1,
     "whisper_device": "auto",
     "whisper_long_video_threshold_minutes": 45,
