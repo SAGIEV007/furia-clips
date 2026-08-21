@@ -3897,6 +3897,8 @@ def api_analyze_editorial_context():
                     "info",
                     72,
                 )
+                # O processamento local de energia para lives muito longas pode demorar,
+                # mas não bloqueia a UI se o timeout do polling no frontend for adequado.
                 enriched = _enrich_editorial_context_locally(
                     video_path,
                     transcription,

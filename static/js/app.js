@@ -2756,7 +2756,8 @@ function renderEditorialContextPreview(context = {}) {
 
 async function pollEditorialContextJob(jobId, button, status) {
     const started = Date.now();
-    while (Date.now() - started < 20 * 60 * 1000) {
+    // Aumentar o timeout de 20 para 60 minutos, já que o Gemini com fallback local em lives de 2h pode demorar
+    while (Date.now() - started < 60 * 60 * 1000) {
         await new Promise(resolve => setTimeout(resolve, 1200));
         const response = await fetch(`/api/jobs/${encodeURIComponent(jobId)}`);
         const job = await parseJsonResponse(response, "Status da análise de contexto");
