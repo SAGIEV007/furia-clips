@@ -378,6 +378,48 @@ def download_public_video(url: str, destination: str, progress=None, max_height:
     }
 
 
+def download_public_video_interval(url: str, destination_path: str, start_s: float, end_s: float, progress=None, max_height: int = 1080, retries: int = 3, cancel_check=None, cookie_browser: str = "", user_agent: str = "") -> dict:
+    """Download a specific time range of a public video using yt-dlp's download_ranges feature."""
+    value = validate_public_url(url)
+    yt_dlp = _yt_dlp()
+    target = Path(destination_path).expanduser().resolve()
+    target.parent.mkdir(parents=True, exist_ok=True)
+    
+    # We define a function that yt-dlp uses to know what ranges to download
+    def _download_ranges(info_dict, ydl):
+        return [{"start_time": start_s, "end_time": end_s}]
+
+    options = {
+        **_common_yt_dlp_options(cookie_browser, user_agent),
+        "outtmpl": str(target),
+        "format": f"bestvideo[height<={max_height}]+bestaudio/best[height<={max_height}]/best",
+        "merge_output_format": "mp4",
+        "download_ranges": _download_ranges,
+        "force_keyframes_at_cuts": True, # Ensure precise cuts
+        "quiet": True,
+        "no_warnings": True,
+    }
+    
+    # yt-dlp uses ffmpeg to do the partial download. We must ensure ffmpeg is available.
+    try:
+        with yt_dlp.YoutubeDL(options) as downloader:
+            info = downloader.extract_info(value, download=True)
+            # The actual file might have an extension added, though we forced mp4.
+            # prepare_filename usually returns the outtmpl we passed.
+            actual_path = downloader.prepare_filename(info)
+            if not os.path.isfile(actual_path):
+                raise SourceIngestError("O arquivo parcial não foi gerado.")
+                
+            return {
+                "path": actual_path,
+                "title": info.get("title", ""),
+                "duration": end_s - start_s,
+                "extractor": info.get("extractor", ""),
+            }
+    except Exception as exc:
+        raise _source_error(f"Falha ao baixar o trecho {start_s}-{end_s}s", exc, cookie_browser=cookie_browser) from exc
+
+
 def download_public_audio(url: str, destination: str, progress=None, retries: int = 3, cancel_check=None, cookie_browser: str = "", user_agent: str = "") -> dict:
     """Download an audio-only public source for transcript-only operations.
 

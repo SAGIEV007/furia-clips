@@ -381,13 +381,13 @@
                  <p class="source-help">Use uma URL pública, preferencialmente do YouTube. O programa baixa vídeo e áudio até 1080p e usa a transcrição manual já confirmada quando ela estiver disponível.</p>
                  <div class="source-link-row">
                      <input type="url" id="sourceUrlInput" class="setting-input" placeholder="https://www.youtube.com/watch?v=...">
-                     <button class="btn btn-sm btn-outline" id="btnProbeSource" type="button"><span class="material-icons-round">search</span> Verificar</button>
                  </div>
                  <div class="source-link-actions">
+                      <button class="btn btn-sm btn-primary" id="btnProbeSource" type="button" title="Lê a URL e puxa os blocos do Acervo sem baixar o vídeo"><span class="material-icons-round">view_agenda</span> Analisar blocos remotamente</button>
                       <button class="btn btn-sm btn-outline" id="btnDownloadSource" type="button"><span class="material-icons-round">download</span> Baixar somente</button>
                       <button class="btn btn-sm btn-outline" id="btnTranscribeSource" type="button"><span class="material-icons-round">description</span> Transcrever sem cortar</button>
-                      <button class="btn btn-sm btn-primary" id="btnDownloadTranscribeSource" type="button"><span class="material-icons-round">cloud_download</span> Baixar e transcrever</button>
-                     <button class="btn btn-sm btn-outline" id="btnOpenTactiq" type="button"><span class="material-icons-round">open_in_new</span> Abrir Tactiq assistido</button>
+                      <button class="btn btn-sm btn-outline" id="btnDownloadTranscribeSource" type="button"><span class="material-icons-round">cloud_download</span> Baixar vídeo completo</button>
+                     <button class="btn btn-sm btn-outline" id="btnOpenTactiq" type="button"><span class="material-icons-round">open_in_new</span> Tactiq assistido</button>
                  </div>
                  <div class="source-download-options">
                      <div class="source-destination-row">
@@ -475,7 +475,7 @@
                 <label class="editorial-blocks-filter"><input id="editorialBlocksRenanOnly" type="checkbox" checked> Mostrar falas do Renan primeiro (sem ocultar outros oradores)</label>
             </div>
             <div class="editorial-blocks-list" id="editorialBlocksList" aria-live="polite">
-                <div class="editorial-blocks-empty">Selecione o vídeo e carregue a transcrição para ver os blocos.</div>
+                <div class="editorial-blocks-empty">Cole um link do YouTube ou selecione um vídeo local para ver os blocos.</div>
             </div>
         </section>
 

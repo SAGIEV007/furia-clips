@@ -1895,11 +1895,13 @@ def api_editorial_blocks():
         settings = get_all_settings()
         data = request.get_json(silent=True) or {} if request.method == "POST" else {}
         video_path = _resolve_media_input(data.get("video_path", "")) if data else ""
+        source_url = data.get("source_url", "") if data else ""
         duration = data.get("duration_s")
         if not duration and video_path and os.path.isfile(video_path):
             duration = _probe_video_duration_seconds(video_path)
         payload = blocks_for_source(
             video_path=video_path or None,
+            source_url=source_url or None,
             segments=data.get("segments") if isinstance(data.get("segments"), list) else [],
             duration_s=duration,
             snapshot_path=settings.get("campaign_hub_snapshot_path"),
@@ -1930,11 +1932,14 @@ def api_editorial_block(block_id):
 
 @app.route("/api/editorial/blocks/export", methods=["POST"])
 def api_export_editorial_block_interval():
-    """Render one selected local interval; remote range download is a later wave."""
+    """Render one selected local interval or download a remote interval."""
     data = request.get_json(silent=True) or {}
     video_path = _resolve_media_input(data.get("video_path", ""))
-    if not video_path or not os.path.isfile(video_path):
-        return jsonify({"success": False, "error": "A fonte local do bloco não foi encontrada."}), 404
+    source_url = str(data.get("source_url", "")).strip()
+    
+    if not video_path and not source_url:
+        return jsonify({"success": False, "error": "A fonte local do bloco ou a URL remota não foi informada."}), 400
+        
     try:
         start = max(0.0, float(data.get("start", 0)))
         end = float(data.get("end"))
@@ -1944,40 +1949,67 @@ def api_export_editorial_block_interval():
         return jsonify({"success": False, "error": "O fim do intervalo precisa ser maior que o início."}), 400
     requested_start = start
     requested_end = end
-    duration = _probe_video_duration_seconds(video_path)
-    timeline_mapping = "source_timeline"
-    if duration and end > duration + 0.25:
-        # A block downloaded from Garimpo/Acervo starts at zero locally while
-        # its Chub timestamps remain absolute in the long source. Infer this
-        # only when the local duration closely matches the selected block span.
-        block_span = end - start
-        if abs(duration - block_span) <= max(15.0, block_span * 0.05):
-            start = 0.0
-            end = min(duration, block_span)
-            timeline_mapping = "downloaded_block_timeline"
-        else:
-            return jsonify({"success": False, "error": f"O bloco termina em {requested_end:.1f}s, mas a fonte local tem apenas {duration:.1f}s e não parece ser esse bloco."}), 400
+    
     if end - start > 15 * 60:
         return jsonify({"success": False, "error": "A exportação seletiva está limitada a 15 minutos por intervalo."}), 413
+
+    block_id = str(data.get("block_id") or "intervalo")
+    filename = unique_storage_name(
+        f"bloco-{block_id}-{int(start)}-{int(end)}.mp4",
+        extension=".mp4",
+    )
+    output_path = os.path.join(EXPORT_DIR, filename)
+    timeline_mapping = "source_timeline"
+
     try:
-        from modules.video_cutter import VideoCutter
-        block_id = str(data.get("block_id") or "intervalo")
-        filename = unique_storage_name(
-            f"bloco-{block_id}-{int(start)}-{int(end)}.mp4",
-            extension=".mp4",
-        )
-        output_path = os.path.join(EXPORT_DIR, filename)
-        cutter = VideoCutter(method="intelligent", target_duration=end - start, preset="shorts")
-        rendered = cutter.cut_clip(
-            video_path,
-            start,
-            end,
-            output_path,
-            vertical=False,
-            emit_progress=None,
-        )
+        # Se for download remoto (não temos o arquivo localmente)
+        if not video_path or not os.path.isfile(video_path):
+            if not source_url:
+                return jsonify({"success": False, "error": "A fonte local do bloco não foi encontrada e não há URL remota."}), 404
+            
+            # Aqui iniciaremos um Job de download de intervalo remoto
+            from modules.source_ingest import download_public_video_interval
+            settings = get_all_settings()
+            cookie_browser, user_agent = _source_download_auth(data, settings)
+            
+            # TODO: O download assíncrono seria ideal, mas para blocos pequenos,
+            # um download direto pode servir se a interface aguardar.
+            # Implementaremos download_public_video_interval em source_ingest.py
+            result = download_public_video_interval(
+                source_url, 
+                output_path, 
+                start, 
+                end,
+                cookie_browser=cookie_browser,
+                user_agent=user_agent
+            )
+            rendered = result.get("path")
+            
+        else:
+            # Processamento local normal
+            duration = _probe_video_duration_seconds(video_path)
+            if duration and end > duration + 0.25:
+                block_span = end - start
+                if abs(duration - block_span) <= max(15.0, block_span * 0.05):
+                    start = 0.0
+                    end = min(duration, block_span)
+                    timeline_mapping = "downloaded_block_timeline"
+                else:
+                    return jsonify({"success": False, "error": f"O bloco termina em {requested_end:.1f}s, mas a fonte local tem apenas {duration:.1f}s e não parece ser esse bloco."}), 400
+                    
+            from modules.video_cutter import VideoCutter
+            cutter = VideoCutter(method="intelligent", target_duration=end - start, preset="shorts")
+            rendered = cutter.cut_clip(
+                video_path,
+                start,
+                end,
+                output_path,
+                vertical=False,
+                emit_progress=None,
+            )
+            
         if not rendered:
-            return jsonify({"success": False, "error": "A renderização do intervalo foi rejeitada pela validação de mídia."}), 422
+            return jsonify({"success": False, "error": "A renderização/download do intervalo falhou."}), 422
         relative = os.path.relpath(rendered, WORKSPACE_DIR).replace(os.sep, "/")
         return jsonify({
             "success": True,
@@ -1999,15 +2031,19 @@ def api_export_editorial_block_interval():
 
 @app.route("/api/editorial/blocks/highlights/export", methods=["POST"])
 def api_export_editorial_highlight():
-    """Render one Campaign Hub highlight on the local block timeline."""
+    """Render one Campaign Hub highlight on the local block timeline or download it remotely."""
     data = request.get_json(silent=True) or {}
     video_path = _resolve_media_input(data.get("video_path", ""))
-    if not video_path or not os.path.isfile(video_path):
-        return jsonify({"success": False, "error": "A fonte local do bloco não foi encontrada."}), 404
+    source_url = str(data.get("source_url", "")).strip()
+    
+    if not video_path and not source_url:
+        return jsonify({"success": False, "error": "A fonte local ou a URL remota não foi informada."}), 400
+        
     block_id = str(data.get("block_id") or "").strip()
     highlight_id = str(data.get("highlight_id") or "").strip()
     if not block_id or not highlight_id:
         return jsonify({"success": False, "error": "Informe block_id e highlight_id."}), 400
+        
     try:
         from modules.editorial_block_memory import get_block
         from modules.editorial_benchmark import map_interval_to_local
@@ -2018,6 +2054,7 @@ def api_export_editorial_highlight():
         highlight = next((item for item in block.get("highlights", []) if str(item.get("id")) == highlight_id), None)
         if not highlight:
             return jsonify({"success": False, "error": "Destaque não encontrado dentro do bloco."}), 404
+            
         try:
             absolute_start = float(highlight.get("start_s"))
             absolute_end = float(highlight.get("end_s"))
@@ -2025,28 +2062,54 @@ def api_export_editorial_highlight():
             block_end = float(block.get("end", block_start))
         except (TypeError, ValueError):
             return jsonify({"success": False, "error": "O destaque não possui timestamps válidos."}), 400
-        duration = _probe_video_duration_seconds(video_path)
-        mapped = map_interval_to_local(
-            absolute_start,
-            absolute_end,
-            source_duration=duration,
-            reference_start=block_start,
-            reference_end=block_end,
-        )
-        start = float(mapped["start"])
-        end = float(mapped["end"])
-        if end <= start:
-            return jsonify({"success": False, "error": "O destaque não produz um intervalo local válido."}), 400
-        from modules.video_cutter import VideoCutter
+            
         filename = unique_storage_name(
             f"highlight-{block_id}-{highlight_id.replace(':', '-')}.mp4",
             extension=".mp4",
         )
         output_path = os.path.join(EXPORT_DIR, filename)
-        cutter = VideoCutter(method="intelligent", target_duration=end - start, preset="shorts")
-        rendered = cutter.cut_clip(video_path, start, end, output_path, vertical=False, emit_progress=None)
+        
+        # Download remoto
+        if not video_path or not os.path.isfile(video_path):
+            if not source_url:
+                return jsonify({"success": False, "error": "A fonte local não foi encontrada e não há URL remota."}), 404
+            
+            from modules.source_ingest import download_public_video_interval
+            cookie_browser, user_agent = _source_download_auth(data, settings)
+            
+            result = download_public_video_interval(
+                source_url, 
+                output_path, 
+                absolute_start, 
+                absolute_end,
+                cookie_browser=cookie_browser,
+                user_agent=user_agent
+            )
+            rendered = result.get("path")
+            start = absolute_start
+            end = absolute_end
+            
+        # Processamento local
+        else:
+            duration = _probe_video_duration_seconds(video_path)
+            mapped = map_interval_to_local(
+                absolute_start,
+                absolute_end,
+                source_duration=duration,
+                reference_start=block_start,
+                reference_end=block_end,
+            )
+            start = float(mapped["start"])
+            end = float(mapped["end"])
+            if end <= start:
+                return jsonify({"success": False, "error": "O destaque não produz um intervalo local válido."}), 400
+                
+            from modules.video_cutter import VideoCutter
+            cutter = VideoCutter(method="intelligent", target_duration=end - start, preset="shorts")
+            rendered = cutter.cut_clip(video_path, start, end, output_path, vertical=False, emit_progress=None)
+            
         if not rendered:
-            return jsonify({"success": False, "error": "A renderização do destaque foi rejeitada pela validação de mídia."}), 422
+            return jsonify({"success": False, "error": "A renderização/download do destaque foi rejeitada."}), 422
         relative = os.path.relpath(rendered, WORKSPACE_DIR).replace(os.sep, "/")
         return jsonify({
             "success": True,

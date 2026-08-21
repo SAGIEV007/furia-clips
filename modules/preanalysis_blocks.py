@@ -122,6 +122,7 @@ def _derived_cards(
 def blocks_for_source(
     *,
     video_path: str | None = None,
+    source_url: str | None = None,
     segments: list[dict[str, Any]] | None = None,
     duration_s: float | None = None,
     snapshot_path: str | None = None,
@@ -130,7 +131,13 @@ def blocks_for_source(
     limit: int = 80,
 ) -> dict[str, Any]:
     """List the blocks worth looking at for this source, saying where they came from."""
-    video_id = youtube_id_from_name(str(video_path or "")) or ""
+    from .acervo_library import youtube_id_from_url
+    
+    video_id = ""
+    if source_url:
+        video_id = youtube_id_from_url(source_url) or ""
+    if not video_id:
+        video_id = youtube_id_from_name(str(video_path or "")) or ""
 
     export = find_snapshot_for(video_path) if video_path else None
     if export:

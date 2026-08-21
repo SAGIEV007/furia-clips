@@ -1447,7 +1447,7 @@ function renderEditorialBlocks(payload) {
             : " Nenhum bloco para esta fonte";
     }
     if (!payload?.available) {
-        list.innerHTML = `<div class="editorial-blocks-empty"><span class="material-icons-round">cloud_off</span><br>${escapeHtml(payload?.message || "Atualize a memória local para carregar blocos editoriais.")}</div>`;
+        list.innerHTML = `<div class="editorial-blocks-empty"><span class="material-icons-round">cloud_off</span><br>${escapeHtml(payload?.message || "Insira um link do YouTube ou carregue um vídeo local para listar os blocos.")}</div>`;
         return;
     }
     if (!blocks.length) {
@@ -1531,18 +1531,31 @@ function renderEditorialBlocks(payload) {
         button.addEventListener("click", async () => {
             const block = blocks.find((item) => String(item.id) === String(button.dataset.blockExport));
             const videoPath = selectedVideoPathForRequest();
-            if (!block || !videoPath) {
-                showToast("Selecione primeiro o MP4 correspondente ao bloco.", "warning");
+            const sourceUrl = state.sourceUrl || "";
+            
+            if (!block || (!videoPath && !sourceUrl)) {
+                showToast("É necessário um vídeo local ou uma URL de origem para exportar o bloco.", "warning");
                 return;
             }
+            
             const sourceLabel = block.source?.title || block.source?.url || "o vídeo carregado";
-            if (!confirm(`Confirme que o vídeo local selecionado corresponde a “${sourceLabel}”. Exportar ${formatTime(Number(block.start || 0))}–${formatTime(Number(block.end || 0))} no aspecto original?`)) return;
+            const msgConfirm = videoPath 
+                ? `Confirme que o vídeo local selecionado corresponde a “${sourceLabel}”. Exportar ${formatTime(Number(block.start || 0))}–${formatTime(Number(block.end || 0))} no aspecto original?`
+                : `Baixar o intervalo ${formatTime(Number(block.start || 0))}–${formatTime(Number(block.end || 0))} remotamente do YouTube na melhor qualidade? (Isso pode demorar alguns instantes)`;
+                
+            if (!confirm(msgConfirm)) return;
             button.disabled = true;
+            
+            // Ícone visual de loading no botão
+            const icone = button.querySelector(".material-icons-round");
+            const iconeOriginal = icone ? icone.textContent : "download";
+            if (icone) icone.textContent = "hourglass_empty";
+            
             try {
                 const response = await fetch("/api/editorial/blocks/export", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ video_path: videoPath, block_id: block.id, start: block.start, end: block.end }),
+                    body: JSON.stringify({ video_path: videoPath, source_url: sourceUrl, block_id: block.id, start: block.start, end: block.end }),
                 });
                 const payload = await parseJsonResponse(response, "Exportação do bloco");
                 if (!response.ok || !payload.success) throw new Error(payload.error || "Não foi possível exportar o intervalo.");
@@ -1554,22 +1567,35 @@ function renderEditorialBlocks(payload) {
                 addConsoleLog(`[Blocos] Exportação não concluída: ${error.message}`, "warning");
             } finally {
                 button.disabled = false;
+                if (icone) icone.textContent = iconeOriginal;
             }
         });
     });
     list.querySelectorAll("[data-highlight-export]").forEach((button) => {
         button.addEventListener("click", async () => {
             const videoPath = selectedVideoPathForRequest();
-            if (!videoPath) {
-                showToast("Selecione primeiro o MP4 correspondente ao bloco.", "warning");
+            const sourceUrl = state.sourceUrl || "";
+            if (!videoPath && !sourceUrl) {
+                showToast("É necessário um vídeo local ou uma URL de origem para exportar o destaque.", "warning");
                 return;
             }
+            
+            const msgConfirm = videoPath 
+                ? "Exportar este destaque da fonte local atual?"
+                : "Baixar este destaque remotamente do YouTube na melhor qualidade? (Isso pode demorar alguns instantes)";
+                
+            if (!confirm(msgConfirm)) return;
+            
             button.disabled = true;
+            const icone = button.querySelector(".material-icons-round");
+            const iconeOriginal = icone ? icone.textContent : "download";
+            if (icone) icone.textContent = "hourglass_empty";
+            
             try {
                 const response = await fetch("/api/editorial/blocks/highlights/export", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ video_path: videoPath, block_id: button.dataset.highlightExport, highlight_id: button.dataset.highlightId }),
+                    body: JSON.stringify({ video_path: videoPath, source_url: sourceUrl, block_id: button.dataset.highlightExport, highlight_id: button.dataset.highlightId }),
                 });
                 const payload = await parseJsonResponse(response, "Exportação do destaque");
                 if (!response.ok || !payload.success) throw new Error(payload.error || "Não foi possível exportar o destaque.");
@@ -1581,6 +1607,7 @@ function renderEditorialBlocks(payload) {
                 addConsoleLog(`[Blocos] Exportação do destaque não concluída: ${error.message}`, "warning");
             } finally {
                 button.disabled = false;
+                if (icone) icone.textContent = iconeOriginal;
             }
         });
     });
@@ -1600,6 +1627,7 @@ async function loadEditorialBlocks() {
             cache: "no-store",
             body: JSON.stringify({
                 video_path: state.selectedVideo || "",
+                source_url: state.sourceUrl || "",
                 segments: state.manualTranscript?.segments || [],
                 q: query,
                 prioritize_renan: Boolean(prioritizeRenan),
@@ -4366,8 +4394,12 @@ document.getElementById("btnProbeSource")?.addEventListener("click", async () =>
         const data = await parseJsonResponse(res, "Verificação da fonte");
         if (!res.ok || !data.success) throw new Error(data.error || "Fonte indisponível");
         state.sourceUrl = url;
+        
+        // Se conseguimos validar a URL remota, já podemos puxar os blocos do Acervo
+        loadEditorialBlocks();
+        
         const duration = data.source.duration ? ` — ${formatTime(data.source.duration)}` : "";
-        showSourceStatus(`${data.source.title || "Fonte válida"}${duration}. Pronta para importar.`, "success");
+        showSourceStatus(`${data.source.title || "Fonte válida"}${duration}. Blocos analisados remotamente.`, "success");
     } catch (error) {
         showSourceStatus(error.message, "error");
     }

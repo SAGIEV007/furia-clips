@@ -32,6 +32,24 @@ _SEPARATORS = re.compile(r"[^0-9A-Za-z_-]+|_")
 _ID_SHAPE = re.compile(r"^[0-9A-Za-z_-]{11}$")
 
 
+def youtube_id_from_url(url: str) -> str | None:
+    """Recover the YouTube id from a standard URL."""
+    from urllib.parse import urlparse, parse_qs
+    try:
+        parsed = urlparse(url)
+        if parsed.hostname in ("youtu.be", "www.youtu.be"):
+            return parsed.path[1:12] if len(parsed.path) >= 12 else None
+        if parsed.hostname in ("youtube.com", "www.youtube.com", "m.youtube.com"):
+            if parsed.path.startswith("/live/") or parsed.path.startswith("/shorts/"):
+                return parsed.path.split("/")[2][:11]
+            qs = parse_qs(parsed.query)
+            if "v" in qs:
+                return qs["v"][0][:11]
+    except Exception:
+        pass
+    return None
+
+
 def youtube_id_from_name(name: str) -> str | None:
     """Recover the YouTube id a downloader left in the file name.
 

@@ -3608,6 +3608,8 @@ body {
 .source-tab.active { color: #17120a; background: var(--gold); box-shadow: 0 5px 14px rgba(244, 200, 74, 0.15); }
 .source-panel { border-color: rgba(160, 180, 196, 0.12); background: rgba(7, 11, 15, 0.3); border-radius: 12px; }
 .source-help { color: #92a0ab; line-height: 1.55; }
+.source-link-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 16px; }
+.source-link-row { display: flex; gap: 8px; margin-bottom: 12px; width: 100%; }
 .context-input { border-color: rgba(160, 180, 196, 0.16); background: rgba(5, 9, 13, 0.45); border-radius: 11px; }
 .context-input:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(244, 200, 74, 0.1); }
 .context-chip { border-color: rgba(244, 200, 74, 0.26); background: rgba(244, 200, 74, 0.06); color: #cfb979; border-radius: 999px; padding: 6px 10px; }
