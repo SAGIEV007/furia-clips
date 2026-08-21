@@ -250,20 +250,34 @@ def test_full_length_media_keeps_the_absolute_timeline():
     assert seeds[0]["start"] == 6289.36
 
 
-def test_seed_far_outside_the_transcript_produces_no_proposal():
-    """An unmapped seed must not be snapped onto an unrelated sentence.
+def test_distant_seed_without_text_match_produces_no_proposal():
+    """A timeline mismatch must not snap onto an unrelated local sentence."""
+    snapshot = _b354_snapshot()
+    snapshot["records"]["blocks"][0]["highlights"] = [snapshot["records"]["blocks"][0]["highlights"][0]]
+    snapshot["records"]["blocks"][0]["highlights"][0]["text"] = "frase completamente ausente da transcricao local"
+    selector = ClipSelector(min_duration=8, max_duration=180, max_clips=5)
+    proposals = selector._select_with_campaign_hub_guidance(
+        _b354_local_sentences(),
+        {"campaign_hub_snapshot": snapshot, "campaign_hub_account": "@renansantosmbl"},
+    )
 
-    Anchoring it would publish the wrong window carrying Campaign Hub
-    provenance, and every distant seed would collapse onto the same edge
-    sentence, turning three different highlights into one repeated proposal.
-    """
+    assert proposals == []
+
+
+def test_distant_seed_can_recover_by_conservative_text_anchor():
+    """A matching Chub highlight may recover a re-timed local transcript for review."""
     selector = ClipSelector(min_duration=8, max_duration=180, max_clips=5)
     proposals = selector._select_with_campaign_hub_guidance(
         _b354_local_sentences(),
         {"campaign_hub_snapshot": _b354_snapshot(), "campaign_hub_account": "@renansantosmbl"},
     )
 
-    assert proposals == []
+    text_anchored = [item for item in proposals if item.get("alignment_method") == "text_anchor"]
+    assert len(text_anchored) == 2
+    assert all(item["campaign_hub"]["gates"]["alignment_gate"] == "review_required" for item in text_anchored)
+    assert all(item["review_required"] is True for item in text_anchored)
+    assert all(item["alignment_evidence"]["score"] >= ClipSelector.MIN_SEED_TEXT_ANCHOR_SCORE for item in text_anchored)
+
 
 
 def test_guided_proposals_recover_the_three_b354_highlights():
@@ -464,6 +478,23 @@ def test_selection_diagnostics_expose_stage_counts_without_changing_output():
     assert stages["final"]["campaign_hub_guided"] + stages["final"]["campaign_hub_block_evidence"] >= 1
     assert diagnostics["campaign_hub_publishable_guided_count"] == len(diagnostics["campaign_hub_publishable_candidates"])
     assert diagnostics["final_count"] == len(diagnostics["final_candidates"])
+
+
+def test_campaign_hub_discovery_diagnostic_preserves_explainable_evidence():
+    selector = ClipSelector(min_duration=8, max_duration=180, max_clips=5)
+    selector.select_clips(
+        {"segments": _sentences()},
+        settings={
+            "campaign_hub_snapshot": _snapshot(),
+            "campaign_hub_account": "@renansantosmbl",
+            "editorial_context": {},
+        },
+    )
+
+    item = selector.get_candidate_diagnostics()["campaign_hub_discovery_candidates"][0]
+    assert {"seed_id", "block_id", "highlight_id", "seed_text", "summary", "trigger_question", "gates"} <= set(item)
+    assert "risk_flags" in item
+    assert "alignment_method" in item
 
 
 def test_renan_first_excludes_guided_proposals_without_positive_speaker_evidence():

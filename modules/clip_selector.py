@@ -10,6 +10,7 @@ Selection priority in automatic mode:
 import json
 import re
 import math
+import unicodedata
 import requests
 from difflib import SequenceMatcher
 from collections import Counter
@@ -72,6 +73,13 @@ class ClipSelector:
     # anchored to the nearest one. Silences, applause and music leave real gaps in
     # a transcript; a mismatch of whole minutes means a timeline mismatch instead.
     MAX_SEED_ANCHOR_GAP_S = 60.0
+
+    # A distant Chub seed may be recovered by its highlight text, but only when
+    # enough non-trivial words agree. Text alignment is recall-only evidence and
+    # always remains reviewable; it never proves the speaker or approves a clip.
+    MIN_SEED_TEXT_ANCHOR_COVERAGE = 0.55
+    MIN_SEED_TEXT_ANCHOR_SCORE = 0.62
+    MAX_SEED_TEXT_ANCHOR_SENTENCES = 3
 
     # How far a clip's start may move forward to land on a sentence. Beyond this
     # the window was chosen wrong and trimming would hide the real problem.
@@ -471,6 +479,17 @@ class ClipSelector:
         """Return bounded Chub provenance for discovery and audit surfaces."""
         campaign_hub = clip.get("campaign_hub") if isinstance(clip, dict) else {}
         campaign_hub = campaign_hub if isinstance(campaign_hub, dict) else {}
+        gates = campaign_hub.get("gates") if isinstance(campaign_hub.get("gates"), dict) else {}
+        evidence = campaign_hub.get("alignment_evidence")
+        if isinstance(evidence, dict):
+            evidence = {
+                "coverage": evidence.get("coverage"),
+                "sequence": evidence.get("sequence"),
+                "score": evidence.get("score"),
+                "matched_words": list(evidence.get("matched_words") or [])[:20],
+            }
+        else:
+            evidence = None
         return {
             "seed_id": campaign_hub.get("seed_id"),
             "block_id": campaign_hub.get("block_id"),
@@ -479,8 +498,21 @@ class ClipSelector:
             "end": round(float(clip.get("end", 0) or 0), 3),
             "duration": round(float(clip.get("duration", 0) or 0), 3),
             "source_kind": campaign_hub.get("source_kind"),
+            "alignment_method": clip.get("alignment_method") or campaign_hub.get("alignment_method"),
+            "alignment_evidence": evidence,
+            "seed_text": str(campaign_hub.get("seed_text") or "")[:320],
+            "summary": str(campaign_hub.get("summary") or "")[:500],
+            "trigger_question": str(campaign_hub.get("trigger_question") or "")[:320],
+            "topics": list(campaign_hub.get("topics") or [])[:20],
             "renan_speaking": campaign_hub.get("renan_speaking"),
             "speaker_gate": campaign_hub.get("speaker_gate"),
+            "confidence": campaign_hub.get("confidence"),
+            "density_rank": campaign_hub.get("density_rank"),
+            "self_contained_rank": campaign_hub.get("self_contained_rank"),
+            "trust_tier": campaign_hub.get("trust_tier"),
+            "risk_flags": list(campaign_hub.get("risk_flags") or [])[:20],
+            "gate_warnings": list(campaign_hub.get("gate_warnings") or [])[:20],
+            "gates": gates,
             "review_required": bool(clip.get("review_required")),
             "publication_status": publication_status,
         }
@@ -2633,6 +2665,70 @@ Retorne APENAS o JSON.
                 return duration
         return None
 
+    @classmethod
+    def _find_seed_text_anchor(cls, sentences, seed):
+        """Find a conservative local sentence window for a distant Chub seed.
+
+        A timestamp is authoritative only when it overlaps the local transcript or
+        falls inside a short silence. When the source is a downloaded block or a
+        re-timed copy, the highlight text can still identify the same moment. This
+        method deliberately returns an auditable *review* anchor, never a hard
+        approval or speaker assertion.
+        """
+        seed_text = " ".join(str(seed.get("seed_text") or "").split())
+        if len(seed_text) < 18 or not sentences:
+            return None
+
+        stop_words = {
+            "a", "as", "ao", "aos", "com", "da", "das", "de", "do", "dos", "e",
+            "em", "esse", "essa", "isso", "na", "nas", "no", "nos", "o", "os",
+            "por", "que", "se", "sem", "um", "uma", "uns", "umas", "para",
+        }
+
+        def normalize(value):
+            decomposed = unicodedata.normalize("NFKD", str(value or "").lower())
+            plain = "".join(char for char in decomposed if not unicodedata.combining(char))
+            return re.sub(r"[^a-z0-9à-ÿ-]+", " ", plain).strip()
+
+        def words(value):
+            return {
+                word for word in re.findall(r"[a-z0-9à-ÿ-]{3,}", normalize(value))
+                if word not in stop_words
+            }
+
+        seed_words = words(seed_text)
+        if len(seed_words) < 3:
+            return None
+        normalized_seed = normalize(seed_text)
+        best = None
+        max_width = min(cls.MAX_SEED_TEXT_ANCHOR_SENTENCES, len(sentences))
+        for start_index in range(len(sentences)):
+            for width in range(1, max_width + 1):
+                end_index = start_index + width - 1
+                if end_index >= len(sentences):
+                    break
+                text = " ".join(str(item.get("text") or "").strip() for item in sentences[start_index:end_index + 1]).strip()
+                local_words = words(text)
+                coverage = len(seed_words & local_words) / max(1, len(seed_words))
+                if coverage < cls.MIN_SEED_TEXT_ANCHOR_COVERAGE:
+                    continue
+                sequence = SequenceMatcher(None, normalized_seed, normalize(text)).ratio()
+                score = 0.70 * coverage + 0.30 * sequence
+                if score < cls.MIN_SEED_TEXT_ANCHOR_SCORE:
+                    continue
+                candidate = {
+                    "start_index": start_index,
+                    "end_index": end_index,
+                    "coverage": round(coverage, 3),
+                    "sequence": round(sequence, 3),
+                    "score": round(score, 3),
+                    "matched_words": sorted(seed_words & local_words)[:20],
+                }
+                tie_break = (score, coverage, -abs(len(local_words) - len(seed_words)), -start_index)
+                if best is None or tie_break > best[0]:
+                    best = (tie_break, candidate)
+        return best[1] if best else None
+
     def _build_campaign_hub_proposal(self, sentences, seed):
         """Expand one temporal/semantic seed to the smallest complete local window."""
         if not seed or not sentences:
@@ -2644,26 +2740,35 @@ Retorne APENAS o JSON.
             if float(sentence.get("end", 0) or 0) > seed_start
             and float(sentence.get("start", 0) or 0) < seed_end
         ]
+        alignment_method = "temporal_overlap"
+        alignment_evidence = None
         if not overlapping:
-            nearest = min(
-                range(len(sentences)),
-                key=lambda index: abs(float(sentences[index].get("start", 0) or 0) - seed_start),
-            )
-            # A seed landing in a short silence or just past the last sentence is
-            # still the same moment, so the nearest sentence is a fair anchor. A
-            # seed that misses the transcript by minutes is not: it means the seed
-            # and the transcript are on different timelines, and snapping it would
-            # publish an unrelated window carrying Campaign Hub provenance. Every
-            # such seed would also collapse onto the same edge sentence, turning
-            # distinct highlights into duplicate proposals.
-            gap = max(
-                float(sentences[nearest].get("start", 0) or 0) - seed_end,
-                seed_start - float(sentences[nearest].get("end", 0) or 0),
-                0.0,
-            )
-            if gap > self.MAX_SEED_ANCHOR_GAP_S:
-                return None
-            overlapping = [nearest]
+            text_anchor = self._find_seed_text_anchor(sentences, seed)
+            if text_anchor:
+                overlapping = [text_anchor["start_index"], text_anchor["end_index"]]
+                alignment_method = "text_anchor"
+                alignment_evidence = text_anchor
+            else:
+                nearest = min(
+                    range(len(sentences)),
+                    key=lambda index: abs(float(sentences[index].get("start", 0) or 0) - seed_start),
+                )
+                # A seed landing in a short silence or just past the last sentence is
+                # still the same moment, so the nearest sentence is a fair anchor. A
+                # seed that misses the transcript by minutes is not: it means the seed
+                # and the transcript are on different timelines, and snapping it would
+                # publish an unrelated window carrying Campaign Hub provenance. Every
+                # such seed would also collapse onto the same edge sentence, turning
+                # distinct highlights into duplicate proposals.
+                gap = max(
+                    float(sentences[nearest].get("start", 0) or 0) - seed_end,
+                    seed_start - float(sentences[nearest].get("end", 0) or 0),
+                    0.0,
+                )
+                if gap > self.MAX_SEED_ANCHOR_GAP_S:
+                    return None
+                overlapping = [nearest]
+                alignment_method = "nearest_sentence"
         start_index = min(overlapping)
         end_index = max(overlapping)
 
@@ -2733,6 +2838,7 @@ Retorne APENAS o JSON.
         gates = {
             "context_complete": bool(flags.get("context_complete")),
             "payoff_complete": bool(flags.get("payoff_complete")),
+            "alignment_gate": "review_required" if alignment_method == "text_anchor" else "pass",
             "speaker_gate": speaker_gate,
             "timing_gate": "review_required" if metadata.get("timing_ambiguous") else "pass",
             "risk_gate": "review_required" if seed.get("risk_flags") else "pass",
@@ -2758,6 +2864,7 @@ Retorne APENAS o JSON.
         title = str(seed.get("title") or "").strip() or self._generate_simple_title(text)
         reason_parts = [
             f"seed {seed.get('source_kind', 'Campaign Hub')} {seed.get('seed_id')}",
+            "alinhamento textual conservador; revisão obrigatória" if alignment_method == "text_anchor" else "alinhamento temporal/local",
             "janela expandida até contexto e payoff" if flags.get("context_complete") and flags.get("payoff_complete") else "janela requer revisão de completude",
         ]
         return {
@@ -2777,6 +2884,8 @@ Retorne APENAS o JSON.
                 "energy": "B",
             },
             "source": "campaign_hub_guided",
+            "alignment_method": alignment_method,
+            "alignment_evidence": alignment_evidence,
             "duration_preference": self._duration_label(duration, {"flow": "A" if flags.get("context_complete") else "B"}),
             "review_required": review_required,
             "campaign_hub": {
@@ -2805,11 +2914,16 @@ Retorne APENAS o JSON.
                 "risk_flags": seed.get("risk_flags") or [],
                 "gate_warnings": list(dict.fromkeys(gate_warnings)),
                 "gates": gates,
+                "alignment_method": alignment_method,
+                "alignment_evidence": alignment_evidence,
                 "review_required": review_required,
                 "provenance": seed.get("provenance") or {},
             },
             "technical_gate_status": "review" if review_required else "pass",
-            "technical_gate_reasons": list(dict.fromkeys(gate_warnings)),
+            "technical_gate_reasons": list(dict.fromkeys(
+                gate_warnings
+                + (["alinhamento textual exige conferência do intervalo"] if alignment_method == "text_anchor" else [])
+            )),
         }
 
     def _prepare_context_matching(self, user_context):

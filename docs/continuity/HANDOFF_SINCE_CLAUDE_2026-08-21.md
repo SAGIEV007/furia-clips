@@ -10,12 +10,12 @@ Este documento registra tudo que foi alterado depois do ponto de retomada identi
 | --- | --- |
 | Repositório | `SAGIEV007/furia-clips` |
 | Branch | `claude/repo-access-commits-imgjmk` |
-| Versão | `6.21` |
-| HEAD local/remoto | `042df18` — fechamento documental da 6.21 publicado; funcional: `ce8dd98` |
+| Versão | `6.22` local; publicação pendente nesta etapa |
+| HEAD local/remoto | `042df18` publicado antes do ciclo 38; 6.22 local ainda sem commit |
 | Último commit funcional | `ce8dd98` — `feat: observabilidade estruturada com diagnóstico copiável (6.21)` |
 | Checkout | Com atualização documental local para registrar o hash publicado |
 | Branch principal | Não alterada |
-| Suíte completa | 573 aprovados, 4 ignorados |
+| Suíte completa | 576 aprovados, 4 ignorados |
 | Asset BlazeFace | Usado temporariamente para teste, conferido e removido |
 
 ## Alterações implementadas
@@ -70,11 +70,21 @@ A 6.21 não altera ranking, pesos Chub, gates Renan-first, contexto editorial ou
 
 `static/js/app.js` mantém `consoleHistory`, adiciona `consoleEvents`, captura `window.error` e `unhandledrejection`, busca o diagnóstico terminal automaticamente e copia um objeto `ui-diagnostic-v1`. `templates/index.html` renomeia o botão para **Copiar diagnóstico**. Regressões novas cobrem JobManager, rotas HTTP, retenção, `note()`, privacidade estrutural e integridade do frontend.
 
-A validação final da rodada terminou com **573 aprovados e 4 ignorados**, além de `py_compile`, `node --check` e `git diff --check`. O modelo BlazeFace foi baixado apenas para a suíte, conferido pelo hash conhecido e removido. O relatório completo está em [`CYCLE_37_REPORT_2026-08-21.md`](CYCLE_37_REPORT_2026-08-21.md).
+A validação final da rodada 6.21 terminou com **573 aprovados e 4 ignorados**, além de `py_compile`, `node --check` e `git diff --check`. O modelo BlazeFace foi baixado apenas para a suíte, conferido pelo hash conhecido e removido. O relatório completo está em [`CYCLE_37_REPORT_2026-08-21.md`](CYCLE_37_REPORT_2026-08-21.md).
 
-O que ainda não foi confirmado é a cobertura em uma operação real: após a publicação, executar uma faixa curta, copiar o diagnóstico e verificar se ingestão, transcrição, contexto, ranking, render, fallback e cancelamento aparecem sem pedir arquivos auxiliares. Também será necessária uma auditoria de mensagens legadas que possam conter pequenos previews de texto.
+### 5. Release 6.22 — pesquisa MCP/Chub e ancoragem textual
 
-### 5. Fechamentos documentais
+O ciclo 38 auditou a fundação local de Campaign Hub, a memória offline, o guidance, o benchmark e as capacidades read-only do MCP. A conclusão foi que o MCP deve ser usado como fronteira de aquisição/evidência e não como chamada por candidato. Um futuro sync deve buscar dados paginados, sanitizar, hashear e instalar um snapshot local atômico; o job de corte continua usando uma versão congelada.
+
+A implementação adicionou `ClipSelector._find_seed_text_anchor()`. Quando a seed Chub não sobrepõe a timeline local, o método procura até três frases com normalização Unicode, cobertura lexical mínima `0.55` e score mínimo `0.62`. A proposta preserva a proveniência e recebe `alignment_method=text_anchor`, `alignment_evidence` e `alignment_gate=review_required`. Sem correspondência suficiente, nenhuma frase distante é inventada como destino.
+
+As fichas de discovery Chub agora carregam seed, bloco, highlight, resumo, pergunta, tópicos, ranks, tier, riscos, gates e evidência textual em limites seguros. Foram adicionadas regressões de recuperação válida, rejeição de falso alinhamento e diagnóstico explicável. A suíte completa da 6.22 terminou com **576 aprovados e 4 ignorados**; o BlazeFace foi temporário e removido. Relatório em [`CYCLE_38_REPORT_2026-08-21.md`](CYCLE_38_REPORT_2026-08-21.md), pesquisa em [`RESEARCH_MCP_CHUB_2026-08-21.md`](RESEARCH_MCP_CHUB_2026-08-21.md) e desenho em [`CYCLE_38_DESIGN_MCP_CHUB_2026-08-21.md`](CYCLE_38_DESIGN_MCP_CHUB_2026-08-21.md).
+
+A 6.22 **ainda não prova ganho de recall em live real**, não implementa cliente MCP remoto no Furia e não altera pesos do ranking. O próximo ciclo deve executar uma faixa curta pela interface, copiar `ui-diagnostic-v1` e comparar baseline temporal versus `text_anchor` em benchmark reproduzível.
+
+O que ainda não foi confirmado é a cobertura em uma operação real: executar uma faixa curta, copiar o diagnóstico e verificar se ingestão, transcrição, contexto, ranking, render, fallback e cancelamento aparecem sem pedir arquivos auxiliares. Também será necessária uma auditoria de mensagens legadas que possam conter pequenos previews de texto.
+
+### 6. Fechamentos documentais
 
 Os commits `32b2c53` e `94b8c56` fecharam `PROJECT_STATE.md` com os hashes reais publicados de 6.18 e 6.19. O commit `6d88714` publicou a implementação funcional da 6.20. O commit `ce8dd98` publicou a implementação funcional da 6.21 e `042df18` publicou o fechamento documental, ambos na branch de trabalho remota.
 
@@ -117,4 +127,4 @@ GDELT foi registrado como fonte de descoberta recente de artigos, temas, idiomas
 
 ## Arquivos para a próxima IA
 
-Ler primeiro `START_HERE.md`, `PROJECT_STATE.md`, este relatório, `CYCLE_37_REPORT_2026-08-21.md`, `CYCLE_36_REPORT_2026-08-21.md`, `CUTTING_AUDIT_2026-08-21.md`, `CUTTING_PRECISION_PLAN_2026-08-21.md`, `FUTURE_PLATFORM_2026-08-21.md`, `NEXT_CYCLE.md`, `DECISIONS.md`, `modules/job_manager.py`, `app.py`, `static/js/app.js`, `tests/test_job_manager.py`, `tests/test_app_smoke.py` e `IDEAS_BACKLOG.md`. Confirmar a branch antes de editar e manter a branch principal intocada.
+Ler primeiro `START_HERE.md`, `PROJECT_STATE.md`, este relatório, `CYCLE_38_REPORT_2026-08-21.md`, `CYCLE_38_DESIGN_MCP_CHUB_2026-08-21.md`, `RESEARCH_MCP_CHUB_2026-08-21.md`, `CYCLE_37_REPORT_2026-08-21.md`, `CYCLE_36_REPORT_2026-08-21.md`, `CUTTING_AUDIT_2026-08-21.md`, `CUTTING_PRECISION_PLAN_2026-08-21.md`, `FUTURE_PLATFORM_2026-08-21.md`, `NEXT_CYCLE.md`, `DECISIONS.md`, `modules/job_manager.py`, `modules/clip_selector.py`, `app.py`, `static/js/app.js`, `tests/test_job_manager.py`, `tests/test_campaign_hub_guidance.py`, `tests/test_app_smoke.py` e `IDEAS_BACKLOG.md`. Confirmar a branch antes de editar e manter a branch principal intocada.

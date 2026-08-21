@@ -8,9 +8,9 @@
 | --- | --- |
 | Projeto | Furia Clips |
 | Repositório | `SAGIEV007/furia-clips` |
-| Versão pública atual | `6.21` |
+| Versão pública atual | `6.22` local; publicação pendente nesta etapa |
 | Última release funcional anterior | `6.20` |
-| Natureza da release atual | Observabilidade estruturada de jobs, breadcrumbs persistentes, diagnóstico copiável e captura de erros do frontend |
+| Natureza da release atual | Recuperação textual conservadora de seeds Campaign Hub, evidência de alinhamento e pesquisa MCP/Chub; observabilidade 6.21 preservada |
 | Fonte da versão | [`VERSION`](../../VERSION) |
 | Branch de trabalho | `claude/repo-access-commits-imgjmk` |
 | Última publicação conhecida | `042df18` — `docs: fechar continuidade da release 6.21` (funcional: `ce8dd98`) |
@@ -22,7 +22,7 @@
 | Commit funcional 3.1 | `a170aab` — `feat: entregar todo candidato com contexto, locutor e veredito de revisão (3.1)` |
 | Última atualização | 2026-08-21 |
 | Baseline editorial | Duas fontes medidas na 3.1. `3XJfcqn56Rw` (live 98 min): recall `50/66`, cobertura `25/27`. `j9FRVbb8CAI` (entrevista 31 min): recall `30/34`, cobertura `11/11`. Precisão `1.00`, zero fora de bloco e zero desperdício **nas duas**. O ciclo 6.14 mediu `3/30` identidades disponíveis no Renan-first com snapshot rico, contra `0/30` sem snapshot. |
-| Suíte no checkout | 573 aprovados, 4 ignorados após provisionamento temporário do asset BlazeFace; o asset foi removido após a validação da 6.21 |
+| Suíte no checkout | 576 aprovados, 4 ignorados após provisionamento temporário do asset BlazeFace; o asset foi removido após a validação da 6.22 |
 | Objetivo | Gerar cortes Renan Santos/MBL concisos, autossuficientes, contextualizados e editorialmente úteis |
 
 A branch de trabalho deve ser confirmada no checkout real. O GitHub é a fonte da revisão técnica; o commit funcional publicado é `ce8dd98` e o fechamento documental publicado é `042df18`. Antes de alterar qualquer arquivo, preserve mudanças locais e confirme `git status`.
@@ -35,9 +35,19 @@ O ciclo 31 corrigiu o scorer para receber explicitamente o benchmark e instrumen
 
 O ciclo 32 separou a descoberta da publicação. Na mesma fonte, o Chub produziu 30 propostas de descoberta no Renan-first, 6 foram promovidas ao pool guiado e 24 permaneceram em `speaker_gate_review`; o recall publicável ficou em `7/66`, sem alteração do ranking. A interface agora mostra essa diferença, e os diagnósticos persistidos distinguem descoberta, propostas Chub promovidas e candidatos finais gerais.
 
-O ciclo 33 adicionou processamento parcial por intervalo. O ciclo 34 concentrou-se exclusivamente em UX, tornando o estado do job visível sem rolagem. O ciclo 35 corrigiu a corrida de cancelamento entre a fila e o worker, e tornou a resposta de cancelamento de barra superior verificável. O ciclo 36 implementou identidade persistente de faixa, proveniência e digest de transcrição, contrato narrativo de contexto, gate final de locutor e fidelidade de headlines. O ciclo 37 adicionou eventos estruturados persistentes, retenção, breadcrumbs, endpoints de diagnóstico, captura de erros globais e cópia do resumo completo pela interface, sem alterar o motor editorial. A próxima hipótese única continua sendo medir benchmark editorial por faixa, transcript e formato; a observabilidade serve para tornar essa medição reproduzível.
+O ciclo 33 adicionou processamento parcial por intervalo. O ciclo 34 concentrou-se exclusivamente em UX, tornando o estado do job visível sem rolagem. O ciclo 35 corrigiu a corrida de cancelamento entre a fila e o worker, e tornou a resposta de cancelamento de barra superior verificável. O ciclo 36 implementou identidade persistente de faixa, proveniência e digest de transcrição, contrato narrativo de contexto, gate final de locutor e fidelidade de headlines. O ciclo 37 adicionou eventos estruturados persistentes, retenção, breadcrumbs, endpoints de diagnóstico, captura de erros globais e cópia do resumo completo pela interface, sem alterar o motor editorial. O ciclo 38 pesquisou o MCP/Chub e adicionou recuperação textual conservadora de seeds com timeline incompatível, sempre em revisão. A próxima hipótese única é medir baseline temporal versus `text_anchor` em benchmark real; a observabilidade serve para tornar essa medição reproduzível.
 
 As prioridades editoriais Renan-first continuam preservadas: contexto e payoff antes de hook, gates de locutor antes do ranking, Campaign Hub como memória/seed e não como aprovação, e uma hipótese principal por ciclo.
+
+## Release atual — 6.22 local
+
+A 6.22 é o primeiro ciclo dedicado à pesquisa aprofundada do MCP/Chub depois da observabilidade. A pesquisa confirmou que o MCP é útil como fronteira read-only para pauta, blocos, transcrição paginada, estatísticas e recursos versionados, mas o job normal deve continuar offline-first. A atualização futura deve instalar snapshot sanitizado, hasheado e versionado; não deve chamar o serviço a cada candidato nem colocar credenciais no frontend ou no Git.
+
+`modules/clip_selector.py` agora tenta `text_anchor` somente quando uma seed Chub não sobrepõe a timeline local. A procura é limitada a até três frases, com normalização Unicode, cobertura lexical mínima de `0.55` e score combinado mínimo de `0.62`. O resultado conserva intervalo original, método, score, palavras coincidentes e recebe `alignment_gate=review_required`; texto não prova locutor nem aprova corte.
+
+O diagnóstico de discovery Chub passou a guardar, de forma limitada, seed, block, highlight, resumo, pergunta, tópicos, confiança, ranks, tier, riscos, gates e evidência de alinhamento. Foram adicionadas regressões para correspondência textual válida, ausência de correspondência e ficha explicável. A suíte completa terminou com **576 aprovados e 4 ignorados**; o BlazeFace foi temporário e removido.
+
+A 6.22 ainda não prova ganho editorial em uma live real, não implementa cliente MCP remoto dentro do Furia e não altera pesos de ranking. O benchmark seguinte deve comparar baseline temporal versus `text_anchor`, medir falsos alinhamentos e depois testar uma faixa real pela interface usando o diagnóstico copiável. Relatório em [`CYCLE_38_REPORT_2026-08-21.md`](CYCLE_38_REPORT_2026-08-21.md); desenho em [`CYCLE_38_DESIGN_MCP_CHUB_2026-08-21.md`](CYCLE_38_DESIGN_MCP_CHUB_2026-08-21.md).
 
 ## Release atual — 6.21
 
