@@ -3,6 +3,7 @@
 **Data:** 2026-08-21
 **Branch:** `claude/repo-access-commits-imgjmk`
 **Versão do ciclo:** `6.23`
+**Publicação:** funcional `ee2cc6d`; fechamento documental `7950346`.
 **Hipótese:** se as bordas finais puderem ser refinadas por timestamps de palavra, sem deslocamento amplo, e se o resultado separar prontidão editorial de score, o Furia reduzirá cortes com seams imprecisos e deixará claro quais candidatos ainda exigem revisão, sem alterar silenciosamente o ranking legado.
 
 ## Pesquisa realizada
@@ -30,6 +31,10 @@ O objetivo é impedir que um candidato com hook alto seja confundido com um cort
 A suíte focada de precisão terminou com **32 aprovados**. A suíte completa terminou com **582 aprovados e 4 ignorados**. Também passaram `py_compile` para os módulos alterados e `git diff --check`. O modelo BlazeFace foi baixado apenas para a suíte, validado pelo hash esperado e removido depois; nenhum MP4, WAV, SRT, banco SQLite, token ou credencial foi incluído na release.
 
 As novas regressões cobrem: refinamento de ambas as bordas; preservação de candidato mal localizado; no-op sem timestamps por palavra; candidato pronto; candidato em revisão por contexto; bloqueio por sobreposição; e preservação do campo de score histórico.
+
+## Publicação e continuidade
+
+O commit funcional `ee2cc6d` e o fechamento documental `7950346` estão publicados em `origin/claude/repo-access-commits-imgjmk`. O checkout final foi confirmado limpo, com branch local e remoto alinhados. A branch principal não foi alterada.
 
 ## Limites honestos
 
