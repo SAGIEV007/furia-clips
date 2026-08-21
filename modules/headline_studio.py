@@ -644,6 +644,13 @@ def generate_artwork_copy(
         "excerpt": _compact(text, 280),
     }
     result["mini_context"] = context
+    result["ai_refinement"] = {
+        "requested": ai_backend is not None,
+        "provider": str(getattr(ai_backend, "backend", "") or "") if ai_backend is not None else "",
+        "used": False,
+        "status": "not_requested" if ai_backend is None else "pending",
+        "message": "Refinamento local determinístico; nenhuma IA foi solicitada." if ai_backend is None else "Aguardando resposta do provedor configurado.",
+    }
 
     if ai_backend is not None:
         if emit_progress:
@@ -683,14 +690,36 @@ def generate_artwork_copy(
             "No máximo 3 alternativas por formato. O destaque tem de aparecer dentro da frase."
         )
         try:
-            refined = _extract_json(ai_backend.generate(prompt, system, emit_progress))
+            raw_response = ai_backend.generate(prompt, system, emit_progress)
+            refined = _extract_json(raw_response)
             if refined:
+                before_source = result.get("generation_source")
                 result = _merge_ai_suggestions(
                     result, refined, source_text=f"{text} {context}", preferred_format=preferred
                 )
-        except Exception:
+                accepted = result.get("generation_source") != before_source
+                result["ai_refinement"] = {
+                    **result.get("ai_refinement", {}),
+                    "provider": str(getattr(ai_backend, "last_provider", "") or getattr(ai_backend, "backend", "")),
+                    "used": accepted,
+                    "status": "accepted" if accepted else "rejected_by_grounding",
+                    "message": "A resposta da IA foi aceita depois do filtro de fidelidade." if accepted else "A IA respondeu, mas nenhuma alternativa passou pelo filtro de fidelidade da transcrição.",
+                }
+            else:
+                result["ai_refinement"] = {
+                    **result.get("ai_refinement", {}),
+                    "provider": str(getattr(ai_backend, "last_provider", "") or getattr(ai_backend, "backend", "")),
+                    "status": "empty_or_invalid_response",
+                    "message": "O provedor não devolveu JSON utilizável; mantendo as opções locais.",
+                }
+        except Exception as exc:
             # Uma saída determinística e explicável é melhor que uma tela quebrada.
-            pass
+            result["ai_refinement"] = {
+                **result.get("ai_refinement", {}),
+                "provider": str(getattr(ai_backend, "last_provider", "") or getattr(ai_backend, "backend", "")),
+                "status": "error",
+                "message": f"O refinamento de IA falhou; mantendo as opções locais ({str(exc)[:160]}).",
+            }
     result["fidelity"] = _headline_fidelity_report(result.get("formats", {}), f"{text} {context}")
     result["generated_format"] = preferred if preferred in FORMAT_IDS else result.get("recommended_format", FORMAT_VERTICAL)
     return result

@@ -458,6 +458,7 @@ def build(
         return []
     from .headline_quote import pick_quotes
     from .interview_turns import is_interviewer_sentence
+    from .clip_selector import ClipSelector
 
     inteiro = " ".join(textos)
     termo, artigo = key_term(textos)
@@ -492,6 +493,42 @@ def build(
             mode="resumo", hook_alternatives=ganchos,
             start_s=unidade.get("start"), end_s=unidade.get("end"),
             score=95.0 - max(0, len(frase) - HEADLINE_IDEAL_CHARS) * 0.3,
+        ))
+
+    # Quando não há diarização, ainda assim é possível criar uma headline segura
+    # baseada no trecho: ela sai sem nome e sem verbo de atribuição. O comportamento
+    # anterior zerava a tela inteira porque as famílias ``summary`` e ``claim``
+    # exigiam um locutor confirmado. Isso transformava uma legenda útil, como a de
+    # uma live importada, em "nenhuma headline" mesmo quando havia afirmações fortes.
+    # Aqui a unidade é apenas limpa por subtração (muletas, gagueira e arranque falso)
+    # e permanece no contrato como ``resumo``. A ausência de locutor continua visível
+    # em ``speaker_unconfirmed`` no estúdio, portanto não há atribuição silenciosa.
+    from .headline_quote import _disqualify, transcript_is_punctuated
+    cased = ClipSelector._casing_is_meaningful(units)
+    has_pause_boundaries = any(
+        str(item.get("boundary_source") or "") == "pausa" for item in units
+    )
+    punctuated = transcript_is_punctuated(units) and not has_pause_boundaries
+    anonymous_units = pick_quotes(units, wanted=8, is_other_speaker=is_interviewer_sentence) if not punctuated else []
+    for unidade in anonymous_units:
+        bruto = str(unidade.text or "").strip()
+        if _disqualify(bruto, cased, punctuated):
+            continue
+        limpo = clean_for_artwork(bruto).rstrip(".!?").strip()
+        palavras = limpo.split()
+        # Legendas sem pontuação podem formar unidades de até 24 palavras. Não
+        # truncamos no meio de uma oração: aceitamos a unidade inteira quando ela
+        # cabe no limite de caracteres da arte e deixamos o layout quebrá-la em linhas.
+        if not (4 <= len(palavras) <= 24):
+            continue
+        frase = f"{limpo[0].upper() + limpo[1:]}."
+        if len(frase) > HEADLINE_MAX_CHARS:
+            continue
+        variacoes.append(Headline(
+            hook=ganchos[0], text=frase, emphasis=apply_emphasis(frase, termo),
+            mode="resumo", hook_alternatives=ganchos,
+            start_s=unidade.start_s, end_s=unidade.end_s,
+            score=84.0 - max(0, len(frase) - HEADLINE_IDEAL_CHARS) * 0.3,
         ))
 
     # A citação literal continua existindo, e agora como o que ela sempre foi:

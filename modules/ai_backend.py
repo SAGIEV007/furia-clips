@@ -5,18 +5,40 @@ import os
 
 class AIBackend:
     def __init__(self, backend="ollama", settings=None):
-        self.backend = backend
+        self.backend = str(backend or "ollama").strip().lower()
         self.settings = settings or {}
+        self.last_provider = ""
+        self.last_error = ""
 
     def generate(self, prompt, system_prompt="", emit_progress=None):
+        """Generate with the selected provider, resolving ``auto`` explicitly.
+
+        ``auto`` used to fall through to an empty fallback response, even when a
+        Gemini key was configured. That made the UI claim that AI refinement was
+        enabled while the headline studio silently kept the local suggestions.
+        The priority is now Gemini (when configured), then Ollama, then the
+        deterministic local fallback. Provider failures remain non-fatal and are
+        exposed through ``last_provider``/``last_error`` for diagnostics.
+        """
+        self.last_provider = ""
+        self.last_error = ""
+        if self.backend == "auto":
+            gemini_key = str(self.settings.get("gemini_api_key", "") or "").strip()
+            if gemini_key:
+                response = self._generate_gemini(prompt, system_prompt, emit_progress)
+                if response:
+                    return response
+            response = self._generate_ollama(prompt, system_prompt, emit_progress)
+            if response:
+                return response
+            return self._generate_fallback(prompt)
         if self.backend == "ollama":
             return self._generate_ollama(prompt, system_prompt, emit_progress)
-        elif self.backend == "claude":
+        if self.backend == "claude":
             return self._generate_claude(prompt, system_prompt, emit_progress)
-        elif self.backend == "gemini":
+        if self.backend == "gemini":
             return self._generate_gemini(prompt, system_prompt, emit_progress)
-        else:
-            return self._generate_fallback(prompt)
+        return self._generate_fallback(prompt)
 
     def _generate_ollama(self, prompt, system_prompt, emit_progress=None):
         url = self.settings.get("ollama_url", "http://localhost:11434")
@@ -39,12 +61,15 @@ class AIBackend:
             )
             response.raise_for_status()
             data = response.json()
+            self.last_provider = "ollama"
             return data.get("response", "")
-        except requests.exceptions.ConnectionError:
+        except requests.exceptions.ConnectionError as exc:
+            self.last_error = f"Ollama indisponível: {exc}"
             if emit_progress:
-                emit_progress("Ollama nao esta rodando. Usando gerador local basico.")
+                emit_progress("Ollama nao esta rodando. Usando o próximo provedor disponível.")
             return self._generate_fallback(prompt)
         except Exception as e:
+            self.last_error = f"Erro Ollama: {e}"
             if emit_progress:
                 emit_progress(f"Erro Ollama: {str(e)}")
             return self._generate_fallback(prompt)
@@ -68,8 +93,10 @@ class AIBackend:
                 system=system_prompt,
                 messages=[{"role": "user", "content": prompt}],
             )
+            self.last_provider = "claude"
             return message.content[0].text
         except Exception as e:
+            self.last_error = f"Erro Claude: {e}"
             if emit_progress:
                 emit_progress(f"Erro Claude: {str(e)}")
             return self._generate_fallback(prompt)
@@ -90,13 +117,16 @@ class AIBackend:
             model = genai.GenerativeModel("gemini-2.5-flash")
             full_prompt = f"{system_prompt}\n\n{prompt}" if system_prompt else prompt
             response = model.generate_content(full_prompt)
+            self.last_provider = "gemini"
             return response.text
         except Exception as e:
+            self.last_error = f"Erro Gemini: {e}"
             if emit_progress:
                 emit_progress(f"Erro Gemini: {str(e)}")
             return self._generate_fallback(prompt)
 
     def _generate_fallback(self, prompt):
+        self.last_provider = self.last_provider or "local"
         return ""
 
     def generate_seo_content(self, transcript, channel_context="", emit_progress=None):

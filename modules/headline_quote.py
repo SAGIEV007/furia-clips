@@ -301,7 +301,15 @@ def sentences_from_segments(segments: list[dict[str, Any]] | None) -> list[dict[
         return []
     from .clip_selector import ClipSelector
 
-    if not transcript_is_punctuated(segments):
+    # A função de densidade trata fontes curtas como "não julgadas" para não
+    # declarar qualidade a partir de poucas palavras. Para construir unidades,
+    # porém, vários segmentos sem qualquer pontuação ainda não oferecem uma
+    # fronteira de frase: usar o construtor de frases nesse caso cria uma única
+    # unidade sem marca de pausa e depois o pick_quotes exige um ponto que a fonte
+    # nunca poderia ter.
+    raw_text = " ".join(str(item.get("text") or "") for item in segments)
+    has_explicit_punctuation = bool(re.search(r"[.!?]", raw_text))
+    if not has_explicit_punctuation or not transcript_is_punctuated(segments):
         return units_from_pauses(segments)
     return ClipSelector()._build_sentences(segments)
 
@@ -479,7 +487,15 @@ def pick_quotes(
 
     ordenadas = list(sentences or [])
     cased = ClipSelector._casing_is_meaningful(ordenadas)
-    punctuated = transcript_is_punctuated(ordenadas)
+    # ``sentences_from_segments`` pode já ter convertido uma fonte sem
+    # pontuação em unidades delimitadas por pausa. Recalcular apenas pela
+    # densidade da lista convertida faz uma legenda curta parecer pontuada
+    # (por ter menos de 40 palavras) e recusa cada unidade por falta de ponto.
+    # A marca de fronteira é a evidência mais específica disponível.
+    has_pause_boundaries = any(
+        str(item.get("boundary_source") or "") == "pausa" for item in ordenadas
+    )
+    punctuated = transcript_is_punctuated(ordenadas) and not has_pause_boundaries
 
     marcados: list[Quote] = []
     for posicao, frase in enumerate(ordenadas):

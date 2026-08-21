@@ -29,6 +29,10 @@ SUPPORTED_COOKIE_BROWSERS = {"chrome", "chromium", "edge", "firefox", "brave", "
 def normalize_cookie_browser(value: str | None) -> str:
     """Normalize a local browser name without reading or storing its cookies."""
     normalized = str(value or "").strip().lower().replace(" ", "_").replace("-", "_")
+    # yt-dlp não suporta caminho customizado para o Opera no Windows nativamente se
+    # não estiver no default; mas se for string genérica ele tentará o default.
+    # O fallback seguro é manter apenas os nomes suportados e orientar o usuário
+    # a usar um browser mainstream se o custom falhar.
     aliases = {
         "": "",
         "none": "",
@@ -162,6 +166,12 @@ def _source_error(prefix: str, exc: Exception, *, cookie_browser: str = "") -> S
             "se persistir, baixe o MP4 no navegador autorizado e use Importar vídeo."
         )
         return SourceIngestError(f"{prefix}: HTTP 403 no stream. {action}")
+    if "could not find" in lowered and "cookies" in lowered:
+        action = (
+            f"O perfil do navegador {browser} não foi encontrado no seu computador. "
+            "Escolha outro navegador que você usa para acessar o YouTube (ex: Chrome ou Edge)."
+        )
+        return SourceIngestError(f"{prefix}: Banco de cookies não encontrado. {action}")
     return SourceIngestError(f"{prefix}: {detail}")
 
 
@@ -385,39 +395,96 @@ def download_public_video_interval(url: str, destination_path: str, start_s: flo
     target = Path(destination_path).expanduser().resolve()
     target.parent.mkdir(parents=True, exist_ok=True)
     
-    # We define a function that yt-dlp uses to know what ranges to download
     def _download_ranges(info_dict, ydl):
         return [{"start_time": start_s, "end_time": end_s}]
+
+    try:
+        height_limit = max(144, min(int(max_height or 1080), 1080))
+    except (TypeError, ValueError):
+        height_limit = 1080
 
     options = {
         **_common_yt_dlp_options(cookie_browser, user_agent),
         "outtmpl": str(target),
-        "format": f"bestvideo[height<={max_height}]+bestaudio/best[height<={max_height}]/best",
+        # Espelha a seleção robusta do download_public_video para separar streams
+        "format": f"bv*[height<={height_limit}]+ba/b[height<={height_limit}]/b",
+        "format_sort": [f"res:{height_limit}", "fps", "codec:h264", "size", "br", "asr"],
         "merge_output_format": "mp4",
         "download_ranges": _download_ranges,
-        "force_keyframes_at_cuts": True, # Ensure precise cuts
+        "force_keyframes_at_cuts": True,
         "quiet": True,
         "no_warnings": True,
+        "retries": max(1, min(int(retries or 3), 5)),
     }
     
-    # yt-dlp uses ffmpeg to do the partial download. We must ensure ffmpeg is available.
-    try:
-        with yt_dlp.YoutubeDL(options) as downloader:
-            info = downloader.extract_info(value, download=True)
-            # The actual file might have an extension added, though we forced mp4.
-            # prepare_filename usually returns the outtmpl we passed.
-            actual_path = downloader.prepare_filename(info)
-            if not os.path.isfile(actual_path):
-                raise SourceIngestError("O arquivo parcial não foi gerado.")
-                
-            return {
-                "path": actual_path,
-                "title": info.get("title", ""),
-                "duration": end_s - start_s,
-                "extractor": info.get("extractor", ""),
-            }
-    except Exception as exc:
-        raise _source_error(f"Falha ao baixar o trecho {start_s}-{end_s}s", exc, cookie_browser=cookie_browser) from exc
+    max_attempts = max(1, min(int(retries or 3), 5))
+    last_error = None
+    actual_path = None
+    info = {}
+    
+    for attempt in range(1, max_attempts + 1):
+        try:
+            if cancel_check:
+                cancel_check()
+            if attempt > 1 and progress:
+                progress({"status": "retry", "attempt": attempt, "max_attempts": max_attempts})
+            with yt_dlp.YoutubeDL(options) as downloader:
+                if cancel_check:
+                    cancel_check()
+                info = downloader.extract_info(value, download=True)
+                actual_path = Path(downloader.prepare_filename(info))
+                if actual_path.suffix.lower() != ".mp4":
+                    merged = actual_path.with_suffix(".mp4")
+                    if merged.exists():
+                        actual_path = merged
+            if cancel_check:
+                cancel_check()
+            if actual_path and actual_path.exists():
+                break
+        except OperationCancelled:
+            raise
+        except Exception as exc:
+            last_error = exc
+            if attempt < max_attempts:
+                deadline = time.monotonic() + min(2 ** (attempt - 1), 5)
+                while time.monotonic() < deadline:
+                    if cancel_check:
+                        cancel_check()
+                    time.sleep(min(0.5, deadline - time.monotonic()))
+
+    if not actual_path or not actual_path.exists():
+        # Fallback de busca na pasta caso o downloader falhe ao retornar o nome
+        candidates = sorted(target.parent.glob(f"*{info.get('id', 'NENHUM')}*"), key=lambda p: p.stat().st_mtime, reverse=True)
+        if candidates:
+            actual_path = candidates[0]
+
+    if last_error is not None and (not actual_path or not actual_path.exists()):
+        raise _source_error(f"Falha ao baixar o trecho {start_s}-{end_s}s", last_error, cookie_browser=cookie_browser) from last_error
+
+    if not actual_path or not actual_path.exists() or not actual_path.is_file():
+        raise SourceIngestError("O download parcial terminou sem produzir um arquivo de vídeo.")
+
+    validation = validate_media(
+        str(actual_path),
+        expected_duration=end_s - start_s,
+        duration_tolerance=10.0,  # Trechos podem ter imprecisão por causa dos keyframes
+        require_audio=True,
+        require_video=True,
+    )
+    if not validation.valid:
+        try:
+            actual_path.unlink(missing_ok=True)
+        except OSError:
+            pass
+        detail = "; ".join(validation.errors)
+        raise SourceIngestError(f"O trecho baixado não passou na validação de mídia: {detail}")
+
+    return {
+        "path": str(actual_path),
+        "title": info.get("title", ""),
+        "duration": end_s - start_s,
+        "extractor": info.get("extractor", ""),
+    }
 
 
 def download_public_audio(url: str, destination: str, progress=None, retries: int = 3, cancel_check=None, cookie_browser: str = "", user_agent: str = "") -> dict:

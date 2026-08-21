@@ -2159,7 +2159,8 @@ function deselectVideo() {
         </div>`;
 
     // Hide preview
-    document.getElementById("videoPreviewSection").style.display = "none";
+    const previewSection = document.getElementById("videoPreviewSection");
+    if (previewSection) previewSection.style.display = "none";
 }
 
 // ─── File Upload ───
@@ -2313,7 +2314,8 @@ const mediaSection = document.getElementById("mediaLibrarySection");
 // ─── Close Preview ───
 
 document.getElementById("btnClosePreview").addEventListener("click", () => {
-    document.getElementById("videoPreviewSection").style.display = "none";
+    const previewSection = document.getElementById("videoPreviewSection");
+    if (previewSection) previewSection.style.display = "none";
 });
 
 // ─── Actions ───
@@ -4059,7 +4061,14 @@ function renderHeadlineStudioResults(studio, options = {}) {
     const learningLabel = learning.applied
         ? `aprendizado aplicado (${Number(learning.selected_count || 0)} escolha(s))`
         : "aprendizado em coleta";
+    const aiRefinement = studio.ai_refinement || {};
+    const aiStatus = String(aiRefinement.status || "");
+    const aiProvider = String(aiRefinement.provider || "").trim();
+    const aiReviewChip = aiRefinement.requested
+        ? `<span class="artwork-review-chip ${aiStatus === "accepted" ? "safe" : "warning"}"><span class="material-icons-round">${aiStatus === "accepted" ? "auto_awesome" : "info"}</span>${escapeHtml(aiRefinement.message || (aiProvider ? `IA configurada · ${aiProvider}` : "IA solicitada"))}</span>`
+        : "";
     const reviewChips = [
+        aiReviewChip,
         flags.transcript_ends_incomplete ? '<span class="artwork-review-chip warning"><span class="material-icons-round">pending</span>final da transcrição incompleto</span>' : "",
         flags.needs_fact_review ? '<span class="artwork-review-chip"><span class="material-icons-round">fact_check</span>revisar afirmação factual</span>' : "",
         flags.needs_legal_review ? '<span class="artwork-review-chip legal"><span class="material-icons-round">gavel</span>revisar formulação jurídica</span>' : "",
@@ -4083,7 +4092,7 @@ function renderHeadlineStudioResults(studio, options = {}) {
     // branco e a mensagem verde de sucesso — e `node --check` passando, porque o
     // código continuava válido. Só não fazia nada.
     container.innerHTML = `<div class="headline-studio-result-summary">
-<div><span class="artwork-format-kicker">LEITURA EDITORIAL</span><h4>${escapeHtml(artworkFormatLabels[recommended] || recommended)}</h4><p>${escapeHtml(studio.recommendation_reason || "")}</p></div><div class="artwork-analysis-metrics"><span>Tema: <strong>${escapeHtml(studio.topic || "geral")}</strong></span><span>Contexto: <strong>${Math.round(Number(studio.analysis?.context_completeness || 0))}/100</strong></span><span>Fonte: <strong>${studio.generation_source === "ai_refined" ? "IA + regras" : "regras editoriais"}</strong></span><span>Preferência: <strong>${escapeHtml(learningLabel)}</strong></span></div></div><div class="artwork-review-chips">${reviewChips || '<span class="artwork-review-chip safe"><span class="material-icons-round">verified</span>sem alerta lexical automático</span>'}</div><div class="artwork-format-results">${formatCards}</div>`;
+<div><span class="artwork-format-kicker">LEITURA EDITORIAL</span><h4>${escapeHtml(artworkFormatLabels[recommended] || recommended)}</h4><p>${escapeHtml(studio.recommendation_reason || "")}</p></div><div class="artwork-analysis-metrics"><span>Tema: <strong>${escapeHtml(studio.topic || "geral")}</strong></span><span>Contexto: <strong>${Math.round(Number(studio.analysis?.context_completeness || 0))}/100</strong></span><span>Fonte: <strong>${studio.generation_source === "ai_refined" ? "IA + regras" : "regras editoriais"}</strong>${aiProvider ? ` · ${escapeHtml(aiProvider)}` : ""}</span><span>Preferência: <strong>${escapeHtml(learningLabel)}</strong></span></div></div><div class="artwork-review-chips">${reviewChips || '<span class="artwork-review-chip safe"><span class="material-icons-round">verified</span>sem alerta lexical automático</span>'}</div><div class="artwork-format-results">${formatCards}</div>`;
     container.style.display = "block";
     container.querySelectorAll(".artwork-copy-button").forEach(button => {
         button.addEventListener("click", () => copyToClipboard(decodeURIComponent(button.dataset.artworkCopy || "")));
