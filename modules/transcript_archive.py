@@ -148,6 +148,8 @@ def archive_transcription(
         str(source_video or "").replace("\\", "/").lower(),
         str(source or ""),
         str(project_id or ""),
+        str(payload.get("processing_identity") or ""),
+        str(payload.get("transcript_digest") or ""),
         str(len(segments)),
         str(payload.get("full_text", ""))[:500],
     ])
@@ -164,6 +166,10 @@ def archive_transcription(
         "source_artifact": str(source_artifact or ""),
         "project_id": project_id,
         "language": payload.get("language", "pt"),
+        "processing_identity": str(payload.get("processing_identity") or "")[:80],
+        "processing_interval": payload.get("processing_interval") if isinstance(payload.get("processing_interval"), dict) else {},
+        "transcript_digest": str(payload.get("transcript_digest") or "")[:64],
+        "provenance": payload.get("provenance") if isinstance(payload.get("provenance"), dict) else {},
         "quality": quality,
     }
     full_text = payload.get("full_text") or " ".join(_segment_text(item) for item in segments).strip()

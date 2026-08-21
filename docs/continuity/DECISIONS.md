@@ -122,3 +122,11 @@ A decisão vale para a 6.18 e não autoriza mudanças no ranking, nos gates Rena
 Um job `queued` deve ser cancelado terminalmente antes de qualquer worker executar seu alvo. A transição inicial para `running` precisa ser condicionada ao estado `queued`, e o worker deve verificar cancelamento antes do primeiro trabalho externo. Jobs já iniciados permanecem cooperativos em `cancel_requested` até uma etapa segura.
 
 A interface não pode afirmar que o cancelamento foi aceito sem validar a resposta do servidor. O botão deve evitar solicitações duplicadas, recuperar-se de erro e registrar uma falha acionável no console. Esta decisão não altera o ranking, o contexto, o Campaign Hub, a renderização ou os critérios editoriais.
+
+## D-031 — Identidade e proveniência antes da calibração
+
+Toda execução editorial deve ser identificável por fonte, faixa absoluta, versão do contrato e digest da transcrição. Essa identidade deve acompanhar projeto, fingerprints, transcrição, bundle, diagnóstico, benchmark e payload final; o caminho temporário nunca pode ser a identidade semântica da fonte.
+
+A proveniência deve registrar se a transcrição veio do editor, Whisper, legenda pública ou análise multimodal, além da cobertura e do tipo de entrada. O contrato narrativo deve expor setup, antecedente, pergunta, tese, payoff, locutor e motivos de revisão sem afirmar que a evidência lexical prova a verdade factual. Um gate de locutor confirmado como incompatível não pode chegar ao render Renan-first; um caso inconclusivo permanece revisável.
+
+Essa decisão permite benchmark por faixa, transcript e formato antes de alterar pesos do ranking. Não autoriza promoção automática de seeds Campaign Hub, alteração silenciosa do score, publicação externa ou integração remota nesta fase.

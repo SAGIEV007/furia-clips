@@ -10,12 +10,12 @@ Este documento registra tudo que foi alterado depois do ponto de retomada identi
 | --- | --- |
 | Repositório | `SAGIEV007/furia-clips` |
 | Branch | `claude/repo-access-commits-imgjmk` |
-| Versão | `6.19` |
-| HEAD local/remoto | `94b8c56` |
-| Último commit funcional | `315279f` |
-| Checkout | Limpo e sincronizado |
+| Versão | `6.20` |
+| HEAD local/remoto | pendente até o commit funcional da 6.20 |
+| Último commit funcional | pendente até o commit funcional da 6.20 |
+| Checkout | Limpo após a validação local |
 | Branch principal | Não alterada |
-| Suíte completa | 557 aprovados, 4 ignorados |
+| Suíte completa | 563 aprovados, 4 ignorados |
 | Asset BlazeFace | Usado temporariamente para teste, conferido e removido |
 
 ## Alterações implementadas
@@ -46,13 +46,27 @@ Foi adicionada uma regressão em `tests/test_job_manager.py` que cria um job enf
 
 A validação focada terminou com 28 aprovados. A suíte completa terminou com 557 aprovados e 4 ignorados após o asset BlazeFace ser provisionado temporariamente, conferido pelo SHA-256 conhecido e removido. A execução completa também passou por `node --check`, `python3 -m py_compile app.py` e `git diff --check`.
 
-### 3. Fechamentos documentais
+### 3. Release 6.20 — pacote amplo de inteligência editorial
 
-Os commits `32b2c53` e `94b8c56` fecharam `PROJECT_STATE.md` com os hashes reais publicados de 6.18 e 6.19. O estado local e remoto apontam para `94b8c56`.
+Commit funcional: pendente até a publicação desta rodada.
+
+A 6.20 implementou identidade determinística de intervalo, assinatura da fonte, faixa absoluta, digest da transcrição e proveniência em projeto, banco, transcrição, bundles, diagnósticos e payloads finais. A identidade não depende do caminho temporário e separa faixas diferentes da mesma live sem reativar a colisão legada.
+
+O contexto editorial agora expõe `context-contract-v1`, com setup, anáfora, pergunta, resposta/tese, payoff, evidências, score de completude e motivos de revisão. O seletor recebe esse contrato, e os dossiês de candidatos o preservam para a revisão da próxima IA.
+
+O gate de locutor foi aplicado também depois da anotação de voz e antes do render nas rotas smart cut e processo completo. Voz confirmadamente incompatível não é renderizada como Renan-first; voz inconclusiva permanece em revisão. O relatório `headline-fidelity-v1` registra grounding lexical e citações verificadas sem confundir overlap com verdade factual.
+
+Foram criadas regressões em `tests/test_interval_identity.py` e `tests/test_context_contract.py`. A primeira suíte completa revelou cinco incompatibilidades de monkeypatch legadas no fingerprint; um fallback explícito foi adicionado e a execução final terminou com **563 aprovados e 4 ignorados**. Também passaram `py_compile`, `node --check` e `git diff --check`; o BlazeFace foi temporário e removido.
+
+O ciclo está documentado em `CYCLE_36_REPORT_2026-08-21.md`, `PROJECT_STATE.md`, `NEXT_CYCLE.md`, `DECISIONS.md` e `CHANGELOG.md`.
+
+### 4. Fechamentos documentais
+
+Os commits `32b2c53` e `94b8c56` fecharam `PROJECT_STATE.md` com os hashes reais publicados de 6.18 e 6.19. O fechamento da 6.20 será registrado após o push da implementação e da documentação.
 
 ## O que não foi alterado
 
-Não houve alteração em pesos do ranking, gates de locutor, filtro Renan-first, integração editorial do Campaign Hub, contexto de candidatos, transcrição, renderização, ingestão autenticada, banco de dados editorial ou lógica de headlines. Também não foram adicionados MP4, WAV, SRT, banco SQLite, cookies, tokens, credenciais, snapshots reais do Campaign Hub ou modelo BlazeFace ao Git.
+Não houve alteração nos pesos principais do ranking, no filtro Renan-first, na promoção automática do Campaign Hub, na ingestão autenticada ou nas integrações remotas da fase final. A 6.20 adicionou contratos de proveniência, contexto, locutor e headline, mas preservou os fallbacks. Também não foram adicionados MP4, WAV, SRT, banco SQLite, cookies, tokens, credenciais, snapshots reais do Campaign Hub ou modelo BlazeFace ao Git.
 
 Nenhuma live foi baixada, ouvida ou processada nesta retomada. As validações audiovisuais recentes foram visuais/simuladas e baseadas em testes e fixtures locais. Portanto, nenhum ganho novo de recall editorial deve ser reivindicado por causa das releases 6.18 ou 6.19.
 
@@ -60,11 +74,11 @@ Nenhuma live foi baixada, ouvida ou processada nesta retomada. As validações a
 
 O Furia já possui base funcional para receber arquivo, importar URL quando o provedor permite, transcrever, selecionar, ranquear, renderizar, processar intervalos e revisar resultados. O Campaign Hub já funciona como memória/seed e seus diagnósticos distinguem descoberta, promoção, filtro por locutor e candidatos finais.
 
-A principal lacuna editorial continua sendo provar que a especialização Renan-first melhora a precisão e o contexto em fontes longas reais. A principal lacuna operacional futura é a identidade persistente de intervalo. A principal lacuna de produto é transformar o fluxo em missões completas com fila, dossiê, pesquisa recente e entrega remota sem quebrar o núcleo local.
+A principal lacuna editorial continua sendo provar que a especialização Renan-first melhora a precisão e o contexto em fontes longas reais. A identidade persistente de intervalo e a proveniência agora existem; a próxima lacuna é usá-las em um benchmark editorial por faixa, transcript e formato. A principal lacuna de produto continua sendo transformar o fluxo em missões completas com fila, dossiê, pesquisa recente e entrega remota sem quebrar o núcleo local.
 
 ## Novo norte de plataforma
 
-Foi criado [`PLATFORM_NORTH_2026-08-21.md`](PLATFORM_NORTH_2026-08-21.md). Ele define a Furia como plataforma automatizada de mídia e inteligência, com cortes como núcleo, e organiza as ideias em seis camadas: motor de mídia, memória editorial, pesquisa/evidência, orquestração, experiência e aprendizado editorial.
+Foi criado [`FUTURE_PLATFORM_2026-08-21.md`](FUTURE_PLATFORM_2026-08-21.md). Ele registra o futuro da ferramenta como fase final posterior ao fortalecimento do motor de cortes, com ideias de memória editorial, pesquisa/evidência, orquestração, experiência e aprendizado editorial. O norte imediato continua sendo o núcleo de cortes e a integração Chub/MBL.
 
 O documento inclui ideias para Context Composer, rede de janelas, ranking em três passagens, lint audiovisual, dossiês com afirmações rastreáveis, pesquisa de última hora, GDELT, fontes primárias, watchlists, briefings, fila de revisão, feedback de rejeições, reprocessamento seletivo, botões remotos, notificações de smartwatch, control plane e worker local.
 
@@ -74,17 +88,17 @@ GDELT foi registrado como fonte de descoberta recente de artigos, temas, idiomas
 
 ## Próxima sequência recomendada
 
-1. Implementar identidade persistente de intervalo e regressões para mesma faixa, faixas diferentes e fonte inteira.
-2. Auditar o contrato de transcrição manual para impedir substituição silenciosa por Whisper/Gemini.
-3. Criar o Context Composer com limites de tokens e contexto temporal compacto.
-4. Adicionar lint audiovisual e checklist antes da exportação.
-5. Transformar aprovação/rejeição em feedback estruturado.
-6. Criar dossiê por demanda com fontes, timeline e afirmações rastreáveis.
-7. Implementar descoberta recente com GDELT e fontes primárias substituíveis.
+1. Materializar benchmark editorial por fonte, faixa, transcript, formato e decisão humana usando a identidade 6.20.
+2. Medir recall temporal, IoU de borda, precisão@k, contexto, payoff, locutor, headline, diversidade e qualidade técnica separadamente.
+3. Auditar o contrato de transcrição manual usando o novo `input_kind`, digest e cobertura persistidos.
+4. Usar o benchmark para calibrar recall-first Chub e bordas, sem alterar pesos antes da comparação.
+5. Transformar aprovação/rejeição em feedback estruturado e comparações pairwise.
+6. Adicionar lint audiovisual e checklist antes da exportação.
+7. Só depois retomar dossiê por demanda, pesquisa recente e fontes primárias substituíveis.
 8. Escolher um canal remoto; Telegram é a primeira prova técnica mais leve, WhatsApp é uma integração posterior de produção.
 9. Criar control plane remoto e worker local somente depois de definir autenticação, computador ligado e armazenamento de artefatos.
-10. Reexecutar benchmark audiovisual real antes de alterar pesos editoriais.
+10. Manter automações remotas na fase final futura.
 
 ## Arquivos para a próxima IA
 
-Ler primeiro `START_HERE.md`, `PROJECT_STATE.md`, este relatório, `PLATFORM_NORTH_2026-08-21.md`, `NEXT_CYCLE.md`, `DECISIONS.md`, `CYCLE_35_REPORT_2026-08-21.md`, `CYCLE_34_REPORT_2026-08-21.md` e `IDEAS_BACKLOG.md`. Confirmar a branch antes de editar e manter a branch principal intocada.
+Ler primeiro `START_HERE.md`, `PROJECT_STATE.md`, este relatório, `CYCLE_36_REPORT_2026-08-21.md`, `CUTTING_AUDIT_2026-08-21.md`, `CUTTING_PRECISION_PLAN_2026-08-21.md`, `FUTURE_PLATFORM_2026-08-21.md`, `NEXT_CYCLE.md`, `DECISIONS.md`, `CYCLE_35_REPORT_2026-08-21.md` e `IDEAS_BACKLOG.md`. Confirmar a branch antes de editar e manter a branch principal intocada.

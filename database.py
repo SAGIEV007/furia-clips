@@ -74,6 +74,11 @@ def _source_signature(source_video):
         return ""
 
 
+def source_signature(source_video):
+    """Return the bounded local content signature used by interval identity."""
+    return _source_signature(source_video)
+
+
 def _editorial_clip_key(source_video, start_time, end_time, transcript):
     """Return a stable identity independent of the rendered output filename."""
     canonical = "|".join([
@@ -102,7 +107,13 @@ def init_db():
             source_signature TEXT DEFAULT '',
             status TEXT DEFAULT 'pending',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            processing_identity TEXT DEFAULT '',
+            source_start REAL,
+            source_end REAL,
+            processing_interval TEXT DEFAULT '{}',
+            transcription_provenance TEXT DEFAULT '{}',
+            transcript_digest TEXT DEFAULT ''
         );
 
         CREATE TABLE IF NOT EXISTS clips (
@@ -138,6 +149,10 @@ def init_db():
             full_text TEXT NOT NULL,
             language TEXT DEFAULT 'pt',
             model_used TEXT DEFAULT 'small',
+            provenance TEXT DEFAULT '{}',
+            processing_identity TEXT DEFAULT '',
+            processing_interval TEXT DEFAULT '{}',
+            transcript_digest TEXT DEFAULT '',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (project_id) REFERENCES projects(id)
         );
@@ -212,6 +227,12 @@ def init_db():
     }
     project_migrations = {
         "source_signature": "ALTER TABLE projects ADD COLUMN source_signature TEXT DEFAULT ''",
+        "processing_identity": "ALTER TABLE projects ADD COLUMN processing_identity TEXT DEFAULT ''",
+        "source_start": "ALTER TABLE projects ADD COLUMN source_start REAL",
+        "source_end": "ALTER TABLE projects ADD COLUMN source_end REAL",
+        "processing_interval": "ALTER TABLE projects ADD COLUMN processing_interval TEXT DEFAULT '{}'",
+        "transcription_provenance": "ALTER TABLE projects ADD COLUMN transcription_provenance TEXT DEFAULT '{}'",
+        "transcript_digest": "ALTER TABLE projects ADD COLUMN transcript_digest TEXT DEFAULT ''",
     }
     for column, statement in project_migrations.items():
         if column not in project_columns:
@@ -224,6 +245,19 @@ def init_db():
         "editorial_key": "ALTER TABLE clips ADD COLUMN editorial_key TEXT",
         "review_status": "ALTER TABLE clips ADD COLUMN review_status TEXT DEFAULT 'pending'",
     }
+    transcription_columns = {
+        row["name"] for row in cursor.execute("PRAGMA table_info(transcriptions)").fetchall()
+    }
+    transcription_migrations = {
+        "provenance": "ALTER TABLE transcriptions ADD COLUMN provenance TEXT DEFAULT '{}'",
+        "processing_identity": "ALTER TABLE transcriptions ADD COLUMN processing_identity TEXT DEFAULT ''",
+        "processing_interval": "ALTER TABLE transcriptions ADD COLUMN processing_interval TEXT DEFAULT '{}'",
+        "transcript_digest": "ALTER TABLE transcriptions ADD COLUMN transcript_digest TEXT DEFAULT ''",
+    }
+    for column, statement in transcription_migrations.items():
+        if column not in transcription_columns:
+            cursor.execute(statement)
+
     feedback_columns = {
         row["name"] for row in cursor.execute("PRAGMA table_info(clip_feedback)").fetchall()
     }
@@ -270,6 +304,8 @@ def init_db():
             cursor.execute(statement)
 
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_clips_editorial_key ON clips(project_id, editorial_key)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_projects_processing_identity ON projects(processing_identity)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_transcriptions_processing_identity ON transcriptions(processing_identity)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_headline_feedback_format ON headline_feedback(format_id, action)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_headline_feedback_clip ON headline_feedback(clip_id, created_at)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_performance_content ON performance_snapshots(content_key, platform, collected_at)")
@@ -545,12 +581,38 @@ def get_all_settings():
     return settings
 
 
-def create_project(name, source_video, source_signature=None):
+def create_project(
+    name,
+    source_video,
+    source_signature=None,
+    processing_identity="",
+    processing_interval=None,
+    transcription_provenance=None,
+    transcript_digest="",
+):
     conn = get_db()
     signature = _source_signature(source_video) if source_signature is None else str(source_signature or "")[:64]
+    interval = processing_interval if isinstance(processing_interval, dict) else {}
+    provenance = transcription_provenance if isinstance(transcription_provenance, dict) else {}
+    source_start = interval.get("start_seconds")
+    source_end = interval.get("end_seconds")
     cursor = conn.execute(
-        "INSERT INTO projects (name, source_video, source_signature, status) VALUES (?, ?, ?, 'pending')",
-        (name, source_video, signature)
+        """INSERT INTO projects
+           (name, source_video, source_signature, status, processing_identity,
+            source_start, source_end, processing_interval,
+            transcription_provenance, transcript_digest)
+           VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?)""",
+        (
+            name,
+            source_video,
+            signature,
+            str(processing_identity or "")[:80],
+            source_start,
+            source_end,
+            json.dumps(interval, ensure_ascii=False, sort_keys=True),
+            json.dumps(provenance, ensure_ascii=False, sort_keys=True),
+            str(transcript_digest or "")[:64],
+        ),
     )
     project_id = cursor.lastrowid
     conn.commit()
@@ -562,7 +624,16 @@ def get_project(project_id):
     conn = get_db()
     row = conn.execute("SELECT * FROM projects WHERE id = ?", (project_id,)).fetchone()
     conn.close()
-    return dict(row) if row else None
+    if not row:
+        return None
+    result = dict(row)
+    for key in ("processing_interval", "transcription_provenance"):
+        try:
+            parsed = json.loads(result.get(key) or "{}")
+            result[key] = parsed if isinstance(parsed, dict) else {}
+        except (TypeError, ValueError, json.JSONDecodeError):
+            result[key] = {}
+    return result
 
 
 def get_all_projects():
@@ -589,27 +660,70 @@ def update_project_status(project_id, status):
     conn.close()
 
 
-def get_existing_clip_fingerprints(source_video=""):
-    """Return stable local fingerprints used to avoid repeating a source interval.
+def update_project_processing_context(
+    project_id,
+    *,
+    processing_identity="",
+    processing_interval=None,
+    transcription_provenance=None,
+    transcript_digest="",
+):
+    """Persist the current source scope without changing editorial status."""
+    interval = processing_interval if isinstance(processing_interval, dict) else {}
+    provenance = transcription_provenance if isinstance(transcription_provenance, dict) else {}
+    conn = get_db()
+    conn.execute(
+        """UPDATE projects SET processing_identity = ?, source_start = ?, source_end = ?,
+           processing_interval = ?, transcription_provenance = ?, transcript_digest = ?,
+           updated_at = ? WHERE id = ?""",
+        (
+            str(processing_identity or "")[:80],
+            interval.get("start_seconds"),
+            interval.get("end_seconds"),
+            json.dumps(interval, ensure_ascii=False, sort_keys=True),
+            json.dumps(provenance, ensure_ascii=False, sort_keys=True),
+            str(transcript_digest or "")[:64],
+            datetime.now().isoformat(),
+            project_id,
+        ),
+    )
+    conn.commit()
+    conn.close()
 
-    The lookup is intentionally local-only. It compares the normalized basename of
-    the source so reruns from another checkout/path can still recognize clips from
-    the same downloaded video, while no transcript text leaves the local database.
+
+def get_existing_clip_fingerprints(source_video="", processing_identity=""):
+    """Return stable local fingerprints for the same source scope.
+
+    New interval-aware jobs compare the durable processing identity. Legacy calls
+    retain the basename/signature fallback so old projects remain deduplicable.
     """
     source_text = str(source_video or "").replace("\\\\", "/").strip().lower()
     source_basename = source_text.rsplit("/", 1)[-1]
-    if not source_basename:
+    if not processing_identity and not source_basename:
         return []
     conn = get_db()
-    rows = conn.execute(
-        """SELECT clips.start_time, clips.end_time, clips.duration,
-                         clips.transcript, clips.review_status, clips.editorial_key,
-                         projects.source_signature
-           FROM clips
-           JOIN projects ON projects.id = clips.project_id
-          WHERE lower(replace(projects.source_video, char(92), '/')) LIKE ?""",
-        (f"%/{source_basename}",),
-    ).fetchall()
+    if processing_identity:
+        rows = conn.execute(
+            """SELECT clips.start_time, clips.end_time, clips.duration,
+                             clips.transcript, clips.review_status, clips.editorial_key,
+                             projects.source_signature, projects.processing_identity,
+                             projects.source_start, projects.source_end
+               FROM clips
+               JOIN projects ON projects.id = clips.project_id
+              WHERE projects.processing_identity = ?""",
+            (str(processing_identity)[:80],),
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            """SELECT clips.start_time, clips.end_time, clips.duration,
+                             clips.transcript, clips.review_status, clips.editorial_key,
+                             projects.source_signature, projects.processing_identity,
+                             projects.source_start, projects.source_end
+               FROM clips
+               JOIN projects ON projects.id = clips.project_id
+              WHERE lower(replace(projects.source_video, char(92), '/')) LIKE ?""",
+            (f"%/{source_basename}",),
+        ).fetchall()
     conn.close()
     current_signature = _source_signature(source_video)
     fingerprints = []
@@ -622,7 +736,7 @@ def get_existing_clip_fingerprints(source_video=""):
         if end <= start:
             continue
         stored_signature = str(row[6] or "")
-        if current_signature and stored_signature and stored_signature != current_signature:
+        if not processing_identity and current_signature and stored_signature and stored_signature != current_signature:
             continue
         fingerprints.append({
             "start": round(start, 3),
@@ -632,6 +746,9 @@ def get_existing_clip_fingerprints(source_video=""):
             "review_status": str(row[4] or "pending"),
             "editorial_key": str(row[5] or "")[:64],
             "source_signature": stored_signature,
+            "processing_identity": str(row[7] or "")[:80],
+            "source_start": row[8],
+            "source_end": row[9],
         })
     return fingerprints
 
@@ -968,12 +1085,36 @@ def update_clip_thumbnail(clip_id, thumbnail_path):
     conn.close()
 
 
-def save_transcription(project_id, segments, full_text, language, model_used):
+def save_transcription(
+    project_id,
+    segments,
+    full_text,
+    language,
+    model_used,
+    provenance=None,
+    processing_identity="",
+    processing_interval=None,
+    transcript_digest="",
+):
     conn = get_db()
+    provenance_payload = provenance if isinstance(provenance, dict) else {}
+    interval_payload = processing_interval if isinstance(processing_interval, dict) else {}
     cursor = conn.execute(
-        """INSERT INTO transcriptions (project_id, segments, full_text, language, model_used)
-           VALUES (?, ?, ?, ?, ?)""",
-        (project_id, json.dumps(segments), full_text, language, model_used)
+        """INSERT INTO transcriptions
+           (project_id, segments, full_text, language, model_used, provenance,
+            processing_identity, processing_interval, transcript_digest)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (
+            project_id,
+            json.dumps(segments, ensure_ascii=False),
+            full_text,
+            language,
+            model_used,
+            json.dumps(provenance_payload, ensure_ascii=False, sort_keys=True),
+            str(processing_identity or "")[:80],
+            json.dumps(interval_payload, ensure_ascii=False, sort_keys=True),
+            str(transcript_digest or "")[:64],
+        ),
     )
     tid = cursor.lastrowid
     conn.commit()
@@ -991,6 +1132,12 @@ def get_transcription(project_id):
     if row:
         result = dict(row)
         result["segments"] = json.loads(result["segments"])
+        for key in ("provenance", "processing_interval"):
+            try:
+                parsed = json.loads(result.get(key) or "{}")
+                result[key] = parsed if isinstance(parsed, dict) else {}
+            except (TypeError, ValueError, json.JSONDecodeError):
+                result[key] = {}
         return result
     return None
 

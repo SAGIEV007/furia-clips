@@ -1,5 +1,31 @@
 # Changelog de continuidade
 
+## 6.20 — Proveniência, contrato de contexto e gate de locutor
+
+### Hipótese
+
+Se cada execução persistir identidade de faixa, digest e proveniência, e se o motor tornar explícitos setup, antecedente, payoff, locutor e grounding de headline, o Furia ficará mais inteligente e mais fácil de calibrar para Renan/MBL sem depender de suposições invisíveis.
+
+### Incluído
+
+- `modules/source_interval.py`, `database.py` e `app.py`: identidade determinística de intervalo, assinatura da fonte, faixa absoluta, digest de transcrição e deduplicação compatível com bases e integrações legadas.
+- `modules/transcript_archive.py`: identidade, intervalo, digest e proveniência preservados no arquivo persistente de transcrição.
+- `modules/editorial_context.py`: `context-contract-v1` com requisitos mínimos de setup, anáfora, pergunta, resposta, payoff, cobertura e revisão de locutor.
+- `modules/clip_selector.py` e `modules/editorial_block.py`: contrato narrativo fornecido ao seletor e anexado aos dossiês de candidatos.
+- `app.py`: gate final de locutor no smart cut e no processo completo; conflito confirmado não é renderizado como corte Renan-first, e voz inconclusiva é enviada para revisão.
+- `modules/campaign_hub_guidance.py`/`editorial_context.py`: mapeamento e contagem de seeds usam a duração real do arquivo processado.
+- `modules/headline_studio.py`: relatório `headline-fidelity-v1` para grounding lexical e citações verificadas.
+- `modules/editorial_benchmark.py`: benchmark pode registrar identidade de faixa e digest da transcrição.
+- Regressões em `tests/test_interval_identity.py` e `tests/test_context_contract.py`.
+
+### Resultado medido
+
+A identidade permanece estável quando o mesmo conteúdo muda de caminho temporário e muda quando a faixa processada muda. Contexto, proveniência, gate de locutor e fidelidade de headline agora aparecem nos artefatos de revisão. A compatibilidade de fingerprints foi preservada para chamadas antigas.
+
+### Validação
+
+A primeira execução da suíte encontrou cinco falhas de compatibilidade em monkeypatches legados do fingerprint; o fallback de assinatura foi corrigido. A validação final terminou com **563 testes aprovados e 4 ignorados**, além de `py_compile`, `node --check` e `git diff --check`. O modelo BlazeFace foi temporário, conferido e removido. Relatório: [`CYCLE_36_REPORT_2026-08-21.md`](CYCLE_36_REPORT_2026-08-21.md).
+
 ## Roadmap de plataforma registrado — 2026-08-21 (não é release)
 
 Foi registrado o futuro da ferramenta como uma fase final posterior ao fortalecimento do motor de cortes. O documento [`FUTURE_PLATFORM_2026-08-21.md`](FUTURE_PLATFORM_2026-08-21.md) reúne ideias de Context Composer, lint audiovisual, dossiês de última hora, pesquisa de notícias e imagens, watchlists, briefings, feedback editorial, acionamento por Telegram/WhatsApp, control plane, worker local e notificações de smartwatch. O norte imediato continua sendo precisão de cortes e integração útil do Campaign Hub com o universo MBL.

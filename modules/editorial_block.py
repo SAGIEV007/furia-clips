@@ -77,6 +77,16 @@ def build_editorial_block(candidate: dict[str, Any]) -> dict[str, Any]:
         result["source"] = _text(candidate.get("source"))
     if candidate.get("confidence") is not None:
         result["confidence"] = _bounded_confidence(candidate.get("confidence"))
+    contract = candidate.get("context_contract")
+    if isinstance(contract, dict):
+        result["context_contract"] = {
+            "contract_version": _text(contract.get("contract_version"), 80),
+            "minimum_window": contract.get("minimum_window") if isinstance(contract.get("minimum_window"), dict) else {},
+            "evidence": contract.get("evidence") if isinstance(contract.get("evidence"), dict) else {},
+            "completeness_score": max(0, min(100, int(contract.get("completeness_score", 0) or 0))),
+            "review_required": bool(contract.get("review_required", False)),
+            "review_reasons": [_text(item, 160) for item in (contract.get("review_reasons") or [])[:8]],
+        }
     return result
 
 

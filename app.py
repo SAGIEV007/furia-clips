@@ -82,9 +82,9 @@ from config import (
 )
 from database import (
     init_db, get_all_settings, get_setting, set_setting,
-    create_project, get_project, get_all_projects, update_project_status,
+    create_project, get_project, get_all_projects, update_project_status, update_project_processing_context,
     save_clip, get_clip, get_clips, update_clip_seo, update_clip_thumbnail,
-    get_existing_clip_fingerprints, save_transcription, get_transcription, log_action,
+    get_existing_clip_fingerprints, save_transcription, get_transcription, log_action, source_signature,
     update_clip_editorial_score, save_clip_feedback, get_clip_feedback,
     update_clip_review_status, save_clip_adjustment, get_feedback_calibration, get_daily_editorial_progress,
     save_headline_feedback, get_headline_feedback_summary, get_headline_learning_preferences,
@@ -101,6 +101,8 @@ from modules.source_boundary import detect_live_content_start, trim_transcriptio
 from modules.source_interval import (
     interval_source_boundary,
     normalize_processing_interval,
+    processing_interval_identity,
+    transcript_digest,
     trim_media_to_interval,
     trim_transcription_to_interval,
 )
@@ -454,7 +456,8 @@ MIN_CANDIDATE_BUDGET = 15
 MAX_CANDIDATE_BUDGET = 400
 
 
-def _selection_coverage_plan(source_video, video_duration, *, allow_previous=True):
+def _selection_coverage_plan(source_video, video_duration, *, allow_previous=True, processing_identity=""):
+
     """Build a local-only plan for adaptive candidate coverage and deduplication.
 
     The budget follows the length of the source instead of a fixed ceiling. The
@@ -463,7 +466,20 @@ def _selection_coverage_plan(source_video, video_duration, *, allow_previous=Tru
     a budget, not a target: the pipeline stops on its own when the material runs
     out, and no minimum number of clips is ever produced to fill it.
     """
-    fingerprints = get_existing_clip_fingerprints(source_video) if allow_previous else []
+    if allow_previous:
+        try:
+            fingerprints = get_existing_clip_fingerprints(
+                source_video,
+                processing_identity=processing_identity,
+            )
+        except TypeError as exc:
+            # Plugins/tests from before interval identity may still expose the
+            # one-argument contract. Fall back only for that signature mismatch.
+            if "processing_identity" not in str(exc) and "unexpected keyword" not in str(exc):
+                raise
+            fingerprints = get_existing_clip_fingerprints(source_video)
+    else:
+        fingerprints = []
     try:
         span = max(0.0, float(video_duration or 0.0))
     except (TypeError, ValueError):
@@ -674,6 +690,36 @@ def _defer_context_incomplete_candidates(candidates):
     return renderable, deferred
 
 
+def _defer_speaker_conflicts(candidates):
+    """Keep voice conflicts reviewable and never publish a confirmed other speaker."""
+    renderable = []
+    deferred = []
+    for candidate in candidates or []:
+        verdict = candidate.get("speaker_verdict")
+        if not isinstance(verdict, dict) or "e_o_locutor" not in verdict:
+            renderable.append(candidate)
+            continue
+        decision = verdict.get("e_o_locutor")
+        if decision is True:
+            candidate.setdefault("speaker_gate_status", "pass")
+            renderable.append(candidate)
+            continue
+        flags = candidate.setdefault("review_flags", {})
+        flags["speaker_identity_review_required"] = True
+        flags["speaker_identity_available"] = False
+        candidate["speaker_gate_status"] = "reject" if decision is False else "review"
+        reason = "voz confirmada como outro locutor" if decision is False else "voz não suficientemente identificada"
+        deferred.append({
+            "start": candidate.get("start", candidate.get("start_time")),
+            "end": candidate.get("end", candidate.get("end_time")),
+            "duration": candidate.get("duration"),
+            "reason": reason,
+            "review_flags": flags,
+            "speaker_verdict": verdict,
+        })
+    return renderable, deferred
+
+
 def _transcription_source_mode(settings):
     mode = str((settings or {}).get("transcription_source", "auto") or "auto").strip().lower()
     aliases = {"public_subtitles": "public_subtitle", "captions": "public_subtitle", "local_whisper": "whisper"}
@@ -880,8 +926,10 @@ def _transcript_reference_for_multimodal(transcription, max_chars=48000):
 def _transcription_provenance(transcription, *, manual_supplied=False):
     transcription = transcription or {}
     coverage = transcription.get("coverage") if isinstance(transcription.get("coverage"), dict) else {}
+    raw_provenance = transcription.get("provenance") if isinstance(transcription.get("provenance"), dict) else {}
     return {
         "source": str(transcription.get("source", "unknown") or "unknown"),
+        "input_kind": str(raw_provenance.get("input_kind") or "")[:40],
         "manual_supplied": bool(manual_supplied),
         "confirmed_by_editor": bool(manual_supplied or transcription.get("source") in {"manual", "manual_confirmed"}),
         "segment_count": int(transcription.get("segment_count", len(transcription.get("segments", [])) or 0) or 0),
@@ -2846,15 +2894,35 @@ def api_cut_shorts():
             )
             video_path = working_video
             settings = _settings_with_acervo(get_all_settings(), source_video_path)
+            source_sig = source_signature(source_video_path)
+            processing_identity = processing_interval_identity(
+                source_video_path,
+                processing_interval,
+                source_signature=source_sig,
+            )
             settings["processing_interval"] = dict(processing_interval)
+            settings["processing_identity"] = processing_identity
+            settings["source_signature"] = source_sig
             if transcription_source:
                 settings = {**settings, "transcription_source": transcription_source}
             _announce_acervo_source(settings, video_path)
             active_project_id = project_id
             if not active_project_id:
                 auto_project_name = os.path.splitext(os.path.basename(source_video_path))[0]
-                active_project_id = create_project(auto_project_name, data.get("video_path", source_video_path))
+                active_project_id = create_project(
+                    auto_project_name,
+                    source_video_path,
+                    source_signature=source_sig,
+                    processing_identity=processing_identity,
+                    processing_interval=processing_interval,
+                )
                 emit_progress("[Projeto] Sessão de revisão criada automaticamente para salvar seus feedbacks.", "info")
+            else:
+                update_project_processing_context(
+                    active_project_id,
+                    processing_identity=processing_identity,
+                    processing_interval=processing_interval,
+                )
 
             # Check AI status before starting
             ai_backend = settings.get("ai_backend", "gemini")
@@ -2936,7 +3004,21 @@ def api_cut_shorts():
                         "warning",
                     )
                 transcription["provenance"] = _transcription_provenance(transcription, manual_supplied=manual_supplied)
+                transcription["transcript_digest"] = transcript_digest(transcription)
+                transcription["provenance"]["processing_identity"] = processing_identity
+                transcription["provenance"]["processing_interval"] = dict(processing_interval)
+                transcription["provenance"]["transcript_digest"] = transcription["transcript_digest"]
+                transcription["processing_identity"] = processing_identity
+                transcription["processing_interval"] = dict(processing_interval)
                 settings["transcription_provenance"] = transcription["provenance"]
+                settings["transcript_digest"] = transcription["transcript_digest"]
+                update_project_processing_context(
+                    active_project_id,
+                    processing_identity=processing_identity,
+                    processing_interval=processing_interval,
+                    transcription_provenance=transcription["provenance"],
+                    transcript_digest=transcription["transcript_digest"],
+                )
 
                 source = str(transcription.get("source", "") or "").lower()
                 if source in {"manual", "manual_confirmed"}:
@@ -2986,7 +3068,11 @@ def api_cut_shorts():
 
             save_transcription(
                 active_project_id, full_transcription["segments"], full_transcription["full_text"],
-                full_transcription["language"], full_transcription.get("source", settings.get("whisper_model", "small"))
+                full_transcription["language"], full_transcription.get("source", settings.get("whisper_model", "small")),
+                provenance=full_transcription.get("provenance"),
+                processing_identity=processing_identity,
+                processing_interval=processing_interval,
+                transcript_digest=full_transcription.get("transcript_digest", ""),
             )
             save_transcription_bundle(
                 full_transcription,
@@ -3119,7 +3205,8 @@ def api_cut_shorts():
             coverage_plan = _selection_coverage_plan(
                 coverage_source,
                 video_duration,
-                allow_previous=not processing_interval.get("active"),
+                allow_previous=True,
+                processing_identity=processing_identity,
             )
             if coverage_plan["previous_clip_fingerprints"]:
                 emit_progress(
@@ -3152,6 +3239,8 @@ def api_cut_shorts():
             candidate_diagnostics = selector.get_candidate_diagnostics()
             candidate_diagnostics["source_boundary"] = source_boundary
             candidate_diagnostics["processing_interval"] = dict(processing_interval)
+            candidate_diagnostics["processing_identity"] = processing_identity
+            candidate_diagnostics["transcript_digest"] = transcription.get("transcript_digest", "")
             candidate_diagnostics["selection_scope"] = selection_transcription.get("selection_scope", "full_source")
             socketio.emit("selection_mode", {"source": selection_source, "candidate_diagnostics": candidate_diagnostics})
 
@@ -3218,6 +3307,15 @@ def api_cut_shorts():
             # Who is speaking is measured before the decision is written down,
             # so the diagnostics carry it and the render stage can act on it.
             top_clips = _annotate_speakers(top_clips, video_path, video_duration, emit_progress)
+            speaker_renderable, speaker_rejections = _defer_speaker_conflicts(top_clips)
+            editorial_gate_rejections.extend(speaker_rejections)
+            top_clips = speaker_renderable
+            candidate_diagnostics["speaker_gate_deferred_count"] = len(speaker_rejections)
+            if speaker_rejections:
+                emit_progress(
+                    f"[Gate de locutor] {len(speaker_rejections)} candidato(s) adiados para revisão de voz.",
+                    "warning",
+                )
 
             _write_selection_diagnostics(
                 job_id=getattr(ctx, "job_id", None),
@@ -3372,6 +3470,7 @@ def api_cut_shorts():
                     "overlap_suspected": clip_info.get("overlap_suspected", False),
                     "editorial_block": build_editorial_block({
                         **clip_info,
+                        "context_contract": (settings.get("editorial_context") or {}).get("context_contract", {}),
                         "start": res.get("start"),
                         "end": res.get("end"),
                         "duration": res.get("duration"),
@@ -3384,6 +3483,8 @@ def api_cut_shorts():
                         "reason": "composição original preservada por segurança",
                     }),
                     "processing_interval": dict(processing_interval),
+                    "processing_identity": processing_identity,
+                    "transcript_digest": transcription.get("transcript_digest", ""),
                     "source_start": round(float(res.get("start", 0) or 0) + processing_interval.get("offset_seconds", 0.0), 3),
                     "source_end": round(float(res.get("end", 0) or 0) + processing_interval.get("offset_seconds", 0.0), 3),
                 })
@@ -3401,6 +3502,8 @@ def api_cut_shorts():
                 "preferred_format": preferred_format,
                 "source_boundary": source_boundary,
                 "processing_interval": dict(processing_interval),
+                "processing_identity": processing_identity,
+                "transcript_digest": transcription.get("transcript_digest", ""),
             })
 
             # A linha final anunciava "NLP Basico" para toda origem que não fosse
@@ -4023,13 +4126,27 @@ def api_process_complete():
             )
             video_path = working_video
             settings = get_all_settings()
+            source_sig = source_signature(source_video_path)
+            processing_identity = processing_interval_identity(
+                source_video_path,
+                processing_interval,
+                source_signature=source_sig,
+            )
             settings["processing_interval"] = dict(processing_interval)
+            settings["processing_identity"] = processing_identity
+            settings["source_signature"] = source_sig
             if transcription_source:
                 settings = {**settings, "transcription_source": transcription_source}
             ctx.update(stage="project", progress=3, message="Criando projeto")
             ctx.check_cancel()
             video_name = os.path.splitext(os.path.basename(source_video_path))[0]
-            project_id = create_project(video_name, source_video_path)
+            project_id = create_project(
+                video_name,
+                source_video_path,
+                source_signature=source_sig,
+                processing_identity=processing_identity,
+                processing_interval=processing_interval,
+            )
             if processing_interval.get("active"):
                 video_name += f"_interval_{int(processing_interval['start_seconds'])}-{int(processing_interval['end_seconds'])}"
 
@@ -4122,9 +4239,29 @@ def api_process_complete():
                     "os cortes ficarão limitados ao trecho importado.",
                     "warning",
                 )
+            transcription["provenance"] = _transcription_provenance(
+                transcription,
+                manual_supplied=_manual_transcript_was_supplied(data),
+            )
+            transcription["transcript_digest"] = transcript_digest(transcription)
+            transcription["processing_identity"] = processing_identity
+            transcription["processing_interval"] = dict(processing_interval)
+            settings["transcription_provenance"] = transcription["provenance"]
+            settings["transcript_digest"] = transcription["transcript_digest"]
+            update_project_processing_context(
+                project_id,
+                processing_identity=processing_identity,
+                processing_interval=processing_interval,
+                transcription_provenance=transcription["provenance"],
+                transcript_digest=transcription["transcript_digest"],
+            )
             save_transcription(
                 project_id, transcription["segments"], transcription["full_text"],
-                transcription["language"], transcription.get("source", settings.get("whisper_model", "small"))
+                transcription["language"], transcription.get("source", settings.get("whisper_model", "small")),
+                provenance=transcription.get("provenance"),
+                processing_identity=processing_identity,
+                processing_interval=processing_interval,
+                transcript_digest=transcription.get("transcript_digest", ""),
             )
             from modules.editorial_context import analyze_transcript_context
             editorial_context = analyze_transcript_context(
@@ -4178,7 +4315,8 @@ def api_process_complete():
             coverage_plan = _selection_coverage_plan(
                 coverage_source,
                 video_duration,
-                allow_previous=not processing_interval.get("active"),
+                allow_previous=True,
+                processing_identity=processing_identity,
             )
             if coverage_plan["previous_clip_fingerprints"]:
                 emit_progress(
@@ -4209,6 +4347,8 @@ def api_process_complete():
             candidate_diagnostics = selector.get_candidate_diagnostics()
             candidate_diagnostics["source_boundary"] = source_boundary
             candidate_diagnostics["processing_interval"] = dict(processing_interval)
+            candidate_diagnostics["processing_identity"] = processing_identity
+            candidate_diagnostics["transcript_digest"] = transcription.get("transcript_digest", "")
             candidate_diagnostics["selection_scope"] = transcription.get("selection_scope", "full_source")
             socketio.emit("selection_mode", {"source": selection_source, "candidate_diagnostics": candidate_diagnostics})
             ctx.update(stage="candidate_generation", progress=55, message=f"{len(top_clips)} candidatos encontrados")
@@ -4244,7 +4384,15 @@ def api_process_complete():
                 user_context=user_context,
                 energy_profile=energy_profile,
             )
+            top_clips = _annotate_speakers(top_clips, video_path, video_duration, emit_progress)
+            top_clips, speaker_rejections = _defer_speaker_conflicts(top_clips)
+            candidate_diagnostics["speaker_gate_deferred_count"] = len(speaker_rejections)
             candidate_diagnostics["final_count"] = len(top_clips)
+            if speaker_rejections:
+                emit_progress(
+                    f"[Gate de locutor] {len(speaker_rejections)} candidato(s) adiados para revisão de voz.",
+                    "warning",
+                )
             _write_selection_diagnostics(
                 job_id=getattr(ctx, "job_id", None),
                 video_path=source_video_path,
@@ -4252,7 +4400,7 @@ def api_process_complete():
                 selection_source=selection_source,
                 diagnostics=candidate_diagnostics,
                 clips=top_clips,
-                deferred=[],
+                deferred=speaker_rejections,
                 segments=(transcription or {}).get("segments"),
                 transcript_review=(transcription or {}).get("revisao_legenda"),
                 emit_progress=emit_progress,
@@ -4524,6 +4672,7 @@ def api_process_complete():
                     "visual_observation_review_reason": clip_info.get("visual_observation_review_reason", ""),
                     "editorial_block": build_editorial_block({
                         **clip_info,
+                        "context_contract": (settings.get("editorial_context") or {}).get("context_contract", {}),
                         "start": res.get("start"),
                         "end": res.get("end"),
                         "duration": res.get("duration"),
@@ -4534,6 +4683,8 @@ def api_process_complete():
                     "clip_id": res.get("clip_id"),
                     "framing": applied_framing,
                     "processing_interval": dict(processing_interval),
+                    "processing_identity": processing_identity,
+                    "transcript_digest": transcription.get("transcript_digest", ""),
                     "source_start": round(float(res.get("start", 0) or 0) + processing_interval.get("offset_seconds", 0.0), 3),
                     "source_end": round(float(res.get("end", 0) or 0) + processing_interval.get("offset_seconds", 0.0), 3),
                 })

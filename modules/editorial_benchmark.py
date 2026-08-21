@@ -205,6 +205,8 @@ def compare_candidates(
     source_duration: float | None = None,
     source_name: str = "",
     benchmark_version: str = BENCHMARK_VERSION,
+    processing_identity: str = "",
+    transcript_digest: str = "",
 ) -> dict[str, Any]:
     """Build a stable comparison payload for one Campaign Hub block."""
     reference_start = _float(block.get("start", block.get("start_s")), 0.0) or 0.0
@@ -318,6 +320,8 @@ def compare_candidates(
             "duration_s": _round(source_duration),
             "timeline_mapping": timeline_mapping,
             "mapping_applied": measurement["mapping_applied"],
+            "processing_identity": str(processing_identity or "")[:80],
+            "transcript_digest": str(transcript_digest or "")[:64],
         },
         "candidate_count": len(normalized_candidates),
         "references": mapped_references,

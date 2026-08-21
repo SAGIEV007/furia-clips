@@ -1272,10 +1272,14 @@ Selecione clips que atendam a esse pedido."""
         editorial_instruction = ""
         if editorial_context:
             chapters = editorial_context.get("editorial_chapters", [])[:16]
+            context_contract = editorial_context.get("context_contract", {})
             editorial_instruction = (
                 f"\nPRÉ-ANÁLISE: {editorial_context.get('description', '')}\n"
                 f"CAPÍTULOS EDITORIAIS: {chapters}\n"
-                "Não atravesse capítulos desconectados; preserve perguntas e respostas no mesmo capítulo.\n"
+                f"CONTRATO DE CONTEXTO: {context_contract}\n"
+                "Não atravesse capítulos desconectados; preserve perguntas e respostas no mesmo capítulo. "
+                "Se o contrato exigir antecedente, inclua a menor frase anterior que torne a referência compreensível. "
+                "Não termine antes da consequência/payoff e marque revisão quando o locutor estiver incerto.\n"
             )
 
         num_clips = min(self.max_clips, max(3, len(blocks) // 3))

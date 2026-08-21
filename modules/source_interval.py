@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import os
 import re
 import subprocess
@@ -19,6 +21,69 @@ def _number(value: Any) -> float | None:
     except (TypeError, ValueError):
         return None
     return result if result == result else None
+
+
+INTERVAL_IDENTITY_VERSION = "interval-v1"
+
+
+def transcript_digest(transcription: dict[str, Any] | None) -> str:
+    """Return a short stable digest of the canonical transcript content.
+
+    The digest is provenance, not the interval identity: changing a transcript
+    must create a comparable new version without making the source range look
+    like a different range.
+    """
+    payload = transcription if isinstance(transcription, dict) else {}
+    segments = []
+    for item in payload.get("segments", []) or []:
+        if not isinstance(item, dict):
+            continue
+        segments.append({
+            "start": round(_number(item.get("start")) or 0.0, 3),
+            "end": round(_number(item.get("end")) or 0.0, 3),
+            "text": " ".join(str(item.get("text") or "").split()),
+            "speaker": str(item.get("speaker") or ""),
+        })
+    canonical = json.dumps({
+        "language": str(payload.get("language") or "pt"),
+        "segments": segments,
+    }, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:24]
+
+
+def processing_interval_identity(
+    source_video: Any,
+    interval: dict[str, Any] | None,
+    *,
+    source_signature: str = "",
+    contract_version: str = INTERVAL_IDENTITY_VERSION,
+) -> str:
+    """Build a stable identity for the original source and selected range.
+
+    A temporary trimmed MP4 is deliberately excluded. When a local content
+    signature exists it wins over paths, so the same source copied elsewhere
+    retains its identity. Full-source and bounded-range jobs remain distinct.
+    """
+    scope = interval if isinstance(interval, dict) else {}
+    active = bool(scope.get("active"))
+    source_key = str(source_signature or "").strip().lower()
+    if source_key:
+        source_key = f"signature:{source_key[:64]}"
+    else:
+        source_key = f"path:{str(source_video or '').replace(chr(92), '/').strip().lower()}"
+    start = _number(scope.get("start_seconds")) or 0.0
+    end = _number(scope.get("end_seconds"))
+    duration = _number(scope.get("source_duration_seconds"))
+    payload = {
+        "contract": str(contract_version or INTERVAL_IDENTITY_VERSION),
+        "source": source_key,
+        "scope": "interval" if active else "full_source",
+        "start_seconds": round(start, 3),
+        "end_seconds": round(end, 3) if end is not None else None,
+        "source_duration_seconds": round(duration, 3) if duration is not None else None,
+    }
+    canonical = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return f"{contract_version}-{hashlib.sha256(canonical.encode('utf-8')).hexdigest()[:24]}"
 
 
 def parse_time_seconds(value: Any, *, field_name: str = "tempo") -> float | None:

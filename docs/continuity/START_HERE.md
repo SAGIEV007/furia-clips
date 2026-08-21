@@ -4,11 +4,11 @@
 
 ## Estado corrente após a retomada — 2026-08-21
 
-A branch vigente é `claude/repo-access-commits-imgjmk`, versão `6.19`, HEAD `94b8c56`. Desde o ponto de retomada `085569f`, foram publicadas a 6.18, com barra de execução contextual, e a 6.19, com cancelamento seguro de jobs enfileirados e feedback honesto na barra. A suíte atual tem 557 aprovados e 4 ignorados.
+A branch vigente é `claude/repo-access-commits-imgjmk`, versão `6.20`, com hash funcional pendente até o commit desta rodada. Desde o ponto de retomada `085569f`, foram publicadas a 6.18, com barra de execução contextual, a 6.19, com cancelamento seguro, e a 6.20, com identidade de intervalo, proveniência de transcrição, contrato narrativo, gate de locutor e fidelidade de headlines. A suíte atual tem **563 aprovados e 4 ignorados**.
 
 O norte atual continua sendo melhorar **cortes Renan Santos/MBL**, com precisão temporal, contexto, locutor, payoff, ranking, revisão e integração útil do Campaign Hub com o universo MBL. As ideias de plataforma — pesquisa recente, dossiês, fila remota, alertas, WhatsApp, Telegram e smartwatch — foram registradas como **fase final futura**, não como prioridade imediata nem como código implementado.
 
-Leia [`HANDOFF_SINCE_CLAUDE_2026-08-21.md`](HANDOFF_SINCE_CLAUDE_2026-08-21.md) para todas as alterações da retomada e [`FUTURE_PLATFORM_2026-08-21.md`](FUTURE_PLATFORM_2026-08-21.md) para as ideias da fase final. A hipótese técnica imediata continua sendo identidade persistente de intervalos, seguida por um planejamento aprofundado de precisão de cortes e integração Chub/MBL.
+Leia [`HANDOFF_SINCE_CLAUDE_2026-08-21.md`](HANDOFF_SINCE_CLAUDE_2026-08-21.md) para todas as alterações da retomada, [`CYCLE_36_REPORT_2026-08-21.md`](CYCLE_36_REPORT_2026-08-21.md) para a release atual, [`CUTTING_AUDIT_2026-08-21.md`](CUTTING_AUDIT_2026-08-21.md) e [`CUTTING_PRECISION_PLAN_2026-08-21.md`](CUTTING_PRECISION_PLAN_2026-08-21.md) para o plano do núcleo. As ideias remotas permanecem em [`FUTURE_PLATFORM_2026-08-21.md`](FUTURE_PLATFORM_2026-08-21.md). A hipótese técnica imediata agora é benchmark editorial por fonte, faixa, transcript e formato; não alterar pesos sem medição.
 
 ## 1. Missão do projeto
 

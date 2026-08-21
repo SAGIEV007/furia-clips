@@ -90,6 +90,8 @@ def analyze_transcript_context(
                 campaign_hub_snapshot,
                 account=campaign_hub_account,
                 limit=100,
+                media_duration=(transcription.get("coverage") or {}).get("video_duration_seconds")
+                if isinstance(transcription.get("coverage"), dict) else None,
             ))
         except (ImportError, OSError, TypeError, ValueError):
             campaign_hub_guided_seed_count = 0
@@ -141,6 +143,15 @@ def analyze_transcript_context(
         "end_ratio": coverage.get("end_ratio"),
         "segment_count": int(coverage.get("segment_count", len(enriched)) or 0),
     }
+    context_contract = build_context_contract(
+        enriched,
+        questions=questions,
+        qa_candidates=qa_candidates,
+        editorial_chapters=editorial_chapters,
+        hook_candidates=hook_candidates,
+        speaker_detection=speaker_detection,
+        transcription_quality=transcription_quality,
+    )
     summary = {
         "duration": round(duration, 3),
         "segment_count": len(enriched),
@@ -155,6 +166,7 @@ def analyze_transcript_context(
         "campaign_hub_guided_seed_count": campaign_hub_guided_seed_count,
         "chapter_map_version": "v1-temporal-qa",
         "transcription_quality": transcription_quality,
+        "context_contract": context_contract,
         "focus": focus_key,
         "participant_confidence": round(participant_confidence if renan_focus else min(participant_confidence, 0.55), 3),
         "speaker_detection": speaker_detection,
@@ -511,6 +523,75 @@ def _possible_overlap(segments: list[dict]) -> bool:
         if float(current.get("start", 0)) < float(previous.get("end", 0)) - 0.1:
             return True
     return False
+
+
+def build_context_contract(
+    segments: list[dict],
+    *,
+    questions: list[dict],
+    qa_candidates: list[dict],
+    editorial_chapters: list[dict],
+    hook_candidates: list[dict],
+    speaker_detection: dict,
+    transcription_quality: dict,
+) -> dict:
+    """Return bounded evidence for the smallest self-contained editorial window.
+
+    This is a contract for ranking and review, not a semantic truth claim. It
+    makes missing setup/payoff explicit so future models cannot treat a strong
+    hook alone as a complete clip.
+    """
+    anaphora_pattern = re.compile(
+        r"^\s*(?:isso|isto|aquilo|ele|ela|eles|elas|esse|essa|aquele|aquela|ali|lá|por isso|como eu disse|novamente|também|então)\b",
+        re.IGNORECASE,
+    )
+    anaphoric_segments = [
+        item for item in segments
+        if anaphora_pattern.search(str(item.get("text") or ""))
+    ]
+    payoff_confirmed = sum(1 for item in hook_candidates if item.get("payoff_confirmed"))
+    chapter_count = len(editorial_chapters or [])
+    requires_question = bool(qa_candidates or questions)
+    requires_prior_context = bool(anaphoric_segments)
+    requires_speaker_review = bool((speaker_detection or {}).get("review_required"))
+    review_reasons = []
+    if requires_question:
+        review_reasons.append("preservar pergunta ou provocação correspondente")
+    if requires_prior_context:
+        review_reasons.append("recuperar antecedente de referência anafórica")
+    if not payoff_confirmed:
+        review_reasons.append("confirmar consequência ou fechamento no áudio")
+    if requires_speaker_review:
+        review_reasons.append("confirmar locutor e trocas de turno")
+    if (transcription_quality or {}).get("review_required"):
+        review_reasons.append("revisar cobertura/proveniência da transcrição")
+    completeness = 100
+    completeness -= 20 if requires_question and not qa_candidates else 0
+    completeness -= 18 if requires_prior_context else 0
+    completeness -= 18 if not payoff_confirmed else 0
+    completeness -= 14 if requires_speaker_review else 0
+    completeness -= 15 if (transcription_quality or {}).get("review_required") else 0
+    return {
+        "contract_version": "context-contract-v1",
+        "minimum_window": {
+            "include_question_or_setup": requires_question,
+            "include_prior_context": requires_prior_context,
+            "include_response_or_thesis": bool(qa_candidates or segments),
+            "include_payoff": payoff_confirmed > 0,
+        },
+        "evidence": {
+            "question_count": len(questions),
+            "qa_candidate_count": len(qa_candidates),
+            "anaphoric_segment_count": len(anaphoric_segments),
+            "payoff_confirmed_hook_count": payoff_confirmed,
+            "chapter_count": chapter_count,
+            "speaker_status": (speaker_detection or {}).get("status", "not_available"),
+            "transcription_status": (transcription_quality or {}).get("status", "unknown"),
+        },
+        "completeness_score": max(0, min(100, completeness)),
+        "review_required": bool(review_reasons),
+        "review_reasons": review_reasons,
+    }
 
 
 def _description(duration: float, question_count: int, qa_count: int, confidence: float, focus_label: str, chapter_count: int = 0) -> str:

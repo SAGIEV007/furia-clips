@@ -471,6 +471,44 @@ _ARTWORK_CONNECTIVES = {
 }
 
 
+def _headline_fidelity_report(formats: dict[str, Any], source_text: str) -> dict[str, Any]:
+    """Report grounding status without treating lexical overlap as factual proof."""
+    suggestions = []
+    for format_id, payload in (formats or {}).items():
+        for item in (payload or {}).get("suggestions", []) if isinstance(payload, dict) else []:
+            if isinstance(item, dict):
+                suggestions.append((format_id, item))
+    grounded = 0
+    ungrounded = 0
+    quoted = 0
+    quoted_verified = 0
+    for _format_id, item in suggestions:
+        headline = str(item.get("headline") or "")
+        if _headline_invents_nothing(headline, source_text):
+            grounded += 1
+        else:
+            ungrounded += 1
+        if item.get("mode") == "citacao":
+            quoted += 1
+            if _quote_is_verbatim(headline, source_text):
+                quoted_verified += 1
+    return {
+        "contract_version": "headline-fidelity-v1",
+        "source_characters": len(str(source_text or "")),
+        "suggestion_count": len(suggestions),
+        "grounded_count": grounded,
+        "ungrounded_count": ungrounded,
+        "quote_count": quoted,
+        "quoted_verbatim_count": quoted_verified,
+        "review_required": bool(ungrounded or quoted != quoted_verified),
+        "message": (
+            "Todas as sugestões passaram pelo filtro lexical conservador; revise a precisão factual antes de publicar."
+            if not (ungrounded or quoted != quoted_verified)
+            else "Uma ou mais sugestões exigem revisão: a transcrição não prova sozinha a veracidade do fato."
+        ),
+    }
+
+
 def _merge_ai_suggestions(
     base: dict[str, Any],
     payload: dict[str, Any],
@@ -628,5 +666,6 @@ def generate_artwork_copy(
         except Exception:
             # Uma saída determinística e explicável é melhor que uma tela quebrada.
             pass
+    result["fidelity"] = _headline_fidelity_report(result.get("formats", {}), f"{text} {context}")
     result["generated_format"] = preferred if preferred in FORMAT_IDS else result.get("recommended_format", FORMAT_VERTICAL)
     return result

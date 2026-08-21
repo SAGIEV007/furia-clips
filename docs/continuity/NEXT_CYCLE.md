@@ -2,41 +2,41 @@
 
 ## Estado de partida
 
-A release `6.19` está na branch `claude/repo-access-commits-imgjmk`, com cancelamento seguro de jobs enfileirados e feedback honesto na barra fixa. A 6.19 preserva o filtro Renan-first, a separação de descoberta/publicação, o processamento parcial e a UX contextual da 6.18. O editor continua podendo informar uma faixa de fonte em segundos, `mm:ss` ou `hh:mm:ss`; o Furia cria uma cópia temporária, processa a timeline local e devolve também `source_start`, `source_end` e `processing_interval`. O futuro da ferramenta, reservado para uma fase final posterior, está em `FUTURE_PLATFORM_2026-08-21.md`; o inventário desde Claude está em `HANDOFF_SINCE_CLAUDE_2026-08-21.md`. O norte imediato continua sendo precisão de cortes e integração Chub/MBL.
+A release `6.20` está na branch `claude/repo-access-commits-imgjmk`, com identidade persistente de intervalo, digest/proveniência de transcrição, contrato narrativo, gate final de locutor e fidelidade explicável de headlines. Ela preserva o cancelamento seguro de jobs da 6.19, o filtro Renan-first, a separação de descoberta/publicação, o processamento parcial e a UX contextual. O editor continua podendo informar uma faixa de fonte em segundos, `mm:ss` ou `hh:mm:ss`; o Furia cria uma cópia temporária, processa a timeline local e devolve também `source_start`, `source_end`, `processing_interval` e `processing_identity`. O futuro da ferramenta, reservado para uma fase final posterior, está em `FUTURE_PLATFORM_2026-08-21.md`; o inventário desde Claude está em `HANDOFF_SINCE_CLAUDE_2026-08-21.md`. O norte imediato continua sendo precisão de cortes e integração Chub/MBL.
 
 A fonte original continua canônica. Reels e posts publicados continuam `reference_only`; lives longas e arquivos crus continuam `processing_source`. Nenhum snapshot do Campaign Hub é consultado durante o job normal fora dos arquivos locais autorizados. O ciclo 35 não iniciou mídia real nem dependeu de navegador; alterou somente o contrato operacional de cancelamento e seu feedback. O planejamento aprofundado do núcleo de cortes está em `CUTTING_PRECISION_PLAN_2026-08-21.md`, e a auditoria factual que o fundamenta está em `CUTTING_AUDIT_2026-08-21.md`. O arquivo `FUTURE_PLATFORM_2026-08-21.md` continua reservado à fase final de automações e integrações remotas.
 
 ## Hipótese única
 
-> **Se cada execução parcial receber uma identidade persistente de intervalo no banco e nos bundles editoriais, então a deduplicação poderá comparar somente a mesma faixa da fonte, evitando tanto duplicatas na faixa já processada quanto o bloqueio indevido de faixas diferentes.**
+> **Se o benchmark editorial registrar identidade da fonte/faixa, digest da transcrição, formato, bordas e decisão humana, então será possível medir quais melhorias realmente elevam recall, precisão temporal, contexto, payoff e aprovação Renan/MBL antes de alterar novamente os pesos do ranking.**
 
-A barra de execução da 6.18 e o cancelamento honesto da 6.19 estão concluídos. O próximo ciclo volta à fundação técnica de identidade de intervalo, que é o P1 do plano de precisão. Depois de fechar essa fundação, a ordem recomendada é benchmark editorial, proveniência de transcrição, recall-first Chub, bordas, locutor, contexto/payoff, ranking e formatos.
+A identidade persistente de intervalo, a proveniência, o contrato narrativo, o gate final de locutor e a fidelidade de headlines foram implementados na 6.20. O próximo ciclo deve usar essas fundações para comparar candidatos e decisões humanas por faixa, sem alterar pesos até existir uma medição. Depois do benchmark, a ordem recomendada é recall-first Chub, bordas, locutor, contexto/payoff, ranking pairwise e formatos.
 
 ## Procedimento de validação
 
-1. Fixar uma fonte local curta e uma fonte longa autorizada, além de duas faixas não sobrepostas e uma faixa repetida.
-2. Definir um identificador estável composto por assinatura da fonte original, início, fim e versão do contrato de intervalo; nunca usar o caminho da cópia temporária como identidade.
-3. Persistir o identificador no projeto, no bundle de transcrição, nos diagnósticos e nos clips gerados sem incluir mídia, transcrição real ou credenciais no Git.
-4. Executar a mesma faixa duas vezes e confirmar que fingerprints equivalentes são evitados; executar uma faixa diferente e confirmar que seus candidatos não são bloqueados pela primeira.
-5. Reexecutar o fluxo integral sem intervalo e confirmar que a deduplicação e o ranking atuais permanecem iguais.
-6. Criar regressões para intervalo vazio, início/fim parcial, faixas adjacentes, fonte substituída, caminho temporário removido e fonte inteira.
-7. Só depois retomar a visualização read-only da fila de descoberta Chub, com filtros por locutor, bloco, highlight e motivo de exclusão; a visualização não poderá renderizar nem aprovar.
+1. Selecionar uma fonte longa autorizada com snapshot/fixture Chub e um conjunto de cortes humanos aprovados, rejeitados e pendentes.
+2. Materializar o benchmark com `source_signature`, `processing_identity`, `transcript_digest`, formato, início/fim, bloco de referência e decisão humana.
+3. Medir separadamente recall temporal, IoU de borda, precisão@k, contexto autossuficiente, payoff, locutor, diversidade, headline e qualidade técnica.
+4. Comparar fonte inteira, duas faixas não sobrepostas e uma faixa repetida; repetir com transcript manual e automático quando os dois existirem.
+5. Gerar uma tabela de falhas por motivo: início tardio, final precoce, anáfora, pergunta sem resposta, payoff ausente, locutor incerto, Chub não recuperado, headline não fundamentada ou problema visual.
+6. Reexecutar o fluxo sem intervalo e confirmar que a identidade não altera o ranking por acidente; mudanças de score exigem uma hipótese separada.
+7. Só depois retomar a visualização read-only da fila de descoberta Chub, com filtros por locutor, bloco, highlight, identidade e motivo de exclusão; a visualização não poderá renderizar nem aprovar.
 
 ## Critério de sucesso
 
-A hipótese será confirmada se duas execuções da mesma faixa compartilham a identidade e evitam duplicatas, enquanto faixas diferentes da mesma live continuam independentes. A fonte inteira deve conservar o comportamento anterior e nenhum gate Renan-first, contexto, payoff, risco ou Campaign Hub pode ser relaxado.
+A hipótese será confirmada se o benchmark reproduzir a mesma faixa e transcript por identidade, separar faixas diferentes, medir os motivos de erro e permitir comparar antes/depois por dimensão editorial. Nenhuma alteração de ranking será considerada ganho sem melhora mensurada em recall/precisão temporal e sem preservar os gates Renan-first, contexto, payoff, risco e Campaign Hub.
 
 ## Critério de falha
 
-Se a identidade depender do caminho temporário, colidir entre fontes com o mesmo nome, bloquear faixas distintas, vazar conteúdo sensível ou alterar o ranking integral, a mudança será revertida. Nesse caso, a deduplicação parcial continuará desativada até existir um contrato seguro.
+Se o benchmark misturar faixas, transcrições ou formatos, se decisões humanas não puderem ser rastreadas ao candidato original, ou se a identidade alterar ranking sem mudança editorial explícita, a hipótese falha. Nesse caso, corrigir a medição antes de alterar pesos ou adicionar aprendizado.
 
 ## Escopo excluído
 
-Não alterar pesos do ranking, quota Chub, bordas temporais, diarização, headlines, reframe, download autenticado ou integração MCP. Não baixar Reels publicados. Não adicionar rotas de promoção automática. Não tocar a branch principal.
+Não alterar pesos do ranking até o benchmark produzir uma comparação. Não adicionar download autenticado, WhatsApp, smartwatch, pesquisa remota ou integração MCP nesta rodada. Não baixar Reels publicados. Não adicionar rotas de promoção automática. Não tocar a branch principal.
 
 ## Arquivos para ler primeiro
 
-`PROJECT_STATE.md`, `HANDOFF_SINCE_CLAUDE_2026-08-21.md`, `CUTTING_AUDIT_2026-08-21.md`, `CUTTING_PRECISION_PLAN_2026-08-21.md`, `RESEARCH_CUTTING_PRECISION_2026-08-21.md`, `FUTURE_PLATFORM_2026-08-21.md`, `CYCLE_35_REPORT_2026-08-21.md`, `CYCLE_34_REPORT_2026-08-21.md`, `CYCLE_33_REPORT_2026-08-20.md`, `DECISIONS.md`, `REFERENCE_UX_NOTES_2026-08-20.md`, `UX_RUNBAR_CHECK_2026-08-21.md`, `modules/job_manager.py`, `modules/source_interval.py`, `tests/test_job_manager.py`, `tests/test_source_interval.py`, `tests/test_ux_runbar.py` e `docs/VERSIONING.md`.
+`PROJECT_STATE.md`, `HANDOFF_SINCE_CLAUDE_2026-08-21.md`, `CUTTING_AUDIT_2026-08-21.md`, `CUTTING_PRECISION_PLAN_2026-08-21.md`, `RESEARCH_CUTTING_PRECISION_2026-08-21.md`, `FUTURE_PLATFORM_2026-08-21.md`, `CYCLE_36_REPORT_2026-08-21.md`, `CYCLE_35_REPORT_2026-08-21.md`, `CYCLE_34_REPORT_2026-08-21.md`, `DECISIONS.md`, `modules/source_interval.py`, `modules/transcript_archive.py`, `modules/editorial_context.py`, `modules/editorial_benchmark.py`, `modules/speaker_id.py`, `tests/test_interval_identity.py`, `tests/test_context_contract.py`, `tests/test_source_interval.py` e `docs/VERSIONING.md`.
 
 ## Referências
 
