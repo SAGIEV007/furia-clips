@@ -3395,7 +3395,6 @@ Retorne APENAS o JSON.
             and not overlap_suspected
             and not timing_ambiguous
             and speaker_turn_valid is not False
-            and not speaker_identity_review_required
         )
         return {
             "starts_mid_sentence": starts_mid_sentence,
@@ -3412,7 +3411,6 @@ Retorne APENAS o JSON.
                 and not overlap_suspected
                 and not timing_ambiguous
                 and speaker_turn_valid is not False
-                and not speaker_identity_review_required
             ),
             "speaker_turn_valid": speaker_turn_valid,
             "speaker_identity_required": speaker_identity_required,

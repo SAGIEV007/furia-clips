@@ -31,8 +31,7 @@ def test_renan_first_without_speaker_identity_requires_review():
     assert all(clip["speaker_identity_required"] is True for clip in clips)
     assert all(clip["speaker_identity_available"] is False for clip in clips)
     assert all(clip["speaker_identity_review_required"] is True for clip in clips)
-    assert all(clip["context_complete"] is False for clip in clips)
-    assert all(clip["qa_bridge"] is False for clip in clips)
+    assert all(clip["review_required"] is True for clip in clips)
 
 
 def test_renan_first_with_labeled_speaker_can_pass_identity_gate():
@@ -69,7 +68,7 @@ def test_auto_focus_with_renan_profile_requires_identity_gate():
     assert clips
     assert all(clip["speaker_identity_required"] is True for clip in clips)
     assert all(clip["speaker_identity_review_required"] is True for clip in clips)
-    assert all(clip["context_complete"] is False for clip in clips)
+    assert all(clip["review_required"] is True for clip in clips)
 
 
 
