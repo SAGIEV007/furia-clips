@@ -40,6 +40,7 @@ const state = {
     pendingProcessMode: "smart",
     processingStart: "",
     processingEnd: "",
+    processingScopeLabel: "Fonte inteira",
     previewToken: 0,
     consoleHistory: [],
 };
@@ -63,7 +64,52 @@ let socketRecoveryNotice = false;
 // que o segundo clique não fez efeito. Um clique ignorado sem explicação ensina
 // que o programa está travado.
 
-const run = { active: false, title: "", startedAt: 0, timer: null };
+const RUN_STAGE_ORDER = ["source", "transcript", "context", "ranking", "render"];
+const RUN_STAGE_LABELS = {
+    source: "Fonte",
+    transcript: "Transcrição",
+    context: "Contexto",
+    ranking: "Ranking",
+    render: "Cortes",
+};
+const run = { active: false, title: "", startedAt: 0, timer: null, progress: 0, stage: "source", scope: "Fonte inteira" };
+
+function inferRunStage(detail = "") {
+    const value = String(detail || "").toLowerCase();
+    if (/transcri|gemini|whisper|legenda pública/.test(value)) return "transcript";
+    if (/contexto|análise de vídeo|analise de video|\[layout\]|detec[cç][aã]o de cena/.test(value)) return "context";
+    if (/sele[cç][aã]o|ranqueamento|ranking|\[nlp\]/.test(value)) return "ranking";
+    if (/cortando|corte completo|renderizando|clip.*gerado/.test(value)) return "render";
+    return "source";
+}
+
+function renderRunBarState(stage = run.stage, progress = run.progress, level = "active") {
+    const normalizedStage = RUN_STAGE_ORDER.includes(stage) ? stage : "source";
+    const normalizedProgress = Math.max(0, Math.min(100, Number(progress) || 0));
+    run.stage = normalizedStage;
+    run.progress = normalizedProgress;
+    const stageEl = document.getElementById("runBarStage");
+    const fill = document.getElementById("runBarProgressFill");
+    const track = document.getElementById("runBarProgressTrack");
+    const progressText = document.getElementById("runBarProgressText");
+    if (stageEl) stageEl.textContent = RUN_STAGE_LABELS[normalizedStage];
+    if (fill) fill.style.width = `${normalizedProgress}%`;
+    if (progressText) progressText.textContent = `${Math.round(normalizedProgress)}%`;
+    if (track) track.setAttribute("aria-valuenow", String(Math.round(normalizedProgress)));
+    document.querySelectorAll("[data-run-step]").forEach((step) => {
+        const index = RUN_STAGE_ORDER.indexOf(step.dataset.runStep);
+        const currentIndex = RUN_STAGE_ORDER.indexOf(normalizedStage);
+        step.classList.toggle("complete", index < currentIndex);
+        step.classList.toggle("active", index === currentIndex && level !== "error");
+        step.classList.toggle("error", index === currentIndex && level === "error");
+    });
+}
+
+function setRunBarScope(scope) {
+    run.scope = String(scope || "Fonte inteira");
+    const element = document.getElementById("runBarScope");
+    if (element) element.textContent = run.scope;
+}
 
 function paintRun() {
     const bar = document.getElementById("runBar");
@@ -75,6 +121,8 @@ function paintRun() {
     });
     if (!run.active) return;
     document.getElementById("runBarTitle").textContent = run.title || "Processando";
+    setRunBarScope(run.scope);
+    renderRunBarState(run.stage, run.progress);
     const seconds = Math.max(0, Math.round((Date.now() - run.startedAt) / 1000));
     document.getElementById("runBarClock").textContent =
         `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
@@ -85,6 +133,9 @@ function beginRun(title, action = "", detail = "Preparando…") {
     run.title = title;
     run.action = action;
     run.startedAt = Date.now();
+    run.progress = 0;
+    run.stage = inferRunStage(detail);
+    setRunBarScope(state.processingScopeLabel || "Fonte inteira");
     const line = document.getElementById("runBarDetail");
     if (line) line.textContent = detail;
     window.clearInterval(run.timer);
@@ -98,6 +149,7 @@ function describeRun(detail) {
     // A mensagem de progresso já vem carimbada com versão e etapa; o que
     // interessa na barra é a última coisa dita, sem o carimbo.
     if (line && detail) line.textContent = String(detail).replace(/^\[[^\]]*\]\s*/, "").slice(0, 140);
+    renderRunBarState(inferRunStage(detail), run.progress);
 }
 
 function endRun() {
@@ -1598,7 +1650,11 @@ function handleJobUpdate(job, options = {}) {
     // passa a se comportar de acordo em vez de aceitar cliques e descartá-los.
     if (["queued", "running", "cancel_requested"].includes(job.state)) {
         if (!run.active) beginRun(RUN_TITLES[job.type] || "Processando", job.type, job.message || job.stage || "Preparando…");
-        describeRun(job.message || job.stage);
+        const jobDetail = job.message || job.stage || "Preparando…";
+        const jobScope = job.processing_interval?.label || (job.processing_interval?.active ? "faixa selecionada" : state.processingScopeLabel || "Fonte inteira");
+        setRunBarScope(jobScope);
+        renderRunBarState(inferRunStage(jobDetail), Number(job.progress || 0));
+        describeRun(jobDetail);
     } else {
         if (run.active && job.state === "completed") tocarFim();
         endRun();
@@ -2166,6 +2222,7 @@ async function startSmartCut() {
     }
     state.processingStart = interval.start || "";
     state.processingEnd = interval.end || "";
+    state.processingScopeLabel = interval.label || "fonte inteira";
     closeCutOptionsModal();
     if (!requireVideo()) return;
     state.faceTracking = Boolean(document.getElementById("faceTrackingEnabled")?.checked);

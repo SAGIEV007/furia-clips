@@ -282,13 +282,32 @@
         <div class="run-bar" id="runBar" hidden role="status" aria-live="polite">
             <span class="run-bar-pulse" aria-hidden="true"></span>
             <div class="run-bar-body">
-                <strong id="runBarTitle">Processando</strong>
+                <div class="run-bar-heading">
+                    <strong id="runBarTitle">Processando</strong>
+                    <span class="run-bar-stage" id="runBarStage">Preparando</span>
+                </div>
                 <span id="runBarDetail">Preparando…</span>
+                <div class="run-bar-progress-row">
+                    <div class="run-bar-progress-track" id="runBarProgressTrack" role="progressbar" aria-label="Progresso da operação" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                        <div class="run-bar-progress-fill" id="runBarProgressFill"></div>
+                    </div>
+                    <span class="run-bar-progress-text" id="runBarProgressText">0%</span>
+                </div>
+                <div class="run-bar-step-strip" id="runBarStepStrip" aria-label="Etapas da operação">
+                    <span class="run-bar-step active" data-run-step="source">Fonte</span>
+                    <span class="run-bar-step" data-run-step="transcript">Transcrição</span>
+                    <span class="run-bar-step" data-run-step="context">Contexto</span>
+                    <span class="run-bar-step" data-run-step="ranking">Ranking</span>
+                    <span class="run-bar-step" data-run-step="render">Cortes</span>
+                </div>
             </div>
-            <span class="run-bar-clock" id="runBarClock">00:00</span>
-            <button class="btn btn-sm btn-outline" id="runBarCancel" type="button">
-                <span class="material-icons-round">stop_circle</span> Cancelar
-            </button>
+            <div class="run-bar-side">
+                <span class="run-bar-scope" id="runBarScope">Fonte inteira</span>
+                <span class="run-bar-clock" id="runBarClock">00:00</span>
+                <button class="btn btn-sm btn-outline" id="runBarCancel" type="button">
+                    <span class="material-icons-round">stop_circle</span> Cancelar
+                </button>
+            </div>
         </div>
 
         <nav class="workflow-steps" aria-label="Fluxo editorial">

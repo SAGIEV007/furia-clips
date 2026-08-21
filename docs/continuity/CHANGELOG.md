@@ -1,5 +1,27 @@
 # Changelog de continuidade
 
+## 6.18 — Barra de execução com etapas, progresso e escopo da fonte
+
+### Hipótese
+
+Uma barra fixa que reúna etapa atual, progresso percentual, sequência do pipeline e faixa da fonte reduziria a ambiguidade durante operações longas e diminuiria a dependência do console para entender o estado do job.
+
+### Incluído
+
+- `templates/index.html`: `runBar` expandida com etapa, progresso acessível, sequência `Fonte → Transcrição → Contexto → Ranking → Cortes`, escopo da fonte e coluna lateral responsiva.
+- `static/js/app.js`: inferência de etapa a partir das mensagens já existentes, renderização dos estados `complete`, `active`, `future` e `error`, atualização de `aria-valuenow` e persistência do rótulo de escopo entre execuções.
+- `static/css/style.css`: hierarquia visual, badges, barra percentual, estados semânticos, responsividade abaixo de 620px e `prefers-reduced-motion`.
+- `tests/test_ux_runbar.py`: regressões estáticas para markup, acessibilidade e estados visuais.
+- Relatórios de auditoria e verificação visual do ciclo.
+
+### Resultado medido
+
+A simulação visual mostrou etapa `Transcrição` a 42% e `Ranking` a 78%, com `00:00–05:00` visível no chip de escopo. A etapa concluída, a etapa ativa e as etapas futuras ficaram distinguíveis, e `aria-valuenow` acompanhou o percentual. Nenhuma decisão editorial ou chamada de backend foi modificada.
+
+### Validação
+
+A suíte focada terminou com **37 testes aprovados**. A suíte completa terminou com **555 testes aprovados e 4 ignorados** após o asset BlazeFace ser provisionado temporariamente, conferido e removido. Também passaram `node --check`, `py_compile` e `git diff --check`. O ciclo não iniciou job real; a limitação está registrada em [`CYCLE_34_REPORT_2026-08-21.md`](CYCLE_34_REPORT_2026-08-21.md).
+
 ## 6.17 — Processamento parcial de fonte e UX de execução unificada
 
 ### Hipótese

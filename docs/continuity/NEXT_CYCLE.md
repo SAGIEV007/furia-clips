@@ -2,13 +2,15 @@
 
 ## Estado de partida
 
-A release `6.17` está na branch `claude/repo-access-commits-imgjmk`, aguardando apenas o commit e a publicação finais deste ciclo. A 6.17 preserva o filtro Renan-first e a separação de descoberta/publicação da 6.16. O editor agora pode informar uma faixa de fonte em segundos, `mm:ss` ou `hh:mm:ss`; o Furia cria uma cópia temporária, processa a timeline local e devolve também `source_start`, `source_end` e `processing_interval`.
+A release `6.18` está na branch `claude/repo-access-commits-imgjmk`, com a barra fixa de execução contextualizada por etapa, progresso, escopo e sequência visual do pipeline. A 6.18 preserva o filtro Renan-first, a separação de descoberta/publicação e o processamento parcial da 6.17. O editor continua podendo informar uma faixa de fonte em segundos, `mm:ss` ou `hh:mm:ss`; o Furia cria uma cópia temporária, processa a timeline local e devolve também `source_start`, `source_end` e `processing_interval`.
 
-A fonte original continua canônica. Reels e posts publicados continuam `reference_only`; lives longas e arquivos crus continuam `processing_source`. Nenhum snapshot do Campaign Hub é consultado durante o job normal fora dos arquivos locais autorizados. A interface visual consultada foi `manus/rebuild-opus-parity-2`; apenas padrões visuais/UX foram considerados.
+A fonte original continua canônica. Reels e posts publicados continuam `reference_only`; lives longas e arquivos crus continuam `processing_source`. Nenhum snapshot do Campaign Hub é consultado durante o job normal fora dos arquivos locais autorizados. A interface visual consultada foi `manus/rebuild-opus-parity-2`; apenas padrões visuais/UX foram considerados. O ciclo visual não iniciou job real e não alterou backend, ranking ou contexto.
 
 ## Hipótese única
 
 > **Se cada execução parcial receber uma identidade persistente de intervalo no banco e nos bundles editoriais, então a deduplicação poderá comparar somente a mesma faixa da fonte, evitando tanto duplicatas na faixa já processada quanto o bloqueio indevido de faixas diferentes.**
+
+A barra de execução da 6.18 está concluída e não deve ser expandida no próximo ciclo, salvo correção regressiva observada em uso real. O próximo ciclo volta à fundação técnica de identidade de intervalo.
 
 ## Procedimento de validação
 
@@ -34,11 +36,12 @@ Não alterar pesos do ranking, quota Chub, bordas temporais, diarização, headl
 
 ## Arquivos para ler primeiro
 
-`PROJECT_STATE.md`, `CYCLE_33_REPORT_2026-08-20.md`, `DECISIONS.md`, `REFERENCE_UX_NOTES_2026-08-20.md`, `INTERVAL_UX_CHECK_2026-08-20.md`, `modules/source_interval.py`, `tests/test_source_interval.py` e `docs/VERSIONING.md`.
+`PROJECT_STATE.md`, `CYCLE_34_REPORT_2026-08-21.md`, `CYCLE_33_REPORT_2026-08-20.md`, `DECISIONS.md`, `REFERENCE_UX_NOTES_2026-08-20.md`, `UX_RUNBAR_CHECK_2026-08-21.md`, `modules/source_interval.py`, `tests/test_source_interval.py`, `tests/test_ux_runbar.py` e `docs/VERSIONING.md`.
 
 ## Referências
 
 - [`PROJECT_STATE.md`](PROJECT_STATE.md)
+- [`CYCLE_34_REPORT_2026-08-21.md`](CYCLE_34_REPORT_2026-08-21.md)
 - [`DECISIONS.md`](DECISIONS.md)
 - [`CYCLE_33_REPORT_2026-08-20.md`](CYCLE_33_REPORT_2026-08-20.md)
 - [`CYCLE_32_REPORT_2026-08-20.md`](CYCLE_32_REPORT_2026-08-20.md)

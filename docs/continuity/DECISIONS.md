@@ -110,3 +110,9 @@ Quando o editor informar início e fim de uma fonte longa, o Furia deve criar um
 ## D-028 — Referência visual não autoriza mudança editorial
 
 Branches de outras IAs podem ser consultados para padrões de layout, hierarquia, acessibilidade e fluxo de revisão, mas commits de ranking, backend, pesos, Campaign Hub ou gates não podem ser importados sob uma hipótese visual/UX. Cada ciclo deve documentar quais commits foram consultados e quais foram deliberadamente excluídos.
+
+## D-029 — Barra de execução como contrato de UX
+
+Durante uma execução longa, o estado operacional deve ser legível em um único componente fixo: etapa atual, percentual, sequência do pipeline, escopo da fonte e ação de cancelamento. Essa camada deve consumir sinais já existentes do job, preservar o console detalhado e não tomar decisões editoriais. Estados `complete`, `active`, `future` e `error` devem permanecer semanticamente distinguíveis, com `aria-valuenow` atualizado e suporte a `prefers-reduced-motion`.
+
+A decisão vale para a 6.18 e não autoriza mudanças no ranking, nos gates Renan-first, no contexto, no Campaign Hub ou no backend. Se no futuro a inferência por mensagens se mostrar ambígua, uma fase estruturada poderá ser proposta em ciclo próprio, com benchmark e regressões separados.
