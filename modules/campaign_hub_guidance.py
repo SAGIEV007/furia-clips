@@ -300,6 +300,6 @@ def build_campaign_hub_guided_seeds(
             continue
         seen.add(key)
         deduplicated.append(seed)
-        if len(deduplicated) >= max(1, min(100, int(limit or 30))):
+        if len(deduplicated) >= max(1, min(250, int(limit or 100))):
             break
     return deduplicated

@@ -711,7 +711,46 @@ def _defer_context_incomplete_candidates(candidates):
         technical_reasons = candidate.get("technical_gate_reasons") or review_flags.get("technical_gate_reasons") or []
         context_incomplete = "context_complete" in candidate and candidate.get("context_complete") is False
         technical_review = technical_status == "review"
-        if not context_incomplete and not technical_review:
+        
+        # Incerteza de locutor e pouco contexto lexical são motivos para revisão
+        # humana, não motivos para apagar o corte. O editor precisa conseguir
+        # assistir ao material para confirmar a voz e decidir. Só riscos técnicos
+        # duros continuam impedindo a renderização.
+        hard_technical_markers = (
+            "pergunta detectada sem ponte",
+            "alegação sensível",
+            "afirmação factual sem evidência",
+            "sobreposição de áudio",
+            "timing ambíguo",
+            "intervalo inválido",
+            "mídia inválida",
+        )
+        hard_technical_review = technical_review and any(
+            marker in " ".join(str(reason).lower() for reason in technical_reasons)
+            for marker in hard_technical_markers
+        )
+        # Contexto curto/lexicalmente fraco é revisável. Contexto quebrado é
+        # bloqueante: início no meio da frase, referência sem antecedente,
+        # pergunta sem resposta, payoff fraco, sobreposição ou timing ambíguo.
+        hard_context = any(bool(candidate.get(flag)) for flag in (
+            "starts_mid_sentence",
+            "starts_with_context_reference",
+            "question_requires_answer",
+            "payoff_weak_ending",
+            "overlap_suspected",
+            "timing_ambiguous",
+        )) or candidate.get("speaker_turn_valid") is False
+        if (not context_incomplete or not hard_context) and not hard_technical_review:
+            if technical_review:
+                candidate["review_required"] = True
+                existing_review_reasons = candidate.get("review_reasons")
+                if not isinstance(existing_review_reasons, list):
+                    existing_review_reasons = []
+                    candidate["review_reasons"] = existing_review_reasons
+                existing_review_reasons.extend(
+                    str(reason) for reason in technical_reasons if str(reason).strip()
+                )
+                existing_review_reasons.append("revisão técnica editorial recomendada")
             renderable.append(candidate)
             continue
 
@@ -722,7 +761,7 @@ def _defer_context_incomplete_candidates(candidates):
                 reasons.append("início possivelmente no meio da frase")
             if candidate.get("starts_with_context_reference"):
                 reasons.append("referência contextual sem antecedente recuperado")
-        if technical_review:
+        if hard_technical_review:
             reasons.append("revisão técnica editorial obrigatória")
             reasons.extend(str(reason) for reason in technical_reasons if str(reason).strip())
         deferred.append({
@@ -3548,6 +3587,9 @@ def api_cut_shorts():
             render_rejections.extend(getattr(cutter, "last_rejections", []))
 
             # Persist rendered clips so review decisions can calibrate future ranking.
+            # Only export up to the adaptive maximum, ensuring the highest ranked
+            # clips are chosen without discarding candidates prematurely in the pipeline.
+            results = results[:settings.get("adaptive_max_clips", 36)]
             output_folder = ""
             clip_id_by_index = {}
             for i, res in enumerate(results):

@@ -92,14 +92,14 @@ class EditorialRanker:
             reverse=True,
         )
 
+        # Não aplicar descarte rígido de diversidade em excesso antes do UI.
+        # Apenas rebaixe a pontuação para manter as opções para o editor.
         selected = []
         for clip in scored:
             penalty = self._diversity_penalty(clip, selected)
             clip["factors"]["diversity"] = round(max(0.0, 100.0 - penalty), 1)
             clip["diversity_penalty"] = round(penalty, 1)
             clip["diversity_reason"] = self._diversity_reason(clip, selected)
-            if penalty >= 70:
-                continue
             if penalty >= 35:
                 clip["editorial_potential_score"] = max(
                     0,
@@ -569,7 +569,9 @@ class EditorialRanker:
         if clip.get("overlap_suspected"):
             hard_blockers.append("sobreposição de fala ou timestamps")
         if clip.get("speaker_identity_required") and clip.get("speaker_identity_available") is False:
-            hard_blockers.append("identidade do locutor incompatível com o foco Renan-first")
+            # Incerteza de locutor é motivo para revisão humana, não para bloquear a renderização.
+            # O editor precisa assistir ao corte para confirmar a voz antes de publicar.
+            review_items.append("identidade do locutor não confirmada — revise antes de publicar")
         elif clip.get("speaker_identity_required") and clip.get("speaker_identity_available") is not True:
             review_items.append("identidade do locutor ainda não confirmada")
         if clip.get("transcription_review_required"):

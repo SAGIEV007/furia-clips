@@ -467,7 +467,9 @@ class ClipSelector:
 
         # Limit to the adaptive maximum only after deduplication, so a second run can
         # fill the queue with genuinely new moments instead of truncating repetitions.
-        clips = clips[:self.max_clips]
+        # Let the ranker and the final render stage apply the budget so we don't
+        # discard valid candidates prematurely.
+        pass
         self._candidate_diagnostics["final_count"] = len(clips)
         self._candidate_diagnostics["campaign_hub_publishable_candidate_count"] = len(clips)
         self._candidate_diagnostics["final_candidates"] = [
