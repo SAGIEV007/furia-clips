@@ -249,6 +249,11 @@ class EditorialRanker:
             elif clip.get("timing_ambiguous"):
                 score = min(score, 70)
         score = max(0, min(100, score))
+        eligibility = self._eligibility_ledger(
+            clip,
+            technical_gate,
+            context_contract=context_contract,
+        )
 
         candidate_origin = str(clip.get("candidate_origin") or "")
         candidate_confidence = clip.get("confidence")
@@ -341,6 +346,9 @@ class EditorialRanker:
             "instagram_pattern_prior": instagram_pattern_prior,
             "feedback_calibration": feedback_calibration,
             "technical_gate": technical_gate,
+            "eligibility": eligibility,
+            "eligibility_status": eligibility["status"],
+            "publishable_without_review": bool(eligibility["publishable_without_review"]),
             "hook_family": campaign_hub_prior["hook_family"],
             "hook_evidence": list(campaign_hub_prior.get("hook_evidence") or []),
             "hook_classification_confidence": campaign_hub_prior.get("hook_classification_confidence", 0.0),
@@ -387,6 +395,9 @@ class EditorialRanker:
                 "feedback_reason_alignment": factors["feedback_reason_alignment"],
                 "technical_gate_status": technical_gate["status"],
                 "technical_gate_reasons": list(technical_gate["reasons"]),
+                "eligibility_status": eligibility["status"],
+                "eligibility_reasons": list(eligibility["reasons"]),
+                "publishable_without_review": bool(eligibility["publishable_without_review"]),
                 "campaign_hub_prior_available": bool(campaign_hub_prior["available"]),
                 "campaign_hub_hook_family": campaign_hub_prior["hook_family"],
                 "instagram_pattern_prior_available": bool(instagram_pattern_prior["available"]),
@@ -535,6 +546,54 @@ class EditorialRanker:
             "payoff_gate": payoff_complete,
             "timing_gate": not (timing_ambiguous or overlap_suspected),
             "contract_available": has_contract,
+        }
+
+    def _eligibility_ledger(self, clip: dict, technical_gate: dict, *, context_contract: bool) -> dict:
+        """Separate minimum publication safety from ranking order.
+
+        The legacy score remains comparable and all candidates stay available for
+        review. This ledger tells the UI whether a candidate is ready, needs a
+        human decision, or has a hard blocker. It prevents a high hook score from
+        being mistaken for an automatically publishable cut.
+        """
+        hard_blockers = []
+        review_items = []
+        gate_reasons = list(technical_gate.get("reasons") or [])
+        if technical_gate.get("status") == "weak" or int(technical_gate.get("penalty", 0) or 0) >= 30:
+            hard_blockers.extend(gate_reasons[:8] or ["incerteza técnica acima do limite"])
+        elif technical_gate.get("status") == "review":
+            review_items.extend(gate_reasons[:8])
+
+        if clip.get("speaker_turn_valid") is False:
+            hard_blockers.append("troca de locutor incompatível")
+        if clip.get("overlap_suspected"):
+            hard_blockers.append("sobreposição de fala ou timestamps")
+        if clip.get("speaker_identity_required") and clip.get("speaker_identity_available") is False:
+            hard_blockers.append("identidade do locutor incompatível com o foco Renan-first")
+        elif clip.get("speaker_identity_required") and clip.get("speaker_identity_available") is not True:
+            review_items.append("identidade do locutor ainda não confirmada")
+        if clip.get("transcription_review_required"):
+            review_items.append(str(clip.get("transcription_review_reason") or "transcrição requer revisão"))
+        if clip.get("review_required"):
+            review_items.append("candidato marcado para revisão editorial")
+        if context_contract and not clip.get("context_complete") and not clip.get("qa_bridge"):
+            review_items.append("contexto autossuficiente não confirmado")
+        if context_contract and not clip.get("payoff_complete"):
+            review_items.append("payoff ou fechamento não confirmado")
+        if clip.get("starts_with_context_reference") and not clip.get("context_complete"):
+            review_items.append("referência inicial sem antecedente confirmado")
+
+        hard_blockers = list(dict.fromkeys(str(item) for item in hard_blockers if str(item).strip()))[:10]
+        review_items = list(dict.fromkeys(str(item) for item in review_items if str(item).strip()))[:10]
+        status = "blocked" if hard_blockers else "review" if review_items else "ready"
+        reasons = hard_blockers + review_items
+        return {
+            "status": status,
+            "publishable_without_review": status == "ready",
+            "hard_blockers": hard_blockers,
+            "review_items": review_items,
+            "reasons": reasons[:12],
+            "context_contract_available": bool(context_contract),
         }
 
     def _duration_fit(self, duration: float) -> float:

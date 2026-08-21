@@ -119,6 +119,13 @@ class ClipSelector:
     # additionally bounded by the preferred maximum duration.
     MAX_TURN_END_SHIFT_S = 90.0
 
+    # Word timestamps can sharpen a seam, but they must never replace a badly
+    # localized candidate. Refinement is bounded and diagnostic-only when the
+    # transcript does not cover enough of the candidate text.
+    MAX_WORD_BOUNDARY_SHIFT_S = 3.0
+    MIN_WORD_BOUNDARY_COVERAGE = 0.55
+    MIN_WORDS_FOR_BOUNDARY_REFINEMENT = 3
+
     def __init__(
         self,
         target_duration=45,
@@ -157,6 +164,9 @@ class ClipSelector:
             "campaign_hub_publishable_candidates": [],
             "final_candidates": [],
             "stage_counts": {},
+            "word_boundary_segments_available": False,
+            "word_boundary_refined_count": 0,
+            "word_boundary_review_count": 0,
             "reason": "not_evaluated",
         }
 
@@ -302,6 +312,9 @@ class ClipSelector:
             "campaign_hub_publishable_guided_count": len(getattr(self, "_campaign_hub_publishable_candidates", []) or []),
             "campaign_hub_publishable_candidates": list(getattr(self, "_campaign_hub_publishable_candidates", []) or []),
             "final_candidates": [],
+            "word_boundary_segments_available": False,
+            "word_boundary_refined_count": 0,
+            "word_boundary_review_count": 0,
             "reason": "short_source" if expected_count == 0 else ("adequate_pool" if len(primary_clips) >= expected_count else "primary_pool_thin"),
         }
         self._record_candidate_stage("primary_pool", primary_clips)
@@ -352,8 +365,17 @@ class ClipSelector:
         # begins mid-sentence, with the subject of the sentence left outside.
         clips = self._open_where_the_thought_begins(clips, sentences, emit_progress)
 
-        # Two candidates that merely touch are one answer served twice. Cutting
-        # a long block into pieces makes neighbours by construction, and the
+        # If the canonical transcript has word timestamps, sharpen the repaired
+        # seams without changing candidate discovery or ranking. Missing word
+        # timestamps are a normal no-op and remain visible in diagnostics.
+        clips = self._refine_boundaries_with_words(
+            clips,
+            transcription.get("segments") or [],
+            emit_progress,
+        )
+
+        # Two candidates that merely touch are one answer served twice.
+        # Cutting a long block into pieces makes neighbours by construction, and the
         # ranker scored each on its own merits without ever seeing that the clip
         # before it ended where this one begins.
         clips = self._drop_touching_siblings(clips, emit_progress, sentences)
@@ -2283,6 +2305,116 @@ Retorne APENAS o JSON.
             emit_progress(
                 f"[Início] {repaired} corte(s) abriam no meio da fala; a borda recuou até "
                 "onde o raciocínio começa.",
+                "info",
+            )
+        return clips
+
+    def _refine_boundaries_with_words(self, clips, segments, emit_progress=None):
+        """Snap candidate seams to covered word timestamps when safe.
+
+        Word timestamps are a local precision aid, not a second selector. The
+        method only considers words overlapping the current interval, requires
+        enough lexical coverage, limits each seam's movement, and preserves the
+        configured duration bounds. A candidate that cannot be refined remains
+        unchanged but receives a reason for human review.
+        """
+        if not clips:
+            return clips
+
+        words = []
+        seen = set()
+        for segment in segments or []:
+            if not isinstance(segment, dict):
+                continue
+            for item in segment.get("words", []) or []:
+                if not isinstance(item, dict):
+                    continue
+                try:
+                    start = float(item.get("start"))
+                    end = float(item.get("end"))
+                except (TypeError, ValueError):
+                    continue
+                token = str(item.get("word") or "").strip()
+                if end <= start or not token:
+                    continue
+                key = (round(start, 3), round(end, 3), token)
+                if key in seen:
+                    continue
+                seen.add(key)
+                words.append({"start": start, "end": end, "word": token})
+        words.sort(key=lambda item: (item["start"], item["end"]))
+
+        available = bool(words)
+        refined_count = 0
+        review_count = 0
+        for clip in clips:
+            if not isinstance(clip, dict):
+                continue
+            start = float(clip.get("start", 0) or 0)
+            end = float(clip.get("end", start) or start)
+            text_tokens = re.findall(r"[A-Za-zÀ-ÿ0-9À-ÿ-]+", str(clip.get("text") or ""))
+            inside = [
+                item for item in words
+                if item["end"] > start - 0.25 and item["start"] < end + 0.25
+            ]
+            coverage = len(inside) / max(1, len(text_tokens))
+            evidence = {
+                "available": available,
+                "applied": False,
+                "reason": "sem_timestamps_por_palavra" if not available else "cobertura_insuficiente",
+                "coverage": round(min(1.0, coverage), 3),
+                "word_count": len(inside),
+                "original_start": round(start, 3),
+                "original_end": round(end, 3),
+            }
+            if (
+                not inside
+                or len(inside) < self.MIN_WORDS_FOR_BOUNDARY_REFINEMENT
+                or coverage < self.MIN_WORD_BOUNDARY_COVERAGE
+            ):
+                if available:
+                    review_count += 1
+                clip["word_boundary_refinement"] = evidence
+                continue
+
+            proposed_start = inside[0]["start"]
+            proposed_end = inside[-1]["end"]
+            evidence.update({
+                "proposed_start": round(proposed_start, 3),
+                "proposed_end": round(proposed_end, 3),
+            })
+            if (
+                abs(proposed_start - start) > self.MAX_WORD_BOUNDARY_SHIFT_S
+                or abs(proposed_end - end) > self.MAX_WORD_BOUNDARY_SHIFT_S
+            ):
+                evidence["reason"] = "deslocamento_acima_do_limite"
+                review_count += 1
+                clip["word_boundary_refinement"] = evidence
+                continue
+
+            proposed_duration = proposed_end - proposed_start
+            if proposed_duration < self.min_duration or proposed_duration > self.max_duration:
+                evidence["reason"] = "duracao_fora_dos_limites"
+                review_count += 1
+                clip["word_boundary_refinement"] = evidence
+                continue
+
+            changed = abs(proposed_start - start) >= 0.05 or abs(proposed_end - end) >= 0.05
+            clip["start"] = round(proposed_start, 3)
+            clip["end"] = round(proposed_end, 3)
+            clip["duration"] = round(proposed_duration, 3)
+            evidence["applied"] = changed
+            evidence["reason"] = "refinado_por_palavra" if changed else "ja_alinhado"
+            clip["word_boundary_refinement"] = evidence
+            if changed:
+                refined_count += 1
+
+        self._candidate_diagnostics["word_boundary_segments_available"] = available
+        self._candidate_diagnostics["word_boundary_refined_count"] = refined_count
+        self._candidate_diagnostics["word_boundary_review_count"] = review_count
+        if refined_count and emit_progress:
+            emit_progress(
+                f"[Bordas] {refined_count} corte(s) tiveram início/fim refinados por timestamps de palavra.",
                 "info",
             )
         return clips

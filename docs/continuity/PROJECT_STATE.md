@@ -8,12 +8,12 @@
 | --- | --- |
 | Projeto | Furia Clips |
 | Repositório | `SAGIEV007/furia-clips` |
-| Versão pública atual | `6.22` |
+| Versão pública atual | `6.23` local; publicação pendente nesta etapa |
 | Última release funcional anterior | `6.20` |
-| Natureza da release atual | Recuperação textual conservadora de seeds Campaign Hub, evidência de alinhamento e pesquisa MCP/Chub; observabilidade 6.21 preservada |
+| Natureza da release atual | Refinamento conservador por timestamps de palavra e ledger de elegibilidade; pesquisa de precisão e arquitetura genérica + perfil Renan/MBL |
 | Fonte da versão | [`VERSION`](../../VERSION) |
 | Branch de trabalho | `claude/repo-access-commits-imgjmk` |
-| Última publicação conhecida | `6dabc14` — `feat: recuperar seeds Chub por alinhamento textual conservador (6.22)` |
+| Última publicação conhecida | `6dabc14` — `feat: recuperar seeds Chub por alinhamento textual conservador (6.22)`; 6.23 local ainda sem commit |
 | Commit funcional 2.6 | `fec34fe` — `feat: primeira ponte funcional Campaign Hub para propostas (2.6)` |
 | Commit funcional 2.7 | `a0452d3` — `fix: declarar confiabilidade da medição no benchmark editorial (2.7)` |
 | Commit funcional 2.8 | `fdf5e6b` — `fix: alinhar seeds do Campaign Hub com a mídia local em processamento (2.8)` |
@@ -22,10 +22,10 @@
 | Commit funcional 3.1 | `a170aab` — `feat: entregar todo candidato com contexto, locutor e veredito de revisão (3.1)` |
 | Última atualização | 2026-08-21 |
 | Baseline editorial | Duas fontes medidas na 3.1. `3XJfcqn56Rw` (live 98 min): recall `50/66`, cobertura `25/27`. `j9FRVbb8CAI` (entrevista 31 min): recall `30/34`, cobertura `11/11`. Precisão `1.00`, zero fora de bloco e zero desperdício **nas duas**. O ciclo 6.14 mediu `3/30` identidades disponíveis no Renan-first com snapshot rico, contra `0/30` sem snapshot. |
-| Suíte no checkout | 576 aprovados, 4 ignorados após provisionamento temporário do asset BlazeFace; o asset foi removido após a validação da 6.22 |
+| Suíte no checkout | 582 aprovados, 4 ignorados na validação da 6.23; o asset BlazeFace foi temporário e removido |
 | Objetivo | Gerar cortes Renan Santos/MBL concisos, autossuficientes, contextualizados e editorialmente úteis |
 
-A branch de trabalho deve ser confirmada no checkout real. O GitHub é a fonte da revisão técnica; o commit funcional publicado da 6.22 é `6dabc14`. Antes de alterar qualquer arquivo, preserve mudanças locais e confirme `git status`.
+A branch de trabalho deve ser confirmada no checkout real. O GitHub é a fonte da revisão técnica; o commit funcional publicado da 6.22 é `6dabc14`; o ciclo 6.23 está local até o commit e push. Antes de alterar qualquer arquivo, preserve mudanças locais e confirme `git status`.
 
 ## Norte imediato
 
@@ -38,6 +38,18 @@ O ciclo 32 separou a descoberta da publicação. Na mesma fonte, o Chub produziu
 O ciclo 33 adicionou processamento parcial por intervalo. O ciclo 34 concentrou-se exclusivamente em UX, tornando o estado do job visível sem rolagem. O ciclo 35 corrigiu a corrida de cancelamento entre a fila e o worker, e tornou a resposta de cancelamento de barra superior verificável. O ciclo 36 implementou identidade persistente de faixa, proveniência e digest de transcrição, contrato narrativo de contexto, gate final de locutor e fidelidade de headlines. O ciclo 37 adicionou eventos estruturados persistentes, retenção, breadcrumbs, endpoints de diagnóstico, captura de erros globais e cópia do resumo completo pela interface, sem alterar o motor editorial. O ciclo 38 pesquisou o MCP/Chub e adicionou recuperação textual conservadora de seeds com timeline incompatível, sempre em revisão. A próxima hipótese única é medir baseline temporal versus `text_anchor` em benchmark real; a observabilidade serve para tornar essa medição reproduzível.
 
 As prioridades editoriais Renan-first continuam preservadas: contexto e payoff antes de hook, gates de locutor antes do ranking, Campaign Hub como memória/seed e não como aprovação, e uma hipótese principal por ciclo.
+
+## Release atual — 6.23 local
+
+A 6.23 consolidou pesquisa de FAVE, HIVE, OpusClip, Vizard, Descript, WhisperX, PySceneDetect e pairwise ranking. A decisão arquitetural é manter um núcleo genérico de seleção, narrativa, borda, locutor, ranking e formato, aprofundado por um perfil Renan/MBL com vocabulário, contas, fontes, gates, famílias editoriais e priors limitados.
+
+`modules/clip_selector.py` agora aproveita timestamps por palavra já presentes na transcrição canônica. O refinamento exige ao menos três palavras, cobertura lexical mínima de `0.55`, deslocamento máximo de `3` segundos por borda e duração dentro dos limites; sem cobertura suficiente, não move a janela e registra o motivo. O campo `word_boundary_refinement` preserva disponibilidade, cobertura, bordas originais/propostas e decisão.
+
+`modules/editorial_ranker.py` agora expõe `eligibility` separado do score: `ready`, `review` ou `blocked`, com bloqueadores, itens de revisão e `publishable_without_review`. O ranking legado não foi alterado e nenhum candidato foi removido por essa camada; ela impede que pontuação alta seja confundida com publicação automática e prepara a fila de revisão futura.
+
+A suíte completa terminou com **582 aprovados e 4 ignorados**; o BlazeFace foi temporário e removido. O relatório está em [`CYCLE_39_REPORT_2026-08-21.md`](CYCLE_39_REPORT_2026-08-21.md), a auditoria em [`AUDIT_CUTTING_PRECISION_CYCLE39_2026-08-21.md`](AUDIT_CUTTING_PRECISION_CYCLE39_2026-08-21.md) e o próximo experimento em [`NEXT_CYCLE.md`](NEXT_CYCLE.md).
+
+A 6.23 ainda não prova ganho editorial em uma live real, não habilita timestamps por palavra automaticamente no transcritor e não altera pesos do ranking. O próximo ciclo deve criar hard negatives e comparar erro de borda, contexto, payoff, locutor, headline e revisão.
 
 ## Release atual — 6.22 local
 

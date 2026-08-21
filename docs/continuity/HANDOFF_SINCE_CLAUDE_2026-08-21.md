@@ -10,12 +10,12 @@ Este documento registra tudo que foi alterado depois do ponto de retomada identi
 | --- | --- |
 | Repositório | `SAGIEV007/furia-clips` |
 | Branch | `claude/repo-access-commits-imgjmk` |
-| Versão | `6.22` |
-| HEAD local/remoto | `6dabc14` — commit funcional da 6.22 publicado; fechamento documental em andamento |
+| Versão | `6.23` local; publicação pendente nesta etapa |
+| HEAD local/remoto | `6dabc14` publicado; release 6.23 local ainda sem commit |
 | Último commit funcional | `ce8dd98` — `feat: observabilidade estruturada com diagnóstico copiável (6.21)` |
 | Checkout | Com atualização documental local para registrar o hash publicado |
 | Branch principal | Não alterada |
-| Suíte completa | 576 aprovados, 4 ignorados |
+| Suíte completa | 582 aprovados, 4 ignorados |
 | Asset BlazeFace | Usado temporariamente para teste, conferido e removido |
 
 ## Alterações implementadas
@@ -84,9 +84,21 @@ A 6.22 **ainda não prova ganho de recall em live real**, não implementa client
 
 O que ainda não foi confirmado é a cobertura em uma operação real: executar uma faixa curta, copiar o diagnóstico e verificar se ingestão, transcrição, contexto, ranking, render, fallback e cancelamento aparecem sem pedir arquivos auxiliares. Também será necessária uma auditoria de mensagens legadas que possam conter pequenos previews de texto.
 
-### 6. Fechamentos documentais
+### 6. Release 6.23 — precisão de bordas e elegibilidade editorial
 
-Os commits `32b2c53` e `94b8c56` fecharam `PROJECT_STATE.md` com os hashes reais publicados de 6.18 e 6.19. O commit `6d88714` publicou a implementação funcional da 6.20. O commit `ce8dd98` publicou a implementação funcional da 6.21 e `042df18` publicou o fechamento documental, ambos na branch de trabalho remota. O commit `6dabc14` publicou a implementação funcional da 6.22 na mesma branch; este fechamento documental será publicado em seguida.
+A 6.23 consolidou pesquisa de avaliação audiovisual fina, edição narrativa, OpusClip, Vizard, Descript, WhisperX, PySceneDetect e pairwise ranking. A decisão arquitetural é manter um núcleo genérico de seleção, narrativa, borda, locutor, ranking e formato, aprofundado por um perfil Renan/MBL com vocabulário, contas, fontes, gates, famílias editoriais e priors limitados.
+
+`modules/clip_selector.py` passou a aproveitar timestamps `start/end/word` já presentes na transcrição canônica. `_refine_boundaries_with_words()` exige três palavras, cobertura lexical mínima `0.55`, deslocamento máximo de três segundos por borda e duração dentro dos limites; sem cobertura suficiente, preserva a janela e registra `word_boundary_refinement` para revisão.
+
+`modules/editorial_ranker.py` passou a expor um ledger separado do score, com `eligibility_status=ready|review|blocked`, `hard_blockers`, `review_items` e `publishable_without_review`. O score legado e a ordem dos candidatos não mudaram, e nenhum candidato foi removido pela camada. A finalidade é separar “melhor pontuação” de “pronto para publicar”.
+
+Foram adicionadas regressões para refinamento por palavra e para os três estados de elegibilidade. A validação focada terminou com 32 aprovados; a suíte completa da 6.23 terminou com **582 aprovados e 4 ignorados**. O BlazeFace foi temporário e removido. Relatório em [`CYCLE_39_REPORT_2026-08-21.md`](CYCLE_39_REPORT_2026-08-21.md), auditoria em [`AUDIT_CUTTING_PRECISION_CYCLE39_2026-08-21.md`](AUDIT_CUTTING_PRECISION_CYCLE39_2026-08-21.md) e próximo ciclo em [`NEXT_CYCLE.md`](NEXT_CYCLE.md).
+
+A 6.23 não prova ganho editorial em live real, não habilita timestamps por palavra automaticamente e não altera pesos. O próximo ciclo deve construir hard negatives, medir erro de borda e testar se o ledger reduz falsos aprovados/revisões demoradas.
+
+### 7. Fechamentos documentais
+
+Os commits `32b2c53` e `94b8c56` fecharam `PROJECT_STATE.md` com os hashes reais publicados de 6.18 e 6.19. O commit `6d88714` publicou a implementação funcional da 6.20. O commit `ce8dd98` publicou a implementação funcional da 6.21 e `042df18` publicou o fechamento documental, ambos na branch de trabalho remota. O commit `6dabc14` publicou a implementação funcional da 6.22 na mesma branch; o commit da 6.23 e seu fechamento documental serão publicados em seguida.
 
 ## O que não foi alterado
 

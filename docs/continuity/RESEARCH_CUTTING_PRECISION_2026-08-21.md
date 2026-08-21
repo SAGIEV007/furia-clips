@@ -54,3 +54,29 @@ A página oficial do Descript mostra a edição baseada em texto: o usuário edi
 [6]: https://help.opus.pro/docs/article/virality-score "OpusClip — Virality Score"
 [7]: https://vizard.ai/tools/ai-clips-generator "Vizard — AI Clips Generator"
 [8]: https://www.descript.com/tools/video-editor "Descript — text-based video editing"
+
+## Pesquisa adicional — avaliação temporal e edição narrativa (2026-08-21)
+
+O benchmark FAVE, apresentado no CVPR 2026, separa avaliação audiovisual fina em alinhamento entre modalidades, relações temporais entre eventos e descrição detalhada de momentos. A lição para o Furia é que um candidato não deve ser julgado apenas por tópico, frame atraente ou palavras da legenda; o benchmark precisa testar se áudio e imagem apontam para o mesmo momento, se a ordem causa–consequência foi preservada e se o intervalo cobre a unidade narrativa correta. Fonte: https://cvpr.thecvf.com/virtual/2026/poster/39067.
+
+O framework HIVE, publicado no Industry Track do EMNLP 2025, divide edição automática em entendimento narrativo multimodal, detecção de highlights, escolha de abertura/encerramento e poda de conteúdo irrelevante. Essa decomposição é particularmente útil para o Furia: seleção de momento, escolha da borda inicial, escolha da borda final e remoção de jingle/propaganda não devem ser uma única decisão heurística. O trabalho também reforça que sistemas baseados apenas em ASR podem produzir saídas incoerentes quando ignoram contexto visual. Fonte: https://aclanthology.org/2025.emnlp-industry.185/.
+
+## Pesquisa adicional — produtos profissionais
+
+A página oficial do OpusClip apresenta seleção de highlights, análise de áudio/visual, prompts em linguagem natural, reframing com tracking, captions, templates, API e automação. A documentação de Virality Score separa fatores como hook, flow, value, trend e relevância ao prompt. Para o Furia, a conclusão é copiar a decomposição explicável e a capacidade de revisão, não copiar uma promessa de viralidade: qualidade editorial, contexto, locutor e fidelidade devem permanecer independentes de popularidade. Fontes: https://www.opus.pro/ e https://help.opus.pro/docs/article/virality-score.
+
+A página oficial do Vizard mostra um fluxo em três etapas: upload ou link, transcrição com identificação automática de highlights e locutores/reframe, e seleção/publicação em várias plataformas. A vantagem operacional relevante é transformar uma fonte longa em vários formatos com revisão humana. O Furia deve adaptar essa ideia aos seus três modos reais — 9:16, 1:1 e fake tweet — com políticas diferentes de composição, headline e preservação de evidência, sem tratar a publicação como aprovação automática. Fonte: https://vizard.ai/tools/ai-clips-generator.
+
+## Pesquisa adicional — componentes locais de precisão
+
+O WhisperX combina ASR, forced alignment por modelos fonéticos, timestamps por palavra e diarização; a documentação do projeto afirma que VAD reduz alucinação e permite inferência em lote. As limitações são importantes: palavras fora do vocabulário do alinhador podem ficar sem timestamp, fala sobreposta é difícil, diarização não é perfeita e o modelo de alinhamento é dependente do idioma. Para o Furia, isso recomenda um modo opcional de refinamento de borda por palavra/pausa e uma política clara de `word_alignment_review_required`, não uma substituição silenciosa da transcrição manual. Fonte: https://github.com/m-bain/whisperX.
+
+O PySceneDetect oferece ContentDetector, AdaptiveDetector, ThresholdDetector, HistogramDetector e HashDetector. O ContentDetector compara mudanças entre frames consecutivos em HSV e permite `min_scene_len`; o AdaptiveDetector reduz falsos cortes em movimento de câmera usando média local. Para o Furia, detecção de cena deve alimentar candidatos de abertura/fechamento, reframe e preservação de documentos, sempre combinada com fala e contexto. Fonte: https://www.scenedetect.com/docs/latest/api/detectors.html.
+
+## Pesquisa adicional — preferências relativas e hard negatives
+
+O trabalho de Yao, Mei e Rui no CVPR 2016 formula detecção de highlights como ranking pairwise: em vez de atribuir uma nota absoluta a cada segmento, aprende a relação entre um trecho de destaque e um trecho não-destaque, combinando aparência e dinâmica temporal. O resultado é uma direção mais adequada ao Furia do que otimizar uma “nota de viralidade”: comparar dois candidatos da mesma live e perguntar qual é mais completo, mais fiel ou mais publicável reduz a dependência de escalas arbitrárias. Essa ideia deve entrar somente depois que houver amostra de decisões humanas e hard negatives por motivo. Fonte: https://www.cv-foundation.org/openaccess/content_cvpr_2016/html/Yao_Highlight_Detection_With_CVPR_2016_paper.html.
+
+## Pesquisa adicional — revisão textual e controle humano
+
+O Descript organiza a edição em torno da transcrição: editar ou rearranjar texto altera o vídeo, com remoção de fillers/pausas, captions, múltiplas saídas e sugestões que o editor aceita ou rejeita. Para o Furia, a ideia mais valiosa não é copiar um editor online completo, mas criar um “editor de decisão”: corrigir uma frase, mover uma borda para uma palavra, excluir uma sentença, aceitar/rejeitar uma sugestão e re-renderizar somente a etapa afetada, preservando a versão original e a proveniência. Fonte: https://www.descript.com/tools/video-editor.

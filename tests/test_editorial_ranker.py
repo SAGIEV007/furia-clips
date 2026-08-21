@@ -323,3 +323,50 @@ def test_isolated_context_reference_gets_explicit_review_reason():
     reasons = result["technical_gate"]["reasons"]
     assert "referência contextual sem antecedente recuperado" in reasons
     assert result["technical_gate"]["status"] in {"review", "weak"}
+
+
+def test_eligibility_ledger_marks_clean_candidate_ready_without_changing_score_contract():
+    result = EditorialRanker().score_clip({
+        "start": 0,
+        "end": 24,
+        "duration": 24,
+        "text": "A proposta é clara e termina com uma consequência concreta para o país.",
+    })
+
+    assert result["eligibility_status"] == "ready"
+    assert result["publishable_without_review"] is True
+    assert result["eligibility"]["hard_blockers"] == []
+    assert "editorial_potential_score" in result
+
+
+def test_eligibility_ledger_keeps_context_uncertainty_in_human_review():
+    result = EditorialRanker().score_clip({
+        "start": 0,
+        "end": 30,
+        "duration": 30,
+        "text": "Isso aconteceu porque a proposta ainda precisa de uma explicação maior.",
+        "context_complete": False,
+        "payoff_complete": True,
+        "evidence_present": True,
+    })
+
+    assert result["eligibility_status"] == "review"
+    assert result["publishable_without_review"] is False
+    assert any("contexto" in reason for reason in result["eligibility"]["reasons"])
+    assert result["review_flags"]["eligibility_status"] == "review"
+
+
+def test_eligibility_ledger_blocks_overlap_even_when_editorial_score_is_present():
+    result = EditorialRanker().score_clip({
+        "start": 0,
+        "end": 30,
+        "duration": 30,
+        "text": "A tese está completa e a consequência é apresentada no final.",
+        "context_complete": True,
+        "payoff_complete": True,
+        "overlap_suspected": True,
+    })
+
+    assert result["eligibility_status"] == "blocked"
+    assert result["publishable_without_review"] is False
+    assert any("sobreposição" in reason for reason in result["eligibility"]["hard_blockers"])
