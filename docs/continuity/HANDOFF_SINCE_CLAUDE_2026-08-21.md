@@ -11,8 +11,8 @@ Este documento registra tudo que foi alterado depois do ponto de retomada identi
 | Repositório | `SAGIEV007/furia-clips` |
 | Branch | `claude/repo-access-commits-imgjmk` |
 | Versão | `6.20` |
-| HEAD local/remoto | pendente até o commit funcional da 6.20 |
-| Último commit funcional | pendente até o commit funcional da 6.20 |
+| HEAD local/remoto | `6d88714` |
+| Último commit funcional | `6d88714` — `feat: identidade, contexto e gate de locutor para cortes inteligentes (6.20)` |
 | Checkout | Limpo após a validação local |
 | Branch principal | Não alterada |
 | Suíte completa | 563 aprovados, 4 ignorados |
@@ -48,7 +48,7 @@ A validação focada terminou com 28 aprovados. A suíte completa terminou com 5
 
 ### 3. Release 6.20 — pacote amplo de inteligência editorial
 
-Commit funcional: pendente até a publicação desta rodada.
+Commit funcional: `6d88714`.
 
 A 6.20 implementou identidade determinística de intervalo, assinatura da fonte, faixa absoluta, digest da transcrição e proveniência em projeto, banco, transcrição, bundles, diagnósticos e payloads finais. A identidade não depende do caminho temporário e separa faixas diferentes da mesma live sem reativar a colisão legada.
 
@@ -62,7 +62,7 @@ O ciclo está documentado em `CYCLE_36_REPORT_2026-08-21.md`, `PROJECT_STATE.md`
 
 ### 4. Fechamentos documentais
 
-Os commits `32b2c53` e `94b8c56` fecharam `PROJECT_STATE.md` com os hashes reais publicados de 6.18 e 6.19. O fechamento da 6.20 será registrado após o push da implementação e da documentação.
+Os commits `32b2c53` e `94b8c56` fecharam `PROJECT_STATE.md` com os hashes reais publicados de 6.18 e 6.19. O commit `6d88714` publicou a implementação funcional. O fechamento documental será publicado no commit seguinte, mantendo o hash funcional registrado acima.
 
 ## O que não foi alterado
 

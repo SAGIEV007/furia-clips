@@ -4,7 +4,7 @@
 
 ## Estado corrente após a retomada — 2026-08-21
 
-A branch vigente é `claude/repo-access-commits-imgjmk`, versão `6.20`, com hash funcional pendente até o commit desta rodada. Desde o ponto de retomada `085569f`, foram publicadas a 6.18, com barra de execução contextual, a 6.19, com cancelamento seguro, e a 6.20, com identidade de intervalo, proveniência de transcrição, contrato narrativo, gate de locutor e fidelidade de headlines. A suíte atual tem **563 aprovados e 4 ignorados**.
+A branch vigente é `claude/repo-access-commits-imgjmk`, versão `6.20`, HEAD funcional `6d88714`. Desde o ponto de retomada `085569f`, foram publicadas a 6.18, com barra de execução contextual, a 6.19, com cancelamento seguro, e a 6.20, com identidade de intervalo, proveniência de transcrição, contrato narrativo, gate de locutor e fidelidade de headlines. A suíte atual tem **563 aprovados e 4 ignorados**.
 
 O norte atual continua sendo melhorar **cortes Renan Santos/MBL**, com precisão temporal, contexto, locutor, payoff, ranking, revisão e integração útil do Campaign Hub com o universo MBL. As ideias de plataforma — pesquisa recente, dossiês, fila remota, alertas, WhatsApp, Telegram e smartwatch — foram registradas como **fase final futura**, não como prioridade imediata nem como código implementado.
 

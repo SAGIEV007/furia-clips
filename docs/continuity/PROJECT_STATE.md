@@ -13,7 +13,7 @@
 | Natureza da release atual | Proveniência de intervalo/transcrição, contrato narrativo de contexto, gate final de locutor e fidelidade explicável de headlines |
 | Fonte da versão | [`VERSION`](../../VERSION) |
 | Branch de trabalho | `claude/repo-access-commits-imgjmk` |
-| Última publicação conhecida | pendente até o commit funcional da 6.20 |
+| Última publicação conhecida | `6d88714` — `feat: identidade, contexto e gate de locutor para cortes inteligentes (6.20)` |
 | Commit funcional 2.6 | `fec34fe` — `feat: primeira ponte funcional Campaign Hub para propostas (2.6)` |
 | Commit funcional 2.7 | `a0452d3` — `fix: declarar confiabilidade da medição no benchmark editorial (2.7)` |
 | Commit funcional 2.8 | `fdf5e6b` — `fix: alinhar seeds do Campaign Hub com a mídia local em processamento (2.8)` |
