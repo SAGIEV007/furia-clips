@@ -633,11 +633,12 @@ def generate_artwork_copy(
             "A headline tem duas partes: um GANCHO curto em caixa alta e uma FRASE em caixa de "
             "frase, com um trecho em destaque.\n"
             "A frase é a sua leitura do trecho — pode reescrever, encurtar e mudar a construção. "
-            "Ela precisa ser provocativa, específica e gramaticalmente correta.\n"
+            "Ela precisa ser curta (idealmente até 72 caracteres), provocativa, específica e ir direto ao ponto.\n"
             "REGRA DURA: não use nenhum nome, número, lugar ou fato que não esteja na "
             "transcrição. Reescrever o que foi dito é o trabalho; acrescentar o que não foi "
             "invalida a sugestão.\n"
             "Se a transcrição contiver uma frase de efeito forte, você PODE usar aspas para criar uma citação exata (mode: citacao), mas ela deve ser palavra por palavra o que foi dito.\n"
+            "Evite verbos fracos como 'fala sobre'. Use verbos fortes e de ação.\n"
             "Curta vence. Responda somente JSON válido."
         )
         prompt = (
