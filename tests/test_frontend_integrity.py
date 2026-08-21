@@ -180,3 +180,33 @@ def test_o_fake_tweet_saiu_da_interface():
 def test_a_pagina_tem_icone():
     """O 404 que o navegador registrava a cada carga."""
     assert 'rel="icon"' in HTML
+
+
+# ── Diagnóstico estruturado ────────────────────────────────────────────────────
+
+
+def test_o_console_copia_diagnostico_estruturado_do_job():
+    assert 'id="btnCopyConsoleLog"' in HTML
+    assert "Copiar diagnóstico" in HTML
+    assert "/api/jobs/${encodeURIComponent(jobId)}/diagnostics" in JS
+    assert 'schema_version: "ui-diagnostic-v1"' in JS
+    assert "structured_events" in JS
+
+
+def test_o_frontend_captura_erros_globais_sem_interromper_o_console():
+    assert 'window.addEventListener("error"' in JS
+    assert 'window.addEventListener("unhandledrejection"' in JS
+    assert 'event_name: "frontend.error"' in JS
+    assert 'event_name: "frontend.unhandled_rejection"' in JS
+
+
+def test_o_backend_expoe_diagnostico_por_job():
+    servidor = (RAIZ / "app.py").read_text(encoding="utf-8")
+    assert '@app.route("/api/jobs/<job_id>/events"' in servidor
+    assert '@app.route("/api/jobs/<job_id>/diagnostic"' in servidor
+    assert '@app.route("/api/jobs/<job_id>/diagnostics"' in servidor
+    assert 'job_manager.events(job_id' in servidor
+    assert 'job_manager.diagnostic(job_id' in servidor
+    job_manager = (RAIZ / "modules" / "job_manager.py").read_text(encoding="utf-8")
+    assert "CREATE TABLE IF NOT EXISTS job_events" in job_manager
+    assert "event_retention_limit" in job_manager

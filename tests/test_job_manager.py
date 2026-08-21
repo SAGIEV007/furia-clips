@@ -48,7 +48,6 @@ class JobManagerTests(unittest.TestCase):
             started.append(True)
             return {}
 
-        # Exercise the worker entrypoint after cancellation won the queue race.
         self.manager._run(created["id"], worker)
         final = self.manager.get(created["id"])
         self.assertEqual(started, [])
@@ -105,16 +104,11 @@ class JobManagerTests(unittest.TestCase):
         connection.close()
 
         recovered = self.manager.reconcile_stale(max_age_seconds=60)
-        assert len(recovered) == 1
+        self.assertEqual(len(recovered), 1)
         final = self.manager.get(created["id"])
         self.assertEqual(final["state"], "failed")
         self.assertEqual(final["stage"], "stale_recovered")
         self.assertEqual(final["error"], "stale_job_recovered")
-
-
-if __name__ == "__main__":
-    unittest.main()
-
 
     def test_operation_cancelled_is_persisted_as_cancelled_state(self):
         from modules.cancellation import OperationCancelled
@@ -135,3 +129,91 @@ if __name__ == "__main__":
         self.assertEqual(final["state"], "cancelled")
         self.assertEqual(final["stage"], "cancelled")
         self.assertIn("parado no worker", final["error"])
+
+    def test_job_events_are_persisted_and_diagnostic_is_correlated(self):
+        created = self.manager.create("diagnostic")
+        self.manager.update(
+            created["id"],
+            state="running",
+            stage="transcription",
+            progress=35,
+            message="Transcrevendo",
+            event_name="transcription.started",
+            details={"engine": "whisper", "secret": "não deveria ser segredo"},
+        )
+        self.manager.update(
+            created["id"],
+            state="failed",
+            stage="failed",
+            message="Job falhou",
+            error="erro de teste",
+        )
+
+        events = self.manager.events(created["id"])
+        diagnostic = self.manager.diagnostic(created["id"])
+        self.assertGreaterEqual(len(events), 3)
+        self.assertEqual([event["sequence"] for event in events], list(range(1, len(events) + 1)))
+        self.assertTrue(all(event["job_id"] == created["id"] for event in events))
+        self.assertEqual(events[1]["event_name"], "transcription.started")
+        self.assertEqual(events[-1]["details"]["error"], "erro de teste")
+        self.assertEqual(diagnostic["job"]["state"], "failed")
+        self.assertEqual(diagnostic["breadcrumbs"][-1]["event_id"], events[-1]["event_id"])
+
+    def test_job_context_note_persists_without_changing_job_state(self):
+        created = self.manager.create("breadcrumb")
+        context = self.manager  # replaced below with the public context class
+        from modules.job_manager import JobContext
+        context = JobContext(self.manager, created["id"])
+        before = self.manager.get(created["id"])
+        note = context.note(
+            "Legenda manual recebida",
+            stage="transcription",
+            event_name="transcription.manual_received",
+            details={"segment_count": 42},
+        )
+        after = self.manager.get(created["id"])
+        self.assertEqual(note["event_name"], "transcription.manual_received")
+        self.assertEqual(note["details"]["segment_count"], 42)
+        self.assertEqual(after["state"], before["state"])
+        self.assertEqual(after["progress"], before["progress"])
+
+    def test_event_details_are_bounded(self):
+        created = self.manager.create("bounded")
+        event = self.manager.record_event(
+            created["id"],
+            event_name="bounded.details",
+            details={"long": "x" * 5000, "items": list(range(100))},
+        )
+        self.assertLessEqual(len(event["details"]["long"]), 500)
+        self.assertLessEqual(len(event["details"]["items"]), 20)
+
+    def test_legacy_jobs_can_receive_event_history_after_migration(self):
+        created = self.manager.create("legacy")
+        self.manager.shutdown()
+        migrated = JobManager(self.db_path, max_workers=1)
+        try:
+            event = migrated.record_event(created["id"], event_name="migration.checked", message="Banco legado preservado")
+            self.assertEqual(migrated.events(created["id"])[-1]["event_id"], event["event_id"])
+            self.assertEqual(migrated.diagnostic(created["id"])["job"]["type"], "legacy")
+        finally:
+            migrated.shutdown()
+            self.manager = JobManager(self.db_path, max_workers=1)
+
+    def test_event_retention_keeps_only_the_latest_events(self):
+        self.manager.shutdown()
+        self.manager = JobManager(self.db_path, max_workers=1, event_retention_limit=3)
+        created = self.manager.create("retention")
+        for index in range(5):
+            self.manager.record_event(created["id"], event_name=f"retention.{index}", message=f"evento {index}")
+        events = self.manager.events(created["id"])
+        self.assertEqual(len(events), 3)
+        self.assertEqual([event["event_name"] for event in events], ["retention.2", "retention.3", "retention.4"])
+
+    def test_unknown_job_has_no_events_and_cannot_record(self):
+        self.assertIsNone(self.manager.events("does-not-exist"))
+        with self.assertRaises(KeyError):
+            self.manager.record_event("does-not-exist", event_name="invalid")
+
+
+if __name__ == "__main__":
+    unittest.main()

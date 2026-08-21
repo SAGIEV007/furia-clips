@@ -8,12 +8,12 @@
 | --- | --- |
 | Projeto | Furia Clips |
 | Repositório | `SAGIEV007/furia-clips` |
-| Versão pública atual | `6.20` |
-| Última release funcional anterior | `6.19` |
-| Natureza da release atual | Proveniência de intervalo/transcrição, contrato narrativo de contexto, gate final de locutor e fidelidade explicável de headlines |
+| Versão pública atual | `6.21` (release local validada; publicação desta rodada em andamento) |
+| Última release funcional anterior | `6.20` |
+| Natureza da release atual | Observabilidade estruturada de jobs, breadcrumbs persistentes, diagnóstico copiável e captura de erros do frontend |
 | Fonte da versão | [`VERSION`](../../VERSION) |
 | Branch de trabalho | `claude/repo-access-commits-imgjmk` |
-| Última publicação conhecida | `6d88714` — `feat: identidade, contexto e gate de locutor para cortes inteligentes (6.20)` |
+| Última publicação conhecida | `07b43ba` — fechamento documental da 6.20; 6.21 local validada e aguardando commit/publicação |
 | Commit funcional 2.6 | `fec34fe` — `feat: primeira ponte funcional Campaign Hub para propostas (2.6)` |
 | Commit funcional 2.7 | `a0452d3` — `fix: declarar confiabilidade da medição no benchmark editorial (2.7)` |
 | Commit funcional 2.8 | `fdf5e6b` — `fix: alinhar seeds do Campaign Hub com a mídia local em processamento (2.8)` |
@@ -22,7 +22,7 @@
 | Commit funcional 3.1 | `a170aab` — `feat: entregar todo candidato com contexto, locutor e veredito de revisão (3.1)` |
 | Última atualização | 2026-08-21 |
 | Baseline editorial | Duas fontes medidas na 3.1. `3XJfcqn56Rw` (live 98 min): recall `50/66`, cobertura `25/27`. `j9FRVbb8CAI` (entrevista 31 min): recall `30/34`, cobertura `11/11`. Precisão `1.00`, zero fora de bloco e zero desperdício **nas duas**. O ciclo 6.14 mediu `3/30` identidades disponíveis no Renan-first com snapshot rico, contra `0/30` sem snapshot. |
-| Suíte no checkout | 563 aprovados, 4 ignorados após provisionamento temporário do asset BlazeFace; o asset foi removido após a validação |
+| Suíte no checkout | 573 aprovados, 4 ignorados após provisionamento temporário do asset BlazeFace; o asset foi removido após a validação da 6.21 |
 | Objetivo | Gerar cortes Renan Santos/MBL concisos, autossuficientes, contextualizados e editorialmente úteis |
 
 A branch de trabalho deve ser confirmada no checkout real. O GitHub é a fonte da revisão técnica; este arquivo não pode manter um hash diferente do `HEAD` final publicado. Antes de alterar qualquer arquivo, preserve mudanças locais e confirme `git status`.
@@ -35,11 +35,21 @@ O ciclo 31 corrigiu o scorer para receber explicitamente o benchmark e instrumen
 
 O ciclo 32 separou a descoberta da publicação. Na mesma fonte, o Chub produziu 30 propostas de descoberta no Renan-first, 6 foram promovidas ao pool guiado e 24 permaneceram em `speaker_gate_review`; o recall publicável ficou em `7/66`, sem alteração do ranking. A interface agora mostra essa diferença, e os diagnósticos persistidos distinguem descoberta, propostas Chub promovidas e candidatos finais gerais.
 
-O ciclo 33 adicionou processamento parcial por intervalo. O ciclo 34 concentrou-se exclusivamente em UX, tornando o estado do job visível sem rolagem. O ciclo 35 corrigiu a corrida de cancelamento entre a fila e o worker, e tornou a resposta de cancelamento da barra superior verificável. O ciclo 36 implementou a identidade persistente de faixa, proveniência e digest de transcrição, contrato narrativo de contexto, gate final de locutor e relatório de fidelidade de headlines. A próxima hipótese única é usar essa identidade para benchmark editorial por faixa, transcript e formato; a visualização read-only da fila Chub permanece depois dessa fundação.
+O ciclo 33 adicionou processamento parcial por intervalo. O ciclo 34 concentrou-se exclusivamente em UX, tornando o estado do job visível sem rolagem. O ciclo 35 corrigiu a corrida de cancelamento entre a fila e o worker, e tornou a resposta de cancelamento de barra superior verificável. O ciclo 36 implementou identidade persistente de faixa, proveniência e digest de transcrição, contrato narrativo de contexto, gate final de locutor e fidelidade de headlines. O ciclo 37 adicionou eventos estruturados persistentes, retenção, breadcrumbs, endpoints de diagnóstico, captura de erros globais e cópia do resumo completo pela interface, sem alterar o motor editorial. A próxima hipótese única continua sendo medir benchmark editorial por faixa, transcript e formato; a observabilidade serve para tornar essa medição reproduzível.
 
 As prioridades editoriais Renan-first continuam preservadas: contexto e payoff antes de hook, gates de locutor antes do ranking, Campaign Hub como memória/seed e não como aprovação, e uma hipótese principal por ciclo.
 
-## Release atual — 6.20
+## Release atual — 6.21
+
+A 6.21 é uma release exclusivamente operacional. O `JobManager` persiste `job_events` com correlação por `job_id`, sequência, etapa, nível, mensagem, detalhes limitados e timestamp. O histórico tem retenção configurável e o diagnóstico reúne job, eventos e breadcrumbs sem registrar chaves, cookies, transcrição integral ou mídia. `JobContext.note()` permite registrar decisões e fallbacks sem alterar o estado visível.
+
+O backend expõe `/api/jobs/<job_id>/events` e `/api/jobs/<job_id>/diagnostic` (com alias plural), enquanto o frontend agrega console textual, eventos estruturados, erros globais e o estado persistido do job em um resumo `ui-diagnostic-v1` copiável pelo botão **Copiar diagnóstico**. Progresso legado carrega versão, revisão, etapa e evento; quando existe job correlacionado, o breadcrumb também é persistido.
+
+A suíte completa validada terminou com **573 aprovados e 4 ignorados**. O modelo BlazeFace foi utilizado somente durante a validação e removido ao final. Relatório em [`CYCLE_37_REPORT_2026-08-21.md`](CYCLE_37_REPORT_2026-08-21.md).
+
+Nenhum peso de ranking, gate Renan-first, integração remota ou lógica de cortes foi alterado nesta release.
+
+## Release anterior — 6.20
 
 A 6.20 preserva o cancelamento seguro, a barra UX, o processamento parcial e os gates Chub/Renan-first. Ela adiciona uma identidade determinística de intervalo, assinatura de fonte, digest/proveniência da transcrição, contrato narrativo de contexto, gate final de locutor no processo completo e relatório de fidelidade para headlines. O pacote é modular e mantém fallback para bancos, plugins e testes legados.
 
@@ -285,6 +295,8 @@ As decisões duráveis estão em [`DECISIONS.md`](DECISIONS.md). As mais importa
 
 ## Validação e evidências
 
+A 6.21 passou por `py_compile`, `node --check`, `git diff --check`, 56 regressões focadas e suíte completa com **573 aprovados e 4 ignorados**. Os testes cobrem eventos, retenção, breadcrumbs, diagnóstico HTTP, botão de cópia e captura de erros. O relatório está em [`CYCLE_37_REPORT_2026-08-21.md`](CYCLE_37_REPORT_2026-08-21.md). A observação em uma execução real ainda é necessária para confirmar a cobertura operacional de todos os caminhos legados.
+
 A validação da release 2.6 incluiu suíte com **333 testes aprovados**, `compileall`, `node --check static/js/app.js`, `git diff --check` e verificação SHA-256 do BlazeFace temporário. O payload real do Campaign Hub confirmou duas seeds e duas propostas guiadas com `context_complete=true`, mas o benchmark b354 não foi reprocessado porque o snapshot correspondente não estava instalado localmente. Esses resultados não substituem a medição futura de recall em mídia b354.
 
 Em qualquer rodada, classifique conclusões como `confirmado`, `reproduzido`, `corrigido`, `provável`, `não verificado` ou `bloqueado`. O relatório da rodada anterior está em [`CYCLE_29_REPORT_2026-08-20.md`](CYCLE_29_REPORT_2026-08-20.md). O ciclo 30 está em [`CYCLE_30_REPORT_2026-08-20.md`](CYCLE_30_REPORT_2026-08-20.md).
@@ -293,6 +305,7 @@ Em qualquer rodada, classifique conclusões como `confirmado`, `reproduzido`, `c
 
 | Release | Foco | Resultado principal | Relatório |
 | --- | --- | --- | --- |
+| Ciclo 37 / 6.21 | Observabilidade estruturada | Eventos persistentes, diagnóstico HTTP e resumo copiável; 573 testes aprovados e 4 ignorados | [`CYCLE_37_REPORT_2026-08-21.md`](CYCLE_37_REPORT_2026-08-21.md) |
 | Ciclo 32 / 6.16 | Separação de descoberta e pool publicável | 30 descobertas Chub, 6 promovidas, 24 em revisão; recall preservado e diagnóstico visível | [`CYCLE_32_REPORT_2026-08-20.md`](CYCLE_32_REPORT_2026-08-20.md) |
 | Ciclo 31 / 6.15 | Diagnóstico do benchmark e filtro Renan-first | Recall Renan-first com Chub `5/66`→`7/66`; propostas guiadas finais `12`→`5`; genérico preservado | [`CYCLE_31_REPORT_2026-08-20.md`](CYCLE_31_REPORT_2026-08-20.md) |
 | Ciclo 30 | Fusão Chub-local medida e revertida | Sem ganho reproduzível; release 6.14 preservada; divergência histórica do benchmark aberta | [`CYCLE_30_REPORT_2026-08-20.md`](CYCLE_30_REPORT_2026-08-20.md) |

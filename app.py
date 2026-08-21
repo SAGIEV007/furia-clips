@@ -225,8 +225,25 @@ def _set_legacy_task(operation, active=True, job_id=None):
         current_task["started_at"] = None
 
 
-def emit_progress(message, level="info"):
+def emit_progress(message, level="info", *, event_name="progress.message", stage=None, details=None, job_id=None):
     runtime_message = f"[Versão {PROGRAM_VERSION} · {PROGRAM_REVISION}] {str(message)}"
+    event = None
+    correlated_job_id = job_id or current_task.get("job_id")
+    if correlated_job_id:
+        try:
+            event = job_manager.record_event(
+                correlated_job_id,
+                event_name=event_name,
+                level=level,
+                stage=stage,
+                message=runtime_message,
+                details=details,
+            )
+        except (KeyError, RuntimeError, OSError):
+            # Progress must remain visible even when an old/legacy operation has
+            # no persisted job row to receive the breadcrumb.
+            event = None
+    safe_details = job_manager._safe_event_details(details)
     socketio.emit(
         "progress",
         {
@@ -235,6 +252,12 @@ def emit_progress(message, level="info"):
             "time": datetime.now().strftime("%H:%M:%S"),
             "program_version": PROGRAM_VERSION,
             "program_revision": PROGRAM_REVISION,
+            "job_id": correlated_job_id,
+            "event_id": event.get("event_id") if event else None,
+            "event_sequence": event.get("sequence") if event else None,
+            "event_name": event_name,
+            "stage": stage,
+            "details": safe_details,
         },
     )
 
@@ -1321,6 +1344,33 @@ def api_cancel_job(job_id):
         return jsonify(job_manager.request_cancel(job_id))
     except KeyError:
         return jsonify({"error": "Job não encontrado"}), 404
+
+
+def _job_event_limit_from_request():
+    try:
+        return min(max(int(request.args.get("limit", 500)), 1), 1000)
+    except (TypeError, ValueError):
+        return 500
+
+
+@app.route("/api/jobs/<job_id>/events", methods=["GET"])
+def api_job_events(job_id):
+    events = job_manager.events(job_id, limit=_job_event_limit_from_request())
+    if events is None:
+        return jsonify({"error": "Job não encontrado"}), 404
+    return jsonify({"job_id": job_id, "events": events, "count": len(events)})
+
+
+@app.route("/api/jobs/<job_id>/diagnostic", methods=["GET"])
+@app.route("/api/jobs/<job_id>/diagnostics", methods=["GET"])
+def api_job_diagnostics(job_id):
+    diagnostic = job_manager.diagnostic(job_id, limit=_job_event_limit_from_request())
+    if diagnostic is None:
+        return jsonify({"error": "Job não encontrado"}), 404
+    diagnostic["program_version"] = PROGRAM_VERSION
+    diagnostic["program_revision"] = PROGRAM_REVISION
+    diagnostic["privacy_contract"] = "sem credenciais, cookies, transcrição integral ou mídia"
+    return jsonify(diagnostic)
 
 
 @app.route("/api/render-presets", methods=["GET"])

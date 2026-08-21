@@ -43,6 +43,9 @@ const state = {
     processingScopeLabel: "Fonte inteira",
     previewToken: 0,
     consoleHistory: [],
+    consoleEvents: [],
+    lastDiagnostic: null,
+    diagnosticLoading: false,
 };
 
 // ─── WebSocket Connection ───
@@ -387,7 +390,13 @@ socket.on("progress", (data) => {
     const version = data.program_version && !String(data.message || "").includes("[Versão")
         ? `[Versão ${data.program_version}${data.program_revision ? ` · ${data.program_revision}` : ""}] `
         : "";
-    addConsoleLog(`[${time}] ${version}${data.message || "Progresso recebido"}`, data.level);
+    const displayMessage = `[${time}] ${version}${data.message || "Progresso recebido"}`;
+    addConsoleLog(displayMessage, data.level, {
+        ...data,
+        event_name: data.event_name || "progress.message",
+        message: displayMessage,
+        details: data.details || {},
+    });
     describeRun(data.message);
     showProgressBar();
 });
@@ -620,10 +629,41 @@ function handleStatusUpdate(data) {
 
 // ─── Console ───
 
-function addConsoleLog(message, level = "info") {
+function rememberDiagnosticEvent(event = {}) {
+    const normalized = {
+        event_id: String(event.event_id || `ui-${Date.now()}-${Math.random().toString(16).slice(2)}`),
+        job_id: event.job_id || state.activeJob?.id || null,
+        event_name: String(event.event_name || "ui.console"),
+        level: String(event.level || "info"),
+        stage: event.stage || null,
+        message: String(event.message ?? ""),
+        details: event.details && typeof event.details === "object" ? event.details : {},
+        created_at: event.created_at || event.recorded_at || new Date().toISOString(),
+        sequence: Number.isFinite(Number(event.sequence)) ? Number(event.sequence) : null,
+    };
+    if (!state.consoleEvents.some((item) => item.event_id === normalized.event_id)) {
+        state.consoleEvents.push(normalized);
+        if (state.consoleEvents.length > 5000) {
+            state.consoleEvents.splice(0, state.consoleEvents.length - 5000);
+        }
+    }
+    return normalized;
+}
+
+function addConsoleLog(message, level = "info", event = null) {
     const console_el = document.getElementById("consoleOutput");
     const text = String(message ?? "");
-    state.consoleHistory.push({ text, level, recorded_at: new Date().toISOString() });
+    const recordedAt = new Date().toISOString();
+    state.consoleHistory.push({ text, level, recorded_at: recordedAt });
+    rememberDiagnosticEvent({
+        ...(event || {}),
+        level,
+        message: text,
+        recorded_at: recordedAt,
+    });
+    // A very early browser error can happen before the template mounts the
+    // console. Keep the structured breadcrumb and avoid a second exception.
+    if (!console_el) return;
     // Whether the reader was already at the bottom before this line arrived. If
     // they scrolled up to read something, yanking the panel back down loses their
     // place; if they were at the bottom, they want to keep following.
@@ -654,13 +694,46 @@ function addConsoleLog(message, level = "info") {
     }
 }
 
+async function loadJobDiagnostic(jobId, { silent = false } = {}) {
+    if (!jobId) return null;
+    state.diagnosticLoading = true;
+    try {
+        const response = await fetch(`/api/jobs/${encodeURIComponent(jobId)}/diagnostics?limit=1000`, { cache: "no-store" });
+        const payload = await parseJsonResponse(response, "Diagnóstico do job");
+        if (!response.ok || payload.error) throw new Error(payload.error || "Não foi possível carregar o diagnóstico");
+        state.lastDiagnostic = payload;
+        (payload.events || []).forEach((event) => rememberDiagnosticEvent(event));
+        return payload;
+    } catch (error) {
+        if (!silent) addConsoleLog(`[Diagnóstico] Não foi possível carregar o histórico persistido: ${error.message}`, "warning", { event_name: "diagnostic.load_failed" });
+        return null;
+    } finally {
+        state.diagnosticLoading = false;
+    }
+}
+
 async function copyFullConsoleLog() {
+    const jobId = state.activeJob?.id || state.lastDiagnostic?.job?.id || null;
+    let diagnostic = state.lastDiagnostic?.job?.id === jobId ? state.lastDiagnostic : null;
+    if (jobId && !diagnostic) diagnostic = await loadJobDiagnostic(jobId, { silent: true });
     const lines = state.consoleHistory.map(entry => entry.text).filter(Boolean);
-    const value = lines.join("\n");
-    if (!value) {
+    if (!lines.length && !diagnostic) {
         showToast("Ainda não há linhas para copiar.", "warning");
         return;
     }
+    const report = {
+        schema_version: "ui-diagnostic-v1",
+        generated_at: new Date().toISOString(),
+        program_version: state.settings?.program_version || null,
+        program_revision: state.settings?.program_revision || null,
+        active_job_id: jobId,
+        console_line_count: lines.length,
+        console_lines: lines,
+        structured_events: state.consoleEvents.slice(-5000),
+        persisted_job_diagnostic: diagnostic || null,
+        privacy_note: "Este resumo não inclui chaves, cookies, transcrição integral ou mídia.",
+    };
+    const value = JSON.stringify(report, null, 2);
     try {
         if (navigator.clipboard?.writeText) {
             await navigator.clipboard.writeText(value);
@@ -675,14 +748,27 @@ async function copyFullConsoleLog() {
             document.execCommand("copy");
             helper.remove();
         }
-        addConsoleLog(`[Sistema] Log completo copiado (${lines.length} linhas).`, "success");
-        showToast(`Log completo copiado (${lines.length} linhas).`, "success");
+        const eventCount = (diagnostic?.events || []).length || state.consoleEvents.length;
+        addConsoleLog(`[Sistema] Diagnóstico completo copiado (${lines.length} linhas, ${eventCount} eventos).`, "success", { event_name: "diagnostic.copied", details: { line_count: lines.length, event_count: eventCount } });
+        showToast(`Diagnóstico copiado (${lines.length} linhas, ${eventCount} eventos).`, "success");
     } catch (error) {
-        showToast(`Não foi possível copiar o log: ${error.message}`, "error");
+        showToast(`Não foi possível copiar o diagnóstico: ${error.message}`, "error");
     }
 }
 
 document.getElementById("btnCopyConsoleLog")?.addEventListener("click", copyFullConsoleLog);
+
+window.addEventListener("error", (event) => {
+    const message = event?.error?.message || event?.message || "Erro JavaScript não identificado";
+    addConsoleLog(`[Frontend] ${message} (${event?.filename || "script"}:${event?.lineno || "?"})`, "error", {
+        event_name: "frontend.error",
+        details: { filename: event?.filename || null, line: event?.lineno || null, column: event?.colno || null },
+    });
+});
+window.addEventListener("unhandledrejection", (event) => {
+    const reason = event?.reason?.message || String(event?.reason || "Promise rejeitada sem motivo");
+    addConsoleLog(`[Frontend] Promise rejeitada: ${reason}`, "error", { event_name: "frontend.unhandled_rejection" });
+});
 
 function showProcessingControls(label = "Processamento em andamento.") {
     const controls = document.getElementById("processingControls");
@@ -1658,6 +1744,19 @@ const RUN_TITLES = {
 
 function handleJobUpdate(job, options = {}) {
     state.activeJob = job;
+    if (job.last_event_id) {
+        rememberDiagnosticEvent({
+            event_id: job.last_event_id,
+            job_id: job.id,
+            event_name: job.event_name || "job.update",
+            level: job.state === "failed" ? "error" : job.state === "cancelled" ? "warning" : "info",
+            stage: job.stage,
+            message: job.message || job.state,
+            details: { state: job.state, progress: job.progress, error: job.error || null },
+            sequence: job.event_sequence,
+            created_at: job.updated_at,
+        });
+    }
     // Um job em andamento é a definição de "ocupado"; o resto da interface
     // passa a se comportar de acordo em vez de aceitar cliques e descartá-los.
     if (["queued", "running", "cancel_requested"].includes(job.state)) {
@@ -1711,13 +1810,16 @@ function handleJobUpdate(job, options = {}) {
     if (job.state === "completed") {
         if (bar) bar.style.width = "100%";
         setTimeout(hideProgressBar, 250);
+        loadJobDiagnostic(job.id, { silent: true });
     } else if (job.state === "failed") {
         hideProgressBar();
         showToast(job.error || "O job falhou", "error");
+        loadJobDiagnostic(job.id, { silent: true });
     } else if (job.state === "cancelled") {
         hideProgressBar();
         hideProcessingControls();
         showToast("Processamento cancelado", "warning");
+        loadJobDiagnostic(job.id, { silent: true });
     }
 }
 

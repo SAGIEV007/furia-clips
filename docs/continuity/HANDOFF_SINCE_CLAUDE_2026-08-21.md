@@ -10,12 +10,12 @@ Este documento registra tudo que foi alterado depois do ponto de retomada identi
 | --- | --- |
 | Repositório | `SAGIEV007/furia-clips` |
 | Branch | `claude/repo-access-commits-imgjmk` |
-| Versão | `6.20` |
-| HEAD local/remoto | `6d88714` |
+| Versão | `6.21` (local validada; publicação desta rodada em andamento) |
+| HEAD local/remoto | `07b43ba` como última publicação; novo commit da 6.21 pendente |
 | Último commit funcional | `6d88714` — `feat: identidade, contexto e gate de locutor para cortes inteligentes (6.20)` |
-| Checkout | Limpo após a validação local |
+| Checkout | Com alterações locais de observabilidade antes do commit |
 | Branch principal | Não alterada |
-| Suíte completa | 563 aprovados, 4 ignorados |
+| Suíte completa | 573 aprovados, 4 ignorados |
 | Asset BlazeFace | Usado temporariamente para teste, conferido e removido |
 
 ## Alterações implementadas
@@ -60,7 +60,21 @@ Foram criadas regressões em `tests/test_interval_identity.py` e `tests/test_con
 
 O ciclo está documentado em `CYCLE_36_REPORT_2026-08-21.md`, `PROJECT_STATE.md`, `NEXT_CYCLE.md`, `DECISIONS.md` e `CHANGELOG.md`.
 
-### 4. Fechamentos documentais
+### 4. Release 6.21 — observabilidade estruturada e diagnóstico copiável
+
+A 6.21 não altera ranking, pesos Chub, gates Renan-first, contexto editorial ou renderização. Ela resolve a lacuna operacional de não conseguir explicar um erro somente a partir do console visível.
+
+`modules/job_manager.py` cria `job_events` com índice por job e sequência, registra `job.created`, persiste atualizações e breadcrumbs, limita detalhes, aplica retenção configurável e fornece `events()`/`diagnostic()`. `JobContext.note()` registra mensagens sem mudar o estado do job. A sequência é protegida por `BEGIN IMMEDIATE` e jobs inexistentes produzem `KeyError` no registro ou `None` na leitura.
+
+`app.py` expõe `/api/jobs/<job_id>/events` e `/api/jobs/<job_id>/diagnostic`, mantendo `/diagnostics` como alias. `emit_progress()` carrega versão, revisão, evento, etapa, detalhes seguros e correlação opcional; quando há job persistido, o evento também é salvo.
+
+`static/js/app.js` mantém `consoleHistory`, adiciona `consoleEvents`, captura `window.error` e `unhandledrejection`, busca o diagnóstico terminal automaticamente e copia um objeto `ui-diagnostic-v1`. `templates/index.html` renomeia o botão para **Copiar diagnóstico**. Regressões novas cobrem JobManager, rotas HTTP, retenção, `note()`, privacidade estrutural e integridade do frontend.
+
+A validação final da rodada terminou com **573 aprovados e 4 ignorados**, além de `py_compile`, `node --check` e `git diff --check`. O modelo BlazeFace foi baixado apenas para a suíte, conferido pelo hash conhecido e removido. O relatório completo está em [`CYCLE_37_REPORT_2026-08-21.md`](CYCLE_37_REPORT_2026-08-21.md).
+
+O que ainda não foi confirmado é a cobertura em uma operação real: após a publicação, executar uma faixa curta, copiar o diagnóstico e verificar se ingestão, transcrição, contexto, ranking, render, fallback e cancelamento aparecem sem pedir arquivos auxiliares. Também será necessária uma auditoria de mensagens legadas que possam conter pequenos previews de texto.
+
+### 5. Fechamentos documentais
 
 Os commits `32b2c53` e `94b8c56` fecharam `PROJECT_STATE.md` com os hashes reais publicados de 6.18 e 6.19. O commit `6d88714` publicou a implementação funcional. O fechamento documental será publicado no commit seguinte, mantendo o hash funcional registrado acima.
 
@@ -88,17 +102,19 @@ GDELT foi registrado como fonte de descoberta recente de artigos, temas, idiomas
 
 ## Próxima sequência recomendada
 
-1. Materializar benchmark editorial por fonte, faixa, transcript, formato e decisão humana usando a identidade 6.20.
-2. Medir recall temporal, IoU de borda, precisão@k, contexto, payoff, locutor, headline, diversidade e qualidade técnica separadamente.
-3. Auditar o contrato de transcrição manual usando o novo `input_kind`, digest e cobertura persistidos.
-4. Usar o benchmark para calibrar recall-first Chub e bordas, sem alterar pesos antes da comparação.
-5. Transformar aprovação/rejeição em feedback estruturado e comparações pairwise.
-6. Adicionar lint audiovisual e checklist antes da exportação.
-7. Só depois retomar dossiê por demanda, pesquisa recente e fontes primárias substituíveis.
-8. Escolher um canal remoto; Telegram é a primeira prova técnica mais leve, WhatsApp é uma integração posterior de produção.
-9. Criar control plane remoto e worker local somente depois de definir autenticação, computador ligado e armazenamento de artefatos.
-10. Manter automações remotas na fase final futura.
+1. Executar uma faixa curta pela interface, copiar o diagnóstico `ui-diagnostic-v1` e auditar cobertura, correlação e privacidade.
+2. Materializar benchmark editorial por fonte, faixa, transcript, formato e decisão humana usando a identidade 6.20.
+
+3. Medir recall temporal, IoU de borda, precisão@k, contexto, payoff, locutor, headline, diversidade e qualidade técnica separadamente.
+4. Auditar o contrato de transcrição manual usando o novo `input_kind`, digest e cobertura persistidos.
+5. Usar o benchmark para calibrar recall-first Chub e bordas, sem alterar pesos antes da comparação.
+6. Transformar aprovação/rejeição em feedback estruturado e comparações pairwise.
+7. Adicionar lint audiovisual e checklist antes da exportação.
+8. Só depois retomar dossiê por demanda, pesquisa recente e fontes primárias substituíveis.
+9. Escolher um canal remoto; Telegram é a primeira prova técnica mais leve, WhatsApp é uma integração posterior de produção.
+10. Criar control plane remoto e worker local somente depois de definir autenticação, computador ligado e armazenamento de artefatos.
+11. Manter automações remotas na fase final futura.
 
 ## Arquivos para a próxima IA
 
-Ler primeiro `START_HERE.md`, `PROJECT_STATE.md`, este relatório, `CYCLE_36_REPORT_2026-08-21.md`, `CUTTING_AUDIT_2026-08-21.md`, `CUTTING_PRECISION_PLAN_2026-08-21.md`, `FUTURE_PLATFORM_2026-08-21.md`, `NEXT_CYCLE.md`, `DECISIONS.md`, `CYCLE_35_REPORT_2026-08-21.md` e `IDEAS_BACKLOG.md`. Confirmar a branch antes de editar e manter a branch principal intocada.
+Ler primeiro `START_HERE.md`, `PROJECT_STATE.md`, este relatório, `CYCLE_37_REPORT_2026-08-21.md`, `CYCLE_36_REPORT_2026-08-21.md`, `CUTTING_AUDIT_2026-08-21.md`, `CUTTING_PRECISION_PLAN_2026-08-21.md`, `FUTURE_PLATFORM_2026-08-21.md`, `NEXT_CYCLE.md`, `DECISIONS.md`, `modules/job_manager.py`, `app.py`, `static/js/app.js`, `tests/test_job_manager.py`, `tests/test_app_smoke.py` e `IDEAS_BACKLOG.md`. Confirmar a branch antes de editar e manter a branch principal intocada.

@@ -36,6 +36,9 @@ class JobContext:
         progress: Optional[int] = None,
         message: Optional[str] = None,
         artifacts: Optional[list] = None,
+        event_name: Optional[str] = None,
+        level: str = "info",
+        details: Optional[dict] = None,
     ) -> dict:
         return self.manager.update(
             self.job_id,
@@ -43,6 +46,20 @@ class JobContext:
             progress=progress,
             message=message,
             artifacts=artifacts,
+            event_name=event_name,
+            level=level,
+            details=details,
+        )
+
+    def note(self, message: str, *, level: str = "info", stage: Optional[str] = None, event_name: str = "progress.message", details: Optional[dict] = None) -> dict:
+        """Persist a breadcrumb without changing the visible job state."""
+        return self.manager.record_event(
+            self.job_id,
+            event_name=event_name,
+            level=level,
+            stage=stage,
+            message=message,
+            details=details,
         )
 
     def is_cancel_requested(self) -> bool:
@@ -57,9 +74,10 @@ class JobContext:
 class JobManager:
     """A small SQLite-backed job manager suitable for the local application."""
 
-    def __init__(self, db_path: str, max_workers: int = 1, on_event=None):
+    def __init__(self, db_path: str, max_workers: int = 1, on_event=None, event_retention_limit: int = 1000):
         self.db_path = db_path
         self.on_event = on_event
+        self.event_retention_limit = min(max(int(event_retention_limit or 1000), 1), 5000)
         self.executor = ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="furia-job")
         self._futures: Dict[str, Future] = {}
         self._lock = threading.RLock()
@@ -91,8 +109,139 @@ class JobManager:
             )
             """
         )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS job_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                job_id TEXT NOT NULL,
+                event_id TEXT NOT NULL UNIQUE,
+                sequence INTEGER NOT NULL,
+                event_name TEXT NOT NULL,
+                level TEXT NOT NULL DEFAULT 'info',
+                stage TEXT,
+                message TEXT,
+                details TEXT NOT NULL DEFAULT '{}',
+                created_at TEXT NOT NULL,
+                UNIQUE(job_id, sequence)
+            )
+            """
+        )
+        connection.execute("CREATE INDEX IF NOT EXISTS idx_job_events_job_sequence ON job_events(job_id, sequence)")
         connection.commit()
         connection.close()
+
+    @staticmethod
+    def _safe_event_details(details: Optional[dict]) -> dict:
+        """Keep event details useful while excluding unbounded/raw payloads."""
+        if not isinstance(details, dict):
+            return {}
+        safe = {}
+        for key, value in list(details.items())[:32]:
+            name = str(key)[:80]
+            if isinstance(value, (str, int, float, bool)) or value is None:
+                rendered = value
+                if isinstance(rendered, str):
+                    rendered = rendered[:500]
+            elif isinstance(value, list):
+                rendered = [str(item)[:160] for item in value[:20]]
+            elif isinstance(value, dict):
+                rendered = {str(k)[:60]: str(v)[:240] for k, v in list(value.items())[:20]}
+            else:
+                rendered = str(value)[:240]
+            safe[name] = rendered
+        return safe
+
+    @staticmethod
+    def _event_from_row(row) -> Optional[dict]:
+        if row is None:
+            return None
+        event = dict(row)
+        try:
+            event["details"] = json.loads(event.get("details") or "{}")
+        except (TypeError, json.JSONDecodeError):
+            event["details"] = {}
+        return event
+
+    def record_event(
+        self,
+        job_id: str,
+        *,
+        event_name: str = "job.event",
+        level: str = "info",
+        stage: Optional[str] = None,
+        message: Optional[str] = None,
+        details: Optional[dict] = None,
+    ) -> dict:
+        """Persist one bounded, correlated breadcrumb for a job."""
+        connection = self._connect()
+        connection.execute("BEGIN IMMEDIATE")
+        exists = connection.execute("SELECT 1 FROM jobs WHERE id = ?", (job_id,)).fetchone()
+        if exists is None:
+            connection.rollback()
+            connection.close()
+            raise KeyError(job_id)
+        next_sequence = connection.execute(
+            "SELECT COALESCE(MAX(sequence), 0) + 1 FROM job_events WHERE job_id = ?",
+            (job_id,),
+        ).fetchone()[0]
+        event = {
+            "event_id": uuid.uuid4().hex[:16],
+            "job_id": job_id,
+            "sequence": int(next_sequence),
+            "event_name": str(event_name or "job.event")[:120],
+            "level": str(level or "info")[:20],
+            "stage": str(stage)[:120] if stage is not None else None,
+            "message": str(message)[:1000] if message is not None else None,
+            "details": self._safe_event_details(details),
+            "created_at": _now(),
+        }
+        connection.execute(
+            """INSERT INTO job_events
+               (job_id, event_id, sequence, event_name, level, stage, message, details, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                event["job_id"], event["event_id"], event["sequence"], event["event_name"],
+                event["level"], event["stage"], event["message"], json.dumps(event["details"], ensure_ascii=False),
+                event["created_at"],
+            ),
+        )
+        connection.execute(
+            """DELETE FROM job_events
+               WHERE job_id = ? AND id NOT IN (
+                   SELECT id FROM job_events WHERE job_id = ? ORDER BY sequence DESC LIMIT ?
+               )""",
+            (job_id, job_id, self.event_retention_limit),
+        )
+        connection.commit()
+        connection.close()
+        return event
+
+    def events(self, job_id: str, limit: int = 500) -> Optional[list[dict]]:
+        limit = min(max(int(limit or 500), 1), self.event_retention_limit)
+        connection = self._connect()
+        exists = connection.execute("SELECT 1 FROM jobs WHERE id = ?", (job_id,)).fetchone()
+        if exists is None:
+            connection.close()
+            return None
+        rows = connection.execute(
+            "SELECT * FROM job_events WHERE job_id = ? ORDER BY sequence DESC LIMIT ?",
+            (job_id, limit),
+        ).fetchall()
+        connection.close()
+        return [self._event_from_row(row) for row in reversed(rows)]
+
+    def diagnostic(self, job_id: str, limit: int = 500) -> Optional[dict]:
+        job = self.get(job_id)
+        if job is None:
+            return None
+        events = self.events(job_id, limit=limit) or []
+        return {
+            "schema_version": "job-diagnostic-v1",
+            "job": job,
+            "event_count": len(events),
+            "events": events,
+            "breadcrumbs": events[-20:],
+        }
 
     def _emit(self, job: dict):
         if self.on_event:
@@ -125,6 +274,16 @@ class JobManager:
         connection.commit()
         connection.close()
         job = self.get(job_id)
+        event = self.record_event(
+            job_id,
+            event_name="job.created",
+            level="info",
+            stage=job.get("stage"),
+            message=job.get("message"),
+            details={"state": job.get("state"), "progress": job.get("progress")},
+        )
+        job["last_event_id"] = event["event_id"]
+        job["event_sequence"] = event["sequence"]
         self._emit(job)
         return job
 
@@ -210,6 +369,9 @@ class JobManager:
         message: Optional[str] = None,
         artifacts: Optional[list] = None,
         error: Optional[str] = None,
+        event_name: Optional[str] = None,
+        level: str = "info",
+        details: Optional[dict] = None,
     ) -> dict:
         current = self.get(job_id)
         if current is None:
@@ -243,7 +405,24 @@ class JobManager:
         )
         connection.commit()
         connection.close()
+        event = self.record_event(
+            job_id,
+            event_name=event_name or ("job.state_changed" if state is not None else "job.progress"),
+            level=level or ("error" if values["state"] == "failed" else "warning" if values["state"] == "cancelled" else "info"),
+            stage=values["stage"],
+            message=values["message"],
+            details={
+                "state": values["state"],
+                "progress": values["progress"],
+                "error": values["error"],
+                "artifacts_count": len(json.loads(values["artifacts"] or "[]")),
+                **(details or {}),
+            },
+        )
         job = self.get(job_id)
+        if job:
+            job["last_event_id"] = event["event_id"]
+            job["event_sequence"] = event["sequence"]
         self._emit(job)
         return job
 

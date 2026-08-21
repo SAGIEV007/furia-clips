@@ -470,3 +470,33 @@ def test_benchmark_api_persists_and_lists_local_comparison(tmp_path):
                 )
         assert response.status_code == 400
         assert "ultrapassa a duração" in response.get_json()["error"]
+
+
+def test_job_event_and_diagnostic_routes_return_safe_payloads():
+    from modules.job_manager import JobManager
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        manager = JobManager(os.path.join(tmp_dir, "jobs.sqlite3"), max_workers=1)
+        try:
+            created = manager.create("api-observability")
+            manager.record_event(
+                created["id"],
+                event_name="api.test",
+                stage="testing",
+                message="Evento de smoke test",
+                details={"source": "pytest"},
+            )
+            with patch.object(furia_app, "job_manager", manager):
+                client = furia_app.app.test_client()
+                events_response = client.get(f"/api/jobs/{created['id']}/events")
+                diagnostic_response = client.get(f"/api/jobs/{created['id']}/diagnostic")
+                missing_response = client.get("/api/jobs/does-not-exist/events")
+            assert events_response.status_code == 200
+            assert events_response.get_json()["count"] >= 2
+            assert diagnostic_response.status_code == 200
+            diagnostic = diagnostic_response.get_json()
+            assert diagnostic["job"]["id"] == created["id"]
+            assert diagnostic["schema_version"] == "job-diagnostic-v1"
+            assert missing_response.status_code == 404
+        finally:
+            manager.shutdown()
