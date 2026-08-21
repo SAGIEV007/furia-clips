@@ -3625,7 +3625,13 @@ Retorne APENAS o JSON.
                     "energy": energy_grade,
                 },
                 "source": "nlp",
-                "review_required": bool(clip_flags.get("speaker_identity_review_required")),
+                "review_required": bool(
+                    clip_flags.get("speaker_identity_review_required")
+                    or not clip_flags.get("context_complete")
+                    or not clip_flags.get("payoff_complete")
+                    or clip_flags.get("overlap_suspected")
+                    or clip_flags.get("timing_ambiguous")
+                ),
                 "duration_preference": self._duration_label(clip_duration, {"flow": flow_grade}),
             })
 

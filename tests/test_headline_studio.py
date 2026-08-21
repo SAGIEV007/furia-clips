@@ -327,9 +327,12 @@ def test_o_aprendizado_calibra_o_formato_so_com_historico_suficiente():
 
 # ── rotas ──────────────────────────────────────────────────────────────────
 
-def test_a_rota_devolve_texto_de_arte_sem_ia(monkeypatch):
+def test_a_rota_devolve_texto_de_arte_sem_ia(monkeypatch, tmp_path):
+    import database
     import app as app_module
 
+    monkeypatch.setattr(database, "DB_PATH", str(tmp_path / "clip_headline.sqlite"))
+    database.init_db()
     monkeypatch.setattr(app_module, "get_all_settings", lambda: {"ai_backend": "gemini"})
     response = app_module.app.test_client().post(
         "/api/headline-studio/analyze",
@@ -356,9 +359,12 @@ def test_a_rota_exige_transcricao():
     assert "transcrição" in response.get_json()["error"].lower()
 
 
-def test_a_rota_recusa_corte_inexistente():
+def test_a_rota_recusa_corte_inexistente(monkeypatch, tmp_path):
+    import database
     import app as app_module
 
+    monkeypatch.setattr(database, "DB_PATH", str(tmp_path / "clip_headline.sqlite"))
+    database.init_db()
     response = app_module.app.test_client().post(
         "/api/headline-studio/analyze", json={"clip_id": 999999, "use_ai": False}
     )

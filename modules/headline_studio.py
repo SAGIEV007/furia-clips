@@ -565,7 +565,7 @@ def _merge_ai_suggestions(
                 "accent": "red_on_white" if destaque else "white",
                 "character_count": len(headline),
                 "word_count": len(headline.split()),
-                "mode": "resumo",
+                "mode": item.get("mode", "resumo"),
                 "within_preferred_limit": len(headline) <= int(profile["headline_limit"]),
             })
         # As citações literais do caminho local ficam, para o editor comparar a
@@ -637,7 +637,7 @@ def generate_artwork_copy(
             "REGRA DURA: não use nenhum nome, número, lugar ou fato que não esteja na "
             "transcrição. Reescrever o que foi dito é o trabalho; acrescentar o que não foi "
             "invalida a sugestão.\n"
-            "Não use aspas: a frase não é citação.\n"
+            "Se a transcrição contiver uma frase de efeito forte, você PODE usar aspas para criar uma citação exata (mode: citacao), mas ela deve ser palavra por palavra o que foi dito.\n"
             "Curta vence. Responda somente JSON válido."
         )
         prompt = (
@@ -651,8 +651,8 @@ def generate_artwork_copy(
             '  "recommended_format": "vertical_916|square_alfinetei",\n'
             '  "recommendation_reason": "motivo breve",\n'
             '  "formats": {\n'
-            '    "vertical_916": [{"eyebrow":"GANCHO!", "headline":"A frase.", "emphasis":"TRECHO EM DESTAQUE"}],\n'
-            '    "square_alfinetei": [{"eyebrow":"GANCHO!", "headline":"A frase.", "emphasis":"TRECHO EM DESTAQUE"}]\n'
+            '    "vertical_916": [{"eyebrow":"GANCHO!", "headline":"A frase.", "emphasis":"TRECHO EM DESTAQUE", "mode": "resumo|citacao"}],\n'
+            '    "square_alfinetei": [{"eyebrow":"GANCHO!", "headline":"A frase.", "emphasis":"TRECHO EM DESTAQUE", "mode": "resumo|citacao"}]\n'
             "  }\n"
             "}\n"
             "No máximo 3 alternativas por formato. O destaque tem de aparecer dentro da frase."
