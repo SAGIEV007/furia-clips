@@ -3106,10 +3106,22 @@ def api_cut_shorts():
                 coverage = _transcription_coverage_report(transcription, video_duration)
                 transcription["coverage"] = coverage
                 if coverage["status"] == "mismatch_suspected" and transcription.get("source") in {"manual", "manual_confirmed"}:
-                    raise ValueError(
-                        "A transcrição manual contém timestamps além da duração do vídeo selecionado. "
-                        "Ela provavelmente pertence a outro vídeo; selecione a mídia correta ou importe a legenda correspondente."
-                    )
+                    # O editor muitas vezes escolhe um intervalo do vídeo mas mantém a transcrição inteira.
+                    # Se o intervalo foi explicitamente ativado, a transcrição será podada pelo
+                    # `trim_transcription_to_interval` logo antes desta checagem (linhas acima).
+                    # Se mesmo assim ela estourar, a diferença é um erro real.
+                    # Caso contrário, se for a fonte inteira, apenas avisamos, sem travar a renderização 0/0.
+                    if processing_interval.get("active"):
+                        raise ValueError(
+                            "A transcrição manual excede a duração do intervalo selecionado. "
+                            "Isso pode indicar que o arquivo de legenda não pertence a este vídeo."
+                        )
+                    else:
+                        emit_progress(
+                            "Aviso: a transcrição parece mais longa que o vídeo. "
+                            "Isso é comum em lives se o final foi cortado no download.",
+                            "warning"
+                        )
                 if coverage["status"] == "partial":
                     emit_progress(
                         f"[Transcrição] Cobertura parcial: termina em {coverage['last_timestamp']:.1f}s de {coverage['video_duration_seconds']:.1f}s; "
@@ -4342,10 +4354,17 @@ def api_process_complete():
             coverage = _transcription_coverage_report(transcription, video_duration)
             transcription["coverage"] = coverage
             if coverage["status"] == "mismatch_suspected" and transcription.get("source") == "manual":
-                raise ValueError(
-                    "A transcrição manual contém timestamps além da duração do vídeo selecionado. "
-                    "Ela provavelmente pertence a outro vídeo; selecione a mídia correta ou importe a legenda correspondente."
-                )
+                if processing_interval.get("active"):
+                    raise ValueError(
+                        "A transcrição manual excede a duração do intervalo selecionado. "
+                        "Isso pode indicar que o arquivo de legenda não pertence a este vídeo."
+                    )
+                else:
+                    emit_progress(
+                        "Aviso: a transcrição parece mais longa que o vídeo. "
+                        "Isso é comum em lives se o final foi cortado no download.",
+                        "warning"
+                    )
             if coverage["status"] == "partial":
                 emit_progress(
                     f"[Transcrição] Cobertura parcial: termina em {coverage['last_timestamp']:.1f}s de {coverage['video_duration_seconds']:.1f}s; "

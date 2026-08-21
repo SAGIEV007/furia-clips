@@ -2306,14 +2306,23 @@ function readProcessingInterval() {
     if ((start && !Number.isFinite(startSeconds)) || (end && !Number.isFinite(endSeconds))) {
         return { valid: false, error: "Use segundos, mm:ss ou hh:mm:ss no início e no fim." };
     }
-    if ((startSeconds ?? 0) < 0 || (endSeconds ?? Infinity) <= (startSeconds ?? 0)) {
+    
+    // Tratamento mais tolerante e guiado para durações parciais (ex: deixou o fim em branco)
+    const finalStart = Number.isFinite(startSeconds) ? startSeconds : 0;
+    const finalEnd = Number.isFinite(endSeconds) ? endSeconds : Infinity;
+    
+    if (finalStart < 0) {
+        return { valid: false, error: "O início do intervalo não pode ser negativo." };
+    }
+    if (finalEnd <= finalStart) {
         return { valid: false, error: "O fim do intervalo precisa ser maior que o início." };
     }
+    
     return {
         valid: true,
         start: start || null,
         end: end || null,
-        label: `${start ? formatProcessingTime(startSeconds ?? 0) : "início da fonte"}–${end ? formatProcessingTime(endSeconds) : "fim da fonte"}`,
+        label: `${start ? formatProcessingTime(finalStart) : "início da fonte"}–${end ? formatProcessingTime(finalEnd) : "fim da fonte"}`,
     };
 }
 function updateProcessingIntervalHint() {
