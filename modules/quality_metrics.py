@@ -114,6 +114,44 @@ def _duplicate_rate(predictions: list[tuple[int, tuple[float, float]]], threshol
     return round(duplicate_count / len(predictions), 6)
 
 
+def _union_length(intervals: Iterable[tuple[float, float]]) -> float:
+    ordered = sorted((float(start), float(end)) for start, end in intervals if end > start)
+    if not ordered:
+        return 0.0
+    total = 0.0
+    active_start, active_end = ordered[0]
+    for start, end in ordered[1:]:
+        if start <= active_end:
+            active_end = max(active_end, end)
+            continue
+        total += active_end - active_start
+        active_start, active_end = start, end
+    return total + active_end - active_start
+
+
+def _coverage_seconds(
+    predictions: list[tuple[int, tuple[float, float]]],
+    references: list[tuple[int, tuple[float, float]]],
+) -> dict[str, float]:
+    reference_intervals = [interval for _, interval in references]
+    prediction_intervals = [interval for _, interval in predictions]
+    total_reference_seconds = _union_length(reference_intervals)
+    covered_parts = []
+    for reference_start, reference_end in reference_intervals:
+        for prediction_start, prediction_end in prediction_intervals:
+            start = max(reference_start, prediction_start)
+            end = min(reference_end, prediction_end)
+            if end > start:
+                covered_parts.append((start, end))
+    covered_reference_seconds = _union_length(covered_parts)
+    return {
+        "reference_seconds": round(total_reference_seconds, 3),
+        "covered_reference_seconds": round(covered_reference_seconds, 3),
+        "coverage_ratio": round(covered_reference_seconds / total_reference_seconds, 6)
+        if total_reference_seconds > 0 else 0.0,
+    }
+
+
 def evaluate_temporal_quality(
     predictions: Iterable[Any] | None,
     references: Iterable[Any] | None,
@@ -154,6 +192,8 @@ def evaluate_temporal_quality(
         "duplicate_rate": _duplicate_rate(normalized_predictions, duplicate_iou),
         "duplicate_iou_threshold": duplicate_iou,
         "iou": {},
+        "hit_at_k": {},
+        "coverage": {"reference_seconds": 0.0, "covered_reference_seconds": 0.0, "coverage_ratio": 0.0},
         "boundary": {"matched_at_iou": 0.5, "match_count": 0},
         "matches_at_iou_0_5": [],
     }
@@ -176,6 +216,16 @@ def evaluate_temporal_quality(
             "precision": round(matched_count / prediction_count, 6) if prediction_count else 0.0,
             "recall": round(matched_count / reference_count, 6),
             "matches": matches,
+        }
+
+    result["coverage"] = _coverage_seconds(normalized_predictions, normalized_references)
+    for limit in (1, 3, 5, 10):
+        top_predictions = normalized_predictions[:limit]
+        top_matches = _greedy_matches(top_predictions, normalized_references, 0.5)
+        result["hit_at_k"][str(limit)] = {
+            "hit": bool(top_matches),
+            "matched_count": len(top_matches),
+            "recall": round(len(top_matches) / reference_count, 6),
         }
 
     strict_matches = _greedy_matches(normalized_predictions, normalized_references, 0.5)

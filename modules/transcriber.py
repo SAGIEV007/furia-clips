@@ -68,19 +68,15 @@ class Transcriber:
 
         try:
             from faster_whisper import WhisperModel
-        except ImportError:
+        except ImportError as exc:
+            message = (
+                "faster-whisper não está instalado. Execute o instalador do Furia "
+                "ou `pip install -r requirements.txt`; o fallback openai-whisper "
+                "não é uma dependência automática desta versão."
+            )
             if emit_progress:
-                emit_progress("faster-whisper nao encontrado. Usando openai-whisper como fallback...")
-            import whisper
-            import torch
-            device = "cuda" if torch.cuda.is_available() else "cpu"
-            self.device = device
-            self.compute_type = "float16" if device == "cuda" else "float32"
-            self.model = whisper.load_model(self.model_name, device=device)
-            self._engine = "openai-whisper"
-            if emit_progress:
-                emit_progress(f"Modelo carregado: openai-whisper no {device}")
-            return
+                emit_progress(message, "error")
+            raise RuntimeError(message) from exc
 
         detected_device = self._detect_device()
         device_candidates = [detected_device]

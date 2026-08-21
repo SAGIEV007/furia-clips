@@ -2262,6 +2262,7 @@ def api_cut_shorts():
                         ),
                     },
                     context_recovery=clip_data.get("context_recovery"),
+                    quality_scorecard=clip_data.get("quality_scorecard"),
                 )
                 if not output_folder:
                     output_folder = res.get("output_folder", "")
@@ -2273,8 +2274,12 @@ def api_cut_shorts():
                 clip_results.append({
                     **res,
                     "viral_score": clip_info.get("viral_score", 0),
+                    "editorial_potential_score": clip_info.get("editorial_potential_score", clip_info.get("viral_score", 0)),
                     "has_hook": clip_info.get("has_hook", False),
                     "breakdown": clip_info.get("breakdown", {}),
+                    "factors": clip_info.get("factors", {}),
+                    "confidence": clip_info.get("confidence", 0),
+                    "quality_scorecard": clip_info.get("quality_scorecard", {}),
                     "title": clip_info.get("title", ""),
                     "source": clip_info.get("source", "nlp"),
                     "candidate_origin": clip_info.get("candidate_origin", "local_primary"),
@@ -3318,6 +3323,7 @@ def api_process_complete():
                         ),
                     },
                     context_recovery=clip_data.get("context_recovery"),
+                    quality_scorecard=clip_data.get("quality_scorecard"),
                 )
 
             ctx.update(stage="subtitles", progress=86, message="Legendas processadas")

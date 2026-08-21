@@ -362,3 +362,28 @@ class DatabaseMigrationTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+    def test_quality_scorecard_survives_database_round_trip_without_unknown_fields(self):
+        project_id = database.create_project("Scorecard persistente", "uploads/scorecard.mp4")
+        clip_id = database.save_clip(project_id, "exports/scorecard.mp4", 0, 24, 24, 81, True, 0, "Tese completa.")
+        database.update_clip_editorial_score(
+            clip_id,
+            81,
+            {"hook": 82},
+            0.84,
+            quality_scorecard={
+                "context": 88,
+                "editorial_strength": 91,
+                "technical": 72,
+                "confidence": 84,
+                "status": "review_required",
+                "gate_status": "review_required",
+                "raw_transcript": "não persistir",
+            },
+        )
+
+        scorecard = database.get_clips(project_id)[0]["quality_scorecard"]
+        self.assertEqual(scorecard["context"], 88.0)
+        self.assertEqual(scorecard["status"], "review_required")
+        self.assertNotIn("raw_transcript", scorecard)

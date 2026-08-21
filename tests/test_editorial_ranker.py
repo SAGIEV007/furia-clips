@@ -23,6 +23,21 @@ class EditorialRankerTests(unittest.TestCase):
         self.assertIn("context_match", result["factors"])
         self.assertIn("completeness", result["factors"])
 
+    def test_quality_scorecard_separates_context_editorial_technical_and_confidence(self):
+        result = self.ranker.score_clip({
+            "start": 0,
+            "end": 28,
+            "duration": 28,
+            "text": "Você sabia? A proposta tem dados oficiais e termina com uma solução clara.",
+            "speaker_review_required": True,
+        })
+        scorecard = result["quality_scorecard"]
+        self.assertEqual(set(("context", "editorial_strength", "technical", "confidence", "status", "gate_status")), set(scorecard))
+        self.assertGreaterEqual(scorecard["context"], 0)
+        self.assertLessEqual(scorecard["context"], 100)
+        self.assertEqual(scorecard["status"], "review_required")
+        self.assertEqual(scorecard["confidence"], result["confidence"] * 100)
+
     def test_context_recovery_survives_ranking_and_review_flags(self):
         recovery = {
             "applied": True,

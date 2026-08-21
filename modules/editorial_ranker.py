@@ -331,6 +331,16 @@ class EditorialRanker:
         if speaker_review_required:
             confidence = min(confidence, 0.70)
         duration_preference = self._duration_preference(duration, factors)
+        quality_scorecard = self._quality_scorecard(
+            factors,
+            confidence,
+            technical_gate,
+            review_required=(
+                framing_review_required
+                or speaker_review_required
+                or transcription_needs_review
+            ),
+        )
         breakdown = {
             "hook": self._grade(factors["hook"]),
             "flow": self._grade(factors["flow"]),
@@ -378,6 +388,7 @@ class EditorialRanker:
             "breakdown": breakdown,
             "factors": {key: round(value, 1) for key, value in factors.items()},
             "confidence": round(confidence, 2),
+            "quality_scorecard": quality_scorecard,
             "duration_fit": factors["duration_fit"],
             "duration_preference": duration_preference,
             "has_hook": factors["hook"] >= 55,
@@ -475,6 +486,35 @@ class EditorialRanker:
                 "feedback_duration_signal_usable": feedback_calibration["duration_signal"]["usable"],
                 "feedback_duration_gap_seconds": feedback_calibration["duration_signal"]["gap_seconds"],
             },
+        }
+
+    def _quality_scorecard(
+        self,
+        factors: dict,
+        confidence: float,
+        technical_gate: dict,
+        *,
+        review_required: bool = False,
+    ) -> dict:
+        """Return comparable quality dimensions without changing the ranking."""
+
+        def average(names: tuple[str, ...], default: float = 50.0) -> float:
+            values = []
+            for name in names:
+                value = factors.get(name)
+                if isinstance(value, (int, float)) and not isinstance(value, bool):
+                    values.append(max(0.0, min(100.0, float(value))))
+            return round(sum(values) / len(values), 1) if values else default
+
+        gate_status = str((technical_gate or {}).get("status") or "pass").strip().lower()
+        status = "review_required" if review_required or gate_status in {"review_required", "blocked"} else "candidate"
+        return {
+            "context": average(("context_quality", "completeness", "argument_structure", "chapter_coherence", "qa_boundary")),
+            "editorial_strength": average(("hook", "flow", "value", "contextual_hook_alignment", "editorial_family_fit")),
+            "technical": average(("audio_energy", "speaker_boundary", "qa_boundary", "duration_fit", "visual_change_density")),
+            "confidence": round(round(max(0.0, min(1.0, float(confidence))), 2) * 100.0, 1),
+            "status": status,
+            "gate_status": gate_status,
         }
 
     def _speaker_boundary_score(self, clip: dict) -> float:

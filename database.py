@@ -88,6 +88,31 @@ def _normalize_review_provenance(value):
     return result
 
 
+def _normalize_quality_scorecard(value):
+    """Keep only bounded scorecard fields suitable for local persistence."""
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except json.JSONDecodeError:
+            return {}
+    if not isinstance(value, dict):
+        return {}
+    result = {}
+    for key in ("context", "editorial_strength", "technical", "confidence"):
+        try:
+            number = float(value.get(key))
+        except (TypeError, ValueError):
+            continue
+        result[key] = round(max(0.0, min(100.0, number)), 1)
+    status = str(value.get("status") or "").strip().lower()
+    if status in {"candidate", "review_required"}:
+        result["status"] = status
+    gate_status = str(value.get("gate_status") or "").strip().lower()
+    if gate_status in {"pass", "review_required", "blocked"}:
+        result["gate_status"] = gate_status
+    return result
+
+
 def get_db():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
@@ -758,6 +783,9 @@ def get_clips(project_id):
             except (TypeError, ValueError, json.JSONDecodeError):
                 pass
         clip["review_flags"] = review_flags
+        clip["quality_scorecard"] = _normalize_quality_scorecard(
+            factors.get("_quality_scorecard") if isinstance(factors, dict) else None
+        )
         raw_review_provenance = factors.get("_review_metadata") if isinstance(factors, dict) else None
         normalized_provenance = _normalize_review_provenance(raw_review_provenance)
         if not normalized_provenance and isinstance(review_flags, dict):
@@ -819,13 +847,16 @@ def update_clip_seo(clip_id, titles, tags, description, hashtags):
     conn.close()
 
 
-def update_clip_editorial_score(clip_id, score, factors, confidence, version="v1-explainable", review_flags=None, review_metadata=None, context_recovery=None):
+def update_clip_editorial_score(clip_id, score, factors, confidence, version="v1-explainable", review_flags=None, review_metadata=None, context_recovery=None, quality_scorecard=None):
     conn = get_db()
     score_payload = dict(factors or {})
     if isinstance(review_flags, dict) and review_flags:
         score_payload["_review_flags"] = review_flags
     if isinstance(context_recovery, dict) and context_recovery:
         score_payload["_context_recovery"] = context_recovery
+    normalized_scorecard = _normalize_quality_scorecard(quality_scorecard)
+    if normalized_scorecard:
+        score_payload["_quality_scorecard"] = normalized_scorecard
     normalized_metadata = _normalize_review_provenance(review_metadata)
     if normalized_metadata:
         score_payload["_review_metadata"] = normalized_metadata

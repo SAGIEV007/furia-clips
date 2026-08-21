@@ -150,3 +150,16 @@ Foi adicionado `modules/quality_metrics.py`, com `interval_iou`, `boundary_error
 [15]: https://arxiv.org/html/2606.06926 "SVHighlights — Extremely Long Video Highlight Detection"
 [16]: https://arxiv.org/html/2410.04449v1 "Video Summarization Techniques — Review"
 [17]: https://www.twelvelabs.io/blog/twlv-i "Twelve Labs — Video Foundation Model Evaluation"
+
+
+## 8. Validação real do pipeline e calibração segura
+
+Em 21 de agosto de 2026, o pipeline foi executado de ponta a ponta sobre a mídia local `DbWxJ54hbKO.mp4`, com 298,931 segundos, 720×1280, H.264 e áudio AAC. No checkout limpo, a primeira tentativa revelou uma falha de instalação: `faster-whisper` estava declarado, mas não instalado, e o fallback tentava importar `whisper`, que não fazia parte das dependências. Após preparar a dependência declarada, a execução concluiu com 7 clips renderizados; os tempos foram 43,879 s de transcrição, 3,522 s de análise de vídeo, 0,871 s de candidatos, 0,033 s de ranking e 34,103 s de renderização.
+
+Com o código atualizado e banco isolado, a transcrição veio do cache em 0,263 s e o pipeline novamente gerou 7 clips sem rejeição de renderização. O diagnóstico foi explícito: 9 candidatos esperados, 7 candidatos primários e 7 finais, com `quality_pool_below_reference`. Isso significa que o pool ficou abaixo da referência operacional estimada, não que o sistema deva fabricar cortes de menor qualidade para atingir uma quota. A execução no banco compartilhado reconheceu os 7 intervalos já processados e os descartou, comprovando a deduplicação entre execuções.
+
+O ranker passou a fornecer quatro dimensões independentes — contexto, força editorial, técnica e confiança — e a interface as apresenta no próprio card. O scorecard não substitui o score editorial nem representa probabilidade de viralização. Ele existe para que o editor entenda por que um candidato forte ainda pode exigir confirmação de locutor, continuidade, cobertura da transcrição, áudio ou enquadramento. O scorecard também é persistido com campos limitados e reaparece quando o projeto é recarregado.
+
+A avaliação temporal agora inclui cobertura de referência e `HIT@K` para K=1, 3, 5 e 10, além de IoU, precision/recall, erro de bordas e taxa de redundância. Essas métricas só devem ser calculadas quando o editor fornecer intervalos de referência reais; sem referência, o sistema não inventa uma qualidade objetiva. Também foi corrigida a restauração de `start_time`/`end_time` no estado do frontend, evitando que um projeto reaberto perca os limites usados para pré-visualização e ajuste manual.
+
+A ausência de `faster-whisper` agora gera uma mensagem acionável sobre a instalação do projeto, em vez de um `ModuleNotFoundError` de um fallback não declarado. Nenhum peso do ranker foi recalibrado com esse vídeo porque ainda não existem rótulos humanos confiáveis dos melhores e piores intervalos dessa fonte. A próxima calibração válida deve usar decisões aprovadas/rejeitadas e, quando possível, intervalos de referência anotados.

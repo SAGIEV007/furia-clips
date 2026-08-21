@@ -872,10 +872,15 @@ async function refreshVisibleReviewState() {
             if (!persisted) return clip;
             return {
                 ...clip,
+                start: Number(persisted.start ?? persisted.start_time ?? clip.start ?? 0),
+                end: Number(persisted.end ?? persisted.end_time ?? clip.end ?? 0),
+                duration: Number(persisted.duration ?? clip.duration ?? 0),
+                path: persisted.file_path || clip.path,
                 review_status: persisted.review_status || clip.review_status,
                 review_updated_at: persisted.review_updated_at || clip.review_updated_at,
                 latest_feedback_reason: persisted.latest_feedback_reason || clip.latest_feedback_reason,
                 latest_feedback_tags: Array.isArray(persisted.latest_feedback_tags) ? persisted.latest_feedback_tags : (clip.latest_feedback_tags || []),
+                quality_scorecard: persisted.quality_scorecard || clip.quality_scorecard || {},
             };
         });
         renderReviewCommandCenter();
@@ -2942,7 +2947,26 @@ function renderResultsGrid() {
         const latestAdjustment = clip.latest_adjustment || {};
         const adjustmentState = clip.adjustment_state || (latestAdjustment.start != null ? "saved" : "");
         const clipTranscriptText = String(clip.text || clip.transcript || "");
-            const reviewBusy = Boolean(clip.review_busy);
+        const qualityScorecard = clip.quality_scorecard && typeof clip.quality_scorecard === "object" ? clip.quality_scorecard : {};
+        const qualityScorecardItems = [
+            ["context", "Contexto", "account_tree"],
+            ["editorial_strength", "Força editorial", "bolt"],
+            ["technical", "Técnica", "graphic_eq"],
+            ["confidence", "Confiança", "verified"],
+        ];
+        const qualityStatus = String(qualityScorecard.status || "").trim().toLowerCase();
+        const qualityStatusLabel = qualityStatus === "review_required" ? "revisão necessária" : qualityStatus === "candidate" ? "candidato" : "status não informado";
+        const qualityScorecardMarkup = qualityScorecardItems.some(([key]) => Number.isFinite(Number(qualityScorecard[key])))
+            ? `<section class="clip-quality-scorecard" aria-label="Scorecard de qualidade do corte">
+                <div class="clip-quality-scorecard-head"><span><span class="material-icons-round">analytics</span><b>Scorecard de qualidade</b></span><span class="clip-quality-status ${qualityStatus === "review_required" ? "review" : "candidate"}">${escapeHtml(qualityStatusLabel)}</span></div>
+                <div class="clip-quality-scorecard-grid">${qualityScorecardItems.map(([key, label, icon]) => {
+                    const value = Math.max(0, Math.min(100, Number(qualityScorecard[key] || 0)));
+                    return `<div class="clip-quality-score"><span class="material-icons-round">${icon}</span><span class="clip-quality-score-label">${label}</span><strong>${Math.round(value)}</strong><div class="clip-quality-score-track"><i style="width:${value}%"></i></div></div>`;
+                }).join("")}</div>
+                <small>São dimensões independentes: um corte pode ter força editorial alta e ainda exigir revisão técnica ou de contexto.</small>
+            </section>`
+            : "";
+        const reviewBusy = Boolean(clip.review_busy);
         const feedbackReasonOptions = [
             ["", "Motivo opcional"],
             ["excellent_context", "Contexto e payoff excelentes"],
@@ -3028,6 +3052,7 @@ function renderResultsGrid() {
                     <span class="material-icons-round" style="font-size:14px">schedule</span>
                     ${formatTime(clip.start)} - ${formatTime(clip.end)} (${Number(clip.duration || 0).toFixed(1)}s)
                 </div>
+                ${qualityScorecardMarkup}
                 ${(editorialBlock.thesis || editorialBlock.context_summary || blockTags.length) ? `<div class="editorial-block-dossier">
                     <div class="editorial-block-kicker"><span class="material-icons-round">inventory_2</span> Dossiê do bloco · ${escapeHtml(editorialBlock.state || "candidato")}</div>
                     ${editorialBlock.thesis ? `<strong>${escapeHtml(editorialBlock.thesis)}</strong>` : ''}

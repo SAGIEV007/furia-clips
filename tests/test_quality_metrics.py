@@ -26,6 +26,10 @@ def test_evaluate_temporal_quality_reports_iou_recall_precision_and_boundary_hit
     assert result["iou"]["0.7"]["matched_count"] == 2
     assert result["boundary"]["hit_rate_2_0s"] == 1.0
     assert result["boundary"]["mean_iou"] > 0.9
+    assert result["hit_at_k"]["1"]["hit"] is True
+    assert result["hit_at_k"]["1"]["recall"] == 0.5
+    assert result["hit_at_k"]["10"]["recall"] == 1.0
+    assert result["coverage"]["coverage_ratio"] == 1.0
 
 
 def test_evaluate_temporal_quality_does_not_fabricate_score_without_references():

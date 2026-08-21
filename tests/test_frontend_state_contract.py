@@ -961,3 +961,33 @@ def test_repeated_context_analysis_clears_previous_dossier_before_polling():
     assert 'contextResult.hidden = true;' in block
     assert 'contextResult.innerHTML = "";' in block
     assert "const requestToken = ++state.contextAnalysisToken;" in block
+
+
+def test_review_card_exposes_quality_scorecard_dimensions_and_status():
+    source = APP_JS.read_text(encoding="utf-8")
+
+    assert "const qualityScorecard = clip.quality_scorecard" in source
+    assert '["context", "Contexto", "account_tree"]' in source
+    assert '["editorial_strength", "Força editorial", "bolt"]' in source
+    assert '["technical", "Técnica", "graphic_eq"]' in source
+    assert 'class="clip-quality-status' in source
+    assert "São dimensões independentes" in source
+
+
+def test_cut_response_propagates_quality_scorecard_to_review_state():
+    source = Path(__file__).resolve().parents[1] / "app.py"
+    text = source.read_text(encoding="utf-8")
+
+    assert '"quality_scorecard": clip_info.get("quality_scorecard", {}),' in text
+    assert '"editorial_potential_score": clip_info.get("editorial_potential_score"' in text
+
+
+def test_refresh_review_state_normalizes_persisted_bounds_and_scorecard():
+    source = APP_JS.read_text(encoding="utf-8")
+    refresh_start = source.find("async function refreshVisibleReviewState()")
+    refresh_end = source.find("function transcriptQualityLabel", refresh_start)
+    block = source[refresh_start:refresh_end]
+
+    assert "persisted.start ?? persisted.start_time ?? clip.start ?? 0" in block
+    assert "persisted.end ?? persisted.end_time ?? clip.end ?? 0" in block
+    assert "persisted.quality_scorecard || clip.quality_scorecard || {}" in block

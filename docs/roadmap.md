@@ -87,3 +87,12 @@ As próximas fases devem transformar esses sinais em um scorecard visual de quat
 A implementação deve seguir uma arquitetura hierárquica: ingestão e identidade da fonte; timeline de baixo custo; capítulos por shot/pausa/semântica; candidatos por família editorial; fusão de texto, áudio e vídeo; ranking; diversidade/deduplicação; revisão; e somente então render/exportação. Para vídeos de 4–7 horas, o sistema deve trabalhar com janelas, cache e paginação, sem enviar o vídeo inteiro a um modelo online por padrão.
 
 A pesquisa completa, matriz de comparação, definições, plano M0–M12 e referências oficiais estão em [`docs/long-to-short-metrics-and-plan-2026-08-21.md`](long-to-short-metrics-and-plan-2026-08-21.md). Dados de feedback, transcrições, mídia e métricas pós-publicação permanecem fora do Git; o repositório recebe apenas código, testes e documentação sanitizada.
+
+
+## Benchmark operacional long-form → shorts — 2026-08-21
+
+O checkout publicado foi baixado novamente em diretório limpo e executado sobre a mídia local `DbWxJ54hbKO.mp4` (4m58,931s; 720×1280; H.264/AAC). A primeira execução encontrou a ausência da dependência declarada `faster-whisper`; depois de instalada, o pipeline concluiu com 7 clips renderizados. O código atualizado, executado com banco isolado e transcrição em cache, também concluiu com 7 clips, sem rejeição de renderização, e persistiu intervalos, texto e scorecards.
+
+A rodada confirmou deduplicação: no banco compartilhado, os 7 intervalos já gerados foram reconhecidos e descartados em vez de repetidos. O diagnóstico de 9 candidatos esperados e 7 finais foi mantido como `quality_pool_below_reference`, sem fabricar cortes de qualidade inferior para cumprir uma quota. A implementação agora expõe scorecard de Contexto, Força editorial, Técnica e Confiança, persiste o scorecard, normaliza limites ao reabrir projetos e calcula cobertura/HIT@K quando referências reais são fornecidas.
+
+A ausência de `faster-whisper` passou a produzir uma mensagem acionável sobre a instalação, em vez de um `ModuleNotFoundError` de um fallback não declarado. Não houve alteração de pesos do ranker, pois a mídia ainda não possui rótulos humanos ou intervalos anotados que permitam calibração honesta. A próxima etapa de precisão deve usar decisões reais do editor, medir aprovação por faixa de score, ajuste manual de bordas, contexto completo e redundância por fonte/família.
