@@ -3,6 +3,7 @@ import json
 from modules.campaign_hub_memory import install_snapshot
 from modules.editorial_benchmark import (
     assess_measurement,
+    build_hard_negative_benchmark,
     compare_candidates,
     interval_iou,
     list_benchmarks,
@@ -39,6 +40,53 @@ def _payload():
             ],
         },
     }
+
+
+def test_hard_negative_benchmark_keeps_unlabeled_items_descriptive_only():
+    result = build_hard_negative_benchmark(
+        [
+            {
+                "start": 10.0,
+                "end": 22.0,
+                "reason": "duplicate_overlap",
+                "candidate_origin": "local_fallback",
+                "score": 74,
+                "confidence": 0.66,
+                "text_preview": "A janela quase válida.",
+                "winner": {"start": 8.0, "end": 24.0, "score": 82, "text_preview": "A janela vencedora."},
+            },
+            {"start": 40.0, "end": 48.0, "reason": "touching_sibling_lost_to_existing_candidate"},
+            {"start": 90.0, "end": 80.0, "reason": "invalid"},
+        ],
+        source_name="live.mp4",
+        source_duration=600,
+        processing_identity="identity-1",
+        transcript_digest="digest-1",
+        decision_records=[
+            {"id": "hard-negative-1", "decision": "rejected", "reason_code": "duplicata", "note": "A vencedora contém o mesmo pensamento."},
+        ],
+    )
+
+    assert result["schema"] == "hard-negative-v1"
+    assert result["source"]["name"] == "live.mp4"
+    assert len(result["items"]) == 2
+    assert result["items"][0]["human_decision"] == "rejected"
+    assert result["items"][1]["human_decision"] == "unlabeled"
+    assert result["metrics"]["decision_counts"]["rejected"] == 1
+    assert result["metrics"]["decision_counts"]["unlabeled"] == 1
+    assert result["metrics"]["human_decisions_complete"] is False
+    assert result["metrics"]["measurement_status"] == "descriptive_only"
+    assert any("sem decisão humana" in warning for warning in result["metrics"]["warnings"])
+
+
+def test_hard_negative_benchmark_does_not_promote_unknown_decisions():
+    result = build_hard_negative_benchmark(
+        [{"id": "hn-1", "start": 0, "end": 10, "reason": "duplicate_similarity"}],
+        decision_records={"hn-1": {"decision": "approved_by_model"}},
+    )
+
+    assert result["items"][0]["human_decision"] == "unlabeled"
+    assert result["metrics"]["labeled_count"] == 0
 
 
 def test_map_interval_uses_downloaded_block_timeline():

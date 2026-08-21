@@ -10,12 +10,12 @@ Este documento registra tudo que foi alterado depois do ponto de retomada identi
 | --- | --- |
 | Repositório | `SAGIEV007/furia-clips` |
 | Branch | `claude/repo-access-commits-imgjmk` |
-| Versão | `6.24` |
-| HEAD local/remoto | `08d8429` — commit funcional da 6.24 publicado; fechamento documental em andamento |
+| Versão | `6.25` local; publicação pendente nesta etapa |
+| HEAD local/remoto | `b1af379` — fechamento documental da 6.24 publicado; release 6.25 local ainda sem commit |
 | Último commit funcional | `ce8dd98` — `feat: observabilidade estruturada com diagnóstico copiável (6.21)` |
 | Checkout | Com atualização documental local para registrar o hash publicado |
 | Branch principal | Não alterada |
-| Suíte completa | 585 aprovados, 4 ignorados |
+| Suíte completa | 588 aprovados, 4 ignorados |
 | Asset BlazeFace | Usado temporariamente para teste, conferido e removido |
 
 ## Alterações implementadas
@@ -106,9 +106,19 @@ Foram adicionadas regressões em `tests/test_candidate_volume_diagnostics.py` e 
 
 A 6.24 não prova ganho editorial em mídia real e não altera pesos. A integração Instagram está habilitada, mas a API retornou 403 por falta de permissão da aplicação; nenhum perfil foi usado nesta rodada.
 
-### 8. Fechamentos documentais
+### 8. Release 6.25 — benchmark hard-negative-v1 integrado ao diagnóstico
 
-Os commits `32b2c53` e `94b8c56` fecharam `PROJECT_STATE.md` com os hashes reais publicados de 6.18 e 6.19. O commit `6d88714` publicou a implementação funcional da 6.20. O commit `ce8dd98` publicou a implementação funcional da 6.21 e `042df18` publicou o fechamento documental, ambos na branch de trabalho remota. O commit `6dabc14` publicou a implementação funcional da 6.22 na mesma branch. O commit `ee2cc6d` publicou a implementação funcional da 6.23, seguido pelos fechamentos `7950346`, `c91cd52` e `41e52c3`. A 6.24 foi publicada no commit funcional `08d8429`; este fechamento documental ainda será publicado.
+A 6.25 criou `build_hard_negative_benchmark()` em `modules/editorial_benchmark.py`. O contrato `hard-negative-v1` normaliza o ledger do seletor, preserva identidade de processamento e digest da transcrição, limita previews/detalhes e aceita somente `approved`, `rejected`, `needs_review` e `unlabeled`. Itens não rotulados permanecem descritivos; o payload declara `measurement_status=descriptive_only`.
+
+`app._write_selection_diagnostics()` agora salva um benchmark separado em `FuriaClipsData/benchmarks/` quando há hard negatives e adiciona ao relatório principal somente um manifesto com schema, ID, contagem e nome do arquivo. O comportamento de execuções sem near-misses não muda. O benchmark `b354-v1`, o ranking e os gates Chub permanecem compatíveis.
+
+Foram adicionadas regressões em `tests/test_editorial_benchmark.py` e `tests/test_diagnostics_detail.py`. A validação focada terminou com 51 aprovados; a suíte completa terminou com **588 aprovados e 4 ignorados**. Relatório em [`CYCLE_41_REPORT_2026-08-21.md`](CYCLE_41_REPORT_2026-08-21.md), pesquisa atualizada em [`RESEARCH_CUTTING_PRECISION_2026-08-21.md`](RESEARCH_CUTTING_PRECISION_2026-08-21.md) e próxima hipótese em [`NEXT_CYCLE.md`](NEXT_CYCLE.md).
+
+A 6.25 não prova ganho editorial em mídia real e não altera pesos. A API do Instagram retornou 403 por falta de permissão da aplicação; nenhum perfil foi usado nesta rodada.
+
+### 9. Fechamentos documentais
+
+Os commits `32b2c53` e `94b8c56` fecharam `PROJECT_STATE.md` com os hashes reais publicados de 6.18 e 6.19. O commit `6d88714` publicou a implementação funcional da 6.20. O commit `ce8dd98` publicou a implementação funcional da 6.21 e `042df18` publicou o fechamento documental, ambos na branch de trabalho remota. O commit `6dabc14` publicou a implementação funcional da 6.22 na mesma branch. O commit `ee2cc6d` publicou a implementação funcional da 6.23, seguido pelos fechamentos `7950346`, `c91cd52` e `41e52c3`. A 6.24 foi publicada no commit funcional `08d8429` e fechada em `b1af379`. A 6.25 está local até o commit e push.
 
 ## O que não foi alterado
 

@@ -650,6 +650,27 @@ def _write_selection_diagnostics(
                 ),
             }
 
+        hard_negative_manifest = None
+        hard_negative_ledger = diagnostics.get("hard_negatives") if isinstance(diagnostics, dict) else None
+        if isinstance(hard_negative_ledger, list) and hard_negative_ledger:
+            from modules.editorial_benchmark import build_hard_negative_benchmark, save_benchmark
+            hard_negative_payload = build_hard_negative_benchmark(
+                hard_negative_ledger,
+                source_name=Path(str(video_path)).name,
+                source_duration=duration_s,
+                processing_identity=str(diagnostics.get("processing_identity") or ""),
+                transcript_digest=str(diagnostics.get("transcript_digest") or ""),
+                benchmark_id=f"hard-negatives-{job_id or Path(str(video_path)).stem}",
+            )
+            hard_negative_target = save_benchmark(hard_negative_payload)
+            hard_negative_manifest = {
+                "benchmark_id": hard_negative_payload["benchmark_id"],
+                "schema": hard_negative_payload["schema"],
+                "item_count": hard_negative_payload["metrics"]["item_count"],
+                "measurement_status": hard_negative_payload["metrics"]["measurement_status"],
+                "file_name": hard_negative_target.name,
+            }
+
         payload = {
             "gerado_em": datetime.now().isoformat(timespec="seconds"),
             "versao": PROGRAM_VERSION,
@@ -657,6 +678,7 @@ def _write_selection_diagnostics(
             "fonte": {"arquivo": Path(str(video_path)).name, "duracao_s": duration_s},
             "legenda": transcript_review or {},
             "selecao": {"origem": selection_source, "diagnostico": diagnostics},
+            "hard_negative_benchmark": hard_negative_manifest,
             "cortes_renderizados": [_describe(clip, index + 1) for index, clip in enumerate(clips or [])],
             "candidatos_adiados": [_describe(item) for item in (deferred or [])],
         }

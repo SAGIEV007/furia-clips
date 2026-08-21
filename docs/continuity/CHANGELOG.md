@@ -1,5 +1,26 @@
 # Changelog de continuidade
 
+## 6.25 — Benchmark hard-negative-v1 integrado ao diagnóstico
+
+### Hipótese
+
+Se os hard negatives do seletor forem convertidos em um contrato versionado, sanitizado e persistente, com decisões humanas opcionais, o Furia poderá medir falsos negativos e calibrar bordas, contexto, payoff e locutor sem tratar observações não rotuladas como aprovação ou rejeição.
+
+### Incluído
+
+- `modules/editorial_benchmark.py`: contrato `hard-negative-v1`, normalização limitada, decisões `approved/rejected/needs_review/unlabeled`, contagens descritivas e avisos de medição.
+- `app.py`: integração opcional que grava o benchmark em `FuriaClipsData/benchmarks/` quando o diagnóstico contém hard negatives e adiciona somente manifesto sanitizado ao relatório de seleção.
+- `tests/test_editorial_benchmark.py` e `tests/test_diagnostics_detail.py`: regressões do contrato, decisões desconhecidas, persistência e manifesto.
+- `docs/continuity/CYCLE_41_REPORT_2026-08-21.md`: relatório do ciclo e pesquisa adicional do QVHighlights.
+
+### Resultado medido
+
+O novo contrato mantém itens sem decisão como `unlabeled` e declara `measurement_status=descriptive_only`; não inventa recall, precisão ou qualidade humana. O benchmark `b354-v1` e o ranking legado permanecem compatíveis.
+
+### Validação
+
+A suíte focada terminou com **51 aprovados** e a suíte completa com **588 aprovados e 4 ignorados**. Também passaram `py_compile`, `node --check` e `git diff --check`; o BlazeFace foi temporário, conferido e removido.
+
 ## 6.24 — Hard negatives e timestamps por palavra por padrão
 
 ### Hipótese

@@ -21,6 +21,155 @@ DEFAULT_BENCHMARK_DIR = Path(
     os.environ.get("FURIA_CLIPS_DATA_DIR") or (Path.home() / "FuriaClipsData")
 ) / "benchmarks"
 _SAFE_ID = re.compile(r"[^A-Za-z0-9_.:-]+")
+HARD_NEGATIVE_BENCHMARK_VERSION = "hard-negative-v1"
+HARD_NEGATIVE_DECISIONS = {"approved", "rejected", "needs_review", "unlabeled"}
+
+
+def _safe_text(value: Any, limit: int = 280) -> str:
+    return " ".join(str(value or "").split())[:limit]
+
+
+def _safe_decision(value: Any) -> str:
+    decision = str(value or "unlabeled").strip().lower()
+    return decision if decision in HARD_NEGATIVE_DECISIONS else "unlabeled"
+
+
+def _decision_records_by_id(records: Any) -> dict[str, dict[str, Any]]:
+    if isinstance(records, dict):
+        result = {}
+        for key, value in records.items():
+            if isinstance(value, dict):
+                result[str(key)] = value
+            else:
+                result[str(key)] = {"decision": value}
+        return result
+    if isinstance(records, list):
+        return {
+            str(item.get("id")): item
+            for item in records
+            if isinstance(item, dict) and item.get("id")
+        }
+    return {}
+
+
+def _normalize_hard_negative(item: Any, index: int, decisions: dict[str, dict[str, Any]]) -> dict[str, Any] | None:
+    if not isinstance(item, dict):
+        return None
+    try:
+        start = float(item.get("start"))
+        end = float(item.get("end"))
+    except (TypeError, ValueError):
+        return None
+    if end <= start:
+        return None
+    item_id = str(item.get("id") or f"hard-negative-{index + 1}")[:100]
+    decision_data = decisions.get(item_id) or {}
+    reason_code = _safe_text(item.get("reason") or item.get("reason_code"), 80) or "unspecified"
+    candidate = {
+        "start": _round(start),
+        "end": _round(end),
+        "duration": _round(end - start),
+        "candidate_origin": _safe_text(item.get("candidate_origin"), 48),
+        "score": _round(item.get("score"), 2),
+        "confidence": _round(item.get("confidence"), 3),
+        "text_preview": _safe_text(item.get("text_preview"), 280),
+    }
+    normalized = {
+        "id": item_id,
+        "reason_code": reason_code,
+        "candidate": candidate,
+        "human_decision": _safe_decision(decision_data.get("decision")),
+        "human_reason_code": _safe_text(decision_data.get("reason_code"), 80),
+        "human_note": _safe_text(decision_data.get("note"), 280),
+    }
+    winner = item.get("winner")
+    if isinstance(winner, dict):
+        try:
+            winner_start = float(winner.get("start"))
+            winner_end = float(winner.get("end"))
+        except (TypeError, ValueError):
+            winner_start = winner_end = None
+        if winner_start is not None and winner_end is not None and winner_end > winner_start:
+            normalized["winner"] = {
+                "start": _round(winner_start),
+                "end": _round(winner_end),
+                "score": _round(winner.get("score"), 2),
+                "text_preview": _safe_text(winner.get("text_preview"), 180),
+            }
+    details = item.get("details")
+    if isinstance(details, dict):
+        normalized["details"] = {
+            str(key)[:40]: value
+            for key, value in list(details.items())[:8]
+            if isinstance(value, (str, int, float, bool)) or value is None
+        }
+    return normalized
+
+
+def build_hard_negative_benchmark(
+    ledger: list[dict[str, Any]],
+    *,
+    source_name: str = "",
+    source_duration: float | None = None,
+    processing_identity: str = "",
+    transcript_digest: str = "",
+    decision_records: Any = None,
+    benchmark_id: str = "",
+    benchmark_version: str = HARD_NEGATIVE_BENCHMARK_VERSION,
+) -> dict[str, Any]:
+    """Materialize selector near-misses into a reviewable benchmark payload.
+
+    The function records observations and optional human labels only. It never
+    infers whether a rejected candidate was objectively wrong, and it refuses to
+    treat an unlabeled item as an approved or rejected example.
+    """
+    decisions = _decision_records_by_id(decision_records)
+    items = []
+    for index, raw in enumerate(ledger or []):
+        normalized = _normalize_hard_negative(raw, index, decisions)
+        if normalized:
+            items.append(normalized)
+    decision_counts = {decision: 0 for decision in HARD_NEGATIVE_DECISIONS}
+    reason_counts: dict[str, int] = {}
+    for item in items:
+        decision = item["human_decision"]
+        decision_counts[decision] += 1
+        reason = item["reason_code"]
+        reason_counts[reason] = reason_counts.get(reason, 0) + 1
+    warnings = []
+    if not items:
+        warnings.append("Nenhum hard negative válido foi recebido; não há amostra para calibrar.")
+    if not processing_identity:
+        warnings.append("A identidade persistente de processamento não foi informada.")
+    if not transcript_digest:
+        warnings.append("O digest da transcrição não foi informado; a comparação entre execuções fica limitada.")
+    if decision_counts["unlabeled"]:
+        warnings.append("Há itens sem decisão humana; eles não podem ser usados como aprovados ou rejeitados.")
+    identity = str(processing_identity or "")[:80]
+    fallback_id = _safe_filename(benchmark_id or f"hard-negatives-{identity or 'unbound'}")
+    return {
+        "benchmark_id": fallback_id,
+        "benchmark_version": str(benchmark_version or HARD_NEGATIVE_BENCHMARK_VERSION),
+        "schema": HARD_NEGATIVE_BENCHMARK_VERSION,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "source": {
+            "name": Path(str(source_name or "")).name[:180],
+            "duration_s": _round(source_duration),
+            "processing_identity": identity,
+            "transcript_digest": str(transcript_digest or "")[:64],
+        },
+        "items": items,
+        "metrics": {
+            "item_count": len(items),
+            "labeled_count": len(items) - decision_counts["unlabeled"],
+            "decision_counts": decision_counts,
+            "reason_counts": reason_counts,
+            "pair_count": sum(1 for item in items if item.get("winner")),
+            "human_decisions_complete": bool(items) and decision_counts["unlabeled"] == 0,
+            "measurement_status": "descriptive_only",
+            "warnings": warnings,
+        },
+    }
 
 
 def _float(value: Any, default: float | None = None) -> float | None:

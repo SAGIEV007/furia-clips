@@ -80,3 +80,9 @@ O trabalho de Yao, Mei e Rui no CVPR 2016 formula detecção de highlights como 
 ## Pesquisa adicional — revisão textual e controle humano
 
 O Descript organiza a edição em torno da transcrição: editar ou rearranjar texto altera o vídeo, com remoção de fillers/pausas, captions, múltiplas saídas e sugestões que o editor aceita ou rejeita. Para o Furia, a ideia mais valiosa não é copiar um editor online completo, mas criar um “editor de decisão”: corrigir uma frase, mover uma borda para uma palavra, excluir uma sentença, aceitar/rejeitar uma sugestão e re-renderizar somente a etapa afetada, preservando a versão original e a proveniência. Fonte: https://www.descript.com/tools/video-editor.
+
+## Evidência adicional para benchmark de hard negatives — ciclo 41
+
+O dataset QVHighlights anota, para cada vídeo e consulta, uma consulta textual humana, momentos relevantes e scores de saliência em escala de cinco pontos. A implicação para o Furia é separar duas perguntas: se o intervalo responde à intenção editorial/contextual e quão forte é o momento dentro dos intervalos relevantes. O benchmark deve manter `relevance`/autossuficiência separado de `saliency`/força do hook, em vez de reduzir tudo a uma única nota de viralidade. O uso de ASR é valioso para recuperação, mas não substitui a decisão humana sobre a janela correta. [9]
+
+[9]: https://proceedings.neurips.cc/paper_files/paper/2021/hash/62e0973455fd26eb03e91d5741a4a3bb-Abstract.html "QVHighlights — Detecting customized moments and highlights from videos given natural language queries"
