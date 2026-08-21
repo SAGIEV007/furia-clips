@@ -184,9 +184,13 @@ class VideoCutter:
                     break
                 
                 # Só aceita como candidato válido se a frase terminar com pontuação forte
-                # Isso garante precisão editorial na montagem do vídeo bruto
+                # Isso garante precisão editorial na montagem do vídeo bruto.
+                # Expandido para aceitar fechamentos retóricos sem pontuação ("né", "tá", "sabe")
                 text_clean = accumulated_text.strip()
-                if not text_clean.endswith((".", "!", "?")):
+                ends_with_punctuation = text_clean.endswith((".", "!", "?"))
+                ends_with_rhetorical = bool(re.search(r"\b(n[eé]|t[aá]|sabe|entendeu|certo|beleza)\s*$", text_clean.lower()))
+                
+                if not (ends_with_punctuation or ends_with_rhetorical):
                     continue
 
                 candidate = {

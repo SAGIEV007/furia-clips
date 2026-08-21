@@ -435,6 +435,18 @@ def _suggestion_has_evidence(value: str, source_text: str) -> bool:
     return bool(meaningful and any(token in source_tokens for token in meaningful))
 
 
+def _stem_word(word: str) -> str:
+    """Very basic Portuguese stemming to prevent false positives on verb conjugations/plurals."""
+    w = word.lower()
+    if len(w) <= 3:
+        return w
+    for suffix in ["mente", "mento", "mos", "ram", "rão", "sse", "ste", "vam", "vas", "ções", "ção", "ões", "ão", "eis", "ais", "am", "em", "as", "os", "es", "is", "a", "o", "e", "i", "r", "s", "u"]:
+        if w.endswith(suffix):
+            stem = w[:-len(suffix)]
+            if len(stem) >= 3:
+                return stem
+    return w
+
 def _headline_invents_nothing(headline: str, source_text: str) -> bool:
     """Toda palavra de conteúdo da headline existe na fonte?
 
@@ -455,7 +467,17 @@ def _headline_invents_nothing(headline: str, source_text: str) -> bool:
     numeros = [p for p in palavras if p.isdigit()]
     if any(n not in fonte for n in numeros):
         return False
-    return all(p in fonte for p in conteudo)
+        
+    # Verifica palavras exatas
+    unmatched = [p for p in conteudo if p not in fonte]
+    if not unmatched:
+        return True
+        
+    # Verifica com stemming para perdoar conjugações (ex: criticou -> critica)
+    fonte_stems = {_stem_word(w) for w in fonte}
+    still_unmatched = [w for w in unmatched if _stem_word(w) not in fonte_stems]
+    
+    return not bool(still_unmatched)
 
 
 # Palavras de ligação e de papel que a headline pode usar mesmo sem estarem na
@@ -468,6 +490,8 @@ _ARTWORK_CONNECTIVES = {
     # "tá" vira "está", "pra" vira "para". São cópulas e preposições — não
     # afirmam nada sobre o mundo, então não são invenção.
     "esta", "estao", "estou", "estava", "estavam", "voce",
+    # Vícios de linguagem que o LLM ou o construtor local pode limpar/substituir
+    "tipo", "né", "tá", "aí", "daí"
 }
 
 
@@ -637,7 +661,7 @@ def generate_artwork_copy(
             "REGRA DURA: não use nenhum nome, número, lugar ou fato que não esteja na "
             "transcrição. Reescrever o que foi dito é o trabalho; acrescentar o que não foi "
             "invalida a sugestão.\n"
-            "Se a transcrição contiver uma frase de efeito forte, você PODE usar aspas para criar uma citação exata (mode: citacao), mas ela deve ser palavra por palavra o que foi dito.\n"
+            "Se a transcrição contiver uma frase de efeito forte, você PODE usar aspas para criar uma citação exata (mode: citacao), mas ela deve ser palavra por palavra o que foi dito. Você também pode criar uma 'citação mista' (ex: Renan alerta: \"Isso é um absurdo\"), onde o contexto fora das aspas é resumo e o que está dentro das aspas é literal.\n"
             "Evite verbos fracos como 'fala sobre'. Use verbos fortes e de ação.\n"
             "Curta vence. Responda somente JSON válido."
         )
