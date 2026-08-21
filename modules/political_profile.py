@@ -22,6 +22,8 @@ TOPIC_TERMS = {
     "ordem", "justica", "seguranca", "crime", "homicidio", "economia",
     "imposto", "tributo", "orcamento", "educacao", "saude", "liberdade",
     "corrupcao", "democracia", "constitucional", "proposta", "politico",
+    "livro amarelo", "ideologia", "direita", "esquerda", "reforma", "desfavelizacao",
+    "favela", "moradia", "pcc", "faccao", "milicia", "interior",
 }
 
 CLAIM_CUES = {
@@ -29,6 +31,7 @@ CLAIM_CUES = {
     "a minha proposta", "vamos", "precisamos", "o brasil precisa", "nao se pode",
     "isso significa", "o fato e", "o ponto e", "fica claro", "eu vou",
     "se eu for eleito", "quando eu for presidente", "a solucao",
+    "pra resumir", "em resumo", "o que acontece e", "no final das contas",
 }
 
 CONFLICT_CUES = {
@@ -37,6 +40,7 @@ CONFLICT_CUES = {
     "confronto", "bater", "enfrentar", "contra", "nao aceito", "nao se cumpre",
     "nao vai", "nunca", "jamais", "culpa", "fracasso", "perdeu", "enganou",
     "urgente", "chocante", "denuncia", "exposto", "desmascarado",
+    "guerra", "punicao", "cadeia", "fuzil", "bola de ferro", "incompetente",
 }
 
 PROPOSAL_CUES = {
