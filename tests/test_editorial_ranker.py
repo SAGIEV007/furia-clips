@@ -66,8 +66,12 @@ class EditorialRankerTests(unittest.TestCase):
             {"start": 60, "end": 90, "duration": 30, "text": "Outra explicação com dados diferentes e conclusão completa."},
         ]
         ranked = self.ranker.rank_clips(clips)
-        self.assertLessEqual(len(ranked), 2)
-        self.assertTrue(any("diversity" in clip["factors"] for clip in ranked))
+        # O sistema não deleta mais clips por diversidade (agora len(ranked) == 3)
+        # Ele apenas penaliza o score. Vamos verificar se o duplicado foi rebaixado na pontuação.
+        scores = [c.get("editorial_potential_score", c.get("viral_score", 0)) for c in ranked if "orçamento" in c.get("text", "").lower()]
+        self.assertTrue(len(scores) >= 2)
+        self.assertTrue(scores[1] < scores[0])
+        self.assertTrue(any(clip.get("diversity_penalty", 0) > 0 for clip in ranked))
 
     def test_same_topic_in_different_windows_receives_diversity_penalty(self):
         clips = [
