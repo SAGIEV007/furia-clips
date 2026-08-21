@@ -10,8 +10,8 @@ Este documento registra tudo que foi alterado depois do ponto de retomada identi
 | --- | --- |
 | Repositório | `SAGIEV007/furia-clips` |
 | Branch | `claude/repo-access-commits-imgjmk` |
-| Versão | `6.22` local; publicação pendente nesta etapa |
-| HEAD local/remoto | `042df18` publicado antes do ciclo 38; 6.22 local ainda sem commit |
+| Versão | `6.22` |
+| HEAD local/remoto | `6dabc14` — commit funcional da 6.22 publicado; fechamento documental em andamento |
 | Último commit funcional | `ce8dd98` — `feat: observabilidade estruturada com diagnóstico copiável (6.21)` |
 | Checkout | Com atualização documental local para registrar o hash publicado |
 | Branch principal | Não alterada |
@@ -80,13 +80,13 @@ A implementação adicionou `ClipSelector._find_seed_text_anchor()`. Quando a se
 
 As fichas de discovery Chub agora carregam seed, bloco, highlight, resumo, pergunta, tópicos, ranks, tier, riscos, gates e evidência textual em limites seguros. Foram adicionadas regressões de recuperação válida, rejeição de falso alinhamento e diagnóstico explicável. A suíte completa da 6.22 terminou com **576 aprovados e 4 ignorados**; o BlazeFace foi temporário e removido. Relatório em [`CYCLE_38_REPORT_2026-08-21.md`](CYCLE_38_REPORT_2026-08-21.md), pesquisa em [`RESEARCH_MCP_CHUB_2026-08-21.md`](RESEARCH_MCP_CHUB_2026-08-21.md) e desenho em [`CYCLE_38_DESIGN_MCP_CHUB_2026-08-21.md`](CYCLE_38_DESIGN_MCP_CHUB_2026-08-21.md).
 
-A 6.22 **ainda não prova ganho de recall em live real**, não implementa cliente MCP remoto no Furia e não altera pesos do ranking. O próximo ciclo deve executar uma faixa curta pela interface, copiar `ui-diagnostic-v1` e comparar baseline temporal versus `text_anchor` em benchmark reproduzível.
+A 6.22 **ainda não prova ganho de recall em live real**, não implementa cliente MCP remoto no Furia e não altera pesos do ranking. O commit funcional `6dabc14` está publicado; o próximo ciclo deve executar uma faixa curta pela interface, copiar `ui-diagnostic-v1` e comparar baseline temporal versus `text_anchor` em benchmark reproduzível.
 
 O que ainda não foi confirmado é a cobertura em uma operação real: executar uma faixa curta, copiar o diagnóstico e verificar se ingestão, transcrição, contexto, ranking, render, fallback e cancelamento aparecem sem pedir arquivos auxiliares. Também será necessária uma auditoria de mensagens legadas que possam conter pequenos previews de texto.
 
 ### 6. Fechamentos documentais
 
-Os commits `32b2c53` e `94b8c56` fecharam `PROJECT_STATE.md` com os hashes reais publicados de 6.18 e 6.19. O commit `6d88714` publicou a implementação funcional da 6.20. O commit `ce8dd98` publicou a implementação funcional da 6.21 e `042df18` publicou o fechamento documental, ambos na branch de trabalho remota.
+Os commits `32b2c53` e `94b8c56` fecharam `PROJECT_STATE.md` com os hashes reais publicados de 6.18 e 6.19. O commit `6d88714` publicou a implementação funcional da 6.20. O commit `ce8dd98` publicou a implementação funcional da 6.21 e `042df18` publicou o fechamento documental, ambos na branch de trabalho remota. O commit `6dabc14` publicou a implementação funcional da 6.22 na mesma branch; este fechamento documental será publicado em seguida.
 
 ## O que não foi alterado
 

@@ -8,12 +8,12 @@
 | --- | --- |
 | Projeto | Furia Clips |
 | Repositório | `SAGIEV007/furia-clips` |
-| Versão pública atual | `6.22` local; publicação pendente nesta etapa |
+| Versão pública atual | `6.22` |
 | Última release funcional anterior | `6.20` |
 | Natureza da release atual | Recuperação textual conservadora de seeds Campaign Hub, evidência de alinhamento e pesquisa MCP/Chub; observabilidade 6.21 preservada |
 | Fonte da versão | [`VERSION`](../../VERSION) |
 | Branch de trabalho | `claude/repo-access-commits-imgjmk` |
-| Última publicação conhecida | `042df18` — `docs: fechar continuidade da release 6.21` (funcional: `ce8dd98`) |
+| Última publicação conhecida | `6dabc14` — `feat: recuperar seeds Chub por alinhamento textual conservador (6.22)` |
 | Commit funcional 2.6 | `fec34fe` — `feat: primeira ponte funcional Campaign Hub para propostas (2.6)` |
 | Commit funcional 2.7 | `a0452d3` — `fix: declarar confiabilidade da medição no benchmark editorial (2.7)` |
 | Commit funcional 2.8 | `fdf5e6b` — `fix: alinhar seeds do Campaign Hub com a mídia local em processamento (2.8)` |
@@ -25,7 +25,7 @@
 | Suíte no checkout | 576 aprovados, 4 ignorados após provisionamento temporário do asset BlazeFace; o asset foi removido após a validação da 6.22 |
 | Objetivo | Gerar cortes Renan Santos/MBL concisos, autossuficientes, contextualizados e editorialmente úteis |
 
-A branch de trabalho deve ser confirmada no checkout real. O GitHub é a fonte da revisão técnica; o commit funcional publicado é `ce8dd98` e o fechamento documental publicado é `042df18`. Antes de alterar qualquer arquivo, preserve mudanças locais e confirme `git status`.
+A branch de trabalho deve ser confirmada no checkout real. O GitHub é a fonte da revisão técnica; o commit funcional publicado da 6.22 é `6dabc14`. Antes de alterar qualquer arquivo, preserve mudanças locais e confirme `git status`.
 
 ## Norte imediato
 
@@ -47,7 +47,7 @@ A 6.22 é o primeiro ciclo dedicado à pesquisa aprofundada do MCP/Chub depois d
 
 O diagnóstico de discovery Chub passou a guardar, de forma limitada, seed, block, highlight, resumo, pergunta, tópicos, confiança, ranks, tier, riscos, gates e evidência de alinhamento. Foram adicionadas regressões para correspondência textual válida, ausência de correspondência e ficha explicável. A suíte completa terminou com **576 aprovados e 4 ignorados**; o BlazeFace foi temporário e removido.
 
-A 6.22 ainda não prova ganho editorial em uma live real, não implementa cliente MCP remoto dentro do Furia e não altera pesos de ranking. O benchmark seguinte deve comparar baseline temporal versus `text_anchor`, medir falsos alinhamentos e depois testar uma faixa real pela interface usando o diagnóstico copiável. Relatório em [`CYCLE_38_REPORT_2026-08-21.md`](CYCLE_38_REPORT_2026-08-21.md); desenho em [`CYCLE_38_DESIGN_MCP_CHUB_2026-08-21.md`](CYCLE_38_DESIGN_MCP_CHUB_2026-08-21.md).
+A 6.22 ainda não prova ganho editorial em uma live real, não implementa cliente MCP remoto dentro do Furia e não altera pesos de ranking. O commit funcional `6dabc14` está publicado na branch de trabalho. O benchmark seguinte deve comparar baseline temporal versus `text_anchor`, medir falsos alinhamentos e depois testar uma faixa real pela interface usando o diagnóstico copiável. Relatório em [`CYCLE_38_REPORT_2026-08-21.md`](CYCLE_38_REPORT_2026-08-21.md); desenho em [`CYCLE_38_DESIGN_MCP_CHUB_2026-08-21.md`](CYCLE_38_DESIGN_MCP_CHUB_2026-08-21.md).
 
 ## Release atual — 6.21
 

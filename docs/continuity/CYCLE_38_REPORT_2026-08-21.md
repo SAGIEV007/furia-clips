@@ -3,7 +3,7 @@
 **Data:** 2026-08-21
 **Branch:** `claude/repo-access-commits-imgjmk`
 **Versão local:** `6.22`
-**Status:** implementação local validada; publicação pendente deste fechamento.
+**Status:** implementação funcional publicada em `6dabc14`; fechamento documental em andamento.
 
 ## Objetivo e hipótese
 
@@ -83,3 +83,5 @@ A ancoragem textual pode recuperar uma frase semanticamente parecida em outro po
 - `docs/continuity/CYCLE_38_DESIGN_MCP_CHUB_2026-08-21.md`
 - `docs/continuity/CYCLE_38_REPORT_2026-08-21.md`
 - `docs/continuity/NEXT_CYCLE.md`
+- `docs/continuity/PROJECT_STATE.md`
+- `docs/continuity/HANDOFF_SINCE_CLAUDE_2026-08-21.md`
