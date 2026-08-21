@@ -182,6 +182,12 @@ class VideoCutter:
                     continue
                 if duration > max_dur:
                     break
+                
+                # Só aceita como candidato válido se a frase terminar com pontuação forte
+                # Isso garante precisão editorial na montagem do vídeo bruto
+                text_clean = accumulated_text.strip()
+                if not text_clean.endswith((".", "!", "?")):
+                    continue
 
                 candidate = {
                     "start": seg_start,
