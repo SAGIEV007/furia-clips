@@ -8,12 +8,12 @@
 | --- | --- |
 | Projeto | Furia Clips |
 | Repositório | `SAGIEV007/furia-clips` |
-| Versão pública atual | `6.25` local; publicação pendente nesta etapa |
+| Versão pública atual | `6.25` |
 | Última release funcional anterior | `6.20` |
 | Natureza da release atual | Contrato `hard-negative-v1` persistente no diagnóstico, decisões humanas opcionais e métricas descritivas |
 | Fonte da versão | [`VERSION`](../../VERSION) |
 | Branch de trabalho | `claude/repo-access-commits-imgjmk` |
-| Última publicação conhecida | `b1af379` — fechamento documental da 6.24; release 6.25 local ainda sem commit |
+| Última publicação conhecida | `6ae281f` — `feat: persistir benchmark de hard negatives no diagnóstico (6.25)` |
 | Commit funcional 2.6 | `fec34fe` — `feat: primeira ponte funcional Campaign Hub para propostas (2.6)` |
 | Commit funcional 2.7 | `a0452d3` — `fix: declarar confiabilidade da medição no benchmark editorial (2.7)` |
 | Commit funcional 2.8 | `fdf5e6b` — `fix: alinhar seeds do Campaign Hub com a mídia local em processamento (2.8)` |
@@ -25,7 +25,7 @@
 | Suíte no checkout | 588 aprovados, 4 ignorados na validação da 6.25; o asset BlazeFace foi temporário e removido |
 | Objetivo | Gerar cortes Renan Santos/MBL concisos, autossuficientes, contextualizados e editorialmente úteis |
 
-A branch de trabalho deve ser confirmada no checkout real. O GitHub é a fonte da revisão técnica; a 6.24 terminou em `b1af379`; o ciclo 6.25 está local até o commit e push. Antes de alterar qualquer arquivo, preserve mudanças locais e confirme `git status`.
+A branch de trabalho deve ser confirmada no checkout real. O GitHub é a fonte da revisão técnica; o commit funcional publicado da 6.25 é `6ae281f`; o fechamento documental desta rodada ainda será publicado. Antes de alterar qualquer arquivo, preserve mudanças locais e confirme `git status`.
 
 ## Norte imediato
 
@@ -45,7 +45,7 @@ A 6.25 implementa o contrato `hard-negative-v1` no módulo `editorial_benchmark.
 
 `app._write_selection_diagnostics()` agora grava automaticamente o benchmark separado em `FuriaClipsData/benchmarks/` quando a execução contém hard negatives. O relatório de seleção recebe apenas manifesto com schema, ID, contagem e nome do arquivo. Execuções sem near-misses não mudam o comportamento.
 
-A suíte completa terminou com **588 aprovados e 4 ignorados**; o BlazeFace foi temporário e removido. Relatório em [`CYCLE_41_REPORT_2026-08-21.md`](CYCLE_41_REPORT_2026-08-21.md). A 6.25 não prova ganho editorial em live real nem altera pesos; o próximo ciclo precisa importar decisões humanas reais dentro da mesma fonte e medir before/after.
+A suíte completa terminou com **588 aprovados e 4 ignorados**; o BlazeFace foi temporário e removido. Relatório em [`CYCLE_41_REPORT_2026-08-21.md`](CYCLE_41_REPORT_2026-08-21.md). A 6.25 não prova ganho editorial em live real nem altera pesos; o commit funcional `6ae281f` está publicado na branch de trabalho. O próximo ciclo precisa importar decisões humanas reais dentro da mesma fonte e medir before/after.
 
 Instagram está habilitado, mas a API retornou 403 por falta de permissão da aplicação; nenhum perfil foi usado. O Chub permanece como memória/seed read-only e o job segue offline-first.
 

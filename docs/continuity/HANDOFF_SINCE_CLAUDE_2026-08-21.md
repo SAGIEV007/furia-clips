@@ -10,8 +10,8 @@ Este documento registra tudo que foi alterado depois do ponto de retomada identi
 | --- | --- |
 | Repositório | `SAGIEV007/furia-clips` |
 | Branch | `claude/repo-access-commits-imgjmk` |
-| Versão | `6.25` local; publicação pendente nesta etapa |
-| HEAD local/remoto | `b1af379` — fechamento documental da 6.24 publicado; release 6.25 local ainda sem commit |
+| Versão | `6.25` |
+| HEAD local/remoto | `6ae281f` — commit funcional da 6.25 publicado; fechamento documental em andamento |
 | Último commit funcional | `ce8dd98` — `feat: observabilidade estruturada com diagnóstico copiável (6.21)` |
 | Checkout | Com atualização documental local para registrar o hash publicado |
 | Branch principal | Não alterada |
@@ -118,7 +118,7 @@ A 6.25 não prova ganho editorial em mídia real e não altera pesos. A API do I
 
 ### 9. Fechamentos documentais
 
-Os commits `32b2c53` e `94b8c56` fecharam `PROJECT_STATE.md` com os hashes reais publicados de 6.18 e 6.19. O commit `6d88714` publicou a implementação funcional da 6.20. O commit `ce8dd98` publicou a implementação funcional da 6.21 e `042df18` publicou o fechamento documental, ambos na branch de trabalho remota. O commit `6dabc14` publicou a implementação funcional da 6.22 na mesma branch. O commit `ee2cc6d` publicou a implementação funcional da 6.23, seguido pelos fechamentos `7950346`, `c91cd52` e `41e52c3`. A 6.24 foi publicada no commit funcional `08d8429` e fechada em `b1af379`. A 6.25 está local até o commit e push.
+Os commits `32b2c53` e `94b8c56` fecharam `PROJECT_STATE.md` com os hashes reais publicados de 6.18 e 6.19. O commit `6d88714` publicou a implementação funcional da 6.20. O commit `ce8dd98` publicou a implementação funcional da 6.21 e `042df18` publicou o fechamento documental, ambos na branch de trabalho remota. O commit `6dabc14` publicou a implementação funcional da 6.22 na mesma branch. O commit `ee2cc6d` publicou a implementação funcional da 6.23, seguido pelos fechamentos `7950346`, `c91cd52` e `41e52c3`. A 6.24 foi publicada no commit funcional `08d8429` e fechada em `b1af379`. A 6.25 foi publicada no commit funcional `6ae281f`; este fechamento documental ainda será publicado.
 
 ## O que não foi alterado
 
