@@ -9,7 +9,7 @@
 | Branch | `claude/repo-access-commits-imgjmk` |
 | Escopo | Observabilidade de jobs, console e diagnóstico local |
 | Escopo explicitamente excluído | Ranking, pesos Chub, gates Renan-first, contrato editorial de cortes e renderização |
-| Status | Implementação local validada; publicação pendente deste relatório |
+| Status | Implementação funcional publicada em `ce8dd98`; fechamento documental publicado em `042df18` |
 
 ## Hipótese única
 

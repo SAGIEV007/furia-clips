@@ -13,7 +13,7 @@
 | Natureza da release atual | Observabilidade estruturada de jobs, breadcrumbs persistentes, diagnóstico copiável e captura de erros do frontend |
 | Fonte da versão | [`VERSION`](../../VERSION) |
 | Branch de trabalho | `claude/repo-access-commits-imgjmk` |
-| Última publicação conhecida | `ce8dd98` — `feat: observabilidade estruturada com diagnóstico copiável (6.21)` |
+| Última publicação conhecida | `042df18` — `docs: fechar continuidade da release 6.21` (funcional: `ce8dd98`) |
 | Commit funcional 2.6 | `fec34fe` — `feat: primeira ponte funcional Campaign Hub para propostas (2.6)` |
 | Commit funcional 2.7 | `a0452d3` — `fix: declarar confiabilidade da medição no benchmark editorial (2.7)` |
 | Commit funcional 2.8 | `fdf5e6b` — `fix: alinhar seeds do Campaign Hub com a mídia local em processamento (2.8)` |
@@ -25,7 +25,7 @@
 | Suíte no checkout | 573 aprovados, 4 ignorados após provisionamento temporário do asset BlazeFace; o asset foi removido após a validação da 6.21 |
 | Objetivo | Gerar cortes Renan Santos/MBL concisos, autossuficientes, contextualizados e editorialmente úteis |
 
-A branch de trabalho deve ser confirmada no checkout real. O GitHub é a fonte da revisão técnica; este arquivo registra o commit funcional publicado `ce8dd98`; depois do fechamento documental, atualize apenas este hash se o HEAD mudar. Antes de alterar qualquer arquivo, preserve mudanças locais e confirme `git status`.
+A branch de trabalho deve ser confirmada no checkout real. O GitHub é a fonte da revisão técnica; o commit funcional publicado é `ce8dd98` e o fechamento documental publicado é `042df18`. Antes de alterar qualquer arquivo, preserve mudanças locais e confirme `git status`.
 
 ## Norte imediato
 

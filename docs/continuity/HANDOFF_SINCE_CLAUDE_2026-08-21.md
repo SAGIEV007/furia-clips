@@ -11,7 +11,7 @@ Este documento registra tudo que foi alterado depois do ponto de retomada identi
 | Repositório | `SAGIEV007/furia-clips` |
 | Branch | `claude/repo-access-commits-imgjmk` |
 | Versão | `6.21` |
-| HEAD local/remoto | `ce8dd98` — commit funcional 6.21 publicado; fechamento documental local pendente |
+| HEAD local/remoto | `042df18` — fechamento documental da 6.21 publicado; funcional: `ce8dd98` |
 | Último commit funcional | `ce8dd98` — `feat: observabilidade estruturada com diagnóstico copiável (6.21)` |
 | Checkout | Com atualização documental local para registrar o hash publicado |
 | Branch principal | Não alterada |
@@ -76,7 +76,7 @@ O que ainda não foi confirmado é a cobertura em uma operação real: após a p
 
 ### 5. Fechamentos documentais
 
-Os commits `32b2c53` e `94b8c56` fecharam `PROJECT_STATE.md` com os hashes reais publicados de 6.18 e 6.19. O commit `6d88714` publicou a implementação funcional da 6.20. O commit `ce8dd98` publicou a implementação funcional da 6.21; o fechamento documental desta rodada atualizará o estado vivo e manterá o hash funcional registrado acima.
+Os commits `32b2c53` e `94b8c56` fecharam `PROJECT_STATE.md` com os hashes reais publicados de 6.18 e 6.19. O commit `6d88714` publicou a implementação funcional da 6.20. O commit `ce8dd98` publicou a implementação funcional da 6.21 e `042df18` publicou o fechamento documental, ambos na branch de trabalho remota.
 
 ## O que não foi alterado
 
