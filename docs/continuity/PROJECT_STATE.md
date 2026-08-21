@@ -8,12 +8,12 @@
 | --- | --- |
 | Projeto | Furia Clips |
 | Repositório | `SAGIEV007/furia-clips` |
-| Versão pública atual | `6.24` local; publicação pendente nesta etapa |
+| Versão pública atual | `6.24` |
 | Última release funcional anterior | `6.20` |
 | Natureza da release atual | Hard negatives sanitizados, timestamps por palavra como padrão e preparação de benchmark humano; 6.23 preservada |
 | Fonte da versão | [`VERSION`](../../VERSION) |
 | Branch de trabalho | `claude/repo-access-commits-imgjmk` |
-| Última publicação conhecida | `41e52c3` — ponteiro final da 6.23; release 6.24 local ainda sem commit |
+| Última publicação conhecida | `08d8429` — `feat: registrar hard negatives e ativar timestamps por palavra (6.24)` |
 | Commit funcional 2.6 | `fec34fe` — `feat: primeira ponte funcional Campaign Hub para propostas (2.6)` |
 | Commit funcional 2.7 | `a0452d3` — `fix: declarar confiabilidade da medição no benchmark editorial (2.7)` |
 | Commit funcional 2.8 | `fdf5e6b` — `fix: alinhar seeds do Campaign Hub com a mídia local em processamento (2.8)` |
@@ -25,7 +25,7 @@
 | Suíte no checkout | 585 aprovados, 4 ignorados na validação da 6.24; o asset BlazeFace foi temporário e removido |
 | Objetivo | Gerar cortes Renan Santos/MBL concisos, autossuficientes, contextualizados e editorialmente úteis |
 
-A branch de trabalho deve ser confirmada no checkout real. O GitHub é a fonte da revisão técnica; a 6.23 terminou em `41e52c3`; o ciclo 6.24 está local até o commit e push. Antes de alterar qualquer arquivo, preserve mudanças locais e confirme `git status`.
+A branch de trabalho deve ser confirmada no checkout real. O GitHub é a fonte da revisão técnica; o commit funcional publicado da 6.24 é `08d8429`; o fechamento documental desta rodada ainda será publicado. Antes de alterar qualquer arquivo, preserve mudanças locais e confirme `git status`.
 
 ## Norte imediato
 
@@ -47,7 +47,7 @@ A 6.24 adiciona um ledger limitado de `hard_negatives` em `candidate_diagnostics
 
 A suíte completa terminou com **585 aprovados e 4 ignorados**; o BlazeFace foi temporário e removido. Relatório em [`CYCLE_40_REPORT_2026-08-21.md`](CYCLE_40_REPORT_2026-08-21.md). O próximo ciclo deve transformar hard negatives em benchmark versionado com decisões humanas rastreáveis.
 
-A 6.24 não prova ganho editorial em live real e não altera pesos. Instagram está habilitado, mas a API retornou 403 por falta de permissão da aplicação; nenhum perfil foi usado nesta rodada. O próximo ciclo continua dependente de fonte/decisão autorizada para medir recall, erro de borda, contexto, payoff e falso Renan.
+A 6.24 não prova ganho editorial em live real e não altera pesos. O commit funcional `08d8429` está publicado na branch de trabalho. Instagram está habilitado, mas a API retornou 403 por falta de permissão da aplicação; nenhum perfil foi usado nesta rodada. O próximo ciclo continua dependente de fonte/decisão autorizada para medir recall, erro de borda, contexto, payoff e falso Renan.
 
 ## Release atual — 6.23 local
 
