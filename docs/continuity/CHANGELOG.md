@@ -1,5 +1,27 @@
 # Changelog de continuidade
 
+## 6.19 — Cancelamento seguro de jobs e feedback honesto
+
+### Hipótese
+
+Se o cancelamento for tratado de forma segura enquanto o job aguarda na fila e depois que o worker começou, e se a barra superior validar a resposta do servidor, o editor não verá falso sucesso nem ficará esperando por um job que ainda não iniciou.
+
+### Incluído
+
+- `modules/job_manager.py`: claim atômico de jobs `queued`, cancelamento terminal imediato antes do worker e verificação de cancelamento antes do alvo executar.
+- `static/js/app.js`: cancelamento da barra superior com resposta validada, proteção contra cliques duplicados, reabilitação em erro, toast e registro no console.
+- `tests/test_job_manager.py`: regressão que prova que um alvo enfileirado não é executado após cancelamento.
+- `tests/test_frontend_integrity.py`: regressão para resposta HTTP, mensagem de erro e reabilitação do botão.
+- `VERSION`: incremento para 6.19.
+
+### Resultado medido
+
+Jobs ainda enfileirados passam diretamente para `cancelled` com `cancelled_before_start`; o worker não executa o alvo. Jobs em execução preservam o caminho cooperativo `cancel_requested`. A barra superior só confirma aceitação depois de uma resposta HTTP válida.
+
+### Validação
+
+Os testes focados terminaram com **28 aprovados**. A suíte completa terminou com **557 aprovados e 4 ignorados** após o asset BlazeFace ser provisionado temporariamente, conferido e removido. Também passaram `node --check`, `py_compile` e `git diff --check`. Relatório: [`CYCLE_35_REPORT_2026-08-21.md`](CYCLE_35_REPORT_2026-08-21.md).
+
 ## 6.18 — Barra de execução com etapas, progresso e escopo da fonte
 
 ### Hipótese

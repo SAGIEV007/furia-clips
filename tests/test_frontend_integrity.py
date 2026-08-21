@@ -62,6 +62,14 @@ def test_o_conflito_de_processamento_tem_mensagem_propria():
     assert "Já existe um processamento em andamento" in JS
 
 
+def test_a_barra_superior_valida_a_resposta_de_cancelamento():
+    """A barra não pode afirmar que cancelou se o servidor recusou a solicitação."""
+    assert 'parseJsonResponse(response, "Cancelamento")' in JS
+    assert 'if (!response.ok || data.error)' in JS
+    assert 'button) button.disabled = false' in JS
+    assert 'Falha ao solicitar cancelamento' in JS
+
+
 # ── Navegação por etapa ────────────────────────────────────────────────────────
 
 def test_toda_secao_pertence_a_uma_etapa():

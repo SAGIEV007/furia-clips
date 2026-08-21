@@ -37,6 +37,25 @@ class JobManagerTests(unittest.TestCase):
         self.assertEqual(final["progress"], 100)
         self.assertEqual(final["artifacts"], ["exports/clip.mp4"])
 
+    def test_cancelled_queued_job_never_starts_target(self):
+        started = []
+        created = self.manager.create("queued-cancel")
+        requested = self.manager.request_cancel(created["id"])
+        self.assertEqual(requested["state"], "cancelled")
+        self.assertEqual(requested["error"], "cancelled_before_start")
+
+        def worker(_ctx):
+            started.append(True)
+            return {}
+
+        # Exercise the worker entrypoint after cancellation won the queue race.
+        self.manager._run(created["id"], worker)
+        final = self.manager.get(created["id"])
+        self.assertEqual(started, [])
+        self.assertEqual(final["state"], "cancelled")
+        self.assertEqual(final["stage"], "cancelled")
+        self.assertEqual(final["error"], "cancelled_before_start")
+
     def test_cancel_request_is_visible_to_worker(self):
         started = []
 

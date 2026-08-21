@@ -136,9 +136,40 @@ class JobManager:
         return job
 
     def _run(self, job_id: str, target: JobTarget):
-        self.update(job_id, state="running", stage="starting", progress=1, message="Job iniciado")
+        # Claim the queued row atomically. If cancellation won the race while
+        # the Future was waiting in the executor queue, the target must never
+        # start; otherwise the UI can say "cancelled" while FFmpeg/Whisper has
+        # already begun consuming the source.
+        now = _now()
+        connection = self._connect()
+        cursor = connection.execute(
+            """
+            UPDATE jobs
+               SET state = 'running', stage = 'starting', progress = 1,
+                   message = ?, updated_at = ?, started_at = COALESCE(started_at, ?)
+             WHERE id = ? AND state = 'queued'
+            """,
+            ("Job iniciado", now, now, job_id),
+        )
+        connection.commit()
+        connection.close()
+        if cursor.rowcount != 1:
+            current = self.get(job_id)
+            if current and current["state"] == "cancel_requested":
+                self.update(
+                    job_id,
+                    state="cancelled",
+                    stage="cancelled",
+                    message="Job cancelado antes do início do worker.",
+                    error="cancelled_before_start",
+                )
+            return
+
         context = JobContext(self, job_id)
         try:
+            # A cancellation requested immediately after the atomic claim is
+            # still honored before any target-side work begins.
+            context.check_cancel()
             result = target(context) or {}
             context.check_cancel()
             self.update(
@@ -222,6 +253,17 @@ class JobManager:
             raise KeyError(job_id)
         if current["state"] in {"completed", "failed", "cancelled"}:
             return current
+        if current["state"] == "queued":
+            # Nothing from the target has started yet. Marking it terminal is
+            # safe and gives the UI an immediate answer; the worker entrypoint
+            # also checks the row atomically before it can begin.
+            return self.update(
+                job_id,
+                state="cancelled",
+                stage="cancelled",
+                message="Job cancelado antes do início do worker.",
+                error="cancelled_before_start",
+            )
         return self.update(
             job_id,
             state="cancel_requested",

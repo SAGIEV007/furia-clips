@@ -116,3 +116,9 @@ Branches de outras IAs podem ser consultados para padrões de layout, hierarquia
 Durante uma execução longa, o estado operacional deve ser legível em um único componente fixo: etapa atual, percentual, sequência do pipeline, escopo da fonte e ação de cancelamento. Essa camada deve consumir sinais já existentes do job, preservar o console detalhado e não tomar decisões editoriais. Estados `complete`, `active`, `future` e `error` devem permanecer semanticamente distinguíveis, com `aria-valuenow` atualizado e suporte a `prefers-reduced-motion`.
 
 A decisão vale para a 6.18 e não autoriza mudanças no ranking, nos gates Renan-first, no contexto, no Campaign Hub ou no backend. Se no futuro a inferência por mensagens se mostrar ambígua, uma fase estruturada poderá ser proposta em ciclo próprio, com benchmark e regressões separados.
+
+## D-030 — Cancelamento honesto e seguro
+
+Um job `queued` deve ser cancelado terminalmente antes de qualquer worker executar seu alvo. A transição inicial para `running` precisa ser condicionada ao estado `queued`, e o worker deve verificar cancelamento antes do primeiro trabalho externo. Jobs já iniciados permanecem cooperativos em `cancel_requested` até uma etapa segura.
+
+A interface não pode afirmar que o cancelamento foi aceito sem validar a resposta do servidor. O botão deve evitar solicitações duplicadas, recuperar-se de erro e registrar uma falha acionável no console. Esta decisão não altera o ranking, o contexto, o Campaign Hub, a renderização ou os critérios editoriais.

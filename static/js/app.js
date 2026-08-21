@@ -160,14 +160,26 @@ function endRun() {
     paintRun();
 }
 
-document.getElementById("runBarCancel")?.addEventListener("click", () => {
+document.getElementById("runBarCancel")?.addEventListener("click", async (event) => {
+    const button = event.currentTarget;
     const id = state.activeJob?.id;
-    if (id) {
-        fetch(`/api/jobs/${id}/cancel`, { method: "POST" }).catch(() => {});
-    } else {
-        fetch("/api/process/cancel", { method: "POST" }).catch(() => {});
+    if (button) button.disabled = true;
+    describeRun("Solicitando parada segura…");
+    try {
+        const response = id
+            ? await fetch(`/api/jobs/${id}/cancel`, { method: "POST" })
+            : await fetch("/api/process/cancel", { method: "POST" });
+        const data = await parseJsonResponse(response, "Cancelamento");
+        if (!response.ok || data.error) {
+            throw new Error(data.error || "Não foi possível solicitar o cancelamento");
+        }
+        describeRun("Cancelamento aceito; aguardando a etapa segura terminar…");
+    } catch (error) {
+        if (button) button.disabled = false;
+        describeRun(`Falha ao solicitar cancelamento: ${error.message}`);
+        showToast(error.message, "error");
+        addConsoleLog(`[Erro] Falha ao solicitar cancelamento: ${error.message}`, "error");
     }
-    describeRun("Cancelamento pedido; aguardando a etapa atual terminar…");
 });
 
 // ─── Voz de referência ───
