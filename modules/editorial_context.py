@@ -353,6 +353,14 @@ def detect_hook_candidates(
             score += 7
             evidence.append("contraste")
             reasons.append("abre uma tensão ou contraste")
+        if re.search(r"\b(voc[eê] n[aã]o vai acreditar|o mais bizarro [eé]|chocante|impressionante|absurdo)\b", normalized):
+            score += 12
+            evidence.append("surpresa")
+            reasons.append("gatilho emocional de surpresa")
+        if re.search(r"\b(vou te explicar|te provar|\b\d+ motivos\b|\b\d+ raz[oõ]es\b|entenda por que|entenda o porqu[eê])\b", normalized):
+            score += 10
+            evidence.append("promessa")
+            reasons.append("promessa de explicação/lista")
         if start <= 35:
             score += 5
             reasons.append("entrada precoce no bloco")
@@ -374,25 +382,38 @@ def detect_hook_candidates(
         if text[:1].islower() or re.search(r"(?:,|\bpor|\be|\bmas|\bque|\bde)$", normalized):
             score -= 10
             reasons.append("frase começa ou termina fragmentada")
+            
+        # Penalidade por pronomes anafóricos soltos no início da frase (Item 8)
+        if re.match(r"^(ele|ela|eles|elas|isso|isto|aquilo|esse|essa|aquele|aquela)\b", normalized):
+            # Se o pronome aparece logo no início, é altamente provável que o contexto esteja quebrado
+            score -= 18
+            reasons.append("começa com pronome (contexto quebrado)")
         speaker_label = str(segment.get("speaker_label") or segment.get("speaker") or "").strip()
         speaker_confidence = segment.get("speaker_confidence")
         speaker_known = bool(speaker_label) or bool(segment.get("speaker_marker"))
         speaker_uncertain = not speaker_known or (isinstance(speaker_confidence, (int, float)) and float(speaker_confidence) < 0.65)
         if bool(segment.get("overlap_suspected")):
-            score -= 14
-            reasons.append("sobreposição de falas exige revisão")
+            # Se a fala for muito curta (provável "aham", "sim", "exato"), a penalidade é menor
+            if len(text.split()) <= 3 and re.search(r"\b(aham|sim|exato|isso|claro|n[eé]|t[aá])\b", normalized):
+                score -= 4
+                reasons.append("sobreposição leve (concordância)")
+            else:
+                score -= 14
+                reasons.append("sobreposição de falas exige revisão")
 
         lookahead = []
-        for following in segments[index + 1:index + 10]:
+        # Expandido o lookahead de 10 para 20 segmentos e o limite temporal de 48s para 90s
+        # para acomodar teses longas do Renan Santos (Item 7)
+        for following in segments[index + 1:index + 20]:
             try:
                 following_start = float(following.get("start", end) or end)
                 following_end = float(following.get("end", following_start) or following_start)
             except (TypeError, ValueError):
                 continue
-            if following_start - start > 48:
+            if following_start - start > 90:
                 break
             lookahead.append(following)
-            if following_end - start >= 32:
+            if following_end - start >= 75:
                 break
         payoff_text = " ".join(str(item.get("text", "") or "") for item in lookahead).lower()
         explicit_payoff = bool(re.search(
