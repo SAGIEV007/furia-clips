@@ -349,7 +349,7 @@ def detect_hook_candidates(
             score += 8
             evidence.append("sinal quantitativo")
             reasons.append("contém dado ou ordem concreta")
-        if re.search(r"\bmas\b|\bpor[eé]m\b|\benquanto\b|\bdiferente\b|\bna verdade\b", normalized):
+        if re.search(r"\bmas\b|\bpor[eé]m\b|\benquanto\b|\bdiferente\b|\bna verdade\b|\bo problema [eé]\b|\ba quest[aã]o [eé]\b", normalized):
             score += 7
             evidence.append("contraste")
             reasons.append("abre uma tensão ou contraste")
@@ -396,7 +396,7 @@ def detect_hook_candidates(
                 break
         payoff_text = " ".join(str(item.get("text", "") or "") for item in lookahead).lower()
         explicit_payoff = bool(re.search(
-            r"\b(portanto|por isso|logo|a solu[cç][aã]o|o ponto [eé]|isso significa|na pr[aá]tica|resultado|conclus[aã]o|resposta|basta apenas|essa [eé] a ideia)\b",
+            r"\b(portanto|por isso|logo|a solu[cç][aã]o|o ponto [eé]|isso significa|na pr[aá]tica|resultado|conclus[aã]o|resposta|basta apenas|essa [eé] a ideia|em resumo|pra resumir|o que acontece [eé]|no final das contas)\b",
             payoff_text,
         ))
         contentful_lookahead = [item for item in lookahead if len(str(item.get("text", "") or "").split()) >= 5]

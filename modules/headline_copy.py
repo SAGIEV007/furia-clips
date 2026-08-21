@@ -50,10 +50,10 @@ from .political_profile import normalize
 # primeiro de cada família é o padrão e os outros ficam à mão para ele trocar
 # sem reescrever a headline inteira.
 HOOKS = {
-    "denuncia": ("BOMBA!", "ABSURDO!", "VERGONHA!"),
-    "alerta": ("ALERTA!", "ATENÇÃO", "OLHA ISSO"),
-    "promessa": ("ELE PROMETEU", "OLHA ISSO", "ATENÇÃO"),
-    "neutro": ("OLHA ISSO", "ATENÇÃO"),
+    "denuncia": ("BOMBA!", "ABSURDO!", "VERGONHA!", "INACREDITÁVEL"),
+    "alerta": ("ALERTA!", "ATENÇÃO", "OLHA ISSO", "CUIDADO"),
+    "promessa": ("ELE PROMETEU", "OLHA ISSO", "ATENÇÃO", "A VERDADE É"),
+    "neutro": ("OLHA ISSO", "ATENÇÃO", "ENTENDA"),
 }
 
 # O verbo diz a postura, e ela tem de estar no texto. "critica" e "denuncia" são
