@@ -50,15 +50,18 @@ ScaledBorderAndShadow: yes
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,{self.font},{self.font_size},{hex_text},&H000000FF,{hex_border},&H80000000,1,0,0,0,100,100,0,0,1,{self.border_size},2,{alignment},40,40,{margin_v},1
-Style: Highlight,{self.font},{int(self.font_size * 1.1)},{hex_highlight},&H000000FF,{hex_border},&H80000000,1,0,0,0,100,100,0,0,1,{self.border_size + 0.5},2,{alignment},40,40,{margin_v},1
-Style: Alert,{self.font},{int(self.font_size * 1.12)},{hex_alert},&H000000FF,{hex_border},&H80000000,1,0,0,0,100,100,0,0,1,{self.border_size + 0.5},2,{alignment},40,40,{margin_v},1
+Style: Default,{self.font},{self.font_size},{hex_text},&H000000FF,{hex_border},&H00000000,-1,0,0,0,100,100,0,0,1,{self.border_size},0,{alignment},40,40,{margin_v},1
+Style: Highlight,{self.font},{self.font_size},{hex_highlight},&H000000FF,{hex_border},&H00000000,-1,0,0,0,100,100,0,0,1,{self.border_size},0,{alignment},40,40,{margin_v},1
+Style: Alert,{self.font},{self.font_size},{hex_alert},&H000000FF,{hex_border},&H00000000,-1,0,0,0,100,100,0,0,1,{self.border_size},0,{alignment},40,40,{margin_v},1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 """
 
         if self.style == "word_by_word":
+            # Força fonte padrão mais legível e espessa para shorts se for Arial
+            if self.font == "Arial":
+                ass_content = ass_content.replace(",Arial,", ",Impact,")
             ass_content += self._generate_word_by_word(segments)
         else:
             ass_content += self._generate_full_sentence(segments)
@@ -96,12 +99,14 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                     for j, cw in enumerate(chunk):
                         if j == highlight_idx:
                             style_name = "Alert" if self._is_impact_word(cw.get("word", "")) else "Highlight"
-                            text_parts.append("{\\r" + style_name + "}" + self._escape_ass_text(cw.get("word", "")) + "{\\rDefault}")
+                            # Pop effect: scale up slightly, then return to normal
+                            pop = "{\\t(0,50,\\fscx115\\fscy115)\\t(50,150,\\fscx100\\fscy100)}"
+                            text_parts.append("{\\r" + style_name + "}" + pop + self._escape_ass_text(cw.get("word", "")) + "{\\rDefault}")
                         else:
-                            text_parts.append(self._escape_ass_text(cw.get("word", "")))
+                            text_parts.append("{\\alpha&H40&}" + self._escape_ass_text(cw.get("word", "")) + "{\\alpha&H00&}")
 
                     line_text = " ".join(text_parts)
-                    lines += f"Dialogue: 0,{w_start},{w_end},Default,,0,0,0,,{line_text}\n"
+                    lines += f"Dialogue: 0,{w_start},{w_end},Default,,0,0,0,,{{\\fad(50,50)}}{line_text}\n"
 
         return lines
 

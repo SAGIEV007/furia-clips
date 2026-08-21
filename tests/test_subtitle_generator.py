@@ -52,8 +52,8 @@ class SubtitleGeneratorTests(unittest.TestCase):
             with open(path, encoding="utf-8") as handle:
                 content = handle.read()
         self.assertIn("Style: Alert", content)
-        self.assertIn("{\\rAlert}ilegal", content)
-        self.assertIn("{\\rAlert}10", content)
+        self.assertIn("{\\rAlert}{\\t(0,50,\\fscx115\\fscy115)\\t(50,150,\\fscx100\\fscy100)}ilegal", content)
+        self.assertIn("{\\rAlert}{\\t(0,50,\\fscx115\\fscy115)\\t(50,150,\\fscx100\\fscy100)}10", content)
 
     def test_political_preset_uses_larger_bottom_safe_margin(self):
         generator = SubtitleGenerator({"render_preset": "political_shorts"})
