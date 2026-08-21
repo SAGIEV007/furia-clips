@@ -105,3 +105,69 @@ Acompanhar taxa de legendas corrigidas, headlines rejeitadas, cortes com começo
 ## Ordem sugerida quando o usuário pedir implementação
 
 A ideia I-001 deve ser dividida em ciclos pequenos. A primeira entrega recomendada seria um fluxo mínimo de importação de vídeo + SRT, preview sincronizado, correção de texto por bloco, edição de headline e exportação sem destruir o original. Depois podem entrar ajuste fino de timestamps, comparação antes/depois, lint audiovisual e aprendizado a partir das correções aprovadas.
+
+## Novo eixo de plataforma — 2026-08-21
+
+As ideias abaixo foram consolidadas em [`PLATFORM_NORTH_2026-08-21.md`](PLATFORM_NORTH_2026-08-21.md) e permanecem propostas até serem escolhidas para um ciclo próprio. O documento completo organiza automações de cortes, transcrição canônica, Context Composer, lint audiovisual, dossiês, pesquisa recente, GDELT, fontes primárias, watchlists, briefings, fila de revisão, feedback, Telegram, WhatsApp, control plane, worker local e notificações de smartwatch.
+
+### I-016 — Missões editoriais de ponta a ponta
+
+Receber uma intenção em linguagem natural, transformar em plano de etapas, executar ingestão, transcrição, contexto, seleção, renderização e revisão, e devolver um pacote auditável. A missão deve ser idempotente, cancelável, versionada e limitada por permissões.
+
+**Status:** proposta; não implementar sem escolher hipótese e critério de sucesso.
+
+### I-017 — Dossiê de última hora com rastreabilidade
+
+Pesquisar notícias, publicações, vídeos e imagens recentes, agrupar as fontes, separar fato, alegação, inferência e contradição, montar timeline e entregar links, créditos, horários e nível de confirmação. Nunca transformar uma única postagem em prova.
+
+**Status:** proposta; depende de camada de pesquisa e política de fontes.
+
+### I-018 — Monitor de pautas e watchlists
+
+Acompanhar pessoas, eventos, locais, expressões e variações linguísticas, alertar apenas sobre mudanças relevantes e responder “o que mudou desde a última coleta?”.
+
+**Status:** proposta; depende de serviço persistente ou agendamento apropriado.
+
+### I-019 — Acionamento por mensageria
+
+Permitir comandos como `/cortar`, `/pesquisar`, `/dossie`, `/status`, `/cancelar`, `/aprovar` e `/rejeitar`, com allowlist de usuários, confirmação de ações destrutivas e respostas com links e previews.
+
+**Status:** proposta; Telegram é a prova técnica mais leve; WhatsApp exige configuração empresarial, webhook, opt-in e tokens.
+
+### I-020 — Ponte control plane + worker local
+
+Manter o motor de mídia no computador autorizado e usar um serviço remoto apenas para receber missões, armazenar estados, entregar alertas e sincronizar artefatos sanitizados. A mídia bruta permanece local por padrão.
+
+**Status:** proposta; depende de autenticação, disponibilidade do computador e decisão de hospedagem.
+
+### I-021 — Notificações de smartwatch
+
+Entregar no relógio apenas alertas curtos e ações reversíveis, como visualizar que há cortes prontos, cancelar uma missão ou abrir a revisão no telefone. Não processar vídeo nem editar timeline no relógio.
+
+**Status:** proposta; depende de canal móvel e notificações do telefone.
+
+### I-022 — Kit de mídia e evidência
+
+Para cada pauta, reunir matérias, imagens, vídeos, thumbnails, créditos, datas, OCR, origem, possível reutilização e relação com a afirmação pesquisada.
+
+**Status:** proposta; depende de busca e armazenamento seguro.
+
+### I-023 — Saúde editorial e aprendizado de feedback
+
+Medir recall, aprovação, rejeição por motivo, locutor incerto, contexto insuficiente, headline rejeitada, reexportação e tempo economizado. Usar os dados para regressões e calibração, sem transformar uma preferência isolada em verdade.
+
+**Status:** proposta; pode ser dividida em ciclos locais.
+
+### I-024 — Reprocessamento seletivo por etapa
+
+Reexecutar somente a etapa afetada quando mudar legenda, headline, enquadramento ou contexto, usando cache e invalidadores por versão.
+
+**Status:** proposta; depende de identidade de artefatos e intervalo.
+
+### I-025 — Dossiê vivo de evento
+
+Manter um histórico de fontes, correções, contraditórios, imagens repetidas e mudanças de vocabulário para responder automaticamente o que mudou desde a última atualização.
+
+**Status:** proposta; depende de watchlist e coleta incremental.
+
+A implementação de qualquer item deve seguir a regra deste documento: uma hipótese principal, baseline, regressão, validação, documentação e publicação apenas se a melhoria for comprovada.

@@ -47,6 +47,12 @@ Jobs que já começaram continuam cooperativos: passam por `cancel_requested` e 
 
 Nenhum ranking, gate, contexto, Campaign Hub, endpoint editorial ou renderização foi alterado. A 6.19 adiciona `CYCLE_35_REPORT_2026-08-21.md` e novas regressões em `tests/test_job_manager.py` e `tests/test_frontend_integrity.py`. A suíte validada teve 557 aprovados e 4 ignorados; o modelo BlazeFace foi removido antes do commit.
 
+## Novo norte de plataforma — proposta registrada em 2026-08-21
+
+O produto passa a ser planejado como uma plataforma de missões editoriais, mantendo cortes Renan Santos/MBL como núcleo. A expansão proposta inclui memória Campaign Hub, pesquisa de notícias e imagens recentes, dossiês com afirmações rastreáveis, watchlists, briefings, fila de revisão, acionamento remoto por mensagens, alertas móveis e notificações de smartwatch. A proposta não significa que essas integrações já estejam implementadas.
+
+O documento completo está em [`PLATFORM_NORTH_2026-08-21.md`](PLATFORM_NORTH_2026-08-21.md). O inventário exato de alterações desde o ponto de retomada está em [`HANDOFF_SINCE_CLAUDE_2026-08-21.md`](HANDOFF_SINCE_CLAUDE_2026-08-21.md). A prioridade imediata de código continua sendo a identidade persistente de intervalo; o novo roadmap de plataforma será executado em ciclos pequenos, cada um com testes e critério de sucesso.
+
 A 6.14 corrigia a integração incompleta do snapshot rico. O job normal passa o arquivo por `campaign_hub_snapshot_path`, mas o anexo de evidência local ignorava esse caminho; agora ele carrega o snapshot e anexa blocos, riscos, proveniência e identidade aos candidatos locais. Quando o candidato cobre pelo menos 75% de um bloco owner/allied com `renanSpeaking=true`, a identidade fica disponível como evidência alinhada, nunca como aprovação automática.
 
 Na fonte real `3XJfcqn56Rw`, a 6.16 encontrou 30 propostas Chub no Renan-first, promoveu 6 e deixou 24 para revisão de locutor. O recall publicável permaneceu em `7/66` no IoU 0,10 e `1/66` no IoU 0,25; o genérico com Chub permaneceu em `18/66` e `6/66`. Relatório em [`CYCLE_32_REPORT_2026-08-20.md`](CYCLE_32_REPORT_2026-08-20.md).

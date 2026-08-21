@@ -2,6 +2,14 @@
 
 > **Este é o ponto de entrada canônico para qualquer nova IA que continuar o Furia Clips.** Leia este arquivo antes de alterar código. O prompt de execução copiável e focado em Chub→cortes está em [`PROMPT_EXECUCAO_CHUB_CORTES.md`](PROMPT_EXECUCAO_CHUB_CORTES.md), o prompt mestre consolidado está em [`PROMPT_MESTRE_IA.md`](PROMPT_MESTRE_IA.md), o contrato funcional está em [`CHUB_INTEGRATION_CONTRACT.md`](CHUB_INTEGRATION_CONTRACT.md) e o modelo obrigatório de commit está em [`COMMIT_MESSAGE_TEMPLATE.md`](COMMIT_MESSAGE_TEMPLATE.md). Este arquivo substitui, como instrução de entrada, os antigos Prompts 1, 2 e 3. Os arquivos antigos permanecem no repositório como histórico, mas não devem ser tratados como o prompt vigente.
 
+## Estado corrente após a retomada — 2026-08-21
+
+A branch vigente é `claude/repo-access-commits-imgjmk`, versão `6.19`, HEAD `94b8c56`. Desde o ponto de retomada `085569f`, foram publicadas a 6.18, com barra de execução contextual, e a 6.19, com cancelamento seguro de jobs enfileirados e feedback honesto na barra. A suíte atual tem 557 aprovados e 4 ignorados.
+
+O novo norte amplia o produto: o Furia continua tendo **cortes Renan Santos/MBL como núcleo**, mas passa a ser planejado como uma plataforma de missões editoriais com memória Campaign Hub, pesquisa recente, dossiês rastreáveis, fila de revisão, alertas e acionamento remoto. Isso ainda é um roadmap; não confundir proposta de produto com código já implementado.
+
+Leia [`HANDOFF_SINCE_CLAUDE_2026-08-21.md`](HANDOFF_SINCE_CLAUDE_2026-08-21.md) para todas as alterações da retomada e [`PLATFORM_NORTH_2026-08-21.md`](PLATFORM_NORTH_2026-08-21.md) para a arquitetura, ideias e ordem de implementação. A hipótese técnica imediata continua sendo identidade persistente de intervalos.
+
 ## 1. Missão do projeto
 
 Você está continuando o projeto **Furia Clips**, repositório `https://github.com/SAGIEV007/furia-clips`. O Furia é uma ferramenta local de clipping automático especializada em encontrar cortes do universo **Renan Santos/MBL**.
