@@ -112,8 +112,10 @@ def _normalize_moments(moments: list[Any]) -> list[dict[str, Any]]:
     return normalized
 
 
-def _text(value: Any) -> str:
-    return " ".join(str(value or "").split())[:500]
+def _text(value: Any, limit: int | None = None) -> str:
+    text = " ".join(str(value or "").split())
+    max_length = 500 if limit is None else max(0, int(limit))
+    return text[:max_length]
 
 
 def _non_negative(value: Any, field: str) -> float:
