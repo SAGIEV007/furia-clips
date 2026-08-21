@@ -13,6 +13,17 @@ _ALLOWED_CANDIDATE_ORIGINS = {
     "local_fallback",
 }
 _ALLOWED_SELECTION_SOURCES = {"gemini", "llm", "nlp", "local"}
+_ALLOWED_TRANSCRIPT_SOURCES = {"manual", "public_subtitle", "gemini_video", "whisper", "automatic", "unknown"}
+_ALLOWED_CONTEXT_SOURCES = {"local_dossier", "multimodal_auxiliary", "none"}
+_ALLOWED_COVERAGE_STATUSES = {"covered", "partial", "mismatch_suspected", "empty", "unknown"}
+_SUPPORTED_CAMPAIGN_HUB_ACCOUNTS = {"@renansantosmbl", "@renansantosreserva", "@partidomissao"}
+_DEFAULT_CAMPAIGN_HUB_ACCOUNT = "@renansantosmbl"
+
+
+def _normalize_campaign_hub_account(value):
+    account = str(value or "").strip()
+    return account if account in _SUPPORTED_CAMPAIGN_HUB_ACCOUNTS else _DEFAULT_CAMPAIGN_HUB_ACCOUNT
+
 
 
 def _normalize_review_provenance(value):
@@ -39,6 +50,41 @@ def _normalize_review_provenance(value):
         confidence = None
     if confidence is not None:
         result["confidence"] = round(max(0.0, min(1.0, confidence)), 3)
+    transcript_source = str(value.get("transcript_source") or "").strip()[:24]
+    if transcript_source in _ALLOWED_TRANSCRIPT_SOURCES:
+        result["transcript_source"] = transcript_source
+    context_source = str(value.get("context_source") or "").strip()[:24]
+    if context_source in _ALLOWED_CONTEXT_SOURCES:
+        result["context_source"] = context_source
+    coverage_status = str(value.get("transcript_coverage_status") or "").strip()[:32]
+    if coverage_status in _ALLOWED_COVERAGE_STATUSES:
+        result["transcript_coverage_status"] = coverage_status
+    if isinstance(value.get("transcript_archive_present"), bool):
+        result["transcript_archive_present"] = value["transcript_archive_present"]
+    if isinstance(value.get("framing"), dict):
+        raw_framing = value["framing"]
+    elif any(key in value for key in ("framing_mode", "framing_reason", "framing_confidence", "framing_review_required")):
+        raw_framing = value
+    else:
+        raw_framing = {}
+    framing = {}
+    framing_mode = str(raw_framing.get("mode") or raw_framing.get("framing_mode") or "").strip()[:32]
+    if framing_mode in {"face_tracking", "original_16_9", "center_crop", "reframe_9_16", "original"}:
+        framing["mode"] = framing_mode
+    framing_reason = str(raw_framing.get("reason") or raw_framing.get("framing_reason") or "").strip()[:240]
+    if framing_reason:
+        framing["reason"] = framing_reason
+    review_required = raw_framing.get("review_required", raw_framing.get("framing_review_required"))
+    if isinstance(review_required, bool):
+        framing["review_required"] = review_required
+    try:
+        framing_confidence = float(raw_framing.get("confidence", raw_framing.get("framing_confidence")))
+    except (TypeError, ValueError):
+        framing_confidence = None
+    if framing_confidence is not None:
+        framing["confidence"] = round(max(0.0, min(1.0, framing_confidence)), 3)
+    if framing:
+        result["framing"] = framing
     return result
 
 
@@ -77,7 +123,7 @@ def _source_signature(source_video):
 def _editorial_clip_key(source_video, start_time, end_time, transcript):
     """Return a stable identity independent of the rendered output filename."""
     canonical = "|".join([
-        str(source_video or "").replace("\\\\", "/").strip().lower(),
+        str(source_video or "").replace("\\", "/").strip().lower(),
         f"{float(start_time or 0):.3f}",
         f"{float(end_time or 0):.3f}",
         " ".join(str(transcript or "").split()).lower(),
@@ -300,11 +346,15 @@ def get_setting(key):
     row = conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
     conn.close()
     if row:
-        return json.loads(row["value"])
-    return DEFAULT_SETTINGS.get(key)
+        value = json.loads(row["value"])
+    else:
+        value = DEFAULT_SETTINGS.get(key)
+    return _normalize_campaign_hub_account(value) if key == "campaign_hub_account" else value
 
 
 def set_setting(key, value):
+    if key == "campaign_hub_account":
+        value = _normalize_campaign_hub_account(value)
     conn = get_db()
     conn.execute(
         "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
@@ -541,6 +591,7 @@ def get_all_settings():
     # automático, mantendo o funcionamento local em instalações já existentes.
     if settings.get("ai_backend") == "gemini" and not settings.get("gemini_api_key"):
         settings["ai_backend"] = "auto"
+    settings["campaign_hub_account"] = _normalize_campaign_hub_account(settings.get("campaign_hub_account"))
 
     return settings
 
@@ -592,23 +643,27 @@ def update_project_status(project_id, status):
 def get_existing_clip_fingerprints(source_video=""):
     """Return stable local fingerprints used to avoid repeating a source interval.
 
-    The lookup is intentionally local-only. It compares the normalized basename of
-    the source so reruns from another checkout/path can still recognize clips from
-    the same downloaded video, while no transcript text leaves the local database.
+    The lookup is intentionally local-only. It uses the normalized basename only
+    to discover candidate projects across checkouts, then requires a matching
+    lightweight content signature whenever both source files have one. This allows
+    reruns from another checkout/path while preventing same-name files from sharing
+    intervals; legacy records without a signature remain compatible. No transcript
+    text leaves the local database.
     """
-    source_text = str(source_video or "").replace("\\\\", "/").strip().lower()
+    source_text = str(source_video or "").replace("\\", "/").strip().lower()
     source_basename = source_text.rsplit("/", 1)[-1]
     if not source_basename:
         return []
     conn = get_db()
+    normalized_source = "lower(replace(projects.source_video, char(92), '/'))"
     rows = conn.execute(
-        """SELECT clips.start_time, clips.end_time, clips.duration,
+        f"""SELECT clips.start_time, clips.end_time, clips.duration,
                          clips.transcript, clips.review_status, clips.editorial_key,
                          projects.source_signature
            FROM clips
            JOIN projects ON projects.id = clips.project_id
-          WHERE lower(replace(projects.source_video, char(92), '/')) LIKE ?""",
-        (f"%/{source_basename}",),
+          WHERE {normalized_source} = ? OR {normalized_source} LIKE ?""",
+        (source_basename, f"%/{source_basename}"),
     ).fetchall()
     conn.close()
     current_signature = _source_signature(source_video)
@@ -693,6 +748,7 @@ def get_clips(project_id):
     for row in rows:
         clip = dict(row)
         review_flags = {}
+        factors = {}
         raw_factors = clip.get("score_factors")
         if raw_factors:
             try:
@@ -702,6 +758,39 @@ def get_clips(project_id):
             except (TypeError, ValueError, json.JSONDecodeError):
                 pass
         clip["review_flags"] = review_flags
+        raw_review_provenance = factors.get("_review_metadata") if isinstance(factors, dict) else None
+        normalized_provenance = _normalize_review_provenance(raw_review_provenance)
+        if not normalized_provenance and isinstance(review_flags, dict):
+            normalized_provenance = _normalize_review_provenance({
+                "candidate_origin": review_flags.get("candidate_origin"),
+                "selection_source": review_flags.get("selection_source"),
+                "confidence": review_flags.get("confidence"),
+                "transcript_source": review_flags.get("transcript_source"),
+                "transcript_coverage_status": review_flags.get("transcription_coverage_status"),
+                "transcript_archive_present": review_flags.get("transcript_archive_present"),
+                "context_source": review_flags.get("context_source"),
+            })
+        if not normalized_provenance:
+            normalized_provenance = {
+                "transcript_source": "unknown",
+                "transcript_coverage_status": "unknown",
+                "transcript_archive_present": False,
+                "context_source": "none",
+            }
+        clip["review_provenance"] = normalized_provenance
+        clip["framing"] = dict(normalized_provenance.get("framing") or {
+            "mode": "",
+            "review_required": True,
+            "reason": "metadata de enquadramento ausente ou legada; confirme a composição visual",
+        })
+        raw_context_recovery = factors.get("_context_recovery") if isinstance(factors, dict) else None
+        clip["context_recovery"] = (
+            raw_context_recovery
+            if isinstance(raw_context_recovery, dict)
+            else {"applied": bool(review_flags.get("context_recovery_applied")), "reason": "antecedente recuperado; confirme a abertura"}
+            if review_flags.get("context_recovery_applied")
+            else {"applied": False, "reason": "antecedente não precisou ser recuperado"}
+        )
         raw_adjustment = clip.get("latest_adjustment")
         if raw_adjustment:
             try:
@@ -730,11 +819,13 @@ def update_clip_seo(clip_id, titles, tags, description, hashtags):
     conn.close()
 
 
-def update_clip_editorial_score(clip_id, score, factors, confidence, version="v1-explainable", review_flags=None, review_metadata=None):
+def update_clip_editorial_score(clip_id, score, factors, confidence, version="v1-explainable", review_flags=None, review_metadata=None, context_recovery=None):
     conn = get_db()
     score_payload = dict(factors or {})
     if isinstance(review_flags, dict) and review_flags:
         score_payload["_review_flags"] = review_flags
+    if isinstance(context_recovery, dict) and context_recovery:
+        score_payload["_context_recovery"] = context_recovery
     normalized_metadata = _normalize_review_provenance(review_metadata)
     if normalized_metadata:
         score_payload["_review_metadata"] = normalized_metadata
@@ -841,12 +932,23 @@ def restore_feedback_snapshot(records):
                         tags.append(normalized)
             tags = tags[:12]
             incoming_timestamp = parse_timestamp(record.get("created_at"))
+            if incoming_timestamp is None:
+                counters["invalid"] += 1
+                continue
+            source_signature = str(record.get("source_signature") or "").strip()[:64]
             clip = conn.execute(
-                "SELECT id FROM clips WHERE editorial_key = ? ORDER BY id DESC LIMIT 1",
+                """SELECT c.id, p.source_signature
+                     FROM clips AS c
+                     JOIN projects AS p ON p.id = c.project_id
+                    WHERE c.editorial_key = ?
+                    ORDER BY c.id DESC LIMIT 1""",
                 (editorial_key,),
             ).fetchone()
+            if clip:
+                stored_signature = str(clip["source_signature"] or "").strip()[:64]
+                if source_signature and stored_signature and source_signature != stored_signature:
+                    clip = None
             if not clip:
-                source_signature = str(record.get("source_signature") or "").strip()[:64]
                 try:
                     start_seconds = float(record.get("start_seconds"))
                     end_seconds = float(record.get("end_seconds"))
@@ -1096,7 +1198,7 @@ def get_feedback_calibration(min_samples=12, min_per_outcome=3):
             "rejected": rejected_total,
             "total": approved_total + rejected_total,
             "codes": sorted(codes),
-            "usable": approved_total + rejected_total >= 2,
+            "usable": approved_total + rejected_total >= 3,
         }
         explicit_reason_total += approved_total + rejected_total
     reason_coverage = {

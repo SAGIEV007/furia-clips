@@ -10,6 +10,11 @@ def test_transcript_text_request_is_marked_manual():
     assert result["segment_count"] == 1
 
 
+def test_empty_transcript_segments_are_not_marked_manual():
+    assert app_module._transcription_from_request({"transcript_segments": []}, duration=10) is None
+    assert app_module._transcription_from_request({}, duration=10) is None
+
+
 def test_transcript_segments_request_is_marked_manual():
     result = app_module._transcription_from_request(
         {

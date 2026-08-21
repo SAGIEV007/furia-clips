@@ -15,26 +15,43 @@ const state = {
     processingMode: "unknown",
     selectionSource: "unknown",
     candidateDiagnostics: {},
+    resultSourceIdentity: "",
     outputFolder: "",
+    currentProjectId: null,
     activeJob: null,
     operationJobs: [],
     operationProjects: [],
     manualTranscript: null,
     manualTranscriptVideo: "",
     transcriptArchive: null,
+    editorialContext: null,
+    reviewFilter: "all",
+    reviewSort: "score",
+    videoLayout: "unknown",
     lastReviewAction: null,
     sourceUrl: "",
     sourceDownloadDir: "",
     sourceMaxHeight: 1080,
     sourceImportActive: false,
+    sourceImportJobId: "",
+    sourceImportInitialVideoPath: "",
     operationDashboardLoading: false,
     lastJobConsoleKey: "",
     repositorySync: null,
     repositorySyncBusy: false,
     campaignHubSnapshotStatus: null,
     campaignHubStatusTimer: null,
+    campaignSearchToken: 0,
+    contextAnalysisToken: 0,
+    contextAnalysisJobId: "",
+    contextAnalysisSourcePath: "",
+    contextAnalysisController: null,
+    transcriptionJobVideoPath: "",
     faceTracking: true,
     previewToken: 0,
+    progressHideTimer: null,
+    progressSuppressed: false,
+    terminalEventKeys: {},
 };
 
 // ─── WebSocket Connection ───
@@ -56,6 +73,7 @@ socket.on("connect", () => {
         recovered ? "[Sistema] Conexão restaurada; os jobs persistidos continuam disponíveis." : "[Sistema] Conectado ao servidor.",
         "success",
     );
+    if (recovered) recoverActiveJobs();
 });
 
 socket.on("disconnect", (reason) => {
@@ -87,13 +105,24 @@ socket.on("connected", (data) => {
     addConsoleLog(`[Sistema] ${data.message}`, "success");
 });
 
+function isCurrentProgressEvent(data = {}) {
+    const eventJobId = String(data?.job_id || "");
+    const activeJobId = String(state.activeJob?.id || "");
+    if (!eventJobId) return !activeJobId;
+    if (state.sourceImportJobId && eventJobId === String(state.sourceImportJobId)) return true;
+    return Boolean(activeJobId && eventJobId === activeJobId);
+}
+
 socket.on("progress", (data) => {
+    if (!isCurrentProgressEvent(data)) return;
     const time = data.time || new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
     const version = data.program_version && !String(data.message || "").includes("[Versão")
         ? `[Versão ${data.program_version}${data.program_revision ? ` · ${data.program_revision}` : ""}] `
         : "";
     addConsoleLog(`[${time}] ${version}${data.message || "Progresso recebido"}`, data.level);
-    showProgressBar();
+    const activeJobState = String(state.activeJob?.state || "");
+    const jobStillActive = ["queued", "running", "cancel_requested"].includes(activeJobState) || state.sourceImportActive;
+    if (!state.progressSuppressed || jobStillActive) showProgressBar();
 });
 
 socket.on("status", (data) => {
@@ -105,7 +134,10 @@ socket.on("job_update", (job) => {
 });
 
 socket.on("editorial_context_complete", (data) => {
+    const eventJobId = String(data?.job_id || "");
+    if (!eventJobId || eventJobId !== String(state.contextAnalysisJobId || "")) return;
     state.editorialContext = data?.context || null;
+    state.contextAnalysisSourcePath = selectedVideoPathForRequest();
     renderEditorialContextPreview(state.editorialContext || {});
     const status = document.getElementById("contextAnalysisStatus");
     if (status) status.textContent = "Contexto pronto. O próximo corte poderá usar esta leitura como referência.";
@@ -126,6 +158,7 @@ socket.on("ai_status", (data) => {
 });
 
 socket.on("selection_mode", (data) => {
+    if (!isCurrentJobEvent(data)) return;
     state.selectionSource = data.source;
     state.candidateDiagnostics = data.candidate_diagnostics || {};
     renderCandidateVolumeNotice(state.candidateDiagnostics);
@@ -160,13 +193,13 @@ function updateOllamaStatusBadge(data) {
         modeLabel.textContent = withoutKey ? "NLP local" : "Gemini Offline";
     } else if (data.connected) {
         dot.classList.add("connected");
-        label.textContent = "Ollama Conectado";
+        const backendLabel = data.mode_label || "Ollama Conectado";
+        label.textContent = data.model_available && data.model
+            ? `${backendLabel} · ${data.model}`
+            : backendLabel;
         modeIndicator.classList.add("llm-mode");
-        modeIcon.textContent = "psychology";
-        modeLabel.textContent = "IA Inteligente";
-        if (data.model_available) {
-            label.textContent = `Ollama (${data.model})`;
-        }
+        modeIcon.textContent = data.fallback_from ? "sync_problem" : "psychology";
+        modeLabel.textContent = data.fallback_from ? "Fallback local" : "IA Inteligente";
     } else {
         dot.classList.add("offline");
         label.textContent = "Ollama Offline";
@@ -178,54 +211,143 @@ function updateOllamaStatusBadge(data) {
 
 // ─── Status Handlers ───
 
+function isCurrentJobEvent(data = {}) {
+    const eventJobId = String(data?.job_id || data?.data?.job_id || "");
+    const activeJobId = String(state.activeJob?.id || "");
+    const activeStates = ["queued", "running", "cancel_requested"];
+    if (state.sourceImportJobId && eventJobId === String(state.sourceImportJobId)) return true;
+    if (!eventJobId && activeJobId && activeStates.includes(String(state.activeJob?.state || ""))) return false;
+    if (!eventJobId || !activeJobId) return true;
+    return eventJobId === activeJobId;
+}
+
+function terminalEventWasHandled(data = {}) {
+    const terminalStatuses = new Set([
+        "silence_complete", "transcribe_complete", "source_import_complete", "cut_complete",
+        "subtitles_complete", "seo_complete", "thumbnail_complete", "complete_done", "cancelled", "error",
+    ]);
+    const status = String(data.status || "");
+    const eventJobId = String(data.job_id || data.data?.job_id || "");
+    if (!eventJobId || !terminalStatuses.has(status)) return false;
+    const key = `${eventJobId}:${status}`;
+    if (state.terminalEventKeys[key]) return true;
+    state.terminalEventKeys[key] = Date.now();
+    const keys = Object.keys(state.terminalEventKeys);
+    if (keys.length > 64) {
+        keys.sort((left, right) => state.terminalEventKeys[left] - state.terminalEventKeys[right])
+            .slice(0, keys.length - 64)
+            .forEach((oldKey) => delete state.terminalEventKeys[oldKey]);
+    }
+    return false;
+}
+
+function settleLegacyStatusJob(data = {}) {
+    const eventJobId = String(data?.job_id || data?.data?.job_id || "");
+    const activeJobId = String(state.activeJob?.id || "");
+    const terminalStatuses = new Set([
+        "silence_complete", "transcribe_complete", "source_import_complete", "cut_complete",
+        "subtitles_complete", "seo_complete", "thumbnail_complete", "complete_done", "cancelled", "error",
+    ]);
+    if (!eventJobId || !activeJobId || eventJobId !== activeJobId || !terminalStatuses.has(String(data.status || ""))) return;
+    const terminalState = data.status === "cancelled"
+        ? "cancelled"
+        : data.status === "error"
+            ? "failed"
+            : "completed";
+    state.activeJob = {
+        ...state.activeJob,
+        state: terminalState,
+        message: data.data?.message || state.activeJob.message || "Operação encerrada.",
+    };
+}
+
 function handleStatusUpdate(data) {
+    if (!isCurrentJobEvent(data) || terminalEventWasHandled(data)) return;
+    const sourceEvent = data.status === "source_import_complete" || data.data?.operation === "source_import";
+    const sourceEventJobId = String(data?.job_id || data?.data?.job_id || "");
+    if (sourceEvent && state.sourceImportJobId && sourceEventJobId && sourceEventJobId !== String(state.sourceImportJobId)) return;
+    settleLegacyStatusJob(data);
     switch (data.status) {
         case "silence_complete":
             hideProgressBar();
             showToast("Silencio removido com sucesso!", "success");
             loadMediaFiles();
             break;
-        case "transcribe_complete":
+        case "transcribe_complete": {
             hideProgressBar();
+            const completedSourcePath = String(data.data?.source_video_path || state.transcriptionJobVideoPath || "");
+            const selectedSourcePath = selectedVideoPathForRequest();
+            const sourceStillSelected = mediaPathsMatch(completedSourcePath, selectedSourcePath);
             if (data.data) {
                 state.manualTranscript = data.data;
-                state.manualTranscriptVideo = state.selectedVideo || "";
-                hydrateTranscriptEditor(data.data, data.data.archive_metadata || data.data.archive);
-            }
-            showToast("Transcricao concluida!", "success");
-            break;
-        case "source_import_complete":
-            hideProgressBar();
-            state.sourceDownloadDir = data.data.destination_dir || state.sourceDownloadDir;
-            state.transcriptArchive = data.data.transcription_archive || data.data.transcription_files?.archive || null;
-            if (data.data.transcription) {
-                state.manualTranscript = data.data.transcription;
-                state.manualTranscriptVideo = data.data.path || data.data.absolute_path || "";
-                hydrateTranscriptEditor(data.data.transcription, state.transcriptArchive);
-                const transcriptCount = data.data.transcription.segment_count || data.data.transcription.segments?.length || 0;
-                const transcriptFile = data.data.transcription_archive?.text || data.data.transcription_files?.archive?.text || data.data.transcription_files?.text;
-                const transcriptLabel = transcriptFile ? ` Arquivo persistente: ${transcriptFile}` : "";
-                showSourceStatus(`Fonte importada e transcrição automática pronta: ${transcriptCount} segmentos.${transcriptLabel}`, "success");
+                state.manualTranscriptVideo = completedSourcePath || (sourceStillSelected ? selectedSourcePath : "pending-source");
+                if (sourceStillSelected || !completedSourcePath) {
+                    hydrateTranscriptEditor(data.data, data.data.archive_metadata || data.data.archive);
+                    showToast("Transcricao concluida!", "success");
+                } else {
+                    showSourceOnlyStatus("Transcrição concluída para a fonte anterior; selecione esse vídeo para validá-la antes do corte.", "warning");
+                    addConsoleLog("[Transcrição] Resultado mantido com a identidade da fonte; não foi aplicado ao vídeo selecionado.", "warning");
+                    showToast("Transcrição concluída para outra fonte; seleção atual preservada.", "warning");
+                }
             } else {
-                showSourceStatus("Fonte importada; a transcrição automática não ficou disponível. Você pode clicar em Gerar do vídeo.", "warning");
+                showToast("Transcricao concluida, mas sem segmentos disponíveis.", "warning");
+            }
+            state.transcriptionJobVideoPath = "";
+            break;
+        }
+        case "source_import_complete": {
+            hideProgressBar();
+            setSourceImportBusy(false);
+            const importedPath = data.data.path || data.data.absolute_path || "";
+            const preserveCurrentSelection = Boolean(
+                state.selectedVideo && !mediaPathsMatch(state.selectedVideo, state.sourceImportInitialVideoPath)
+            );
+            state.sourceImportJobId = "";
+            state.sourceDownloadDir = data.data.destination_dir || state.sourceDownloadDir;
+            if (!preserveCurrentSelection) {
+                state.transcriptArchive = data.data.transcription_archive || data.data.transcription_files?.archive || null;
+                if (data.data.transcription) {
+                    state.manualTranscript = data.data.transcription;
+                    state.manualTranscriptVideo = importedPath;
+                    hydrateTranscriptEditor(data.data.transcription, state.transcriptArchive);
+                    const transcriptCount = data.data.transcription.segment_count || data.data.transcription.segments?.length || 0;
+                    const transcriptFile = data.data.transcription_archive?.text || data.data.transcription_files?.archive?.text || data.data.transcription_files?.text;
+                    const transcriptLabel = transcriptFile ? ` Arquivo persistente: ${transcriptFile}` : "";
+                    showSourceStatus(`Fonte importada e transcrição automática pronta: ${transcriptCount} segmentos.${transcriptLabel}`, "success");
+                } else {
+                    showSourceStatus("Fonte importada; a transcrição automática não ficou disponível. Você pode clicar em Gerar do vídeo.", "warning");
+                }
+            } else {
+                showSourceOnlyStatus("Fonte importada; a seleção atual foi preservada. Selecione a nova fonte na biblioteca para usar sua transcrição.", "warning");
+                addConsoleLog("[Fonte] Importação concluída; seleção atual preservada para evitar trocar o contexto silenciosamente.", "warning");
             }
             const externalImported = {
-                path: data.data.path || data.data.absolute_path,
-                name: data.data.title || (data.data.path || "Vídeo importado").split(/[\\/]/).pop(),
+                path: importedPath,
+                name: data.data.title || (importedPath || "Vídeo importado").split(/[\\/]/).pop(),
                 size_human: "Fonte pública",
             };
             loadMediaFiles().then(() => {
-                const imported = state.mediaFiles.find(item => item.path === data.data.path);
+                if (preserveCurrentSelection) return;
+                const imported = state.mediaFiles.find(item => item.path === importedPath);
                 selectVideo(imported || externalImported, null);
             });
-            showToast(data.data.transcription ? "Vídeo e transcrição importados!" : "Vídeo do link importado!", "success");
+            state.sourceImportInitialVideoPath = "";
+            showToast(
+                preserveCurrentSelection
+                    ? "Vídeo importado; seleção atual preservada."
+                    : (data.data.transcription ? "Vídeo e transcrição importados!" : "Vídeo do link importado!"),
+                preserveCurrentSelection ? "warning" : "success",
+            );
             break;
+        }
         case "cut_complete": {
             hideProgressBar();
             const completedClips = Array.isArray(data.data.clips) ? data.data.clips : [];
             updateWorkspaceWorkflow("review", completedClips.length ? "Revisão pronta" : "Revisão requer atenção");
             state.selectionSource = data.data.selection_source || "nlp";
             state.candidateDiagnostics = data.data.candidate_diagnostics || state.candidateDiagnostics || {};
+            state.resultSourceIdentity = String(data.data.source_identity || "").trim();
+            state.currentProjectId = data.data.project_id || state.currentProjectId || null;
             state.outputFolder = data.data.output_folder || "";
             if (completedClips.length) {
                 showToast(`${completedClips.length} clips gerados e ranqueados!`, "success");
@@ -266,6 +388,7 @@ function handleStatusUpdate(data) {
             hideProgressBar();
             updateWorkspaceWorkflow("review", "Revisão pronta");
             state.outputFolder = data.data.output_dir || "";
+            state.currentProjectId = data.data.project_id || state.currentProjectId || null;
             showToast(`Processo completo! ${data.data.total_clips} clips gerados e ranqueados.`, "success");
             displayResults(data.data.clips, data.data.video_layout || null);
             updateOpenFolderButton(state.outputFolder);
@@ -273,14 +396,24 @@ function handleStatusUpdate(data) {
             break;
         case "cancelled":
             hideProgressBar();
+            if (data.data?.operation === "source_import") {
+                setSourceImportBusy(false);
+                state.sourceImportJobId = "";
+                state.sourceImportInitialVideoPath = "";
+            }
             updateWorkspaceWorkflow("source", "Operação pausada");
             showToast(data.data?.message || "Operação cancelada.", "warning");
             addConsoleLog("[Sistema] Operação cancelada com segurança.", "warning");
             break;
         case "error":
             hideProgressBar();
+            if (data.data?.operation === "source_import") {
+                setSourceImportBusy(false);
+                state.sourceImportJobId = "";
+                state.sourceImportInitialVideoPath = "";
+            }
             updateWorkspaceWorkflow("source", "Atenção necessária");
-            showToast(data.data.message || "Erro no processamento", "error");
+            showToast(data.data?.message || "Erro no processamento", "error");
             break;
     }
 }
@@ -302,14 +435,14 @@ function addConsoleLog(message, level = "info") {
     }
 }
 
-function showProcessingControls(label = "Processamento em andamento.") {
+function showProcessingControls(label = "Processamento em andamento.", options = {}) {
     const controls = document.getElementById("processingControls");
     const status = document.getElementById("processingOperationStatus");
     const button = document.getElementById("btnCancelOperation");
     const journey = document.getElementById("processingJourney");
     if (controls) controls.style.display = "flex";
     if (status) status.textContent = label;
-    if (button) button.disabled = false;
+    if (button) button.disabled = Boolean(options.cancelRequested);
     if (journey && journey.style.display !== "block") {
         resetProcessingJourney();
         journey.style.display = "block";
@@ -396,6 +529,10 @@ async function requestCancelOperation() {
         });
         const data = await parseJsonResponse(response, "Cancelamento");
         if (!response.ok || data.error) throw new Error(data.error || "Não foi possível solicitar o cancelamento");
+        if (jobId && state.activeJob?.id === jobId) {
+            state.activeJob = { ...state.activeJob, state: data.state || "cancel_requested" };
+            showProcessingControls(`[Job ${String(jobId).slice(0, 8)}] Parada solicitada; aguardando encerramento seguro`, { cancelRequested: true });
+        }
         if (status) status.textContent = "Parada solicitada; a operação será encerrada com segurança.";
     } catch (error) {
         if (button) button.disabled = false;
@@ -416,8 +553,42 @@ document.getElementById("btnRepositoryUpdate")?.addEventListener("click", () => 
 document.getElementById("btnRepositoryPushFeedback")?.addEventListener("click", () => runRepositorySync("push_feedback"));
 document.getElementById("btnRepositoryRestoreFeedback")?.addEventListener("click", () => runRepositorySync("restore_feedback"));
 
+function prepareNewOperationHud() {
+    state.terminalEventKeys = {};
+    state.progressSuppressed = false;
+    if (state.progressHideTimer) {
+        window.clearTimeout(state.progressHideTimer);
+        state.progressHideTimer = null;
+    }
+}
+
+function registerStartedOperation(started, message = "Operação adicionada à fila persistente.") {
+    if (!started?.job_id) return false;
+    prepareNewOperationHud();
+    state.activeJob = {
+        id: String(started.job_id),
+        state: started.state || "queued",
+        stage: started.operation || "legacy",
+        message,
+    };
+    showProcessingControls(message);
+    return true;
+}
+
 function showProgressBar() {
-    showProcessingControls();
+    if (state.progressHideTimer) {
+        window.clearTimeout(state.progressHideTimer);
+        state.progressHideTimer = null;
+    }
+    state.progressSuppressed = false;
+    const activeJob = state.activeJob;
+    const activeStates = ["queued", "running", "cancel_requested"];
+    const label = activeJob && activeStates.includes(activeJob.state)
+        ? activeJob.state === "cancel_requested"
+            ? `[Job ${String(activeJob.id || "").slice(0, 8)}] Parada solicitada; aguardando encerramento seguro`
+            : `[Job ${String(activeJob.id || "").slice(0, 8)}] ${activeJob.message || activeJob.stage || "Processando"}`
+        : "Processamento em andamento.";
+    showProcessingControls(label, { cancelRequested: activeJob?.state === "cancel_requested" });
     const container = document.getElementById("progressBarContainer");
     const bar = document.getElementById("progressBar");
     container.style.display = "block";
@@ -450,7 +621,47 @@ function operationJobTime(value) {
     return Number.isNaN(parsed.getTime()) ? "agora" : parsed.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 }
 
-function renderOperationDashboard(jobs = state.operationJobs || []) {
+function operationJobMessage(job = {}) {
+    if (String(job.stage || "") === "stale_recovered" || String(job.error || "") === "stale_job_recovered") {
+        return "Operação interrompida após recuperação do servidor; nenhum novo corte foi executado. Confira a fonte e inicie novamente.";
+    }
+    return String(job.error || job.message || job.stage || "Aguardando execução");
+}
+
+function operationJobStateLabel(state = "queued") {
+    const labels = {
+        queued: "Na fila",
+        running: "Em andamento",
+        cancel_requested: "Parada solicitada",
+        completed: "Concluída",
+        failed: "Falhou · atenção necessária",
+        cancelled: "Cancelada com segurança",
+    };
+    return labels[String(state || "queued")] || "Estado não identificado";
+}
+
+function operationJobDiagnosticSummary(job) {
+    const artifact = Array.isArray(job?.artifacts)
+        ? job.artifacts.find((item) => item?.type === "candidate_diagnostics")
+        : null;
+    if (!artifact) return "";
+    const labels = {
+        no_candidates: "a fonte não entregou candidatos autossuficientes",
+        all_intervals_already_processed: "os intervalos já haviam sido processados",
+        all_candidates_redundant: "os candidatos eram redundantes",
+        quality_pool_below_reference: "os gates preservaram apenas momentos autossuficientes",
+        render_failed_after_selection: "os candidatos foram selecionados, mas o render falhou",
+        partial_render_failure: "parte dos renders falhou",
+        short_source: "a fonte é curta e não exige uma quota artificial",
+        adequate_pool: "o pool editorial foi considerado adequado",
+    };
+    const reason = labels[String(artifact.reason || "").trim().toLowerCase()] || "o diagnóstico depende dos sinais editoriais disponíveis";
+    const finalCount = Number(artifact.rendered_count ?? artifact.final_count ?? 0);
+    const rejected = Number(artifact.render_rejection_count || 0);
+    return `Diagnóstico editorial: ${finalCount} arquivo(s) renderizado(s); ${reason}${rejected ? ` · ${rejected} ocorrência(s) de render registrada(s)` : ""}.`;
+}
+
+function renderOperationDashboard({ jobs = state.operationJobs || [] } = {}) {
     const list = Array.isArray(jobs) ? jobs : [];
     const active = list.filter((job) => job.state === "running").length;
     const queued = list.filter((job) => ["queued", "cancel_requested"].includes(job.state)).length;
@@ -480,14 +691,17 @@ function renderOperationDashboard(jobs = state.operationJobs || []) {
     }
     container.innerHTML = list.slice(0, 8).map((job) => {
         const progress = Math.max(0, Math.min(100, Number(job.progress || 0)));
-        const message = escapeHtml(job.error || job.message || job.stage || "Aguardando execução");
-        const stateLabel = escapeHtml(String(job.state || "queued").replaceAll("_", " "));
-        return `<article class="operation-job ${escapeHtml(job.state || "queued")}">
+        const message = escapeHtml(operationJobMessage(job));
+        const diagnosticSummary = operationJobDiagnosticSummary(job);
+        const stateCode = String(job.state || "queued");
+        const stateLabel = escapeHtml(operationJobStateLabel(stateCode));
+        return `<article class="operation-job ${escapeHtml(stateCode)}" data-state="${escapeHtml(stateCode)}">
             <div class="operation-job-head">
                 <div class="operation-job-type"><span class="material-icons-round">${job.type === "cut_shorts" ? "content_cut" : "auto_awesome"}</span>${escapeHtml(formatOperationJobType(job.type))}</div>
                 <span class="operation-job-state">${stateLabel}</span>
             </div>
             <p class="operation-job-message">${message}</p>
+            ${diagnosticSummary ? `<small class="operation-job-diagnostic">${escapeHtml(diagnosticSummary)}</small>` : ""}
             <div class="operation-job-progress"><div style="width:${progress}%"></div></div>
             <div class="operation-job-meta"><span>${progress}%</span><span>${operationJobTime(job.updated_at || job.created_at)}</span></div>
         </article>`;
@@ -644,6 +858,35 @@ function renderProjectLibrary(projects = state.operationProjects || []) {
     }).join("");
 }
 
+async function refreshVisibleReviewState() {
+    const projectId = Number(state.currentProjectId);
+    if (!Number.isInteger(projectId) || projectId <= 0 || !Array.isArray(state.clips) || !state.clips.length) return false;
+    try {
+        const response = await fetch(`/api/projects/${projectId}`);
+        const payload = await parseJsonResponse(response, "Estado persistente da revisão");
+        if (!response.ok || !Array.isArray(payload.clips)) throw new Error(payload.error || "Não foi possível atualizar os estados dos clips");
+        const persistedById = new Map(payload.clips.filter((clip) => clip?.id != null).map((clip) => [String(clip.id), clip]));
+        const persistedByKey = new Map(payload.clips.filter((clip) => clip?.editorial_key).map((clip) => [String(clip.editorial_key), clip]));
+        state.clips = state.clips.map((clip) => {
+            const persisted = persistedById.get(String(clip.clip_id ?? clip.id)) || persistedByKey.get(String(clip.editorial_key || ""));
+            if (!persisted) return clip;
+            return {
+                ...clip,
+                review_status: persisted.review_status || clip.review_status,
+                review_updated_at: persisted.review_updated_at || clip.review_updated_at,
+                latest_feedback_reason: persisted.latest_feedback_reason || clip.latest_feedback_reason,
+                latest_feedback_tags: Array.isArray(persisted.latest_feedback_tags) ? persisted.latest_feedback_tags : (clip.latest_feedback_tags || []),
+            };
+        });
+        renderReviewCommandCenter();
+        renderResultsGrid();
+        return true;
+    } catch (error) {
+        addConsoleLog(`[Revisão] Estados restaurados não foram refletidos nos cards: ${error.message}`, "warning");
+        return false;
+    }
+}
+
 async function loadProjectLibrary() {
     try {
         const response = await fetch("/api/projects");
@@ -722,8 +965,10 @@ async function loadTranscriptArchive() {
         if (!response.ok) throw new Error(payload.error || "Não foi possível carregar as transcrições arquivadas");
         renderTranscriptArchive(payload.transcripts || []);
     } catch (error) {
+        const detail = String(error?.message || "falha não identificada").trim();
         const summary = document.getElementById("transcriptArchiveSummary");
-        if (summary) summary.textContent = `Arquivo de transcrições indisponível: ${error.message}`;
+        if (summary) summary.textContent = "Arquivo de transcrições indisponível agora. Atualize o painel; o detalhe técnico foi registrado no console.";
+        addConsoleLog(`[Arquivo de transcrições] Falha técnica: ${detail}`, "error");
     }
 }
 
@@ -877,8 +1122,13 @@ function renderRepositorySyncState(payload) {
     const snapshotPresent = Boolean(payload.feedback_snapshot_present);
     const snapshotValid = Boolean(payload.feedback_snapshot_valid);
     const snapshotRecords = Number(payload.feedback_snapshot_records || 0);
+    const invalidSnapshotRecords = Number(payload.feedback_snapshot_invalid_records || 0);
     const snapshotLabel = snapshotPresent
-        ? (snapshotValid ? `${snapshotRecords} decisão(ões) no snapshot` : "snapshot inválido; revisão necessária")
+        ? (snapshotValid
+            ? `${snapshotRecords} decisão(ões) no snapshot`
+            : invalidSnapshotRecords
+                ? `snapshot inválido: ${invalidSnapshotRecords} registro(s) precisam ser revisados`
+                : "snapshot inválido; revisão necessária")
         : "snapshot ainda não criado";
     syncRepositoryRestoreAvailability();
     if (payload.update_available) {
@@ -944,9 +1194,19 @@ async function runRepositorySync(action) {
             const unmatched = Number(payload.unmatched || 0);
             const stale = Number(payload.skipped_older || 0);
             const invalid = Number(payload.invalid || 0);
-            const restoreLevel = invalid ? "warning" : "success";
-            showToast(`Feedback reconciliado: ${imported} importado(s), ${current} já atual(is)${invalid ? `, ${invalid} inválido(s) ignorado(s)` : ""}.`, restoreLevel);
+            const restoreDetails = [
+                stale ? `${stale} decisão(ões) local(is) mais nova(s)` : "",
+                unmatched ? `${unmatched} sem correspondência` : "",
+                invalid ? `${invalid} inválido(s) ignorado(s)` : "",
+            ].filter(Boolean).join(" · ");
+            const restoreLevel = invalid || unmatched ? "warning" : "success";
+            showToast(`Feedback reconciliado: ${imported} importado(s), ${current} já atual(is)${restoreDetails ? ` · ${restoreDetails}` : ""}.`, restoreLevel);
             addConsoleLog(`[Sincronização] Snapshot sanitizado reconciliado: ${imported} importado(s), ${current} já atual(is), ${stale} antigo(s), ${unmatched} sem correspondência, ${invalid} inválido(s) ignorado(s).`, invalid ? "warning" : "info");
+            await refreshVisibleReviewState();
+            await loadProjectLibrary();
+            await loadEditorialLearning();
+            await loadDailyEditorialGoal();
+            await loadEditorialData();
             await checkRepositorySync(false);
         }
         return payload;
@@ -960,6 +1220,78 @@ async function runRepositorySync(action) {
     }
 }
 
+async function recoverLegacyOperation() {
+    try {
+        const response = await fetch("/api/process/status");
+        const payload = await parseJsonResponse(response, "Estado da operação");
+        if (!response.ok) throw new Error(payload.error || "Não foi possível recuperar a operação");
+        const operation = String(payload.operation || "");
+        const sourceImportRecovery = payload.operation === "source_import" && payload.job_id;
+        const operationMessages = {
+            source_import: "Importação de fonte ainda em andamento; aguardando a conclusão do download e da transcrição.",
+            silence: "Remoção de silêncio ainda em andamento; aguardando o encerramento seguro.",
+            transcription: "Transcrição ainda em andamento; aguardando o arquivo persistente.",
+            subtitles: "Geração de legendas ainda em andamento; aguardando o arquivo final.",
+            thumbnail: "Geração de thumbnail ainda em andamento; aguardando o arquivo final.",
+            seo: "Operação editorial legada ainda em andamento; aguardando o encerramento.",
+        };
+        if (payload.active && payload.job_id) {
+            const message = operationMessages[operation] || "Operação ainda em andamento; aguardando o encerramento seguro.";
+            const recoveredJobId = String(payload.job_id);
+            const existingJobId = String(state.activeJob?.id || "");
+            const existingJobState = String(state.activeJob?.state || "");
+            const persistentJobAlreadyActive = Boolean(
+                existingJobId
+                && !existingJobId.startsWith("legacy-")
+                && ["queued", "running", "cancel_requested"].includes(existingJobState)
+                && existingJobId !== recoveredJobId
+            );
+            if (persistentJobAlreadyActive) {
+                addConsoleLog("[Operação] Uma operação persistente já está ativa; a recuperação legada não substituirá sua HUD.", "warning");
+                return;
+            }
+            state.activeJob = {
+                id: String(payload.job_id),
+                state: "running",
+                stage: operation,
+                message,
+            };
+            showProgressBar();
+            showProcessingControls(`[Job ${String(payload.job_id).slice(0, 8)}] ${message}`);
+            if (operation === "source_import") {
+                state.sourceImportJobId = String(payload.job_id);
+                setSourceImportBusy(true);
+                showSourceStatus(message, "");
+            } else {
+                addConsoleLog(`[Operação] ${message}`, "info");
+            }
+            return;
+        }
+        if (!payload.active) {
+            const legacyOperations = new Set(["source_import", "silence", "transcription", "subtitles", "thumbnail", "seo"]);
+            const activeJobId = String(state.activeJob?.id || "");
+            const activeJobStage = String(state.activeJob?.stage || "");
+            const staleLegacyJob = Boolean(
+                state.activeJob
+                && (activeJobId.startsWith("legacy-") || legacyOperations.has(activeJobStage))
+                && ["queued", "running", "cancel_requested"].includes(String(state.activeJob.state || ""))
+            );
+            if (staleLegacyJob) {
+                state.activeJob = null;
+                hideProgressBar();
+                addConsoleLog("[Operação] O servidor já encerrou a operação durante a desconexão; a HUD foi sincronizada com segurança.", "info");
+            }
+            if (state.sourceImportActive) {
+                setSourceImportBusy(false);
+                state.sourceImportJobId = "";
+                state.sourceImportInitialVideoPath = "";
+            }
+        }
+    } catch (error) {
+        addConsoleLog(`[Operação] Recuperação do estado indisponível: ${error.message}`, "warning");
+    }
+}
+
 async function loadOperationDashboard() {
     if (state.operationDashboardLoading) return;
     state.operationDashboardLoading = true;
@@ -968,6 +1300,7 @@ async function loadOperationDashboard() {
         const payload = await parseJsonResponse(response, "Histórico de operações");
         if (!response.ok) throw new Error(payload.error || "Não foi possível carregar os jobs");
         state.operationJobs = Array.isArray(payload.jobs) ? payload.jobs : [];
+        await recoverLegacyOperation();
         renderOperationDashboard();
         loadEditorialLearning();
         loadEditorialData();
@@ -986,12 +1319,41 @@ async function loadOperationDashboard() {
 
 checkRepositorySync(false);
 
+function formatJobStageTiming(job = {}) {
+    const stage = String(job.stage || "").trim();
+    if (!stage) return "";
+    const startedAt = Date.parse(String(job.stage_started_at || job.updated_at || ""));
+    if (!Number.isFinite(startedAt)) return "";
+    const elapsed = Math.max(0, (Date.now() - startedAt) / 1000);
+    if (elapsed < 1) return "";
+    const value = elapsed < 10 ? elapsed.toFixed(1) : Math.round(elapsed).toString();
+    return ` · ${value}s nesta etapa`;
+}
+
 function handleJobUpdate(job, options = {}) {
-    state.activeJob = job;
+    const currentJob = state.activeJob;
+    const activeStates = ["queued", "running", "cancel_requested"];
+    const staleConcurrentJob = Boolean(
+        currentJob?.id
+        && job?.id
+        && currentJob.id !== job.id
+        && activeStates.includes(currentJob.state)
+    );
     const existingIndex = (state.operationJobs || []).findIndex((item) => item.id === job.id);
     if (existingIndex >= 0) state.operationJobs[existingIndex] = job;
     else state.operationJobs = [job, ...(state.operationJobs || [])];
     renderOperationDashboard();
+    if (staleConcurrentJob) {
+        return;
+    }
+    const sourceImportOwnsHud = Boolean(
+        state.sourceImportActive
+        && state.sourceImportJobId
+        && String(state.sourceImportJobId) !== String(job?.id || "")
+    );
+    if (sourceImportOwnsHud) return;
+    state.activeJob = job;
+    if (["queued", "running", "cancel_requested"].includes(job.state)) state.progressSuppressed = false;
     if (options.refreshDashboard !== false) window.clearTimeout(state.operationRefreshTimer);
     if (options.refreshDashboard !== false) {
         state.operationRefreshTimer = window.setTimeout(loadOperationDashboard, 1200);
@@ -1009,18 +1371,30 @@ function handleJobUpdate(job, options = {}) {
         }
     }
     if (["queued", "running", "cancel_requested"].includes(job.state)) {
-        showProcessingControls(`[Job ${job.id.slice(0, 8)}] ${job.message || job.stage || "Processando"}`);
+        const timing = formatJobStageTiming(job);
+        showProcessingControls(
+            job.state === "cancel_requested"
+                ? `[Job ${job.id.slice(0, 8)}] Parada solicitada; aguardando encerramento seguro${timing}`
+                : `[Job ${job.id.slice(0, 8)}] ${job.message || job.stage || "Processando"}${timing}`,
+            { cancelRequested: job.state === "cancel_requested" },
+        );
     }
     if (job.state === "completed") {
         if (bar) bar.style.width = "100%";
         setTimeout(hideProgressBar, 250);
     } else if (job.state === "failed") {
         hideProgressBar();
-        showToast(job.error || "O job falhou", "error");
+        hideProcessingControls();
+        updateWorkspaceWorkflow("source", "Atenção necessária");
+        const failureMessage = String(job.error || job.message || "O job falhou").trim().slice(0, 360);
+        addConsoleLog(`[Job ${String(job.id || "").slice(0, 8)}] Falha${job.stage ? ` em ${job.stage}` : ""}: ${failureMessage}`, "error");
+        showToast(failureMessage || "O job falhou", "error");
     } else if (job.state === "cancelled") {
         hideProgressBar();
         hideProcessingControls();
-        showToast("Processamento cancelado", "warning");
+        updateWorkspaceWorkflow("source", "Operação pausada");
+        addConsoleLog(`[Job ${String(job.id || "").slice(0, 8)}] Operação cancelada com segurança.`, "warning");
+        showToast("Processamento cancelado com segurança", "warning");
     }
 }
 
@@ -1029,6 +1403,8 @@ async function recoverActiveJobs() {
 }
 
 function hideProgressBar() {
+    state.progressSuppressed = true;
+    if (state.progressHideTimer) window.clearTimeout(state.progressHideTimer);
     hideProcessingControls();
     const container = document.getElementById("progressBarContainer");
     const bar = document.getElementById("progressBar");
@@ -1037,7 +1413,14 @@ function hideProgressBar() {
         clearInterval(parseInt(bar.dataset.interval));
         bar.dataset.animating = "";
     }
-    setTimeout(() => {
+    state.progressHideTimer = window.setTimeout(() => {
+        state.progressHideTimer = null;
+        const activeJobState = String(state.activeJob?.state || "");
+        const jobStillActive = ["queued", "running", "cancel_requested"].includes(activeJobState) || state.sourceImportActive;
+        if (jobStillActive) {
+            state.progressSuppressed = false;
+            return;
+        }
         container.style.display = "none";
         bar.style.width = "0%";
     }, 1000);
@@ -1142,9 +1525,9 @@ function selectVideo(item, sourceElement = null) {
         showToast("Não foi possível selecionar este vídeo: caminho inválido.", "error");
         return;
     }
-    const changedVideo = state.selectedVideo && state.selectedVideo !== item.path;
+    const changedVideo = state.selectedVideo && !mediaPathsMatch(state.selectedVideo, item.path);
     const transcriptBelongsToItem = state.manualTranscript && (
-        state.manualTranscriptVideo === item.path || state.manualTranscriptVideo === "pending-source"
+        mediaPathsMatch(state.manualTranscriptVideo, item.path) || state.manualTranscriptVideo === "pending-source"
     );
     state.selectedVideo = item.path;
     state.selectedVideoName = item.name;
@@ -1152,6 +1535,7 @@ function selectVideo(item, sourceElement = null) {
         state.manualTranscriptVideo = item.path;
     }
     if (changedVideo) {
+        resetReviewWorkspaceForVideoChange();
         state.editorialContext = null;
         const contextResult = document.getElementById("contextAnalysisResult");
         if (contextResult) {
@@ -1162,8 +1546,9 @@ function selectVideo(item, sourceElement = null) {
         if (contextStatus) contextStatus.textContent = "Vídeo alterado. Execute uma nova análise de contexto para esta fonte.";
         renderEditorialAudit(null);
     }
-    if (state.manualTranscript && !transcriptBelongsToItem) {
+    if (!transcriptBelongsToItem) {
         state.manualTranscript = null;
+        state.manualTranscriptVideo = "";
         state.transcriptArchive = null;
         const input = document.getElementById("manualTranscriptInput");
         if (input) input.value = "";
@@ -1199,7 +1584,12 @@ function selectVideo(item, sourceElement = null) {
     // Show video preview
         showVideoPreview(item);
     if (changedVideo && state.activeJob && ["queued", "running", "cancel_requested"].includes(state.activeJob.state)) {
-        addConsoleLog("[Sistema] A nova seleção foi liberada; a tarefa anterior continua na fila persistente.", "info");
+        const jobLabel = String(state.activeJob.id || "").slice(0, 8);
+        const previousOperationMessage = state.activeJob.state === "cancel_requested"
+            ? "Parada da operação anterior aguardando encerramento seguro."
+            : "A operação anterior continua; Parar cancela o job anterior, não o vídeo novo.";
+        showProcessingControls(`[Job ${jobLabel}] ${previousOperationMessage}`, { cancelRequested: state.activeJob.state === "cancel_requested" });
+        addConsoleLog("[Sistema] A nova seleção foi liberada; a tarefa anterior continua vinculada ao vídeo anterior.", "info");
     }
     addConsoleLog(`[Sistema] Video selecionado: ${item.name}`, "info");
     showToast(`Video selecionado: ${truncateName(item.name, 30)}`, "success");
@@ -1264,9 +1654,112 @@ function showVideoPreview(item) {
     video.load();
 }
 
+function clearVideoPreview() {
+    state.previewToken += 1;
+    const section = document.getElementById("videoPreviewSection");
+    const video = document.getElementById("videoPreview");
+    const source = document.getElementById("videoPreviewSource");
+    if (video) {
+        video.pause();
+        video.removeAttribute("src");
+        video.load();
+    }
+    if (source) source.removeAttribute("src");
+    if (section) section.style.display = "none";
+}
+
+function resetReviewWorkspaceForVideoChange() {
+    state.contextAnalysisController?.abort();
+    state.contextAnalysisController = null;
+    state.contextAnalysisToken += 1;
+    state.contextAnalysisJobId = "";
+    state.contextAnalysisSourcePath = "";
+    state.editorialContext = null;
+    state.clips = [];
+    state.reviewFilter = "all";
+    state.reviewSort = "score";
+    state.videoLayout = "unknown";
+    state.selectionSource = "unknown";
+    state.candidateDiagnostics = {};
+    state.resultSourceIdentity = "";
+    state.outputFolder = "";
+    state.currentProjectId = null;
+    state.lastReviewAction = null;
+    state.transcriptArchive = null;
+    resetCampaignSearchPanel();
+
+    const resultsSection = document.getElementById("resultsSection");
+    const reviewCenter = document.getElementById("reviewCommandCenter");
+    const resultsGrid = document.getElementById("resultsGrid");
+    const transcriptSearchBar = document.getElementById("transcriptSearchBar");
+    const transcriptSearchInput = document.getElementById("transcriptSearchInput");
+    const searchCount = document.getElementById("searchCount");
+    const clearSearch = document.getElementById("btnClearSearch");
+    const resultsSummary = document.getElementById("resultsSummary");
+    const resultModeBadge = document.getElementById("resultModeBadge");
+    const audit = document.getElementById("editorialAuditSummary");
+    const candidateNotice = document.getElementById("candidateVolumeNotice");
+    const archiveList = document.getElementById("transcriptArchiveList");
+    const openFolder = document.getElementById("btnOpenFolder");
+    const contextResult = document.getElementById("contextAnalysisResult");
+    const contextStatus = document.getElementById("contextAnalysisStatus");
+
+    if (resultsSection) resultsSection.style.display = "none";
+    if (reviewCenter) reviewCenter.style.display = "none";
+    if (resultsGrid) resultsGrid.innerHTML = "";
+    if (transcriptSearchBar) transcriptSearchBar.style.display = "none";
+    if (transcriptSearchInput) transcriptSearchInput.value = "";
+    if (searchCount) searchCount.textContent = "";
+    if (clearSearch) clearSearch.style.display = "none";
+    if (resultsSummary) resultsSummary.textContent = "";
+    if (resultModeBadge) resultModeBadge.textContent = "";
+    if (audit) {
+        audit.innerHTML = "";
+        audit.style.display = "none";
+    }
+    if (candidateNotice) {
+        candidateNotice.innerHTML = "";
+        candidateNotice.hidden = true;
+    }
+    if (archiveList) {
+        archiveList.innerHTML = "";
+        archiveList.hidden = true;
+    }
+    if (openFolder) openFolder.style.display = "none";
+    if (contextResult) {
+        contextResult.hidden = true;
+        contextResult.innerHTML = "";
+    }
+    if (contextStatus) contextStatus.textContent = "Selecione um vídeo para analisar o contexto antes do corte.";
+    renderEditorialAudit(null);
+    closeContextReview();
+}
+
 function deselectVideo() {
+    const keepPendingTranscript = state.manualTranscriptVideo === "pending-source";
+    resetReviewWorkspaceForVideoChange();
     state.selectedVideo = null;
     state.selectedVideoName = "";
+    state.editorialContext = null;
+    if (!keepPendingTranscript) {
+        state.manualTranscript = null;
+        state.manualTranscriptVideo = "";
+        state.transcriptArchive = null;
+        const transcriptInput = document.getElementById("manualTranscriptInput");
+        if (transcriptInput) transcriptInput.value = "";
+        const transcriptStatus = document.getElementById("transcriptStatus");
+        if (transcriptStatus) {
+            transcriptStatus.textContent = "Nenhuma transcrição manual carregada para um vídeo selecionado.";
+            transcriptStatus.className = "source-status";
+        }
+    }
+    const contextResult = document.getElementById("contextAnalysisResult");
+    if (contextResult) {
+        contextResult.hidden = true;
+        contextResult.innerHTML = "";
+    }
+    const contextStatus = document.getElementById("contextAnalysisStatus");
+    if (contextStatus) contextStatus.textContent = "Selecione um vídeo para analisar o contexto antes do corte.";
     document.querySelectorAll(".media-card").forEach(el => el.classList.remove("selected"));
 
     const info = document.getElementById("selectedVideoInfo");
@@ -1277,8 +1770,8 @@ function deselectVideo() {
             <p>Nenhum video selecionado</p>
         </div>`;
 
-    // Hide preview
-    document.getElementById("videoPreviewSection").style.display = "none";
+    // Hide and invalidate preview so an old media event cannot repaint this state.
+    clearVideoPreview();
 }
 
 // ─── File Upload ───
@@ -1432,7 +1925,7 @@ const mediaSection = document.getElementById("mediaLibrarySection");
 // ─── Close Preview ───
 
 document.getElementById("btnClosePreview").addEventListener("click", () => {
-    document.getElementById("videoPreviewSection").style.display = "none";
+    clearVideoPreview();
 });
 
 // ─── Actions ───
@@ -1445,14 +1938,33 @@ function requireVideo() {
     return true;
 }
 
+function transcriptPayloadForSelectedVideo() {
+    if (!state.manualTranscript || !state.selectedVideo) return null;
+    const linkedPath = String(state.manualTranscriptVideo || "").trim();
+    const selectedPath = String(selectedVideoPathForRequest() || "").trim();
+    if (!linkedPath || linkedPath === "pending-source" || !mediaPathsMatch(linkedPath, selectedPath)) return null;
+    return state.manualTranscript;
+}
+
 document.getElementById("actionSilence").querySelector(".btn-action").addEventListener("click", async () => {
     if (!requireVideo()) return;
     addConsoleLog("[Acao] Iniciando remocao de silencio...", "info");
-    await fetch("/api/process/silence", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ video_path: state.selectedVideo }),
-    });
+    prepareNewOperationHud();
+    showProgressBar();
+    try {
+        const response = await fetch("/api/process/silence", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ video_path: state.selectedVideo }),
+        });
+        const started = await parseJsonResponse(response, "Remoção de silêncio");
+        if (!response.ok || started.error) throw new Error(started.error || "Não foi possível iniciar a remoção de silêncio");
+        registerStartedOperation(started, "Remoção de silêncio em andamento.");
+        showProgressBar();
+    } catch (error) {
+        hideProgressBar();
+        showToast(error.message || "Não foi possível iniciar a remoção de silêncio", "error");
+    }
 });
 
 function openCutOptionsModal() {
@@ -1473,7 +1985,13 @@ async function startSmartCut() {
     if (!requireVideo()) return;
     state.faceTracking = Boolean(document.getElementById("faceTrackingEnabled")?.checked);
     const userContext = document.getElementById("userContextInput").value.trim();
+    const boundTranscript = transcriptPayloadForSelectedVideo();
+    const currentVideoPath = selectedVideoPathForRequest();
+    const boundEditorialContext = state.editorialContext && state.contextAnalysisSourcePath === currentVideoPath
+        ? state.editorialContext
+        : null;
     addConsoleLog("[Acao] Iniciando corte inteligente de shorts...", "info");
+    if (boundEditorialContext) addConsoleLog("[Contexto] Dossiê pré-analisado desta fonte será reutilizado no ranking.", "success");
     addConsoleLog(`[Enquadramento] Facetracking ${state.faceTracking ? "ativado" : "desativado"}; o fallback mantém a proporção original quando necessário.`, "info");
     if (userContext) addConsoleLog(`[Contexto] "${userContext}"`, "info");
     const videoGenre = document.getElementById("settingVideoGenre").value;
@@ -1501,18 +2019,17 @@ async function startSmartCut() {
             transcription_source: document.getElementById("settingTranscriptionSource")?.value || "auto",
             audit_mode: document.getElementById("settingAuditMode")?.value || "standard",
             preferred_format: document.getElementById("settingPreferredFormat")?.value || "auto",
-            ...(state.manualTranscript ? {
-                transcript_segments: state.manualTranscript.segments,
-                transcript_language: state.manualTranscript.language || "pt",
+            editorial_context_source_path: boundEditorialContext ? currentVideoPath : "",
+            ...(boundEditorialContext ? { editorial_context: boundEditorialContext } : {}),
+            ...(boundTranscript ? {
+                transcript_segments: boundTranscript.segments,
+                transcript_language: boundTranscript.language || "pt",
             } : {}),
         }),
     });
     const started = await parseJsonResponse(response, "Corte inteligente");
     if (!response.ok || started.error) throw new Error(started.error || "Não foi possível iniciar o corte");
-    if (started.job_id) {
-        state.activeJob = { id: started.job_id, state: started.state || "queued" };
-        showProcessingControls("Corte adicionado à fila persistente.");
-    }
+    registerStartedOperation(started, "Corte adicionado à fila persistente.");
 }
 document.getElementById("actionCut").querySelector(".btn-action").addEventListener("click", openCutOptionsModal);
 document.getElementById("btnStartSmartCut")?.addEventListener("click", startSmartCut);
@@ -1533,7 +2050,13 @@ document.getElementById("actionComplete").querySelector(".btn-action").addEventL
     if (!requireVideo()) return;
     if (!confirm("Executar o pipeline completo? Isso pode demorar alguns minutos dependendo do tamanho do video.")) return;
     const userContext = document.getElementById("userContextInput").value.trim();
+    const boundTranscript = transcriptPayloadForSelectedVideo();
+    const currentVideoPath = selectedVideoPathForRequest();
+    const boundEditorialContext = state.editorialContext && state.contextAnalysisSourcePath === currentVideoPath
+        ? state.editorialContext
+        : null;
     addConsoleLog("[Acao] Iniciando processo completo...", "info");
+    if (boundEditorialContext) addConsoleLog("[Contexto] Dossiê pré-analisado desta fonte será reutilizado no processo completo.", "success");
     if (userContext) addConsoleLog(`[Contexto] "${userContext}"`, "info");
     const videoGenreComplete = document.getElementById("settingVideoGenre").value;
     const response = await fetch("/api/process/complete", {
@@ -1545,18 +2068,17 @@ document.getElementById("actionComplete").querySelector(".btn-action").addEventL
             user_context: userContext,
             video_genre: videoGenreComplete,
             transcription_source: document.getElementById("settingTranscriptionSource")?.value || "auto",
-            ...(state.manualTranscript ? {
-                transcript_segments: state.manualTranscript.segments,
-                transcript_language: state.manualTranscript.language || "pt",
+            editorial_context_source_path: boundEditorialContext ? currentVideoPath : "",
+            ...(boundEditorialContext ? { editorial_context: boundEditorialContext } : {}),
+            ...(boundTranscript ? {
+                transcript_segments: boundTranscript.segments,
+                transcript_language: boundTranscript.language || "pt",
             } : {}),
         }),
     });
     const started = await parseJsonResponse(response, "Processo completo");
     if (!response.ok || started.error) throw new Error(started.error || "Não foi possível iniciar o processo completo");
-    if (started.job_id) {
-        state.activeJob = { id: started.job_id, state: started.state || "queued" };
-        showProcessingControls("Processo completo adicionado à fila persistente.");
-    }
+    registerStartedOperation(started, "Processo completo adicionado à fila persistente.");
 });
 
 // ─── Subtitle Modal ───
@@ -1609,14 +2131,25 @@ async function generateSubtitles() {
     };
 
     addConsoleLog("[Acao] Iniciando geracao de legendas...", "info");
-    await fetch("/api/process/subtitles", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            video_path: state.selectedVideo,
-            subtitle_settings: subtitleSettings,
-        }),
-    });
+    prepareNewOperationHud();
+    showProgressBar();
+    try {
+        const response = await fetch("/api/process/subtitles", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                video_path: state.selectedVideo,
+                subtitle_settings: subtitleSettings,
+            }),
+        });
+        const started = await parseJsonResponse(response, "Geração de legendas");
+        if (!response.ok || !started.success) throw new Error(started.error || "Não foi possível iniciar a geração de legendas");
+        registerStartedOperation(started, "Geração de legendas em andamento.");
+        showProgressBar();
+    } catch (error) {
+        hideProgressBar();
+        showToast(error.message || "Não foi possível iniciar a geração de legendas", "error");
+    }
 }
 
 // Subtitle preview updates
@@ -1661,14 +2194,25 @@ async function generateThumbnail() {
     const time = parseFloat(document.getElementById("thumbTime").value) || 5;
 
     addConsoleLog("[Acao] Gerando thumbnail...", "info");
-    await fetch("/api/process/thumbnail", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            video_path: state.selectedVideo,
-            text, style, time,
-        }),
-    });
+    prepareNewOperationHud();
+    showProgressBar();
+    try {
+        const response = await fetch("/api/process/thumbnail", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                video_path: state.selectedVideo,
+                text, style, time,
+            }),
+        });
+        const started = await parseJsonResponse(response, "Geração de thumbnail");
+        if (!response.ok || !started.success) throw new Error(started.error || "Não foi possível iniciar a geração de thumbnail");
+        registerStartedOperation(started, "Geração de thumbnail em andamento.");
+        showProgressBar();
+    } catch (error) {
+        hideProgressBar();
+        showToast(error.message || "Não foi possível iniciar a geração de thumbnail", "error");
+    }
 }
 
 function showThumbnailPreview(path) {
@@ -1771,6 +2315,9 @@ function renderEditorialContextPreview(context = {}) {
     const speakerDetection = context.speaker_detection || {};
     const localAudio = context.local_audio || {};
     const multimodal = context.multimodal || {};
+    const signals = context.signals || {};
+    const qaCandidates = Array.isArray(context.qa_candidates) ? context.qa_candidates.slice(0, 8) : [];
+    const editorialChapters = Array.isArray(context.editorial_chapters) ? context.editorial_chapters.slice(0, 8) : [];
     const multimodalStatus = String(multimodal.source_identity_status || "").toLowerCase();
     const highEnergyMoments = Array.isArray(localAudio.high_energy_moments) ? localAudio.high_energy_moments.slice(0, 8) : [];
     const mode = context.analysis_mode === "transcript_plus_video"
@@ -1790,7 +2337,7 @@ function renderEditorialContextPreview(context = {}) {
             const score = Number(hook.score || 0).toFixed(1);
             const reviewReasons = [];
             if (hook.needs_speaker_review) reviewReasons.push(hook.speaker_review_reason || "confirmar locutor");
-            if (hook.needs_visual_review) reviewReasons.push("revisar sobreposição visual/áudio");
+            if (hook.needs_visual_review) reviewReasons.push(hook.visual_review_reason || (hook.visual_evidence_required ? "confirmar gráfico, pesquisa ou imagem mencionada" : "revisar sobreposição visual/áudio"));
             if (hook.audio_signal?.available === false) reviewReasons.push("áudio sem sinal local");
             const review = reviewReasons.length ? ` · ${reviewReasons.map(escapeHtml).join(" · ")}` : "";
             const confidence = Number(hook.confidence);
@@ -1808,25 +2355,58 @@ function renderEditorialContextPreview(context = {}) {
             : multimodalStatus
                 ? `<span class="context-source-status review" title="A análise remota é apenas evidência auxiliar até a identidade ser confirmada">vídeo remoto · evidência auxiliar</span>`
                 : "";
+    const riskItems = [];
+    if (quality.review_required) riskItems.push("cobertura temporal da transcrição exige conferência");
+    if (speakerDetection.review_required) riskItems.push(speakerDetection.message || "trocas de locutor exigem conferência");
+    if (signals.possible_overlap) riskItems.push(`${Number(signals.overlap_count || 0)} possível(is) sobreposição(ões) de fala`);
+    if (multimodalStatus === "mismatch") riskItems.push("observação remota descartada por identidade incompatível");
+    const riskMarkup = riskItems.length
+        ? `<ul class="context-risk-list">${riskItems.map(item => `<li><span class="material-icons-round">priority_high</span>${escapeHtml(item)}</li>`).join("")}</ul>`
+        : `<p class="context-empty-copy"><span class="material-icons-round">verified</span>Nenhum risco estrutural automático nesta leitura.</p>`;
+    const qaMarkup = qaCandidates.length
+        ? qaCandidates.map((candidate, index) => {
+            const start = Number(candidate.start || 0);
+            const end = Number(candidate.end || candidate.response_end || start);
+            const basis = String(candidate.boundary_basis || candidate.qa_boundary_basis || "janela temporal").replaceAll("_", " ");
+            const review = candidate.needs_speaker_review ? " · confirmar locutor" : "";
+            return `<article class="context-dossier-item"><div><strong>#${index + 1} · ${formatTime(start)}–${formatTime(end)}</strong><span>${escapeHtml(basis)}${escapeHtml(review)}</span></div><p>${escapeHtml(candidate.question_text || candidate.text || "Pergunta–resposta detectada")}</p></article>`;
+        }).join("")
+        : `<p class="context-empty-copy"><span class="material-icons-round">question_mark</span>Nenhum bloco pergunta–resposta robusto foi isolado.</p>`;
+    const chapterMarkup = editorialChapters.length
+        ? editorialChapters.map((chapter, index) => `<article class="context-dossier-item"><div><strong>${index + 1}. ${escapeHtml(chapter.label || "Capítulo editorial")}</strong><span>${formatTime(Number(chapter.start || 0))}–${formatTime(Number(chapter.end || 0))}</span></div><p>${escapeHtml(chapter.summary || chapter.description || "Bloco temporal disponível para revisão.")}</p></article>`).join("")
+        : `<p class="context-empty-copy"><span class="material-icons-round">view_agenda</span>Capítulos ainda não disponíveis.</p>`;
+    const signalMarkup = `<div class="context-signal-grid"><span><b>${Number(signals.speaker_markers || 0)}</b><small>marcadores de locutor</small></span><span><b>${Number(signals.overlap_count || 0)}</b><small>sobreposições possíveis</small></span><span><b>${signals.long_form ? "sim" : "não"}</b><small>fonte longa</small></span><span><b>${escapeHtml(String(signals.transcription_coverage_status || quality.status || "não verificada"))}</b><small>cobertura temporal</small></span></div>`;
     result.hidden = false;
     const participantConfidence = Number(context.participant_confidence);
     const participantMarkup = Number.isFinite(participantConfidence)
         ? `<span title="Referência textual e sinais de locutor; não é identificação visual">participante ${Math.round(Math.max(0, Math.min(1, participantConfidence)) * 100)}%</span>`
         : "";
-    result.innerHTML = `<div class="context-result-summary"><strong>${escapeHtml(context.description || "Contexto editorial analisado.")}</strong><div class="context-result-facts"><span>${escapeHtml(mode)}</span><span>${qa} pergunta(s)–resposta</span><span>${chapters} capítulo(s)</span><span>${windows} janela(s) de entrevista</span><span>${Number(quality.segment_count || 0)} segmentos · ${escapeHtml(quality.status || "qualidade não validada")}</span>${participantMarkup}${speakerMarkup}${multimodalMarkup}</div></div>${localAudioMarkup}${hookMarkup}`;
+    result.innerHTML = `<div class="context-result-summary"><div class="context-dossier-kicker"><span class="material-icons-round">fact_check</span><span>Dossiê editorial · ${escapeHtml(mode)}</span></div><strong>${escapeHtml(context.description || "Contexto editorial analisado.")}</strong><div class="context-result-facts"><span>${qa} bloco(s) Q&A</span><span>${chapters} capítulo(s)</span><span>${windows} janela(s) de entrevista</span><span>${Number(quality.segment_count || 0)} segmentos</span>${participantMarkup}${speakerMarkup}${multimodalMarkup}</div></div><div class="context-dossier-grid"><section class="context-dossier-card"><header><span class="material-icons-round">account_tree</span><div><strong>Estrutura da fonte</strong><small>O que foi identificado antes do corte</small></div></header>${signalMarkup}</section><section class="context-dossier-card"><header><span class="material-icons-round">warning_amber</span><div><strong>Riscos para revisar</strong><small>Alertas não são rejeição automática</small></div></header>${riskMarkup}</section><section class="context-dossier-card"><header><span class="material-icons-round">question_answer</span><div><strong>Blocos pergunta–resposta</strong><small>Intervalos com fechamento e fronteira explicável</small></div></header><div class="context-dossier-list">${qaMarkup}</div></section><section class="context-dossier-card"><header><span class="material-icons-round">view_agenda</span><div><strong>Capítulos editoriais</strong><small>Blocos para navegar pela fonte sem contar cortes artificiais</small></div></header><div class="context-dossier-list">${chapterMarkup}</div></section></div>${localAudioMarkup}${hookMarkup}`;
 }
 
-async function pollEditorialContextJob(jobId, button, status) {
+async function pollEditorialContextJob(jobId, button, status, requestToken, sourcePath, signal) {
     const started = Date.now();
     while (Date.now() - started < 20 * 60 * 1000) {
         await new Promise(resolve => setTimeout(resolve, 1200));
-        const response = await fetch(`/api/jobs/${encodeURIComponent(jobId)}`);
+        if (requestToken !== state.contextAnalysisToken || selectedVideoPathForRequest() !== sourcePath) {
+            return { stale: true };
+        }
+        const response = await fetch(`/api/jobs/${encodeURIComponent(jobId)}`, { signal });
         const job = await parseJsonResponse(response, "Status da análise de contexto");
         if (!response.ok) throw new Error(job.error || "Não foi possível consultar a análise");
-        if (job.message && status) status.textContent = job.message;
+        if (status) {
+            const progress = Number(job.progress);
+            const progressLabel = Number.isFinite(progress) && progress > 0 ? `${Math.round(progress)}% · ` : "";
+            const stageLabel = job.stage === "editorial_context" ? "Dossiê editorial" : "Análise";
+            status.textContent = `${progressLabel}${stageLabel}: ${job.message || "processando sinais"}`;
+        }
         if (job.state === "completed") {
+            if (requestToken !== state.contextAnalysisToken || selectedVideoPathForRequest() !== sourcePath) {
+                return { stale: true };
+            }
             const artifact = Array.isArray(job.artifacts) ? job.artifacts.find(item => item?.type === "editorial_context") : null;
             state.editorialContext = artifact?.context || null;
+            state.contextAnalysisSourcePath = sourcePath;
             renderEditorialContextPreview(state.editorialContext || {});
             if (status) status.textContent = "Contexto pronto. O próximo corte poderá usar esta leitura como referência.";
             return;
@@ -1848,6 +2428,17 @@ document.getElementById("btnAnalyzeEditorialContext")?.addEventListener("click",
         return;
     }
     const transcript = state.manualTranscript ? formatTranscriptForEditor(state.manualTranscript) : (document.getElementById("manualTranscriptInput")?.value.trim() || "");
+    state.contextAnalysisController?.abort();
+    const controller = new AbortController();
+    state.contextAnalysisController = controller;
+    const requestToken = ++state.contextAnalysisToken;
+    state.editorialContext = null;
+    state.contextAnalysisSourcePath = "";
+    const contextResult = document.getElementById("contextAnalysisResult");
+    if (contextResult) {
+        contextResult.hidden = true;
+        contextResult.innerHTML = "";
+    }
     button.disabled = true;
     button.classList.add("loading");
     if (status) status.textContent = "Preparando análise integral...";
@@ -1864,19 +2455,26 @@ document.getElementById("btnAnalyzeEditorialContext")?.addEventListener("click",
                 user_context: document.getElementById("userContextInput")?.value.trim() || "",
                 analyze_video: document.getElementById("contextAnalyzeVideo")?.checked !== false,
             }),
+            signal: controller.signal,
         });
         const data = await parseJsonResponse(response, "Análise de contexto");
         if (!response.ok || !data.success) throw new Error(data.error || "Não foi possível iniciar a análise de contexto");
-        await pollEditorialContextJob(data.job_id, button, status);
+        state.contextAnalysisJobId = String(data.job_id || "");
+        const pollResult = await pollEditorialContextJob(data.job_id, button, status, requestToken, videoPath, controller.signal);
+        if (pollResult?.stale) return;
         addConsoleLog("[Contexto] Dossiê integral concluído e exibido no painel.", "success");
         showToast("Contexto analisado antes do corte.", "success");
     } catch (error) {
+        if (error?.name === "AbortError" || controller.signal.aborted || requestToken !== state.contextAnalysisToken) return;
         if (status) status.textContent = error.message;
         addConsoleLog(`[Contexto] ${error.message}`, "error");
         showToast(error.message, "error");
     } finally {
-        button.disabled = false;
-        button.classList.remove("loading");
+        if (requestToken === state.contextAnalysisToken) {
+            state.contextAnalysisController = null;
+            button.disabled = false;
+            button.classList.remove("loading");
+        }
     }
 });
 
@@ -1895,6 +2493,18 @@ function mediaUrlForPath(path) {
     return `/workspace/${value.split("/").filter(Boolean).map(encodeURIComponent).join("/")}`;
 }
 
+function normalizedMediaIdentity(value) {
+    const raw = String(value || "").trim().replaceAll("\\", "/").replace(/\/+/g, "/");
+    const withoutDot = raw.replace(/^\.\//, "");
+    return /^[A-Z]:\//i.test(withoutDot) ? withoutDot.toLowerCase() : withoutDot;
+}
+
+function mediaPathsMatch(left, right) {
+    const normalizedLeft = normalizedMediaIdentity(left);
+    const normalizedRight = normalizedMediaIdentity(right);
+    return Boolean(normalizedLeft && normalizedRight && normalizedLeft === normalizedRight);
+}
+
 function escapeHtml(value) {
     return String(value ?? "").replace(/[&<>'"]/g, (character) => ({
         "&": "&amp;",
@@ -1903,6 +2513,17 @@ function escapeHtml(value) {
         "'": "&#39;",
         '"': "&quot;",
     }[character]));
+}
+
+function safeExternalUrl(value) {
+    const candidate = String(value || "").trim();
+    if (!candidate) return "";
+    try {
+        const parsed = new URL(candidate, window.location.origin);
+        return parsed.protocol === "http:" || parsed.protocol === "https:" ? candidate : "";
+    } catch (_error) {
+        return "";
+    }
 }
 
 function mediaUrlForClip(clip) {
@@ -1928,6 +2549,7 @@ function renderEditorialAudit(audit, mode = "standard") {
     const warnings = [
         flags.needs_fact_review ? "Revisão factual" : "",
         flags.needs_legal_review ? "Revisão jurídica" : "",
+        flags.entity_context_review_required ? "Entidade citada lateralmente" : "",
         flags.transcript_ends_incomplete ? "Transcrição termina incompleta" : "",
     ].filter(Boolean);
     const warningHtml = warnings.length
@@ -1951,6 +2573,7 @@ function renderEditorialAudit(audit, mode = "standard") {
 
 function displayResults(clips, videoLayout = null) {
     state.clips = Array.isArray(clips) ? clips : [];
+    state.lastReviewAction = null;
     state.reviewFilter = "all";
     state.reviewSort = "score";
     state.videoLayout = videoLayout || "unknown";
@@ -1961,7 +2584,16 @@ function displayResults(clips, videoLayout = null) {
 }
 
 function reviewStatusOf(clip) {
-    return clip.review_status || "pending";
+    const explicitStatus = String(clip?.review_status || "").trim();
+    if (explicitStatus) return explicitStatus;
+    const coverageStatus = String(
+        clip?.transcription_coverage_status
+        || clip?.review_flags?.transcription_coverage_status
+        || clip?.review_provenance?.transcript_coverage_status
+        || ""
+    ).trim().toLowerCase();
+    if (["partial", "mismatch_suspected", "empty", "unknown"].includes(coverageStatus)) return "needs_review";
+    return "pending";
 }
 
 function reviewStatusMeta(status) {
@@ -2068,8 +2700,15 @@ function clipsForReviewQueue() {
 
 function layoutMetaForClip(clip) {
     const framing = clip.framing || {};
+    const framingReviewRequired = Boolean(
+        framing.review_required
+        || clip.framing_review_required
+        || clip.review_flags?.framing_review_required
+    );
     if (framing.mode === "reframe_9_16") {
-        return { icon: "center_focus_strong", label: "Reframe 9:16 seguro", hint: framing.reason || "locutor estável detectado" };
+        return framingReviewRequired
+            ? { icon: "visibility", label: "Reframe 9:16 planejado · revisar", hint: framing.reason || "reenquadramento depende de confirmação visual" }
+            : { icon: "center_focus_strong", label: "Reframe 9:16 seguro", hint: framing.reason || "locutor estável detectado" };
     }
     if (framing.mode === "original") {
         return { icon: "aspect_ratio", label: "Quadro original", hint: framing.reason || "composição preservada" };
@@ -2093,7 +2732,8 @@ function renderResultsGrid() {
     const highScoreCount = allClips.filter(c => c.viral_score >= 70).length;
     const sourceMap = { "gemini": "Gemini", "llm": "Ollama", "nlp": "NLP" };
     const source = allClips.length > 0 ? (sourceMap[allClips[0].source] || "NLP") : "NLP";
-    summary.textContent = `${clips.length} de ${allClips.length} visíveis | Média: ${avgScore.toFixed(0)} | ${highScoreCount} com alto potencial | via ${source}`;
+    const sourceIdentity = state.resultSourceIdentity ? ` | Fonte: ${state.resultSourceIdentity}` : "";
+    summary.textContent = `${clips.length} de ${allClips.length} visíveis | Média: ${avgScore.toFixed(0)} | ${highScoreCount} com alto potencial | via ${source}${sourceIdentity}`;
 
     const sorted = clips;
 
@@ -2112,6 +2752,11 @@ function renderResultsGrid() {
         const diversityPenalty = Math.round(Number(clip.diversity_penalty || 0));
         const diversityReason = String(clip.diversity_reason || "").trim();
         const reviewFlags = clip.review_flags || {};
+        const contextRecovery = (clip.context_recovery && typeof clip.context_recovery === "object")
+            ? clip.context_recovery
+            : (reviewFlags.context_recovery && typeof reviewFlags.context_recovery === "object" ? reviewFlags.context_recovery : {});
+        const contextRecoveryApplied = Boolean(contextRecovery.applied || reviewFlags.context_recovery_applied);
+        const contextRecoveryLabel = String(contextRecovery.reason || (contextRecoveryApplied ? "antecedente recuperado antes do início" : "")).trim();
         const contextReferenceFlag = Boolean(clip.starts_with_context_reference || reviewFlags.starts_with_context_reference);
         const weakPayoffFlag = Boolean(clip.payoff_weak_ending || reviewFlags.payoff_weak_ending);
         const closureType = String(clip.closure_type || "");
@@ -2161,11 +2806,26 @@ function renderResultsGrid() {
         const preserveComposition = Boolean(clip.preserve_composition || reviewFlags.preserve_composition || clip.reframe_policy === "preservar_composicao");
         const needsFactReview = Boolean(reviewFlags.needs_fact_review || reviewFlags.needsFactReview);
         const needsLegalReview = Boolean(reviewFlags.needs_legal_review || reviewFlags.needsLegalReview);
+        const primaryEntityRole = String(clip.primary_entity_role || reviewFlags.primary_entity_role || "").trim().toLowerCase();
+        const entityContextReviewRequired = Boolean(clip.entity_context_review_required || reviewFlags.entity_context_review_required);
+        const entityContextReviewHint = primaryEntityRole === "lateral"
+            ? "A entidade aparece, mas a tese do trecho pode estar em outro assunto."
+            : "Confirme se a entidade é alvo central ou apenas comparação no trecho.";
         const chapterCount = Number(clip.chapter_count || reviewFlags.chapter_count || 0);
         const chapterScore = Number(clip.chapter_coherence_score ?? reviewFlags.chapter_coherence_score);
         const chapterBridge = Boolean(clip.qa_bridge || reviewFlags.qa_bridge);
         const qaBoundaryBasis = String(clip.qa_boundary_basis || reviewFlags.qa_boundary_basis || "").trim();
         const qaBoundaryReviewRequired = Boolean(clip.qa_boundary_review_required || reviewFlags.qa_boundary_review_required);
+        const speakerReviewRequired = Boolean(
+            clip.speaker_review_required
+            || reviewFlags.speaker_review_required
+            || (clip.qa_boundary_review_required && clip.question_detected)
+        );
+        const speakerReviewReason = String(
+            clip.speaker_review_reason
+            || reviewFlags.speaker_review_reason
+            || "locutor ou ponte pergunta–resposta sem confirmação confiável; revisar áudio e vídeo"
+        ).trim();
         const qaBoundaryLabels = {
             mudanca_de_locutor: "mudança de locutor",
             marcador_de_locutor: "marcador de locutor",
@@ -2203,20 +2863,29 @@ function renderResultsGrid() {
         const durationMeta = durationPolicyMeta[durationStatus] || durationPolicyMeta.curto_preferencial;
         const campaignPrior = clip.campaign_hub_prior || {};
         const contextualHook = clip.contextual_hook || {};
+        const contextualPayoffSignals = Array.isArray(contextualHook.payoff_signals)
+            ? contextualHook.payoff_signals.map((signal) => String(signal || "").trim()).filter(Boolean).slice(0, 3)
+            : [];
         const contextualHookAvailable = Boolean(contextualHook.hook_text || contextualHook.family);
-        const contextualHookReview = Boolean(clip.hook_review_required || reviewFlags.hook_review_required);
+        const contextualHookReview = Boolean(clip.hook_review_required || reviewFlags.hook_review_required || reviewFlags.visual_evidence_review_required);
         const contextualHookReviewReasons = [];
         if (contextualHookReview) {
-            if (reviewFlags.speaker_review_required || clip.speaker_turn_valid == null) contextualHookReviewReasons.push("locutor não diarizado");
+            if (speakerReviewRequired || clip.speaker_turn_valid == null) contextualHookReviewReasons.push("locutor não diarizado");
             if (contextualHook.audio_signal && contextualHook.audio_signal.available === false) contextualHookReviewReasons.push("áudio sem sinal contextual");
             if (clip.overlap_suspected || reviewFlags.overlap_suspected) contextualHookReviewReasons.push("possível sobreposição");
+            if (contextualHook.visual_evidence_required || contextualHook.visual_review_reason) contextualHookReviewReasons.push(String(contextualHook.visual_review_reason || "confirmar gráfico, pesquisa ou imagem mencionada"));
         }
         const contextualHookReviewHint = contextualHookReviewReasons.join(" · ") || "confirmar no vídeo";
-        const transcriptionReviewRequired = Boolean(clip.transcription_review_required || reviewFlags.transcription_review_required);
-        const transcriptionCoverageStatus = String(clip.transcription_coverage_status || reviewFlags.transcription_coverage_status || "").trim();
-        const transcriptionReviewReason = String(clip.transcription_review_reason || reviewFlags.transcription_review_reason || (
-            transcriptionCoverageStatus === "partial" ? "cobertura parcial da transcrição; confirme o trecho no vídeo" : "identidade temporal da transcrição não validada; confirme o trecho no vídeo"
-        )).trim();
+        const transcriptionCoverageStatus = String(clip.transcription_coverage_status || reviewFlags.transcription_coverage_status || clip.review_provenance?.transcript_coverage_status || "").trim().toLowerCase();
+        const transcriptionCoverageNeedsReview = ["partial", "mismatch_suspected", "empty", "unknown"].includes(transcriptionCoverageStatus);
+        const transcriptionReviewRequired = Boolean(clip.transcription_review_required || reviewFlags.transcription_review_required || transcriptionCoverageNeedsReview);
+        const transcriptionReviewReasons = {
+            partial: "cobertura parcial da transcrição; confirme o trecho no vídeo",
+            mismatch_suspected: "a transcrição pode pertencer a outra fonte; confirme identidade e trecho no vídeo",
+            empty: "a transcrição não tem segmentos utilizáveis; confirme o trecho diretamente no vídeo",
+            unknown: "a cobertura temporal da transcrição não foi validada; confirme o trecho no vídeo",
+        };
+        const transcriptionReviewReason = String(clip.transcription_review_reason || reviewFlags.transcription_review_reason || transcriptionReviewReasons[transcriptionCoverageStatus] || "identidade temporal da transcrição não validada; confirme o trecho no vídeo").trim();
         const campaignPriorAvailable = Boolean(campaignPrior.available || reviewFlags.campaign_hub_prior_available);
         const campaignHookFamily = String(campaignPrior.hook_family || reviewFlags.campaign_hub_hook_family || "").trim();
         const campaignSampleCount = Number(campaignPrior.sample_count || reviewFlags.campaign_hub_sample_count || 0);
@@ -2229,12 +2898,42 @@ function renderResultsGrid() {
         const reviewMeta = reviewStatusMeta(reviewStatus);
         const confidence = Math.round((clip.confidence || 0) * 100);
         const clipSource = clip.source || "nlp";
-        const sourceLabels = { "gemini": "Gemini", "llm": "Ollama", "nlp": "NLP" };
+        const sourceLabels = { "gemini": "Gemini Flash", "llm": "Ollama", "nlp": "NLP local" };
         const sourceLabel = sourceLabels[clipSource] || "NLP";
         const sourceClass = clipSource === "gemini" ? "source-gemini" : (clipSource === "llm" ? "source-llm" : "source-nlp");
         const candidateOrigin = String(clip.candidate_origin || "local_primary");
         const candidateOriginLabel = String(clip.candidate_origin_label || "Origem local registrada");
         const candidateOriginNote = String(clip.candidate_origin_note || "Origem registrada para transparência da revisão.");
+        const reviewProvenance = clip.review_provenance || {};
+        const transcriptSourceLabels = {
+            manual: "transcrição manual",
+            public_subtitle: "legenda pública",
+            gemini_video: "Gemini multimodal",
+            whisper: "Whisper local",
+            automatic: "transcrição automática",
+            unknown: "origem não identificada",
+        };
+        const contextSourceLabels = {
+            local_dossier: "dossiê local",
+            multimodal_auxiliary: "evidência multimodal auxiliar",
+            none: "sem dossiê contextual",
+        };
+        const provenanceSource = transcriptSourceLabels[String(reviewProvenance.transcript_source || "unknown")] || "origem não identificada";
+        const provenanceCoverageCode = String(reviewProvenance.transcript_coverage_status || "unknown").trim().toLowerCase();
+        const provenanceCoverageLabels = {
+            complete: "cobertura integral",
+            covered: "cobertura integral",
+            partial: "cobertura parcial · revisar",
+            mismatch_suspected: "fonte possivelmente incompatível · revisar",
+            empty: "sem cobertura utilizável · revisar",
+            pending: "cobertura pendente · revisar",
+            unknown: "cobertura não validada · revisar",
+        };
+        const provenanceCoverage = provenanceCoverageLabels[provenanceCoverageCode] || `cobertura ${provenanceCoverageCode || "não validada"} · revisar`;
+        const provenanceContext = contextSourceLabels[String(reviewProvenance.context_source || "none")] || "sem dossiê contextual";
+        const provenanceMarkup = reviewProvenance.transcript_source || reviewProvenance.context_source
+            ? `<div class="clip-provenance-note"><span class="material-icons-round">source</span><span><b>Base usada no corte:</b> ${escapeHtml(provenanceSource)} · ${escapeHtml(provenanceCoverage)} · ${escapeHtml(provenanceContext)}${reviewProvenance.transcript_archive_present ? " · arquivo persistente presente" : ""}</span></div>`
+            : "";
         const originClass = candidateOrigin === "local_fallback" ? "candidate-origin-fallback" : "candidate-origin-primary";
         const transcriptId = `transcript-${originalIndex}`;
         const layoutMeta = layoutMetaForClip(clip);
@@ -2243,6 +2942,7 @@ function renderResultsGrid() {
         const latestAdjustment = clip.latest_adjustment || {};
         const adjustmentState = clip.adjustment_state || (latestAdjustment.start != null ? "saved" : "");
         const clipTranscriptText = String(clip.text || clip.transcript || "");
+            const reviewBusy = Boolean(clip.review_busy);
         const feedbackReasonOptions = [
             ["", "Motivo opcional"],
             ["excellent_context", "Contexto e payoff excelentes"],
@@ -2310,9 +3010,13 @@ function renderResultsGrid() {
                 ${(chapterCount > 0 || qaBoundaryBasis) ? `<div class="clip-chapter-note ${chapterCount > 0 && chapterScore < 60 ? 'warning' : ''}"><span class="material-icons-round">account_tree</span><span><b>Contexto temporal:</b> ${chapterCount > 0 ? `${chapterCount} capítulo(s)${Number.isFinite(chapterScore) ? ` · coerência ${Math.round(Math.max(0, Math.min(100, chapterScore)))}%` : ''}${chapterBridge ? ' · ponte pergunta–resposta preservada' : chapterCount > 1 ? ' · atravessa capítulos; revisar continuidade' : ' · dentro do mesmo bloco'}` : 'fronteira Q&A registrada'}${qaBoundaryBasis ? ` · fronteira: ${escapeHtml(qaBoundaryLabel)}${qaBoundaryReviewRequired ? ' · confirmar locutor' : ''}` : ''}</span></div>` : ''}
                 ${campaignPriorAvailable ? `<div class="clip-performance-prior"><span class="material-icons-round">insights</span><span><b>Histórico observado:</b> hook ${escapeHtml(campaignHookFamily || 'não classificado')} · amostra ${Math.max(0, campaignSampleCount)} · influência limitada ao ranking</span></div>` : ''}
                 ${transcriptionReviewRequired ? `<div class="clip-review-risk"><span class="material-icons-round">history_edu</span><span><b>Transcrição para revisão:</b> ${escapeHtml(transcriptionReviewReason)}${transcriptionCoverageStatus ? ` · status ${escapeHtml(transcriptionCoverageStatus)}` : ''}</span></div>` : ''}
-                ${contextualHookAvailable ? `<div class="clip-hook-provenance ${contextualHookReview ? 'review' : ''}"><span class="material-icons-round">bolt</span><span><b>Hook contextual:</b> ${escapeHtml(String(contextualHook.family || 'não classificado'))} · ${Number(contextualHook.score || 0).toFixed(1)}/100${contextualHook.payoff_confirmed ? ' · payoff próximo' : ' · payoff a confirmar'}${contextualHookReview ? ` · ${escapeHtml(contextualHookReviewHint)}` : ''}<br><q>${escapeHtml(String(contextualHook.hook_text || ''))}</q></span></div>` : ''}
+                ${provenanceMarkup}
+                ${contextualHookAvailable ? `<div class="clip-hook-provenance ${contextualHookReview ? 'review' : ''}"><span class="material-icons-round">bolt</span><span><b>Hook contextual:</b> ${escapeHtml(String(contextualHook.family || 'não classificado'))} · ${Number(contextualHook.score || 0).toFixed(1)}/100${contextualHook.payoff_confirmed ? ' · payoff próximo' : ' · payoff a confirmar'}${contextualHookReview ? ` · ${escapeHtml(contextualHookReviewHint)}` : ''}<br><q>${escapeHtml(String(contextualHook.hook_text || ''))}</q>${contextualPayoffSignals.length ? `<small class="clip-hook-payoff-signals">Evidência: ${escapeHtml(contextualPayoffSignals.join(' · '))}</small>` : ''}</span></div>` : ''}
+                ${contextRecoveryApplied ? `<div class="clip-review-risk"><span class="material-icons-round">history</span><span><b>Abertura ampliada para contexto:</b> ${escapeHtml(contextRecoveryLabel)}${Number.isFinite(Number(contextRecovery.original_start)) && Number.isFinite(Number(contextRecovery.added_start)) ? ` · início recuperado de ${formatTime(contextRecovery.original_start)} para ${formatTime(contextRecovery.added_start)}` : ''}${Number.isFinite(Number(contextRecovery.gap_seconds)) ? ` · pausa ${Number(contextRecovery.gap_seconds).toFixed(1)}s` : ''} · confirme se o antecedente realmente explica o hook.</span></div>` : ''}
                 ${feedbackCalibrationAvailable ? `<div class="clip-feedback-prior"><span class="material-icons-round">tune</span><span><b>Feedback editorial aplicado:</b> ${Math.max(0, feedbackSampleSize)} decisões finais${Math.abs(feedbackDurationGap) >= 0.1 ? ` · aprovados ${feedbackDurationGap > 0 ? 'tendem a ser mais curtos' : 'tiveram duração média maior'} em ${Math.abs(feedbackDurationGap).toFixed(1)}s` : ''} · influência limitada</span></div>` : ''}
                 ${(needsFactReview || needsLegalReview) ? `<div class="clip-review-risk ${needsLegalReview ? 'legal' : ''}"><span class="material-icons-round">${needsLegalReview ? 'gavel' : 'fact_check'}</span> ${needsLegalReview ? 'Revisão factual e jurídica' : 'Revisão factual recomendada'}</div>` : ''}
+                ${entityContextReviewRequired ? `<div class="clip-review-risk"><span class="material-icons-round">manage_search</span><span><b>Entidade para confirmar:</b> ${escapeHtml(entityContextReviewHint)} O nome não é usado sozinho para classificar o tema.</span></div>` : ''}
+                ${speakerReviewRequired ? `<div class="clip-review-risk"><span class="material-icons-round">record_voice_over</span><span><b>Locutor/ponte para confirmar:</b> ${escapeHtml(speakerReviewReason)}</span></div>` : ''}
                 ${topicSignature ? `<div class="clip-topic-chip" title="Sinal lexical usado somente para diversificar o portfólio">Tema: ${escapeHtml(topicSignature.replace(':', ' · ').replaceAll('-', ', '))}</div>` : ''}
                 ${durationStatus ? `<div class="clip-duration-policy ${durationMeta.className}" title="${escapeHtml(String(durationPreference.reason || durationMeta.hint))}"><span class="material-icons-round">${durationMeta.icon}</span><span><b>${escapeHtml(durationMeta.label)}</b>${Number.isFinite(durationFit) ? ` · brevidade ${Math.round(Math.max(0, Math.min(100, durationFit)))}%` : ''}${durationException ? ' · contexto excepcional preservado' : ''}</span></div>` : ''}
                 ${closureType ? `<div class="clip-closure-chip ${escapeHtml(closureType)}"><span class="material-icons-round">${closureType === 'conclusion' ? 'task_alt' : closureType === 'cliffhanger' ? 'hourglass_top' : 'subtitles'}</span> ${escapeHtml(closureLabels[closureType] || closureType)}</div>` : ''}
@@ -2433,9 +3137,9 @@ function renderResultsGrid() {
                 </div>
                 ${feedbackReasonMarkup}
                 <div class="review-actions" aria-label="Decisão editorial">
-                    <button class="btn btn-sm btn-success ${reviewStatus === 'approved' ? 'is-current' : ''}" aria-pressed="${reviewStatus === 'approved'}" onclick="setClipReview(${originalIndex}, 'approved')"><span class="material-icons-round">check_circle</span>${reviewStatus === 'approved' ? 'Aprovado' : 'Aprovar'}</button>
-                    <button class="btn btn-sm btn-review-context ${reviewStatus === 'needs_review' ? 'is-current' : ''}" aria-pressed="${reviewStatus === 'needs_review'}" title="Não aprova nem rejeita; abre a transcrição completa e coloca o clip na fila de revisão." onclick="openContextReview(${originalIndex})"><span class="material-icons-round">visibility</span>${reviewStatus === 'needs_review' ? 'Contexto aberto' : 'Revisar contexto'}</button>
-                    <button class="btn btn-sm btn-danger ${reviewStatus === 'rejected' ? 'is-current' : ''}" aria-pressed="${reviewStatus === 'rejected'}" onclick="setClipReview(${originalIndex}, 'rejected')"><span class="material-icons-round">close</span>${reviewStatus === 'rejected' ? 'Rejeitado' : 'Rejeitar'}</button>
+                    <button class="btn btn-sm btn-success ${reviewStatus === 'approved' ? 'is-current' : ''}" ${reviewBusy ? 'disabled' : ''} aria-pressed="${reviewStatus === 'approved'}" onclick="setClipReview(${originalIndex}, 'approved')"><span class="material-icons-round">check_circle</span>${reviewBusy ? 'Salvando…' : reviewStatus === 'approved' ? 'Aprovado' : 'Aprovar'}</button>
+                    <button class="btn btn-sm btn-review-context ${reviewStatus === 'needs_review' ? 'is-current' : ''}" ${reviewBusy ? 'disabled' : ''} aria-pressed="${reviewStatus === 'needs_review'}" title="Não aprova nem rejeita; abre a transcrição completa e coloca o clip na fila de revisão." onclick="openContextReview(${originalIndex})"><span class="material-icons-round">visibility</span>${reviewBusy ? 'Salvando…' : reviewStatus === 'needs_review' ? 'Contexto aberto' : 'Revisar contexto'}</button>
+                    <button class="btn btn-sm btn-danger ${reviewStatus === 'rejected' ? 'is-current' : ''}" ${reviewBusy ? 'disabled' : ''} aria-pressed="${reviewStatus === 'rejected'}" onclick="setClipReview(${originalIndex}, 'rejected')"><span class="material-icons-round">close</span>${reviewBusy ? 'Salvando…' : reviewStatus === 'rejected' ? 'Rejeitado' : 'Rejeitar'}</button>
                 </div>
             </div>`;
 
@@ -2506,8 +3210,13 @@ async function previewClipBoundary(index) {
         const removedBefore = Math.max(0, Number(data.clip.start || 0) - Number(originalBounds.start || 0));
         const removedAfter = Math.max(0, Number(originalBounds.end || 0) - Number(data.clip.end || 0));
         const removalSummary = `Removeu ${removedBefore.toFixed(1)}s antes e ${removedAfter.toFixed(1)}s depois`;
-        if (feedback) feedback.textContent = `Prévia aplicada: ${formatTime(data.clip.start)}–${formatTime(data.clip.end)}. ${removalSummary}. Nada foi salvo ainda; revise o vídeo e clique em “Salvar ajuste” somente se estiver limpo.`;
-        showToast(`Prévia limpa aplicada. ${removalSummary}.`, "success");
+        const boundary = data.clip.boundary_adjustment || {};
+        const snapped = Boolean(boundary.snapped_start || boundary.snapped_end);
+        const boundarySummary = snapped
+            ? "Os limites foram aproximados aos blocos da transcrição para evitar cortar uma fala."
+            : "Os limites permaneceram exatamente como informados manualmente.";
+        if (feedback) feedback.textContent = `Prévia aplicada: ${formatTime(data.clip.start)}–${formatTime(data.clip.end)}. ${boundarySummary} ${removalSummary}. Nada foi salvo ainda; revise o vídeo e clique em “Salvar ajuste” somente se estiver limpo.`;
+        showToast(`Prévia limpa aplicada. ${snapped ? "Limites alinhados à transcrição." : "Limites manuais."}`, "success");
     } catch (error) {
         if (feedback) feedback.textContent = error.message;
         showToast(error.message, "error");
@@ -2522,11 +3231,18 @@ async function persistClipBoundary(index) {
         if (feedback) feedback.textContent = "Este resultado ainda não possui um registro persistente.";
         return;
     }
-    const adjustment = clip.latest_adjustment || {
-        start: Number(clip.start),
-        end: Number(clip.end),
-        duration: Number(clip.duration),
-        boundary_adjustment: { source: "manual" },
+    const adjustment = {
+        ...(clip.latest_adjustment || {
+            start: Number(clip.start),
+            end: Number(clip.end),
+            duration: Number(clip.duration),
+        }),
+        boundary_adjustment: {
+            ...(clip.latest_adjustment?.boundary_adjustment || clip.boundary_adjustment || {}),
+            source: (clip.latest_adjustment?.boundary_adjustment?.source || clip.boundary_adjustment?.source) === "transcript"
+                ? "transcript"
+                : "manual",
+        },
     };
     if (!Number.isFinite(Number(adjustment.start)) || !Number.isFinite(Number(adjustment.end))) {
         if (feedback) feedback.textContent = "Pré-visualize limites válidos antes de salvar.";
@@ -2556,6 +3272,8 @@ async function persistClipBoundary(index) {
         };
         renderReviewCommandCenter();
         renderResultsGrid();
+        const persistedSource = data.adjustment?.boundary_adjustment?.source === "transcript" ? "transcript" : "manual";
+        if (feedback) feedback.textContent = `Ajuste salvo: ${formatTime(data.adjustment.start)}–${formatTime(data.adjustment.end)}. ${persistedSource === "transcript" ? "Limites alinhados à transcrição." : "Limites manuais preservados."} O MP4 original foi preservado; revise novamente o resultado antes de aprovar.`;
         showToast("Ajuste salvo no histórico editorial; o MP4 original foi preservado.", "success");
     } catch (error) {
         if (feedback) feedback.textContent = error.message;
@@ -2594,7 +3312,18 @@ function openContextReview(index) {
     if (!panel || !title || !meta || !excerpt || !full) return;
     const transcript = transcriptSegmentsForClip(clip);
     title.textContent = "Revisão de contexto do clip";
-    meta.textContent = `${clip.text || "Trecho sem transcrição"} · ${Number(clip.start || 0).toFixed(1)}s–${Number(clip.end || 0).toFixed(1)}s`;
+    const reviewFlags = clip.review_flags || {};
+    const contextRecovery = (clip.context_recovery && typeof clip.context_recovery === "object")
+        ? clip.context_recovery
+        : (reviewFlags.context_recovery && typeof reviewFlags.context_recovery === "object" ? reviewFlags.context_recovery : {});
+    const contextRecoveryApplied = Boolean(contextRecovery.applied || reviewFlags.context_recovery_applied);
+    const recoveryTiming = Number.isFinite(Number(contextRecovery.original_start)) && Number.isFinite(Number(contextRecovery.added_start))
+        ? ` · início recuperado de ${formatTime(contextRecovery.original_start)} para ${formatTime(contextRecovery.added_start)}`
+        : "";
+    const recoverySummary = contextRecoveryApplied
+        ? ` · abertura ampliada para contexto: ${String(contextRecovery.reason || "antecedente ampliado").trim()}${recoveryTiming}${Number.isFinite(Number(contextRecovery.gap_seconds)) ? ` · pausa ${Number(contextRecovery.gap_seconds).toFixed(1)}s` : ""} · confirme se o antecedente realmente explica o hook`
+        : "";
+    meta.textContent = `${clip.text || "Trecho sem transcrição"} · ${Number(clip.start || 0).toFixed(1)}s–${Number(clip.end || 0).toFixed(1)}s${recoverySummary}`;
     excerpt.textContent = transcript.excerpt.length ? formatTranscriptForEditor({ segments: transcript.excerpt }) : "O trecho não possui transcrição timestampada disponível.";
     full.textContent = transcript.full.length ? formatTranscriptForEditor({ segments: transcript.full }) : "A transcrição completa ainda não foi arquivada para este vídeo.";
     panel.hidden = false;
@@ -2608,7 +3337,8 @@ function closeContextReview() {
 
 async function setClipReview(index, action) {
     const clip = state.clips[index];
-    if (!clip) return;
+    if (!clip || clip.review_busy) return;
+    clip.review_busy = true;
     const previousStatus = reviewStatusOf(clip);
     const previousUpdatedAt = clip.review_updated_at;
     const previousReason = clip.latest_feedback_reason;
@@ -2653,11 +3383,14 @@ async function setClipReview(index, action) {
             needs_review: "Clip marcado para revisão de contexto",
         };
         state.lastReviewAction = { action, clip_id: clip.clip_id || null, reason_code: reasonCode, at: decisionAt };
+        if (clip.clip_id) await refreshVisibleReviewState();
         if (feedbackData?.calibration) renderEditorialLearning(feedbackData.calibration);
         renderReviewCommandCenter();
         renderResultsGrid();
         showToast(messages[action] || "Feedback salvo", action === "approved" ? "success" : "warning");
         loadEditorialLearning();
+        loadDailyEditorialGoal();
+        loadEditorialData();
     } catch (error) {
         clip.review_status = previousStatus;
         clip.review_updated_at = previousUpdatedAt;
@@ -2668,6 +3401,10 @@ async function setClipReview(index, action) {
         const feedbackError = error?.message || "erro desconhecido";
         addConsoleLog(`[Revisão] Feedback não salvo: ${feedbackError}`, "error");
         showToast(`Não foi possível salvar o feedback: ${feedbackError}`, "error");
+    } finally {
+        clip.review_busy = false;
+        renderReviewCommandCenter();
+        renderResultsGrid();
     }
 }
 
@@ -2691,10 +3428,10 @@ function updateResultsModeBadge(source) {
         badge.textContent = "Gemini Flash";
     } else if (source === "llm") {
         badge.classList.add("mode-llm");
-        badge.textContent = "IA Inteligente";
+        badge.textContent = "Ollama";
     } else {
         badge.classList.add("mode-nlp");
-        badge.textContent = "NLP Basico";
+        badge.textContent = "NLP local";
     }
 }
 
@@ -2707,14 +3444,38 @@ function renderCandidateVolumeNotice(diagnostics = {}) {
     const discarded = Number(diagnostics.fallback_discarded_count || 0);
     const discardedOverlap = Number(diagnostics.fallback_discarded_overlap || 0);
     const discardedSimilarity = Number(diagnostics.fallback_discarded_similarity || 0);
+    const previousDiscarded = Number(diagnostics.previous_discarded_count || 0);
+    const previousApproved = Number(diagnostics.previous_discarded_approved || 0);
+    const previousRejected = Number(diagnostics.previous_discarded_rejected || 0);
+    const previousNote = previousDiscarded > 0
+        ? ` ${previousDiscarded} intervalo(s) já gerado(s) foram evitados${previousApproved || previousRejected ? ` (${previousApproved} aprovado(s) e ${previousRejected} rejeitado(s) no histórico)` : ''}; novas partes permaneceram elegíveis.`
+        : '';
     const finalCount = Number(diagnostics.final_count || 0);
-    if (!expected && !primary && !finalCount) {
+    const renderableCount = Number(diagnostics.renderable_candidate_count ?? finalCount);
+    const deferredByGate = Number(diagnostics.editorial_gate_deferred_count || 0);
+    const diagnosticReason = String(diagnostics.reason || "").trim().toLowerCase();
+    const reasonLabels = {
+        no_candidates: "A fonte não entregou candidatos autossuficientes para revisar.",
+        all_intervals_already_processed: "Os intervalos encontrados já foram processados em execuções anteriores.",
+        all_candidates_redundant: "Os candidatos encontrados eram redundantes entre si e foram descartados.",
+        quality_pool_below_reference: "A seleção preservou apenas momentos que passaram pelos gates de contexto e qualidade.",
+        render_failed_after_selection: "Havia candidatos selecionados, mas o render não entregou um arquivo válido; revise os erros técnicos do job.",
+        partial_render_failure: "Parte dos candidatos passou, mas alguns renders falharam; revise os erros técnicos antes de repetir.",
+    };
+    const diagnosticReasonLabel = reasonLabels[diagnosticReason] || "A quantidade final depende do material autossuficiente encontrado e dos gates editoriais.";
+    if (!expected && !primary && !finalCount && !deferredByGate && !previousDiscarded) {
         notice.hidden = true;
         notice.textContent = "";
         return;
     }
     notice.hidden = false;
     notice.className = "candidate-volume-notice";
+    if (diagnosticReason === "render_failed_after_selection" || diagnosticReason === "partial_render_failure") {
+        notice.classList.add("warning");
+        const rejected = Number(diagnostics.render_rejection_count || 0);
+        notice.innerHTML = `<span class="material-icons-round">build_circle</span><span>${escapeHtml(diagnosticReasonLabel)} ${rejected ? `${rejected} ocorrência(s) foram registradas no job.` : "Consulte o console para a causa."}</span>`;
+        return;
+    }
     if (fallback > 0) {
         notice.classList.add("fallback");
         const discardedNote = discarded > 0
@@ -2723,12 +3484,18 @@ function renderCandidateVolumeNotice(diagnostics = {}) {
         notice.innerHTML = `<span class="material-icons-round">alt_route</span><span>Pool ampliado com segurança: ${primary} candidato(s) da fonte principal + ${fallback} alternativa(s) locais.${discardedNote} Os gates de contexto permaneceram ativos.</span>`;
         return;
     }
-    if (expected && finalCount < expected) {
+    if (deferredByGate > 0) {
         notice.classList.add("warning");
-        notice.innerHTML = `<span class="material-icons-round">info</span><span>${finalCount} candidato(s) chegaram à revisão; a referência estrutural era ${expected}. O vídeo pode ter pouco material autossuficiente ou gates editoriais rigorosos.</span>`;
+        const reviewCount = renderableCount || primary || expected;
+        notice.innerHTML = `<span class="material-icons-round">rule</span><span>${reviewCount} candidato(s) liberado(s) para render; ${deferredByGate} foram adiados antes do render por contexto incompleto ou revisão técnica obrigatória. O editor pode conferir os motivos no diagnóstico.</span>`;
         return;
     }
-    notice.innerHTML = `<span class="material-icons-round">check_circle</span><span>Pool editorial adequado: ${finalCount} candidato(s) distintos chegaram à revisão.</span>`;
+    if (expected && finalCount < expected) {
+        notice.classList.add("warning");
+        notice.innerHTML = `<span class="material-icons-round">info</span><span>${finalCount} candidato(s) chegaram à revisão; a referência estrutural era ${expected}. ${escapeHtml(diagnosticReasonLabel)}${previousNote}</span>`;
+        return;
+    }
+    notice.innerHTML = `<span class="material-icons-round">check_circle</span><span>Pool editorial adequado: ${finalCount} candidato(s) distintos chegaram à revisão. ${escapeHtml(diagnosticReasonLabel)}${previousNote}</span>`;
 }
 
 // --- Open Folder Button ---
@@ -2773,8 +3540,11 @@ function displaySeoResult(seo) {
 }
 
 function formatTime(seconds) {
-    const m = Math.floor(seconds / 60);
-    const s = Math.floor(seconds % 60);
+    const numeric = Number(seconds);
+    if (!Number.isFinite(numeric)) return "—";
+    const safeSeconds = Math.max(0, numeric);
+    const m = Math.floor(safeSeconds / 60);
+    const s = Math.floor(safeSeconds % 60);
     return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
@@ -2869,11 +3639,46 @@ function hydrateTranscriptEditor(transcription, archive = null) {
     const quality = transcription?.quality?.quality || transcription?.archive_metadata?.quality?.quality || "não validada semanticamente";
     const qualityScore = transcription?.quality?.score || transcription?.archive_metadata?.quality?.score;
     const suffix = Number.isFinite(Number(qualityScore)) ? ` Qualidade estrutural: ${qualityScore}/100 (${quality}).` : ` Qualidade: ${quality}.`;
+    const linkedPath = String(state.manualTranscriptVideo || "").trim();
+    const linkedName = linkedPath && linkedPath !== "pending-source" ? linkedPath.split(/[\\/]/).pop() : "vídeo ainda não confirmado";
+    const selectedPath = String(selectedVideoPathForRequest() || "").trim();
+    const linkage = linkedPath === "pending-source"
+        ? "Aguardando vínculo com um vídeo selecionado."
+        : linkedPath && selectedPath && linkedPath === selectedPath
+            ? `Vinculada a ${linkedName}.`
+            : linkedPath
+                ? `Fonte registrada: ${linkedName}; confirme se corresponde ao vídeo atual.`
+                : "Fonte da transcrição não identificada; revise antes do corte.";
+    const archivePath = String(archive?.text || archive?.json || archive?.archive || "").trim();
+    const archiveLabel = archivePath ? ` Arquivo persistente: ${archivePath.split(/[\\/]/).pop()}.` : " Arquivo persistente ainda não identificado.";
     const status = document.getElementById("transcriptStatus");
     if (status) {
-        status.textContent = `Transcrição carregada na aba: ${count} segmentos.${suffix}`;
-        status.className = `source-status ${quality === "structurally_ok" ? "success" : "warning"}`;
+        status.textContent = `Transcrição pronta: ${count} segmentos. ${linkage}${archiveLabel}${suffix}`;
+        status.className = `source-status ${quality === "structurally_ok" && linkedPath && linkedPath === selectedPath ? "success" : "warning"}`;
     }
+}
+
+function transcriptArchiveCoverage(item = {}) {
+    const quality = item.quality || {};
+    const duration = Number(quality.duration_seconds || 0);
+    const lastTimestamp = Number(quality.last_timestamp || 0);
+    if (!Number.isFinite(duration) || duration <= 0) return "duração da fonte não informada · revisar";
+    if (!Number.isFinite(lastTimestamp) || lastTimestamp <= 0) return "sem cobertura temporal utilizável · revisar";
+    if (lastTimestamp < duration * 0.95) return "último timestamp antes do fim da fonte · revisar";
+    return "timestamps cobrem quase toda a duração informada · confirmar no vídeo";
+}
+
+function transcriptArchiveCompatibility(item = {}) {
+    const selectedPath = String(selectedVideoPathForRequest() || "").replaceAll("\\", "/").trim();
+    const archivedPath = String(item.source_video || "").replaceAll("\\", "/").trim();
+    if (!selectedPath) return "selecione um vídeo para comparar";
+    if (!archivedPath) return "fonte arquivada não identificada · revisar";
+    if (selectedPath === archivedPath) return "fonte atual registrada";
+    const selectedName = selectedPath.split("/").pop().toLowerCase();
+    const archivedName = archivedPath.split("/").pop().toLowerCase();
+    return selectedName && selectedName === archivedName
+        ? "mesmo nome-base · confirmar arquivo"
+        : "fonte diferente da seleção · não aplicar automaticamente";
 }
 
 function renderTranscriptArchiveList(items = [], persistentDir = "") {
@@ -2889,9 +3694,19 @@ function renderTranscriptArchiveList(items = [], persistentDir = "") {
     list.innerHTML = items.map(item => {
         const quality = item.quality || {};
         const sourceVideo = String(item.source_video || "").split(/[\\\\/]/).pop() || "fonte não identificada";
-        const label = quality.score !== undefined ? `${Number(quality.score).toFixed(0)}/100 · ${quality.quality || "revisar"}` : "qualidade não validada";
+        const qualityLabels = {
+            structurally_ok: "estrutura timestampada válida",
+            review_recommended: "estrutura válida · revisar avisos",
+            needs_attention: "estrutura requer atenção",
+        };
+        const qualityLabel = qualityLabels[String(quality.quality || "")] || "qualidade estrutural não validada";
+        const scoreLabel = quality.score !== undefined ? `${Number(quality.score).toFixed(0)}/100` : "sem score";
+        const semanticLabel = quality.semantic_accuracy_verified ? "semântica validada" : "semântica não validada";
         const source = String(item.source || "automatic").replace(/_/g, " ");
-        return `<article class="transcript-archive-item"><div><strong>${escapeHtml(sourceVideo)}</strong><small>${escapeHtml(source)} · ${escapeHtml(label)} · ${Number(item.quality?.segment_count || 0)} segmentos</small></div><div class="transcript-archive-links"><a class="btn btn-sm btn-outline" href="${escapeHtml(item.download_text || "#")}" target="_blank" rel="noopener">TXT</a><a class="btn btn-sm btn-outline" href="${escapeHtml(item.download_json || "#")}" target="_blank" rel="noopener">JSON</a></div></article>`;
+        const compatibility = transcriptArchiveCompatibility(item);
+        const coverageLabel = transcriptArchiveCoverage(item);
+        const archiveClass = quality.quality === "structurally_ok" && quality.semantic_accuracy_verified ? "" : " warning";
+        return `<article class="transcript-archive-item${archiveClass}"><div><strong>${escapeHtml(sourceVideo)}</strong><small>${escapeHtml(source)} · ${escapeHtml(scoreLabel)} · ${escapeHtml(qualityLabel)} · ${escapeHtml(semanticLabel)} · ${Number(quality.valid_segment_count || 0)} segmentos válidos</small><small class="transcript-archive-coverage">${escapeHtml(coverageLabel)}</small><small class="transcript-archive-compatibility">${escapeHtml(compatibility)}</small></div><div class="transcript-archive-links"><a class="btn btn-sm btn-outline" href="${escapeHtml(item.download_text || "#")}" target="_blank" rel="noopener">TXT</a><a class="btn btn-sm btn-outline" href="${escapeHtml(item.download_json || "#")}" target="_blank" rel="noopener">JSON</a><button type="button" class="btn btn-sm btn-outline" data-open-transcript-folder="${escapeHtml(item.relative_dir || "")}">Pasta</button></div></article>`;
     }).join("");
 }
 
@@ -2916,6 +3731,38 @@ async function loadTranscriptArchive() {
 
 document.getElementById("btnLoadTranscriptArchive")?.addEventListener("click", loadTranscriptArchive);
 
+document.addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-open-transcript-folder]");
+    if (!button) return;
+    const relativeDir = String(button.dataset.openTranscriptFolder || "").trim();
+    if (!relativeDir) {
+        showToast("Esta transcrição não informa uma pasta persistente válida.", "warning");
+        return;
+    }
+    button.disabled = true;
+    try {
+        const response = await fetch("/api/editorial/transcripts/open", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ relative_dir: relativeDir }),
+        });
+        const payload = await parseJsonResponse(response, "Pasta da transcrição");
+        if (!response.ok || !payload.success) throw new Error(payload.error || "Não foi possível abrir a pasta persistente");
+        showToast("Pasta persistente aberta. Nenhum arquivo foi aplicado ao vídeo atual.", "success");
+    } catch (error) {
+        showToast(error.message || "Não foi possível abrir a pasta persistente", "error");
+    } finally {
+        button.disabled = false;
+    }
+});
+
+function showSourceOnlyStatus(message, type = "") {
+    const sourceStatus = document.getElementById("sourceStatus");
+    if (!sourceStatus) return;
+    sourceStatus.textContent = message;
+    sourceStatus.className = `source-status ${type}`.trim();
+}
+
 function showSourceStatus(message, type = "") {
     const transcriptStatus = document.getElementById("transcriptStatus");
     const sourceStatus = document.getElementById("sourceStatus");
@@ -2924,6 +3771,30 @@ function showSourceStatus(message, type = "") {
         el.textContent = message;
         el.className = `source-status ${type}`.trim();
     });
+}
+
+function transcriptCoverageLabel(transcription) {
+    const coverage = transcription?.coverage || {};
+    const status = String(coverage.status || "unknown");
+    const segments = Number(coverage.segment_count || transcription?.segment_count || transcription?.segments?.length || 0);
+    const endRatio = Number(coverage.end_ratio);
+    const firstRatio = Number(coverage.first_ratio);
+    const first = Number(coverage.first_timestamp);
+    const last = Number(coverage.last_timestamp);
+    const duration = Number(coverage.video_duration_seconds);
+    if (status === "mismatch_suspected") return `timestamps incompatíveis com o vídeo selecionado; revise antes de cortar`;
+    if (status === "empty") return "nenhum segmento timestampado utilizável; importe uma transcrição válida antes de cortar";
+    if (status === "unknown") return "cobertura temporal não validada; confirme a sincronização no vídeo antes de cortar";
+    if (status === "partial" && Number.isFinite(last) && Number.isFinite(duration) && duration > 0) {
+        const lateStart = Number.isFinite(first) && first > 0 && Number.isFinite(firstRatio) && firstRatio > 0.2
+            ? `; começa em ${formatTime(first)}`
+            : "";
+        return `cobertura parcial até ${formatTime(last)} de ${formatTime(duration)}${lateStart}; cortes ficarão limitados a esse trecho`;
+    }
+    if (status === "covered" && Number.isFinite(endRatio) && endRatio > 0) {
+        return `${segments} segmentos com cobertura temporal até ${Math.round(endRatio * 100)}% do vídeo`;
+    }
+    return `${segments} segmentos timestampados; confira a sincronização no vídeo`;
 }
 
 function activateSourceTab(name) {
@@ -2959,6 +3830,9 @@ document.getElementById("transcriptFileInput")?.addEventListener("change", async
 
 document.getElementById("btnApplyTranscript")?.addEventListener("click", async () => {
     const text = document.getElementById("manualTranscriptInput")?.value.trim();
+    const selectedVideoPath = selectedVideoPathForRequest();
+    const previewDuration = Number(document.getElementById("videoPreview")?.duration);
+    const selectedVideoDuration = Number.isFinite(previewDuration) && previewDuration > 0 ? previewDuration : null;
     if (!text) {
         showSourceStatus("Cole ou importe uma transcrição primeiro.", "error");
         return;
@@ -2970,15 +3844,17 @@ document.getElementById("btnApplyTranscript")?.addEventListener("click", async (
             body: JSON.stringify({
                 text,
                 language: document.getElementById("settingLanguage")?.value || "pt",
-                duration: state.selectedVideo?.duration || state.selectedVideo?.duration_seconds || null,
-                video_path: state.selectedVideo?.path || null,
+                duration: selectedVideoDuration,
+                video_path: selectedVideoPath || null,
             }),
         });
         const data = await parseJsonResponse(res, "Transcrição");
         if (!res.ok || !data.success) throw new Error(data.error || "Transcrição inválida");
         state.manualTranscript = data.transcription;
-        state.manualTranscriptVideo = state.selectedVideo || "pending-source";
-        showSourceStatus(`Transcrição ${data.transcription.format} pronta: ${data.transcription.segment_count} segmentos. Ela será usada no próximo corte sem Whisper e poderá ser anexada ao próximo download.`, "success");
+        state.manualTranscriptVideo = selectedVideoPath || "pending-source";
+        const coverageStatus = String(data.transcription.coverage?.status || "");
+        const statusType = coverageStatus === "mismatch_suspected" ? "error" : ["partial", "empty", "unknown"].includes(coverageStatus) ? "warning" : "success";
+        showSourceStatus(`Transcrição ${data.transcription.format} pronta: ${transcriptCoverageLabel(data.transcription)}. Ela será usada no próximo corte sem Whisper.`, statusType);
         showToast("Transcrição manual aplicada.", "success");
     } catch (error) {
         state.manualTranscript = null;
@@ -2989,6 +3865,8 @@ document.getElementById("btnApplyTranscript")?.addEventListener("click", async (
 
 document.getElementById("btnGenerateTranscript")?.addEventListener("click", async () => {
     if (!requireVideo()) return;
+    state.transcriptionJobVideoPath = selectedVideoPathForRequest();
+    prepareNewOperationHud();
     showProgressBar();
     showSourceStatus("Gerando transcrição do vídeo; isso pode levar alguns minutos...", "");
     addConsoleLog("[Transcrição] Geração automática solicitada.", "info");
@@ -3004,9 +3882,12 @@ document.getElementById("btnGenerateTranscript")?.addEventListener("click", asyn
         });
         const data = await parseJsonResponse(res, "Transcrição automática");
         if (!res.ok || !data.success) throw new Error(data.error || "Não foi possível iniciar a transcrição");
+        registerStartedOperation(data, "Transcrição em andamento.");
+        showProgressBar();
         showSourceStatus("Transcrição iniciada; acompanhe o console abaixo.", "");
     } catch (error) {
         hideProgressBar();
+        state.transcriptionJobVideoPath = "";
         showSourceStatus(error.message, "error");
         showToast(error.message, "error");
     }
@@ -3465,6 +4346,18 @@ async function ensureSourceDirectory() {
     return chooseSourceDirectory();
 }
 
+function setSourceImportBusy(active) {
+    state.sourceImportActive = Boolean(active);
+    const buttons = [
+        document.getElementById("btnDownloadSource"),
+        document.getElementById("btnDownloadTranscribeSource"),
+    ].filter(Boolean);
+    buttons.forEach(button => {
+        button.disabled = state.sourceImportActive;
+        button.classList.toggle("loading", state.sourceImportActive);
+    });
+}
+
 async function importSource(autoTranscribe = false) {
     if (state.sourceImportActive) return;
     const input = document.getElementById("sourceUrlInput");
@@ -3480,19 +4373,18 @@ async function importSource(autoTranscribe = false) {
         return;
     }
     const maxHeight = parseInt(document.getElementById("sourceMaxHeight")?.value || state.sourceMaxHeight || 1080, 10);
-    const confirmedTranscript = autoTranscribe && state.manualTranscript?.segments?.length
+    const transcriptIsPendingForNextSource = state.manualTranscriptVideo === "pending-source";
+    const confirmedTranscript = autoTranscribe && transcriptIsPendingForNextSource && state.manualTranscript?.segments?.length
         ? {
             segments: state.manualTranscript.segments,
             language: state.manualTranscript.language || "pt",
         }
         : null;
-    const buttons = [
-        document.getElementById("btnDownloadSource"),
-        document.getElementById("btnDownloadTranscribeSource"),
-    ].filter(Boolean);
-    state.sourceImportActive = true;
+    prepareNewOperationHud();
+    state.sourceImportInitialVideoPath = state.selectedVideo || "";
+    setSourceImportBusy(true);
+    state.sourceImportJobId = "";
     state.sourceMaxHeight = maxHeight;
-    buttons.forEach(button => { button.disabled = true; button.classList.add("loading"); });
     showProgressBar();
     showSourceStatus(
         confirmedTranscript
@@ -3518,16 +4410,30 @@ async function importSource(autoTranscribe = false) {
         const data = await parseJsonResponse(res, "Importação da fonte");
         if (!res.ok || !data.success) throw new Error(data.error || "Não foi possível iniciar a importação");
         state.sourceUrl = url;
+        state.sourceImportJobId = String(data.job_id || "");
+        const sourceMessage = confirmedTranscript
+            ? "Download iniciado; a transcrição manual confirmada será anexada sem nova busca."
+            : autoTranscribe
+                ? "Download e transcrição iniciados; acompanhe o console abaixo."
+                : "Download iniciado; nenhuma transcrição será gerada.";
+        state.activeJob = {
+            id: state.sourceImportJobId,
+            state: data.state || "running",
+            stage: "source_import",
+            message: sourceMessage,
+        };
+        showProcessingControls(`[Job ${state.sourceImportJobId.slice(0, 8)}] ${sourceMessage}`);
+        showProgressBar();
         addConsoleLog(`[Fonte] Download iniciado em ${destination}, limite de qualidade ${maxHeight}p.`, "info");
         if (confirmedTranscript) addConsoleLog("[Transcrição manual] Será reutilizada após o download; Gemini e Whisper serão ignorados.", "success");
         else if (autoTranscribe) addConsoleLog("[Fonte] A transcrição será gerada após o download, apenas se não houver fonte manual confirmada.", "info");
     } catch (error) {
         hideProgressBar();
+        setSourceImportBusy(false);
+        state.sourceImportJobId = "";
+        state.sourceImportInitialVideoPath = "";
         showSourceStatus(error.message, "error");
         showToast(error.message, "error");
-    } finally {
-        state.sourceImportActive = false;
-        buttons.forEach(button => { button.disabled = false; button.classList.remove("loading"); });
     }
 }
 
@@ -3567,6 +4473,7 @@ function applySettings() {
     if (s.render_preset) document.getElementById("settingRenderPreset").value = s.render_preset;
     if (s.editorial_profile) document.getElementById("settingEditorialProfile").value = s.editorial_profile;
     if (s.editorial_focus) document.getElementById("settingEditorialFocus").value = s.editorial_focus;
+    if (s.campaign_hub_account) document.getElementById("settingCampaignHubAccount").value = s.campaign_hub_account;
     if (s.min_silence_duration != null) {
         document.getElementById("settingSilenceDuration").value = s.min_silence_duration;
         document.getElementById("silenceValue").textContent = s.min_silence_duration + "s";
@@ -3582,12 +4489,21 @@ function applySettings() {
     }
     if (s.ollama_model) document.getElementById("settingOllamaModel").value = s.ollama_model;
     const geminiStatus = document.getElementById("geminiKeyStatus");
+    const geminiInput = document.getElementById("settingGeminiKey");
     if (geminiStatus) {
         const configured = Boolean(s.gemini_api_key_configured || s.gemini_api_key);
-        geminiStatus.textContent = configured ? "Gemini configurado nesta instalação; o valor permanece oculto." : "Gemini sem chave nesta instalação; o app usará legenda pública ou fallback local.";
+        geminiStatus.textContent = configured ? "Gemini configurado nesta instalação; o valor permanece oculto. Deixe o campo vazio para preservar." : "Gemini sem chave nesta instalação; o app usará legenda pública ou fallback local.";
         geminiStatus.className = `ai-key-status ${configured ? "configured" : "missing"}`;
+        if (geminiInput) {
+            geminiInput.placeholder = configured
+                ? "Chave já configurada; deixe vazio para preservar"
+                : "Cole a chave; ela será salva fora do checkout";
+            geminiInput.title = configured
+                ? "Uma chave já está salva. Digite outra somente para substituí-la."
+                : "A chave será salva fora do checkout, em FuriaClipsData/config/local.env.";
+        }
     }
-    if (s.gemini_api_key) document.getElementById("settingGeminiKey").value = s.gemini_api_key;
+    if (s.gemini_api_key && geminiInput) geminiInput.value = s.gemini_api_key;
     if (s.gemini_model) document.getElementById("settingGeminiModel").value = s.gemini_model;
     if (s.claude_api_key) document.getElementById("settingClaudeKey").value = s.claude_api_key;
     if (s.output_dir) {
@@ -3658,6 +4574,7 @@ document.getElementById("btnSaveSettings").addEventListener("click", async () =>
         render_preset: document.getElementById("settingRenderPreset").value,
         editorial_profile: document.getElementById("settingEditorialProfile").value,
         editorial_focus: document.getElementById("settingEditorialFocus").value,
+        campaign_hub_account: document.getElementById("settingCampaignHubAccount").value,
         min_silence_duration: parseFloat(document.getElementById("settingSilenceDuration").value),
         padding: 0.25,
         language: document.getElementById("settingLanguage").value,
@@ -3896,4 +4813,180 @@ document.addEventListener("DOMContentLoaded", () => {
     recoverActiveJobs();
     // Check Ollama status on load
     socket.emit("check_ollama");
+});
+
+
+// ─── Pesquisa editorial local do Campaign Hub (somente leitura) ───
+function resetCampaignSearchPanel() {
+    state.campaignSearchToken += 1;
+    const input = document.getElementById("campaignSearchInput");
+    const result = document.getElementById("campaignSearchResult");
+    const status = document.getElementById("campaignSearchStatus");
+    const dateFrom = document.getElementById("campaignSearchDateFrom");
+    const dateTo = document.getElementById("campaignSearchDateTo");
+    const platform = document.getElementById("campaignSearchPlatform");
+    if (input) input.value = "";
+    if (platform) platform.value = "";
+    if (dateFrom) dateFrom.value = "";
+    if (dateTo) dateTo.value = "";
+    if (result) {
+        result.hidden = true;
+        result.innerHTML = "";
+    }
+    if (status) status.textContent = "Pesquise no cache local do Campaign Hub quando precisar de uma referência.";
+}
+
+function formatCampaignSearchDate(value) {
+    const raw = String(value || "").trim();
+    const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    return match ? `${match[3]}/${match[2]}/${match[1]}` : (raw || "data não informada");
+}
+
+function formatCampaignSearchSeconds(value) {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric) || numeric < 0) return "";
+    const total = Math.floor(numeric);
+    const hours = Math.floor(total / 3600);
+    const minutes = Math.floor((total % 3600) / 60);
+    const seconds = total % 60;
+    return hours ? `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}` : `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
+
+function campaignSearchCopyButton(text, label, icon = "content_copy") {
+    const value = String(text || "").trim();
+    if (!value) return "";
+    return `<button class="btn btn-sm btn-secondary campaign-search-copy" type="button" data-campaign-copy="${encodeURIComponent(value)}"><span class="material-icons-round">${escapeHtml(icon)}</span>${escapeHtml(label)}</button>`;
+}
+
+function renderCampaignSearchMoments(moments) {
+    if (!Array.isArray(moments) || !moments.length) return "";
+    const rows = moments.slice(0, 6).map((moment, index) => {
+        const start = formatCampaignSearchSeconds(moment.start_seconds);
+        const end = formatCampaignSearchSeconds(moment.end_seconds);
+        const time = start && end ? `${start}–${end}` : start || "momento sem timestamp";
+        const label = String(moment.label || `Momento ${index + 1}`).trim();
+        const reason = String(moment.reason || "").trim();
+        const copyText = [label, time, reason].filter(Boolean).join(" · ");
+        const momentUrl = safeExternalUrl(moment.preview_url);
+        const momentAction = momentUrl ? `<a class="campaign-search-moment-open" href="${escapeHtml(momentUrl)}" target="_blank" rel="noopener noreferrer" title="Abrir momento no YouTube"><span class="material-icons-round">play_arrow</span>Abrir</a>` : "";
+        return `<li class="campaign-search-moment"><button class="campaign-search-moment-time campaign-search-copy" type="button" data-campaign-copy="${encodeURIComponent(time)}" title="Copiar timestamp"><span class="material-icons-round">schedule</span>${escapeHtml(time)}</button><div><strong>${escapeHtml(label)}</strong>${reason ? `<p>${escapeHtml(reason)}</p>` : ""}</div><span class="campaign-search-moment-actions">${momentAction}${campaignSearchCopyButton(copyText, "Copiar", "content_copy")}</span></li>`;
+    }).join("");
+    return `<div class="campaign-search-moments"><strong><span class="material-icons-round">auto_awesome</span> Momentos fortes</strong><ul>${rows}</ul></div>`;
+}
+
+function renderCampaignSearchResult(payload) {
+    const container = document.getElementById("campaignSearchResult");
+    if (!container) return;
+    if (!payload || !payload.success) {
+        container.hidden = false;
+        container.innerHTML = `<p class="context-empty-copy"><span class="material-icons-round">error_outline</span>${escapeHtml(payload?.error || "Nenhum resultado disponível.")}</p>`;
+        return;
+    }
+    const counts = payload.counts || {};
+    const results = Array.isArray(payload.results) ? payload.results : [];
+    const countLine = `${Number(payload.total_cached_matches || 0)} resultado(s) no cache · ${Number(counts.with_timestamps || 0)} com timestamps · ${Number(counts.download_eligible || 0)} com URL + timestamps confirmados`;
+    const cards = results.length ? results.map((item, index) => {
+        const script = String(item.full_script || item.summary || item.caption || "").trim();
+        const title = String(item.title || "Referência editorial sem título").trim();
+        const summary = String(item.summary || script || "Transcrição não disponível no snapshot.").trim();
+        const excerpt = summary.length > 420 ? `${summary.slice(0, 417)}…` : summary;
+        const ratio = Number(item.performance_ratio || 0);
+        const similarity = Math.round(Number(item.similarity || item.semantic_score || 0) * 100);
+        const score = Number(item.editorial_score || 0).toFixed(1);
+        const start = formatCampaignSearchSeconds(item.start_seconds);
+        const end = formatCampaignSearchSeconds(item.end_seconds);
+        const duration = formatCampaignSearchSeconds(item.duration_seconds);
+        const timing = start && end ? `${start}–${end}` : start ? `a partir de ${start}` : "intervalo não informado";
+        const topics = Array.isArray(item.topics) && item.topics.length ? item.topics : (Array.isArray(item.tags) ? item.tags : []);
+        const badges = topics.slice(0, 5).map(tag => `<span>${escapeHtml(tag)}</span>`).join("");
+        const category = item.category ? `<span class="campaign-search-category">${escapeHtml(item.category)}</span>` : "";
+        const timestampLabel = item.has_timestamps ? "timestamps disponíveis" : "sem timestamps no cache";
+        const downloadLabel = item.download_action_available ? "download disponível" : item.download_eligible ? "referência + timestamps; download local não habilitado" : "download não confirmado";
+        const reviewLabels = [];
+        if (item.needs_context) reviewLabels.push("contexto adicional recomendado");
+        if (Array.isArray(item.risk_flags)) reviewLabels.push(...item.risk_flags);
+        if (Array.isArray(item.gate_warnings)) reviewLabels.push(...item.gate_warnings);
+        const reviewNote = reviewLabels.length ? `<span class="campaign-search-status review"><span class="material-icons-round">rule</span>${escapeHtml(reviewLabels.join(" · "))}</span>` : "";
+        const sourceUrl = safeExternalUrl(item.source_url || item.url);
+        const sourceAction = sourceUrl
+            ? `<a class="btn btn-sm btn-secondary" href="${escapeHtml(sourceUrl)}" target="_blank" rel="noopener noreferrer"><span class="material-icons-round">open_in_new</span> Abrir fonte</a>`
+            : `<span class="campaign-search-status review">URL não autorizada para abrir</span>`;
+        const previewUrl = safeExternalUrl(item.source_preview_url);
+        const previewAction = previewUrl
+            ? `<a class="btn btn-sm btn-primary" href="${escapeHtml(previewUrl)}" target="_blank" rel="noopener noreferrer"><span class="material-icons-round">play_arrow</span> Abrir trecho</a>`
+            : "";
+        const copyPauta = [title, item.summary, item.trigger_question ? `Pergunta-gatilho: ${item.trigger_question}` : "", `Intervalo: ${timing}`, item.source_title ? `Fonte: ${item.source_title}` : ""].filter(Boolean).join("\n");
+        const copyInterval = start && end ? `${start}\t${end}` : start;
+        const sourceMeta = [item.source_title, item.source_video_id ? `ID ${item.source_video_id}` : ""].filter(Boolean).join(" · ");
+        return `<article class="campaign-search-card campaign-search-block-card"><div class="campaign-search-card-head"><strong>#${index + 1} · ${escapeHtml(item.channel || "conta não informada")}</strong><span>${escapeHtml(formatCampaignSearchDate(item.published_at))}</span></div><div class="campaign-search-card-title"><h4>${escapeHtml(title)}</h4>${category}</div>${sourceMeta ? `<p class="campaign-search-source"><span class="material-icons-round">movie</span>${escapeHtml(sourceMeta)}</p>` : ""}<div class="campaign-search-card-meta"><span>${escapeHtml(item.platform || item.source_platform || "fonte")}</span><span>bloco ${escapeHtml(timing)}</span>${duration ? `<span>duração ${escapeHtml(duration)}</span>` : ""}<span>relevância ${similarity}%</span><span>score ${escapeHtml(score)}</span>${ratio ? `<span>ratio ${ratio.toFixed(2)}x</span>` : ""}</div>${badges || item.trigger_question ? `<div class="campaign-search-tags">${badges}${item.trigger_question ? `<span class="campaign-search-question"><span class="material-icons-round">help_outline</span>${escapeHtml(item.trigger_question)}</span>` : ""}</div>` : ""}<p>${escapeHtml(excerpt)}</p>${item.primary_reason ? `<p class="campaign-search-reason"><span class="material-icons-round">lightbulb</span>${escapeHtml(item.primary_reason)}</p>` : ""}${renderCampaignSearchMoments(item.moments)}${reviewNote ? `<div class="campaign-search-review">${reviewNote}</div>` : ""}<div class="campaign-search-card-foot"><span class="campaign-search-status ${item.has_timestamps ? "ready" : "review"}">${escapeHtml(timestampLabel)} · ${escapeHtml(downloadLabel)}</span><div class="campaign-search-card-actions">${campaignSearchCopyButton(copyPauta, "Copiar pauta", "content_copy")}${campaignSearchCopyButton(script, "Copiar transcrição", "description")}${campaignSearchCopyButton(copyInterval, "Copiar intervalo", "schedule")}${previewAction}${sourceAction}</div></div></article>`;
+    }).join("") : `<p class="context-empty-copy"><span class="material-icons-round">search_off</span>Nenhum resultado no cache local para esta consulta. Faça uma nova exportação somente leitura do Campaign Hub para ampliar a pesquisa.</p>`;
+    container.hidden = false;
+    container.innerHTML = `<div class="campaign-search-summary"><strong>${escapeHtml(countLine)}</strong><small>Fonte: snapshot local somente leitura · bloco editorial não é aprovação nem publicação</small></div><div class="campaign-search-list">${cards}</div>`;
+    container.querySelectorAll("[data-campaign-copy]").forEach(button => {
+        button.addEventListener("click", () => {
+            try {
+                copyToClipboard(decodeURIComponent(button.dataset.campaignCopy || ""));
+            } catch (_error) {
+                copyToClipboard(button.dataset.campaignCopy || "");
+            }
+        });
+    });
+}
+
+async function searchCampaignHubEditorial() {
+    const input = document.getElementById("campaignSearchInput");
+    const account = document.getElementById("campaignSearchAccount");
+    const platform = document.getElementById("campaignSearchPlatform");
+    const dateFrom = document.getElementById("campaignSearchDateFrom");
+    const dateTo = document.getElementById("campaignSearchDateTo");
+    const status = document.getElementById("campaignSearchStatus");
+    const button = document.getElementById("btnCampaignSearch");
+    const query = input?.value.trim() || "";
+    const searchToken = ++state.campaignSearchToken;
+    if (!query) {
+        if (status) status.textContent = "Informe um assunto para pesquisar.";
+        showToast("Informe um assunto para pesquisar.", "warning");
+        return;
+    }
+    if (button) { button.disabled = true; button.classList.add("loading"); }
+    if (status) status.textContent = "Consultando o índice editorial local…";
+    try {
+        const response = await fetch("/api/editorial/search", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                query,
+                account: account?.value || "",
+                platform: platform?.value || "",
+                published_from: dateFrom?.value || "",
+                published_to: dateTo?.value || "",
+                limit: 25,
+            }),
+        });
+        const payload = await parseJsonResponse(response, "Pesquisa editorial");
+        if (searchToken !== state.campaignSearchToken) return;
+        if (!response.ok || !payload.success) throw new Error(payload.error || "Pesquisa editorial indisponível");
+        renderCampaignSearchResult(payload);
+        if (status) {
+            const dateNote = payload.published_from || payload.published_to
+                ? ` no período ${payload.published_from || "início aberto"} a ${payload.published_to || "fim aberto"}`
+                : "";
+            status.textContent = `${Number(payload.returned || 0)} resultado(s) exibido(s)${dateNote}.`;
+        }
+    } catch (error) {
+        if (searchToken !== state.campaignSearchToken) return;
+        if (status) status.textContent = error.message;
+        renderCampaignSearchResult({ success: false, error: error.message });
+        showToast(error.message, "error");
+    } finally {
+        if (button) { button.disabled = false; button.classList.remove("loading"); }
+    }
+}
+
+document.getElementById("btnCampaignSearch")?.addEventListener("click", searchCampaignHubEditorial);
+document.getElementById("campaignSearchInput")?.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+        event.preventDefault();
+        searchCampaignHubEditorial();
+    }
 });

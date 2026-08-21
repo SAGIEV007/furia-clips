@@ -67,6 +67,17 @@ def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _valid_snapshot_timestamp(value: Any) -> bool:
+    text = str(value or "").strip()
+    if not text:
+        return False
+    try:
+        datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        return False
+    return True
+
+
 def _quality_tags(value: Any) -> list[str]:
     if isinstance(value, str):
         try:
@@ -136,11 +147,30 @@ def _feedback_snapshot_metadata(repo: Path) -> dict[str, Any]:
             count_consistent = int(declared_count) == records_count
         except (TypeError, ValueError):
             count_consistent = False
-    valid = isinstance(records, list) and version == SYNC_FORMAT_VERSION and count_consistent
+    valid_actions = {"approved", "rejected", "needs_review"}
+    invalid_record_count = 0
+    if isinstance(records, list):
+        invalid_record_count = sum(
+            1
+            for record in records
+            if not isinstance(record, dict)
+            or not str(record.get("editorial_key") or "").strip()
+            or str(record.get("action") or "").strip() not in valid_actions
+            or not _valid_snapshot_timestamp(record.get("created_at"))
+        )
+    semantic_valid = isinstance(records, list) and invalid_record_count == 0
+    valid = (
+        isinstance(records, list)
+        and version == SYNC_FORMAT_VERSION
+        and count_consistent
+        and semantic_valid
+    )
     metadata.update(
         {
             "feedback_snapshot_valid": valid,
             "feedback_snapshot_consistent": count_consistent,
+            "feedback_snapshot_semantic_valid": semantic_valid,
+            "feedback_snapshot_invalid_records": invalid_record_count,
             "feedback_snapshot_records": records_count,
             "feedback_snapshot_version": version,
             "feedback_snapshot_generated_at": str(payload.get("generated_at") or "")[:40] or None,
@@ -281,6 +311,19 @@ def get_repository_status(repo_path: str | None = None, fetch: bool = False) -> 
         _run_git(repo, "fetch", "--quiet", "origin", branch, timeout=60)
     local_sha = _head(repo, "HEAD")
     remote_sha = _head(repo, f"origin/{branch}")
+    if not fetch:
+        # Verificação segura: consulta a referência remota sem atualizar refs locais,
+        # preservar o worktree ou incorporar objetos ao checkout.
+        try:
+            remote_probe = _run_git(repo, "ls-remote", "--heads", "origin", branch, timeout=30)
+            remote_line = next((line.strip() for line in remote_probe.stdout.splitlines() if line.strip()), "")
+            probed_sha = remote_line.split()[0] if remote_line else ""
+            if probed_sha:
+                remote_sha = probed_sha
+        except RepositorySyncError:
+            # Se a rede estiver indisponível, mantém a referência cached local e
+            # deixa o painel mostrar o estado conhecido sem travar o editor.
+            pass
     dirty = _status_files(repo)
     snapshot_relative = SNAPSHOT_RELATIVE_PATH.as_posix()
     feedback_snapshot_dirty = snapshot_relative in dirty

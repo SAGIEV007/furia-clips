@@ -23,6 +23,24 @@ class EditorialRankerTests(unittest.TestCase):
         self.assertIn("context_match", result["factors"])
         self.assertIn("completeness", result["factors"])
 
+    def test_context_recovery_survives_ranking_and_review_flags(self):
+        recovery = {
+            "applied": True,
+            "reason": "antecedente recuperado antes de início truncado",
+            "added_start": 0.0,
+            "original_start": 5.0,
+            "gap_seconds": 1.0,
+        }
+        result = self.ranker.score_clip({
+            "start": 0.0,
+            "end": 20.0,
+            "duration": 20.0,
+            "text": "A decisão foi anunciada. Isso aconteceu porque havia uma regra clara e verificável.",
+            "context_recovery": recovery,
+        })
+        self.assertEqual(result["context_recovery"], recovery)
+        self.assertTrue(result["review_flags"]["context_recovery_applied"])
+
     def test_audio_energy_uses_windows_inside_clip(self):
         result = self.ranker.score_clip(
             {
@@ -97,6 +115,35 @@ class EditorialRankerTests(unittest.TestCase):
         self.assertLessEqual(len(tax_clips), 2)
         self.assertTrue(any(clip.get("diversity_penalty", 0) > 0 for clip in tax_clips))
         self.assertEqual(len(security_clips), 1)
+
+    def test_similar_text_with_distinct_context_is_not_hard_dropped(self):
+        first = {
+            "source_id": "live-1",
+            "start": 0,
+            "end": 30,
+            "duration": 30,
+            "text": "A proposta é clara e precisa de resposta. A conclusão é inevitável.",
+            "closure_type": "conclusion",
+            "question_answer_complete": True,
+            "payoff_complete": True,
+            "chapter_primary_id": 1,
+            "topic_signature": "politica:proposta-resposta",
+        }
+        second = {
+            **first,
+            "start": 180,
+            "end": 210,
+            "closure_type": "cliffhanger",
+            "question_answer_complete": False,
+            "payoff_complete": False,
+            "chapter_primary_id": 2,
+        }
+
+        penalty = self.ranker._diversity_penalty(second, [first])
+        reason = self.ranker._diversity_reason(second, [first])
+
+        self.assertLess(penalty, 70)
+        self.assertEqual(reason, "texto semelhante, mas contexto/payoff distinto")
 
     def test_cliffhanger_is_labeled_and_scores_below_equivalent_conclusion(self):
         cliffhanger = self.ranker.score_clip({
@@ -207,81 +254,219 @@ def test_context_quality_penalizes_abrupt_start_and_unresolved_question():
     assert complete["editorial_potential_score"] > abrupt["editorial_potential_score"]
 
 
-    def test_observed_high_impact_openers_score_as_hooks(self):
-        observed = self.ranker.score_clip({
+def test_observed_high_impact_openers_score_as_hooks():
+    ranker = EditorialRanker()
+    observed = ranker.score_clip({
+        "start": 0,
+        "end": 30,
+        "duration": 30,
+        "text": "Presta muita atenção! Leia de novo: este é o Brasil que vamos receber.",
+    })
+    plain = ranker.score_clip({
+        "start": 0,
+        "end": 30,
+        "duration": 30,
+        "text": "Este é o Brasil que vamos receber, segundo os dados apresentados.",
+    })
+    assert observed["factors"]["hook"] > plain["factors"]["hook"]
+    assert observed["factors"]["hook"] >= 70
+
+
+def test_diversity_penalty_exposes_explainable_reason():
+    ranker = EditorialRanker()
+    clips = [
+        {
+            "source_id": "live-1",
             "start": 0,
             "end": 30,
             "duration": 30,
-            "text": "Presta muita atenção! Leia de novo: este é o Brasil que vamos receber.",
-        })
-        plain = self.ranker.score_clip({
-            "start": 0,
-            "end": 30,
+            "topic_signature": "seguranca_publica",
+            "text": "A proposta muda a segurança pública e precisa de responsabilidade.",
+        },
+        {
+            "source_id": "live-1",
+            "start": 60,
+            "end": 90,
             "duration": 30,
-            "text": "Este é o Brasil que vamos receber, segundo os dados apresentados.",
-        })
-        self.assertGreater(observed["factors"]["hook"], plain["factors"]["hook"])
-        self.assertGreaterEqual(observed["factors"]["hook"], 70)
+            "topic_signature": "seguranca_publica",
+            "text": "A investigação precisa de método e a segurança pública depende de responsabilidade.",
+        },
+    ]
+    ranked = ranker.rank_clips(clips)
+    penalized = [clip for clip in ranked if clip.get("diversity_penalty", 0) > 0]
+    assert penalized
+    assert penalized[0]["diversity_reason"] in {
+        "texto muito semelhante",
+        "tema editorial semelhante",
+        "intervalo temporal sobreposto",
+    }
 
 
-    def test_diversity_penalty_exposes_explainable_reason(self):
-        clips = [
-            {"source_id": "live-1", "start": 0, "end": 30, "duration": 30, "text": "A proposta muda a segurança pública e precisa de responsabilidade."},
-            {"source_id": "live-1", "start": 60, "end": 90, "duration": 30, "text": "A proposta muda a segurança pública e precisa de responsabilidade."},
-        ]
-        ranked = self.ranker.rank_clips(clips)
-        penalized = [clip for clip in ranked if clip.get("diversity_penalty", 0) > 0]
-        assert penalized
-        assert penalized[0]["diversity_reason"] in {
-            "texto muito semelhante",
-            "tema editorial semelhante",
-            "intervalo temporal sobreposto",
+def test_context_quality_penalizes_unresolved_reference_opening():
+    ranker = EditorialRanker()
+    complete = ranker.score_clip({
+        "start": 0, "end": 25, "duration": 25,
+        "text": "A operação expôs dados sigilosos da família e precisa ser responsabilizada.",
+        "context_complete": True,
+        "payoff_complete": True,
+    })
+    unresolved = ranker.score_clip({
+        "start": 0, "end": 25, "duration": 25,
+        "text": "Isso expôs dados sigilosos da família e precisa ser responsabilizado.",
+        "starts_with_context_reference": True,
+        "context_complete": False,
+        "payoff_complete": True,
+    })
+    assert complete["factors"]["context_quality"] > unresolved["factors"]["context_quality"]
+
+
+def test_context_review_flags_expose_reference_and_weak_payoff():
+    ranker = EditorialRanker()
+    result = ranker.score_clip({
+        "start": 0, "end": 20, "duration": 20,
+        "text": "Isso acontece porque a proposta ainda precisa de análise.",
+        "starts_with_context_reference": True,
+        "payoff_weak_ending": True,
+    })
+    assert result["review_flags"]["starts_with_context_reference"] is True
+    assert result["review_flags"]["payoff_weak_ending"] is True
+
+
+def test_visual_evidence_hook_is_reviewable_and_bounded_in_ranker():
+    ranker = EditorialRanker()
+    base = {
+        "start": 0, "end": 24, "duration": 24,
+        "text": "Olha esse gráfico da pesquisa: a proposta muda o debate e termina com uma resposta completa.",
+        "context_complete": True,
+        "payoff_complete": True,
+        "evidence_present": True,
+    }
+    complete = ranker.score_clip(base)
+    visual = ranker.score_clip({
+        **base,
+        "contextual_hook": {
+            "family": "tese-provocativa",
+            "hook_text": "Olha esse gráfico da pesquisa",
+            "visual_evidence_required": True,
+        },
+    })
+    assert visual["viral_score"] < complete["viral_score"]
+    assert visual["viral_score"] >= complete["viral_score"] - 8
+    assert visual["technical_gate"]["visual_evidence_required"] is True
+    assert "evidência visual citada; confirmar no vídeo" in visual["technical_gate"]["reasons"]
+    assert visual["review_flags"]["visual_evidence_review_required"] is True
+
+
+def test_framing_review_caps_score_confidence_and_explains_gate():
+    ranker = EditorialRanker()
+    base = {
+        "start": 0, "end": 24, "duration": 24,
+        "text": "A proposta concreta muda o debate e termina com uma resposta completa.",
+        "context_complete": True,
+        "payoff_complete": True,
+        "evidence_present": True,
+    }
+    complete = ranker.score_clip(base)
+    review = ranker.score_clip({
+        **base,
+        "framing": {
+            "mode": "",
+            "review_required": True,
+            "reason": "metadata de enquadramento ausente ou legada; confirme a composição visual",
+        },
+    })
+    assert review["viral_score"] < complete["viral_score"]
+    assert review["viral_score"] <= 78
+    assert review["confidence"] <= 0.72
+    assert any("enquadramento exige confirmação visual" in reason for reason in review["technical_gate"]["reasons"])
+    assert review["review_flags"]["framing_review_required"] is True
+
+
+def test_partial_transcription_caps_score_confidence_and_explains_gate():
+    ranker = EditorialRanker()
+    base = {
+        "start": 0, "end": 24, "duration": 24,
+        "text": "A proposta concreta muda o debate e termina com uma resposta completa.",
+        "context_complete": True,
+        "payoff_complete": True,
+        "evidence_present": True,
+    }
+    complete = ranker.score_clip(base)
+    partial = ranker.score_clip({
+        **base,
+        "transcription_review_required": True,
+        "transcription_coverage_status": "partial",
+    })
+    assert partial["viral_score"] < complete["viral_score"]
+    assert partial["confidence"] <= 0.74
+    assert "cobertura parcial da transcrição" in partial["technical_gate"]["reasons"]
+    assert partial["review_flags"]["transcription_review_required"] is True
+
+
+def test_speaker_review_required_caps_score_and_exposes_reason():
+    ranker = EditorialRanker()
+    result = ranker.score_clip({
+        "start": 0,
+        "end": 36,
+        "duration": 36,
+        "text": "Qual é a proposta? A resposta está nos dados e precisa ser conferida.",
+        "question_detected": True,
+        "context_complete": True,
+        "payoff_complete": True,
+        "needs_speaker_review": True,
+    })
+
+    assert result["speaker_review_required"] is True
+    assert result["confidence"] <= 0.70
+    assert result["editorial_potential_score"] <= 78
+    assert result["review_flags"]["speaker_review_required"] is True
+    assert "locutor" in result["speaker_review_reason"]
+    assert result["technical_gate"]["status"] == "review_required"
+
+
+def test_feedback_cannot_override_speaker_review_score_cap():
+    ranker = EditorialRanker(
+        feedback_calibration={
+            "eligible": True,
+            "factor_deltas": {},
+            "candidate_origin_deltas": {"gemini_primary": 100},
         }
+    )
+    result = ranker.score_clip({
+        "start": 0,
+        "end": 36,
+        "duration": 36,
+        "text": "Qual é a proposta? A resposta está nos dados e precisa ser conferida.",
+        "question_detected": True,
+        "context_complete": True,
+        "payoff_complete": True,
+        "needs_speaker_review": True,
+        "candidate_origin": "gemini_primary",
+        "confidence": 0.9,
+    })
+
+    assert result["feedback_calibration"]["adjustment"] > 0
+    assert result["editorial_potential_score"] <= 78
 
 
-    def test_context_quality_penalizes_unresolved_reference_opening(self):
-        complete = self.ranker.score_clip({
-            "start": 0, "end": 25, "duration": 25,
-            "text": "A operação expôs dados sigilosos da família e precisa ser responsabilizada.",
-            "context_complete": True,
-            "payoff_complete": True,
-        })
-        unresolved = self.ranker.score_clip({
-            "start": 0, "end": 25, "duration": 25,
-            "text": "Isso expôs dados sigilosos da família e precisa ser responsabilizado.",
-            "starts_with_context_reference": True,
-            "context_complete": False,
-            "payoff_complete": True,
-        })
-        assert complete["factors"]["context_quality"] > unresolved["factors"]["context_quality"]
+def test_qa_boundary_review_requires_speaker_review_only_for_questions():
+    ranker = EditorialRanker()
+    question = ranker.score_clip({
+        "start": 0,
+        "end": 24,
+        "duration": 24,
+        "text": "A proposta tem uma consequência clara e verificável.",
+        "question_detected": True,
+        "qa_boundary_review_required": True,
+    })
+    statement = ranker.score_clip({
+        "start": 0,
+        "end": 24,
+        "duration": 24,
+        "text": "A proposta tem uma consequência clara e verificável.",
+        "question_detected": False,
+        "qa_boundary_review_required": True,
+    })
 
-
-    def test_context_review_flags_expose_reference_and_weak_payoff(self):
-        result = self.ranker.score_clip({
-            "start": 0, "end": 20, "duration": 20,
-            "text": "Isso acontece porque a proposta ainda precisa de análise.",
-            "starts_with_context_reference": True,
-            "payoff_weak_ending": True,
-        })
-        assert result["review_flags"]["starts_with_context_reference"] is True
-        assert result["review_flags"]["payoff_weak_ending"] is True
-
-
-    def test_partial_transcription_caps_score_confidence_and_explains_gate(self):
-        base = {
-            "start": 0, "end": 24, "duration": 24,
-            "text": "A proposta concreta muda o debate e termina com uma resposta completa.",
-            "context_complete": True,
-            "payoff_complete": True,
-            "evidence_present": True,
-        }
-        complete = self.ranker.score_clip(base)
-        partial = self.ranker.score_clip({
-            **base,
-            "transcription_review_required": True,
-            "transcription_coverage_status": "partial",
-        })
-        assert partial["viral_score"] < complete["viral_score"]
-        assert partial["confidence"] <= 0.74
-        assert "cobertura parcial da transcrição" in partial["technical_gate"]["reasons"]
-        assert partial["review_flags"]["transcription_review_required"] is True
+    assert question["speaker_review_required"] is True
+    assert statement["speaker_review_required"] is False

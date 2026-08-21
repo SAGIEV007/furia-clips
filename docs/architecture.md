@@ -68,10 +68,10 @@ A IA é substituível. Gemini, Ollama, Claude ou um modelo local futuro devem ob
    └─ validação ffprobe
           ↓
 [Entrega]
-   ├─ exports
-   ├─ SEO e thumbnail
-   ├─ lote e histórico
-   └─ feedback/calibração
+   ├─ exports validados
+   ├─ lote e histórico editorial
+   ├─ feedback/calibração
+   └─ metadados de publicação opcionais (desligados por padrão)
 ```
 
 ## Componentes

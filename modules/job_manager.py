@@ -13,6 +13,19 @@ from typing import Any, Callable, Dict, Optional
 from .cancellation import OperationCancelled
 
 
+def _elapsed_seconds(started_at: Optional[str], finished_at: str) -> float:
+    try:
+        started = datetime.fromisoformat(str(started_at).replace("Z", "+00:00"))
+        finished = datetime.fromisoformat(str(finished_at).replace("Z", "+00:00"))
+        if started.tzinfo is None:
+            started = started.replace(tzinfo=timezone.utc)
+        if finished.tzinfo is None:
+            finished = finished.replace(tzinfo=timezone.utc)
+        return max(0.0, (finished - started).total_seconds())
+    except (TypeError, ValueError):
+        return 0.0
+
+
 class JobCancelled(Exception):
     """Raised by a worker when the user requested cancellation."""
 
@@ -83,6 +96,8 @@ class JobManager:
                 progress INTEGER NOT NULL DEFAULT 0,
                 message TEXT,
                 artifacts TEXT NOT NULL DEFAULT '[]',
+                stage_timings TEXT NOT NULL DEFAULT '{}',
+                stage_started_at TEXT,
                 error TEXT,
                 created_at TEXT NOT NULL,
                 started_at TEXT,
@@ -91,6 +106,11 @@ class JobManager:
             )
             """
         )
+        columns = {row[1] for row in connection.execute("PRAGMA table_info(jobs)").fetchall()}
+        if "stage_timings" not in columns:
+            connection.execute("ALTER TABLE jobs ADD COLUMN stage_timings TEXT NOT NULL DEFAULT '{}'" )
+        if "stage_started_at" not in columns:
+            connection.execute("ALTER TABLE jobs ADD COLUMN stage_started_at TEXT")
         connection.commit()
         connection.close()
 
@@ -109,6 +129,10 @@ class JobManager:
             item["artifacts"] = json.loads(item.get("artifacts") or "[]")
         except (TypeError, json.JSONDecodeError):
             item["artifacts"] = []
+        try:
+            item["stage_timings"] = json.loads(item.get("stage_timings") or "{}")
+        except (TypeError, json.JSONDecodeError):
+            item["stage_timings"] = {}
         return item
 
     def create(self, job_type: str, project_id: Optional[int] = None) -> dict:
@@ -116,11 +140,11 @@ class JobManager:
         now = _now()
         connection = self._connect()
         connection.execute(
-            """INSERT INTO jobs
+            """            INSERT INTO jobs
                (id, project_id, type, state, stage, progress, message,
-                artifacts, created_at, updated_at)
-               VALUES (?, ?, ?, 'queued', 'queued', 0, ?, '[]', ?, ?)""",
-            (job_id, project_id, job_type, "Aguardando execução", now, now),
+                artifacts, stage_timings, stage_started_at, created_at, updated_at)
+               VALUES (?, ?, ?, 'queued', 'queued', 0, ?, '[]', '{}', ?, ?, ?)""",
+            (job_id, project_id, job_type, "Aguardando execução", now, now, now),
         )
         connection.commit()
         connection.close()
@@ -136,6 +160,16 @@ class JobManager:
         return job
 
     def _run(self, job_id: str, target: JobTarget):
+        current = self.get(job_id)
+        if current and current.get("state") == "cancel_requested":
+            self.update(
+                job_id,
+                state="cancelled",
+                stage="cancelled",
+                message="Job cancelado antes do início do worker.",
+                error="cancelled_before_start",
+            )
+            return
         self.update(job_id, state="running", stage="starting", progress=1, message="Job iniciado")
         context = JobContext(self, job_id)
         try:
@@ -183,14 +217,35 @@ class JobManager:
         current = self.get(job_id)
         if current is None:
             raise KeyError(job_id)
+        now = _now()
+        current_stage = current.get("stage") or "unknown"
+        next_stage = stage if stage is not None else current_stage
+        raw_stage_timings = current.get("stage_timings")
+        if isinstance(raw_stage_timings, dict):
+            stage_timings = dict(raw_stage_timings)
+        else:
+            try:
+                stage_timings = json.loads(raw_stage_timings or "{}")
+            except (TypeError, json.JSONDecodeError):
+                stage_timings = {}
+        if not isinstance(stage_timings, dict):
+            stage_timings = {}
+        stage_started_at = current.get("stage_started_at") or current.get("updated_at") or now
+        if next_stage != current_stage:
+            previous = stage_timings.get(current_stage)
+            previous_seconds = float(previous) if isinstance(previous, (int, float)) else 0.0
+            stage_timings[current_stage] = round(previous_seconds + _elapsed_seconds(stage_started_at, now), 3)
+            stage_started_at = now
         values = {
             "state": state if state is not None else current["state"],
-            "stage": stage if stage is not None else current["stage"],
+            "stage": next_stage,
             "progress": max(0, min(100, int(progress))) if progress is not None else current["progress"],
             "message": message if message is not None else current["message"],
             "artifacts": json.dumps(artifacts if artifacts is not None else current["artifacts"]),
+            "stage_timings": json.dumps(stage_timings, ensure_ascii=False),
+            "stage_started_at": stage_started_at,
             "error": error if error is not None else current["error"],
-            "updated_at": _now(),
+            "updated_at": now,
         }
         if state == "running" and not current.get("started_at"):
             values["started_at"] = _now()
@@ -198,8 +253,8 @@ class JobManager:
             values["finished_at"] = _now()
         assignments = [
             "state = :state", "stage = :stage", "progress = :progress",
-            "message = :message", "artifacts = :artifacts", "error = :error",
-            "updated_at = :updated_at",
+            "message = :message", "artifacts = :artifacts", "stage_timings = :stage_timings",
+            "stage_started_at = :stage_started_at", "error = :error", "updated_at = :updated_at",
         ]
         if "started_at" in values:
             assignments.append("started_at = :started_at")

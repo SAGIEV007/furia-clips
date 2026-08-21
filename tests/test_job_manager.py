@@ -64,6 +64,22 @@ class JobManagerTests(unittest.TestCase):
         self.assertIsNotNone(final)
         self.assertEqual(final["state"], "cancelled")
 
+    def test_cancel_request_before_worker_start_never_runs_target(self):
+        started = []
+
+        def worker(_ctx):
+            started.append(True)
+            return {}
+
+        created = self.manager.create("queued-cancel")
+        self.manager.request_cancel(created["id"])
+        self.manager._run(created["id"], worker)
+
+        final = self.manager.get(created["id"])
+        self.assertEqual(final["state"], "cancelled")
+        self.assertEqual(final["error"], "cancelled_before_start")
+        self.assertEqual(started, [])
+
     def test_jobs_are_recoverable_from_a_new_manager_instance(self):
         created = self.manager.create("recovery")
         recovered = JobManager(self.db_path, max_workers=1)
@@ -93,10 +109,6 @@ class JobManagerTests(unittest.TestCase):
         self.assertEqual(final["error"], "stale_job_recovered")
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
     def test_operation_cancelled_is_persisted_as_cancelled_state(self):
         from modules.cancellation import OperationCancelled
 
@@ -116,3 +128,30 @@ if __name__ == "__main__":
         self.assertEqual(final["state"], "cancelled")
         self.assertEqual(final["stage"], "cancelled")
         self.assertIn("parado no worker", final["error"])
+
+
+    def test_stage_timings_are_persisted_and_exposed(self):
+        def worker(ctx):
+            ctx.update(stage="analysis", progress=40, message="Analisando")
+            time.sleep(0.01)
+            ctx.update(stage="rendering", progress=80, message="Renderizando")
+            return {}
+
+        created = self.manager.submit("timed", worker)
+        deadline = time.time() + 3
+        final = None
+        while time.time() < deadline:
+            final = self.manager.get(created["id"])
+            if final and final["state"] in {"completed", "failed", "cancelled"}:
+                break
+            time.sleep(0.02)
+
+        self.assertIsNotNone(final)
+        self.assertEqual(final["state"], "completed")
+        self.assertIn("analysis", final["stage_timings"])
+        self.assertIn("rendering", final["stage_timings"])
+        self.assertGreaterEqual(final["stage_timings"]["analysis"], 0.0)
+
+
+if __name__ == "__main__":
+    unittest.main()

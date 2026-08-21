@@ -24,6 +24,19 @@ class TranscriptArchiveTests(unittest.TestCase):
         self.assertTrue(report["warnings"])
         self.assertFalse(report["semantic_accuracy_verified"])
 
+    def test_quality_report_flags_timestamps_beyond_source_duration(self):
+        report = transcript_archive.validate_transcription(
+            {
+                "segments": [
+                    {"start": 0.0, "end": 12.0, "text": "Trecho que pertence a outra fonte."},
+                ],
+            },
+            duration=10.0,
+        )
+        self.assertEqual(report["quality"], "needs_attention")
+        self.assertIn("excedem a duração", report["issues"][0])
+        self.assertFalse(report["semantic_accuracy_verified"])
+
     def test_empty_transcription_has_zero_quality_score(self):
         report = transcript_archive.validate_transcription({"segments": []})
         self.assertEqual(report["quality"], "needs_attention")

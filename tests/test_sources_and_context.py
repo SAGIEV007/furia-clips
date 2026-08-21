@@ -26,6 +26,29 @@ def test_parse_srt_and_vtt_ranges():
     assert parse_transcript_text(vtt)["format"] == "vtt"
 
 
+def test_coverage_marks_late_start_as_partial_even_when_last_timestamp_reaches_end():
+    from app import _transcription_coverage_report
+
+    report = _transcription_coverage_report({
+        "segments": [{"start": 30.0, "end": 100.0, "text": "Trecho final"}],
+    }, 100.0)
+
+    assert report["status"] == "partial"
+    assert report["first_ratio"] == 0.3
+    assert report["end_ratio"] == 1.0
+
+
+def test_coverage_marks_narrow_span_as_partial():
+    from app import _transcription_coverage_report
+
+    report = _transcription_coverage_report({
+        "segments": [{"start": 0.0, "end": 40.0, "text": "Trecho inicial"}],
+    }, 100.0)
+
+    assert report["status"] == "partial"
+    assert report["span_ratio"] == 0.4
+
+
 def test_editorial_context_detects_question_response_and_renan_signal():
     transcription = parse_transcript_text(
         "00:00:10.000 Você pode explicar a proposta?\n"
@@ -37,6 +60,17 @@ def test_editorial_context_detects_question_response_and_renan_signal():
     assert context["qa_candidates"]
     assert context["qa_candidates"][0]["needs_question"] is True
     assert context["qa_candidates"][0]["renan_signal"] is True
+
+
+def test_editorial_context_detects_compound_question_without_question_mark():
+    transcription = parse_transcript_text(
+        "00:00:10.000 O que o governo deveria fazer diante desse problema\n"
+        "00:00:16.000 A resposta começa pela prevenção e termina com uma proposta concreta."
+    )
+    context = analyze_transcript_context(transcription, focus="generic")
+    assert context["question_count"] == 1
+    assert context["qa_candidates"]
+    assert context["qa_candidates"][0]["needs_question"] is True
 
 
 def test_public_url_normalizes_browser_style_links_without_scheme():
@@ -64,6 +98,7 @@ def test_transcript_api_uses_canonical_parser(monkeypatch, tmp_path):
     payload = response.get_json()
     assert payload["success"] is True
     assert payload["transcription"]["segments"][0]["start"] == 1.0
+    assert payload["transcription"]["coverage"]["status"] == "covered"
 
 
 def test_dialog_route_rejects_invalid_mode():
@@ -109,6 +144,25 @@ def test_public_source_403_is_actionable():
     assert "HTTP 403" in message
     assert "link é público" in message
     assert "yt-dlp" in message
+
+
+def test_public_source_401_does_not_suggest_authentication_bypass():
+    from modules.source_ingest import _source_error
+
+    message = str(_source_error("Não foi possível baixar a fonte pública", RuntimeError("HTTP Error 401: Unauthorized")))
+    assert "HTTP 401" in message
+    assert "URL pública sem login" in message
+    assert "não contorna autenticação" in message
+    assert "cookies" in message
+
+
+def test_public_source_rate_limit_is_actionable_without_bypass():
+    from modules.source_ingest import _source_error
+
+    message = str(_source_error("Não foi possível baixar a fonte pública", RuntimeError("HTTP Error 429: Too Many Requests")))
+    assert "HTTP 429" in message
+    assert "Aguarde" in message
+    assert "não contorna rate limits" in message
 
 
 def test_parser_collapses_progressive_public_caption_windows_and_decodes_entities():
@@ -212,6 +266,22 @@ def test_source_progress_messages_explain_multistream_and_merge_stages():
     assert "Arquivo final pronto" in app_module._format_source_import_progress({"status": "merge_finished"})
 
 
+def test_editorial_context_discards_malformed_segments_without_crashing():
+    from modules.editorial_context import analyze_transcript_context
+
+    context = analyze_transcript_context({
+        "segments": [
+            {"start": "invalid", "end": 3, "text": "deve ser ignorado"},
+            {"start": 5, "end": 4, "text": "intervalo invertido"},
+            {"start": 8, "end": 12, "text": "Lula apresenta a proposta completa."},
+        ]
+    })
+
+    assert context["segment_count"] == 1
+    assert context["duration"] == 12.0
+    assert context["speaker_detection"]["status"] == "not_available"
+
+
 def test_editorial_context_marks_partial_speaker_coverage_for_review():
     from modules.editorial_context import analyze_transcript_context
 
@@ -244,3 +314,20 @@ def test_renan_participant_confidence_is_capped_without_full_diarization():
     assert context["focus"] == "renan_santos"
     assert context["participant_confidence"] <= 0.52
     assert context["speaker_detection"]["status"] == "not_available"
+
+
+def test_editorial_context_sorts_external_segments_before_deriving_windows():
+    from modules.editorial_context import analyze_transcript_context
+
+    context = analyze_transcript_context({
+        "segments": [
+            {"start": 8.0, "end": 12.0, "text": "A resposta termina com uma proposta."},
+            {"start": 1.0, "end": 4.0, "text": "Qual é a proposta?"},
+        ],
+        "coverage": {"status": "covered"},
+    }, focus="generic")
+
+    assert context["question_count"] == 1
+    assert context["qa_candidates"]
+    assert context["qa_candidates"][0]["start"] == 0.0
+    assert context["qa_candidates"][0]["end"] == 12.0

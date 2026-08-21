@@ -80,6 +80,40 @@ def test_source_import_passes_normalized_url_to_downloader(monkeypatch, tmp_path
     assert response.status_code == 200
     assert received["url"] == "https://www.youtube.com/watch?v=normalized"
     assert received["max_height"] == 1080
+    assert response.get_json()["job_id"]
+    assert app_module.current_task["active"] is False
+
+
+def test_source_import_terminal_event_is_bound_to_response_job(monkeypatch, tmp_path):
+    import app as app_module
+
+    downloaded = tmp_path / "bound-source.mp4"
+    downloaded.write_bytes(b"video")
+    events = []
+    monkeypatch.setattr(app_module, "validate_public_url", lambda value: value)
+    monkeypatch.setattr(
+        app_module,
+        "download_public_video",
+        lambda *args, **kwargs: {"path": str(downloaded), "title": "Bound", "duration": 2, "url": "u", "extractor": "youtube"},
+    )
+    monkeypatch.setattr(app_module, "create_project", lambda *args, **kwargs: 992)
+    monkeypatch.setattr(app_module, "emit_status", lambda status, data=None, job_id=None: events.append(("status", status, data or {}, job_id)))
+    monkeypatch.setattr(app_module, "emit_progress", lambda message, level="info": events.append(("progress", message, level)))
+    monkeypatch.setattr(app_module.threading, "Thread", lambda target, daemon=True: SimpleNamespace(start=target))
+    app_module.current_task["active"] = False
+    client = app_module.app.test_client()
+    response = client.post(
+        "/api/source/import",
+        json={"url": "https://www.youtube.com/watch?v=bound", "destination_dir": str(tmp_path), "auto_transcribe": False},
+    )
+    payload = response.get_json()
+    assert response.status_code == 200
+    assert payload["job_id"]
+    complete_index = next(index for index, item in enumerate(events) if item[0] == "status" and item[1] == "source_import_complete")
+    complete = events[complete_index]
+    assert any(item[0] == "progress" for item in events[:complete_index])
+    assert complete[3] == payload["job_id"]
+    assert complete[2]["job_id"] == payload["job_id"]
     assert app_module.current_task["active"] is False
 
 
@@ -89,6 +123,7 @@ def test_source_import_reuses_confirmed_manual_transcript(monkeypatch, tmp_path)
     downloaded = tmp_path / "manual-source.mp4"
     downloaded.write_bytes(b"video")
     calls = {"subtitle": 0, "automatic": 0}
+    events = []
     monkeypatch.setattr(app_module, "validate_public_url", lambda value: value)
     monkeypatch.setattr(
         app_module,
@@ -99,6 +134,7 @@ def test_source_import_reuses_confirmed_manual_transcript(monkeypatch, tmp_path)
     monkeypatch.setattr(app_module, "save_transcription", lambda *args, **kwargs: None)
     monkeypatch.setattr(app_module, "_save_transcription_artifacts", lambda *args, **kwargs: {})
     monkeypatch.setattr(app_module, "archive_transcription", lambda *args, **kwargs: {"quality": {"quality": "structurally_ok"}})
+    monkeypatch.setattr(app_module, "emit_status", lambda status, data=None, job_id=None: events.append((status, data or {}, job_id)))
     monkeypatch.setattr(
         app_module,
         "download_public_subtitles",
@@ -126,6 +162,8 @@ def test_source_import_reuses_confirmed_manual_transcript(monkeypatch, tmp_path)
     )
     assert response.status_code == 200
     assert calls == {"subtitle": 0, "automatic": 0}
+    complete = next(item for item in events if item[0] == "source_import_complete")
+    assert complete[1]["transcription"]["coverage"]["status"] == "partial"
     assert app_module.current_task["active"] is False
 
 
@@ -278,11 +316,37 @@ def test_followup_video_analysis_is_opt_in_after_canonical_transcript():
         {"source": "manual"}, {"gemini_api_key": "configured"}
     ) is False
     assert app_module._should_allow_followup_video_analysis(
+        {"source": "manual_confirmed"}, {"gemini_api_key": "configured"}
+    ) is False
+    assert app_module._should_allow_followup_video_analysis(
+        {"source": "manual_confirmed"}, {"gemini_manual_video_analysis": True}
+    ) is True
+    assert app_module._should_allow_followup_video_analysis(
         {"source": "manual"}, {"gemini_manual_video_analysis": True}
     ) is True
     assert app_module._should_allow_followup_video_analysis(
         {"source": "public_subtitles"}, {"gemini_video_analysis_with_transcript": True}
     ) is True
+
+
+def test_context_worker_multimodal_request_respects_canonical_transcript_policy():
+    import app as app_module
+
+    assert app_module._should_request_editorial_context_multimodal(
+        {"source": "manual_confirmed"}, True, None, {"gemini_api_key": "configured"}
+    ) is False
+    assert app_module._should_request_editorial_context_multimodal(
+        {"source": "public_subtitles"}, True, None, {"gemini_api_key": "configured"}
+    ) is False
+    assert app_module._should_request_editorial_context_multimodal(
+        {"source": "manual_confirmed"}, True, None, {"gemini_manual_video_analysis": True}
+    ) is True
+    assert app_module._should_request_editorial_context_multimodal(
+        {"source": "public_subtitles"}, True, {"source": "gemini_video"}, {"gemini_video_analysis_with_transcript": True}
+    ) is False
+    assert app_module._should_request_editorial_context_multimodal(
+        {"source": "public_subtitles"}, False, None, {"gemini_video_analysis_with_transcript": True}
+    ) is False
 
 
 def test_followup_enrichment_does_not_call_gemini_by_default(monkeypatch):

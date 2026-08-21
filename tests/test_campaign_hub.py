@@ -92,6 +92,38 @@ def test_hook_detector_rejects_setup_chatter_and_recovers_fragmented_question():
     assert fragmented["payoff_confirmed"] is True
 
 
+def test_hook_detector_recognizes_consequence_question_and_repeated_thesis_closure():
+    consequence = detect_hook_candidates([
+        {"start": 10, "end": 15, "text": "Eles querem transformar o debate numa guerra."},
+        {"start": 15, "end": 22, "text": "Que tipo de sociedade a gente vai construir com isso?"},
+        {"start": 22, "end": 29, "text": "Isso é bom só para quem ganha dinheiro com conflito."},
+    ], limit=3)
+    assert consequence
+    assert consequence[0]["payoff_confirmed"] is True
+    assert "pergunta de consequência" in consequence[0]["payoff_signals"]
+
+    repeated = detect_hook_candidates([
+        {"start": 30, "end": 36, "text": "Esse homem é um patrimônio brasileiro."},
+        {"start": 36, "end": 43, "text": "Ele é um patrimônio brasileiro, esse cara."},
+    ], limit=3)
+    repeated_with_closure = next(item for item in repeated if "repetição deliberada da tese no fechamento" in item["payoff_signals"])
+    assert repeated_with_closure["payoff_confirmed"] is True
+
+
+def test_hook_detector_marks_visual_evidence_that_requires_video_review():
+    candidates = detect_hook_candidates([
+        {"start": 8, "end": 14, "text": "Olha esse gráfico do Google Trends, eu ultrapassei o candidato."},
+        {"start": 14, "end": 22, "text": "Isso muda a leitura da eleição e mostra uma tendência concreta."},
+    ], limit=2)
+
+    assert candidates
+    visual = candidates[0]
+    assert visual["visual_evidence_required"] is True
+    assert visual["needs_visual_review"] is True
+    assert visual["visual_review_reason"]
+    assert "evidência visual citada" in visual["evidence"]
+
+
 def test_hook_detector_uses_existing_energy_profile_as_explainable_signal():
     candidates = detect_hook_candidates([
         {"start": 10, "end": 14, "text": "Vamos apresentar a proposta concreta."},
@@ -144,6 +176,25 @@ def test_qa_candidates_explain_speaker_boundary_and_review_need():
     assert without_speaker_change["qa_candidates"]
     assert without_speaker_change["qa_candidates"][0]["needs_speaker_review"] is True
     assert without_speaker_change["speaker_detection"]["status"] == "not_available"
+
+
+def test_qa_confidence_prefers_verified_speaker_transition_over_rhetorical_question():
+    from modules.editorial_context import analyze_transcript_context
+
+    verified = analyze_transcript_context({
+        "segments": [
+            {"start": 0, "end": 4, "text": "Qual é a proposta?", "speaker": "entrevistador"},
+            {"start": 4, "end": 12, "text": "A proposta reduz o desperdício.", "speaker": "renan"},
+        ]
+    })
+    rhetorical = analyze_transcript_context({
+        "segments": [
+            {"start": 0, "end": 4, "text": "Qual é a proposta?", "speaker": "renan"},
+            {"start": 4, "end": 12, "text": "A proposta reduz o desperdício.", "speaker": "renan"},
+        ]
+    })
+    assert verified["qa_candidates"][0]["confidence"] > rhetorical["qa_candidates"][0]["confidence"]
+    assert rhetorical["qa_candidates"][0]["needs_speaker_review"] is True
 
 
 def test_snapshot_rejects_unknown_accounts_and_keeps_supported_data():
@@ -272,3 +323,30 @@ def test_campaign_hub_prior_stays_neutral_with_insufficient_hook_sample():
     assert prior["available"] is False
     assert prior["observed_signal"] == 50.0
     assert prior["confidence"] == 0.0
+
+
+def test_hook_detector_marks_unknown_speaker_for_review_even_without_question():
+    candidates = detect_hook_candidates([
+        {"start": 0.0, "end": 5.0, "text": "A verdade sobre este caso muda tudo.", "speaker": "unknown"},
+        {"start": 5.2, "end": 12.0, "text": "Por isso, a consequência precisa ser explicada."},
+    ], limit=3)
+
+    assert candidates
+    assert candidates[0]["needs_speaker_review"] is True
+    assert "locutor" in candidates[0]["speaker_review_reason"]
+
+
+def test_hook_detector_normalizes_string_and_non_finite_speaker_confidence():
+    candidates = detect_hook_candidates([
+        {"start": 0.0, "end": 5.0, "text": "A verdade sobre este caso muda tudo.", "speaker": "Renan", "speaker_confidence": "0.40"},
+        {"start": 5.2, "end": 12.0, "text": "Por isso, a consequência precisa ser explicada."},
+    ], limit=3)
+
+    assert candidates
+    assert candidates[0]["needs_speaker_review"] is True
+    assert "locutor" in candidates[0]["speaker_review_reason"]
+
+    nan_candidates = detect_hook_candidates([
+        {"start": 0.0, "end": 5.0, "text": "A verdade sobre este caso muda tudo.", "speaker": "Renan", "speaker_confidence": "nan"},
+    ], limit=3)
+    assert nan_candidates[0]["needs_speaker_review"] is True

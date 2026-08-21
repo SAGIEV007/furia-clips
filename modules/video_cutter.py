@@ -15,11 +15,29 @@ class VideoCutter:
         self.preset = get_preset(preset) if isinstance(preset, str) else (preset or get_preset("shorts"))
         self.last_rejections = []
 
-    def _validate_rendered_output(self, output_path, expected_duration, emit_progress=None):
+    def _validate_rendered_output(
+        self,
+        output_path,
+        expected_duration,
+        emit_progress=None,
+        preset=None,
+        validate_dimensions=True,
+    ):
+        active_preset = preset if preset is not None else self.preset
         validation = validate_media(
             output_path,
             expected_duration=max(0.1, float(expected_duration or 0)),
             duration_tolerance=2.0,
+            expected_width=(
+                int(active_preset.get("width"))
+                if validate_dimensions and isinstance(active_preset, dict) and active_preset.get("width")
+                else None
+            ),
+            expected_height=(
+                int(active_preset.get("height"))
+                if validate_dimensions and isinstance(active_preset, dict) and active_preset.get("height")
+                else None
+            ),
             require_audio=True,
             require_video=True,
         )
@@ -161,7 +179,13 @@ class VideoCutter:
                 emit_progress(f"Erro ao cortar: {result.stderr[-300:]}")
             return None
 
-        if not self._validate_rendered_output(output_path, duration, emit_progress):
+        if not self._validate_rendered_output(
+            output_path,
+            duration,
+            emit_progress,
+            preset=active_preset,
+            validate_dimensions=vertical,
+        ):
             return None
 
         if emit_progress:
@@ -185,19 +209,32 @@ class VideoCutter:
 
         orig_w = int(video_stream["width"])
         orig_h = int(video_stream["height"])
-        crop_w = min(orig_w, max(2, int(orig_h * 9 / 16)))
-
-        if face_positions and len(face_positions) > 0 and crop_w < orig_w:
-            weights = [max(0.01, float(fp.get("confidence", 1.0))) for fp in face_positions]
-            weighted_x = sum(float(fp.get("center_x", 0.5)) * weight for fp, weight in zip(face_positions, weights))
-            avg_x = weighted_x / sum(weights)
-            crop_x = int(avg_x * orig_w - crop_w / 2)
-            crop_x = max(0, min(crop_x, orig_w - crop_w))
-        else:
-            crop_x = max(0, (orig_w - crop_w) // 2)
-
         active_preset = preset or self.preset
-        vf = f"crop={crop_w}:{orig_h}:{crop_x}:0,scale={active_preset['width']}:{active_preset['height']}"
+        target_w = int(active_preset["width"])
+        target_h = int(active_preset["height"])
+        target_aspect = target_w / max(target_h, 1)
+        source_aspect = orig_w / max(orig_h, 1)
+
+        if source_aspect >= target_aspect:
+            crop_h = orig_h
+            crop_w = min(orig_w, max(2, int(round(crop_h * target_aspect))))
+        else:
+            crop_w = orig_w
+            crop_h = min(orig_h, max(2, int(round(crop_w / target_aspect))))
+
+        weights = [max(0.01, float(fp.get("confidence", 1.0))) for fp in (face_positions or [])]
+        if weights:
+            total_weight = sum(weights)
+            avg_x = sum(float(fp.get("center_x", 0.5)) * weight for fp, weight in zip(face_positions, weights)) / total_weight
+            avg_y = sum(float(fp.get("center_y", 0.5)) * weight for fp, weight in zip(face_positions, weights)) / total_weight
+        else:
+            avg_x = avg_y = 0.5
+        crop_x = int(avg_x * orig_w - crop_w / 2)
+        crop_y = int(avg_y * orig_h - crop_h / 2)
+        crop_x = max(0, min(crop_x, orig_w - crop_w))
+        crop_y = max(0, min(crop_y, orig_h - crop_h))
+
+        vf = f"crop={crop_w}:{crop_h}:{crop_x}:{crop_y},scale={target_w}:{target_h}"
 
         cmd = [
             "ffmpeg", "-y",
@@ -218,7 +255,7 @@ class VideoCutter:
                 emit_progress(f"Erro ao cortar com face tracking: {result.stderr[-300:]}")
             return self.cut_clip(video_path, start_time, end_time, output_path, True, emit_progress)
 
-        if not self._validate_rendered_output(output_path, duration, emit_progress):
+        if not self._validate_rendered_output(output_path, duration, emit_progress, preset=active_preset):
             return None
 
         if emit_progress:
@@ -245,7 +282,7 @@ class VideoCutter:
     def batch_cut(self, video_path, cuts, project_name, use_face_tracking=False,
                   face_positions_map=None, emit_progress=None, output_dir=None,
                   video_layout=None, preset=None, original_aspect_indices=None,
-                  layout_plans=None):
+                  layout_plans=None, source_duration=None):
         active_preset = get_preset(preset) if isinstance(preset, str) else (preset or self.preset)
         self.last_rejections = []
         base_export = output_dir if output_dir and os.path.isabs(output_dir) else EXPORT_DIR
@@ -263,6 +300,12 @@ class VideoCutter:
                 emit_progress("[Layout] Locutor não identificado com segurança. Preservando o enquadramento original 16:9.", "info")
 
         results = []
+        try:
+            source_duration = float(source_duration) if source_duration is not None else None
+        except (TypeError, ValueError):
+            source_duration = None
+        if source_duration is not None and source_duration <= 0:
+            source_duration = None
 
         for i, cut in enumerate(cuts):
             rank = i + 1
@@ -278,13 +321,40 @@ class VideoCutter:
             if emit_progress:
                 emit_progress(f"Cortando clip {rank}/{len(cuts)}: {safe_title}...")
 
-            # Apply padding for natural-sounding clips
+            # Apply padding for natural-sounding clips only after validating the
+            # candidate itself. Padding must never rescue an invalid interval.
+            try:
+                raw_start = float(cut["start"])
+                raw_end = float(cut["end"])
+            except (KeyError, TypeError, ValueError):
+                raw_start = raw_end = 0.0
+            if raw_start < 0 or raw_end <= raw_start:
+                if emit_progress:
+                    emit_progress(
+                        f"[Render] Intervalo {rank} possui limites inválidos; ignorado.",
+                        "warning",
+                    )
+                continue
+
             # +0.3s before (smooth start), +0.8s after (don't cut last word)
-            padded_start = max(0, cut["start"] - 0.3)
-            padded_end = cut["end"] + 0.8
+            padded_start = max(0.0, raw_start - 0.3)
+            padded_end = raw_end + 0.8
+            if source_duration is not None:
+                padded_start = min(padded_start, max(0.0, source_duration - 0.1))
+                padded_end = min(padded_end, source_duration)
+            if padded_end <= padded_start:
+                if emit_progress:
+                    emit_progress(
+                        f"[Render] Intervalo {rank} não possui duração positiva após limitar à fonte; ignorado.",
+                        "warning",
+                    )
+                continue
 
             layout_plan = layout_plans.get(i) if isinstance(layout_plans, dict) else None
-            if layout_plan and layout_plan.get("reframe_allowed") is False:
+            if layout_plan and (
+                layout_plan.get("reframe_allowed") is False
+                or layout_plan.get("review_required") is True
+            ):
                 original_aspect_indices.add(i)
 
             face_pos = face_positions_map.get(i, None) if face_positions_map else None

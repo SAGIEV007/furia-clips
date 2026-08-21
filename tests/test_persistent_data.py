@@ -74,12 +74,14 @@ def _configure_persistent_module(monkeypatch, tmp_path):
     database_dir = root / "database"
     backup_dir = root / "backups"
     transcripts_dir = root / "transcripts"
+    analyses_dir = root / "analyses"
     db_path = database_dir / "editorial_learning.sqlite3"
     schema_path = root / "schema_version.json"
     for module in (config, persistent_data):
         monkeypatch.setattr(module, "DB_PATH", str(db_path))
         monkeypatch.setattr(module, "PERSISTENT_BACKUPS_DIR", str(backup_dir))
         monkeypatch.setattr(module, "PERSISTENT_TRANSCRIPTS_DIR", str(transcripts_dir))
+        monkeypatch.setattr(module, "PERSISTENT_ANALYSES_DIR", str(analyses_dir))
     monkeypatch.setattr(config, "PERSISTENT_DATA_DIR", str(root))
     monkeypatch.setattr(config, "PERSISTENT_DATABASE_DIR", str(database_dir))
     monkeypatch.setattr(config, "PERSISTENT_SCHEMA_PATH", str(schema_path))
@@ -93,7 +95,7 @@ def _create_editorial_schema(path, project_name="Projeto atual"):
             """
             CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
             CREATE TABLE projects (id INTEGER PRIMARY KEY, name TEXT NOT NULL, source_video TEXT DEFAULT '', source_signature TEXT DEFAULT '');
-            CREATE TABLE clips (id INTEGER PRIMARY KEY, project_id INTEGER NOT NULL);
+            CREATE TABLE clips (id INTEGER PRIMARY KEY, project_id INTEGER NOT NULL, score_factors TEXT DEFAULT '');
             CREATE TABLE transcriptions (id INTEGER PRIMARY KEY, project_id INTEGER NOT NULL);
             CREATE TABLE clip_feedback (id INTEGER PRIMARY KEY, clip_id INTEGER NOT NULL, action TEXT NOT NULL);
             """
@@ -113,10 +115,22 @@ def test_portable_backup_and_restore_preserve_editorial_decisions(monkeypatch, t
     db_path.parent.mkdir(parents=True)
     transcript_dir = _root / "transcripts" / "live_hash"
     transcript_dir.mkdir(parents=True)
+    analysis_dir = _root / "analyses"
+    analysis_dir.mkdir(parents=True)
+    (analysis_dir / "context-signals.json").write_text('{"hook":"tese-provocativa"}\n', encoding="utf-8")
+    (analysis_dir / "do-not-ship.py").write_text("print('ignored')\n", encoding="utf-8")
     (transcript_dir / "transcript.txt").write_text("00:00:00.000 contexto completo\n", encoding="utf-8")
     (transcript_dir / "transcript.json").write_text('{"segments": []}', encoding="utf-8")
     (transcript_dir / "metadata.json").write_text('{"source": "public_subtitle"}', encoding="utf-8")
+    (transcript_dir / "private-notes.py").write_text("print('não deve entrar')\n", encoding="utf-8")
+    (transcript_dir / "source-audio.wav").write_bytes(b"not-a-transcript")
     _create_editorial_schema(str(db_path), "Versão preservada")
+    with sqlite3.connect(db_path) as connection:
+        connection.execute(
+            "UPDATE clips SET score_factors = ? WHERE id = 1",
+            ('{"_context_recovery":{"applied":true,"reason":"antecedente recuperado","added_start":9.5,"original_start":12.0,"gap_seconds":0.6}}',),
+        )
+        connection.commit()
 
     backup = persistent_data.create_editorial_backup()
     assert os.path.isfile(backup["path"])
@@ -127,7 +141,12 @@ def test_portable_backup_and_restore_preserve_editorial_decisions(monkeypatch, t
         assert "transcripts/live_hash/transcript.txt" in archive.namelist()
         assert "transcripts/live_hash/transcript.json" in archive.namelist()
         assert "transcripts/live_hash/metadata.json" in archive.namelist()
+        assert "transcripts/live_hash/private-notes.py" not in archive.namelist()
+        assert "transcripts/live_hash/source-audio.wav" not in archive.namelist()
+        assert "analyses/context-signals.json" in archive.namelist()
+        assert "analyses/do-not-ship.py" not in archive.namelist()
 
+    (analysis_dir / "context-signals.json").unlink()
     with sqlite3.connect(db_path) as connection:
         connection.execute("UPDATE projects SET name = 'Versão descartável'")
         connection.commit()
@@ -140,6 +159,10 @@ def test_portable_backup_and_restore_preserve_editorial_decisions(monkeypatch, t
         row = connection.execute("SELECT name, source_signature FROM projects").fetchone()
         assert row[0] == "Versão preservada"
         assert row[1] == "signature-preservada-123"
+        score_factors = connection.execute("SELECT score_factors FROM clips WHERE id = 1").fetchone()[0]
+        assert '"_context_recovery"' in score_factors
+        assert '"added_start":9.5' in score_factors
+    assert (analysis_dir / "context-signals.json").exists()
     assert (transcript_dir / "transcript.txt").read_text(encoding="utf-8").startswith("00:00:00.000")
 
 

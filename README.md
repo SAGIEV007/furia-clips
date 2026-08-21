@@ -89,11 +89,19 @@ O perfil `renan_santos_politics` vem selecionado por padrão e foi desenhado par
 
 Na interface, selecione **Perfil editorial → Renan Santos / MBL** e, quando necessário, use os chips de contexto para orientar a busca, como **confronto/reação**, **proposta/programa**, **dado/denúncia**, **crítica jurídica**, **segurança pública**, **corrupção**, **impostos** e **mobilização**. Os chips funcionam como contexto de seleção; eles não inventam falas, números ou fatos que não estejam presentes no vídeo.
 
+## Norte futuro: pesquisa de vídeos e temas
+
+Em uma fase posterior, o Furia terá uma área de **Pesquisa editorial** integrada ao YouTube e, quando houver correspondência, ao Campaign Hub em modo somente leitura. O editor poderá pesquisar por tema, pessoa, canal ou URL e receber links, títulos, duração, data, disponibilidade de legenda, blocos, timestamps, transcrições disponíveis, hooks, métricas e evidências, com a proveniência de cada fonte preservada. A primeira versão será de descoberta e consulta; resultados do Chub orientarão a pesquisa, mas não aprovarão cortes automaticamente.
+
+Depois da pesquisa, o editor poderá solicitar o download do original ou de um trecho específico quando a fonte estiver acessível e o uso for permitido. Essa ação ficará separada da análise e do corte, com qualidade limitada a até 1080p, validação de mídia, cancelamento, retries limitados e prevenção de intervalos repetidos. A ferramenta não contornará login, cookies, CAPTCHA, DRM, HTTP 401/403/429 ou limites de quota. A transcrição poderá vir de legenda pública, arquivo enviado pelo editor, snapshot autorizado do Chub ou Whisper local; a API oficial de legendas não deve ser tratada como fornecimento garantido do texto de vídeos de terceiros.
+
+A primeira camada inspirada no Garimpo já está implementada localmente na **Pesquisa editorial**. O Furia aceita snapshots do Campaign Hub em modo somente leitura e apresenta uma bancada de descoberta com filtro de plataforma, título e resumo do bloco, fonte de origem, tópicos, pergunta-gatilho, intervalo, duração, momentos fortes, justificativas, necessidade de contexto, flags de risco, timestamps, estado de download e ações para copiar pauta, transcrição, intervalo ou timestamp. O filtro não força mais Instagram: registros YouTube e longform podem ser separados quando a plataforma estiver presente no snapshot. Isso prepara a integração futura, mas não significa que o Furia já consulte o Chub online ou baixe vídeos automaticamente.
+
 Os cortes políticos continuam classificados em cinco subtipos: **confronto/reação**, para respostas e embates com alvo identificável; **proposta/programa**, para soluções e compromissos; **dado/denúncia**, para exposição sustentada por número, documento ou acusação contextualizada; **discurso/posicionamento**, para teses políticas completas; e **mobilização**, para chamadas à ação e construção de comunidade. Antes disso, o sistema escolhe uma família editorial dominante: **político, humor, reação, bastidor, descontraído ou conversa**. A classificação e os sinais usados aparecem na revisão humana para facilitar a decisão de aprovar ou rejeitar.
 
 Para uma saída vertical dedicada, escolha **Política Editorial — 9:16** no campo **Preset de Plataforma**. Esse preset mantém 1080×1920, limita a duração a 180 segundos e desloca as legendas para uma área segura maior, adequada às sobreposições comuns de Shorts, Reels e TikTok. Os presets `shorts`, `reels` e `tiktok` continuam disponíveis para publicação específica por plataforma.
 
-A documentação detalhada, incluindo fatores, limites e exemplos de uso editorial, está em [`docs/editorial-profile.md`](docs/editorial-profile.md). A pesquisa audiovisual pública e a matriz de padrões estão em [`docs/video-analysis/editorial-patterns.md`](docs/video-analysis/editorial-patterns.md); ela registra o que foi observado diretamente e o que permanece hipótese.
+A documentação detalhada, incluindo fatores, limites e exemplos de uso editorial, está em [`docs/editorial-profile.md`](docs/editorial-profile.md). A pesquisa audiovisual pública e a matriz de padrões estão em [`docs/video-analysis/editorial-patterns.md`](docs/video-analysis/editorial-patterns.md); ela registra o que foi observado diretamente e o que permanece hipótese. O estudo comparativo de métricas long-form → shorts, com plano de implementação e avaliação temporal, está em [`docs/long-to-short-metrics-and-plan-2026-08-21.md`](docs/long-to-short-metrics-and-plan-2026-08-21.md).
 
 ## Testes
 
@@ -116,13 +124,14 @@ modules/timeline.py        timeline canônica
 modules/job_manager.py     jobs persistidos e cancelamento
 modules/editorial_ranker.py ranking explicável, família editorial e diversidade entre lives
 modules/political_profile.py taxonomia, scoring político e completude de contexto
-modules/daily_portfolio.py seleção global 39–50 com gates e limites por fonte
+modules/daily_portfolio.py seleção global 39–50 com gates, limites por fonte e avaliação temporal opcional
 modules/video_cutter.py    corte e exportação por preset
 modules/subtitle_generator.py legendas ASS/SRT e áreas seguras por preset
 modules/media_validation.py validação objetiva com ffprobe
 modules/batch_queue.py     descoberta e deduplicação de lotes
 modules/transcript_parser.py parser Tactiq/SRT/VTT e timeline manual
 modules/editorial_context.py pré-análise de entrevista, perguntas e sinais
+modules/quality_metrics.py IoU temporal, precisão/recall, bordas e redundância
 modules/source_ingest.py      validação e download de fontes públicas
 modules/gemini_video.py       upload e análise multimodal online
 modules/native_dialogs.py     exploradores nativos locais
@@ -134,7 +143,7 @@ docs/                      arquitetura, roadmap e relatórios, incluindo pesquis
 
 ## Status da reconstrução
 
-A branch `manus/rebuild-opus-parity` contém a reconstrução incremental comparada à branch base `devin/1782248654-furia-clips`. A implementação base foi validada localmente com 52 casos; esta evolução acrescenta cobertura de parser, fontes públicas, diálogo local e contexto de entrevista, totalizando 63 testes aprovados na última execução. A validação cobre o perfil editorial político, famílias de humor/reação, contexto de abertura, energia de áudio por janela, portfólio global entre lives, bootstrap automático, fallback sem chave, smoke tests HTTP e renderização real com FFmpeg.
+A branch `manus/rebuild-opus-parity` contém a reconstrução incremental comparada à branch base `devin/1782248654-furia-clips`. Esta evolução acrescenta cobertura de parser, fontes públicas, diálogo local, contexto de entrevista, jobs persistentes, recuperação entre sessões, feedback editorial e filtros de identidade por fonte. O checkout local desta rotina foi validado com **461 testes aprovados**; a validação cobre o perfil editorial político, famílias de humor/reação, contexto de abertura, energia de áudio por janela, portfólio global entre lives, bootstrap automático, fallback sem chave, smoke tests HTTP e renderização real com FFmpeg. As mudanças desta rotina permanecem locais até confirmação explícita do editor; não são publicadas automaticamente.
 O relatório detalhado está em [`docs/rebuild-report.md`](docs/rebuild-report.md), o perfil editorial está em [`docs/editorial-profile.md`](docs/editorial-profile.md) e os critérios de qualidade estão em [`docs/quality-gates.md`](docs/quality-gates.md).
 
 Esta versão aproxima o produto de um fluxo profissional de clipping, mas não afirma paridade total com plataformas comerciais. Ainda são evoluções futuras o editor visual de timeline com handles, reenquadramento temporal contínuo de rostos/objetos, rerender parcial e calibração estatística do ranking usando um histórico amplo de feedback.

@@ -35,6 +35,17 @@ def test_adjust_clip_bounds_clamps_to_video_and_preserves_minimum_duration():
     assert adjusted["duration"] == 4.0
 
 
+def test_adjust_clip_bounds_rejects_impossible_minimum_inside_short_source():
+    with pytest.raises(ValueError, match="duração mínima"):
+        adjust_clip_bounds(
+            {"start": 0, "end": 1},
+            start=0,
+            end=0.5,
+            duration=2,
+            min_duration=3,
+        )
+
+
 def test_adjust_clip_bounds_does_not_snap_far_boundaries():
     adjusted = adjust_clip_bounds(
         {"start": 10, "end": 20},

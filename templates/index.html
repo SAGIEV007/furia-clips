@@ -141,6 +141,7 @@
                     <select id="settingCampaignHubAccount" class="setting-select">
                         <option value="@renansantosmbl" selected>Renan Santos / MBL — principal</option>
                         <option value="@renansantosreserva">Renan Santos / Reserva</option>
+                        <option value="@partidomissao">Partido Missão</option>
                     </select>
                     <small class="setting-hint">Usa priors locais de hooks e contexto observados; não envia nada ao Campaign Hub e não substitui a análise do vídeo.</small>
                     <div class="campaign-hub-local-status" id="campaignHubLocalStatus" role="status" aria-live="polite">
@@ -163,8 +164,8 @@
                 <div class="setting-group">
                     <label>Motor de IA</label>
                     <select id="settingAiBackend" class="setting-select">
-                        <option value="gemini" selected>Gemini Online (prioritário → fallback local)</option>
-                        <option value="auto">Automático (Gemini → Ollama → local)</option>
+                        <option value="auto" selected>Automático (Gemini Online prioritário → Ollama → NLP local)</option>
+                        <option value="gemini">Gemini Online (prioritário → fallback local)</option>
                         <option value="ollama">Ollama (Local/Gratis)</option>
                         <option value="claude">Claude API (Pago)</option>
                     </select>
@@ -402,6 +403,34 @@
                     </div>
                     <div class="context-analysis-status" id="contextAnalysisStatus" role="status" aria-live="polite">Ainda não analisado nesta sessão.</div>
                     <div class="context-analysis-result" id="contextAnalysisResult" hidden></div>
+                </div>
+                <div class="campaign-search-controls" aria-label="Pesquisa editorial local do Campaign Hub">
+                    <div class="context-analysis-copy">
+                        <strong><span class="material-icons-round">travel_explore</span> Pesquisar referência editorial</strong>
+                        <p>Consulta snapshots locais somente leitura do Campaign Hub. O resultado pode trazer bloco, tese, transcrição, timestamps e link; não implica download automático nem publicação.</p>
+                    </div>
+                    <div class="campaign-search-form">
+                        <input id="campaignSearchInput" class="context-input" type="text" placeholder="Ex.: Renan criticando Lula sobre segurança pública" autocomplete="off">
+                        <select id="campaignSearchPlatform" class="setting-select" aria-label="Plataforma da referência">
+                            <option value="">Todas as plataformas</option>
+                            <option value="instagram">Instagram</option>
+                            <option value="youtube">YouTube / longform</option>
+                            <option value="facebook">Facebook</option>
+                            <option value="tiktok">TikTok</option>
+                            <option value="x">X</option>
+                        </select>
+                        <select id="campaignSearchAccount" class="setting-select" aria-label="Conta do Campaign Hub">
+                            <option value="">As três contas</option>
+                            <option value="@renansantosmbl">@renansantosmbl</option>
+                            <option value="@renansantosreserva">@renansantosreserva</option>
+                            <option value="@partidomissao">@partidomissao</option>
+                        </select>
+                        <label class="campaign-search-date" title="Opcional; resultados sem data conhecida ficam fora quando um período é usado.">De <input id="campaignSearchDateFrom" type="date" aria-label="Data inicial da publicação"></label>
+                        <label class="campaign-search-date" title="Opcional; resultados sem data conhecida ficam fora quando um período é usado.">Até <input id="campaignSearchDateTo" type="date" aria-label="Data final da publicação"></label>
+                        <button class="btn btn-sm btn-secondary" id="btnCampaignSearch" type="button"><span class="material-icons-round">search</span> Pesquisar</button>
+                    </div>
+                    <div class="context-analysis-status" id="campaignSearchStatus" role="status" aria-live="polite">Nenhuma pesquisa editorial nesta sessão.</div>
+                    <div class="campaign-search-result" id="campaignSearchResult" hidden></div>
                 </div>
                 <div class="editorial-audit-controls" aria-label="Auditoria editorial e formato sugerido">
                     <label>Profundidade da análise

@@ -80,6 +80,32 @@ class RepositorySyncTests(unittest.TestCase):
         self.assertTrue(status["feedback_snapshot_dirty"])
         self.assertFalse(status["update_available"])
 
+    def test_read_only_status_probes_remote_without_fetching_or_mutating_refs(self):
+        commands = []
+
+        def fake_git(_repo, *args, **kwargs):
+            command = tuple(args)
+            commands.append(command)
+            outputs = {
+                ("branch", "--show-current"): "manus/rebuild-opus-parity\n",
+                ("rev-parse", "HEAD"): "local123\n",
+                ("rev-parse", "origin/manus/rebuild-opus-parity"): "cached123\n",
+                ("ls-remote", "--heads", "origin", "manus/rebuild-opus-parity"): "remote456\trefs/heads/manus/rebuild-opus-parity\n",
+                ("status", "--porcelain=v1"): "",
+            }
+            return CompletedProcess(["git", *args], 0, outputs.get(command, ""), "")
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = Path(temp_dir)
+            (repo / ".git").mkdir()
+            with patch("modules.repository_sync._run_git", side_effect=fake_git):
+                status = get_repository_status(str(repo), fetch=False)
+
+        self.assertEqual(status["remote_sha"], "remote456")
+        self.assertTrue(status["update_available"])
+        self.assertIn(("ls-remote", "--heads", "origin", "manus/rebuild-opus-parity"), commands)
+        self.assertFalse(any(command and command[0] == "fetch" for command in commands))
+
     def test_snapshot_writer_does_not_write_outside_checkout(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             repo = Path(temp_dir)
@@ -105,7 +131,10 @@ class RepositorySyncTests(unittest.TestCase):
                         "format": SYNC_FORMAT,
                         "format_version": 2,
                         "generated_at": "2026-08-15T05:00:00+00:00",
-                        "records": [{"action": "approved"}, {"action": "rejected"}],
+                        "records": [
+                            {"editorial_key": "approved-key", "action": "approved", "created_at": "2026-08-15T05:00:00+00:00"},
+                            {"editorial_key": "rejected-key", "action": "rejected", "created_at": "2026-08-15T05:01:00+00:00"},
+                        ],
                         "record_count": 2,
                     }
                 ),
@@ -115,9 +144,32 @@ class RepositorySyncTests(unittest.TestCase):
         self.assertTrue(metadata["feedback_snapshot_present"])
         self.assertTrue(metadata["feedback_snapshot_valid"])
         self.assertTrue(metadata["feedback_snapshot_consistent"])
+        self.assertTrue(metadata["feedback_snapshot_semantic_valid"])
+        self.assertEqual(metadata["feedback_snapshot_invalid_records"], 0)
         self.assertEqual(metadata["feedback_snapshot_records"], 2)
         self.assertEqual(metadata["feedback_snapshot_version"], 2)
         self.assertEqual(metadata["feedback_snapshot_generated_at"], "2026-08-15T05:00:00+00:00")
+
+    def test_snapshot_metadata_marks_missing_timestamp_as_semantically_invalid(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = Path(temp_dir)
+            target = repo / SNAPSHOT_RELATIVE_PATH
+            target.parent.mkdir(parents=True)
+            target.write_text(
+                json.dumps({
+                    "format": SYNC_FORMAT,
+                    "format_version": 2,
+                    "record_count": 1,
+                    "records": [{"editorial_key": "sem-timestamp", "action": "approved"}],
+                }),
+                encoding="utf-8",
+            )
+            metadata = _feedback_snapshot_metadata(repo)
+
+        self.assertTrue(metadata["feedback_snapshot_present"])
+        self.assertFalse(metadata["feedback_snapshot_valid"])
+        self.assertFalse(metadata["feedback_snapshot_semantic_valid"])
+        self.assertEqual(metadata["feedback_snapshot_invalid_records"], 1)
 
     def test_restore_feedback_snapshot_validates_and_replays_final_decisions(self):
         with tempfile.TemporaryDirectory() as temp_dir:

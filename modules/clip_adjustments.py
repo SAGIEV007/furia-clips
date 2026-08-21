@@ -58,8 +58,8 @@ def adjust_clip_bounds(
         adjusted_start, adjusted_end = _expand_interval(
             adjusted_start, adjusted_end, minimum, limit
         )
-    if adjusted_end <= adjusted_start:
-        raise ValueError("Não foi possível preservar a duração mínima")
+    if adjusted_end <= adjusted_start or adjusted_end - adjusted_start < minimum:
+        raise ValueError("Não foi possível preservar a duração mínima dentro da fonte")
 
     result = deepcopy(clip)
     result.update({

@@ -54,7 +54,7 @@ FORMAT_PROFILES = {
 }
 
 TOPIC_RULES = (
-    ("cripto", ("bitcoin", "cripto", "criptomoeda", "criptomoedas", "blockchain")),
+    ("cripto", ("bitcoin", "cripto", "criptos", "crypto", "cryptos", "criptomoeda", "criptomoedas", "blockchain")),
     ("emendas", ("emenda", "emendas", "parlamentar", "parlamentares", "orçamento", "orcamento", "indicadores")),
     ("segurança", ("segurança", "seguranca", "crime", "polícia", "policia", "violência", "violencia", "bandido")),
     ("impostos", ("imposto", "tributo", "tributação", "tributacao", "iof", "taxa")),
@@ -479,6 +479,12 @@ def _merge_ai_suggestions(
         base["recommendation_reason"] = _compact(payload["recommendation_reason"], 220)
     base["generation_source"] = "ai_refined"
     return base
+
+
+def detect_artwork_topic(transcript: str) -> str:
+    """Return the evidenced topic used to scope local headline learning."""
+    text, _metadata = _coerce_text(transcript)
+    return _topic(text)
 
 
 def generate_artwork_copy(

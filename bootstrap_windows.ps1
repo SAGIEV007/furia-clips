@@ -151,7 +151,7 @@ function Ensure-FFmpeg {
             Write-Status "FFmpeg instalado: $ffmpeg"
             Write-Status "ffprobe instalado: $ffprobe"
             return @{
-                ffmpeg = $ffmpeg
+                ffmpeg = Split-Path -Parent $ffmpeg
                 ffprobe = $ffprobe
             }
         }

@@ -89,6 +89,8 @@ def validate_transcription(transcription: dict | None, duration: float | None = 
     total_text = " ".join(item["text"] for item in valid_segments).strip()
     end_time = max((item["end"] for item in valid_segments), default=0.0)
     requested_duration = _number(duration, 0.0)
+    if requested_duration > 0 and end_time > requested_duration * 1.05:
+        issues.append("timestamps da transcrição excedem a duração da fonte informada")
     if requested_duration > 0 and end_time < requested_duration * 0.5:
         warnings.append("a transcrição cobre menos da metade da duração informada")
     if len(total_text) < 80:

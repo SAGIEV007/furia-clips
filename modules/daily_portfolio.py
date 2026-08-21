@@ -10,7 +10,9 @@ and source/family diversification.
 from __future__ import annotations
 
 from collections import Counter
-from typing import Iterable
+from typing import Any, Iterable
+
+from .quality_metrics import evaluate_temporal_quality
 
 
 DEFAULT_MIN_SCORE = 62
@@ -89,6 +91,7 @@ def build_daily_portfolio(
     max_per_source: int = DEFAULT_MAX_PER_SOURCE,
     max_per_family: int = DEFAULT_MAX_PER_FAMILY,
     duplicate_similarity: float = 0.86,
+    reference_intervals: Iterable[Any] | None = None,
 ) -> dict:
     """Return a globally ranked, quality-gated daily portfolio and audit data."""
     source_candidates = [dict(candidate) for candidate in candidates]
@@ -182,22 +185,22 @@ def build_daily_portfolio(
     if len(eligible) > len(selected):
         rejected["limite_do_portfolio"] += len(eligible) - len(selected)
 
-    return {
-        "clips": selected,
-        "summary": {
-            "candidate_count": len(source_candidates),
-            "eligible_count": len(eligible),
-            "selected_count": len(selected),
-            "target_min": target_min,
-            "target_max": max_clips,
-            "target_met": target_min <= len(selected) <= max_clips,
-            "quality_floor": min_score,
-            "preferred_max_duration": PREFERRED_MAX_DURATION,
-            "duration_policy": "shorter_when_context_complete; contextual_exceptions_allowed",
-            "source_counts": dict(source_counts),
-            "family_counts": dict(family_counts),
-            "format_counts": dict(format_counts),
-            "rejections": dict(rejected),
-            "status": "faixa_operacional_atingida" if target_min <= len(selected) <= max_clips else "material_insuficiente_ou_concentrado",
-        },
+    summary = {
+        "candidate_count": len(source_candidates),
+        "eligible_count": len(eligible),
+        "selected_count": len(selected),
+        "target_min": target_min,
+        "target_max": max_clips,
+        "target_met": target_min <= len(selected) <= max_clips,
+        "quality_floor": min_score,
+        "preferred_max_duration": PREFERRED_MAX_DURATION,
+        "duration_policy": "shorter_when_context_complete; contextual_exceptions_allowed",
+        "source_counts": dict(source_counts),
+        "family_counts": dict(family_counts),
+        "format_counts": dict(format_counts),
+        "rejections": dict(rejected),
+        "status": "faixa_operacional_atingida" if target_min <= len(selected) <= max_clips else "material_insuficiente_ou_concentrado",
     }
+    if reference_intervals is not None:
+        summary["quality_evaluation"] = evaluate_temporal_quality(selected, reference_intervals)
+    return {"clips": selected, "summary": summary}

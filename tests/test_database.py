@@ -16,6 +16,16 @@ class DatabaseMigrationTests(unittest.TestCase):
         database.DB_PATH = self.original_path
         self.tempdir.cleanup()
 
+    def test_campaign_hub_account_is_normalized_on_write_and_read(self):
+        database.set_setting("campaign_hub_account", "@partidomissao")
+        self.assertEqual(database.get_setting("campaign_hub_account"), "@partidomissao")
+
+        database.set_setting("campaign_hub_account", "@conta-inexistente")
+        self.assertEqual(database.get_setting("campaign_hub_account"), "@renansantosmbl")
+
+        database.set_setting("campaign_hub_account", "@renansantosreserva")
+        self.assertEqual(database.get_all_settings()["campaign_hub_account"], "@renansantosreserva")
+
     def test_new_schema_persists_score_and_feedback(self):
         project_id = database.create_project("Teste", "uploads/test.mp4")
         clip_id = database.save_clip(project_id, "exports/test.mp4", 0, 10, 10, 60, True, 70, "Texto")
@@ -43,9 +53,117 @@ class DatabaseMigrationTests(unittest.TestCase):
         self.assertTrue(clip["review_flags"]["needs_fact_review"])
         self.assertTrue(clip["review_flags"]["needs_legal_review"])
 
+    def test_review_provenance_survives_database_round_trip_without_sensitive_fields(self):
+        project_id = database.create_project("Provenance contextual", "uploads/provenance.mp4")
+        clip_id = database.save_clip(project_id, "exports/provenance.mp4", 0, 24, 24, 81, True, 0, "Tese completa.")
+        database.update_clip_editorial_score(
+            clip_id,
+            81,
+            {"hook": 82},
+            0.84,
+            review_metadata={
+                "candidate_origin": "gemini_primary",
+                "selection_source": "gemini",
+                "confidence": 0.84,
+                "transcript_source": "public_subtitle",
+                "transcript_coverage_status": "partial",
+                "transcript_archive_present": True,
+                "context_source": "local_dossier",
+                "source_video": "/private/path/should-not-persist",
+                "raw_transcript": "texto privado",
+            },
+        )
 
-if __name__ == "__main__":
-    unittest.main()
+        clip = database.get_clips(project_id)[0]
+
+        self.assertEqual(clip["review_provenance"], {
+            "candidate_origin": "gemini_primary",
+            "selection_source": "gemini",
+            "confidence": 0.84,
+            "transcript_source": "public_subtitle",
+            "transcript_coverage_status": "partial",
+            "transcript_archive_present": True,
+            "context_source": "local_dossier",
+        })
+        self.assertNotIn("source_video", clip["review_provenance"])
+        self.assertNotIn("raw_transcript", clip["review_provenance"])
+
+    def test_framing_metadata_survives_database_round_trip(self):
+        project_id = database.create_project("Persistência de framing", "uploads/framing.mp4")
+        clip_id = database.save_clip(project_id, "exports/framing.mp4", 0, 18, 18, 78, True, 0, "Tese com locutor.")
+        database.update_clip_editorial_score(
+            clip_id,
+            78,
+            {"hook": 80},
+            0.77,
+            review_metadata={
+                "framing": {
+                    "mode": "original_16_9",
+                    "reason": "confiança abaixo do limite; quadro original preservado",
+                    "confidence": 0.70,
+                    "review_required": True,
+                },
+                "source_video": "/private/path/should-not-persist",
+            },
+        )
+
+        clip = database.get_clips(project_id)[0]
+
+        self.assertEqual(clip["framing"]["mode"], "original_16_9")
+        self.assertEqual(clip["framing"]["confidence"], 0.7)
+        self.assertTrue(clip["framing"]["review_required"])
+        self.assertNotIn("source_video", clip["review_provenance"])
+
+    def test_legacy_clip_without_framing_metadata_requires_visual_review(self):
+        project_id = database.create_project("Framing legado", "uploads/framing-legado.mp4")
+        database.save_clip(project_id, "exports/framing-legado.mp4", 0, 12, 12, 70, True, 0, "Clip legado")
+
+        clip = database.get_clips(project_id)[0]
+
+        self.assertTrue(clip["framing"]["review_required"])
+        self.assertIn("metadata de enquadramento ausente", clip["framing"]["reason"])
+        self.assertEqual(clip["review_provenance"]["transcript_source"], "unknown")
+        self.assertEqual(clip["review_provenance"]["transcript_coverage_status"], "unknown")
+        self.assertFalse(clip["review_provenance"]["transcript_archive_present"])
+
+    def test_legacy_review_flags_recover_transcript_provenance_status(self):
+        project_id = database.create_project("Provenance legada", "uploads/legada.mp4")
+        clip_id = database.save_clip(project_id, "exports/legada.mp4", 0, 20, 20, 76, True, 0, "Trecho parcial")
+        database.update_clip_editorial_score(
+            clip_id,
+            76,
+            {"hook": 70, "_review_flags": {"transcription_coverage_status": "partial"}},
+            0.66,
+        )
+
+        clip = database.get_clips(project_id)[0]
+
+        self.assertEqual(clip["review_provenance"]["transcript_coverage_status"], "partial")
+        self.assertNotIn("transcript_source", clip["review_provenance"])
+
+    def test_context_recovery_details_survive_database_round_trip(self):
+        project_id = database.create_project("Persistência de recuperação", "uploads/recuperacao.mp4")
+        clip_id = database.save_clip(project_id, "exports/recuperacao.mp4", 10, 35, 25, 80, True, 0, "Isso aconteceu porque havia uma regra.")
+        recovery = {
+            "applied": True,
+            "reason": "antecedente recuperado antes de início truncado",
+            "added_start": 7.5,
+            "original_start": 10.0,
+            "gap_seconds": 0.8,
+        }
+        database.update_clip_editorial_score(
+            clip_id,
+            80,
+            {"context_completeness": 78},
+            0.81,
+            review_flags={"context_recovery_applied": True},
+            context_recovery=recovery,
+        )
+
+        clip = database.get_clips(project_id)[0]
+
+        self.assertEqual(clip["context_recovery"], recovery)
+        self.assertTrue(clip["review_flags"]["context_recovery_applied"])
 
 
     def test_reprocessing_same_editorial_window_reuses_clip_and_feedback(self):
@@ -124,6 +242,64 @@ if __name__ == "__main__":
         self.assertEqual(result["skipped_older"], 1)
         self.assertEqual(database.get_clip(clip_id)["review_status"], "rejected")
 
+    def test_restore_feedback_snapshot_ignores_invalid_timestamp(self):
+        project_id = database.create_project("Timestamp inválido", "downloads/timestamp.mp4")
+        clip_id = database.save_clip(project_id, "exports/timestamp.mp4", 0, 20, 20, 70, True, 0, "Trecho")
+
+        result = database.restore_feedback_snapshot([{
+            "editorial_key": database.get_clip(clip_id)["editorial_key"],
+            "action": "approved",
+            "reason_code": "contexto_completo",
+            "quality_tags": [],
+            "created_at": "não é uma data",
+        }])
+
+        assert result["invalid"] == 1
+        assert result["imported"] == 0
+        assert database.get_clip(clip_id)["review_status"] == "pending"
+
+    def test_restore_feedback_snapshot_rejects_editorial_key_with_incompatible_source_signature(self):
+        project_id = database.create_project(
+            "Fonte substituída",
+            "downloads/entrevista.mp4",
+            source_signature="signature-original",
+        )
+        clip_id = database.save_clip(project_id, "exports/clip.mp4", 12, 42, 30, 78, True, 0, "Mesmo trecho")
+        clip = database.get_clip(clip_id)
+
+        result = database.restore_feedback_snapshot([{
+            "editorial_key": clip["editorial_key"],
+            "source_signature": "signature-outra-fonte",
+            "start_seconds": 12,
+            "end_seconds": 42,
+            "action": "approved",
+            "reason_code": "contexto_completo",
+            "quality_tags": ["hook"],
+            "created_at": "2026-08-20T00:00:00+00:00",
+        }])
+
+        assert result["imported"] == 0
+        assert result["unmatched"] == 1
+        assert database.get_clip(clip_id)["review_status"] == "pending"
+
+    def test_reason_coverage_requires_three_decisions_before_marking_usable(self):
+        project_id = database.create_project("Cobertura de motivos", "uploads/motivos.mp4")
+        approved = database.save_clip(project_id, "exports/a.mp4", 0, 10, 10, 70, True, 0, "Hook e contexto")
+        rejected = database.save_clip(project_id, "exports/b.mp4", 12, 22, 10, 60, True, 0, "Sem contexto")
+        database.save_clip_feedback(approved, "approved", reason_code="excellent_context")
+        database.save_clip_feedback(rejected, "rejected", reason_code="missing_context")
+
+        calibration = database.get_feedback_calibration(min_samples=0, min_per_outcome=0)
+
+        self.assertEqual(calibration["reason_coverage"]["categories"]["context_payoff"]["total"], 2)
+        self.assertFalse(calibration["reason_coverage"]["categories"]["context_payoff"]["usable"])
+
+        third = database.save_clip(project_id, "exports/c.mp4", 24, 34, 10, 65, True, 0, "Payoff claro")
+        database.save_clip_feedback(third, "approved", reason_code="excellent_context")
+        updated = database.get_feedback_calibration(min_samples=0, min_per_outcome=0)
+        self.assertEqual(updated["reason_coverage"]["categories"]["context_payoff"]["total"], 3)
+        self.assertTrue(updated["reason_coverage"]["categories"]["context_payoff"]["usable"])
+
     def test_project_library_exposes_clip_and_review_totals(self):
         project_id = database.create_project("Biblioteca", "uploads/biblioteca.mp4")
         approved = database.save_clip(project_id, "exports/a.mp4", 0, 15, 15, 70, True, 0, "A")
@@ -182,3 +358,7 @@ if __name__ == "__main__":
 
         assert result["imported"] == 1
         assert database.get_clip(clip_id)["review_status"] == "approved"
+
+
+if __name__ == "__main__":
+    unittest.main()

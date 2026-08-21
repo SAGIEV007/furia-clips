@@ -59,6 +59,46 @@ def test_gemini_generate_content_retries_transient_503(monkeypatch):
     assert all("503" in message for message, _ in events)
 
 
+def test_gemini_upload_reports_progress_and_checks_cancellation(tmp_path):
+    from types import SimpleNamespace
+
+    video = tmp_path / "long-source.mp4"
+    video.write_bytes(b"x" * (2 * 1024 * 1024 + 100))
+    calls = []
+    events = []
+    cancel_checks = []
+
+    class FakeSession:
+        def post(self, endpoint, **kwargs):
+            calls.append((endpoint, kwargs))
+            if kwargs.get("json") is not None:
+                return SimpleNamespace(status_code=200, headers={"x-goog-upload-url": "https://upload.test"})
+            payload = b"".join(kwargs["data"])
+            assert len(payload) == video.stat().st_size
+            return SimpleNamespace(status_code=200, json=lambda: {"file": {"name": "files/1"}})
+
+    analyzer = GeminiVideoAnalyzer("configured")
+    analyzer.session = FakeSession()
+
+    def cancel_check():
+        cancel_checks.append(True)
+
+    result = analyzer._upload_file(
+        video,
+        "video/mp4",
+        emit_progress=lambda message, level="info": events.append((message, level)),
+        cancel_check=cancel_check,
+    )
+
+    assert result["name"] == "files/1"
+    assert len(calls) == 2
+    assert len(cancel_checks) >= 4
+    progress = [message for message, _ in events if "Enviando vídeo" in message]
+    assert progress
+    assert int(progress[0].rsplit(" ", 1)[-1].rstrip("%")) > 0
+    assert progress[-1].endswith("100%")
+
+
 def test_gemini_prompt_does_not_assume_renan_for_generic_focus():
     prompt = GeminiVideoAnalyzer._build_prompt({"focus": "generic_political"}, "")
     assert "sem presumir a identidade" in prompt

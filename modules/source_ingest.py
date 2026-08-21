@@ -110,10 +110,21 @@ def _common_yt_dlp_options():
 
 def _source_error(prefix: str, exc: Exception) -> SourceIngestError:
     detail = str(exc)[:240]
-    if "403" in detail or "Forbidden" in detail:
+    normalized = detail.lower()
+    if "401" in normalized or "unauthorized" in normalized:
+        return SourceIngestError(
+            f"{prefix}: a plataforma recusou o acesso (HTTP 401). "
+            "Use uma URL pública sem login; o Furia Clips não contorna autenticação, cookies, CAPTCHA ou conteúdo privado."
+        )
+    if "403" in normalized or "forbidden" in normalized:
         return SourceIngestError(
             f"{prefix}: a fonte recusou o download (HTTP 403). "
-            "O programa tentou novamente; verifique se o link é público, atualize o yt-dlp e tente outra vez."
+            "O programa tentou novamente; verifique se o link é público, atualize o yt-dlp e tente outra fonte pública."
+        )
+    if "429" in normalized or "too many requests" in normalized or "rate limit" in normalized:
+        return SourceIngestError(
+            f"{prefix}: a plataforma limitou temporariamente as requisições (HTTP 429). "
+            "Aguarde antes de tentar novamente; o programa não contorna rate limits."
         )
     return SourceIngestError(f"{prefix}: {detail}")
 

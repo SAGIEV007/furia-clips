@@ -41,6 +41,17 @@ class DailyPortfolioTests(unittest.TestCase):
         self.assertGreaterEqual(result["summary"]["rejections"].get("contexto_insuficiente", 0), 1)
         self.assertFalse(result["summary"]["target_met"])
 
+    def test_optional_quality_evaluation_uses_supplied_references(self):
+        result = build_daily_portfolio(
+            [self._candidate("live-a", "Uma tese completa termina aqui.", start=10, end=40)],
+            target_min=1,
+            max_clips=1,
+            reference_intervals=[{"start": 12, "end": 39}],
+        )
+        evaluation = result["summary"]["quality_evaluation"]
+        self.assertEqual(evaluation["basis"], "supplied_editorial_references")
+        self.assertEqual(evaluation["iou"]["0.5"]["recall"], 1.0)
+
     def test_ranker_exposes_global_portfolio_api(self):
         ranker = EditorialRanker()
         result = ranker.rank_daily_portfolio([

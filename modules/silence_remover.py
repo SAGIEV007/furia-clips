@@ -1,8 +1,11 @@
-import subprocess
 import json
 import os
+import subprocess
 import tempfile
+import time
+
 from config import PROCESSED_DIR
+from modules.cancellation import OperationCancelled
 
 
 class SilenceRemover:
@@ -11,7 +14,7 @@ class SilenceRemover:
         self.min_silence_duration = min_silence_duration
         self.padding = padding
 
-    def detect_silence(self, video_path, emit_progress=None):
+    def detect_silence(self, video_path, emit_progress=None, cancel_check=None):
         if emit_progress:
             emit_progress("Detectando silencio no audio...")
 
@@ -21,8 +24,9 @@ class SilenceRemover:
             "-f", "null", "-"
         ]
 
-        result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
-        output = result.stderr
+        returncode, _stdout, output = self._run_command(cmd, cancel_check=cancel_check)
+        if returncode != 0:
+            return []
 
         silence_periods = []
         silence_start = None
@@ -52,8 +56,10 @@ class SilenceRemover:
 
         return silence_periods
 
-    def get_speech_segments(self, video_path, duration, emit_progress=None):
-        silence_periods = self.detect_silence(video_path, emit_progress)
+    def get_speech_segments(self, video_path, duration, emit_progress=None, cancel_check=None):
+        if cancel_check:
+            cancel_check()
+        silence_periods = self.detect_silence(video_path, emit_progress, cancel_check=cancel_check)
 
         if not silence_periods:
             return [{"start": 0, "end": duration}]
@@ -81,12 +87,14 @@ class SilenceRemover:
 
         return speech_segments
 
-    def remove_silence(self, video_path, output_path=None, emit_progress=None):
+    def remove_silence(self, video_path, output_path=None, emit_progress=None, cancel_check=None):
         if emit_progress:
             emit_progress("Iniciando remocao de silencio...")
 
-        duration = self._get_duration(video_path)
-        speech_segments = self.get_speech_segments(video_path, duration, emit_progress)
+        if cancel_check:
+            cancel_check()
+        duration = self._get_duration(video_path, cancel_check=cancel_check)
+        speech_segments = self.get_speech_segments(video_path, duration, emit_progress, cancel_check=cancel_check)
 
         if not speech_segments:
             if emit_progress:
@@ -120,15 +128,17 @@ class SilenceRemover:
         if emit_progress:
             emit_progress(f"Processando {n} segmentos de fala...")
 
-        result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
+        returncode, _stdout, stderr = self._run_command(cmd, cancel_check=cancel_check)
 
-        if result.returncode != 0:
+        if returncode != 0:
             if emit_progress:
-                emit_progress(f"Erro no FFmpeg: {result.stderr[-500:]}")
+                emit_progress(f"Erro no FFmpeg: {stderr[-500:]}")
             return None
 
+        if cancel_check:
+            cancel_check()
         original_duration = duration
-        new_duration = self._get_duration(output_path)
+        new_duration = self._get_duration(output_path, cancel_check=cancel_check)
         removed = original_duration - new_duration
 
         if emit_progress:
@@ -145,13 +155,42 @@ class SilenceRemover:
             "segments_count": n,
         }
 
-    def _get_duration(self, video_path):
+    def _run_command(self, cmd, cancel_check=None):
+        process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+        try:
+            while process.poll() is None:
+                if cancel_check:
+                    cancel_check()
+                time.sleep(0.1)
+            stdout, stderr = process.communicate()
+            if cancel_check:
+                cancel_check()
+            return process.returncode, stdout or "", stderr or ""
+        except OperationCancelled:
+            process.terminate()
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=5)
+            raise
+
+    def _get_duration(self, video_path, cancel_check=None):
         cmd = [
             "ffprobe", "-v", "quiet",
             "-print_format", "json",
             "-show_format",
             video_path
         ]
-        result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
-        data = json.loads(result.stdout)
+        returncode, stdout, _stderr = self._run_command(cmd, cancel_check=cancel_check)
+        if returncode != 0:
+            raise RuntimeError("ffprobe não conseguiu ler a duração do vídeo")
+        data = json.loads(stdout)
         return float(data["format"]["duration"])

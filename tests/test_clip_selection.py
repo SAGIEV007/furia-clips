@@ -44,6 +44,36 @@ class ClipSelectionTests(unittest.TestCase):
         self.assertTrue(clips)
         self.assertTrue(all(clip["duration"] <= 30 for clip in clips))
 
+    def test_context_recovery_records_when_previous_block_is_prepended(self):
+        scored_blocks = [
+            ({"start": 0.0, "end": 4.0, "duration": 4.0, "text": "A decisão foi anunciada."}, 10.0),
+            ({"start": 5.0, "end": 10.0, "duration": 5.0, "text": "Isso aconteceu porque havia uma regra clara."}, 90.0),
+        ]
+
+        clips = self.selector._build_clips_from_scored_blocks(scored_blocks, context_data={})
+
+        assert clips
+        recovery = clips[0]["context_recovery"]
+        assert recovery["applied"] is True
+        assert recovery["added_start"] == 0.0
+        assert recovery["original_start"] == 5.0
+        assert "antecedente recuperado" in recovery["reason"]
+
+    def test_nlp_builder_preserves_full_qa_bridge_before_natural_stop(self):
+        scored_blocks = [
+            ({"start": 0.0, "end": 8.0, "duration": 8.0, "text": "Qual é a proposta?"}, 95.0),
+            ({"start": 8.2, "end": 17.0, "duration": 8.8, "text": "A proposta reduz impostos e protege o cidadão."}, 82.0),
+            ({"start": 17.2, "end": 22.0, "duration": 4.8, "text": "Isso gera economia e segurança."}, 74.0),
+            ({"start": 22.2, "end": 28.0, "duration": 5.8, "text": "Esse é o resultado final para a população."}, 68.0),
+        ]
+        context = {"qa_candidates": [{"start": 0.0, "end": 28.0, "needs_question": True}]}
+
+        clips = self.selector._build_clips_from_scored_blocks(scored_blocks, context_data={}, editorial_context=context)
+
+        self.assertTrue(clips)
+        self.assertGreaterEqual(clips[0]["end"], 25.5)
+        self.assertTrue(clips[0]["qa_bridge"])
+
     def test_default_duration_policy_is_short_first_with_soft_ceiling(self):
         selector = ClipSelector()
         self.assertEqual(selector.min_duration, 8)
@@ -93,6 +123,18 @@ class ClipSelectionTests(unittest.TestCase):
         self.assertEqual(response_only, -2.5)
         self.assertEqual(complete_qa, 3.0)
 
+    def test_dossier_hook_bonus_requires_confirmed_payoff_for_full_weight(self):
+        confirmed = self.selector._dossier_context_score(
+            {"start": 10.0, "end": 30.0},
+            {"hook_candidates": [{"start": 10.0, "end": 30.0, "score": 100, "payoff_confirmed": True}]},
+        )
+        lead_only = self.selector._dossier_context_score(
+            {"start": 10.0, "end": 30.0},
+            {"hook_candidates": [{"start": 10.0, "end": 30.0, "score": 100, "payoff_confirmed": False}]},
+        )
+        self.assertEqual(confirmed, 8.0)
+        self.assertEqual(lead_only, 2.0)
+
     def test_auto_backend_uses_nlp_without_gemini_key(self):
         transcription = {
             "segments": [
@@ -108,6 +150,24 @@ class ClipSelectionTests(unittest.TestCase):
             )
         self.assertTrue(clips)
         self.assertEqual(self.selector.get_selection_source(), "nlp")
+
+    def test_selection_progress_uses_explicit_local_backend_label(self):
+        transcription = {
+            "segments": [
+                {"start": 0.0, "end": 4.0, "text": "A proposta é reduzir impostos com responsabilidade."},
+                {"start": 4.2, "end": 8.0, "text": "O plano precisa de metas e prazo claro."},
+                {"start": 8.2, "end": 12.0, "text": "Essa é a consequência para o cidadão."},
+            ]
+        }
+        messages = []
+        with patch.object(self.selector, "_select_with_llm", return_value=None):
+            self.selector.select_clips(
+                transcription,
+                settings={"ai_backend": "auto", "gemini_api_key": ""},
+                emit_progress=lambda message, level="info": messages.append(message),
+            )
+        self.assertTrue(any("via NLP local" in message for message in messages))
+        self.assertFalse(any("NLP basico" in message for message in messages))
 
     @patch("modules.clip_selector.requests.post")
     def test_gemini_selector_uses_configured_model(self, post):
@@ -133,8 +193,27 @@ class ClipSelectionTests(unittest.TestCase):
         )
 
 
-if __name__ == "__main__":
-    unittest.main()
+    @patch("modules.clip_selector.requests.post")
+    def test_gemini_quota_message_explains_local_fallback(self, post):
+        post.return_value.status_code = 429
+        post.return_value.json.return_value = {"error": {"message": "quota exhausted"}}
+        messages = []
+        sentences = self.selector._build_sentences([
+            {"start": 0.0, "end": 12.0, "text": "Uma tese completa com consequência clara."},
+        ])
+
+        result = self.selector._select_with_gemini(
+            sentences,
+            energy_profile=[],
+            user_context="",
+            settings={"gemini_api_key": "chave-de-teste"},
+            emit_progress=lambda message, level="info": messages.append((message, level)),
+        )
+
+        assert result == []
+        assert any("atingiu a cota" in message for message, _level in messages)
+        assert any("fallback local" in message for message, _level in messages)
+        assert not any("Tentando proximo modelo" in message for message, _level in messages)
 
     def test_context_gate_rejects_unresolved_reference_at_opening(self):
         flags = self.selector._editorial_flags(
@@ -149,3 +228,33 @@ if __name__ == "__main__":
         )
         self.assertTrue(weak["payoff_weak_ending"])
         self.assertFalse(weak["payoff_complete"])
+
+
+if __name__ == "__main__":
+    unittest.main()
+
+
+def test_nlp_builder_propagates_speaker_review_from_editorial_qa_dossier():
+    selector = ClipSelector(target_duration=20, max_clips=5, min_duration=5, max_duration=30)
+    scored_blocks = [
+        ({"start": 0.0, "end": 8.0, "duration": 8.0, "text": "Qual é a proposta?"}, 95.0),
+        ({"start": 8.2, "end": 17.0, "duration": 8.8, "text": "A proposta reduz impostos e protege o cidadão."}, 82.0),
+    ]
+    context = {
+        "qa_candidates": [{
+            "start": 0.0,
+            "end": 17.0,
+            "needs_question": True,
+            "needs_speaker_review": True,
+        }],
+    }
+
+    clips = selector._build_clips_from_scored_blocks(
+        scored_blocks,
+        context_data={},
+        editorial_context=context,
+    )
+
+    assert clips
+    assert clips[0]["needs_speaker_review"] is True
+    assert "diarização" in clips[0]["speaker_review_reason"]

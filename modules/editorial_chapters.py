@@ -43,6 +43,7 @@ def build_editorial_chapters(
         next_segment = normalized[index + 1] if index + 1 < len(normalized) else None
         if next_segment is None:
             groups.append(current)
+            current = []
             break
 
         start = float(current[0]["start"])
@@ -201,6 +202,9 @@ def _attach_nearest_hook(clip: dict, hook_candidates: list[dict] | None) -> None
         "start": candidate.get("start", 0),
         "end": candidate.get("end", 0),
         "payoff_confirmed": bool(candidate.get("payoff_confirmed")),
+        "payoff_signals": list(candidate.get("payoff_signals") or [])[:4],
+        "visual_evidence_required": bool(candidate.get("visual_evidence_required")),
+        "visual_review_reason": str(candidate.get("visual_review_reason") or ""),
         "audio_signal": candidate.get("audio_signal") or {"available": False},
         "campaign_hub_prior": candidate.get("campaign_hub_prior"),
     }

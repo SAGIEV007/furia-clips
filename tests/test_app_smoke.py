@@ -1,7 +1,7 @@
 import os
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import app as furia_app
 import database
@@ -13,6 +13,81 @@ class AppSmokeTests(unittest.TestCase):
         database.init_db()
         cls.client = furia_app.app.test_client()
 
+    def test_project_reload_returns_persisted_context_recovery(self):
+        project_id = database.create_project("Reload de contexto", "uploads/reload-contexto.mp4")
+        clip_id = database.save_clip(
+            project_id,
+            "exports/reload-contexto.mp4",
+            12.0,
+            28.0,
+            16.0,
+            76,
+            True,
+            0,
+            "A decisão foi anunciada porque havia uma regra.",
+        )
+        recovery = {
+            "applied": True,
+            "reason": "antecedente recuperado antes de início truncado",
+            "added_start": 9.5,
+            "original_start": 12.0,
+            "gap_seconds": 0.6,
+        }
+        database.update_clip_editorial_score(
+            clip_id,
+            76,
+            {"context_completeness": 74},
+            0.8,
+            review_flags={"context_recovery_applied": True},
+            context_recovery=recovery,
+        )
+
+        response = self.client.get(f"/api/projects/{project_id}")
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertEqual(payload["clips"][0]["context_recovery"], recovery)
+
+    def test_review_provenance_normalizes_confirmed_manual_transcript(self):
+        provenance = furia_app._review_provenance(
+            {"source": "manual_confirmed", "coverage": {"status": "covered"}},
+            {"context_complete": True},
+            "local_dossier",
+        )
+
+        self.assertEqual(provenance["transcript_source"], "manual")
+        self.assertEqual(provenance["transcript_coverage_status"], "covered")
+
+    def test_empty_transcription_coverage_requires_review(self):
+        coverage = furia_app._transcription_coverage_report({"segments": []}, 120)
+
+        self.assertEqual(coverage["status"], "empty")
+        self.assertEqual(coverage["segment_count"], 0)
+        self.assertFalse(coverage["semantic_identity_verified"])
+
+    def test_status_event_payload_can_bind_to_job_id(self):
+        captured = []
+        with patch.object(furia_app.socketio, "emit", side_effect=lambda *args, **kwargs: captured.append((args, kwargs))):
+            furia_app.emit_status("cut_complete", {"clips": []}, job_id="job-smoke-123")
+
+        self.assertEqual(captured[0][0][0], "status")
+        payload = captured[0][0][1]
+        self.assertEqual(payload["job_id"], "job-smoke-123")
+        self.assertEqual(payload["data"]["job_id"], "job-smoke-123")
+
+    def test_transcript_archive_folder_endpoint_is_read_only_and_root_scoped(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            archive_dir = os.path.join(tmp_dir, "clip_hash")
+            os.makedirs(archive_dir, exist_ok=True)
+            with patch.object(furia_app, "PERSISTENT_TRANSCRIPTS_DIR", tmp_dir), patch.object(furia_app, "open_local_path") as opener:
+                response = self.client.post("/api/editorial/transcripts/open", json={"relative_dir": "clip_hash"})
+                traversal = self.client.post("/api/editorial/transcripts/open", json={"relative_dir": "../"})
+
+            self.assertEqual(response.status_code, 200)
+            self.assertTrue(response.get_json()["success"])
+            opener.assert_called_once_with(archive_dir)
+            self.assertEqual(traversal.status_code, 404)
+
     def test_render_presets_endpoint(self):
         response = self.client.get("/api/render-presets")
         self.assertEqual(response.status_code, 200)
@@ -23,6 +98,28 @@ class AppSmokeTests(unittest.TestCase):
         response = self.client.get("/api/jobs")
         self.assertEqual(response.status_code, 200)
         self.assertIn("jobs", response.get_json())
+
+    def test_legacy_process_status_is_read_only_and_versioned(self):
+        original = dict(furia_app.current_task)
+        try:
+            furia_app.current_task.update({
+                "active": True,
+                "operation": "source_import",
+                "job_id": "legacy-status-123",
+                "started_at": "2026-08-20T12:00:00",
+            })
+            response = self.client.get("/api/process/status")
+        finally:
+            furia_app.current_task.clear()
+            furia_app.current_task.update(original)
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertTrue(payload["active"])
+        self.assertEqual(payload["operation"], "source_import")
+        self.assertEqual(payload["job_id"], "legacy-status-123")
+        self.assertIn("program_version", payload)
+        self.assertIn("program_revision", payload)
 
     def test_settings_do_not_return_api_key(self):
         database.set_setting("gemini_api_key", "secret-for-test")
@@ -162,49 +259,75 @@ class AppSmokeTests(unittest.TestCase):
         self.assertEqual(status["backend"], "auto")
         self.assertIn("NLP local", status["mode_label"])
 
+    def test_selected_gemini_reports_ollama_as_explicit_fallback(self):
+        responses = [
+            Mock(status_code=503),
+            Mock(status_code=200, json=lambda: {"models": [{"name": "llama3.2:3b"}]}),
+        ]
+        with patch.object(furia_app.requests, "get", side_effect=responses):
+            status = furia_app._check_ai_status({
+                "ai_backend": "gemini",
+                "gemini_api_key": "configured",
+                "ollama_url": "http://127.0.0.1:11434",
+                "ollama_model": "llama3.2:3b",
+            })
+        self.assertEqual(status["backend"], "ollama")
+        self.assertEqual(status["fallback_from"], "gemini")
+        self.assertIn("fallback", status["mode_label"])
 
-if __name__ == "__main__":
-    unittest.main()
+    def test_selected_gemini_without_key_exposes_local_state(self):
+        with patch.object(furia_app.requests, "get", side_effect=RuntimeError("offline")):
+            status = furia_app._check_ai_status({
+                "ai_backend": "gemini",
+                "gemini_api_key": "",
+                "ollama_url": "http://127.0.0.1:11434",
+                "ollama_model": "llama3.2:3b",
+            })
+        self.assertEqual(status["status"], "no_key")
+        self.assertEqual(status["fallback_from"], "gemini")
+        self.assertIn("Gemini sem chave", status["mode_label"])
 
 
-    def test_editorial_data_endpoint_exposes_only_safe_summary(self):
-        with patch.object(furia_app, "get_editorial_data_summary", return_value={
-            "data_dir": "C:/Users/editor/FuriaClipsData",
-            "database_exists": True,
-            "integrity": "ok",
-            "projects": 2,
-            "clips": 6,
-            "feedback_events": 4,
-        }):
-            response = self.client.get("/api/editorial/data")
-        self.assertEqual(response.status_code, 200)
-        payload = response.get_json()
-        self.assertEqual(payload["integrity"], "ok")
-        self.assertNotIn("gemini_api_key", payload)
+def test_editorial_data_endpoint_exposes_only_safe_summary():
+    client = furia_app.app.test_client()
+    with patch.object(furia_app, "get_editorial_data_summary", return_value={
+        "data_dir": "C:/Users/editor/FuriaClipsData",
+        "database_exists": True,
+        "integrity": "ok",
+        "projects": 2,
+        "clips": 6,
+        "feedback_events": 4,
+    }):
+        response = client.get("/api/editorial/data")
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["integrity"] == "ok"
+    assert "gemini_api_key" not in payload
 
-    def test_editorial_backup_endpoint_returns_download_metadata(self):
-        with patch.object(furia_app, "create_editorial_backup", return_value={
-            "path": "C:/Users/editor/FuriaClipsData/backups/furia-editorial-backup-test.zip",
-            "filename": "furia-editorial-backup-test.zip",
-            "size_bytes": 512,
-            "summary": {"integrity": "ok"},
-        }):
-            response = self.client.post("/api/editorial/backup")
-        self.assertEqual(response.status_code, 200)
-        payload = response.get_json()
-        self.assertTrue(payload["success"])
-        self.assertEqual(payload["filename"], "furia-editorial-backup-test.zip")
-        self.assertNotIn("path", payload)
+def test_editorial_backup_endpoint_returns_download_metadata():
+    client = furia_app.app.test_client()
+    with patch.object(furia_app, "create_editorial_backup", return_value={
+        "path": "C:/Users/editor/FuriaClipsData/backups/furia-editorial-backup-test.zip",
+        "filename": "furia-editorial-backup-test.zip",
+        "size_bytes": 512,
+        "summary": {"integrity": "ok"},
+    }):
+        response = client.post("/api/editorial/backup")
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["success"] is True
+    assert payload["filename"] == "furia-editorial-backup-test.zip"
+    assert "path" not in payload
 
-    def test_gemini_key_is_saved_to_explicit_persistent_env(self):
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            env_path = os.path.join(tmp_dir, "config", "local.env")
-            with patch.dict(os.environ, {"FURIA_CLIPS_ENV_FILE": env_path}, clear=False):
-                furia_app._save_key_to_env("GEMINI_API_KEY", "test-only-secret")
-            with open(env_path, "r", encoding="utf-8") as handle:
-                content = handle.read()
-            self.assertIn("GEMINI_API_KEY=test-only-secret", content)
-            self.assertNotIn(os.path.join(furia_app.BASE_DIR, ".env"), env_path)
+def test_gemini_key_is_saved_to_explicit_persistent_env():
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        env_path = os.path.join(tmp_dir, "config", "local.env")
+        with patch.dict(os.environ, {"FURIA_CLIPS_ENV_FILE": env_path}, clear=False):
+            furia_app._save_key_to_env("GEMINI_API_KEY", "test-only-secret")
+        with open(env_path, "r", encoding="utf-8") as handle:
+            content = handle.read()
+        assert "GEMINI_API_KEY=test-only-secret" in content
+        assert os.path.join(furia_app.BASE_DIR, ".env") not in env_path
 
 
 def test_multimodal_visual_observation_rejects_mismatched_source():
@@ -248,3 +371,7 @@ def test_coerce_bool_handles_json_and_form_style_values():
     assert furia_app._coerce_bool("off") is False
     assert furia_app._coerce_bool("true") is True
     assert furia_app._coerce_bool(None, default=True) is True
+
+
+if __name__ == "__main__":
+    unittest.main()

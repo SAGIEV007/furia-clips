@@ -97,6 +97,7 @@ from modules.clip_adjustments import adjust_clip_bounds
 from modules.editorial_block import build_editorial_block
 from modules.performance_metrics import normalize_snapshot, metric_labels
 from modules.transcript_archive import archive_transcription, list_archived_transcriptions, validate_transcription
+from modules.editorial_search import search_cached_campaign_hub
 from modules.source_ingest import (
     SourceIngestError,
     probe_public_url,
@@ -128,7 +129,7 @@ ERROR_MESSAGES = {
     "unsupported_format": "Formato de video nao suportado. Tente converter para MP4 primeiro.",
     "ffmpeg_not_found": "FFmpeg nao encontrado. Instale de: https://ffmpeg.org/download.html",
     "file_not_found": "Video nao encontrado no caminho especificado.",
-    "ollama_unavailable": "Ollama nao detectado. Usando NLP basico (menos preciso). Instale em: https://ollama.com",
+    "ollama_unavailable": "Ollama não detectado. Usando NLP local (menos preciso). Instale em: https://ollama.com",
     "processing_active": "Ja existe um processamento em andamento. Aguarde o termino.",
     "disk_full": "Espaco em disco insuficiente para gerar os clips.",
     "timeout": "A operacao demorou muito e foi cancelada. Tente com um video menor.",
@@ -195,7 +196,10 @@ def _set_legacy_task(operation, active=True, job_id=None):
         current_task["started_at"] = None
 
 
-def emit_progress(message, level="info"):
+def emit_progress(message, level="info", job_id=None):
+    effective_job_id = str(job_id or "").strip()
+    if not effective_job_id and current_task.get("active") and current_task.get("job_id"):
+        effective_job_id = str(current_task.get("job_id"))
     runtime_message = f"[Versão {PROGRAM_VERSION} · {PROGRAM_REVISION}] {str(message)}"
     socketio.emit(
         "progress",
@@ -203,19 +207,41 @@ def emit_progress(message, level="info"):
             "message": runtime_message,
             "level": level,
             "time": datetime.now().strftime("%H:%M:%S"),
+            "job_id": effective_job_id or None,
             "program_version": PROGRAM_VERSION,
             "program_revision": PROGRAM_REVISION,
         },
     )
 
 
-def emit_status(status, data=None):
-    socketio.emit("status", {"status": status, "data": data or {}})
+def _job_scoped_progress(job_id):
+    def callback(message, level="info"):
+        return emit_progress(message, level, job_id=job_id)
+    return callback
+
+
+def emit_status(status, data=None, job_id=None):
+    payload = dict(data or {})
+    if job_id:
+        payload["job_id"] = str(job_id)
+    payload.setdefault("program_version", PROGRAM_VERSION)
+    payload.setdefault("program_revision", PROGRAM_REVISION)
+    socketio.emit(
+        "status",
+        {
+            "status": status,
+            "data": payload,
+            "job_id": str(job_id) if job_id else None,
+            "program_version": PROGRAM_VERSION,
+            "program_revision": PROGRAM_REVISION,
+        },
+    )
 
 
 def _emit_job_update(job):
     if job:
-        socketio.emit("job_update", job)
+        payload = {**job, "program_version": PROGRAM_VERSION, "program_revision": PROGRAM_REVISION}
+        socketio.emit("job_update", payload)
 
 
 job_manager = JobManager(DB_PATH, max_workers=1, on_event=_emit_job_update)
@@ -324,6 +350,48 @@ def _selection_coverage_plan(source_video, video_duration):
         span = 0.0
     max_clips = min(36, max(15, int(span // 240) + 6)) if span >= 120 else 15
     return {"previous_clip_fingerprints": fingerprints, "adaptive_max_clips": max_clips}
+
+
+def _defer_context_incomplete_candidates(candidates):
+    """Keep editorially unsafe candidates for review instead of rendering them ready.
+
+    The ranker exposes the reasons, but rendering is the final publication-like
+    boundary: a strong hook must not compensate for missing context or an
+    explicit technical review requirement such as an unvalidated Q&A bridge.
+    """
+    renderable = []
+    deferred = []
+    for candidate in candidates or []:
+        if not isinstance(candidate, dict):
+            continue
+        review_flags = candidate.get("review_flags") or {}
+        technical_status = candidate.get("technical_gate_status") or review_flags.get("technical_gate_status")
+        technical_reasons = candidate.get("technical_gate_reasons") or review_flags.get("technical_gate_reasons") or []
+        context_incomplete = "context_complete" in candidate and candidate.get("context_complete") is False
+        technical_review = technical_status == "review"
+        if not context_incomplete and not technical_review:
+            renderable.append(candidate)
+            continue
+
+        reasons = []
+        if context_incomplete:
+            reasons.append("contexto autossuficiente não confirmado")
+            if candidate.get("starts_mid_sentence"):
+                reasons.append("início possivelmente no meio da frase")
+            if candidate.get("starts_with_context_reference"):
+                reasons.append("referência contextual sem antecedente recuperado")
+        if technical_review:
+            reasons.append("revisão técnica editorial obrigatória")
+            reasons.extend(str(reason) for reason in technical_reasons if str(reason).strip())
+        deferred.append({
+            "start": candidate.get("start", candidate.get("start_time")),
+            "end": candidate.get("end", candidate.get("end_time")),
+            "duration": candidate.get("duration"),
+            "reason": "; ".join(dict.fromkeys(reasons)),
+            "errors": ["; ".join(dict.fromkeys(reasons))],
+            "review_flags": review_flags,
+        })
+    return renderable, deferred
 
 
 def _transcription_source_mode(settings):
@@ -541,10 +609,20 @@ def _transcription_coverage_report(transcription, duration):
         raw_last = None
     out_of_bounds = bool(video_duration and ((raw_last is not None and raw_last > video_duration * 1.05) or any(end > video_duration * 1.05 for _, end in valid)))
     end_ratio = round(min(1.0, last / video_duration), 3) if video_duration and last is not None else None
+    first_ratio = round(min(1.0, max(0.0, first / video_duration)), 3) if video_duration and first is not None else None
     span_ratio = round(min(1.0, max(0.0, (last - first) / video_duration)), 3) if video_duration and first is not None and last is not None else None
-    if out_of_bounds:
+    coverage_is_narrow = bool(
+        video_duration
+        and (
+            (first_ratio is not None and first_ratio > 0.20)
+            or (span_ratio is not None and span_ratio < 0.55)
+        )
+    )
+    if not valid:
+        status = "empty"
+    elif out_of_bounds:
         status = "mismatch_suspected"
-    elif video_duration and last is not None and end_ratio < 0.35:
+    elif video_duration and last is not None and (end_ratio < 0.35 or coverage_is_narrow):
         status = "partial"
     else:
         status = "covered"
@@ -554,9 +632,43 @@ def _transcription_coverage_report(transcription, duration):
         "first_timestamp": round(first, 3) if first is not None else None,
         "last_timestamp": round(last, 3) if last is not None else None,
         "end_ratio": end_ratio,
+        "first_ratio": first_ratio,
         "span_ratio": span_ratio,
         "segment_count": len(valid),
         "semantic_identity_verified": False,
+    }
+
+
+def _review_provenance(transcription=None, editorial_context=None, context_source=None):
+    """Return bounded origin metadata safe for clip review and local persistence."""
+    source = str((transcription or {}).get("source", "unknown") or "unknown").strip().lower()
+    if "subtitle" in source:
+        transcript_source = "public_subtitle"
+    elif "gemini" in source:
+        transcript_source = "gemini_video"
+    elif "whisper" in source:
+        transcript_source = "whisper"
+    elif source in {"manual", "manual_confirmed"}:
+        transcript_source = "manual"
+    elif source in {"automatic", "unknown"}:
+        transcript_source = source
+    else:
+        transcript_source = "unknown"
+    coverage = (transcription or {}).get("coverage", {}) if isinstance(transcription, dict) else {}
+    coverage_status = str(coverage.get("status", "unknown") or "unknown").strip()
+    if coverage_status not in {"covered", "partial", "mismatch_suspected", "empty", "unknown"}:
+        coverage_status = "unknown"
+    selected_context_source = str(context_source or ("local_dossier" if isinstance(editorial_context, dict) else "none"))
+    if selected_context_source not in {"local_dossier", "multimodal_auxiliary", "none"}:
+        selected_context_source = "none"
+    return {
+        "transcript_source": transcript_source,
+        "transcript_coverage_status": coverage_status,
+        "transcript_archive_present": bool(
+            isinstance(transcription, dict)
+            and (transcription.get("archive") or transcription.get("archive_metadata") or transcription.get("quality"))
+        ),
+        "context_source": selected_context_source,
     }
 
 
@@ -704,9 +816,22 @@ def _should_allow_followup_video_analysis(transcription, settings):
     """
     source = str((transcription or {}).get("source", "") or "").strip().lower()
     settings = settings or {}
-    if source == "manual":
+    if source in {"manual", "manual_confirmed"}:
         return bool(settings.get("gemini_manual_video_analysis", False))
     return bool(settings.get("gemini_video_analysis_with_transcript", False))
+
+
+def _should_request_editorial_context_multimodal(transcription, analyze_video, multimodal_result, settings):
+    """Decide whether the context worker may start a second video upload.
+
+    The worker can receive a canonical transcript before it reaches the context
+    stage. In that case, ``analyze_video=True`` means that visual/audio review is
+    desirable, not that the same source must be uploaded again. The advanced
+    settings remain the explicit opt-in for that second pass.
+    """
+    if multimodal_result is not None or not analyze_video:
+        return False
+    return _should_allow_followup_video_analysis(transcription, settings)
 
 
 def _enrich_editorial_context(video_path, settings, editorial_context, user_context, emit_progress, multimodal=None, allow_video_analysis=True):
@@ -729,6 +854,19 @@ def api_list_jobs():
     except (TypeError, ValueError):
         limit = 50
     return jsonify({"jobs": job_manager.list(limit=limit)})
+
+
+@app.route("/api/process/status", methods=["GET"])
+def api_process_status():
+    """Expose only the current legacy operation for frontend recovery."""
+    return jsonify({
+        "active": bool(current_task.get("active")),
+        "operation": str(current_task.get("operation") or ""),
+        "job_id": current_task.get("job_id"),
+        "started_at": current_task.get("started_at"),
+        "program_version": PROGRAM_VERSION,
+        "program_revision": PROGRAM_REVISION,
+    })
 
 
 @app.route("/api/jobs/<job_id>", methods=["GET"])
@@ -944,6 +1082,25 @@ def api_editorial_transcripts():
     })
 
 
+@app.route("/api/editorial/transcripts/open", methods=["POST"])
+def api_open_editorial_transcript_folder():
+    data = request.get_json(silent=True) or {}
+    relative_dir = str(data.get("relative_dir", "") or "").strip()
+    root = os.path.abspath(PERSISTENT_TRANSCRIPTS_DIR)
+    folder = os.path.abspath(os.path.join(root, relative_dir))
+    try:
+        inside_root = os.path.commonpath([root, folder]) == root
+    except ValueError:
+        inside_root = False
+    if not inside_root or not os.path.isdir(folder):
+        return jsonify({"error": "Pasta persistente de transcrição inválida ou não encontrada"}), 404
+    try:
+        open_local_path(folder)
+        return jsonify({"success": True, "relative_dir": os.path.relpath(folder, root)})
+    except (FileNotFoundError, OSError) as exc:
+        return jsonify({"error": "Não foi possível abrir a pasta persistente", "detail": str(exc)[:200]}), 500
+
+
 @app.route("/api/editorial/transcripts/<path:relative_file>", methods=["GET"])
 def api_editorial_transcript_file(relative_file):
     root = os.path.abspath(PERSISTENT_TRANSCRIPTS_DIR)
@@ -1002,7 +1159,7 @@ def api_campaign_hub_status():
 def api_repository_status():
     """Report Git synchronization state without exposing remotes or secrets."""
     try:
-        return jsonify(get_repository_status(fetch=request.args.get("fetch", "1") != "0"))
+        return jsonify(get_repository_status(fetch=False))
     except RepositorySyncError as exc:
         return jsonify({"success": False, "error": str(exc)}), 400
 
@@ -1014,7 +1171,7 @@ def api_repository_sync():
     action = str(data.get("action", "check") or "check").strip().lower()
     try:
         if action == "check":
-            return jsonify(get_repository_status(fetch=True))
+            return jsonify(get_repository_status(fetch=False))
         if current_task.get("active"):
             return jsonify({"success": False, "error": "Aguarde ou cancele o processamento atual antes de sincronizar o programa."}), 409
         if action == "update":
@@ -1312,10 +1469,11 @@ def api_source_import():
         destination = _resolve_source_destination(data.get("destination_dir"), settings)
     except (SourceIngestError, OSError) as exc:
         return jsonify({"success": False, "error": str(exc)}), 400
+    source_job_id = uuid.uuid4().hex
     with processing_lock:
         if current_task["active"]:
             return jsonify({"error": "Já existe um processamento em andamento"}), 409
-        _set_legacy_task("source_import", active=True)
+        _set_legacy_task("source_import", active=True, job_id=source_job_id)
 
     max_height = data.get("max_height", settings.get("source_max_height", 1080))
     auto_transcribe = bool(data.get("auto_transcribe", True))
@@ -1352,6 +1510,7 @@ def api_source_import():
                 transcription = normalize_segment_payload(manual_segments, duration=result.get("duration"))
                 transcription["language"] = manual_language or "pt"
                 transcription["source"] = "manual_confirmed"
+                transcription["coverage"] = _transcription_coverage_report(transcription, result.get("duration"))
                 transcript_source = "manual_confirmed"
                 emit_progress(
                     f"[Transcrição manual] {transcription.get('segment_count', len(transcription.get('segments', [])))} segmentos confirmados; busca pública, Gemini e Whisper foram ignorados.",
@@ -1399,6 +1558,7 @@ def api_source_import():
                         transcript_fallback_path=subtitle_path,
                         cancel_check=check_current_task_cancel,
                     )
+                    transcription["coverage"] = _transcription_coverage_report(transcription, result.get("duration"))
                     transcript_files = _save_transcription_artifacts(result_path, transcription)
                     transcript_source = "public_subtitle" if subtitle_path else str(transcription.get("source", "automatic"))
                     transcript_archive = archive_transcription(
@@ -1439,16 +1599,17 @@ def api_source_import():
                 "project_id": project_id,
                 "subtitle_path": subtitle_path,
                 "auto_transcribe": auto_transcribe,
+                "job_id": source_job_id,
             }
             check_current_task_cancel()
-            emit_status("source_import_complete", event_data)
             emit_progress(f"[Fonte] Vídeo importado em {display_path}", "success")
+            emit_status("source_import_complete", event_data, job_id=source_job_id)
         except OperationCancelled as exc:
             emit_progress(f"[Fonte] Operação cancelada: {exc}", "warning")
-            emit_status("cancelled", {"operation": "source_import", "message": str(exc)})
+            emit_status("cancelled", {"operation": "source_import", "message": str(exc)}, job_id=source_job_id)
         except Exception as exc:
             emit_progress(f"[Fonte] Falha ao importar link: {str(exc)}", "error")
-            emit_status("error", {"message": str(exc)})
+            emit_status("error", {"operation": "source_import", "message": str(exc)}, job_id=source_job_id)
         finally:
             _set_legacy_task("", active=False)
 
@@ -1460,7 +1621,7 @@ def api_source_import():
         message = "Download e transcrição da fonte iniciados."
     else:
         message = "Download da fonte iniciado sem transcrição."
-    return jsonify({"success": True, "message": message, "destination_dir": destination})
+    return jsonify({"success": True, "message": message, "destination_dir": destination, "job_id": source_job_id, "state": "running"})
 
 
 @app.route("/api/transcript/parse", methods=["POST"])
@@ -1474,6 +1635,7 @@ def api_parse_transcript():
                 duration = _probe_video_duration_seconds(resolved_video)
         result = parse_transcript_text(data.get("text", ""), duration=duration)
         result["language"] = data.get("language", "pt")
+        result["coverage"] = _transcription_coverage_report(result, duration)
         return jsonify({"success": True, "transcription": result})
     except (TypeError, ValueError) as exc:
         return jsonify({"success": False, "error": str(exc)}), 400
@@ -1486,8 +1648,10 @@ def api_parse_transcript_file():
         return jsonify({"success": False, "error": "Nenhum arquivo de transcrição enviado"}), 400
     try:
         text = uploaded.read().decode("utf-8-sig")
-        result = parse_transcript_text(text, duration=request.form.get("duration"))
+        duration = request.form.get("duration")
+        result = parse_transcript_text(text, duration=duration)
         result["language"] = request.form.get("language", "pt")
+        result["coverage"] = _transcription_coverage_report(result, duration)
         return jsonify({"success": True, "transcription": result})
     except (UnicodeDecodeError, TypeError, ValueError) as exc:
         return jsonify({"success": False, "error": f"Transcrição inválida: {exc}"}), 400
@@ -1535,8 +1699,9 @@ def api_remove_silence():
     if not os.path.exists(video_path):
         return jsonify({"error": "Video nao encontrado"}), 404
 
+    legacy_job_id = f"legacy-{uuid.uuid4().hex}"
+
     def task():
-        current_task["active"] = True
         try:
             from modules.silence_remover import SilenceRemover
             settings = get_all_settings()
@@ -1545,24 +1710,33 @@ def api_remove_silence():
                 min_silence_duration=settings.get("min_silence_duration", 0.5),
                 padding=settings.get("padding", 0.25),
             )
-            result = remover.remove_silence(video_path, emit_progress=emit_progress)
+            result = remover.remove_silence(
+                video_path,
+                emit_progress=emit_progress,
+                cancel_check=check_current_task_cancel,
+            )
             if result:
-                emit_status("silence_complete", result)
+                emit_status("silence_complete", result, job_id=legacy_job_id)
                 emit_progress("Remocao de silencio concluida!", "success")
             else:
-                emit_status("error", {"message": "Falha ao remover silencio"})
+                emit_status("error", {"message": "Falha ao remover silencio", "operation": "silence"}, job_id=legacy_job_id)
                 emit_progress("Erro na remocao de silencio", "error")
+        except OperationCancelled as exc:
+            emit_progress(f"Remocao de silencio cancelada: {exc}", "warning")
+            emit_status("cancelled", {"operation": "silence", "message": str(exc)}, job_id=legacy_job_id)
         except Exception as e:
             emit_progress(f"Erro: {str(e)}", "error")
-            emit_status("error", {"message": str(e)})
+            emit_status("error", {"message": str(e), "operation": "silence"}, job_id=legacy_job_id)
         finally:
-            current_task["active"] = False
+            _set_legacy_task("", active=False)
 
-    if current_task["active"]:
-        return jsonify({"error": "Ja existe um processamento em andamento"}), 409
+    with processing_lock:
+        if current_task["active"]:
+            return jsonify({"error": "Ja existe um processamento em andamento"}), 409
+        _set_legacy_task("silence", active=True, job_id=legacy_job_id)
 
     threading.Thread(target=task, daemon=True).start()
-    return jsonify({"success": True, "message": "Remocao de silencio iniciada"})
+    return jsonify({"success": True, "message": "Remocao de silencio iniciada", "job_id": legacy_job_id, "state": "running"})
 
 
 @app.route("/api/process/transcribe", methods=["POST"])
@@ -1575,6 +1749,8 @@ def api_transcribe():
 
     if not os.path.exists(video_path):
         return jsonify({"error": "Video nao encontrado"}), 404
+
+    legacy_job_id = f"legacy-{uuid.uuid4().hex}"
 
     def task():
         try:
@@ -1599,24 +1775,27 @@ def api_transcribe():
                 )
 
             check_current_task_cancel()
-            emit_status("transcribe_complete", result)
+            result["source_video_path"] = data.get("video_path") or (
+                os.path.relpath(video_path, WORKSPACE_DIR) if _is_under(video_path, WORKSPACE_DIR) else video_path
+            )
+            emit_status("transcribe_complete", result, job_id=legacy_job_id)
             emit_progress("Transcricao concluida!", "success")
         except OperationCancelled as exc:
             emit_progress(f"[Transcrição] Operação cancelada: {exc}", "warning")
-            emit_status("cancelled", {"operation": "transcription", "message": str(exc)})
+            emit_status("cancelled", {"operation": "transcription", "message": str(exc)}, job_id=legacy_job_id)
         except Exception as e:
             emit_progress(f"Erro na transcricao: {str(e)}", "error")
-            emit_status("error", {"message": str(e)})
+            emit_status("error", {"message": str(e), "operation": "transcription"}, job_id=legacy_job_id)
         finally:
             _set_legacy_task("", active=False)
 
     with processing_lock:
         if current_task["active"]:
             return jsonify({"error": "Ja existe um processamento em andamento"}), 409
-        _set_legacy_task("transcription", active=True)
+        _set_legacy_task("transcription", active=True, job_id=legacy_job_id)
 
     threading.Thread(target=task, daemon=True).start()
-    return jsonify({"success": True, "message": "Transcricao iniciada"})
+    return jsonify({"success": True, "message": "Transcricao iniciada", "job_id": legacy_job_id, "state": "running"})
 
 
 @app.route("/api/process/cut", methods=["POST"])
@@ -1636,11 +1815,19 @@ def api_cut_shorts():
     preferred_format = str(data.get("preferred_format", "auto") or "auto").strip().lower()
     if preferred_format not in {"auto", "vertical_916", "square_alfinetei", "fake_tweet"}:
         preferred_format = "auto"
+    prefetched_context = data.get("editorial_context")
+    prefetched_context_path = _resolve_media_input(data.get("editorial_context_source_path", ""))
+    prefetched_context_matches = bool(
+        isinstance(prefetched_context, dict)
+        and prefetched_context_path
+        and os.path.realpath(prefetched_context_path) == os.path.realpath(video_path)
+    )
 
     if not os.path.exists(video_path):
         return jsonify({"error": "Video nao encontrado"}), 404
 
     def task(ctx):
+        emit_progress = _job_scoped_progress(ctx.job_id)
         try:
             ctx.update(stage="transcription", progress=5, message="Preparando transcrição e contexto")
             ctx.check_cancel()
@@ -1692,7 +1879,7 @@ def api_cut_shorts():
             if transcription:
                 coverage = _transcription_coverage_report(transcription, video_duration)
                 transcription["coverage"] = coverage
-                if coverage["status"] == "mismatch_suspected" and transcription.get("source") == "manual":
+                if coverage["status"] == "mismatch_suspected" and str(transcription.get("source") or "").lower() in {"manual", "manual_confirmed"}:
                     raise ValueError(
                         "A transcrição manual contém timestamps além da duração do vídeo selecionado. "
                         "Ela provavelmente pertence a outro vídeo; selecione a mídia correta ou importe a legenda correspondente."
@@ -1718,14 +1905,27 @@ def api_cut_shorts():
                 transcription = transcriber.transcribe(
                     video_path,
                     emit_progress=emit_progress,
-                    cancel_check=check_current_task_cancel,
+                    cancel_check=ctx.check_cancel,
                 )
                 emit_progress(f"[Whisper] Motor: {transcriber._engine}", "info")
 
             save_transcription(
                 active_project_id, transcription["segments"], transcription["full_text"],
-                transcription["language"], settings.get("whisper_model", "small")
+                transcription["language"],
+                transcription.get("source") or selected_transcription_mode or settings.get("whisper_model", "small"),
             )
+            transcript_archive = archive_transcription(
+                transcription,
+                source_video=video_path,
+                source=str(transcription.get("source") or selected_transcription_mode or "automatic"),
+                project_id=active_project_id,
+                duration=video_duration,
+                archive_name=os.path.splitext(os.path.basename(video_path))[0],
+            )
+            transcription["quality"] = transcript_archive.get("quality", {})
+            transcription["archive"] = transcript_archive
+            relative_archive = transcript_archive.get("relative_dir") or "arquivo persistente"
+            emit_progress(f"[Transcrição] Backup persistente salvo em {os.path.join(os.path.abspath(PERSISTENT_TRANSCRIPTS_DIR), relative_archive)}.", "info")
 
             from modules.editorial_context import analyze_transcript_context
             editorial_context = analyze_transcript_context(
@@ -1733,6 +1933,15 @@ def api_cut_shorts():
                 focus=settings.get("editorial_focus", "auto"),
                 campaign_hub_account=settings.get("campaign_hub_account", "@renansantosmbl"),
             )
+            if prefetched_context_matches:
+                prefetched = dict(prefetched_context)
+                prefetched.update(editorial_context)
+                if not editorial_context.get("hook_candidates") and prefetched_context.get("hook_candidates"):
+                    prefetched["hook_candidates"] = prefetched_context["hook_candidates"]
+                if not editorial_context.get("signals") and prefetched_context.get("signals"):
+                    prefetched["signals"] = prefetched_context["signals"]
+                editorial_context = prefetched
+                emit_progress("[Contexto editorial] Dossiê pré-analisado para esta fonte reutilizado com a transcrição atual.", "success")
             emit_progress(f"[Contexto editorial] {editorial_context['description']}", "info")
             # A transcrição pública/manual/Whisper já resolveu a etapa temporal;
             # uma segunda análise multimodal só ocorre por opção explícita.
@@ -1852,7 +2061,11 @@ def api_cut_shorts():
 
             selection_source = selector.get_selection_source()
             candidate_diagnostics = selector.get_candidate_diagnostics()
-            socketio.emit("selection_mode", {"source": selection_source, "candidate_diagnostics": candidate_diagnostics})
+            socketio.emit("selection_mode", {
+                "source": selection_source,
+                "candidate_diagnostics": candidate_diagnostics,
+                "job_id": ctx.job_id,
+            })
 
             ctx.update(stage="ranking", progress=64, message=f"Ranqueando {len(top_clips)} candidatos")
             ctx.check_cancel()
@@ -1902,6 +2115,17 @@ def api_cut_shorts():
                 user_context=user_context,
                 energy_profile=energy_profile,
             )
+            pre_gate_count = len(top_clips)
+            top_clips, editorial_gate_rejections = _defer_context_incomplete_candidates(top_clips)
+            candidate_diagnostics["pre_render_candidate_count"] = pre_gate_count
+            candidate_diagnostics["renderable_candidate_count"] = len(top_clips)
+            candidate_diagnostics["editorial_gate_deferred_count"] = len(editorial_gate_rejections)
+            candidate_diagnostics["editorial_gate_status"] = "review_required" if editorial_gate_rejections else "clean"
+            if editorial_gate_rejections:
+                emit_progress(
+                    f"[Contexto] {len(editorial_gate_rejections)} candidato(s) foram adiados para revisão antes do render; hooks fortes não compensam contexto incompleto.",
+                    "warning",
+                )
 
             ctx.update(stage="rendering", progress=76, message="Validando enquadramento e renderizando cortes")
             ctx.check_cancel()
@@ -1935,20 +2159,22 @@ def api_cut_shorts():
                             target_aspect=target_aspect,
                         )
                         layout_plans[index] = layout_plan
-                        framing_mode = "reframe_9_16" if layout_plan.get("reframe_allowed") else "original"
+                        safe_reframe = bool(layout_plan.get("reframe_allowed")) and not bool(layout_plan.get("review_required"))
+                        framing_mode = "reframe_9_16" if safe_reframe else "original"
                         framing_by_index[index] = {
                             "mode": framing_mode,
                             "reason": layout_plan["reason"],
                             "layout_family": layout_plan["layout_family"],
                             "confidence": layout_plan["confidence"],
-                            "review_required": layout_plan["review_required"],
+                            "review_required": bool(layout_plan.get("review_required")) or bool(layout_plan.get("reframe_allowed")) != safe_reframe,
                         }
-                        if layout_plan.get("reframe_allowed"):
+                        if safe_reframe:
                             face_positions_map[index] = assessment.get("positions", [])
                             emit_progress(f"[Layout] Clip {index + 1}: {layout_plan['reason']} Reframe {target_aspect} ativado.", "success")
                         else:
                             original_aspect_indices.add(index)
-                            emit_progress(f"[Layout] Clip {index + 1}: {layout_plan['reason']}", "info")
+                            review_suffix = " Revisão visual obrigatória; quadro original preservado." if layout_plan.get("reframe_allowed") and layout_plan.get("review_required") else ""
+                            emit_progress(f"[Layout] Clip {index + 1}: {layout_plan['reason']}{review_suffix}", "warning" if review_suffix else "info")
                 except Exception as exc:
                     original_aspect_indices.update(range(len(top_clips)))
                     reason = f"rastreamento indisponível: {str(exc)[:180]}"
@@ -1989,14 +2215,23 @@ def api_cut_shorts():
                 output_dir=output_dir if output_dir else None,
                 video_layout=video_layout,
                 layout_plans=layout_plans,
+                source_duration=video_duration,
             )
-            render_rejections = list(getattr(cutter, "last_rejections", []))
+            render_rejections = list(editorial_gate_rejections)
+            render_rejections.extend(getattr(cutter, "last_rejections", []))
+            candidate_diagnostics["render_rejection_count"] = len(render_rejections)
+            candidate_diagnostics["rendered_count"] = len(results)
+            if top_clips and not results and render_rejections:
+                candidate_diagnostics["reason"] = "render_failed_after_selection"
+            elif results and len(results) < len(top_clips) and render_rejections:
+                candidate_diagnostics["reason"] = "partial_render_failure"
 
             # Persist rendered clips so review decisions can calibrate future ranking.
             output_folder = ""
             clip_id_by_index = {}
             for i, res in enumerate(results):
-                clip_data = top_clips[i] if i < len(top_clips) else {}
+                source_index = int(res.get("index", i)) if str(res.get("index", i)).lstrip("-").isdigit() else i
+                clip_data = top_clips[source_index] if 0 <= source_index < len(top_clips) else {}
                 clip_id_by_index[i] = save_clip(
                     active_project_id, res["path"], res["start"], res["end"],
                     res["duration"], clip_data.get("viral_score", 0),
@@ -2015,14 +2250,26 @@ def api_cut_shorts():
                         "candidate_origin": clip_data.get("candidate_origin"),
                         "selection_source": selection_source,
                         "confidence": clip_data.get("confidence", 0),
+                        "framing": framing_by_index.get(source_index, {
+                            "mode": "original",
+                            "reason": "composição original preservada por segurança",
+                            "review_required": True,
+                        }),
+                        **_review_provenance(
+                            transcription,
+                            editorial_context,
+                            "multimodal_auxiliary" if multimodal_result is not None else "local_dossier",
+                        ),
                     },
+                    context_recovery=clip_data.get("context_recovery"),
                 )
                 if not output_folder:
                     output_folder = res.get("output_folder", "")
 
             clip_results = []
             for i, res in enumerate(results):
-                clip_info = top_clips[i] if i < len(top_clips) else {}
+                source_index = int(res.get("index", i)) if str(res.get("index", i)).lstrip("-").isdigit() else i
+                clip_info = top_clips[source_index] if 0 <= source_index < len(top_clips) else {}
                 clip_results.append({
                     **res,
                     "viral_score": clip_info.get("viral_score", 0),
@@ -2035,6 +2282,12 @@ def api_cut_shorts():
                     "candidate_origin_note": clip_info.get("candidate_origin_note", "Origem registrada para transparência da revisão."),
                     "political_signals": clip_info.get("political_signals", {}),
                     "review_flags": clip_info.get("review_flags", {}),
+                    "review_provenance": _review_provenance(
+                        transcription,
+                        editorial_context,
+                        "multimodal_auxiliary" if multimodal_result is not None else "local_dossier",
+                    ),
+                    "context_recovery": clip_info.get("context_recovery", {"applied": False, "reason": "antecedente não precisou ser recuperado"}),
                     "speaker": clip_info.get("speaker", ""),
                     "speaker_confidence": clip_info.get("speaker_confidence"),
                     "overlap_suspected": clip_info.get("overlap_suspected", False),
@@ -2047,7 +2300,7 @@ def api_cut_shorts():
                     }),
                     "rank": res.get("rank", i + 1),
                     "clip_id": clip_id_by_index.get(i),
-                    "framing": framing_by_index.get(i, {
+                    "framing": framing_by_index.get(source_index, {
                         "mode": "original",
                         "reason": "composição original preservada por segurança",
                     }),
@@ -2064,9 +2317,15 @@ def api_cut_shorts():
                 "editorial_audit": editorial_audit,
                 "audit_mode": audit_mode,
                 "preferred_format": preferred_format,
-            })
+                "source_identity": os.path.basename(video_path),
+            }, job_id=ctx.job_id)
 
-            source_label = "IA Inteligente" if selection_source == "llm" else "NLP Basico"
+            source_labels = {
+                "gemini": "Gemini Flash",
+                "llm": "Ollama",
+                "nlp": "NLP local",
+            }
+            source_label = source_labels.get(selection_source, "NLP local")
             if results:
                 emit_progress(f"Corte completo! {len(results)} clips gerados via {source_label}.", "success")
             else:
@@ -2080,31 +2339,48 @@ def api_cut_shorts():
                     message += f" Diagnóstico: {detail[:320]}"
                 emit_progress(message, "error")
             return {
-                "artifacts": [{
-                    "type": "clips",
-                    "project_id": active_project_id,
-                    "count": len(clip_results),
-                    "output_folder": output_folder,
-                }]
+                "artifacts": [
+                    {
+                        "type": "clips",
+                        "project_id": active_project_id,
+                        "count": len(clip_results),
+                        "output_folder": output_folder,
+                    },
+                    {
+                        "type": "candidate_diagnostics",
+                        "project_id": active_project_id,
+                        "reason": str(candidate_diagnostics.get("reason", "unknown") or "unknown")[:48],
+                        "expected_count": int(candidate_diagnostics.get("expected_count", 0) or 0),
+                        "primary_count": int(candidate_diagnostics.get("primary_count", 0) or 0),
+                        "fallback_count": int(candidate_diagnostics.get("fallback_count", 0) or 0),
+                        "final_count": int(candidate_diagnostics.get("final_count", 0) or 0),
+                        "previous_discarded_count": int(candidate_diagnostics.get("previous_discarded_count", 0) or 0),
+                        "deduplicated_count": int(candidate_diagnostics.get("deduplicated_count", 0) or 0),
+                        "editorial_gate_deferred_count": int(candidate_diagnostics.get("editorial_gate_deferred_count", 0) or 0),
+                        "render_rejection_count": int(candidate_diagnostics.get("render_rejection_count", 0) or 0),
+                        "rendered_count": int(candidate_diagnostics.get("rendered_count", 0) or 0),
+                        "source_identity": os.path.basename(video_path),
+                    },
+                ]
             }
 
         except JobCancelled as exc:
             emit_progress(f"[Corte] Operação cancelada: {exc}", "warning")
-            emit_status("cancelled", {"operation": "cut", "message": str(exc)})
+            emit_status("cancelled", {"operation": "cut", "message": str(exc)}, job_id=ctx.job_id)
             raise
         except OperationCancelled as exc:
             emit_progress(f"[Corte] Operação cancelada: {exc}", "warning")
-            emit_status("cancelled", {"operation": "cut", "message": str(exc)})
+            emit_status("cancelled", {"operation": "cut", "message": str(exc)}, job_id=ctx.job_id)
             raise JobCancelled(str(exc)) from exc
         except ValueError as ve:
             friendly = _translate_error(str(ve))
             emit_progress(f"Erro: {friendly}", "error")
-            emit_status("error", {"message": friendly})
+            emit_status("error", {"message": friendly}, job_id=ctx.job_id)
             raise
         except Exception as e:
             friendly = _translate_error(str(e))
             emit_progress(f"Erro no corte: {friendly}", "error")
-            emit_status("error", {"message": friendly, "technical": str(e)})
+            emit_status("error", {"message": friendly, "technical": str(e)}, job_id=ctx.job_id)
             raise
         finally:
             _set_legacy_task("", active=False)
@@ -2187,10 +2463,19 @@ def api_analyze_editorial_context():
                 campaign_hub_account=settings.get("campaign_hub_account", "@renansantosmbl"),
             )
         progress("[Contexto] Identificando tese, perguntas, capítulos e possíveis payoffs...", "info", 55)
-        if analyze_video and multimodal_result is None:
+        if _should_request_editorial_context_multimodal(
+            transcription, analyze_video, multimodal_result, settings
+        ):
             progress("[Contexto] Escutando e observando a fonte para validar o cenário, tom e participantes...", "info", 62)
             multimodal_result = _run_gemini_video_analysis(
                 video_path, settings, editorial_context, user_context, progress, cancel_check=ctx.check_cancel
+            )
+        elif analyze_video and multimodal_result is None:
+            progress(
+                "[Contexto] Transcrição canônica confirmada; upload multimodal adicional não será repetido. "
+                "Auditoria local de áudio, hooks e contexto ativada.",
+                "info",
+                62,
             )
         enriched = _enrich_editorial_context(
             video_path,
@@ -2249,6 +2534,24 @@ def api_analyze_editorial_context():
     return jsonify({"success": True, "message": "Análise de contexto iniciada", "job_id": job["id"], "state": job["state"]})
 
 
+@app.route("/api/editorial/search", methods=["POST"])
+def api_search_editorial_sources():
+    """Search locally cached, read-only Campaign Hub evidence for editorial research."""
+    data = request.get_json(silent=True) or {}
+    try:
+        result = search_cached_campaign_hub(
+            data.get("query", ""),
+            account=data.get("account") or data.get("channel"),
+            platform=data.get("platform"),
+            published_from=data.get("published_from") or data.get("date_from"),
+            published_to=data.get("published_to") or data.get("date_to"),
+            limit=data.get("limit", 25),
+        )
+    except (TypeError, ValueError) as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
+    return jsonify(result)
+
+
 @app.route("/api/process/subtitles", methods=["POST"])
 def api_generate_subtitles():
     data = request.get_json(silent=True) or {}
@@ -2257,12 +2560,12 @@ def api_generate_subtitles():
         return jsonify({"error": "Video não encontrado ou caminho inválido"}), 404
     project_id = data.get("project_id")
     subtitle_settings = data.get("subtitle_settings", {})
+    subtitles_job_id = uuid.uuid4().hex
 
     if not os.path.exists(video_path):
         return jsonify({"error": "Video nao encontrado"}), 404
 
     def task():
-        current_task["active"] = True
         try:
             settings = get_all_settings()
             settings.update(subtitle_settings)
@@ -2308,22 +2611,30 @@ def api_generate_subtitles():
                     "video_path": os.path.relpath(result, WORKSPACE_DIR),
                     "ass_path": os.path.relpath(ass_path, WORKSPACE_DIR),
                     "srt_path": os.path.relpath(srt_path, WORKSPACE_DIR),
-                })
+                }, job_id=subtitles_job_id)
                 emit_progress("Legendas geradas e queimadas no video!", "success")
             else:
-                emit_status("error", {"message": "Falha ao gerar legendas"})
+                emit_status("error", {"message": "Falha ao gerar legendas", "operation": "subtitles"}, job_id=subtitles_job_id)
 
+        except OperationCancelled as exc:
+            emit_progress(f"Operação de legendas cancelada: {exc}", "warning")
+            emit_status("cancelled", {"operation": "subtitles", "message": str(exc)}, job_id=subtitles_job_id)
         except Exception as e:
             emit_progress(f"Erro nas legendas: {str(e)}", "error")
-            emit_status("error", {"message": str(e)})
+            emit_status("error", {"operation": "subtitles", "message": str(e)}, job_id=subtitles_job_id)
         finally:
-            current_task["active"] = False
+            _set_legacy_task("", active=False)
 
-    if current_task["active"]:
-        return jsonify({"error": "Ja existe um processamento em andamento"}), 409
-
-    threading.Thread(target=task, daemon=True).start()
-    return jsonify({"success": True, "message": "Geracao de legendas iniciada"})
+    with processing_lock:
+        if current_task["active"]:
+            return jsonify({"error": "Ja existe um processamento em andamento"}), 409
+        _set_legacy_task("subtitles", active=True, job_id=subtitles_job_id)
+        try:
+            threading.Thread(target=task, daemon=True).start()
+        except Exception:
+            _set_legacy_task("", active=False)
+            raise
+    return jsonify({"success": True, "message": "Geracao de legendas iniciada", "job_id": subtitles_job_id, "state": "running"})
 
 
 @app.route("/api/process/seo", methods=["POST"])
@@ -2336,7 +2647,6 @@ def api_generate_seo():
         return jsonify({"error": "Transcricao nao informada"}), 400
 
     def task():
-        current_task["active"] = True
         try:
             settings = get_all_settings()
             from modules.ai_backend import AIBackend
@@ -2366,12 +2676,17 @@ def api_generate_seo():
             emit_progress(f"Erro no SEO: {str(e)}", "error")
             emit_status("error", {"message": str(e)})
         finally:
-            current_task["active"] = False
+            _set_legacy_task("", active=False)
 
-    if current_task["active"]:
-        return jsonify({"error": "Ja existe um processamento em andamento"}), 409
-
-    threading.Thread(target=task, daemon=True).start()
+    with processing_lock:
+        if current_task["active"]:
+            return jsonify({"error": "Ja existe um processamento em andamento"}), 409
+        _set_legacy_task("seo", active=True)
+        try:
+            threading.Thread(target=task, daemon=True).start()
+        except Exception:
+            _set_legacy_task("", active=False)
+            raise
     return jsonify({"success": True, "message": "Geracao de SEO iniciada"})
 
 
@@ -2446,18 +2761,19 @@ def api_analyze_headline_studio():
 
     try:
         from modules.ai_backend import AIBackend
-        from modules.headline_studio import generate_artwork_copy
-
+        from modules.headline_studio import detect_artwork_topic, generate_artwork_copy
         settings = get_all_settings()
+
         ai = None
         if use_ai:
             ai = AIBackend(backend=settings.get("ai_backend", "ollama"), settings=settings)
+        learning_topic = detect_artwork_topic(transcript)
         result = generate_artwork_copy(
             transcript,
             mini_context=mini_context,
             preferred_format=preferred_format,
             ai_backend=ai,
-            editorial_learning=get_headline_learning_preferences(),
+            editorial_learning=get_headline_learning_preferences(topic=learning_topic),
         )
         result["clip_id"] = clip_id
         result["editorial_key"] = str((clip or {}).get("editorial_key") or "")
@@ -2525,12 +2841,12 @@ def api_generate_thumbnail():
     text = data.get("text", "")
     style = data.get("style", "dark_gold")
     clip_id = data.get("clip_id")
+    thumbnail_job_id = uuid.uuid4().hex
 
     if not os.path.exists(video_path):
         return jsonify({"error": "Video nao encontrado"}), 404
 
     def task():
-        current_task["active"] = True
         try:
             from modules.thumbnail_generator import ThumbnailGenerator
             gen = ThumbnailGenerator()
@@ -2548,20 +2864,28 @@ def api_generate_thumbnail():
             if result:
                 emit_status("thumbnail_complete", {
                     "path": os.path.relpath(result, WORKSPACE_DIR),
-                })
+                }, job_id=thumbnail_job_id)
                 emit_progress("Thumbnail gerada!", "success")
 
+        except OperationCancelled as exc:
+            emit_progress(f"Operação de thumbnail cancelada: {exc}", "warning")
+            emit_status("cancelled", {"operation": "thumbnail", "message": str(exc)}, job_id=thumbnail_job_id)
         except Exception as e:
             emit_progress(f"Erro na thumbnail: {str(e)}", "error")
-            emit_status("error", {"message": str(e)})
+            emit_status("error", {"operation": "thumbnail", "message": str(e)}, job_id=thumbnail_job_id)
         finally:
-            current_task["active"] = False
+            _set_legacy_task("", active=False)
 
-    if current_task["active"]:
-        return jsonify({"error": "Ja existe um processamento em andamento"}), 409
-
-    threading.Thread(target=task, daemon=True).start()
-    return jsonify({"success": True, "message": "Geracao de thumbnail iniciada"})
+    with processing_lock:
+        if current_task["active"]:
+            return jsonify({"error": "Ja existe um processamento em andamento"}), 409
+        _set_legacy_task("thumbnail", active=True, job_id=thumbnail_job_id)
+        try:
+            threading.Thread(target=task, daemon=True).start()
+        except Exception:
+            _set_legacy_task("", active=False)
+            raise
+    return jsonify({"success": True, "message": "Geracao de thumbnail iniciada", "job_id": thumbnail_job_id, "state": "running"})
 
 
 @app.route("/api/process/complete", methods=["POST"])
@@ -2573,12 +2897,20 @@ def api_process_complete():
     user_context = data.get("user_context", "")
     video_genre = data.get("video_genre", "")
     transcription_source = data.get("transcription_source")
+    prefetched_context = data.get("editorial_context")
+    prefetched_context_path = _resolve_media_input(data.get("editorial_context_source_path", ""))
+    prefetched_context_matches = bool(
+        isinstance(prefetched_context, dict)
+        and prefetched_context_path
+        and os.path.realpath(prefetched_context_path) == os.path.realpath(video_path)
+    )
 
     if not os.path.exists(video_path):
         return jsonify({"error": "Video nao encontrado"}), 404
 
     def task(ctx):
-        current_task["active"] = True
+        emit_progress = _job_scoped_progress(ctx.job_id)
+        _set_legacy_task("process_complete", active=True, job_id=ctx.job_id)
         try:
             settings = get_all_settings()
             if transcription_source:
@@ -2596,7 +2928,11 @@ def api_process_complete():
                 min_silence_duration=settings.get("min_silence_duration", 0.5),
                 padding=settings.get("padding", 0.25),
             )
-            silence_result = remover.remove_silence(video_path, emit_progress=emit_progress)
+            silence_result = remover.remove_silence(
+                video_path,
+                emit_progress=emit_progress,
+                cancel_check=ctx.check_cancel,
+            )
             ctx.update(stage="silence", progress=15, message="Análise de silêncio concluída")
             ctx.check_cancel()
             if silence_result:
@@ -2612,8 +2948,8 @@ def api_process_complete():
 
             # ── Step 2: Import manual transcript or transcribe ──
             emit_progress("━━━ ETAPA 2/6: Transcrição e contexto ━━━", "info")
-            from modules.transcriber import Transcriber
-            transcription = _transcription_from_request(data)
+            video_duration = _probe_video_duration_seconds(working_video)
+            transcription = _transcription_from_request(data, duration=video_duration)
             multimodal_result = None
             selected_transcription_mode = _transcription_source_mode(settings)
             if not transcription and selected_transcription_mode in {"whisper", "public_subtitle"}:
@@ -2637,23 +2973,17 @@ def api_process_complete():
                 emit_progress(f"[Transcrição manual] {transcription['segment_count']} segmentos importados; Whisper não será executado.", "success")
             elif transcription and transcription.get("source") == "gemini_video":
                 emit_progress(f"[Gemini] {transcription['segment_count']} segmentos obtidos da análise multimodal; Whisper não será executado.", "success")
-            else:
-                transcriber = Transcriber(
-                    model_name=settings.get("whisper_model", "small"),
-                    language=settings.get("language", "pt"),
-                    word_timestamps=settings.get("whisper_word_timestamps", True),
-                    beam_size=settings.get("whisper_beam_size", 5),
-                    device=settings.get("whisper_device", "auto"),
-                )
-                transcription = transcriber.transcribe(
+            if not transcription:
+                fallback_settings = {**settings, "transcription_source": "whisper"}
+                transcription = _transcribe_video_automatically(
                     working_video,
-                    emit_progress=emit_progress,
+                    fallback_settings,
+                    emit_progress,
                     cancel_check=ctx.check_cancel,
                 )
-            video_duration = _probe_video_duration_seconds(working_video)
             coverage = _transcription_coverage_report(transcription, video_duration)
             transcription["coverage"] = coverage
-            if coverage["status"] == "mismatch_suspected" and transcription.get("source") == "manual":
+            if coverage["status"] == "mismatch_suspected" and str(transcription.get("source") or "").lower() in {"manual", "manual_confirmed"}:
                 raise ValueError(
                     "A transcrição manual contém timestamps além da duração do vídeo selecionado. "
                     "Ela provavelmente pertence a outro vídeo; selecione a mídia correta ou importe a legenda correspondente."
@@ -2668,18 +2998,39 @@ def api_process_complete():
                 project_id, transcription["segments"], transcription["full_text"],
                 transcription["language"], transcription.get("source", settings.get("whisper_model", "small"))
             )
+            transcript_archive = archive_transcription(
+                transcription,
+                source_video=video_path,
+                source=str(transcription.get("source") or selected_transcription_mode or "automatic"),
+                project_id=project_id,
+                duration=video_duration,
+                archive_name=video_name,
+            )
+            transcription["quality"] = transcript_archive.get("quality", {})
+            transcription["archive"] = transcript_archive
+            relative_archive = transcript_archive.get("relative_dir") or "arquivo persistente"
+            emit_progress(f"[Transcrição] Backup persistente salvo em {os.path.join(os.path.abspath(PERSISTENT_TRANSCRIPTS_DIR), relative_archive)}.", "info")
             from modules.editorial_context import analyze_transcript_context
             editorial_context = analyze_transcript_context(
                 transcription,
                 focus=settings.get("editorial_focus", "auto"),
                 campaign_hub_account=settings.get("campaign_hub_account", "@renansantosmbl"),
             )
+            if prefetched_context_matches:
+                prefetched = dict(prefetched_context)
+                prefetched.update(editorial_context)
+                if not editorial_context.get("hook_candidates") and prefetched_context.get("hook_candidates"):
+                    prefetched["hook_candidates"] = prefetched_context["hook_candidates"]
+                if not editorial_context.get("signals") and prefetched_context.get("signals"):
+                    prefetched["signals"] = prefetched_context["signals"]
+                editorial_context = prefetched
+                emit_progress("[Contexto editorial] Dossiê pré-analisado para esta fonte reutilizado com a transcrição atual.", "success")
             emit_progress(f"[Contexto editorial] {editorial_context['description']}", "info")
             editorial_context = _enrich_editorial_context(
                 video_path, settings, editorial_context, user_context, emit_progress,
                 multimodal=multimodal_result,
                 allow_video_analysis=not (
-                    transcription.get("source") == "manual"
+                    str(transcription.get("source") or "").lower() in {"manual", "manual_confirmed"}
                     and not settings.get("gemini_manual_video_analysis", False)
                 ),
             )
@@ -2732,6 +3083,7 @@ def api_process_complete():
                 settings=settings,
                 emit_progress=emit_progress,
             )
+            candidate_diagnostics = selector.get_candidate_diagnostics()
             top_clips = _attach_multimodal_visual_observations(top_clips, multimodal_result)
             ctx.update(stage="candidate_generation", progress=55, message=f"{len(top_clips)} candidatos encontrados")
             ctx.check_cancel()
@@ -2766,8 +3118,19 @@ def api_process_complete():
                 user_context=user_context,
                 energy_profile=energy_profile,
             )
-
+            pre_gate_count = len(top_clips)
+            top_clips, editorial_gate_rejections = _defer_context_incomplete_candidates(top_clips)
+            candidate_diagnostics["pre_render_candidate_count"] = pre_gate_count
+            candidate_diagnostics["renderable_candidate_count"] = len(top_clips)
+            candidate_diagnostics["editorial_gate_deferred_count"] = len(editorial_gate_rejections)
+            candidate_diagnostics["editorial_gate_status"] = "review_required" if editorial_gate_rejections else "clean"
+            if editorial_gate_rejections:
+                emit_progress(
+                    f"[Contexto] {len(editorial_gate_rejections)} candidato(s) foram adiados para revisão antes do render; hooks fortes não compensam contexto incompleto.",
+                    "warning",
+                )
             cutter = VideoCutter(
+
                 method="intelligent",
                 target_duration=settings.get("cut_duration", 45),
                 preset=settings.get("render_preset", "shorts"),
@@ -2811,14 +3174,15 @@ def api_process_complete():
                             target_aspect=target_aspect,
                         )
                         layout_plans[index] = layout_plan
+                        safe_reframe = bool(layout_plan.get("reframe_allowed")) and not bool(layout_plan.get("review_required"))
                         framing_by_index[index] = {
-                            "mode": "reframe_9_16" if layout_plan.get("reframe_allowed") else "original",
+                            "mode": "reframe_9_16" if safe_reframe else "original",
                             "reason": layout_plan["reason"],
                             "layout_family": layout_plan["layout_family"],
                             "confidence": layout_plan["confidence"],
-                            "review_required": layout_plan["review_required"],
+                            "review_required": bool(layout_plan.get("review_required")) or bool(layout_plan.get("reframe_allowed")) != safe_reframe,
                         }
-                        if layout_plan.get("reframe_allowed"):
+                        if safe_reframe:
                             face_positions_map[index] = assessment.get("positions", [])
                         else:
                             original_aspect_indices.add(index)
@@ -2873,7 +3237,18 @@ def api_process_complete():
                 output_dir=output_dir if output_dir else None,
                 video_layout=video_layout,
                 layout_plans=layout_plans,
+                source_duration=video_duration,
             )
+            render_rejections = list(editorial_gate_rejections)
+            render_rejections.extend(getattr(cutter, "last_rejections", []))
+            candidate_diagnostics["render_rejection_count"] = len(render_rejections)
+            candidate_diagnostics["rendered_count"] = len(results)
+            if top_clips and not results and render_rejections:
+                candidate_diagnostics["reason"] = "render_failed_after_selection"
+            elif results and len(results) < len(top_clips) and render_rejections:
+                candidate_diagnostics["reason"] = "partial_render_failure"
+            elif not top_clips and editorial_gate_rejections:
+                candidate_diagnostics["reason"] = "editorial_gate_blocked"
             ctx.update(stage="rendering", progress=72, message=f"{len(results)} clips renderizados")
             ctx.check_cancel()
 
@@ -2884,7 +3259,8 @@ def api_process_complete():
 
             for i, res in enumerate(results):
                 ctx.check_cancel()
-                clip_data = top_clips[i] if i < len(top_clips) else {}
+                source_index = int(res.get("index", i)) if str(res.get("index", i)).lstrip("-").isdigit() else i
+                clip_data = top_clips[source_index] if 0 <= source_index < len(top_clips) else {}
                 clip_segments = []
                 for seg in transcription["segments"]:
                     if seg["end"] > res["start"] and seg["start"] < res["end"]:
@@ -2935,7 +3311,13 @@ def api_process_complete():
                         "candidate_origin": clip_data.get("candidate_origin"),
                         "selection_source": settings.get("ai_backend", "local"),
                         "confidence": clip_data.get("confidence", 0),
+                        **_review_provenance(
+                            transcription,
+                            editorial_context,
+                            "multimodal_auxiliary" if multimodal_result is not None else "local_dossier",
+                        ),
                     },
+                    context_recovery=clip_data.get("context_recovery"),
                 )
 
             ctx.update(stage="subtitles", progress=86, message="Legendas processadas")
@@ -2980,8 +3362,9 @@ def api_process_complete():
 
             clip_results = []
             for i, res in enumerate(results):
-                clip_info = top_clips[i] if i < len(top_clips) else {}
-                planned_framing = framing_by_index.get(i, {
+                source_index = int(res.get("index", i)) if str(res.get("index", i)).lstrip("-").isdigit() else i
+                clip_info = top_clips[source_index] if 0 <= source_index < len(top_clips) else {}
+                planned_framing = framing_by_index.get(source_index, {
                     "mode": "original",
                     "reason": "composição original preservada por segurança",
                 })
@@ -3012,6 +3395,12 @@ def api_process_complete():
                     "candidate_origin_note": clip_info.get("candidate_origin_note", "Origem registrada para transparência da revisão."),
                     "political_signals": clip_info.get("political_signals", {}),
                     "review_flags": clip_info.get("review_flags", {}),
+                    "review_provenance": _review_provenance(
+                        transcription,
+                        editorial_context,
+                        "multimodal_auxiliary" if multimodal_result is not None else "local_dossier",
+                    ),
+                    "context_recovery": clip_info.get("context_recovery", {"applied": False, "reason": "antecedente não precisou ser recuperado"}),
                     "closure_type": clip_info.get("closure_type", ""),
                     "starts_mid_sentence": bool(clip_info.get("starts_mid_sentence")),
                     "starts_with_context_reference": bool(clip_info.get("starts_with_context_reference")),
@@ -3054,26 +3443,35 @@ def api_process_complete():
                 "total_clips": len(clip_results),
                 "video_layout": video_layout,
                 "output_dir": save_location,
-            })
+                "candidate_diagnostics": candidate_diagnostics,
+                "render_rejections": render_rejections,
+            }, job_id=ctx.job_id)
             emit_progress(f"PROCESSO COMPLETO! {len(clip_results)} clips gerados, ranqueados e otimizados.", "success")
 
         except JobCancelled:
             emit_progress("Processo completo cancelado pelo usuário.", "warning")
-            emit_status("cancelled", {})
+            emit_status("cancelled", {}, job_id=ctx.job_id)
             raise
         except Exception as e:
             emit_progress(f"Erro no processo completo: {str(e)}", "error")
-            emit_status("error", {"message": str(e)})
+            emit_status("error", {"message": str(e)}, job_id=ctx.job_id)
             import traceback
             traceback.print_exc()
             raise
         finally:
-            current_task["active"] = False
+            _set_legacy_task("", active=False)
 
-    if current_task["active"]:
-        return jsonify({"error": "Ja existe um processamento em andamento"}), 409
-
-    job = job_manager.submit("process_complete", task)
+    with processing_lock:
+        if current_task["active"]:
+            return jsonify({"error": "Ja existe um processamento em andamento"}), 409
+        _set_legacy_task("process_complete", active=True)
+        try:
+            job = job_manager.submit("process_complete", task)
+            if current_task.get("active"):
+                current_task["job_id"] = job["id"]
+        except Exception:
+            _set_legacy_task("", active=False)
+            raise
     return jsonify({
         "success": True,
         "message": "Processo completo iniciado",
@@ -3086,12 +3484,22 @@ def api_process_complete():
 def api_cancel():
     data = request.get_json(silent=True) or {}
     job_id = data.get("job_id")
+    active_job_id = current_task.get("job_id")
+    legacy_operations = {"source_import", "silence", "transcription", "subtitles", "thumbnail", "seo"}
+    is_active_legacy = current_task.get("operation") in legacy_operations
+    if job_id and is_active_legacy and current_task.get("active") and active_job_id and str(job_id) == str(active_job_id):
+        current_task["cancel"] = True
+        return jsonify({
+            "success": True,
+            "state": "cancel_requested",
+            "job_id": str(active_job_id),
+            "message": "Cancelamento legado solicitado",
+        })
     if job_id:
         try:
             return jsonify(job_manager.request_cancel(job_id))
         except KeyError:
             return jsonify({"error": "Job não encontrado"}), 404
-    active_job_id = current_task.get("job_id")
     if active_job_id:
         try:
             return jsonify(job_manager.request_cancel(active_job_id))
@@ -3235,7 +3643,8 @@ def _check_ai_status(settings):
                     "available_models": models,
                     "status": "connected",
                     "backend": "ollama",
-                    "mode_label": "IA Inteligente (Ollama)",
+                    "mode_label": "Gemini indisponível · Ollama fallback" if ai_backend == "gemini" else "IA Inteligente (Ollama)",
+                    "fallback_from": "gemini" if ai_backend == "gemini" else "",
                 }
         except Exception:
             pass
@@ -3248,7 +3657,8 @@ def _check_ai_status(settings):
         "available_models": [],
         "status": "no_key" if ai_backend == "gemini" and not api_key else "offline",
         "backend": "auto" if ai_backend == "auto" else ai_backend,
-        "mode_label": "NLP local (sem chave ou serviço externo)",
+        "mode_label": "Gemini sem chave · NLP local" if ai_backend == "gemini" and not api_key else "NLP local (sem chave ou serviço externo)",
+        "fallback_from": "gemini" if ai_backend == "gemini" else "",
     }
 
 

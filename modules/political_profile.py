@@ -68,6 +68,57 @@ SENSITIVE_ALLEGATION_CUES = {
     "perseguido", "ligacao com faccao", "cometeu crime", "roubou",
 }
 
+ENTITY_PATTERNS = {
+    "lula": r"\blula\b",
+    "bolsonaro": r"\bbolsonaro\b",
+    "stf": r"\b(?:stf|supremo tribunal federal|supremo)\b",
+}
+ENTITY_COMPARISON_CUES = (
+    "comparar", "comparando", "diferente", "enquanto", "contra", "versus",
+    "assim como", "melhor que", "pior que", "do que", "em vez de", "ao contrario",
+)
+ENTITY_CENTRAL_CUES = (
+    "problema", "proposta", "solucao", "governo", "presidente", "decisao", "crime",
+    "seguranca", "economia", "liberdade", "eleicao", "voto", "defende", "ataca",
+    "impõe", "impoe", "causa", "representa", "disse", "diz", "vai", "fez",
+)
+
+
+def _entity_roles(text: str) -> dict[str, dict]:
+    """Classify only a small set of recurring entities by textual role.
+
+    This is a routing signal, not factual entity linking: comparative language
+    wins over central cues, and an unsupported mention remains lateral/reviewable.
+    """
+    raw = str(text or "")
+    sentences = [part.strip() for part in re.split(r"(?<=[.!?])\s+", raw) if part.strip()] or [raw.strip()]
+    roles = {}
+    for entity, pattern in ENTITY_PATTERNS.items():
+        evidence = []
+        role = None
+        for sentence in sentences:
+            normalized_sentence = normalize(sentence)
+            if not re.search(pattern, normalized_sentence):
+                continue
+            if any(cue in normalized_sentence for cue in ENTITY_COMPARISON_CUES):
+                role = "comparative"
+                evidence.append("linguagem comparativa")
+            elif any(cue in normalized_sentence for cue in ENTITY_CENTRAL_CUES):
+                role = role or "central"
+                evidence.append("tese ou mecanismo associado")
+            else:
+                role = role or "lateral"
+                evidence.append("menção sem tese associada")
+        if role:
+            confidence = 0.86 if role == "comparative" else 0.78 if role == "central" else 0.42
+            roles[entity] = {
+                "role": role,
+                "confidence": confidence,
+                "evidence": list(dict.fromkeys(evidence))[:2],
+            }
+    return roles
+
+
 HUMOR_CUES = {
     "kkkk", "haha", "hahaha", "la ele", "piada", "meme", "risada", "coringou",
     "brincadeira", "zoeira", "comedia", "engracado", "engracada", "ironico", "ironia",
@@ -170,6 +221,17 @@ def analyze_political_text(text: str, user_context: str = "", channel_context: s
     editorial_family, editorial_family_fit, family_cue_counts = _editorial_family(
         normalized, topic_hits, conflict_hits, proposal_hits, evidence_hits, questions, exclamations
     )
+    entity_roles = _entity_roles(raw)
+    central_entities = [entity for entity, data in entity_roles.items() if data.get("role") == "central"]
+    comparative_entities = [entity for entity, data in entity_roles.items() if data.get("role") == "comparative"]
+    lateral_entities = [entity for entity, data in entity_roles.items() if data.get("role") == "lateral"]
+    entity_context_review_required = bool(lateral_entities and not central_entities)
+    primary_entity_role = (
+        "central" if central_entities else
+        "comparative" if comparative_entities else
+        "lateral" if lateral_entities else
+        "none"
+    )
 
     requested_words = {
         word for word in normalize(user_context).split()
@@ -223,6 +285,9 @@ def analyze_political_text(text: str, user_context: str = "", channel_context: s
         "editorial_family_fit": editorial_family_fit,
         "sensitive_claim_hits": float(sensitive_claim_hits),
         "named_entity_count": float(named_entity_count),
+        "entity_roles": entity_roles,
+        "primary_entity_role": primary_entity_role,
+        "entity_context_review_required": entity_context_review_required,
         "needs_fact_review": bool(sensitive_claim_hits),
         "needs_legal_review": bool(sensitive_claim_hits and named_entity_count),
         "questions": float(questions),

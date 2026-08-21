@@ -7,6 +7,7 @@ ambiguous turns reviewable.
 
 from __future__ import annotations
 
+import math
 import re
 from statistics import mean
 
@@ -18,19 +19,45 @@ QUESTION_WORDS = {
     "onde", "o que", "que", "se", "você", "voces", "vocês", "poderia", "acha",
 }
 RENAN_TERMS = {"renan", "santos", "mbl", "renan santos"}
+VISUAL_EVIDENCE_RE = re.compile(
+    r"\b(?:gr[aá]fico|pesquisa(?:s)?|ranking|google trends|porcentagem|percentual|dados|imagem(?:s)?|como voc[eê] est[aá] vendo|olha essas imagens|na tela|est[aá] escrito)\b",
+    re.IGNORECASE,
+)
+
+
+def _requires_visual_evidence(text: str) -> bool:
+    """Mark textual references that need a visual check before approval."""
+    return bool(VISUAL_EVIDENCE_RE.search(str(text or "")))
 
 
 def _is_question(text: str) -> bool:
     normalized = re.sub(r"\s+", " ", text.lower()).strip()
     if "?" in normalized:
         return True
-    first = normalized.split(" ", 2)
-    return bool(first and first[0] in QUESTION_WORDS and len(normalized.split()) >= 5)
+    words = normalized.split()
+    if len(words) < 5:
+        return False
+    first_word = words[0]
+    first_phrase = " ".join(words[:2])
+    return first_word in QUESTION_WORDS or first_phrase in QUESTION_WORDS
 
 
 def _speaker_marker(text: str) -> str | None:
     match = re.match(r"^\s*(?:>>\s*)?([A-ZÁÀÃÂÉÊÍÓÔÕÚÇ][\wÁÀÃÂÉÊÍÓÔÕÚÇ-]{2,}(?:\s+[A-ZÁÀÃÂÉÊÍÓÔÕÚÇ][\wÁÀÃÂÉÊÍÓÔÕÚÇ-]{2,})?)\s*:\s*", text)
     return match.group(1) if match else None
+
+
+def _coerce_confidence(value: object) -> float | None:
+    """Normalize diarization confidence without letting NaN/invalid values pass."""
+    if value is None:
+        return None
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(parsed):
+        return None
+    return max(0.0, min(1.0, parsed))
 
 
 def _contains_renan(text: str) -> bool:
@@ -44,16 +71,27 @@ def analyze_transcript_context(
     campaign_hub_snapshot: dict | None = None,
     campaign_hub_account: str | None = None,
 ) -> dict:
-    segments = transcription.get("segments", []) if isinstance(transcription, dict) else []
+    raw_segments = transcription.get("segments", []) if isinstance(transcription, dict) else []
+    segments = []
+    for source in raw_segments if isinstance(raw_segments, list) else []:
+        if not isinstance(source, dict):
+            continue
+        try:
+            start = float(source.get("start", 0) or 0)
+            end = float(source.get("end", start) or start)
+        except (TypeError, ValueError):
+            continue
+        if start < 0 or end <= start:
+            continue
+        segments.append({**source, "start": start, "end": end})
+    # External subtitle providers may return cues out of order. Normalize the
+    # temporal sequence before deriving windows, chapters, QA turns and hooks.
+    segments.sort(key=lambda item: (item["start"], item["end"]))
     enriched = []
     for segment in segments:
         text = str(segment.get("text", "")).strip()
         speaker = str(segment.get("speaker", "") or "").strip()
-        raw_confidence = segment.get("speaker_confidence")
-        try:
-            speaker_confidence = max(0.0, min(1.0, float(raw_confidence))) if raw_confidence is not None else None
-        except (TypeError, ValueError):
-            speaker_confidence = None
+        speaker_confidence = _coerce_confidence(segment.get("speaker_confidence"))
         overlap_suspected = bool(segment.get("overlap_suspected", False))
         enriched.append({
             **segment,
@@ -250,6 +288,11 @@ def _build_qa_candidates(segments: list[dict]) -> list[dict]:
         confidence = 0.5 + (0.2 if renan_signal else 0) + min(0.16, len(following) * 0.02)
         if speaker_boundary:
             confidence += 0.12
+        else:
+            # Rhetorical questions inside one speaker's monologue are not
+            # reliable interview boundaries. Keep the candidate reviewable,
+            # but rank it below a verified interviewer-to-answer transition.
+            confidence -= 0.12
         if overlap:
             confidence -= 0.15
         candidates.append({
@@ -311,6 +354,7 @@ def detect_hook_candidates(
         family = str(details.get("family", "outro"))
         evidence = list(details.get("evidence", []))[:4]
         normalized = re.sub(r"\s+", " ", text.lower()).strip()
+        visual_evidence_required = _requires_visual_evidence(text)
         score = 28.0
         reasons = []
         if family != "outro":
@@ -327,6 +371,9 @@ def detect_hook_candidates(
             score += 7
             evidence.append("contraste")
             reasons.append("abre uma tensão ou contraste")
+        if visual_evidence_required:
+            evidence.append("evidência visual citada")
+            reasons.append("gráfico, pesquisa ou imagem precisa ser confirmado no vídeo")
         if start <= 35:
             score += 5
             reasons.append("entrada precoce no bloco")
@@ -349,9 +396,19 @@ def detect_hook_candidates(
             score -= 10
             reasons.append("frase começa ou termina fragmentada")
         speaker_label = str(segment.get("speaker_label") or segment.get("speaker") or "").strip()
-        speaker_confidence = segment.get("speaker_confidence")
-        speaker_known = bool(speaker_label) or bool(segment.get("speaker_marker"))
-        speaker_uncertain = not speaker_known or (isinstance(speaker_confidence, (int, float)) and float(speaker_confidence) < 0.65)
+        raw_speaker_confidence = segment.get("speaker_confidence")
+        speaker_confidence = _coerce_confidence(raw_speaker_confidence)
+        confidence_invalid = raw_speaker_confidence is not None and speaker_confidence is None
+        unknown_labels = {"unknown", "unk", "speaker_unknown", "não identificado", "nao identificado"}
+        speaker_known = (
+            bool(speaker_label)
+            and speaker_label.lower() not in unknown_labels
+        ) or bool(segment.get("speaker_marker"))
+        speaker_uncertain = (
+            not speaker_known
+            or confidence_invalid
+            or (speaker_confidence is not None and speaker_confidence < 0.65)
+        )
         if bool(segment.get("overlap_suspected")):
             score -= 14
             reasons.append("sobreposição de falas exige revisão")
@@ -369,12 +426,25 @@ def detect_hook_candidates(
             if following_end - start >= 32:
                 break
         payoff_text = " ".join(str(item.get("text", "") or "") for item in lookahead).lower()
+        payoff_signals = []
         explicit_payoff = bool(re.search(
             r"\b(portanto|por isso|logo|a solu[cç][aã]o|o ponto [eé]|isso significa|na pr[aá]tica|resultado|conclus[aã]o|resposta|basta apenas|essa [eé] a ideia)\b",
             payoff_text,
         ))
+        if explicit_payoff:
+            payoff_signals.append("marcador explícito de fechamento")
+        consequence_question = bool(re.search(
+            r"\b(que tipo|qual|como|o que)\b[^?]{0,100}\b(sociedade|pa[ií]s|brasil|futuro|resultado|solu[cç][aã]o|problema|significa|construir|vamos|deve)\b[^?]*\?",
+            payoff_text,
+        ))
+        if consequence_question:
+            explicit_payoff = True
+            payoff_signals.append("pergunta de consequência")
+        repeated_closure = _has_repeated_closure([segment] + lookahead)
+        if repeated_closure:
+            payoff_signals.append("repetição deliberada da tese no fechamento")
         contentful_lookahead = [item for item in lookahead if len(str(item.get("text", "") or "").split()) >= 5]
-        payoff = explicit_payoff or (
+        payoff = explicit_payoff or repeated_closure or (
             len(contentful_lookahead) >= 2
             and bool(re.search(r"\b\d+(?:[,.]\d+)?\s*%?\b|\bproposta\w*\b|\btese\b|\bproblema\b", payoff_text))
         )
@@ -425,9 +495,12 @@ def detect_hook_candidates(
             "evidence": list(dict.fromkeys(evidence))[:6],
             "reason": "; ".join(reasons[:4]),
             "payoff_confirmed": payoff,
-            "needs_visual_review": bool(segment.get("overlap_suspected")),
-            "needs_speaker_review": bool(_is_question(text) and speaker_uncertain),
-            "speaker_review_reason": "pergunta sem diarização confiável" if _is_question(text) and speaker_uncertain else "",
+            "payoff_signals": payoff_signals[:4],
+            "visual_evidence_required": visual_evidence_required,
+            "needs_visual_review": bool(segment.get("overlap_suspected")) or visual_evidence_required,
+            "visual_review_reason": "confirmar gráfico, pesquisa ou imagem mencionada" if visual_evidence_required else "",
+            "needs_speaker_review": bool(speaker_uncertain),
+            "speaker_review_reason": "locutor sem diarização confiável; confirme áudio e vídeo" if speaker_uncertain else "",
             "audio_signal": audio_signal,
             "campaign_hub_prior": prior,
         })
@@ -445,6 +518,19 @@ def detect_hook_candidates(
         if len(selected) >= max_items:
             break
     return selected
+
+
+def _has_repeated_closure(lookahead: list[dict]) -> bool:
+    """Detect a short, intentional restatement that can close a thesis."""
+    meaningful = [str(item.get("text", "") or "").strip() for item in lookahead if len(str(item.get("text", "") or "").split()) >= 5]
+    if len(meaningful) < 2:
+        return False
+    left = set(re.findall(r"[a-záàãâéêíóôõúç0-9]+", meaningful[-2].lower()))
+    right = set(re.findall(r"[a-záàãâéêíóôõúç0-9]+", meaningful[-1].lower()))
+    stopwords = {"a", "o", "e", "de", "do", "da", "que", "em", "um", "uma", "para", "por", "com", "na", "no", "nos", "nas", "esse", "essa", "isso"}
+    left -= stopwords
+    right -= stopwords
+    return bool(left and right) and len(left & right) >= 2 and len(left & right) / max(1, len(left | right)) >= 0.42
 
 
 def _hook_text_similarity(left: str, right: str) -> float:

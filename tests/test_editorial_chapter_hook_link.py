@@ -13,6 +13,9 @@ def test_clip_receives_nearest_hook_without_changing_timestamps():
                 "hook_text": "A proposta muda o debate.",
                 "score": 82,
                 "payoff_confirmed": True,
+                "payoff_signals": ["pergunta de consequência"],
+                "visual_evidence_required": True,
+                "visual_review_reason": "confirmar gráfico, pesquisa ou imagem mencionada",
                 "needs_speaker_review": True,
                 "audio_signal": {"available": True, "peak": 0.8},
             },
@@ -33,6 +36,9 @@ def test_clip_receives_nearest_hook_without_changing_timestamps():
     assert result["end"] == 48.0
     assert result["contextual_hook"]["family"] == "tese-provocativa"
     assert result["contextual_hook"]["hook_text"] == "A proposta muda o debate."
+    assert result["contextual_hook"]["payoff_signals"] == ["pergunta de consequência"]
+    assert result["contextual_hook"]["visual_evidence_required"] is True
+    assert result["contextual_hook"]["visual_review_reason"] == "confirmar gráfico, pesquisa ou imagem mencionada"
     assert result["hook_distance_seconds"] == 0.0
     assert result["hook_review_required"] is True
 

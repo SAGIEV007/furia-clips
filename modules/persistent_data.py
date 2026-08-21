@@ -5,15 +5,26 @@ from __future__ import annotations
 import json
 import os
 import sqlite3
+import stat
 import tempfile
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 
-from config import DB_PATH, PERSISTENT_BACKUPS_DIR, PERSISTENT_SCHEMA_PATH, PERSISTENT_TRANSCRIPTS_DIR, get_persistent_data_status
+from config import (
+    DB_PATH,
+    PERSISTENT_ANALYSES_DIR,
+    PERSISTENT_BACKUPS_DIR,
+    PERSISTENT_SCHEMA_PATH,
+    PERSISTENT_TRANSCRIPTS_DIR,
+    get_persistent_data_status,
+)
 
 BACKUP_FORMAT_VERSION = 1
 MAX_RESTORE_BYTES = 2 * 1024 * 1024 * 1024  # 2 GB of uncompressed SQLite data.
+MAX_ANALYSIS_FILE_BYTES = 25 * 1024 * 1024
+SAFE_ANALYSIS_SUFFIXES = {".json", ".jsonl", ".md", ".txt"}
+SAFE_TRANSCRIPT_FILENAMES = {"transcript.txt", "transcript.json", "metadata.json"}
 REQUIRED_TABLES = {"settings", "projects", "clips", "transcriptions", "clip_feedback"}
 
 
@@ -33,6 +44,34 @@ def _sqlite_snapshot(source_path: str, destination_path: str):
     finally:
         destination.close()
         source.close()
+
+
+def _iter_safe_analysis_files():
+    root = Path(PERSISTENT_ANALYSES_DIR).resolve()
+    if not root.is_dir():
+        return
+    for path in sorted(root.rglob("*")):
+        if not path.is_file() or path.is_symlink() or path.suffix.lower() not in SAFE_ANALYSIS_SUFFIXES:
+            continue
+        resolved = path.resolve()
+        if os.path.commonpath([str(root), str(resolved)]) != str(root):
+            continue
+        if path.stat().st_size <= MAX_ANALYSIS_FILE_BYTES:
+            yield path, resolved.relative_to(root).as_posix()
+
+
+def _iter_safe_transcript_files():
+    root = Path(PERSISTENT_TRANSCRIPTS_DIR).resolve()
+    if not root.is_dir():
+        return
+    for path in sorted(root.rglob("*")):
+        if not path.is_file() or path.is_symlink() or path.name not in SAFE_TRANSCRIPT_FILENAMES:
+            continue
+        resolved = path.resolve()
+        if os.path.commonpath([str(root), str(resolved)]) != str(root):
+            continue
+        if path.stat().st_size <= MAX_RESTORE_BYTES:
+            yield path, resolved.relative_to(root).as_posix()
 
 
 def _validate_sqlite_database(path: str):
@@ -105,14 +144,15 @@ def create_editorial_backup():
         with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
             archive.write(snapshot_path, arcname=manifest["database_file"])
             transcript_count = 0
-            transcript_root = Path(PERSISTENT_TRANSCRIPTS_DIR)
-            if transcript_root.is_dir():
-                for transcript_file in transcript_root.rglob("*"):
-                    if transcript_file.is_file() and not transcript_file.is_symlink():
-                        relative = transcript_file.relative_to(transcript_root).as_posix()
-                        archive.write(transcript_file, arcname=f"transcripts/{relative}")
-                        transcript_count += 1
+            for transcript_file, relative in _iter_safe_transcript_files() or []:
+                archive.write(transcript_file, arcname=f"transcripts/{relative}")
+                transcript_count += 1
             manifest["transcript_file_count"] = transcript_count
+            analysis_count = 0
+            for analysis_file, relative in _iter_safe_analysis_files() or []:
+                archive.write(analysis_file, arcname=f"analyses/{relative}")
+                analysis_count += 1
+            manifest["analysis_file_count"] = analysis_count
             archive.writestr("manifest.json", json.dumps(manifest, ensure_ascii=False, indent=2))
             if os.path.isfile(PERSISTENT_SCHEMA_PATH):
                 archive.write(PERSISTENT_SCHEMA_PATH, arcname="schema_version.json")
@@ -130,11 +170,44 @@ def _safe_member(archive: zipfile.ZipFile, member_name: str):
         info = archive.getinfo(member_name)
     except KeyError as exc:
         raise PersistentDataError("O arquivo selecionado não é um backup editorial do Furia Clips.") from exc
+    normalized_name = str(member_name).replace("\\", "/")
+    relative = Path(normalized_name)
+    mode = (int(info.external_attr) >> 16) & 0o170000
     if info.is_dir() or info.file_size <= 0 or info.file_size > MAX_RESTORE_BYTES:
         raise PersistentDataError("O banco dentro do backup tem tamanho inválido.")
-    if ".." in Path(member_name).parts or Path(member_name).is_absolute():
+    if stat.S_ISLNK(mode) or ".." in relative.parts or relative.is_absolute():
         raise PersistentDataError("O backup contém um caminho de arquivo inválido.")
     return info
+
+
+def _safe_auxiliary_members(archive: zipfile.ZipFile):
+    """Validate transcript/analysis members before any database replacement."""
+    transcripts = []
+    analyses = []
+    for member in archive.infolist():
+        name = str(member.filename).replace("\\", "/")
+        mode = (int(member.external_attr) >> 16) & 0o170000
+        if member.is_dir():
+            continue
+        if stat.S_ISLNK(mode):
+            if name.startswith("transcripts/") or name.startswith("analyses/"):
+                raise PersistentDataError("O backup contém um symlink não permitido.")
+            continue
+        if name.startswith("transcripts/"):
+            relative = Path(name.removeprefix("transcripts/"))
+            if relative.is_absolute() or ".." in relative.parts or relative.name not in SAFE_TRANSCRIPT_FILENAMES:
+                raise PersistentDataError("O backup contém um arquivo de transcrição inválido.")
+            if member.file_size > MAX_RESTORE_BYTES:
+                raise PersistentDataError("Uma transcrição do backup excede o tamanho permitido.")
+            transcripts.append((member, relative))
+        elif name.startswith("analyses/"):
+            relative = Path(name.removeprefix("analyses/"))
+            if relative.is_absolute() or ".." in relative.parts or relative.suffix.lower() not in SAFE_ANALYSIS_SUFFIXES:
+                raise PersistentDataError("O backup contém um arquivo de análise inválido.")
+            if member.file_size > MAX_ANALYSIS_FILE_BYTES:
+                raise PersistentDataError("Uma análise do backup excede o tamanho permitido.")
+            analyses.append((member, relative))
+    return transcripts, analyses
 
 
 def _read_or_infer_manifest(archive: zipfile.ZipFile):
@@ -176,6 +249,7 @@ def restore_editorial_backup(archive_path: str):
     with zipfile.ZipFile(archive_path, "r") as archive:
         info = _safe_member(archive, "database/editorial_learning.sqlite3")
         manifest = _read_or_infer_manifest(archive)
+        transcript_members, analysis_members = _safe_auxiliary_members(archive)
 
         with tempfile.TemporaryDirectory(prefix="furia-restore-") as temp_dir:
             candidate = os.path.join(temp_dir, "editorial_learning.sqlite3")
@@ -196,12 +270,7 @@ def restore_editorial_backup(archive_path: str):
 
             transcript_root = Path(PERSISTENT_TRANSCRIPTS_DIR).resolve()
             transcript_root.mkdir(parents=True, exist_ok=True)
-            for member in archive.infolist():
-                if not member.filename.startswith("transcripts/") or member.is_dir():
-                    continue
-                relative = Path(member.filename.removeprefix("transcripts/") )
-                if relative.is_absolute() or ".." in relative.parts or relative.name not in {"transcript.txt", "transcript.json", "metadata.json"}:
-                    raise PersistentDataError("O backup contém um arquivo de transcrição inválido.")
+            for member, relative in transcript_members:
                 target = (transcript_root / relative).resolve()
                 if os.path.commonpath([str(transcript_root), str(target)]) != str(transcript_root):
                     raise PersistentDataError("O backup contém um caminho de transcrição inseguro.")
@@ -210,6 +279,18 @@ def restore_editorial_backup(archive_path: str):
                     destination_file.write(source.read(MAX_RESTORE_BYTES + 1))
                 if target.stat().st_size > MAX_RESTORE_BYTES:
                     raise PersistentDataError("Uma transcrição do backup excede o tamanho permitido.")
+
+            analysis_root = Path(PERSISTENT_ANALYSES_DIR).resolve()
+            analysis_root.mkdir(parents=True, exist_ok=True)
+            for member, relative in analysis_members:
+                target = (analysis_root / relative).resolve()
+                if os.path.commonpath([str(analysis_root), str(target)]) != str(analysis_root):
+                    raise PersistentDataError("O backup contém um caminho de análise inseguro.")
+                target.parent.mkdir(parents=True, exist_ok=True)
+                with archive.open(member, "r") as source, open(target, "wb") as destination_file:
+                    destination_file.write(source.read(MAX_ANALYSIS_FILE_BYTES + 1))
+                if target.stat().st_size > MAX_ANALYSIS_FILE_BYTES:
+                    raise PersistentDataError("Uma análise do backup excede o tamanho permitido.")
 
     return {
         "restored": True,

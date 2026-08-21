@@ -28,3 +28,5 @@ def test_context_pipeline_without_gemini_preserves_editorial_evidence():
     assert ranked
     assert all("editorial_potential_score" in clip for clip in ranked)
     assert any((clip.get("factors") or {}).get("qa_boundary") is not None for clip in ranked)
+    assert any(clip.get("qa_boundary_basis") for clip in ranked)
+    assert any((clip.get("review_flags") or {}).get("qa_boundary_basis") for clip in ranked)

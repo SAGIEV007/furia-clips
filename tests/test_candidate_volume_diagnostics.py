@@ -45,6 +45,27 @@ def test_long_transcript_uses_local_fallback_when_primary_pool_is_thin(monkeypat
     assert origins == {"gemini_primary", "local_fallback"}
 
 
+def test_diagnostics_explain_when_all_candidates_were_already_processed(monkeypatch):
+    selector = ClipSelector(target_duration=30, max_clips=15, min_duration=8, max_duration=180)
+    candidate = _clip(0, 30, "Uma tese completa já exportada.")
+    candidate["source"] = "gemini"
+    monkeypatch.setattr(selector, "_select_with_gemini", lambda *args, **kwargs: [candidate])
+    monkeypatch.setattr(selector, "_select_with_nlp", lambda *args, **kwargs: [])
+    monkeypatch.setattr(clip_selector_module, "annotate_clip_with_chapters", lambda clip, context: clip)
+
+    clips = selector.select_clips(
+        {"segments": [{"start": 0.0, "end": 30.0, "text": "Uma tese completa já exportada."}]},
+        settings={
+            "ai_backend": "gemini",
+            "gemini_api_key": "configured",
+            "previous_clip_fingerprints": [{"start": 0.0, "end": 30.0, "review_status": "approved"}],
+        },
+    )
+
+    assert clips == []
+    assert selector.get_candidate_diagnostics()["reason"] == "all_intervals_already_processed"
+
+
 def test_short_transcript_does_not_create_artificial_candidate_quota(monkeypatch):
     selector = ClipSelector(target_duration=30, max_clips=15, min_duration=8, max_duration=180)
     monkeypatch.setattr(clip_selector_module, "annotate_clip_with_chapters", lambda clip, context: clip)
@@ -116,6 +137,22 @@ def test_previous_fingerprints_discard_overlap_and_preserve_new_moment():
     assert selector._candidate_diagnostics["previous_discarded_rejected"] == 0
 
 
+def test_diagnostics_explain_when_no_candidates_exist(monkeypatch):
+    selector = ClipSelector(target_duration=30, max_clips=15, min_duration=8, max_duration=180)
+    monkeypatch.setattr(selector, "_select_with_gemini", lambda *args, **kwargs: [])
+    monkeypatch.setattr(selector, "_select_with_llm", lambda *args, **kwargs: [])
+    monkeypatch.setattr(selector, "_select_with_nlp", lambda *args, **kwargs: [])
+    monkeypatch.setattr(clip_selector_module, "annotate_clip_with_chapters", lambda clip, context: clip)
+
+    clips = selector.select_clips(
+        {"segments": [{"start": 0.0, "end": 5.0, "text": "Fala curta."}]},
+        settings={"ai_backend": "auto", "gemini_api_key": ""},
+    )
+
+    assert clips == []
+    assert selector.get_candidate_diagnostics()["reason"] == "no_candidates"
+
+
 def test_expected_candidate_count_scales_with_long_source_but_stays_bounded():
     selector = ClipSelector(max_clips=36)
     short = [{"start": index * 15.0, "end": (index + 1) * 15.0, "text": "fala"} for index in range(7)]
@@ -125,6 +162,29 @@ def test_expected_candidate_count_scales_with_long_source_but_stays_bounded():
     count = selector._expected_candidate_count(long)
     assert 6 <= count <= 36
     assert count > selector._expected_candidate_count(long[:20])
+
+
+def test_previous_fingerprint_accepts_seconds_fields_and_ignores_invalid_interval():
+    selector = ClipSelector(max_clips=15)
+    selector._previous_clip_fingerprints = [
+        {"start_seconds": 100.0, "end_seconds": 130.0, "text": "Trecho já exportado", "review_status": "approved"},
+        {"start": None, "end": None, "duration": 30.0, "text": "Uma frase muito parecida"},
+    ]
+    selector._candidate_diagnostics = {
+        "previous_discarded_count": 0,
+        "previous_discarded_approved": 0,
+        "previous_discarded_rejected": 0,
+    }
+
+    kept = selector._remove_previous_fingerprints([
+        _clip(105.0, 128.0, "Trecho já exportado"),
+        _clip(10.0, 35.0, "Uma frase muito parecida"),
+    ])
+
+    assert len(kept) == 1
+    assert kept[0]["start"] == 10.0
+    assert selector._candidate_diagnostics["previous_discarded_count"] == 1
+    assert selector._candidate_diagnostics["previous_discarded_approved"] == 1
 
 
 def test_previous_fingerprint_text_similarity_discards_nearby_duplicate():
@@ -191,6 +251,22 @@ def test_candidate_origin_labels_remain_visible_after_deduplication(monkeypatch)
 
     assert clips[0]["candidate_origin"] == "gemini_primary"
     assert clips[0]["candidate_origin_label"] == "Gemini — seleção primária"
+
+
+def test_selection_coverage_plan_scales_long_sources_and_keeps_fingerprints(monkeypatch):
+    import app as app_module
+
+    fingerprints = [{"start": 10.0, "end": 40.0, "review_status": "approved"}]
+    monkeypatch.setattr(app_module, "get_existing_clip_fingerprints", lambda _source: fingerprints)
+
+    short_plan = app_module._selection_coverage_plan("source.mp4", 60.0)
+    long_plan = app_module._selection_coverage_plan("source.mp4", 3600.0)
+    very_long_plan = app_module._selection_coverage_plan("source.mp4", 14400.0)
+
+    assert short_plan["adaptive_max_clips"] == 15
+    assert long_plan["adaptive_max_clips"] > short_plan["adaptive_max_clips"]
+    assert very_long_plan["adaptive_max_clips"] == 36
+    assert long_plan["previous_clip_fingerprints"] == fingerprints
 
 
 def test_adaptive_expected_count_never_exceeds_selector_maximum():

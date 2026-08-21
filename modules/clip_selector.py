@@ -72,6 +72,9 @@ class ClipSelector:
             "fallback_discarded_count": 0,
             "fallback_discarded_overlap": 0,
             "fallback_discarded_similarity": 0,
+            "deduplicated_count": 0,
+            "deduplicated_overlap": 0,
+            "deduplicated_similarity": 0,
             "previous_discarded_count": 0,
             "previous_discarded_approved": 0,
             "previous_discarded_rejected": 0,
@@ -149,6 +152,9 @@ class ClipSelector:
             "fallback_discarded_count": 0,
             "fallback_discarded_overlap": 0,
             "fallback_discarded_similarity": 0,
+            "deduplicated_count": 0,
+            "deduplicated_overlap": 0,
+            "deduplicated_similarity": 0,
             "previous_discarded_count": 0,
             "previous_discarded_approved": 0,
             "previous_discarded_rejected": 0,
@@ -234,10 +240,23 @@ class ClipSelector:
         # fill the queue with genuinely new moments instead of truncating repetitions.
         clips = clips[:self.max_clips]
         self._candidate_diagnostics["final_count"] = len(clips)
+        diagnostics = self._candidate_diagnostics
+        if diagnostics.get("expected_count", 0) == 0 and diagnostics.get("final_count", 0) > 0:
+            diagnostics["reason"] = "short_source"
+        elif not diagnostics.get("primary_count") and not diagnostics.get("fallback_count"):
+            diagnostics["reason"] = "no_candidates"
+        elif diagnostics["final_count"] == 0 and diagnostics.get("previous_discarded_count", 0):
+            diagnostics["reason"] = "all_intervals_already_processed"
+        elif diagnostics["final_count"] == 0 and diagnostics.get("deduplicated_count", 0):
+            diagnostics["reason"] = "all_candidates_redundant"
+        elif diagnostics["final_count"] < diagnostics.get("expected_count", 0):
+            diagnostics["reason"] = "quality_pool_below_reference"
+        else:
+            diagnostics["reason"] = "adequate_pool"
 
         if emit_progress:
-            source_labels = {"gemini": "Gemini Flash", "llm": "IA (Ollama)", "nlp": "NLP basico"}
-            source_label = source_labels.get(self._selection_source, "NLP basico")
+            source_labels = {"gemini": "Gemini Flash", "llm": "Ollama", "nlp": "NLP local"}
+            source_label = source_labels.get(self._selection_source, "NLP local")
             emit_progress(f"Selecionados {len(clips)} clips de partes diferentes do video (via {source_label})")
 
         return clips
@@ -484,13 +503,13 @@ class ClipSelector:
                         except Exception:
                             error_msg = response.text[:200]
                         if emit_progress:
-                            emit_progress(f"[Gemini] {model_name} quota excedida. Tentando proximo modelo...", "warning")
+                            emit_progress(f"[Gemini] {model_name} atingiu a cota. A seleção seguirá para o fallback local.", "warning")
                         last_error = f"429: {error_msg[:150]}"
                         break  # Break retry loop, try next model
 
                     if response.status_code == 403:
                         if emit_progress:
-                            emit_progress("[Gemini] API key invalida ou sem permissao.", "warning")
+                            emit_progress("[Gemini] API key inválida ou sem permissão; a seleção seguirá para o fallback local.", "warning")
                         return []
 
                     if response.status_code != 200:
@@ -554,7 +573,7 @@ class ClipSelector:
 
                 except requests.exceptions.ConnectionError:
                     if emit_progress:
-                        emit_progress("[Gemini] Sem conexao com internet.", "warning")
+                        emit_progress("[Gemini] Sem conexão com a internet; a seleção seguirá para o fallback local.", "warning")
                     return []
                 except requests.exceptions.Timeout:
                     if emit_progress:
@@ -568,7 +587,7 @@ class ClipSelector:
                     break  # Try next model
 
         if emit_progress and last_error:
-            emit_progress(f"[Gemini] Todos os modelos falharam. Ultimo erro: {last_error}", "warning")
+            emit_progress(f"[Gemini] A tentativa online não foi concluída. O pipeline seguirá com Ollama/NLP local. Último diagnóstico: {last_error}", "warning")
         return []
 
     def _get_gemini_system_prompt(self, editorial_profile=PROFILE_NAME):
@@ -1071,7 +1090,7 @@ Retorne APENAS o JSON.
             score = self._nlp_score_block(block, user_context, energy_profile, context_data, editorial_context)
             scored_blocks.append((block, score))
 
-        clips = self._build_clips_from_scored_blocks(scored_blocks, context_data)
+        clips = self._build_clips_from_scored_blocks(scored_blocks, context_data, editorial_context)
 
         # SPEAKER FILTERING: When names are specified, EXCLUDE clips without them
         if context_data and context_data["names"]:
@@ -1241,11 +1260,19 @@ Retorne APENAS o JSON.
         end = float(block.get("end", start) or start)
         best_hook = 0.0
         for hook in editorial_context.get("hook_candidates", []) or []:
-            hook_start = float(hook.get("start", 0) or 0)
-            hook_end = float(hook.get("end", hook_start) or hook_start)
+            try:
+                hook_start = float(hook.get("start", 0) or 0)
+                hook_end = float(hook.get("end", hook_start) or hook_start)
+                hook_score = max(0.0, float(hook.get("score", 0) or 0))
+            except (TypeError, ValueError):
+                continue
             overlap = max(0.0, min(end, hook_end) - max(start, hook_start))
             if overlap > 0:
-                best_hook = max(best_hook, min(8.0, float(hook.get("score", 0) or 0) * 0.08))
+                # A hook without a confirmed payoff is still a useful review
+                # lead, but must not receive the same selection bonus as a
+                # self-contained editorial opening.
+                hook_bonus_cap = 8.0 if bool(hook.get("payoff_confirmed")) else 2.0
+                best_hook = max(best_hook, min(hook_bonus_cap, hook_score * 0.08))
         qa_bonus = 0.0
         qa_context_gap = 0.0
         for candidate in editorial_context.get("qa_candidates", []) or []:
@@ -1344,6 +1371,10 @@ Retorne APENAS o JSON.
         overlap_suspected = bool(metadata.get("overlap_suspected"))
         timing_ambiguous = bool(metadata.get("timing_ambiguous"))
         speaker_turn_valid = metadata.get("speaker_turn_valid")
+        needs_speaker_review = bool(
+            metadata.get("needs_speaker_review")
+            or metadata.get("speaker_review_required")
+        )
         context_complete = bool(
             not starts_mid_sentence
             and not starts_with_context_reference
@@ -1369,12 +1400,17 @@ Retorne APENAS o JSON.
                 and speaker_turn_valid is not False
             ),
             "speaker_turn_valid": speaker_turn_valid,
+            "needs_speaker_review": needs_speaker_review,
+            "speaker_review_reason": (
+                "ponte pergunta–resposta sem diarização confiável; confirmar áudio e vídeo"
+                if needs_speaker_review else ""
+            ),
             "overlap_suspected": overlap_suspected,
             "timing_ambiguous": timing_ambiguous,
             "timing_confidence": metadata.get("timing_confidence"),
         }
 
-    def _build_clips_from_scored_blocks(self, scored_blocks, context_data=None):
+    def _build_clips_from_scored_blocks(self, scored_blocks, context_data=None, editorial_context=None):
         """Build clips by joining only the blocks needed for context and payoff.
         Enforces the technical ceiling on all clips without imposing a fixed length.
         """
@@ -1395,6 +1431,7 @@ Retorne APENAS o JSON.
             # reference after a pause. Recover adjacent context when safe instead
             # of publishing an abrupt start such as “isso aconteceu...”.
             opening_flags = self._editorial_flags(start_block.get("text", ""), start_block)
+            context_recovery = None
             if (
                 (opening_flags.get("starts_mid_sentence") or opening_flags.get("starts_with_context_reference"))
                 and start_idx > 0
@@ -1406,13 +1443,34 @@ Retorne APENAS o JSON.
                 if gap <= 2.5 and joined_duration <= self.max_duration:
                     clip_blocks.insert(0, previous_block)
                     clip_duration = joined_duration
+                    context_recovery = {
+                        "applied": True,
+                        "reason": "antecedente recuperado antes de início truncado",
+                        "added_start": float(previous_block.get("start", 0)),
+                        "original_start": float(start_block.get("start", 0)),
+                        "gap_seconds": round(max(0.0, gap), 3),
+                    }
                     start_idx -= 1
 
             preferred_stop = min(float(self.target_duration or 45), 30.0)
+            qa_completion_end = None
+            for qa_candidate in (editorial_context or {}).get("qa_candidates", []) or []:
+                try:
+                    qa_start = float(qa_candidate.get("start", 0) or 0)
+                    qa_end = float(qa_candidate.get("end", qa_start) or qa_start)
+                except (TypeError, ValueError):
+                    continue
+                if qa_end <= qa_start or not bool(qa_candidate.get("needs_question")):
+                    continue
+                starts_with_question = float(start_block.get("start", 0) or 0) <= qa_start + 2.5
+                overlaps_question_window = float(start_block.get("end", 0) or 0) >= qa_start - 2.5
+                if starts_with_question and overlaps_question_window:
+                    qa_completion_end = max(qa_completion_end or qa_end, qa_end)
             start_is_complete = (
                 clip_duration >= self.min_duration
                 and clip_duration >= preferred_stop
                 and start_block["text"].rstrip().endswith((".", "!", "?"))
+                and (qa_completion_end is None or float(clip_blocks[-1].get("end", 0) or 0) >= qa_completion_end - 2.5)
             )
             if not start_is_complete:
                 for next_idx in range(start_idx + 1, len(scored_blocks)):
@@ -1431,13 +1489,15 @@ Retorne APENAS o JSON.
                     # Stop at the first natural ending after the minimum useful
                     # duration. The old target is only a soft hint for continuation.
                     natural_end = " ".join(b["text"] for b in clip_blocks)
+                    qa_complete = qa_completion_end is None or float(next_block.get("end", 0) or 0) >= qa_completion_end - 2.5
                     if (
                         clip_duration >= self.min_duration
                         and clip_duration >= preferred_stop
                         and natural_end.rstrip().endswith((".", "!", "?"))
+                        and qa_complete
                     ):
                         break
-                    if clip_duration >= self.target_duration:
+                    if clip_duration >= self.target_duration and qa_complete:
                         break
 
             if clip_duration < self.min_duration:
@@ -1449,12 +1509,23 @@ Retorne APENAS o JSON.
             clip_text = " ".join(b["text"] for b in clip_blocks)
             clip_start = clip_blocks[0]["start"]
             clip_end = clip_blocks[-1]["end"]
+            qa_speaker_review = any(
+                bool(qa_candidate.get("needs_speaker_review"))
+                and clip_start <= float(qa_candidate.get("end", 0) or 0) + 2.5
+                and clip_end >= float(qa_candidate.get("start", 0) or 0) - 2.5
+                for qa_candidate in (editorial_context or {}).get("qa_candidates", []) or []
+            )
+            block_speaker_review = any(bool(block.get("needs_speaker_review")) for block in clip_blocks)
             clip_flags = self._editorial_flags(
                 clip_text,
                 {
                     "overlap_suspected": any(bool(block.get("overlap_suspected")) for block in clip_blocks),
                     "timing_ambiguous": any(bool(block.get("timing_ambiguous")) for block in clip_blocks),
-                    "speaker_turn_valid": all(block.get("speaker_turn_valid", True) is not False for block in clip_blocks),
+                    "speaker_turn_valid": (
+                        False if any(block.get("speaker_turn_valid") is False for block in clip_blocks)
+                        else True
+                    ),
+                    "needs_speaker_review": qa_speaker_review or block_speaker_review,
                     "timing_confidence": min(
                         [float(block.get("timing_confidence")) for block in clip_blocks if block.get("timing_confidence") is not None]
                         or [1.0]
@@ -1507,6 +1578,7 @@ Retorne APENAS o JSON.
                 "text": clip_text,
                 "title": title,
                 "reason": reason,
+                "context_recovery": context_recovery or {"applied": False, "reason": "antecedente não precisou ser recuperado"},
                 "viral_score": viral_score,
                 "has_hook": hook_grade in ("A", "B"),
                 "breakdown": {
@@ -1577,14 +1649,19 @@ Retorne APENAS o JSON.
             repeated = None
             for old in previous:
                 try:
-                    old_start = float(old.get("start", 0) or 0)
-                    old_end = float(old.get("end", 0) or 0)
-                    old_duration = float(old.get("duration", old_end - old_start) or (old_end - old_start))
+                    old_start_raw = old.get("start", old.get("start_seconds"))
+                    old_end_raw = old.get("end", old.get("end_seconds"))
+                    old_start = float(old_start_raw)
+                    old_duration = float(old.get("duration", old.get("duration_seconds", 0)) or 0)
+                    old_end = float(old_end_raw) if old_end_raw is not None else old_start + old_duration
                     new_start = float(clip.get("start", 0) or 0)
                     new_end = float(clip.get("end", 0) or 0)
                 except (TypeError, ValueError):
                     continue
-                old_clip = {"start": old_start, "end": old_end, "duration": max(old_duration, 0.001)}
+                if old_start < 0 or old_end <= old_start or new_start < 0 or new_end <= new_start:
+                    continue
+                old_duration = old_end - old_start
+                old_clip = {"start": old_start, "end": old_end, "duration": old_duration}
                 new_clip = {"start": new_start, "end": new_end, "duration": max(new_end - new_start, 0.001)}
                 overlap = self._calculate_overlap(new_clip, old_clip)
                 text_similarity = self._text_similarity(clip.get("text", ""), old.get("text", ""))
@@ -1643,6 +1720,13 @@ Retorne APENAS o JSON.
                     duplicate_reason = "similarity"
                     break
             if duplicate:
+                self._candidate_diagnostics["deduplicated_count"] = int(
+                    self._candidate_diagnostics.get("deduplicated_count", 0) or 0
+                ) + 1
+                field = "deduplicated_overlap" if duplicate_reason == "overlap" else "deduplicated_similarity"
+                self._candidate_diagnostics[field] = int(
+                    self._candidate_diagnostics.get(field, 0) or 0
+                ) + 1
                 if str(clip.get("candidate_origin") or "") == "local_fallback":
                     self._candidate_diagnostics["fallback_discarded_count"] = int(
                         self._candidate_diagnostics.get("fallback_discarded_count", 0) or 0

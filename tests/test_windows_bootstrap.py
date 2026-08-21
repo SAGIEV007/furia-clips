@@ -31,7 +31,7 @@ class WindowsBootstrapTests(unittest.TestCase):
         self.assertIn('bootstrap-latest.log', bootstrap)
         self.assertIn('System.IO.File]::WriteAllText', bootstrap)
         self.assertIn('UTF8Encoding($false)', bootstrap)
-        self.assertIn('Split-Path -Parent $ffmpeg', bootstrap)
+        self.assertGreaterEqual(bootstrap.count('Split-Path -Parent $ffmpeg'), 2)
 
     def test_browser_helper_waits_and_prefers_opera(self):
         helper = (ROOT / "scripts" / "open_browser_windows.ps1").read_text(encoding="utf-8")
@@ -52,6 +52,9 @@ class WindowsBootstrapTests(unittest.TestCase):
         self.assertIn("fallback local", setup)
         self.assertIn('deps_version = "v9_sources_gemini_fast_transcription"', setup)
         self.assertIn('python_exe, "-m", "pip"', setup)
+        main_start = setup.find('def main():')
+        main_block = setup[main_start:]
+        self.assertNotIn('prompt_gemini_key()', main_block)
 
 
 if __name__ == "__main__":

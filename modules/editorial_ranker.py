@@ -129,7 +129,34 @@ class EditorialRanker:
         text = str(clip.get("text") or "").strip()
         duration = float(clip.get("duration") or max(1.0, float(clip.get("end", 0)) - float(clip.get("start", 0))))
         closure_type = self._closure_type(text)
+        review_provenance = clip.get("review_provenance") if isinstance(clip.get("review_provenance"), dict) else {}
+        review_flags = clip.get("review_flags") if isinstance(clip.get("review_flags"), dict) else {}
+        transcription_coverage_status = str(
+            clip.get("transcription_coverage_status")
+            or review_provenance.get("transcript_coverage_status")
+            or review_flags.get("transcription_coverage_status")
+            or ("unknown" if review_provenance else "")
+        ).strip().lower()
+        transcription_needs_review = bool(clip.get("transcription_review_required")) or transcription_coverage_status in {"partial", "mismatch_suspected", "empty", "unknown"}
+        transcription_review_reason = {
+            "partial": "cobertura parcial da transcrição; confirme o trecho no vídeo",
+            "mismatch_suspected": "a transcrição pode pertencer a outra fonte; confirme identidade e trecho no vídeo",
+            "empty": "a transcrição não tem segmentos utilizáveis; confirme o trecho diretamente no vídeo",
+            "unknown": "cobertura temporal não validada; confirme o trecho no vídeo",
+        }.get(transcription_coverage_status, "transcrição requer confirmação editorial" if transcription_needs_review else "")
+        clip_review_flags = clip.get("review_flags") if isinstance(clip.get("review_flags"), dict) else {}
+        speaker_review_required = bool(
+            clip.get("needs_speaker_review")
+            or clip.get("speaker_review_required")
+            or clip_review_flags.get("speaker_review_required")
+            or (clip.get("qa_boundary_review_required") and clip.get("question_detected"))
+        )
+        speaker_review_reason = (
+            "locutor ou ponte pergunta–resposta sem confirmação confiável; revisar áudio e vídeo"
+            if speaker_review_required else ""
+        )
         format_profile = classify_editorial_format(clip, text)
+        contextual_hook_payload = clip.get("contextual_hook") if isinstance(clip.get("contextual_hook"), dict) else {}
         campaign_hub_prior = build_performance_prior(
             text,
             account=self.campaign_hub_account,
@@ -233,6 +260,25 @@ class EditorialRanker:
             )
         )
         technical_gate = self._technical_gate(clip, factors, political_signals)
+        framing = clip.get("framing") if isinstance(clip.get("framing"), dict) else {}
+        framing_mode = str(framing.get("mode") or clip.get("framing_mode") or "").strip().lower()
+        framing_review_required = bool(
+            framing.get("review_required")
+            or clip.get("framing_review_required")
+            or (clip.get("review_flags") or {}).get("framing_review_required")
+        )
+        if framing_review_required:
+            score = min(score, 78)
+            technical_gate["penalty"] = min(20, int(technical_gate.get("penalty", 0) or 0) + 2)
+            technical_gate["reasons"].append("enquadramento exige confirmação visual antes da aprovação")
+            technical_gate["status"] = "review_required"
+        if speaker_review_required:
+            score = min(score, 78)
+            if speaker_review_reason and speaker_review_reason not in technical_gate["reasons"]:
+                technical_gate["reasons"].append(speaker_review_reason)
+            technical_gate["status"] = "review_required"
+        if transcription_needs_review:
+            score = min(score, 74 if transcription_coverage_status == "partial" else 66)
         score -= technical_gate["penalty"]
         if context_contract:
             if not clip.get("context_complete") and not clip.get("qa_bridge"):
@@ -256,14 +302,34 @@ class EditorialRanker:
             score = max(0, min(100, int(round(score + feedback_adjustment))) )
             factors["editor_feedback_alignment"] = round(50.0 + feedback_adjustment * 5.0, 1)
 
+        # Feedback is a bounded tie-breaker; it must never override a hard
+        # editorial review cap that was applied earlier in this function.
+        if framing_review_required:
+            score = min(score, 78)
+        if speaker_review_required:
+            score = min(score, 78)
+        if transcription_needs_review:
+            score = min(score, 74 if transcription_coverage_status == "partial" else 66)
+        if context_contract:
+            if not clip.get("context_complete") and not clip.get("qa_bridge"):
+                score = min(score, 74)
+            if clip.get("overlap_suspected"):
+                score = min(score, 62)
+            elif clip.get("timing_ambiguous"):
+                score = min(score, 70)
+
         feedback_calibration = self._feedback_payload(
             feedback_adjustment,
             candidate_origin=candidate_origin,
             candidate_confidence=candidate_confidence,
         )
         confidence = self._confidence(text, factors, duration)
-        if clip.get("transcription_review_required"):
-            confidence = min(confidence, 0.74 if str(clip.get("transcription_coverage_status", "")).lower() == "partial" else 0.68)
+        if transcription_needs_review:
+            confidence = min(confidence, 0.74 if transcription_coverage_status == "partial" else 0.58)
+        if framing_review_required:
+            confidence = min(confidence, 0.72)
+        if speaker_review_required:
+            confidence = min(confidence, 0.70)
         duration_preference = self._duration_preference(duration, factors)
         breakdown = {
             "hook": self._grade(factors["hook"]),
@@ -297,9 +363,18 @@ class EditorialRanker:
             "payoff_complete": bool(clip.get("payoff_complete")),
             "context_complete": bool(clip.get("context_complete")),
             "starts_with_context_reference": bool(clip.get("starts_with_context_reference")),
+            "context_recovery": dict(clip.get("context_recovery") or {"applied": False, "reason": "antecedente não precisou ser recuperado"}),
             "payoff_weak_ending": bool(clip.get("payoff_weak_ending")),
-            "transcription_review_required": bool(clip.get("transcription_review_required")),
-            "transcription_coverage_status": str(clip.get("transcription_coverage_status", "") or ""),
+            "transcription_review_required": transcription_needs_review,
+            "transcription_coverage_status": transcription_coverage_status,
+            "framing": {
+                "mode": framing_mode,
+                "review_required": framing_review_required,
+                "reason": str(framing.get("reason") or "enquadramento depende de confirmação visual")[:240],
+            } if framing_review_required or framing_mode else {},
+            "framing_review_required": framing_review_required,
+            "speaker_review_required": speaker_review_required,
+            "speaker_review_reason": speaker_review_reason,
             "breakdown": breakdown,
             "factors": {key: round(value, 1) for key, value in factors.items()},
             "confidence": round(confidence, 2),
@@ -310,11 +385,14 @@ class EditorialRanker:
             "political_profile": self.editorial_profile if political_signals else "",
             "political_editorial_type": political_signals.get("editorial_type", "") if political_signals else "",
             "political_signals": political_signals,
+            "entity_context_review_required": bool(political_signals.get("entity_context_review_required")),
+            "primary_entity_role": str(political_signals.get("primary_entity_role", "none") or "none"),
             "visual_format": format_profile["visual_format"],
             "visual_format_confidence": format_profile["visual_format_confidence"],
             "visual_format_reason": format_profile["visual_format_reason"],
             "visual_observation": str(clip.get("visual_observation") or ""),
             "visual_observation_confidence": clip.get("visual_observation_confidence"),
+            "visual_evidence_required": bool(clip.get("visual_evidence_required") or contextual_hook_payload.get("visual_evidence_required")),
             "editorial_chapter_ids": list(clip.get("editorial_chapter_ids") or []),
             "chapter_primary_id": clip.get("chapter_primary_id"),
             "chapter_count": int(clip.get("chapter_count", 0) or 0),
@@ -323,13 +401,13 @@ class EditorialRanker:
             "qa_boundary_basis": str(clip.get("qa_boundary_basis", "") or ""),
             "qa_boundary_review_required": bool(clip.get("qa_boundary_review_required")),
             "speaker_turn_valid": clip.get("speaker_turn_valid"),
-            "speaker_boundary_score": factors["speaker_boundary"],
-            "qa_boundary_score": factors["qa_boundary"],
-            "contextual_hook_alignment": factors["contextual_hook_alignment"],
-            "feedback_reason_alignment": factors["feedback_reason_alignment"],
-            "transcription_review_required": bool(clip.get("transcription_review_required")),
-            "transcription_coverage_status": str(clip.get("transcription_coverage_status", "") or ""),
-            "transcription_review_reason": str(clip.get("transcription_review_reason", "") or ""),
+                "speaker_boundary_score": factors["speaker_boundary"],
+                "qa_boundary_score": factors["qa_boundary"],
+                "contextual_hook_alignment": factors["contextual_hook_alignment"],
+                "feedback_reason_alignment": factors["feedback_reason_alignment"],
+                "transcription_review_required": transcription_needs_review,
+                "transcription_coverage_status": transcription_coverage_status,
+            "transcription_review_reason": str(clip.get("transcription_review_reason") or transcription_review_reason),
             "campaign_hub_prior": campaign_hub_prior,
             "instagram_pattern_prior": instagram_pattern_prior,
             "feedback_calibration": feedback_calibration,
@@ -344,8 +422,14 @@ class EditorialRanker:
                 "needs_legal_review": bool(political_signals.get("needs_legal_review")),
                 "sensitive_claim_hits": int(political_signals.get("sensitive_claim_hits", 0) or 0),
                 "named_entity_count": int(political_signals.get("named_entity_count", 0) or 0),
+                "entity_context_review_required": bool(political_signals.get("entity_context_review_required")),
+                "primary_entity_role": str(political_signals.get("primary_entity_role", "none") or "none"),
                 "preserve_composition": format_profile["preserve_composition"],
                 "visual_observation_available": bool(clip.get("visual_observation")),
+                "visual_evidence_required": bool(clip.get("visual_evidence_required") or contextual_hook_payload.get("visual_evidence_required")),
+                "visual_evidence_review_required": bool(clip.get("visual_evidence_required") or contextual_hook_payload.get("visual_evidence_required")),
+                "framing_review_required": framing_review_required,
+                "framing_mode": framing_mode,
                 "editorial_chapter_available": bool(clip.get("editorial_chapter_available")),
                 "chapter_coherence_score": clip.get("chapter_coherence_score"),
                 "chapter_count": int(clip.get("chapter_count", 0) or 0),
@@ -357,6 +441,7 @@ class EditorialRanker:
                 "duration_exception": bool(duration_preference["exception"]),
                 "starts_mid_sentence": bool(clip.get("starts_mid_sentence")),
                 "starts_with_context_reference": bool(clip.get("starts_with_context_reference")),
+                "context_recovery_applied": bool((clip.get("context_recovery") or {}).get("applied")),
                 "payoff_weak_ending": bool(clip.get("payoff_weak_ending")),
                 "question_detected": bool(clip.get("question_detected")),
                 "question_answer_complete": bool(clip.get("question_answer_complete")),
@@ -366,10 +451,11 @@ class EditorialRanker:
                 "overlap_suspected": bool(clip.get("overlap_suspected")),
                 "timing_ambiguous": bool(clip.get("timing_ambiguous")),
                 "speaker_turn_valid": clip.get("speaker_turn_valid"),
-                "speaker_review_required": bool(clip.get("needs_speaker_review")) or clip.get("speaker_turn_valid") is None,
-                "transcription_review_required": bool(clip.get("transcription_review_required")),
-                "transcription_coverage_status": str(clip.get("transcription_coverage_status", "") or ""),
-                "transcription_review_reason": str(clip.get("transcription_review_reason", "") or ""),
+                "speaker_review_required": speaker_review_required,
+                "speaker_review_reason": speaker_review_reason,
+                "transcription_review_required": transcription_needs_review,
+                "transcription_coverage_status": transcription_coverage_status,
+                "transcription_review_reason": str(clip.get("transcription_review_reason") or transcription_review_reason),
                 "speaker_boundary_score": factors["speaker_boundary"],
                 "qa_boundary_score": factors["qa_boundary"],
                 "contextual_hook_alignment": factors["contextual_hook_alignment"],
@@ -466,10 +552,23 @@ class EditorialRanker:
         starts_mid_sentence = bool(clip.get("starts_mid_sentence"))
         overlap_suspected = bool(clip.get("overlap_suspected"))
         timing_ambiguous = bool(clip.get("timing_ambiguous"))
-        transcription_review_required = bool(clip.get("transcription_review_required"))
+        contextual_hook = clip.get("contextual_hook") if isinstance(clip.get("contextual_hook"), dict) else {}
+        visual_evidence_required = bool(clip.get("visual_evidence_required") or contextual_hook.get("visual_evidence_required"))
         transcription_coverage_status = str(clip.get("transcription_coverage_status", "") or "").strip().lower()
+        transcription_review_required = bool(clip.get("transcription_review_required")) or transcription_coverage_status in {"partial", "mismatch_suspected", "empty", "unknown"}
+        clip_review_flags = clip.get("review_flags") if isinstance(clip.get("review_flags"), dict) else {}
+        speaker_review_required = bool(
+            clip.get("needs_speaker_review")
+            or clip.get("speaker_review_required")
+            or clip_review_flags.get("speaker_review_required")
+            or (clip.get("qa_boundary_review_required") and clip.get("question_detected"))
+        )
+        if speaker_review_required and clip.get("speaker_turn_valid") is not False:
+            penalty += 8
+            reasons.append("locutor ou ponte pergunta–resposta sem confirmação confiável")
         political_signals = political_signals if isinstance(political_signals, dict) else {}
         sensitive_claim_hits = int(political_signals.get("sensitive_claim_hits", 0) or 0)
+        entity_context_review_required = bool(political_signals.get("entity_context_review_required"))
         explicit_context_contract = any(
             key in clip for key in ("context_complete", "evidence_present", "payoff_complete")
         )
@@ -490,6 +589,9 @@ class EditorialRanker:
                 "cobertura parcial da transcrição" if transcription_coverage_status == "partial"
                 else "identidade temporal da transcrição não validada"
             )
+        if visual_evidence_required:
+            penalty += 5
+            reasons.append("evidência visual citada; confirmar no vídeo")
         if has_contract and question_detected and not qa_bridge:
             penalty += 10
             reasons.append("pergunta detectada sem ponte pergunta–resposta validada")
@@ -505,6 +607,9 @@ class EditorialRanker:
         if sensitive_claim_hits and explicit_context_contract and (not context_complete or not bool(clip.get("evidence_present"))):
             penalty += 10
             reasons.append("alegação sensível sem contexto ou evidência explícitos")
+        if entity_context_review_required:
+            penalty += 4
+            reasons.append("entidade citada lateralmente; confirmar se é tema central do corte")
         status = "clean" if not reasons else "review" if penalty < 30 else "weak"
         return {
             "status": status,
@@ -513,6 +618,9 @@ class EditorialRanker:
             "context_gate": context_complete,
             "payoff_gate": payoff_complete,
             "timing_gate": not (timing_ambiguous or overlap_suspected),
+            "visual_evidence_gate": not visual_evidence_required,
+            "visual_evidence_required": visual_evidence_required,
+            "entity_context_review_required": entity_context_review_required,
             "contract_available": has_contract,
         }
 
@@ -895,9 +1003,11 @@ class EditorialRanker:
             overlap = _interval_overlap(clip, existing) if same_source else 0.0
             similarity = _text_similarity(clip.get("text", ""), existing.get("text", ""))
             topic_similarity = _topic_similarity(clip.get("topic_signature", ""), existing.get("topic_signature", "")) if same_source else 0.0
+            contextually_distinct = _contextually_distinct(clip, existing) if same_source and overlap <= 0.30 else False
+            text_penalty = min(similarity * 80.0, 64.0) if contextually_distinct else similarity * 80.0
             signals = [
                 (overlap * 100.0, "intervalo temporal sobreposto"),
-                (similarity * 80.0, "texto muito semelhante"),
+                (text_penalty, "texto semelhante, mas contexto/payoff distinto" if contextually_distinct else "texto muito semelhante"),
                 (topic_similarity * 48.0, "tema editorial semelhante"),
             ]
             strongest = max(strongest, max(signals, key=lambda item: item[0]))
@@ -917,8 +1027,28 @@ class EditorialRanker:
             topic_similarity = _topic_similarity(
                 clip.get("topic_signature", ""), existing.get("topic_signature", "")
             ) if same_source else 0.0
-            penalty = max(penalty, overlap * 100.0, similarity * 80.0, topic_similarity * 48.0)
+            contextually_distinct = _contextually_distinct(clip, existing) if same_source and overlap <= 0.30 else False
+            text_penalty = min(similarity * 80.0, 64.0) if contextually_distinct else similarity * 80.0
+            penalty = max(penalty, overlap * 100.0, text_penalty, topic_similarity * 48.0)
         return penalty
+
+
+def _contextually_distinct(first: dict, second: dict) -> bool:
+    """Return true when similar wording still carries independently useful context."""
+    evidence = 0
+    if first.get("closure_type") and second.get("closure_type") and first.get("closure_type") != second.get("closure_type"):
+        evidence += 1
+    if bool(first.get("question_answer_complete")) != bool(second.get("question_answer_complete")):
+        evidence += 1
+    if bool(first.get("payoff_complete")) != bool(second.get("payoff_complete")):
+        evidence += 1
+    if bool(first.get("qa_bridge")) != bool(second.get("qa_bridge")):
+        evidence += 1
+    if first.get("chapter_primary_id") and second.get("chapter_primary_id") and first.get("chapter_primary_id") != second.get("chapter_primary_id"):
+        evidence += 1
+    if first.get("political_editorial_type") and second.get("political_editorial_type") and first.get("political_editorial_type") != second.get("political_editorial_type"):
+        evidence += 1
+    return evidence >= 2
 
 
 def _normalize(text: str) -> str:

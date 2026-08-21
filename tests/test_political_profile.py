@@ -63,6 +63,37 @@ class PoliticalProfileTests(unittest.TestCase):
         self.assertIn("editorial_family_fit", result)
         self.assertNotEqual(result["editorial_family"], "politico")
 
+    def test_distinguishes_central_comparative_and_lateral_entity_roles(self):
+        central = analyze_political_text("O problema do governo Lula é a segurança pública e a proposta precisa mudar.")
+        comparative = analyze_political_text("Enquanto Bolsonaro fala de ordem, Lula não apresenta uma proposta diferente.")
+        lateral = analyze_political_text("Eu também encontrei Lula na feira ontem.")
+
+        assert central["primary_entity_role"] == "central"
+        assert central["entity_roles"]["lula"]["role"] == "central"
+        assert comparative["primary_entity_role"] == "comparative"
+        assert comparative["entity_roles"]["lula"]["role"] == "comparative"
+        assert comparative["entity_roles"]["bolsonaro"]["role"] == "comparative"
+        assert lateral["primary_entity_role"] == "lateral"
+        assert lateral["entity_context_review_required"] is True
+
+    def test_ranker_keeps_lateral_entity_review_bounded(self):
+        ranker = EditorialRanker(editorial_profile=PROFILE_NAME)
+        result = ranker.score_clip({
+            "start": 0,
+            "end": 35,
+            "duration": 35,
+            "text": "Eu também encontrei Lula na feira ontem.",
+            "context_complete": True,
+            "evidence_present": True,
+            "payoff_complete": True,
+        })
+
+        assert result["primary_entity_role"] == "lateral"
+        assert result["review_flags"]["entity_context_review_required"] is True
+        assert result["technical_gate"]["entity_context_review_required"] is True
+        assert "entidade citada lateralmente" in result["technical_gate"]["reasons"][-1]
+        assert result["technical_gate"]["penalty"] <= 4
+
     def test_ranker_exposes_political_signals(self):
         ranker = EditorialRanker(
             channel_context="Canal político de Renan Santos e MBL",
@@ -104,10 +135,6 @@ class PoliticalProfileTests(unittest.TestCase):
         self.assertNotIn("needs_legal_review", result["factors"])
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
     def test_sensitive_claim_without_context_or_evidence_enters_technical_review(self):
         ranker = EditorialRanker(editorial_profile=PROFILE_NAME)
         result = ranker.score_clip({
@@ -122,3 +149,7 @@ if __name__ == "__main__":
         self.assertGreaterEqual(result["technical_gate"]["penalty"], 10)
         self.assertIn("alegação sensível sem contexto ou evidência explícitos", result["technical_gate"]["reasons"])
         self.assertIn(result["technical_gate"]["status"], {"review", "weak"})
+
+
+if __name__ == "__main__":
+    unittest.main()

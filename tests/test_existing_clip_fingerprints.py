@@ -38,6 +38,38 @@ def test_existing_clip_fingerprints_match_source_basename_across_checkouts(monke
     assert all(item["editorial_key"] for item in fingerprints)
 
 
+def test_existing_clip_fingerprints_normalize_windows_backslashes(monkeypatch, tmp_path):
+    monkeypatch.setattr(database, "DB_PATH", str(tmp_path / "windows-path.sqlite"))
+    database.init_db()
+    project_id = database.create_project("Windows", r"C:\\NotebookA\\Videos\\live-renan.mp4")
+    clip_id = database.save_clip(
+        project_id, "exports/clip.mp4", 12.0, 30.0, 18.0, 80, True, 0, "Trecho com contexto completo."
+    )
+    database.save_clip_feedback(clip_id, "approved")
+
+    fingerprints = database.get_existing_clip_fingerprints(r"D:\\NotebookB\\Downloads\\live-renan.mp4")
+
+    assert len(fingerprints) == 1
+    assert fingerprints[0]["start"] == 12.0
+    assert fingerprints[0]["review_status"] == "approved"
+
+
+def test_existing_clip_fingerprints_match_bare_source_basename(monkeypatch, tmp_path):
+    monkeypatch.setattr(database, "DB_PATH", str(tmp_path / "basename.sqlite"))
+    database.init_db()
+    project_id = database.create_project("Basename", "live-renan.mp4")
+    clip_id = database.save_clip(
+        project_id, "exports/clip.mp4", 45.0, 75.0, 30.0, 78, True, 0, "Trecho completo."
+    )
+    database.save_clip_feedback(clip_id, "approved")
+
+    fingerprints = database.get_existing_clip_fingerprints("D:/NotebookB/Videos/live-renan.mp4")
+
+    assert len(fingerprints) == 1
+    assert fingerprints[0]["start"] == 45.0
+    assert fingerprints[0]["review_status"] == "approved"
+
+
 def test_existing_clip_fingerprints_ignore_invalid_intervals(monkeypatch, tmp_path):
     monkeypatch.setattr(database, "DB_PATH", str(tmp_path / "invalid.sqlite"))
     database.init_db()

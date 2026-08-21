@@ -145,6 +145,24 @@ class GeminiVideoAnalyzer:
 
         if cancel_check:
             cancel_check()
+
+        def upload_chunks(handle, chunk_size=1024 * 1024):
+            """Yield bounded chunks so cancellation and upload progress stay observable."""
+            transferred = 0
+            last_reported = -10
+            while True:
+                if cancel_check:
+                    cancel_check()
+                chunk = handle.read(chunk_size)
+                if not chunk:
+                    return
+                transferred += len(chunk)
+                percent = int(min(100, (transferred * 100) / max(size, 1)))
+                if emit_progress and (percent >= last_reported + 10 or percent == 100):
+                    emit_progress(f"[Gemini] Enviando vídeo... {percent}%", "info")
+                    last_reported = percent
+                yield chunk
+
         with path.open("rb") as handle:
             upload = self.session.post(
                 upload_url,
@@ -154,7 +172,7 @@ class GeminiVideoAnalyzer:
                     "X-Goog-Upload-Command": "upload, finalize",
                     "Content-Type": mime_type,
                 },
-                data=handle,
+                data=upload_chunks(handle),
                 timeout=1800,
             )
         if cancel_check:

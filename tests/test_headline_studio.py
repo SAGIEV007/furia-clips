@@ -182,6 +182,31 @@ def test_learning_can_calibrate_auto_format_only_after_meaningful_history():
     assert explicit["learning_applied"]["applied"] is False
 
 
+def test_endpoint_scopes_headline_learning_to_transcript_topic(monkeypatch):
+    import app as app_module
+
+    captured = {}
+    def fake_learning(topic=""):
+        captured["topic"] = topic
+        return {
+            "selected_count": 2,
+            "overall_by_format": {},
+            "topic_by_format": {FORMAT_SQUARE: 2},
+        }
+
+    monkeypatch.setattr(app_module, "get_headline_learning_preferences", fake_learning)
+    response = app_module.app.test_client().post(
+        "/api/headline-studio/analyze",
+        json={"transcript": CRYPTO_SRT, "use_ai": False},
+    )
+
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert captured["topic"] == "cripto"
+    assert payload["studio"]["learning_applied"]["applied"] is True
+    assert payload["studio"]["recommended_format"] == FORMAT_SQUARE
+
+
 def test_explicit_headline_format_only_generates_selected_profile():
     result = generate_artwork_copy(
         "O Brasil escolheu o caminho arcaico para tratar as criptos e afastar as novas gerações.",
