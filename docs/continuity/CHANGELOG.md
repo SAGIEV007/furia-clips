@@ -2,7 +2,7 @@
 
 ## Roadmap de plataforma registrado — 2026-08-21 (não é release)
 
-Foi ampliado o norte do produto para uma plataforma de missões editoriais, mantendo cortes Renan Santos/MBL como núcleo. O documento [`PLATFORM_NORTH_2026-08-21.md`](PLATFORM_NORTH_2026-08-21.md) reúne ideias de Context Composer, lint audiovisual, dossiês de última hora, pesquisa de notícias e imagens, watchlists, briefings, feedback editorial, acionamento por Telegram/WhatsApp, control plane, worker local e notificações de smartwatch.
+Foi registrado o futuro da ferramenta como uma fase final posterior ao fortalecimento do motor de cortes. O documento [`FUTURE_PLATFORM_2026-08-21.md`](FUTURE_PLATFORM_2026-08-21.md) reúne ideias de Context Composer, lint audiovisual, dossiês de última hora, pesquisa de notícias e imagens, watchlists, briefings, feedback editorial, acionamento por Telegram/WhatsApp, control plane, worker local e notificações de smartwatch. O norte imediato continua sendo precisão de cortes e integração útil do Campaign Hub com o universo MBL.
 
 O relatório [`HANDOFF_SINCE_CLAUDE_2026-08-21.md`](HANDOFF_SINCE_CLAUDE_2026-08-21.md) consolida as alterações efetivamente publicadas desde o ponto de retomada `085569f`. Esta entrada é documental: nenhuma dessas integrações remotas foi declarada como implementada.
 

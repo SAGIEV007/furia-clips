@@ -1,12 +1,16 @@
-# Novo norte da Furia Clips — plataforma automatizada de mídia e inteligência
+# Futuro da Furia Clips — fase final de plataforma e automação
 
-## 1. Decisão de produto
+## 1. Lugar deste documento no roadmap
 
-A Furia deixa de ser descrita apenas como um cortador local e passa a ser tratada como uma **plataforma de produção editorial assistida**, cujo núcleo continua sendo a geração de cortes Renan Santos/MBL. A expansão não deve diluir a prioridade: pesquisa, dossiês, alertas e acionamento remoto existem para encontrar fontes melhores, contextualizar o material, reduzir trabalho manual e entregar cortes mais precisos.
+Este documento não substitui o norte imediato do projeto. Ele descreve o **futuro da ferramenta**, especialmente a fase final, depois de o motor de cortes, contexto, locutor, ranking, integração Chub/MBL e revisão estarem comprovadamente fortes.
 
-> **Norte principal:** transformar uma fonte longa em cortes curtos, autossuficientes, contextualmente completos, editorialmente fiéis e tecnicamente prontos.
+O norte imediato continua sendo transformar uma fonte longa em cortes Renan Santos/MBL curtos, autossuficientes, contextualmente completos, editorialmente fiéis e tecnicamente prontos. As automações de pesquisa, dossiês, alertas, WhatsApp, Telegram, smartwatch e acionamento remoto só devem ser construídas quando reduzirem trabalho sem enfraquecer a precisão dos cortes.
+
+> **Fases anteriores:** precisão de corte, contexto, transcrição canônica, locutor, integração útil do Campaign Hub, ranking explicável, revisão e benchmark real.
 >
-> **Norte ampliado:** permitir que o editor peça uma missão em linguagem natural, pelo computador ou pelo celular, e receba pesquisa, evidências, fonte, cortes, headlines, alertas e pacote de revisão sem precisar operar cada etapa manualmente.
+> **Fase final futura:** plataforma de missões editoriais, pesquisa recente, dossiês rastreáveis, automações, alertas, canais móveis e integrações remotas.
+
+A Furia poderá um dia ser uma plataforma de produção editorial assistida, mas isso é uma meta posterior. A expansão futura deve encontrar fontes melhores, contextualizar o material, reduzir trabalho manual e entregar cortes mais precisos; nunca deve competir com o núcleo de clipping.
 
 A plataforma deve separar claramente quatro coisas que não podem ser confundidas: **descoberta**, **evidência**, **proposta editorial** e **publicação**. Encontrar uma notícia, imagem ou fala na internet não significa que ela esteja confirmada; um destaque do Campaign Hub não é automaticamente um corte; e um corte gerado não é automaticamente publicável.
 

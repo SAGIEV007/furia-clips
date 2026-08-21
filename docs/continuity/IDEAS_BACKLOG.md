@@ -108,7 +108,7 @@ A ideia I-001 deve ser dividida em ciclos pequenos. A primeira entrega recomenda
 
 ## Novo eixo de plataforma — 2026-08-21
 
-As ideias abaixo foram consolidadas em [`PLATFORM_NORTH_2026-08-21.md`](PLATFORM_NORTH_2026-08-21.md) e permanecem propostas até serem escolhidas para um ciclo próprio. O documento completo organiza automações de cortes, transcrição canônica, Context Composer, lint audiovisual, dossiês, pesquisa recente, GDELT, fontes primárias, watchlists, briefings, fila de revisão, feedback, Telegram, WhatsApp, control plane, worker local e notificações de smartwatch.
+As ideias abaixo foram consolidadas em [`FUTURE_PLATFORM_2026-08-21.md`](FUTURE_PLATFORM_2026-08-21.md) e permanecem propostas para a fase final futura, depois do fortalecimento do motor de cortes e da integração Chub/MBL. O documento completo organiza automações de cortes, transcrição canônica, Context Composer, lint audiovisual, dossiês, pesquisa recente, GDELT, fontes primárias, watchlists, briefings, fila de revisão, feedback, Telegram, WhatsApp, control plane, worker local e notificações de smartwatch.
 
 ### I-016 — Missões editoriais de ponta a ponta
 

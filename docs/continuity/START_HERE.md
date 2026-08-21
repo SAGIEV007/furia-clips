@@ -6,9 +6,9 @@
 
 A branch vigente é `claude/repo-access-commits-imgjmk`, versão `6.19`, HEAD `94b8c56`. Desde o ponto de retomada `085569f`, foram publicadas a 6.18, com barra de execução contextual, e a 6.19, com cancelamento seguro de jobs enfileirados e feedback honesto na barra. A suíte atual tem 557 aprovados e 4 ignorados.
 
-O novo norte amplia o produto: o Furia continua tendo **cortes Renan Santos/MBL como núcleo**, mas passa a ser planejado como uma plataforma de missões editoriais com memória Campaign Hub, pesquisa recente, dossiês rastreáveis, fila de revisão, alertas e acionamento remoto. Isso ainda é um roadmap; não confundir proposta de produto com código já implementado.
+O norte atual continua sendo melhorar **cortes Renan Santos/MBL**, com precisão temporal, contexto, locutor, payoff, ranking, revisão e integração útil do Campaign Hub com o universo MBL. As ideias de plataforma — pesquisa recente, dossiês, fila remota, alertas, WhatsApp, Telegram e smartwatch — foram registradas como **fase final futura**, não como prioridade imediata nem como código implementado.
 
-Leia [`HANDOFF_SINCE_CLAUDE_2026-08-21.md`](HANDOFF_SINCE_CLAUDE_2026-08-21.md) para todas as alterações da retomada e [`PLATFORM_NORTH_2026-08-21.md`](PLATFORM_NORTH_2026-08-21.md) para a arquitetura, ideias e ordem de implementação. A hipótese técnica imediata continua sendo identidade persistente de intervalos.
+Leia [`HANDOFF_SINCE_CLAUDE_2026-08-21.md`](HANDOFF_SINCE_CLAUDE_2026-08-21.md) para todas as alterações da retomada e [`FUTURE_PLATFORM_2026-08-21.md`](FUTURE_PLATFORM_2026-08-21.md) para as ideias da fase final. A hipótese técnica imediata continua sendo identidade persistente de intervalos, seguida por um planejamento aprofundado de precisão de cortes e integração Chub/MBL.
 
 ## 1. Missão do projeto
 

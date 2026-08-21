@@ -2,15 +2,15 @@
 
 ## Estado de partida
 
-A release `6.19` está na branch `claude/repo-access-commits-imgjmk`, com cancelamento seguro de jobs enfileirados e feedback honesto na barra fixa. A 6.19 preserva o filtro Renan-first, a separação de descoberta/publicação, o processamento parcial e a UX contextual da 6.18. O editor continua podendo informar uma faixa de fonte em segundos, `mm:ss` ou `hh:mm:ss`; o Furia cria uma cópia temporária, processa a timeline local e devolve também `source_start`, `source_end` e `processing_interval`. O novo norte de plataforma está em `PLATFORM_NORTH_2026-08-21.md` e o inventário desde Claude em `HANDOFF_SINCE_CLAUDE_2026-08-21.md`.
+A release `6.19` está na branch `claude/repo-access-commits-imgjmk`, com cancelamento seguro de jobs enfileirados e feedback honesto na barra fixa. A 6.19 preserva o filtro Renan-first, a separação de descoberta/publicação, o processamento parcial e a UX contextual da 6.18. O editor continua podendo informar uma faixa de fonte em segundos, `mm:ss` ou `hh:mm:ss`; o Furia cria uma cópia temporária, processa a timeline local e devolve também `source_start`, `source_end` e `processing_interval`. O futuro da ferramenta, reservado para uma fase final posterior, está em `FUTURE_PLATFORM_2026-08-21.md`; o inventário desde Claude está em `HANDOFF_SINCE_CLAUDE_2026-08-21.md`. O norte imediato continua sendo precisão de cortes e integração Chub/MBL.
 
-A fonte original continua canônica. Reels e posts publicados continuam `reference_only`; lives longas e arquivos crus continuam `processing_source`. Nenhum snapshot do Campaign Hub é consultado durante o job normal fora dos arquivos locais autorizados. O ciclo 35 não iniciou mídia real nem dependeu de navegador; alterou somente o contrato operacional de cancelamento e seu feedback.
+A fonte original continua canônica. Reels e posts publicados continuam `reference_only`; lives longas e arquivos crus continuam `processing_source`. Nenhum snapshot do Campaign Hub é consultado durante o job normal fora dos arquivos locais autorizados. O ciclo 35 não iniciou mídia real nem dependeu de navegador; alterou somente o contrato operacional de cancelamento e seu feedback. O planejamento aprofundado do núcleo de cortes está em `CUTTING_PRECISION_PLAN_2026-08-21.md`, e a auditoria factual que o fundamenta está em `CUTTING_AUDIT_2026-08-21.md`. O arquivo `FUTURE_PLATFORM_2026-08-21.md` continua reservado à fase final de automações e integrações remotas.
 
 ## Hipótese única
 
 > **Se cada execução parcial receber uma identidade persistente de intervalo no banco e nos bundles editoriais, então a deduplicação poderá comparar somente a mesma faixa da fonte, evitando tanto duplicatas na faixa já processada quanto o bloqueio indevido de faixas diferentes.**
 
-A barra de execução da 6.18 e o cancelamento honesto da 6.19 estão concluídos. O próximo ciclo volta à fundação técnica de identidade de intervalo, salvo regressão observada em uso real.
+A barra de execução da 6.18 e o cancelamento honesto da 6.19 estão concluídos. O próximo ciclo volta à fundação técnica de identidade de intervalo, que é o P1 do plano de precisão. Depois de fechar essa fundação, a ordem recomendada é benchmark editorial, proveniência de transcrição, recall-first Chub, bordas, locutor, contexto/payoff, ranking e formatos.
 
 ## Procedimento de validação
 
@@ -36,13 +36,16 @@ Não alterar pesos do ranking, quota Chub, bordas temporais, diarização, headl
 
 ## Arquivos para ler primeiro
 
-`PROJECT_STATE.md`, `HANDOFF_SINCE_CLAUDE_2026-08-21.md`, `PLATFORM_NORTH_2026-08-21.md`, `CYCLE_35_REPORT_2026-08-21.md`, `CYCLE_34_REPORT_2026-08-21.md`, `CYCLE_33_REPORT_2026-08-20.md`, `DECISIONS.md`, `REFERENCE_UX_NOTES_2026-08-20.md`, `UX_RUNBAR_CHECK_2026-08-21.md`, `modules/job_manager.py`, `modules/source_interval.py`, `tests/test_job_manager.py`, `tests/test_source_interval.py`, `tests/test_ux_runbar.py` e `docs/VERSIONING.md`.
+`PROJECT_STATE.md`, `HANDOFF_SINCE_CLAUDE_2026-08-21.md`, `CUTTING_AUDIT_2026-08-21.md`, `CUTTING_PRECISION_PLAN_2026-08-21.md`, `RESEARCH_CUTTING_PRECISION_2026-08-21.md`, `FUTURE_PLATFORM_2026-08-21.md`, `CYCLE_35_REPORT_2026-08-21.md`, `CYCLE_34_REPORT_2026-08-21.md`, `CYCLE_33_REPORT_2026-08-20.md`, `DECISIONS.md`, `REFERENCE_UX_NOTES_2026-08-20.md`, `UX_RUNBAR_CHECK_2026-08-21.md`, `modules/job_manager.py`, `modules/source_interval.py`, `tests/test_job_manager.py`, `tests/test_source_interval.py`, `tests/test_ux_runbar.py` e `docs/VERSIONING.md`.
 
 ## Referências
 
 - [`PROJECT_STATE.md`](PROJECT_STATE.md)
 - [`HANDOFF_SINCE_CLAUDE_2026-08-21.md`](HANDOFF_SINCE_CLAUDE_2026-08-21.md)
-- [`PLATFORM_NORTH_2026-08-21.md`](PLATFORM_NORTH_2026-08-21.md)
+- [`FUTURE_PLATFORM_2026-08-21.md`](FUTURE_PLATFORM_2026-08-21.md)
+- [`CUTTING_AUDIT_2026-08-21.md`](CUTTING_AUDIT_2026-08-21.md)
+- [`CUTTING_PRECISION_PLAN_2026-08-21.md`](CUTTING_PRECISION_PLAN_2026-08-21.md)
+- [`RESEARCH_CUTTING_PRECISION_2026-08-21.md`](RESEARCH_CUTTING_PRECISION_2026-08-21.md)
 - [`CYCLE_35_REPORT_2026-08-21.md`](CYCLE_35_REPORT_2026-08-21.md)
 - [`CYCLE_34_REPORT_2026-08-21.md`](CYCLE_34_REPORT_2026-08-21.md)
 - [`DECISIONS.md`](DECISIONS.md)
