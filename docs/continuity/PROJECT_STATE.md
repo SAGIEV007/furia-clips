@@ -13,7 +13,7 @@
 | Natureza da release atual | Barra fixa de execução contextual com etapa, progresso, escopo da fonte, sequência visual do pipeline e cancelamento acessível |
 | Fonte da versão | [`VERSION`](../../VERSION) |
 | Branch de trabalho | `claude/repo-access-commits-imgjmk` |
-| Última publicação conhecida | Pendente até o commit final deste ciclo — `feat: melhorar feedback visual da execução (6.18)` |
+| Última publicação conhecida | `276ee87` — `feat: barra de execução com etapas, progresso e escopo da fonte (6.18)` |
 | Commit funcional 2.6 | `fec34fe` — `feat: primeira ponte funcional Campaign Hub para propostas (2.6)` |
 | Commit funcional 2.7 | `a0452d3` — `fix: declarar confiabilidade da medição no benchmark editorial (2.7)` |
 | Commit funcional 2.8 | `fdf5e6b` — `fix: alinhar seeds do Campaign Hub com a mídia local em processamento (2.8)` |
