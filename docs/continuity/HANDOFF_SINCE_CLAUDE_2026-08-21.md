@@ -10,10 +10,10 @@ Este documento registra tudo que foi alterado depois do ponto de retomada identi
 | --- | --- |
 | Repositório | `SAGIEV007/furia-clips` |
 | Branch | `claude/repo-access-commits-imgjmk` |
-| Versão | `6.21` (local validada; publicação desta rodada em andamento) |
-| HEAD local/remoto | `07b43ba` como última publicação; novo commit da 6.21 pendente |
-| Último commit funcional | `6d88714` — `feat: identidade, contexto e gate de locutor para cortes inteligentes (6.20)` |
-| Checkout | Com alterações locais de observabilidade antes do commit |
+| Versão | `6.21` |
+| HEAD local/remoto | `ce8dd98` — commit funcional 6.21 publicado; fechamento documental local pendente |
+| Último commit funcional | `ce8dd98` — `feat: observabilidade estruturada com diagnóstico copiável (6.21)` |
+| Checkout | Com atualização documental local para registrar o hash publicado |
 | Branch principal | Não alterada |
 | Suíte completa | 573 aprovados, 4 ignorados |
 | Asset BlazeFace | Usado temporariamente para teste, conferido e removido |
@@ -76,7 +76,7 @@ O que ainda não foi confirmado é a cobertura em uma operação real: após a p
 
 ### 5. Fechamentos documentais
 
-Os commits `32b2c53` e `94b8c56` fecharam `PROJECT_STATE.md` com os hashes reais publicados de 6.18 e 6.19. O commit `6d88714` publicou a implementação funcional. O fechamento documental será publicado no commit seguinte, mantendo o hash funcional registrado acima.
+Os commits `32b2c53` e `94b8c56` fecharam `PROJECT_STATE.md` com os hashes reais publicados de 6.18 e 6.19. O commit `6d88714` publicou a implementação funcional da 6.20. O commit `ce8dd98` publicou a implementação funcional da 6.21; o fechamento documental desta rodada atualizará o estado vivo e manterá o hash funcional registrado acima.
 
 ## O que não foi alterado
 
