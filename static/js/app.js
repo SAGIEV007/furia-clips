@@ -2592,7 +2592,11 @@ function safeExternalUrl(value) {
 }
 
 function mediaUrlForClip(clip) {
-    return mediaUrlForPath(clip.subtitled_path || clip.path);
+    const base = mediaUrlForPath(clip.subtitled_path || clip.path);
+    if (!base) return "";
+    const version = clip.media_version || clip.rendered_at || "";
+    if (!version) return base;
+    return `${base}${base.includes("?") ? "&" : "?"}v=${encodeURIComponent(version)}`;
 }
 
 const editorialFormatLabels = {
@@ -3363,9 +3367,9 @@ function renderResultsGrid() {
                         <label>Entrada <input type="number" min="0" step="0.1" data-boundary-start="${originalIndex}" value="${Number(clip.start || 0).toFixed(1)}"></label>
                         <label>Saída <input type="number" min="0" step="0.1" data-boundary-end="${originalIndex}" value="${Number(clip.end || 0).toFixed(1)}"></label>
                         <button class="btn btn-sm btn-primary" onclick="previewClipBoundary(${originalIndex})"><span class="material-icons-round">preview</span> Pré-visualizar</button>
-                        <button class="btn btn-sm btn-success" onclick="persistClipBoundary(${originalIndex})" ${clip.clip_id ? "" : "disabled"}><span class="material-icons-round">save</span> Salvar ajuste</button>
+                        <button class="btn btn-sm btn-success" onclick="persistClipBoundary(${originalIndex})" ${clip.clip_id ? "" : "disabled"}><span class="material-icons-round">movie_edit</span> Renderizar ajuste</button>
                     </div>
-                    <small><b>Como usar:</b> Entrada = primeiro segundo útil; saída = último segundo útil. “Pré-visualizar” atualiza somente este card e mantém o arquivo original. “Salvar ajuste” registra a decisão para o próximo render; não cria um MP4 novo nesta etapa.</small>
+                    <small><b>Como usar:</b> Entrada = primeiro segundo útil; saída = último segundo útil. “Pré-visualizar” ajusta somente este card. “Renderizar ajuste” cria um novo MP4 usando a fonte original, atualiza este resultado e preserva o intervalo canônico para a deduplicação.</small>
                     <div class="clip-boundary-feedback" id="boundary-feedback-${originalIndex}" aria-live="polite"></div>
                 </div>
                 <div class="review-format-chip" title="${escapeHtml(layoutMeta.hint)}"><span class="material-icons-round">${escapeHtml(layoutMeta.icon)}</span>${escapeHtml(layoutMeta.label)}</div>
@@ -3622,31 +3626,47 @@ async function persistClipBoundary(index) {
     }
     if (feedback) feedback.textContent = "Salvando ajuste editorial...";
     try {
-        const response = await fetch(`/api/clips/${clip.clip_id}/adjust`, {
+        const response = await fetch(`/api/clips/${clip.clip_id}/adjust/render`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 adjustment,
                 note: "Corte limpo: removidas falas desnecessárias antes/depois do trecho.",
+                title: clip.title || `ajuste-clip-${clip.clip_id}`,
+                text: clip.text || clip.transcript || "",
+                render_preset: state.settings?.render_preset || "shorts",
+                preserve_original_aspect: String(clip.framing_mode || "") === "original_16_9",
+                source_duration: clip.source_duration ?? clip.video_duration ?? null,
                 transcript_segments: clip.transcript_segments || clip.segments || [],
             }),
         });
         const data = await parseJsonResponse(response, "Persistência do ajuste");
         if (!response.ok || data.error) throw new Error(data.error || "Não foi possível salvar o ajuste");
+        const rendered = data.render || {};
+        const refreshedAt = Date.now();
         state.clips[index] = {
             ...clip,
             start: data.adjustment.start,
             end: data.adjustment.end,
             duration: data.adjustment.duration,
+            path: rendered.path || clip.path,
+            file_path: rendered.path || clip.file_path,
+            subtitled_path: "",
+            render_start: rendered.render_start,
+            render_end: rendered.render_end,
+            render_duration: rendered.render_duration,
+            render_boundary_policy: rendered.render_boundary_policy || "",
             latest_adjustment: data.adjustment,
             adjustment_state: "saved",
             review_status: data.review_status || "needs_review",
+            rendered_at: refreshedAt,
+            media_version: refreshedAt,
         };
         renderReviewCommandCenter();
         renderResultsGrid();
         const persistedSource = data.adjustment?.boundary_adjustment?.source === "transcript" ? "transcript" : "manual";
-        if (feedback) feedback.textContent = `Ajuste salvo: ${formatTime(data.adjustment.start)}–${formatTime(data.adjustment.end)}. ${persistedSource === "transcript" ? "Limites alinhados à transcrição." : "Limites manuais preservados."} O MP4 original foi preservado; revise novamente o resultado antes de aprovar.`;
-        showToast("Ajuste salvo no histórico editorial; o MP4 original foi preservado.", "success");
+        if (feedback) feedback.textContent = `Novo MP4 renderizado: ${formatTime(data.adjustment.start)}–${formatTime(data.adjustment.end)}. ${persistedSource === "transcript" ? "Limites alinhados à transcrição." : "Limites manuais preservados."} O card agora reproduz o corte corrigido; o intervalo canônico original continua protegido.`;
+        showToast("Corte ajustado e renderizado. Revise o novo MP4 antes de aprovar.", "success");
     } catch (error) {
         if (feedback) feedback.textContent = error.message;
         showToast(error.message, "error");

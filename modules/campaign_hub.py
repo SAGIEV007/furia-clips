@@ -749,6 +749,17 @@ def merge_acervo_seed_candidates(
     blocks = list(account_data.get("acervo_blocks", []) or []) + list(account_data.get("acervo_pauta", []) or [])
     if not blocks:
         return clips
+
+    def seed_priority(block):
+        if not isinstance(block, dict):
+            return (-1.0, -1.0)
+        # Use only bounded evidence already present in the read-only snapshot.
+        # Stable sorting preserves snapshot order when both signals tie.
+        self_contained = _safe_finite(block.get("self_contained_rank"), minimum=0, maximum=100)
+        density = _safe_finite(block.get("density_rank"), minimum=0, maximum=100)
+        return (self_contained if self_contained is not None else -1.0, density if density is not None else -1.0)
+
+    blocks = sorted(blocks, key=seed_priority, reverse=True)
     try:
         seed_limit = max(1, min(24, int(max_seeds or 1)))
     except (TypeError, ValueError):

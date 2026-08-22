@@ -87,7 +87,7 @@ from database import (
     save_clip, get_clip, get_clips, update_clip_seo, update_clip_thumbnail,
     get_existing_clip_fingerprints, save_transcription, get_transcription, log_action,
     update_clip_editorial_score, save_clip_feedback, get_clip_feedback,
-    update_clip_review_status, save_clip_adjustment, get_feedback_calibration, get_approved_clip_feature_prior, get_daily_editorial_progress,
+    update_clip_review_status, save_clip_adjustment, update_clip_rendered_file, get_feedback_calibration, get_approved_clip_feature_prior, get_daily_editorial_progress,
     get_source_signature,
     save_headline_feedback, get_headline_feedback_summary, get_headline_learning_preferences,
     save_performance_snapshot, get_performance_snapshots, get_performance_summary
@@ -1322,6 +1322,116 @@ def api_persist_clip_adjustment(clip_id):
         },
         "render_status": "preview_only",
     })
+
+
+@app.route("/api/clips/<int:clip_id>/adjust/render", methods=["POST"])
+def api_render_adjusted_clip(clip_id):
+    """Render one validated temporal adjustment from the persisted source video."""
+    from modules.video_cutter import VideoCutter
+
+    data = request.get_json(silent=True) or {}
+    clip = get_clip(clip_id)
+    if not clip:
+        return jsonify({"error": "Clip não encontrado."}), 404
+    project = get_project(clip.get("project_id"))
+    if not project:
+        return jsonify({"error": "Projeto do clip não encontrado."}), 404
+    source_path = _resolve_media_input(project.get("source_video"))
+    if not source_path:
+        return jsonify({"error": "A fonte original deste clip não está disponível no workspace permitido."}), 404
+
+    adjustment = data.get("adjustment") or data.get("clip") or {}
+    if not isinstance(adjustment, dict):
+        return jsonify({"error": "Informe um ajuste válido."}), 400
+
+    source_duration = data.get("source_duration")
+    if source_duration in (None, ""):
+        try:
+            probe = VideoCutter().get_video_info(source_path)
+            source_duration = (probe.get("format") or {}).get("duration")
+        except Exception:
+            source_duration = None
+    try:
+        normalized = adjust_clip_bounds(
+            {
+                "start": clip.get("start_time", 0),
+                "end": clip.get("end_time", 0),
+                "duration": clip.get("duration", 0),
+                "title": str(data.get("title") or "").strip(),
+                "text": str(data.get("text") or "").strip(),
+            },
+            start=adjustment.get("start"),
+            end=adjustment.get("end"),
+            transcript_segments=data.get("transcript_segments") or [],
+            duration=source_duration,
+            snap_tolerance=data.get("snap_tolerance", 2.0),
+            min_duration=data.get("min_duration", 3.0),
+        )
+        normalized["original_start"] = float(clip.get("start_time", 0) or 0)
+        normalized["original_end"] = float(clip.get("end_time", 0) or 0)
+        normalized["render_status"] = "rendering"
+
+        settings = get_all_settings()
+        requested_preset = str(
+            data.get("render_preset") or settings.get("render_preset") or "shorts"
+        ).strip().lower()
+        try:
+            active_preset = get_preset(requested_preset)
+        except ValueError:
+            requested_preset = "shorts"
+            active_preset = get_preset(requested_preset)
+        preserve_original = _coerce_bool(data.get("preserve_original_aspect"), default=False)
+        project_name = str(project.get("name") or f"projeto-{project.get('id', clip_id)}")
+        title = str(data.get("title") or clip.get("file_path") or f"clip-{clip_id}").strip()
+        normalized["title"] = title
+        normalized["text"] = str(data.get("text") or clip.get("transcript") or "").strip()
+        cutter = VideoCutter(method="intelligent", target_duration=normalized["duration"], preset=active_preset)
+        results = cutter.batch_cut(
+            source_path,
+            [normalized],
+            f"{project_name}-ajustes",
+            use_face_tracking=False,
+            emit_progress=lambda message, level="info": print(message),
+            output_dir=EXPORT_DIR,
+            video_layout=None,
+            preset=active_preset,
+            original_aspect_indices={0} if preserve_original else set(),
+            source_duration=source_duration,
+        )
+        if not results:
+            rejection = cutter.last_rejections[0] if cutter.last_rejections else {}
+            errors = "; ".join(rejection.get("errors") or []) or "o renderizador não produziu um arquivo válido"
+            return jsonify({"error": f"Não foi possível renderizar o ajuste: {errors[:300]}"}), 422
+        rendered = results[0]
+        persisted = dict(normalized)
+        persisted.update({
+            "render_status": "rendered",
+            "render_path": rendered.get("path"),
+            "render_start": rendered.get("render_start"),
+            "render_end": rendered.get("render_end"),
+            "render_duration": rendered.get("render_duration"),
+            "render_boundary_policy": rendered.get("render_boundary_policy", ""),
+            "preset": rendered.get("preset", requested_preset),
+        })
+        persisted = save_clip_adjustment(
+            clip_id,
+            persisted,
+            note=str(data.get("note") or "Ajuste temporal renderizado na bancada editorial.").strip(),
+        )
+        update_clip_rendered_file(clip_id, rendered["path"])
+        return jsonify({
+            "success": True,
+            "clip_id": clip_id,
+            "review_status": "needs_review",
+            "adjustment": persisted,
+            "render": rendered,
+            "render_status": "rendered",
+            "source": {"path": source_path, "duration": source_duration},
+        })
+    except (TypeError, ValueError) as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception as exc:
+        return jsonify({"error": f"Falha ao renderizar o ajuste: {str(exc)[:240]}"}), 500
 
 
 @app.route("/api/editorial/learning", methods=["GET"])

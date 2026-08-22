@@ -1244,6 +1244,22 @@ def save_clip_adjustment(clip_id, adjustment, note=""):
     return payload
 
 
+def update_clip_rendered_file(clip_id, file_path):
+    """Point a persisted clip to a validated derived render, preserving its canonical interval."""
+    normalized_path = str(file_path or "").strip()
+    if not normalized_path:
+        raise ValueError("Arquivo renderizado inválido")
+    conn = get_db()
+    row = conn.execute("SELECT id FROM clips WHERE id = ?", (clip_id,)).fetchone()
+    if not row:
+        conn.close()
+        raise ValueError("Clip não encontrado")
+    conn.execute("UPDATE clips SET file_path = ?, status = 'rendered' WHERE id = ?", (normalized_path, clip_id))
+    conn.commit()
+    conn.close()
+    return normalized_path
+
+
 def get_clip_feedback(clip_id):
     conn = get_db()
     rows = conn.execute(

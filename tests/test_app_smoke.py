@@ -623,3 +623,65 @@ def test_campaign_hub_status_endpoint_reports_rich_acervo_counts(tmp_path):
     assert payload["total_acervo_blocks"] == 1
     assert payload["total_pauta_candidates"] == 1
     assert payload["read_only"] is True
+
+
+def test_adjust_render_endpoint_renders_and_persists_derived_file(monkeypatch, tmp_path):
+    import modules.video_cutter as video_module
+
+    db_path = tmp_path / "adjust-render.sqlite"
+    source_path = tmp_path / "source.mp4"
+    rendered_path = tmp_path / "adjusted.mp4"
+    source_path.write_bytes(b"source")
+    rendered_path.write_bytes(b"rendered")
+
+    with patch.object(database, "DB_PATH", str(db_path)):
+        database.init_db()
+        project_id = database.create_project("Projeto de ajuste", str(source_path))
+        clip_id = database.save_clip(
+            project_id,
+            "exports/original.mp4",
+            10.0,
+            52.0,
+            42.0,
+            viral_score=80,
+            transcript="A tese completa do trecho.",
+        )
+        fake_render = {
+            "index": 0,
+            "path": str(rendered_path),
+            "start": 12.0,
+            "end": 49.0,
+            "duration": 37.0,
+            "render_start": 12.0,
+            "render_end": 49.0,
+            "render_duration": 37.0,
+            "render_boundary_policy": "word_timestamps_preserved",
+            "validation": {"valid": True},
+            "preset": "9:16",
+        }
+        monkeypatch.setattr(furia_app, "_resolve_media_input", lambda _value: str(source_path))
+        monkeypatch.setattr(video_module.VideoCutter, "get_video_info", lambda _self, _path: {"format": {"duration": "60.0"}})
+        monkeypatch.setattr(video_module.VideoCutter, "batch_cut", lambda *_args, **_kwargs: [fake_render])
+
+        response = furia_app.app.test_client().post(
+            f"/api/clips/{clip_id}/adjust/render",
+            json={
+                "adjustment": {"start": 12.0, "end": 49.0},
+                "source_duration": None,
+                "render_preset": "shorts",
+                "transcript_segments": [],
+            },
+        )
+
+        assert response.status_code == 200
+        payload = response.get_json()
+        assert payload["success"] is True
+        assert payload["render_status"] == "rendered"
+        assert payload["render"]["render_duration"] == 37.0
+        assert payload["source"]["duration"] == "60.0"
+        assert payload["adjustment"]["render_path"] == str(rendered_path)
+
+        persisted_clip = database.get_clip(clip_id)
+        assert persisted_clip["file_path"] == str(rendered_path)
+        assert persisted_clip["start_time"] == 10.0
+        assert persisted_clip["end_time"] == 52.0

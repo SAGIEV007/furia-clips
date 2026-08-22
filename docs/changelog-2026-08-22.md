@@ -360,3 +360,26 @@ A regressão cobre tanto o caminho refinado sem padding quanto o caminho legado 
 A entrada de seeds Acervo same-source agora trata um candidato local sem `source_id` como pertencente à fonte atualmente analisada, porque o selector já trabalha dentro de uma única fonte por execução. Seeds não são bloqueados quando o candidato traz um identificador não vazio de outra fonte. Isso evita que o mesmo intervalo apareça duas vezes após o ranker, sem inferir identidade entre vídeos diferentes e mantendo a separação de contas.
 
 Foi adicionada regressão para o formato real dos candidatos locais, que pode omitir a identidade explícita. Validação: **693 testes aprovados**, `node --check`, `py_compile`, `git diff --check` e auditoria de segredos sem achados. Campaign Hub permaneceu somente leitura.
+
+
+## Bancada de ajuste com re-renderização individual — 2026-08-22
+
+- **Problema confirmado:** a bancada permitia pré-visualizar e salvar novos limites, mas o botão apenas registrava o ajuste no histórico; o MP4 original continuava sendo o único arquivo reproduzido, obrigando o editor a baixar o vídeo inteiro para corrigir uma entrada ou saída.
+- **Implementado:** `POST /api/clips/<clip_id>/adjust/render` valida os limites com a mesma política de timestamps e duração mínima, recupera a fonte original vinculada ao projeto, re-renderiza somente o clip ajustado com o preset escolhido e valida o arquivo produzido.
+- **Persistência segura:** o arquivo derivado passa a ser o caminho reproduzido pelo clip, enquanto `clips.start_time`/`end_time` canônicos continuam preservados para histórico, deduplicação e auditoria. O ajuste mantém origem, limites renderizados, duração efetiva, política de boundary e estado `rendered`.
+- **UX de bancada:** “Salvar ajuste” foi substituído por **“Renderizar ajuste”**; após sucesso, o card atualiza o player com cache-busting e informa que o MP4 foi corrigido, mantendo a necessidade de revisão antes da aprovação.
+- **Regressão:** smoke test cobre re-render, atualização do arquivo persistido, preservação do intervalo canônico e retorno de `render_duration`.
+- **Validação:** `node --check static/js/app.js`, `py_compile`, suíte integral com **695 testes aprovados**, `git diff --check` e auditoria de segredos sem ocorrência.
+- **Limitação honesta:** a re-renderização exige que a fonte original ainda esteja disponível em uma raiz de mídia permitida; quando ela não existir, a API retorna diagnóstico e não altera o clip.
+
+
+### Complemento do ciclo de re-renderização
+
+A rota de ajuste agora também consegue descobrir a duração da fonte via `ffprobe` quando o navegador não a envia; foi corrigido o import necessário no `VideoCutter` e adicionada regressão para esse caminho. A validação integral foi repetida após essa correção, mantendo **695 testes aprovados**.
+
+
+## Priorização de seeds Acervo por evidência editorial — 2026-08-22
+
+Os seeds read-only do Acervo agora são ordenados de forma estável pelo maior `self_contained_rank` e, em seguida, pelo maior `density_rank` já disponível no snapshot. Isso evita que o limite de seeds consuma primeiro blocos menos completos apenas por ordem de chegada. Empates preservam a ordem original do snapshot. A mudança não altera os pesos do ranker principal, não mistura contas e continua subordinada à validação de mesma fonte e à revisão humana.
+
+Foi adicionada regressão para confirmar que, com limite de um seed, o bloco mais autossuficiente é escolhido mesmo quando aparece depois de um bloco menos completo. A validação integral deste ciclo confirmou **695 testes aprovados** e nenhuma credencial no diff.

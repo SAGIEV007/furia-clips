@@ -679,3 +679,49 @@ def test_merge_acervo_seed_candidates_treats_missing_local_source_as_current_sou
     )
 
     assert merged == local_candidate
+
+
+def test_merge_acervo_seed_candidates_prioritizes_self_contained_and_dense_blocks():
+    snapshot = normalize_snapshot({
+        "default_account": "@renansantosmbl",
+        "accounts": {
+            "@renansantosmbl": {
+                "acervo_blocks": [
+                    {
+                        "id": "low-priority",
+                        "contentClass": "fala",
+                        "startS": 10,
+                        "endS": 24,
+                        "title": "Bloco menos completo",
+                        "summary": "Resumo menos autossuficiente.",
+                        "densityRank": 98,
+                        "selfContainedRank": 40,
+                        "video": {"youtubeId": "AbCdEfGhI12"},
+                    },
+                    {
+                        "id": "high-priority",
+                        "contentClass": "fala",
+                        "startS": 40,
+                        "endS": 54,
+                        "title": "Bloco mais completo",
+                        "summary": "Resumo mais autossuficiente para revisão.",
+                        "densityRank": 85,
+                        "selfContainedRank": 96,
+                        "video": {"youtubeId": "AbCdEfGhI12"},
+                    },
+                ],
+            },
+        },
+    })
+
+    merged = merge_acervo_seed_candidates(
+        [],
+        snapshot,
+        account="@renansantosmbl",
+        source_id="AbCdEfGhI12",
+        max_seeds=1,
+    )
+
+    assert len(merged) == 1
+    assert merged[0]["title"] == "Bloco mais completo"
+    assert merged[0]["acervo_seed"]["self_contained_rank"] == 96
