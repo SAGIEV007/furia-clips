@@ -3568,6 +3568,7 @@ function renderCandidateVolumeNotice(diagnostics = {}) {
         all_intervals_already_processed: "Os intervalos encontrados já foram processados em execuções anteriores.",
         all_candidates_redundant: "Os candidatos encontrados eram redundantes entre si e foram descartados.",
         quality_pool_below_reference: "A seleção preservou apenas momentos que passaram pelos gates de contexto e qualidade.",
+        editorial_gate_blocked: "Nenhum candidato foi liberado: todos exigem revisão editorial ou técnica antes do render.",
         render_failed_after_selection: "Havia candidatos selecionados, mas o render não entregou um arquivo válido; revise os erros técnicos do job.",
         partial_render_failure: "Parte dos candidatos passou, mas alguns renders falharam; revise os erros técnicos antes de repetir.",
     };

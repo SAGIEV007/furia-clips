@@ -352,6 +352,16 @@ def test_transcription_completion_preserves_source_identity_after_video_change()
     assert 'emit_status("transcribe_complete", result, job_id=legacy_job_id)' in backend_source
 
 
+def test_candidate_volume_notice_explains_editorial_gate_blocking():
+    source = APP_JS.read_text(encoding="utf-8")
+    start = source.find("function renderCandidateVolumeNotice")
+    end = source.find("// --- Open Folder Button ---", start)
+    block = source[start:end]
+
+    assert 'editorial_gate_blocked: "Nenhum candidato foi liberado' in block
+    assert "todos exigem revisão editorial ou técnica antes do render" in block
+
+
 def test_scorecard_render_recognizes_legacy_non_clean_gate_status():
     source = APP_JS.read_text(encoding="utf-8")
     start = source.find("const qualityScorecard =")

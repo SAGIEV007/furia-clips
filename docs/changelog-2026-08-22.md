@@ -139,3 +139,10 @@ A validação integral desta rodada confirmou **616 testes aprovados**.
 A interface agora interpreta também scorecards antigos com `status` ou `gate_status` em `review`, `weak`, `review_required` ou `blocked` como “revisão necessária”. Assim, resultados já existentes não voltam a aparecer como simples candidatos quando seus próprios gates registram risco de contexto, payoff, locutor ou técnica.
 
 A validação integral desta rodada confirmou **617 testes aprovados**.
+
+
+## Diagnóstico de candidatos bloqueados
+
+O aviso de volume agora reconhece `editorial_gate_blocked` e explica que nenhum candidato foi liberado porque todos exigem revisão editorial ou técnica antes do render. Isso diferencia ausência de material autossuficiente, redundância, falha de render e bloqueio deliberado por qualidade.
+
+A validação integral desta rodada confirmou **618 testes aprovados**.
