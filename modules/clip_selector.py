@@ -2070,13 +2070,16 @@ Retorne APENAS o JSON.
                 new_clip = {"start": new_start, "end": new_end, "duration": max(new_end - new_start, 0.001)}
                 overlap = self._calculate_overlap(new_clip, old_clip)
                 text_similarity = self._text_similarity(clip.get("text", ""), old.get("text", ""))
+                contextually_distinct = self._previous_contextually_distinct(clip, old)
                 boundary_match = abs(new_start - old_start) <= 4.0 and abs(new_end - old_end) <= 6.0
+                overlap_duplicate = overlap >= 0.45 and not contextually_distinct
+                boundary_duplicate = boundary_match and not contextually_distinct
                 repeated_by_similarity = (
                     text_similarity >= 0.86
                     and abs(new_start - old_start) <= 30.0
-                    and not self._previous_contextually_distinct(clip, old)
+                    and not contextually_distinct
                 )
-                if overlap >= 0.45 or boundary_match or repeated_by_similarity:
+                if overlap_duplicate or boundary_duplicate or repeated_by_similarity:
                     repeated = old
                     break
             if repeated is None:

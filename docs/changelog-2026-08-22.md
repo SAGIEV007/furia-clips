@@ -294,3 +294,9 @@ Validação: **682 testes aprovados**, `node --check`, `py_compile`, `git diff -
 O ajuste manual de entrada e saída agora prefere `word.start` para o início e `word.end` para o fim quando a transcrição timestampada contém palavras válidas. Isso evita que um clique aproximado seja alinhado apenas ao limite amplo do segmento e reduz o risco de incluir ou remover fala desnecessária. Se não houver palavras válidas, o comportamento anterior por segmentos permanece como fallback; entradas inválidas continuam sendo ignoradas com segurança.
 
 Foi adicionada cobertura de regressão para confirmar a preferência por palavras, a não mutação do clip canônico, a duração mínima e a rejeição de limites não finitos. Validação: **683 testes aprovados**, `node --check`, `py_compile`, `git diff --check` e auditoria de segredos sem achados. Campaign Hub permaneceu somente leitura.
+
+## Cobertura de execução — deduplicação sensível ao contexto
+
+A deduplicação entre execuções agora não descarta automaticamente um intervalo apenas porque ele se sobrepõe a um clip já exportado. Quando o novo candidato apresenta pelo menos duas diferenças editoriais coerentes — como conclusão, completude de pergunta–resposta, payoff, ponte de contexto, capítulo ou tipo editorial — ele pode permanecer na fila para revisão. Duplicatas exatas, limites praticamente iguais e repetições lexicalmente equivalentes continuam sendo removidos.
+
+Isso preserva a possibilidade de uma segunda passada encontrar a conclusão de uma resposta ou um enquadramento editorial diferente dentro de uma janela já visitada, sem reabrir o risco de repetir o mesmo corte. Foram adicionados testes para sobreposição contextualmente distinta e para duplicata exata. Validação: **685 testes aprovados**, `node --check`, `py_compile`, `git diff --check` e auditoria de segredos sem achados. Campaign Hub permaneceu somente leitura.

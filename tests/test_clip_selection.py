@@ -701,3 +701,51 @@ def test_scene_boundary_adjustment_ignores_invalid_timestamps():
 
 if __name__ == "__main__":
     unittest.main()
+
+
+
+def test_previous_fingerprint_keeps_overlapping_contextually_distinct_candidate():
+    selector = ClipSelector(target_duration=20, max_clips=5, min_duration=5, max_duration=30)
+    selector._previous_clip_fingerprints = [{
+        "start": 0.0,
+        "end": 30.0,
+        "duration": 30.0,
+        "text": "A proposta precisa de uma resposta clara e responsável.",
+        "closure_type": "cliffhanger",
+        "question_answer_complete": False,
+        "payoff_complete": False,
+        "qa_bridge": False,
+        "chapter_primary_id": 1,
+    }]
+    candidate = {
+        "start": 15.0,
+        "end": 35.0,
+        "duration": 20.0,
+        "text": "A proposta precisa de uma resposta clara e responsável.",
+        "closure_type": "conclusion",
+        "question_answer_complete": True,
+        "payoff_complete": True,
+        "qa_bridge": True,
+        "chapter_primary_id": 2,
+    }
+
+    assert selector._remove_previous_fingerprints([candidate]) == [candidate]
+
+
+def test_previous_fingerprint_still_discards_exact_duplicate():
+    selector = ClipSelector(target_duration=20, max_clips=5, min_duration=5, max_duration=30)
+    selector._previous_clip_fingerprints = [{
+        "start": 10.0,
+        "end": 30.0,
+        "duration": 20.0,
+        "text": "A resposta foi clara e responsável.",
+    }]
+    candidate = {
+        "start": 10.0,
+        "end": 30.0,
+        "duration": 20.0,
+        "text": "A resposta foi clara e responsável.",
+    }
+
+    assert selector._remove_previous_fingerprints([candidate]) == []
+    assert selector._candidate_diagnostics["previous_discarded_count"] == 1
