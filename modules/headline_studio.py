@@ -101,6 +101,23 @@ def _compact(value: str, limit: int) -> str:
     return short or text[:limit].strip()
 
 
+def _transcript_ends_incomplete(value: str) -> bool:
+    """Flag only visibly open endings; plain CapCut TXT often has no periods."""
+    raw = re.sub(r"\s+", " ", str(value or "")).strip()
+    if not raw:
+        return True
+    if raw.endswith((".", "!", "?")):
+        return False
+    if raw.endswith((",", ";", ":", "—", "-")):
+        return True
+    words = re.findall(r"[a-z0-9À-ÿ-]+", normalize(raw))
+    return bool(words and words[-1] in {
+        "porque", "mas", "porem", "se", "quando", "que", "como", "embora",
+        "entao", "portanto", "logo", "de", "do", "da", "dos", "das", "em",
+        "no", "na", "nos", "nas", "para", "por", "com", "sem", "e", "ou",
+    })
+
+
 def _break_headline(value: str, max_lines: int = 3, ideal_line_chars: int = 22) -> list[str]:
     """Break artwork copy into balanced lines without silently truncating the claim."""
     words = re.sub(r"\s+", " ", str(value or "")).strip().split()
@@ -381,11 +398,11 @@ def _fallback_result(
     else:
         recommended = FORMAT_VERTICAL
 
-    is_complete = text.rstrip().endswith((".", "!", "?"))
+    transcript_ends_incomplete = _transcript_ends_incomplete(text)
     review_flags = {
         "needs_fact_review": bool(signals.get("needs_fact_review")),
         "needs_legal_review": bool(signals.get("needs_legal_review")),
-        "transcript_ends_incomplete": not is_complete,
+        "transcript_ends_incomplete": transcript_ends_incomplete,
     }
     recommendation_reason = {
         FORMAT_SQUARE: "A tese tem desenvolvimento suficiente para uma chamada curta no topo e uma headline branca em até três linhas.",

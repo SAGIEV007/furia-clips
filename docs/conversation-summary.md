@@ -202,3 +202,7 @@ Para reduzir rejeições por `no_payoff`, finais que terminam em conectivo, prep
 ## 21. Headline Studio calibrado com a legenda fiscal fornecida
 
 A legenda exportada do CapCut foi testada diretamente. O problema não era o nome inglês do arquivo, mas a regra local que generalizava qualquer menção a imposto. O gerador agora usa claims presentes no texto, como “mais de 200 bilhões por ano”, “imposto de país rico” e revisão de despesas, sem sugerir cripto quando o corte não fala de cripto. A interface mostra a base textual usada e esclarece que o nome do arquivo não é levado em conta.
+
+## 22. Alerta de transcrição incompleta em TXT
+
+O Headline Studio não usa mais a ausência de ponto final como prova de que a legenda está incompleta. Isso evita o alerta falso em exportações do CapCut; o aviso permanece quando o texto realmente termina aberto, como em “porque”, “de”, “para” ou com vírgula. A legenda fornecida pelo editor foi reprocessada sem esse alerta.

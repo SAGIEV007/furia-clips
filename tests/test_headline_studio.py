@@ -39,7 +39,7 @@ def test_square_artwork_copy_is_short_and_uses_top_callout():
 
 def test_plain_finished_cut_text_is_accepted_without_timestamps():
     result = generate_artwork_copy(
-        "O Estado precisa decidir se quer acolher ou afastar as criptos do Brasil",
+        "O Estado precisa decidir se quer acolher ou afastar as criptos do",
         preferred_format=FORMAT_VERTICAL,
         ai_backend=None,
     )
@@ -354,6 +354,16 @@ def test_headline_studio_uses_aggregate_approved_clip_format_prior_only_when_eli
 FISCAL_CUT_TRANSCRIPT = """e o que que nós temos? um país que é pobre mas que cobra imposto de país rico pra você poder mexer nisso sem estourar a trajetória da relação em dívida PIB que hoje tá indo estourar cê vai ter que mexer na despesa e aí eu tô avisando pra todo mundo e eu sou o único pré candidato que não está mentindo sobre esse assunto eu tô falando mexer em mais de duzentos bilhões por ano na parte de despesa então vai ter que mexer nas indexações a subida do salário mínimo pra aposentadoria bpc outros benefícios tô falando das vinculações de educação e saúde"""
 
 
+def test_plain_text_without_terminal_punctuation_is_not_always_incomplete():
+    result = generate_artwork_copy(
+        "O Estado precisa decidir se quer acolher ou afastar as criptos do Brasil",
+        preferred_format=FORMAT_VERTICAL,
+        ai_backend=None,
+    )
+
+    assert result["review_flags"]["transcript_ends_incomplete"] is False
+
+
 def test_fiscal_caption_generates_grounded_headlines_without_crypto_drift():
     result = generate_artwork_copy(
         FISCAL_CUT_TRANSCRIPT,
@@ -370,6 +380,7 @@ def test_fiscal_caption_generates_grounded_headlines_without_crypto_drift():
     assert "CRIPTO" not in joined
     assert "PRÓPRIO FUTURO" not in joined
     assert result["analysis"]["headline_basis"]["grounded_claims"]
+    assert result["review_flags"]["transcript_ends_incomplete"] is False
 
 
 def test_fiscal_caption_fake_tweet_uses_the_cut_claim_not_a_generic_topic_phrase():

@@ -466,3 +466,6 @@ O seletor e o ranker passaram a reconhecer como pensamento aberto alguns finais 
 
 ## Headline Studio: contexto fiscal da legenda e base visível — 2026-08-22
 O gerador deixou de usar uma chamada genérica sobre “tributar o próprio futuro” quando a legenda fala de despesas, impostos e mais de 200 bilhões por ano. A base local agora privilegia claims comprovados pela própria transcrição, evita deriva para cripto sem evidência e cria um rascunho de fake tweet coerente com o corte. O resultado também mostra os termos que fundamentaram as sugestões, e a importação informa que o nome do arquivo — inclusive se estiver em inglês — não é usado como contexto. Validação focada: **157 testes aprovados**; validação integral anterior da implementação: **734 testes aprovados**.
+
+## Headline Studio: alerta de final incompleto corrigido — 2026-08-22
+Arquivos TXT exportados pelo CapCut frequentemente não trazem pontuação final. O gerador deixou de marcar todo texto sem ponto como incompleto e agora só alerta quando o final termina com conectivo, preposição, pronome ou pontuação que indica corte aberto. A legenda fiscal anexada passou a ser tratada como estruturalmente completa para a geração de arte. Validação focada: **159 testes aprovados**.
