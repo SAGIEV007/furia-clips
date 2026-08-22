@@ -3374,7 +3374,7 @@ function renderResultsGrid() {
                         <label>Entrada <input type="number" min="0" step="0.1" data-boundary-start="${originalIndex}" value="${Number(clip.start || 0).toFixed(1)}"></label>
                         <label>Saída <input type="number" min="0" step="0.1" data-boundary-end="${originalIndex}" value="${Number(clip.end || 0).toFixed(1)}"></label>
                         <button class="btn btn-sm btn-primary" onclick="previewClipBoundary(${originalIndex})"><span class="material-icons-round">fact_check</span> Validar limites</button>
-                        <button class="btn btn-sm btn-success" onclick="persistClipBoundary(${originalIndex})" ${clip.clip_id ? "" : "disabled"}><span class="material-icons-round">movie_edit</span> Renderizar ajuste</button>
+                        <button class="btn btn-sm btn-success" data-boundary-render="${originalIndex}" onclick="persistClipBoundary(${originalIndex})" ${clip.clip_id ? "" : "disabled"}><span class="material-icons-round">movie_edit</span> Renderizar ajuste</button>
                     </div>
                     <small><b>Como usar:</b> Entrada = primeiro segundo útil; saída = último segundo útil na timeline da fonte. “Validar limites” calcula um ajuste sem alterar o MP4 que está tocando. “Renderizar ajuste” cria um novo MP4 usando a fonte original, atualiza este resultado e preserva o intervalo canônico para a deduplicação.</small>
                     <div class="clip-boundary-feedback" id="boundary-feedback-${originalIndex}" aria-live="polite"></div>
@@ -3606,9 +3606,22 @@ async function previewClipBoundary(index) {
 
 async function persistClipBoundary(index) {
     const clip = state.clips[index];
-    if (!clip) return;
+    if (!clip || clip.adjustment_render_busy) return;
     const feedback = document.getElementById(`boundary-feedback-${index}`);
+    const renderButton = document.querySelector(`[data-boundary-render="${index}"]`);
+    const previousButtonMarkup = renderButton?.innerHTML || '<span class="material-icons-round">movie_edit</span> Renderizar ajuste';
+    clip.adjustment_render_busy = true;
+    if (renderButton) {
+        renderButton.disabled = true;
+        renderButton.setAttribute("aria-busy", "true");
+        renderButton.innerHTML = '<span class="material-icons-round">hourglass_top</span> Renderizando…';
+    }
     if (!clip.clip_id) {
+        clip.adjustment_render_busy = false;
+        if (renderButton) {
+            renderButton.disabled = true;
+            renderButton.removeAttribute("aria-busy");
+        }
         if (feedback) feedback.textContent = "Este resultado ainda não possui um registro persistente.";
         return;
     }
@@ -3617,6 +3630,12 @@ async function persistClipBoundary(index) {
     const requestedStart = Number(startInput?.value ?? clip.start);
     const requestedEnd = Number(endInput?.value ?? clip.end);
     if (!Number.isFinite(requestedStart) || !Number.isFinite(requestedEnd) || requestedStart < 0 || requestedEnd <= requestedStart) {
+        clip.adjustment_render_busy = false;
+        if (renderButton) {
+            renderButton.disabled = false;
+            renderButton.removeAttribute("aria-busy");
+            renderButton.innerHTML = previousButtonMarkup;
+        }
         if (feedback) feedback.textContent = "Informe uma entrada e uma saída válidas antes de renderizar.";
         return;
     }
@@ -3675,13 +3694,22 @@ async function persistClipBoundary(index) {
         const persistedSource = data.adjustment?.boundary_adjustment?.source === "transcript" ? "transcript" : "manual";
         if (feedback) feedback.textContent = `Novo MP4 renderizado: ${formatTime(data.adjustment.start)}–${formatTime(data.adjustment.end)}. ${persistedSource === "transcript" ? "Limites alinhados à transcrição." : "Limites manuais preservados."} O card agora reproduz o corte corrigido; o intervalo canônico original continua protegido.`;
         showToast("Corte ajustado e renderizado. Revise o novo MP4 antes de aprovar.", "success");
-    } catch (error) {
+        } catch (error) {
         if (feedback) feedback.textContent = error.message;
         showToast(error.message, "error");
+    } finally {
+        clip.adjustment_render_busy = false;
+        if (state.clips[index]) state.clips[index].adjustment_render_busy = false;
+        const currentButton = document.querySelector(`[data-boundary-render="${index}"]`);
+        if (currentButton) {
+            currentButton.disabled = false;
+            currentButton.removeAttribute("aria-busy");
+            if (currentButton.innerHTML.includes("hourglass_top")) currentButton.innerHTML = previousButtonMarkup;
+        }
     }
 }
-
 function transcriptSegmentsForClip(clip) {
+
     const linkedPath = String(state.manualTranscriptVideo || "").trim();
     const selectedPath = String(selectedVideoPathForRequest() || "").trim();
     const globalTranscriptBelongsToSelection = Boolean(

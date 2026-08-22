@@ -1338,3 +1338,14 @@ def test_backend_dedupe_context_reads_nested_review_flags():
 
     assert 'review_flags = clip.get("review_flags") if isinstance(clip.get("review_flags"), dict) else {}' in text
     assert 'value = review_flags.get(key)' in text
+
+
+def test_adjust_render_button_has_busy_state_and_clears_it_after_request():
+    source = APP_JS.read_text(encoding="utf-8")
+    assert 'data-boundary-render="${originalIndex}"' in source
+    assert "if (!clip || clip.adjustment_render_busy) return;" in source
+    assert 'clip.adjustment_render_busy = true;' in source
+    assert 'renderButton.setAttribute("aria-busy", "true");' in source
+    assert 'renderButton.innerHTML = \'<span class="material-icons-round">hourglass_top</span> Renderizando…\';' in source
+    assert 'if (state.clips[index]) state.clips[index].adjustment_render_busy = false;' in source
+    assert 'if (currentButton.innerHTML.includes("hourglass_top")) currentButton.innerHTML = previousButtonMarkup;' in source
