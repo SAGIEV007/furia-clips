@@ -47,6 +47,17 @@ def test_review_card_exposes_speaker_review_reason_to_editor():
     assert "speaker_review_reason" in source
 
 
+def test_transcript_status_uses_normalized_source_identity_for_success():
+    source = APP_JS.read_text(encoding="utf-8")
+    start = source.find("function hydrateTranscriptEditor")
+    end = source.find("function transcriptArchiveCoverage", start)
+    block = source[start:end]
+
+    assert "const transcriptLinkedToSelection = linkedPath && selectedPath && mediaPathsMatch(linkedPath, selectedPath);" in block
+    assert "transcriptLinkedToSelection" in block
+    assert "linkedPath === selectedPath" not in block
+
+
 def test_context_analysis_reset_clears_dossier_at_single_workspace_boundary():
     source = APP_JS.read_text(encoding="utf-8")
     reset_start = source.find("function resetReviewWorkspaceForVideoChange()")

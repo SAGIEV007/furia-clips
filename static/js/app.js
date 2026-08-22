@@ -3706,9 +3706,10 @@ function hydrateTranscriptEditor(transcription, archive = null) {
     const linkedPath = String(state.manualTranscriptVideo || "").trim();
     const linkedName = linkedPath && linkedPath !== "pending-source" ? linkedPath.split(/[\\/]/).pop() : "vídeo ainda não confirmado";
     const selectedPath = String(selectedVideoPathForRequest() || "").trim();
+    const transcriptLinkedToSelection = linkedPath && selectedPath && mediaPathsMatch(linkedPath, selectedPath);
     const linkage = linkedPath === "pending-source"
         ? "Aguardando vínculo com um vídeo selecionado."
-        : linkedPath && selectedPath && linkedPath === selectedPath
+        : transcriptLinkedToSelection
             ? `Vinculada a ${linkedName}.`
             : linkedPath
                 ? `Fonte registrada: ${linkedName}; confirme se corresponde ao vídeo atual.`
@@ -3718,7 +3719,7 @@ function hydrateTranscriptEditor(transcription, archive = null) {
     const status = document.getElementById("transcriptStatus");
     if (status) {
         status.textContent = `Transcrição pronta: ${count} segmentos. ${linkage}${archiveLabel}${suffix}`;
-        status.className = `source-status ${quality === "structurally_ok" && linkedPath && linkedPath === selectedPath ? "success" : "warning"}`;
+        status.className = `source-status ${quality === "structurally_ok" && transcriptLinkedToSelection ? "success" : "warning"}`;
     }
 }
 
