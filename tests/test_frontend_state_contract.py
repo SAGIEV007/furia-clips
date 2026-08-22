@@ -1312,3 +1312,18 @@ def test_review_card_exposes_refined_render_boundaries():
     assert "const renderStart = Number(clip.render_start);" in source
     assert "const renderEnd = Number(clip.render_end);" in source
     assert "sem padding adicional no render" in source
+
+
+def test_review_card_exposes_scene_boundary_adjustment():
+    source = APP_JS.read_text(encoding="utf-8")
+
+    assert "clip.scene_boundary_adjustment" in source
+    assert "Cena expandiu o intervalo" in source
+    assert "preservação da fala" in source
+
+
+def test_cut_payload_propagates_scene_boundary_adjustment():
+    source = Path(__file__).resolve().parents[1] / "app.py"
+    text = source.read_text(encoding="utf-8")
+
+    assert '"scene_boundary_adjustment": clip_info.get("scene_boundary_adjustment")' in text

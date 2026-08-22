@@ -324,3 +324,9 @@ Foi adicionada regressão para expansão acima do teto. Validação: **687 teste
 O alinhamento de limites agora tenta primeiro a fronteira de palavra mais próxima quando ela está dentro da tolerância configurada. Se as palavras timestampadas estiverem longe, o Furia volta a considerar os limites do segmento; se nenhum nível estiver próximo, mantém o valor solicitado. Isso preserva a precisão fina sem transformar a existência de uma palavra distante em motivo para ignorar um segmento útil.
 
 Foi adicionada regressão para o fallback palavra → segmento. Validação: **688 testes aprovados**, `node --check`, `py_compile`, `git diff --check` e auditoria de segredos sem achados. Campaign Hub permaneceu somente leitura.
+
+## Revisão visual — transparência do snapping de cena
+
+Os payloads de Corte inteligente e Processo completo agora carregam `scene_boundary_adjustment` até a bancada de revisão. Quando uma cena expandiu o intervalo, o card mostra discretamente os limites originais e ajustados e informa que a fala foi preservada. Clips sem expansão continuam sem aviso, evitando ruído na fila.
+
+Foram adicionados contratos estáticos para o payload e a mensagem visível. Validação: **690 testes aprovados**, `node --check`, `py_compile`, `git diff --check` e auditoria de segredos sem achados. Campaign Hub permaneceu somente leitura.

@@ -3202,6 +3202,15 @@ function renderResultsGrid() {
         const boundaryRefinementMarkup = boundaryRefinementApplied
             ? `<div class="clip-boundary-note"><span class="material-icons-round">content_cut</span><span><b>Limites refinados:</b> ${Number.isFinite(renderStart) && Number.isFinite(renderEnd) ? `${formatTime(renderStart)}–${formatTime(renderEnd)}` : 'intervalo ancorado na fala'}${Number.isFinite(boundaryTrimBefore) || Number.isFinite(boundaryTrimAfter) ? ` · poda segura: −${Number.isFinite(boundaryTrimBefore) ? boundaryTrimBefore.toFixed(1) : '0.0'}s no início / −${Number.isFinite(boundaryTrimAfter) ? boundaryTrimAfter.toFixed(1) : '0.0'}s no fim` : ''} · sem padding adicional no render</span></div>`
             : "";
+        const sceneBoundary = clip.scene_boundary_adjustment && typeof clip.scene_boundary_adjustment === "object" ? clip.scene_boundary_adjustment : {};
+        const sceneBoundaryApplied = safeBooleanFlag(sceneBoundary.applied);
+        const sceneOriginalStart = Number(sceneBoundary.original_start);
+        const sceneOriginalEnd = Number(sceneBoundary.original_end);
+        const sceneAdjustedStart = Number(sceneBoundary.adjusted_start);
+        const sceneAdjustedEnd = Number(sceneBoundary.adjusted_end);
+        const sceneBoundaryMarkup = sceneBoundaryApplied
+            ? `<div class="clip-boundary-note clip-scene-boundary-note"><span class="material-icons-round">movie_edit</span><span><b>Cena expandiu o intervalo:</b> ${Number.isFinite(sceneOriginalStart) && Number.isFinite(sceneOriginalEnd) ? `${formatTime(sceneOriginalStart)}–${formatTime(sceneOriginalEnd)}` : 'intervalo original'} → ${Number.isFinite(sceneAdjustedStart) && Number.isFinite(sceneAdjustedEnd) ? `${formatTime(sceneAdjustedStart)}–${formatTime(sceneAdjustedEnd)}` : 'intervalo ajustado'} · preservação da fala</span></div>`
+            : "";
         const qualityScorecard = clip.quality_scorecard && typeof clip.quality_scorecard === "object" ? clip.quality_scorecard : {};
         const qualityScorecardItems = [
             ["context", "Contexto", "account_tree"],
@@ -3307,6 +3316,7 @@ function renderResultsGrid() {
                 ${visualFormat ? `<div class="clip-visual-format-note ${preserveComposition ? 'preserve' : ''}"><span class="material-icons-round">${preserveComposition ? 'aspect_ratio' : 'center_focus_strong'}</span><span><b>${escapeHtml(visualFormatLabels[visualFormat] || visualFormat)}</b> · ${preserveComposition ? 'preservar composição' : 'reframe somente se seguro'}${Number.isFinite(visualFormatConfidence) ? ` · ${Math.round(Math.max(0, Math.min(1, visualFormatConfidence)) * 100)}%` : ''}${clip.visual_format_reason ? ` — ${escapeHtml(String(clip.visual_format_reason))}` : ''}</span></div>` : ''}
                 ${framingMode ? `<div class="clip-visual-format-note ${framingMode === 'face_tracking' ? '' : 'preserve'}"><span class="material-icons-round">${framingMode === 'face_tracking' ? 'center_focus_strong' : 'aspect_ratio'}</span><span><b>Enquadramento: ${escapeHtml(framingLabels[framingMode] || framingMode)}</b>${Number.isFinite(framingConfidence) ? ` · ${Math.round(Math.max(0, Math.min(1, framingConfidence)) * 100)}%` : ''}${framingReason ? ` — ${escapeHtml(framingReason)}` : ''}</span></div>` : ''}
                 ${boundaryRefinementMarkup}
+                ${sceneBoundaryMarkup}
                 ${multimodalIdentityReview ? `<div class="clip-review-risk ${multimodalIdentityStatus === 'mismatch' ? 'legal' : ''}"><span class="material-icons-round">visibility_off</span><span><b>Identidade multimodal:</b> ${escapeHtml(multimodalIdentityLabel)}${Number.isFinite(multimodalIdentityConfidence) ? ` · ${Math.round(Math.max(0, Math.min(1, multimodalIdentityConfidence)) * 100)}%` : ''}</span></div>` : ''}
                                 ${clip.visual_observation ? `<div class="clip-visual-observation"><span class="material-icons-round">visibility</span><span><b>Evidência visual:</b> ${escapeHtml(String(clip.visual_observation))}${Number.isFinite(Number(clip.visual_observation_confidence)) ? ` · ${Math.round(Math.max(0, Math.min(1, Number(clip.visual_observation_confidence))) * 100)}% de confiança` : ''}</span></div>` : ''}
                 ${nonverbalMomentMarkup}
