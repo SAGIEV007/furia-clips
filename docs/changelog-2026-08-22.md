@@ -306,3 +306,9 @@ Isso preserva a possibilidade de uma segunda passada encontrar a conclusão de u
 Os fingerprints locais agora incluem, além do intervalo canônico salvo no clip, o último intervalo manual válido registrado pelo editor. Assim, uma nova execução evita repetir tanto a janela originalmente selecionada quanto a versão refinada que foi efetivamente revisada. A identidade da fonte, o filtro por assinatura e o fallback de registros legados permanecem inalterados; ajustes inválidos ou iguais ao intervalo canônico não geram fingerprint extra.
 
 Foi adicionada regressão de integração para confirmar a recuperação dos dois intervalos a partir do SQLite. Validação: **686 testes aprovados**, `node --check`, `py_compile`, `git diff --check` e auditoria de segredos sem achados. Campaign Hub permaneceu somente leitura.
+
+## Dedupe contextual — persistência dos sinais do ranker
+
+O pipeline de corte agora grava no scorecard apenas os sinais não textuais necessários para deduplicação futura — completude de pergunta–resposta, payoff, ponte de contexto, tipo de fechamento, tipo editorial político e capítulo primário. Na execução seguinte, esses sinais são reconstruídos no fingerprint local e podem preservar um candidato sobreposto quando ele representa uma decisão editorial diferente. Nenhum texto novo, transcript, mídia ou dado do Campaign Hub é enviado ao repositório.
+
+A cobertura de integração confirma o caminho SQLite → fingerprint → selector. Validação: **686 testes aprovados**, `node --check`, `py_compile`, `git diff --check` e auditoria de segredos sem achados. Campaign Hub permaneceu somente leitura.

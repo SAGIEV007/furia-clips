@@ -729,6 +729,27 @@ def _review_provenance(transcription=None, editorial_context=None, context_sourc
     }
 
 
+def _score_factors_with_dedup_context(clip):
+    """Persist only bounded non-textual signals needed for cross-run dedupe."""
+    factors = dict(clip.get("factors") or {}) if isinstance(clip, dict) else {}
+    if not isinstance(clip, dict):
+        return factors
+    dedup_context = {}
+    for key in (
+        "question_answer_complete",
+        "payoff_complete",
+        "qa_bridge",
+        "closure_type",
+        "political_editorial_type",
+        "chapter_primary_id",
+    ):
+        if key in clip and clip.get(key) not in (None, ""):
+            dedup_context[key] = clip.get(key)
+    if dedup_context:
+        factors["_dedup_context"] = dedup_context
+    return factors
+
+
 def _run_gemini_video_analysis(video_path, settings, editorial_context, user_context, emit_progress, cancel_check=None):
     backend = str(settings.get("ai_backend", "gemini") or "gemini").lower()
     api_key = str(settings.get("gemini_api_key", "") or "").strip()
@@ -2637,7 +2658,7 @@ def api_cut_shorts():
                 update_clip_editorial_score(
                     clip_id_by_index[i],
                     clip_data.get("editorial_potential_score", clip_data.get("viral_score", 0)),
-                    clip_data.get("factors", {}),
+                    _score_factors_with_dedup_context(clip_data),
                     clip_data.get("confidence", 0),
                     clip_data.get("editorial_score_version", "v1-explainable"),
                     review_flags=clip_data.get("review_flags", {}),
@@ -3782,7 +3803,7 @@ def api_process_complete():
                 update_clip_editorial_score(
                     clip_id,
                     clip_data.get("editorial_potential_score", clip_data.get("viral_score", 0)),
-                    clip_data.get("factors", {}),
+                    _score_factors_with_dedup_context(clip_data),
                     clip_data.get("confidence", 0),
                     clip_data.get("editorial_score_version", "v1-explainable"),
                     review_flags=clip_data.get("review_flags", {}),

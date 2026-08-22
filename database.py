@@ -43,6 +43,34 @@ def _normalize_campaign_hub_account(value):
 
 
 
+def _normalize_dedup_context(value):
+    """Keep a small, non-textual editorial signature for cross-run dedupe."""
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except json.JSONDecodeError:
+            return {}
+    if not isinstance(value, dict):
+        return {}
+    result = {}
+    for key in ("question_answer_complete", "payoff_complete", "qa_bridge"):
+        parsed = _parse_optional_bool(value.get(key))
+        if parsed is not None:
+            result[key] = parsed
+    for key in ("closure_type", "political_editorial_type"):
+        text = str(value.get(key) or "").strip()[:64]
+        if text:
+            result[key] = text
+    try:
+        chapter_id = int(value.get("chapter_primary_id"))
+    except (TypeError, ValueError):
+        chapter_id = None
+    if chapter_id is not None and 0 <= chapter_id <= 1_000_000:
+        result["chapter_primary_id"] = chapter_id
+    return result
+
+
+
 def _normalize_review_provenance(value):
     """Keep only bounded, non-sensitive origin fields for local calibration."""
     if isinstance(value, str):
@@ -732,7 +760,8 @@ def get_existing_clip_fingerprints(source_video=""):
                            WHERE feedback.clip_id = clips.id
                              AND feedback.action = 'adjusted'
                            ORDER BY feedback.created_at DESC, feedback.id DESC
-                           LIMIT 1) AS latest_adjustment
+                           LIMIT 1) AS latest_adjustment,
+                         clips.score_factors
            FROM clips
            JOIN projects ON projects.id = clips.project_id
           WHERE {normalized_source} = ? OR {normalized_source} LIKE ?""",
@@ -775,6 +804,13 @@ def get_existing_clip_fingerprints(source_video=""):
         if identity not in seen_identities:
             seen_identities.add(identity)
             fingerprints.append(fingerprint)
+
+        try:
+            score_factors = json.loads(row[9] or "{}")
+        except (TypeError, ValueError, json.JSONDecodeError):
+            score_factors = {}
+        if isinstance(score_factors, dict):
+            fingerprint.update(_normalize_dedup_context(score_factors.get("_dedup_context")))
 
         try:
             adjustment = json.loads(row[8] or "{}")
@@ -954,6 +990,11 @@ def update_clip_editorial_score(clip_id, score, factors, confidence, version="v1
     normalized_scorecard = _normalize_quality_scorecard(quality_scorecard)
     if normalized_scorecard:
         score_payload["_quality_scorecard"] = normalized_scorecard
+    normalized_dedup_context = _normalize_dedup_context(
+        (factors or {}).get("_dedup_context") if isinstance(factors, dict) else None
+    )
+    if normalized_dedup_context:
+        score_payload["_dedup_context"] = normalized_dedup_context
     normalized_metadata = _normalize_review_provenance(review_metadata)
     if normalized_metadata:
         score_payload["_review_metadata"] = normalized_metadata

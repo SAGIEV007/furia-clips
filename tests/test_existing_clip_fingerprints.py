@@ -148,6 +148,21 @@ def test_existing_clip_fingerprints_include_latest_manual_adjustment(monkeypatch
         },
         note="Preserva a fala completa.",
     )
+    database.update_clip_editorial_score(
+        clip_id,
+        80,
+        {
+            "hook": 80,
+            "_dedup_context": {
+                "question_answer_complete": True,
+                "payoff_complete": True,
+                "qa_bridge": True,
+                "closure_type": "conclusion",
+                "chapter_primary_id": 7,
+            },
+        },
+        confidence=0.8,
+    )
 
     fingerprints = database.get_existing_clip_fingerprints(str(source_path))
 
@@ -156,3 +171,8 @@ def test_existing_clip_fingerprints_include_latest_manual_adjustment(monkeypatch
         (10.0, 40.0, "canonical"),
         (12.4, 37.8, "manual_adjustment"),
     }
+    assert fingerprints[0]["question_answer_complete"] is True
+    assert fingerprints[0]["payoff_complete"] is True
+    assert fingerprints[0]["qa_bridge"] is True
+    assert fingerprints[0]["closure_type"] == "conclusion"
+    assert fingerprints[0]["chapter_primary_id"] == 7
