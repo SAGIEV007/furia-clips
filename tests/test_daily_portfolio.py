@@ -63,10 +63,6 @@ class DailyPortfolioTests(unittest.TestCase):
         self.assertEqual(result["summary"]["selected_count"], 2)
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
     def test_favorability_prioritize_keeps_ambiguous_candidates_in_review(self):
         candidates = [
             self._candidate("live-a", "Uma tese clara termina com consequência.", score=80, favorability={"available": True, "eligible": True, "signal": 82, "review_required": False}),
@@ -90,3 +86,7 @@ if __name__ == "__main__":
         assert default_result["summary"]["selected_count"] == 2
         assert strict_result["summary"]["selected_count"] == 0
         assert strict_result["summary"]["rejections"]["favorabilidade_abaixo_do_minimo"] == 1
+
+
+if __name__ == "__main__":
+    unittest.main()

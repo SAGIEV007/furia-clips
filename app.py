@@ -1074,7 +1074,7 @@ def api_batch_scan():
 
 @app.route("/api/batch/rank", methods=["POST"])
 def api_batch_rank():
-    """Rank and select a quality-gated portfolio across multiple live sources."""
+    """Rank and select a quality-gated portfolio and persist a bounded A/B run."""
     data = request.get_json(silent=True) or {}
     candidates = data.get("candidates")
     if not isinstance(candidates, list):
@@ -1085,9 +1085,12 @@ def api_batch_rank():
         return jsonify({"error": "Cada candidato deve ser um objeto JSON"}), 400
 
     from modules.viral_ranker import ViralRanker
-    from modules.campaign_hub import attach_acervo_context, merge_acervo_seed_candidates, load_snapshot, snapshot_status
+    from modules.campaign_hub import load_snapshot
+    from modules.ab_exporter import ALLOWED_MODES, export_run_candidates
 
     options = data.get("options") or {}
+    requested_mode = str(options.get("favorability_mode", "off") or "off").strip().lower()
+    favorability_mode = requested_mode if requested_mode in ALLOWED_MODES else "off"
     campaign_hub_snapshot = load_snapshot(options.get("campaign_hub_snapshot_path"))
     campaign_hub_account = str(
         options.get("campaign_hub_account")
@@ -1111,12 +1114,92 @@ def api_batch_rank():
             max_clips=min(50, int(options.get("max_clips", 50))),
             max_per_source=max(1, int(options.get("max_per_source", 8))),
             max_per_family=max(1, int(options.get("max_per_family", 14))),
-            favorability_mode=str(options.get("favorability_mode", "off") or "off"),
+            favorability_mode=favorability_mode,
             favorability_min=float(options.get("favorability_min", 60) or 60),
         )
     except (TypeError, ValueError) as exc:
         return jsonify({"error": f"Parâmetros de ranking inválidos: {exc}"}), 400
+
+    run_id = str(options.get("run_id") or data.get("run_id") or f"run_{uuid.uuid4().hex[:16]}")
+    seeds_enabled = _coerce_bool(
+        options.get("seeds_enabled"),
+        default=bool(campaign_hub_snapshot) or any(bool(item.get("context_seed_only") or item.get("from_acervo_seed")) for item in candidates),
+    )
+    ai_backend = str(options.get("ai_backend") or data.get("ai_backend") or get_all_settings().get("ai_backend") or "unknown")
+    source_id = str(data.get("source_id") or options.get("source_id") or "batch")
+    try:
+        run_export = export_run_candidates(
+            run_id=run_id,
+            source_id=source_id,
+            favorability_mode=favorability_mode,
+            ai_backend=ai_backend,
+            seeds_enabled=seeds_enabled,
+            candidates=portfolio.get("clips", []),
+        )
+    except (OSError, TypeError, ValueError) as exc:
+        return jsonify({"error": f"Não foi possível exportar o run A/B: {str(exc)[:240]}"}), 500
+    portfolio["run"] = {
+        "run_id": run_export["run_id"],
+        "source_id": source_id[:128],
+        "favorability_mode": favorability_mode,
+        "ai_backend": ai_backend[:32].lower(),
+        "seeds_enabled": seeds_enabled,
+        "candidates_n": run_export["candidates_n"],
+        "export": run_export,
+        "warning": "modo inválido recebeu fallback off" if requested_mode != favorability_mode else "",
+    }
+    portfolio["run_id"] = run_export["run_id"]
+    portfolio["favorability_mode"] = favorability_mode
+    portfolio["seeds_enabled"] = seeds_enabled
+    if isinstance(portfolio.get("summary"), dict):
+        portfolio["summary"].update({
+            "run_id": run_export["run_id"],
+            "favorability_mode": favorability_mode,
+            "seeds_enabled": seeds_enabled,
+        })
     return jsonify(portfolio)
+
+
+@app.route("/api/editorial/runs/export", methods=["POST"])
+def api_editorial_run_export():
+    """Explicitly export a bounded candidate list for a human A/B run."""
+    data = request.get_json(silent=True) or {}
+    candidates = data.get("candidates")
+    if not isinstance(candidates, list) or not all(isinstance(item, dict) for item in candidates):
+        return jsonify({"ok": False, "error": "candidates deve ser uma lista de objetos"}), 400
+    from modules.ab_exporter import export_run_candidates
+    try:
+        result = export_run_candidates(
+            run_id=data.get("run_id") or f"run_{uuid.uuid4().hex[:16]}",
+            source_id=data.get("source_id") or "manual",
+            favorability_mode=data.get("favorability_mode", "off"),
+            ai_backend=data.get("ai_backend", "unknown"),
+            seeds_enabled=data.get("seeds_enabled", False),
+            candidates=candidates,
+            generated_at=data.get("generated_at"),
+        )
+    except (OSError, TypeError, ValueError) as exc:
+        return jsonify({"ok": False, "error": str(exc)[:300]}), 400
+    return jsonify({"ok": True, **result})
+
+
+@app.route("/api/editorial/runs/<run_id>/export", methods=["GET"])
+def api_editorial_run_export_get(run_id):
+    """Read a previously exported JSON or CSV A/B run from persistent storage."""
+    from modules.ab_exporter import DEFAULT_AB_RUN_DIR, load_run_export
+    payload = load_run_export(run_id)
+    if not payload:
+        return jsonify({"ok": False, "error": "Run A/B não encontrado"}), 404
+    requested_format = str(request.args.get("format", "json") or "json").lower()
+    if requested_format == "json":
+        return jsonify(payload)
+    if requested_format != "csv":
+        return jsonify({"ok": False, "error": "format deve ser json ou csv"}), 400
+    safe_id = re.sub(r"[^A-Za-z0-9_.-]+", "_", str(run_id)).strip("._-")[:100]
+    csv_path = DEFAULT_AB_RUN_DIR / f"{safe_id}.csv"
+    if not csv_path.is_file():
+        return jsonify({"ok": False, "error": "CSV do run não encontrado"}), 404
+    return send_file(csv_path, mimetype="text/csv", as_attachment=True, download_name=f"{safe_id}.csv")
 
 
 @app.route("/api/clips/<int:clip_id>/feedback", methods=["GET", "POST"])
@@ -1218,30 +1301,77 @@ def api_persist_clip_adjustment(clip_id):
 
 @app.route("/api/editorial/learning", methods=["GET"])
 def api_editorial_learning():
-    """Return aggregate-only reviewed-clip priors; raw text and media stay local."""
-    from modules.approved_clip_priors import build_feature_prior, load_feature_records
-    return jsonify(build_feature_prior(load_feature_records()))
+    """Return a whitelist of aggregate-only priors; never return raw rows."""
+    prior = _get_approved_clip_prior()
+    allowed = {
+        "available", "eligible", "record_count", "approved_count", "rejected_count", "minimum_samples",
+        "approved_mean_duration", "rejected_mean_duration", "approved_median_duration", "rejected_median_duration",
+        "duration_median_approved", "duration_p25_approved", "duration_p75_approved",
+        "approved_by_format", "rejected_by_format", "overall_by_format", "approved_by_hook_family", "rejected_by_hook_family",
+        "family_share_approved", "opening_pattern_share_approved", "rejection_reason_share", "format_by_family", "topic_by_format",
+        "has_qa_bridge_rate_approved", "headline_shape", "factor_deltas", "headline_learning_thresholds", "influence_scope",
+    }
+    public_prior = {key: prior[key] for key in allowed if key in prior}
+    return jsonify({
+        "ok": True,
+        "available": bool(prior.get("available")),
+        "eligible": bool(prior.get("eligible")),
+        "sample_size_approved": int(prior.get("approved_count", 0) or 0),
+        "sample_size_rejected": int(prior.get("rejected_count", 0) or 0),
+        "priors": public_prior,
+        "headline_learning_thresholds": public_prior.get("headline_learning_thresholds", {"min_topic_format_count": 2, "min_overall_format_count": 4}),
+        "raw_rows_exposed": False,
+        "store_path_hint": "FuriaClipsData/learning",
+    })
 
 
 @app.route("/api/editorial/learning/import", methods=["POST"])
 def api_editorial_learning_import():
-    """Import a real local CSV/JSON/JSONL export into persistent aggregate features."""
+    """Import a real local or uploaded CSV/JSON/JSONL export with strict reporting."""
+    from modules.approved_clip_priors import build_feature_prior, load_feature_records
+    from modules.learning_importer import DEFAULT_LEARNING_DIR, import_review_dataset, import_review_rows
+
     data = request.get_json(silent=True) or {}
-    requested = str(data.get("path") or data.get("input_path") or "").strip()
-    if not requested:
-        return jsonify({"error": "Informe o caminho local do CSV, JSON ou JSONL."}), 400
-    target = os.path.abspath(os.path.expanduser(requested)) if os.path.isabs(requested) else os.path.abspath(os.path.join(_PERSISTENT_ROOT, requested))
-    allowed_roots = [os.path.abspath(_PERSISTENT_ROOT), os.path.abspath(WORKSPACE_DIR)]
-    if not any(_is_under(target, root) for root in allowed_roots) or not os.path.isfile(target):
-        return jsonify({"error": "O dataset deve existir em FuriaClipsData ou no workspace local."}), 400
+    temporary_path = None
     try:
-        from modules.learning_importer import import_review_dataset
-        manifest = import_review_dataset(target)
-        from modules.approved_clip_priors import build_feature_prior, load_feature_records
-        manifest["prior"] = build_feature_prior(load_feature_records(manifest["output_path"]))
-        return jsonify(manifest)
-    except (OSError, ValueError, TypeError) as exc:
-        return jsonify({"error": str(exc)[:300]}), 400
+        upload = request.files.get("file")
+        if upload and upload.filename:
+            suffix = Path(upload.filename).suffix.lower()
+            if suffix not in {".csv", ".json", ".jsonl"}:
+                return jsonify({"ok": False, "error": "expected csv, json array, or jsonl"}), 400
+            DEFAULT_LEARNING_DIR.mkdir(parents=True, exist_ok=True)
+            with tempfile.NamedTemporaryFile(prefix="learning_upload_", suffix=suffix, dir=DEFAULT_LEARNING_DIR, delete=False) as handle:
+                temporary_path = handle.name
+            upload.save(temporary_path)
+            manifest = import_review_dataset(temporary_path, output_dir=DEFAULT_LEARNING_DIR, strict=True)
+        elif isinstance(data.get("items"), list):
+            manifest = import_review_rows(data["items"], output_dir=DEFAULT_LEARNING_DIR, source_name="inline_items", strict=True)
+        else:
+            requested = str(data.get("path") or data.get("input_path") or "").strip()
+            if not requested:
+                return jsonify({"ok": False, "error": "Informe path/input_path, items ou um arquivo multipart."}), 400
+            target = os.path.abspath(os.path.expanduser(requested)) if os.path.isabs(requested) else os.path.abspath(os.path.join(_PERSISTENT_ROOT, requested))
+            allowed_roots = [os.path.abspath(_PERSISTENT_ROOT), os.path.abspath(WORKSPACE_DIR)]
+            if not any(_is_under(target, root) for root in allowed_roots) or not os.path.isfile(target):
+                return jsonify({"ok": False, "error": "O dataset deve existir em FuriaClipsData ou no workspace local."}), 400
+            manifest = import_review_dataset(target, output_dir=DEFAULT_LEARNING_DIR, strict=_coerce_bool(data.get("strict"), default=True))
+        prior = build_feature_prior(load_feature_records(manifest.get("output_path")))
+        response = {key: value for key, value in manifest.items() if key not in {"source_path", "output_path"}}
+        response.update({
+            "ok": True,
+            "priors_updated": bool(manifest.get("accepted", 0)),
+            "prior": prior,
+            "store_path_hint": "FuriaClipsData/learning",
+        })
+        return jsonify(response)
+    except (OSError, ValueError, TypeError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        return jsonify({"ok": False, "error": str(exc)[:300]}), 400
+    finally:
+        if temporary_path:
+            try:
+                os.unlink(temporary_path)
+            except OSError:
+                pass
 
 
 @app.route("/api/editorial/calibration", methods=["GET"])

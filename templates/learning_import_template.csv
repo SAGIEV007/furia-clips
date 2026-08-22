@@ -1,0 +1,4 @@
+clip_id,label,duration_sec,source_kind,platform,published_at,editorial_family,editorial_type,format_id,hook_text_sanitized,headline_sanitized,opening_pattern,has_qa_bridge,favorability_note,rejection_reason,word_count,starts_mid_sentence,context_reference_opener,exclamation_count,question_count
+ig_demo_001,approved,38.2,published_short,instagram,2026-08-10T15:00:00-03:00,politico,confronto,vertical_916,Isso não se cumpre e é ilegal,RENAN: ISSO É ILEGAL,claim,false,strong,,72,false,false,0,0
+ig_demo_002,approved,45.0,published_short,instagram,2026-08-11T18:30:00-03:00,humor,discurso,vertical_916,A plateia não esperava essa resposta,NINGUÉM ESPERAVA,casual,false,strong,,64,false,false,1,0
+furia_demo_003,rejected,11.5,furia_decision,unknown,,conversa,unknown,unknown,,,other,false,weak,mid_sentence,16,true,true,0,0

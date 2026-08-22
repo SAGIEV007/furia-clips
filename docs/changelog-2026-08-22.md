@@ -228,3 +228,12 @@ Foi criado `modules/approved_clip_priors.py`, que transforma decisões locais ap
 Foi criado `modules/learning_importer.py` e os endpoints locais `/api/editorial/learning` e `/api/editorial/learning/import`. O importador aceita CSV, JSON ou JSONL real fornecido pelo editor, registra hash e manifest em `~/FuriaClipsData/learning` e grava somente features sanitizadas. Não há dataset artificial, chamada ao Campaign Hub, upload ao GitHub, persistência de mídia ou transcript bruto. O programa ainda **não possui os cerca de 3.000 cortes reais**: para ativar esse prior é necessário importar uma exportação verdadeira.
 
 A validação integral desta rodada confirmou **663 testes aprovados**, além de `node --check`, `py_compile`, `git diff --check` e varredura de segredos sem achados.
+
+## Camada 3 — calibração, import real e protocolo A/B
+A Camada 2 foi preservada. O importador local agora aceita CSV, JSON, JSONL, itens JSON inline e multipart, com validação estrita opcional de `clip_id`, `label` e `duration_sec`, erros por linha, deduplicação last-write e saída somente com features agregáveis. Transcript, headline bruta, URL, path, token, cookie e mídia são descartados; o learning store permanece fora do Git.
+
+Os priors aggregate-only foram ampliados com duração p25/mediana/p75, famílias, formatos, padrões de abertura, ponte QA, motivos de rejeição, tópicos bounded, forma estatística de headline e deltas de fatores. O GET de learning devolve whitelist de agregados e o POST de import informa `accepted`, `rejected_rows`, `errors`, tamanhos de amostra e `priors_updated`.
+
+Foi adicionado o exportador A/B local em JSON/CSV. `/api/batch/rank` gera ou recebe `run_id` e registra `favorability_mode`, `ai_backend`, `seeds_enabled` e candidatos sanitizados. Também existem endpoints explícitos de exportação e leitura por run. O modo inválido cai para `off`; o default de produção não foi alterado. Seeds Acervo continuam revisáveis e nunca renderizam automaticamente.
+
+Foram adicionados templates operacionais e documentação para o editor. A correção de cobertura em `test_daily_portfolio.py` recolocou os testes de `prioritize` e `require` na coleta normal. A validação integral desta rodada confirmou **673 testes aprovados**, `node --check`, `py_compile`, `git diff --check` e auditoria de segredos sem achados reais. Campaign Hub permaneceu somente leitura e nenhum dataset artificial foi criado.
