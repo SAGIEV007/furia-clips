@@ -378,6 +378,7 @@ def test_fiscal_caption_generates_grounded_headlines_without_crypto_drift():
     joined = " ".join(headlines)
 
     assert result["topic"] == "economia"
+    assert "PAÍS POBRE COBRA IMPOSTO DE PAÍS RICO" in headlines
     assert "200 BILHÕES" in joined or "IMPOSTO" in joined or "DESPESAS" in joined
     assert "CRIPTO" not in joined
     assert "PRÓPRIO FUTURO" not in joined

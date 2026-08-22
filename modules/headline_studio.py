@@ -273,15 +273,19 @@ def _claim_candidates(text: str, topic: str, speaker_prefix: str = "") -> list[s
             candidates.append("EMENDA NÃO PODE VIRAR ORÇAMENTO DE PARLAMENTAR")
         if "agua potavel" in folded and "praca" in folded:
             candidates.append("SEM ÁGUA, NÃO TEM PRAÇA")
+    if ("pais pobre" in folded or "pais que e pobre" in folded) and "pais rico" in folded:
+        candidates.append("PAÍS POBRE COBRA IMPOSTO DE PAÍS RICO")
     if "duzentos bilhoes" in folded or "200 bilhoes" in folded or "200 bilhões" in text.lower():
         candidates.extend([
-            "A CONTA EXIGE CORTAR MAIS DE 200 BILHÕES POR ANO",
-            "MAIS DE 200 BILHÕES POR ANO ESTÃO EM JOGO",
+            "MAIS DE 200 BILHÕES POR ANO EM DESPESAS",
+            "A CONTA EXIGE MEXER NAS DESPESAS",
         ])
     if "cobra imposto" in folded and "pais rico" in folded:
         candidates.append("O BRASIL COBRA IMPOSTO DE PAÍS RICO")
     if "despesa" in folded and ("index" in folded or "benef" in folded or "aposent" in folded):
         candidates.append("A CONTA NÃO FECHA SEM REVER DESPESAS")
+    if "baixar imposto" in folded or "abaixar imposto" in folded:
+        candidates.append("REDUZIR IMPOSTO EXIGE MEXER NAS DESPESAS")
     if "imposto" in folded or "tribut" in folded:
         if "cobra imposto" in folded and "pais rico" in folded:
             candidates.append("O BRASIL COBRA IMPOSTO DE PAÍS RICO")
@@ -315,7 +319,9 @@ def _claim_candidates(text: str, topic: str, speaker_prefix: str = "") -> list[s
 def _safe_fake_tweet(text: str, topic: str, mini_context: str) -> list[str]:
     folded = normalize(text)
     lead = ""
-    if "duzentos bilhoes" in folded or "200 bilhoes" in folded or "200 bilhões" in text.lower():
+    if ("pais pobre" in folded or "pais que e pobre" in folded) and "pais rico" in folded:
+        lead = "O país é pobre, cobra imposto de país rico e vai precisar mexer nas despesas."
+    elif "duzentos bilhoes" in folded or "200 bilhoes" in folded or "200 bilhões" in text.lower():
         lead = "A conta apresentada é direta: será preciso mexer em mais de 200 bilhões por ano nas despesas."
     elif "cobra imposto" in folded and "pais rico" in folded:
         lead = "O Brasil cobra imposto de país rico, mas precisa encarar a revisão das despesas."

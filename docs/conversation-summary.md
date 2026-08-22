@@ -214,3 +214,7 @@ O caminho de IA do Headline Studio passou a receber os claims e termos usados pe
 ## 24. Claim principal visível no Headline Studio
 
 A interface passou a mostrar primeiro o claim mais forte usado para fundamentar a headline. No exemplo fiscal, o editor vê uma ideia concreta como “A CONTA EXIGE CORTAR MAIS DE 200 BILHÕES POR ANO”, em vez de apenas uma lista de palavras-chave.
+
+## 25. Redação fiscal final do Headline Studio
+
+Depois do probe com a legenda exportada do CapCut, a primeira alternativa passou a usar o contraste mais claro do próprio texto: “PAÍS POBRE COBRA IMPOSTO DE PAÍS RICO”. As demais destacam mais de 200 bilhões por ano em despesas e a necessidade de mexer nas despesas. A formulação genérica sobre “tributar o próprio futuro” foi removida desse caso.

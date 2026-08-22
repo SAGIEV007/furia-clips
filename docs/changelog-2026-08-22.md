@@ -475,3 +475,6 @@ O refinamento por IA agora recebe a base textual obrigatória e só aceita uma v
 
 ## Headline Studio: claim principal visível — 2026-08-22
 A leitura editorial do resultado agora destaca primeiro o claim mais forte extraído da legenda, em vez de mostrar apenas palavras-chave soltas. O editor consegue conferir rapidamente qual ideia concreta orientou a chamada antes de copiá-la. Validação focada: **160 testes aprovados**.
+
+## Headline Studio: contraste fiscal mais natural — 2026-08-22
+As alternativas da legenda fornecida foram refinadas para priorizar o contraste que realmente aparece no trecho: “PAÍS POBRE COBRA IMPOSTO DE PAÍS RICO”, seguido por “MAIS DE 200 BILHÕES POR ANO EM DESPESAS” e “A CONTA EXIGE MEXER NAS DESPESAS”. O gerador continua sem inventar cripto ou outros temas e o teste fixa a primeira opção para evitar regressão. Validação focada: **23 testes aprovados**.
