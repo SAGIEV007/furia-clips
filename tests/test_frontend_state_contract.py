@@ -713,6 +713,33 @@ def test_persist_boundary_reads_current_inputs_and_derives_duration():
 
 
 
+def test_adjust_render_queues_job_and_keeps_card_busy_until_terminal_event():
+    source = APP_JS.read_text(encoding="utf-8")
+    assert "let queuedForBackground = false;" in source
+    assert "if (response.status === 202 && data.job_id)" in source
+    assert "state.adjustmentRenderJobs[data.job_id]" in source
+    assert 'registerStartedOperation(data, "Renderização do ajuste em andamento.");' in source
+    assert "if (!queuedForBackground && currentButton)" in source
+
+
+def test_adjust_render_terminal_event_rehydrates_active_bounds_and_media():
+    source = APP_JS.read_text(encoding="utf-8")
+    assert 'socket.on("clip_adjust_render_complete"' in source
+    assert "function applyAdjustmentRenderResult(data = {})" in source
+    assert "active_bounds: { start: activeStart, end: activeEnd, duration: activeDuration }" in source
+    assert "path: render.path || clip.path" in source
+    assert "refreshVisibleReviewState();" in source
+
+
+def test_active_adjustment_job_is_rehydrated_into_the_review_card():
+    source = APP_JS.read_text(encoding="utf-8")
+    assert "function rehydrateAdjustmentRenderJobs()" in source
+    assert 'job?.type === "adjust_clip_render"' in source
+    assert 'item?.type === "adjustment_render_pending"' in source
+    assert "state.clips[index].adjustment_render_busy = true;" in source
+    assert "rehydrateAdjustmentRenderJobs();" in source
+
+
 def test_clip_confidence_normalizes_non_finite_values_safely():
     source = APP_JS.read_text(encoding="utf-8")
 

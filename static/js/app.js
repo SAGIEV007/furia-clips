@@ -21,6 +21,7 @@ const state = {
     activeJob: null,
     operationJobs: [],
     operationProjects: [],
+    adjustmentRenderJobs: {},
     manualTranscript: null,
     manualTranscriptVideo: "",
     transcriptArchive: null,
@@ -134,6 +135,93 @@ socket.on("status", (data) => {
 
 socket.on("job_update", (job) => {
     handleJobUpdate(job);
+});
+
+function settleAdjustmentRenderJob(job = {}) {
+    const jobId = String(job.id || "");
+    const meta = state.adjustmentRenderJobs?.[jobId];
+    if (!meta) return;
+    delete state.adjustmentRenderJobs[jobId];
+    const index = Number(meta.index);
+    if (state.clips[index]) state.clips[index].adjustment_render_busy = false;
+    const feedback = document.getElementById(`boundary-feedback-${index}`);
+    const button = document.querySelector(`[data-boundary-render="${index}"]`);
+    if (button) {
+        button.disabled = false;
+        button.removeAttribute("aria-busy");
+        if (button.innerHTML.includes("hourglass_top")) button.innerHTML = meta.previousButtonMarkup || '<span class="material-icons-round">movie_edit</span> Renderizar ajuste';
+    }
+    if (job.state === "failed") {
+        const message = String(job.error || "Não foi possível renderizar o ajuste.").trim();
+        if (feedback) feedback.textContent = message;
+        showToast(message, "error");
+        return;
+    }
+    if (job.state === "cancelled") {
+        const message = "Renderização do ajuste cancelada com segurança.";
+        if (feedback) feedback.textContent = message;
+        showToast(message, "warning");
+        return;
+    }
+    if (job.state === "completed") {
+        if (feedback) feedback.textContent = "Renderização concluída; sincronizando o MP4 ativo e os limites da bancada...";
+        refreshVisibleReviewState();
+    }
+}
+
+function applyAdjustmentRenderResult(data = {}) {
+    const clipId = Number(data.clip_id);
+    const index = state.clips.findIndex((clip) => Number(clip.clip_id) === clipId);
+    if (index < 0) return;
+    const clip = state.clips[index];
+    const adjustment = data.adjustment || {};
+    const render = data.render || {};
+    const originalBounds = clip.original_bounds || {
+        start: Number(clip.start || 0),
+        end: Number(clip.end || 0),
+        duration: Number(clip.duration || 0),
+    };
+    const activeStart = Number.isFinite(Number(render.render_start)) ? Number(render.render_start) : Number(adjustment.start);
+    const activeEnd = Number.isFinite(Number(render.render_end)) ? Number(render.render_end) : Number(adjustment.end);
+    const activeDuration = Number.isFinite(Number(render.render_duration)) ? Number(render.render_duration) : Math.max(0, activeEnd - activeStart);
+    const refreshedAt = Date.now();
+    state.clips[index] = {
+        ...clip,
+        start: activeStart,
+        end: activeEnd,
+        duration: activeDuration,
+        original_bounds: originalBounds,
+        active_bounds: { start: activeStart, end: activeEnd, duration: activeDuration },
+        active_start: activeStart,
+        active_end: activeEnd,
+        active_duration: activeDuration,
+        active_render_status: "rendered",
+        path: render.path || clip.path,
+        file_path: render.path || clip.file_path,
+        subtitled_path: "",
+        render_start: render.render_start,
+        render_end: render.render_end,
+        render_duration: render.render_duration,
+        render_boundary_policy: render.render_boundary_policy || "",
+        latest_adjustment: { ...adjustment, active_start: activeStart, active_end: activeEnd, active_duration: activeDuration, render_status: "rendered" },
+        adjustment_state: "saved",
+        review_status: data.review_status || "needs_review",
+        rendered_at: refreshedAt,
+        media_version: refreshedAt,
+        adjustment_render_busy: false,
+    };
+    renderReviewCommandCenter();
+    renderResultsGrid();
+    const feedback = document.getElementById(`boundary-feedback-${index}`);
+    if (feedback) feedback.textContent = `Novo MP4 renderizado: ${formatTime(activeStart)}–${formatTime(activeEnd)}. Revise o trecho ativo antes de aprovar; o intervalo canônico original continua protegido.`;
+    showToast("Corte ajustado e renderizado. Revise o novo MP4 antes de aprovar.", "success");
+}
+
+socket.on("clip_adjust_render_complete", (data) => {
+    const jobId = String(data?.job_id || "");
+    if (!data?.clip_id) return;
+    applyAdjustmentRenderResult(data || {});
+    if (jobId) settleAdjustmentRenderJob({ id: jobId, state: "completed" });
 });
 
 socket.on("editorial_context_complete", (data) => {
@@ -616,6 +704,7 @@ function formatOperationJobType(type) {
     const labels = {
         cut_shorts: "Corte inteligente",
         process_complete: "Processo completo",
+        adjust_clip_render: "Ajuste de clip",
     };
     return labels[type] || String(type || "Processamento").replaceAll("_", " ");
 }
@@ -700,9 +789,10 @@ function renderOperationDashboard({ jobs = state.operationJobs || [] } = {}) {
         const diagnosticSummary = operationJobDiagnosticSummary(job);
         const stateCode = String(job.state || "queued");
         const stateLabel = escapeHtml(operationJobStateLabel(stateCode));
+        const operationIcon = job.type === "cut_shorts" ? "content_cut" : job.type === "adjust_clip_render" ? "movie_edit" : "auto_awesome";
         return `<article class="operation-job ${escapeHtml(stateCode)}" data-state="${escapeHtml(stateCode)}">
             <div class="operation-job-head">
-                <div class="operation-job-type"><span class="material-icons-round">${job.type === "cut_shorts" ? "content_cut" : "auto_awesome"}</span>${escapeHtml(formatOperationJobType(job.type))}</div>
+                <div class="operation-job-type"><span class="material-icons-round">${operationIcon}</span>${escapeHtml(formatOperationJobType(job.type))}</div>
                 <span class="operation-job-state">${stateLabel}</span>
             </div>
             <p class="operation-job-message">${message}</p>
@@ -882,6 +972,21 @@ async function refreshVisibleReviewState() {
                 end: Number(persisted.end ?? persisted.end_time ?? clip.end ?? 0),
                 duration: Number(persisted.duration ?? clip.duration ?? 0),
                 path: persisted.file_path || clip.path,
+                file_path: persisted.file_path || clip.file_path || clip.path,
+                source_duration: persisted.source_duration ?? clip.source_duration ?? null,
+                original_bounds: persisted.original_bounds || clip.original_bounds,
+                active_bounds: persisted.active_bounds || clip.active_bounds,
+                active_start: Number(persisted.active_start ?? clip.active_start ?? persisted.start ?? clip.start ?? 0),
+                active_end: Number(persisted.active_end ?? clip.active_end ?? persisted.end ?? clip.end ?? 0),
+                active_duration: Number(persisted.active_duration ?? clip.active_duration ?? persisted.duration ?? clip.duration ?? 0),
+                active_render_status: persisted.active_render_status || clip.active_render_status,
+                render_start: persisted.render_start ?? clip.render_start,
+                render_end: persisted.render_end ?? clip.render_end,
+                render_duration: persisted.render_duration ?? clip.render_duration,
+                render_boundary_policy: persisted.render_boundary_policy || clip.render_boundary_policy || "",
+                latest_adjustment: persisted.latest_adjustment || clip.latest_adjustment || null,
+                adjustment_state: persisted.active_render_status === "rendered" ? "saved" : (clip.adjustment_state || ""),
+                media_version: persisted.media_version || clip.media_version,
                 review_status: persisted.review_status || clip.review_status,
                 review_updated_at: persisted.review_updated_at || clip.review_updated_at,
                 latest_feedback_reason: persisted.latest_feedback_reason || clip.latest_feedback_reason,
@@ -1380,6 +1485,7 @@ function handleJobUpdate(job, options = {}) {
         && String(state.sourceImportJobId) !== String(job?.id || "")
     );
     if (sourceImportOwnsHud) return;
+    if (["completed", "failed", "cancelled"].includes(job.state)) settleAdjustmentRenderJob(job);
     state.activeJob = job;
     if (["queued", "running", "cancel_requested"].includes(job.state)) state.progressSuppressed = false;
     if (options.refreshDashboard !== false) window.clearTimeout(state.operationRefreshTimer);
@@ -2897,7 +3003,26 @@ function layoutMetaForClip(clip) {
     return { icon: "visibility", label: "Enquadramento a revisar", hint: "a decisão depende da revisão visual" };
 }
 
+function rehydrateAdjustmentRenderJobs() {
+    if (!Array.isArray(state.operationJobs) || !Array.isArray(state.clips) || !state.clips.length) return;
+    state.operationJobs
+        .filter((job) => job?.type === "adjust_clip_render" && ["queued", "running", "cancel_requested"].includes(String(job.state || "")))
+        .forEach((job) => {
+            const artifact = (Array.isArray(job.artifacts) ? job.artifacts : []).find((item) => item?.type === "adjustment_render_pending");
+            const clipId = Number(artifact?.clip_id);
+            const index = state.clips.findIndex((clip) => Number(clip.clip_id) === clipId);
+            if (!Number.isInteger(index) || index < 0) return;
+            state.adjustmentRenderJobs[job.id] = {
+                index,
+                clipId,
+                previousButtonMarkup: '<span class="material-icons-round">movie_edit</span> Renderizar ajuste',
+            };
+            state.clips[index].adjustment_render_busy = true;
+        });
+}
+
 function renderResultsGrid() {
+    rehydrateAdjustmentRenderJobs();
     const section = document.getElementById("resultsSection");
     const grid = document.getElementById("resultsGrid");
     const summary = document.getElementById("resultsSummary");
@@ -3246,6 +3371,8 @@ function renderResultsGrid() {
             </section>`
             : "";
         const reviewBusy = safeBooleanFlag(clip.review_busy);
+        const adjustmentRenderBusy = safeBooleanFlag(clip.adjustment_render_busy)
+            || Object.values(state.adjustmentRenderJobs || {}).some((meta) => Number(meta?.clipId) === Number(clip.clip_id));
         const feedbackReasonOptions = [
             ["", "Motivo opcional"],
             ["excellent_context", "Contexto e payoff excelentes"],
@@ -3374,7 +3501,7 @@ function renderResultsGrid() {
                         <label>Entrada <input type="number" min="0" step="0.1" data-boundary-start="${originalIndex}" value="${Number(clip.start || 0).toFixed(1)}"></label>
                         <label>Saída <input type="number" min="0" step="0.1" data-boundary-end="${originalIndex}" value="${Number(clip.end || 0).toFixed(1)}"></label>
                         <button class="btn btn-sm btn-primary" onclick="previewClipBoundary(${originalIndex})"><span class="material-icons-round">fact_check</span> Validar limites</button>
-                        <button class="btn btn-sm btn-success" data-boundary-render="${originalIndex}" onclick="persistClipBoundary(${originalIndex})" ${clip.clip_id ? "" : "disabled"}><span class="material-icons-round">movie_edit</span> Renderizar ajuste</button>
+                        <button class="btn btn-sm btn-success" data-boundary-render="${originalIndex}" onclick="persistClipBoundary(${originalIndex})" ${clip.clip_id && !adjustmentRenderBusy ? "" : "disabled"} ${adjustmentRenderBusy ? 'aria-busy="true"' : ""}><span class="material-icons-round">${adjustmentRenderBusy ? "hourglass_top" : "movie_edit"}</span> ${adjustmentRenderBusy ? "Renderizando…" : "Renderizar ajuste"}</button>
                     </div>
                     <small><b>Como usar:</b> Entrada = primeiro segundo útil; saída = último segundo útil na timeline da fonte. “Validar limites” calcula um ajuste sem alterar o MP4 que está tocando. “Renderizar ajuste” cria um novo MP4 usando a fonte original, atualiza este resultado e preserva o intervalo canônico para a deduplicação.</small>
                     <div class="clip-boundary-feedback" id="boundary-feedback-${originalIndex}" aria-live="polite"></div>
@@ -3610,6 +3737,7 @@ async function persistClipBoundary(index) {
     const feedback = document.getElementById(`boundary-feedback-${index}`);
     const renderButton = document.querySelector(`[data-boundary-render="${index}"]`);
     const previousButtonMarkup = renderButton?.innerHTML || '<span class="material-icons-round">movie_edit</span> Renderizar ajuste';
+    let queuedForBackground = false;
     clip.adjustment_render_busy = true;
     if (renderButton) {
         renderButton.disabled = true;
@@ -3668,7 +3796,20 @@ async function persistClipBoundary(index) {
             }),
         });
         const data = await parseJsonResponse(response, "Persistência do ajuste");
-        if (!response.ok || data.error) throw new Error(data.error || "Não foi possível salvar o ajuste");
+        if (!response.ok || data.error) throw new Error(data.error || "Não foi possível iniciar o render do ajuste");
+        if (response.status === 202 && data.job_id) {
+            queuedForBackground = true;
+            state.adjustmentRenderJobs[data.job_id] = {
+                index,
+                clipId: clip.clip_id,
+                previousButtonMarkup,
+            };
+            registerStartedOperation(data, "Renderização do ajuste em andamento.");
+            showProgressBar();
+            if (feedback) feedback.textContent = `Renderização enfileirada no job ${String(data.job_id).slice(0, 8)}. Você pode acompanhar na HUD e cancelar com segurança.`;
+            addConsoleLog(`[Ajuste] Renderização do clip ${index + 1} enfileirada; o arquivo atual permanece tocando até a conclusão.`, "info");
+            return;
+        }
         const rendered = data.render || {};
         const refreshedAt = Date.now();
         state.clips[index] = {
@@ -3698,10 +3839,10 @@ async function persistClipBoundary(index) {
         if (feedback) feedback.textContent = error.message;
         showToast(error.message, "error");
     } finally {
-        clip.adjustment_render_busy = false;
-        if (state.clips[index]) state.clips[index].adjustment_render_busy = false;
+        if (!queuedForBackground) clip.adjustment_render_busy = false;
+        if (!queuedForBackground && state.clips[index]) state.clips[index].adjustment_render_busy = false;
         const currentButton = document.querySelector(`[data-boundary-render="${index}"]`);
-        if (currentButton) {
+        if (!queuedForBackground && currentButton) {
             currentButton.disabled = false;
             currentButton.removeAttribute("aria-busy");
             if (currentButton.innerHTML.includes("hourglass_top")) currentButton.innerHTML = previousButtonMarkup;

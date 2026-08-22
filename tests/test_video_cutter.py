@@ -76,6 +76,60 @@ class VideoCutterTests(unittest.TestCase):
             self.assertEqual(results[0]["preset"], "original_16:9")
 
 
+class CancellableVideoCutterTests(unittest.TestCase):
+    def test_cancel_check_terminates_ffmpeg_process(self):
+        from modules import video_cutter as module
+        from modules.cancellation import OperationCancelled
+
+        class FakeProcess:
+            def __init__(self, *_args, **_kwargs):
+                self.returncode = None
+                self.terminated = False
+
+            def poll(self):
+                return self.returncode
+
+            def terminate(self):
+                self.terminated = True
+                self.returncode = -15
+
+            def wait(self, timeout=None):
+                return self.returncode
+
+            def kill(self):
+                self.returncode = -9
+
+            def communicate(self):
+                return "", ""
+
+        process_holder = {}
+
+        def fake_popen(*args, **kwargs):
+            process_holder["process"] = FakeProcess(*args, **kwargs)
+            return process_holder["process"]
+
+        calls = {"count": 0}
+
+        def cancel_check():
+            calls["count"] += 1
+            if calls["count"] >= 2:
+                raise OperationCancelled("parada solicitada")
+
+        original_popen = module.subprocess.Popen
+        module.subprocess.Popen = fake_popen
+        try:
+            with self.assertRaises(OperationCancelled):
+                VideoCutter().cut_clip(
+                    "source.mp4", 0.0, 10.0, "cancelled.mp4",
+                    vertical=False, cancel_check=cancel_check,
+                )
+        finally:
+            module.subprocess.Popen = original_popen
+
+        self.assertTrue(process_holder["process"].terminated)
+        self.assertGreaterEqual(calls["count"], 2)
+
+
 if __name__ == "__main__":
     unittest.main()
 

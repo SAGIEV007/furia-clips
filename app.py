@@ -1458,52 +1458,124 @@ def api_render_adjusted_clip(clip_id):
         normalized["text"] = str(data.get("text") or clip.get("transcript") or "").strip()
         if not _claim_adjust_render(clip_id):
             return jsonify({"error": "Este clip já está sendo renderizado. Aguarde a conclusão antes de iniciar outro ajuste."}), 409
+        note = str(data.get("note") or "Ajuste temporal renderizado na bancada editorial.").strip()
+
+        def task(ctx):
+            from modules.video_cutter import VideoCutter
+
+            progress_value = 10
+            rendered = None
+            persisted = False
+
+            def emit_progress(message, level="info"):
+                nonlocal progress_value
+                progress_value = min(88, progress_value + 8)
+                text = str(message)
+                ctx.check_cancel()
+                ctx.update(stage="adjust_render", progress=progress_value, message=text)
+                socketio.emit(
+                    "progress",
+                    {
+                        "message": f"[Versão {PROGRAM_VERSION} · {PROGRAM_REVISION}] {text}",
+                        "level": level,
+                        "time": datetime.now().strftime("%H:%M:%S"),
+                        "job_id": ctx.job_id,
+                        "program_version": PROGRAM_VERSION,
+                        "program_revision": PROGRAM_REVISION,
+                    },
+                )
+
+            try:
+                ctx.update(
+                    stage="adjust_render",
+                    progress=5,
+                    message="Preparando re-renderização do ajuste",
+                    artifacts=[{"type": "adjustment_render_pending", "clip_id": clip_id}],
+                )
+                ctx.check_cancel()
+                cutter = VideoCutter(
+                    method="intelligent",
+                    target_duration=normalized["duration"],
+                    preset=active_preset,
+                )
+                results = cutter.batch_cut(
+                    source_path,
+                    [normalized],
+                    f"{project_name}-ajustes",
+                    use_face_tracking=False,
+                    emit_progress=emit_progress,
+                    output_dir=EXPORT_DIR,
+                    video_layout=None,
+                    preset=active_preset,
+                    original_aspect_indices={0} if preserve_original else set(),
+                    source_duration=source_duration,
+                    cancel_check=ctx.check_cancel,
+                )
+                ctx.check_cancel()
+                if not results:
+                    rejection = cutter.last_rejections[0] if cutter.last_rejections else {}
+                    errors = "; ".join(rejection.get("errors") or []) or "o renderizador não produziu um arquivo válido"
+                    raise RuntimeError(f"Não foi possível renderizar o ajuste: {errors[:300]}")
+                rendered = results[0]
+                ctx.update(stage="persisting_adjustment", progress=92, message="Salvando o MP4 ajustado e os limites editoriais")
+                ctx.check_cancel()
+                persisted_data = dict(normalized)
+                persisted_data.update({
+                    "render_status": "rendered",
+                    "render_path": rendered.get("path"),
+                    "render_start": rendered.get("render_start"),
+                    "render_end": rendered.get("render_end"),
+                    "render_duration": rendered.get("render_duration"),
+                    "render_boundary_policy": rendered.get("render_boundary_policy", ""),
+                    "preset": rendered.get("preset", requested_preset),
+                })
+                persisted_payload = save_clip_adjustment(clip_id, persisted_data, note=note)
+                update_clip_rendered_file(clip_id, rendered["path"])
+                persisted = True
+                socketio.emit("clip_adjust_render_complete", {
+                    "job_id": ctx.job_id,
+                    "clip_id": clip_id,
+                    "review_status": "needs_review",
+                    "adjustment": persisted_payload,
+                    "render": rendered,
+                    "render_status": "rendered",
+                    "source": {"path": source_path, "duration": source_duration},
+                })
+                return {
+                    "artifacts": [{
+                        "type": "adjusted_clip",
+                        "clip_id": clip_id,
+                        "path": rendered.get("path"),
+                        "render_duration": rendered.get("render_duration"),
+                    }],
+                }
+            except Exception:
+                if rendered and not persisted:
+                    try:
+                        render_path = rendered.get("path")
+                        if render_path and os.path.exists(render_path):
+                            os.remove(render_path)
+                    except OSError:
+                        pass
+                raise
+            finally:
+                _release_adjust_render(clip_id)
+
         try:
-            cutter = VideoCutter(method="intelligent", target_duration=normalized["duration"], preset=active_preset)
-            results = cutter.batch_cut(
-                source_path,
-                [normalized],
-                f"{project_name}-ajustes",
-                use_face_tracking=False,
-                emit_progress=lambda message, level="info": print(message),
-                output_dir=EXPORT_DIR,
-                video_layout=None,
-                preset=active_preset,
-                original_aspect_indices={0} if preserve_original else set(),
-                source_duration=source_duration,
-            )
-        finally:
+            job = job_manager.submit("adjust_clip_render", task, project_id=clip.get("project_id"))
+        except Exception:
             _release_adjust_render(clip_id)
-        if not results:
-            rejection = cutter.last_rejections[0] if cutter.last_rejections else {}
-            errors = "; ".join(rejection.get("errors") or []) or "o renderizador não produziu um arquivo válido"
-            return jsonify({"error": f"Não foi possível renderizar o ajuste: {errors[:300]}"}), 422
-        rendered = results[0]
-        persisted = dict(normalized)
-        persisted.update({
-            "render_status": "rendered",
-            "render_path": rendered.get("path"),
-            "render_start": rendered.get("render_start"),
-            "render_end": rendered.get("render_end"),
-            "render_duration": rendered.get("render_duration"),
-            "render_boundary_policy": rendered.get("render_boundary_policy", ""),
-            "preset": rendered.get("preset", requested_preset),
-        })
-        persisted = save_clip_adjustment(
-            clip_id,
-            persisted,
-            note=str(data.get("note") or "Ajuste temporal renderizado na bancada editorial.").strip(),
-        )
-        update_clip_rendered_file(clip_id, rendered["path"])
+            raise
         return jsonify({
             "success": True,
             "clip_id": clip_id,
+            "job_id": job["id"],
+            "operation": "adjust_clip_render",
             "review_status": "needs_review",
-            "adjustment": persisted,
-            "render": rendered,
-            "render_status": "rendered",
-            "source": {"path": source_path, "duration": source_duration},
-        })
+            "adjustment": {**normalized, "render_status": "queued"},
+            "render_status": "queued",
+            "source": {"duration": source_duration},
+        }), 202
     except (TypeError, ValueError) as exc:
         return jsonify({"error": str(exc)}), 400
     except Exception as exc:

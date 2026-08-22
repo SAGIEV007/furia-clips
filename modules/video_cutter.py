@@ -4,6 +4,7 @@ import re
 import unicodedata
 import subprocess
 import math
+import time
 from config import EXPORT_DIR
 from .media_validation import validate_media
 from .render_presets import get_preset, ffmpeg_video_filter
@@ -149,8 +150,48 @@ class VideoCutter:
 
         return candidates
 
+    @staticmethod
+    def _run_ffmpeg(cmd, output_path, cancel_check=None):
+        if cancel_check is None:
+            return subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
+        cancel_check()
+        process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+        try:
+            while process.poll() is None:
+                cancel_check()
+                time.sleep(0.2)
+            stdout, stderr = process.communicate()
+            return subprocess.CompletedProcess(
+                cmd,
+                process.returncode,
+                stdout=stdout or "",
+                stderr=stderr or "",
+            )
+        except Exception:
+            if process.poll() is None:
+                process.terminate()
+                try:
+                    process.wait(timeout=2)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    process.wait(timeout=2)
+            try:
+                if os.path.exists(output_path):
+                    os.remove(output_path)
+            except OSError:
+                pass
+            raise
+
     def cut_clip(self, video_path, start_time, end_time, output_path,
-                 vertical=True, emit_progress=None, video_layout=None, preset=None):
+                 vertical=True, emit_progress=None, video_layout=None, preset=None,
+                 cancel_check=None):
         if emit_progress:
             emit_progress(f"Cortando clip {start_time:.1f}s - {end_time:.1f}s...")
 
@@ -185,7 +226,7 @@ class VideoCutter:
             output_path
         ])
 
-        result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
+        result = self._run_ffmpeg(cmd, output_path, cancel_check=cancel_check)
 
         if result.returncode != 0:
             error_detail = (result.stderr or result.stdout or "FFmpeg encerrou com erro").strip()[-500:]
@@ -246,7 +287,8 @@ class VideoCutter:
         return sanitized
 
     def cut_clip_with_face_tracking(self, video_path, start_time, end_time,
-                                     output_path, face_positions=None, emit_progress=None, preset=None):
+                                     output_path, face_positions=None, emit_progress=None, preset=None,
+                                     cancel_check=None):
         if emit_progress:
             emit_progress(f"Cortando clip com face tracking {start_time:.1f}s - {end_time:.1f}s...")
 
@@ -278,6 +320,7 @@ class VideoCutter:
                 vertical=True,
                 emit_progress=emit_progress,
                 preset=active_preset,
+                cancel_check=cancel_check,
             )
         video_stream = next(
             (s for s in info.get("streams", []) if s["codec_type"] == "video"), None
@@ -291,6 +334,7 @@ class VideoCutter:
                 vertical=True,
                 emit_progress=emit_progress,
                 preset=active_preset,
+                cancel_check=cancel_check,
             )
 
         orig_w = int(video_stream["width"])
@@ -334,12 +378,15 @@ class VideoCutter:
             output_path
         ]
 
-        result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
+        result = self._run_ffmpeg(cmd, output_path, cancel_check=cancel_check)
 
         if result.returncode != 0:
             if emit_progress:
                 emit_progress(f"Erro ao cortar com face tracking: {result.stderr[-300:]}")
-            return self.cut_clip(video_path, start_time, end_time, output_path, True, emit_progress)
+            return self.cut_clip(
+                video_path, start_time, end_time, output_path, vertical=True,
+                emit_progress=emit_progress, preset=active_preset, cancel_check=cancel_check,
+            )
 
         if not self._validate_rendered_output(output_path, duration, emit_progress, preset=active_preset):
             return None
@@ -368,7 +415,7 @@ class VideoCutter:
     def batch_cut(self, video_path, cuts, project_name, use_face_tracking=False,
                   face_positions_map=None, emit_progress=None, output_dir=None,
                   video_layout=None, preset=None, original_aspect_indices=None,
-                  layout_plans=None, source_duration=None):
+                  layout_plans=None, source_duration=None, cancel_check=None):
         active_preset = get_preset(preset) if isinstance(preset, str) else (preset or self.preset)
         self.last_rejections = []
         base_export = output_dir if output_dir and os.path.isabs(output_dir) else EXPORT_DIR
@@ -466,7 +513,8 @@ class VideoCutter:
             if can_reframe:
                 result = self.cut_clip_with_face_tracking(
                     video_path, padded_start, padded_end,
-                    output_path, face_pos, emit_progress, active_preset
+                    output_path, face_pos, emit_progress, active_preset,
+                    cancel_check=cancel_check,
                 )
                 framing_mode = "face_tracking"
                 framing_reason = "facetracking aplicado com posição facial detectada"
@@ -474,7 +522,8 @@ class VideoCutter:
                 result = self.cut_clip(
                     video_path, padded_start, padded_end,
                     output_path, vertical=False, emit_progress=emit_progress,
-                    video_layout=video_layout, preset=active_preset
+                    video_layout=video_layout, preset=active_preset,
+                    cancel_check=cancel_check,
                 )
                 framing_mode = "original_16_9"
                 framing_reason = (layout_plan or {}).get("reason") or "composição original preservada por segurança"
@@ -484,11 +533,14 @@ class VideoCutter:
                 result = self.cut_clip(
                     video_path, padded_start, padded_end,
                     output_path, vertical=True, emit_progress=emit_progress,
-                    video_layout=video_layout, preset=active_preset
+                    video_layout=video_layout, preset=active_preset,
+                    cancel_check=cancel_check,
                 )
                 framing_mode = "center_crop"
                 framing_reason = "crop centralizado; facetracking não aplicado ou não disponível"
 
+            if cancel_check:
+                cancel_check()
             if result:
                 render_vertical = framing_mode != "original_16_9"
                 validation = validate_media(

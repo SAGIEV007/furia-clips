@@ -663,7 +663,23 @@ def test_adjust_render_endpoint_renders_and_persists_derived_file(monkeypatch, t
         monkeypatch.setattr(video_module.VideoCutter, "get_video_info", lambda _self, _path: {"format": {"duration": "60.0"}})
         monkeypatch.setattr(video_module.VideoCutter, "batch_cut", lambda *_args, **_kwargs: [fake_render])
 
+        class ImmediateContext:
+            job_id = "adjust-test-job"
+
+            def update(self, **_kwargs):
+                return {}
+
+            def check_cancel(self):
+                return None
+
+        def immediate_submit(_job_type, target, project_id=None):
+            target(ImmediateContext())
+            return {"id": "adjust-test-job", "state": "completed", "stage": "completed", "type": _job_type, "project_id": project_id}
+
+        monkeypatch.setattr(furia_app.job_manager, "submit", immediate_submit)
+        monkeypatch.setattr(furia_app.socketio, "emit", lambda *_args, **_kwargs: None)
         response = furia_app.app.test_client().post(
+
             f"/api/clips/{clip_id}/adjust/render",
             json={
                 "adjustment": {"start": 12.0, "end": 49.0},
@@ -673,13 +689,15 @@ def test_adjust_render_endpoint_renders_and_persists_derived_file(monkeypatch, t
             },
         )
 
-        assert response.status_code == 200
+        assert response.status_code == 202
         payload = response.get_json()
         assert payload["success"] is True
-        assert payload["render_status"] == "rendered"
-        assert payload["render"]["render_duration"] == 37.0
-        assert payload["source"]["duration"] == "60.0"
-        assert payload["adjustment"]["render_path"] == str(rendered_path)
+        assert payload["job_id"] == "adjust-test-job"
+        assert payload["operation"] == "adjust_clip_render"
+        assert payload["render_status"] == "queued"
+        persisted_adjustment = database.get_clip_feedback(clip_id)[0]["adjustments"]
+        assert persisted_adjustment["render_status"] == "rendered"
+        assert persisted_adjustment["render_path"] == str(rendered_path)
 
         persisted_clip = database.get_clip(clip_id)
         assert persisted_clip["file_path"] == str(rendered_path)
@@ -718,7 +736,11 @@ def test_project_reload_normalizes_persisted_clip_for_review_player(monkeypatch,
     assert clip["end"] == 55.0
     assert clip["duration"] == 48.0
     assert clip["active_bounds"] == {"start": 7.0, "end": 55.0, "duration": 48.0}
+    assert clip["active_start"] == 7.0
+    assert clip["active_end"] == 55.0
+    assert clip["active_duration"] == 48.0
     assert clip["active_render_status"] == "rendered"
+    assert clip["latest_adjustment"]["render_path"] == "exports/ajustado.mp4"
     assert clip["original_bounds"] == {"start": 10.0, "end": 52.0, "duration": 42.0}
 
 
@@ -773,6 +795,21 @@ def test_adjust_render_claim_releases_when_cutter_constructor_fails(monkeypatch,
 
         monkeypatch.setattr(furia_app, "_resolve_media_input", lambda _value: str(source_path))
         monkeypatch.setattr(video_module, "VideoCutter", BrokenCutter)
+
+        class ImmediateContext:
+            job_id = "adjust-constructor-failure"
+
+            def update(self, **_kwargs):
+                return {}
+
+            def check_cancel(self):
+                return None
+
+        def immediate_submit(_job_type, target, project_id=None):
+            target(ImmediateContext())
+            return {"id": "adjust-constructor-failure", "state": "completed", "stage": "completed", "type": _job_type, "project_id": project_id}
+
+        monkeypatch.setattr(furia_app.job_manager, "submit", immediate_submit)
         furia_app.active_adjust_render_ids.clear()
         response = furia_app.app.test_client().post(
             f"/api/clips/{clip_id}/adjust/render",
