@@ -25,6 +25,19 @@ VISUAL_EVIDENCE_RE = re.compile(
 )
 
 
+def _coerce_flag(value: object, default: bool = False) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value != 0
+    normalized = str(value or "").strip().lower()
+    if normalized in {"1", "true", "yes", "sim", "on", "enabled"}:
+        return True
+    if normalized in {"0", "false", "no", "não", "nao", "off", "disabled"}:
+        return False
+    return bool(default)
+
+
 def _requires_visual_evidence(text: str) -> bool:
     """Mark textual references that need a visual check before approval."""
     return bool(VISUAL_EVIDENCE_RE.search(str(text or "")))
@@ -81,7 +94,7 @@ def analyze_transcript_context(
             end = float(source.get("end", start) or start)
         except (TypeError, ValueError):
             continue
-        if start < 0 or end <= start:
+        if not all(math.isfinite(value) for value in (start, end)) or start < 0 or end <= start:
             continue
         segments.append({**source, "start": start, "end": end})
     # External subtitle providers may return cues out of order. Normalize the
@@ -92,7 +105,7 @@ def analyze_transcript_context(
         text = str(segment.get("text", "")).strip()
         speaker = str(segment.get("speaker", "") or "").strip()
         speaker_confidence = _coerce_confidence(segment.get("speaker_confidence"))
-        overlap_suspected = bool(segment.get("overlap_suspected", False))
+        overlap_suspected = _coerce_flag(segment.get("overlap_suspected", False))
         enriched.append({
             **segment,
             "is_question": _is_question(text),
@@ -159,13 +172,17 @@ def analyze_transcript_context(
     coverage = transcription.get("coverage", {}) if isinstance(transcription, dict) else {}
     coverage_status = str(coverage.get("status", "unknown") or "unknown")
     coverage_review_required = coverage_status in {"partial", "mismatch_suspected", "empty", "unknown"}
+    try:
+        coverage_segment_count = max(0, int(coverage.get("segment_count", len(enriched)) or 0))
+    except (TypeError, ValueError):
+        coverage_segment_count = len(enriched)
     transcription_quality = {
         "status": coverage_status,
         "review_required": coverage_review_required,
         "semantic_identity_verified": bool(coverage.get("semantic_identity_verified", False)),
         "last_timestamp": coverage.get("last_timestamp"),
         "end_ratio": coverage.get("end_ratio"),
-        "segment_count": int(coverage.get("segment_count", len(enriched)) or 0),
+        "segment_count": coverage_segment_count,
     }
     summary = {
         "duration": round(duration, 3),
@@ -409,7 +426,7 @@ def detect_hook_candidates(
             or confidence_invalid
             or (speaker_confidence is not None and speaker_confidence < 0.65)
         )
-        if bool(segment.get("overlap_suspected")):
+        if _coerce_flag(segment.get("overlap_suspected")):
             score -= 14
             reasons.append("sobreposição de falas exige revisão")
 
@@ -497,9 +514,9 @@ def detect_hook_candidates(
             "payoff_confirmed": payoff,
             "payoff_signals": payoff_signals[:4],
             "visual_evidence_required": visual_evidence_required,
-            "needs_visual_review": bool(segment.get("overlap_suspected")) or visual_evidence_required,
+            "needs_visual_review": _coerce_flag(segment.get("overlap_suspected")) or visual_evidence_required,
             "visual_review_reason": "confirmar gráfico, pesquisa ou imagem mencionada" if visual_evidence_required else "",
-            "needs_speaker_review": bool(speaker_uncertain),
+            "needs_speaker_review": _coerce_flag(speaker_uncertain),
             "speaker_review_reason": "locutor sem diarização confiável; confirme áudio e vídeo" if speaker_uncertain else "",
             "audio_signal": audio_signal,
             "campaign_hub_prior": prior,
@@ -578,7 +595,7 @@ def _audio_signal_for_window(energy_profile: list[dict] | None, start: float, en
 
 def _possible_overlap(segments: list[dict]) -> bool:
     for previous, current in zip(segments, segments[1:]):
-        if bool(previous.get("overlap_suspected")) or bool(current.get("overlap_suspected")):
+        if _coerce_flag(previous.get("overlap_suspected")) or _coerce_flag(current.get("overlap_suspected")):
             return True
         if float(current.get("start", 0)) < float(previous.get("end", 0)) - 0.1:
             return True

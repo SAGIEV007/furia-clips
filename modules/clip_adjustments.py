@@ -8,6 +8,7 @@ requested point is close enough, while preserving a minimum usable duration.
 from __future__ import annotations
 
 from copy import deepcopy
+import math
 
 
 def adjust_clip_bounds(
@@ -82,6 +83,8 @@ def _number(value: object, field: str) -> float:
         number = float(value)
     except (TypeError, ValueError) as exc:
         raise ValueError(f"{field} inválido") from exc
+    if not math.isfinite(number):
+        raise ValueError(f"{field} deve ser um número finito")
     if number < 0:
         raise ValueError(f"{field} não pode ser negativo")
     return number
@@ -111,13 +114,19 @@ def _snap_boundary(
             boundary = float(segment.get(key))
         except (TypeError, ValueError):
             continue
-        if boundary < 0:
+        if not math.isfinite(boundary) or boundary < 0:
             continue
         candidates.append(boundary)
     if not candidates:
         return value
+    try:
+        tolerance_value = float(tolerance)
+    except (TypeError, ValueError):
+        tolerance_value = 0.0
+    if not math.isfinite(tolerance_value):
+        tolerance_value = 0.0
     nearest = min(candidates, key=lambda boundary: abs(boundary - value))
-    return nearest if abs(nearest - value) <= max(0.0, float(tolerance)) else value
+    return nearest if abs(nearest - value) <= max(0.0, tolerance_value) else value
 
 
 def _expand_interval(start: float, end: float, minimum: float, limit: float | None) -> tuple[float, float]:

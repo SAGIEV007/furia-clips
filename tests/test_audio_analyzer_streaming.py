@@ -5,6 +5,28 @@ import wave
 from modules.audio_analyzer import AudioAnalyzer
 
 
+def test_find_high_energy_moments_coerces_legacy_values():
+    profile = [
+        {"time": "0", "energy_normalized": "0.8"},
+        {"time": 1, "energy_normalized": "0.9"},
+        {"time": "2", "energy_normalized": "nan"},
+        {"time": 3, "energy_normalized": "0.1"},
+        {"time": "invalid", "energy_normalized": 1.0},
+    ]
+
+    moments = AudioAnalyzer().find_high_energy_moments(profile, threshold=0.6, min_duration=1.0)
+
+    assert moments
+    assert moments[0]["start"] == 0.0
+    assert moments[0]["end"] == 3.0
+    assert all(
+        value == value and value != float("inf")
+        for moment in moments
+        for value in moment.values()
+        if isinstance(value, float)
+    )
+
+
 def test_analyze_energy_streams_pcm_and_normalizes(tmp_path):
     source = tmp_path / "tone.wav"
     sample_rate = 16000

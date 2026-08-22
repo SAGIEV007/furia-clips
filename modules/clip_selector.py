@@ -20,6 +20,30 @@ from .editorial_chapters import annotate_clip_with_chapters
 PREFERRED_MAX_DURATION = 180.0
 TECHNICAL_MAX_DURATION = 600.0
 
+
+def _safe_float(value, default=0.0):
+    """Return a finite numeric value for legacy or incomplete ranking fields."""
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return float(default)
+    return parsed if math.isfinite(parsed) else float(default)
+
+
+def _coerce_flag(value, default=False):
+    """Normalize JSON and legacy textual booleans without truthiness surprises."""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value != 0
+    normalized = str(value or "").strip().lower()
+    if normalized in {"1", "true", "yes", "sim", "on", "enabled"}:
+        return True
+    if normalized in {"0", "false", "no", "não", "nao", "off", "disabled"}:
+        return False
+    return bool(default)
+
+
 # Portuguese filler words to detect
 FILLER_WORDS_PT = {
     "ne", "ne\u0301", "tipo", "ah", "eh", "e\u0301h", "enta\u0303o", "entao",
@@ -34,7 +58,7 @@ CONTINUATION_STARTERS_PT = {
 CONTEXT_REFERENCE_STARTERS_PT = {
     "isso", "isto", "aquilo", "esse", "essa", "esses", "essas", "aquele", "aquela",
     "aqueles", "aquelas", "ele", "ela", "eles", "elas", "nesse", "nessa", "nisso",
-    "com isso", "por isso",
+    "com isso", "por isso", "a resposta", "essa resposta", "esta resposta", "minha resposta",
 }
 EVIDENCE_TERMS_PT = {
     "dado", "dados", "numero", "número", "numeros", "números", "pesquisa", "pesquisas",
@@ -371,13 +395,17 @@ class ClipSelector:
             confidences = []
             for item in current_segments:
                 try:
-                    confidences.append(float(item.get("speaker_confidence")))
+                    value = float(item.get("speaker_confidence"))
+                    if math.isfinite(value):
+                        confidences.append(value)
                 except (TypeError, ValueError):
                     continue
             timing_confidences = []
             for item in current_segments:
                 try:
-                    timing_confidences.append(float(item.get("timing_confidence")))
+                    value = float(item.get("timing_confidence"))
+                    if math.isfinite(value):
+                        timing_confidences.append(value)
                 except (TypeError, ValueError):
                     continue
             sentences.append({
@@ -389,12 +417,12 @@ class ClipSelector:
                 "speakers": unique_speakers,
                 "speaker_change_detected": len(unique_speakers) > 1,
                 "speaker_confidence": min(confidences) if confidences else None,
-                "overlap_suspected": any(bool(item.get("overlap_suspected")) for item in current_segments),
+                "overlap_suspected": any(_coerce_flag(item.get("overlap_suspected")) for item in current_segments),
                 "timing_ambiguous": any(
                     float(item.get("timing_confidence", 1.0) or 1.0) < 0.6
                     for item in current_segments
                     if item.get("timing_confidence") is not None
-                ) or any(bool(item.get("overlap_suspected")) for item in current_segments),
+                ) or any(_coerce_flag(item.get("overlap_suspected")) for item in current_segments),
                 "timing_confidence": min(timing_confidences) if timing_confidences else None,
                 "segment_ids": [item.get("id") for item in current_segments if item.get("id") is not None],
             })
@@ -903,11 +931,16 @@ Retorne APENAS o JSON.
             "speaker": speakers[0] if len(speakers) == 1 else "",
             "speakers": speakers,
             "speaker_change_detected": len(speakers) > 1,
-            "overlap_suspected": any(bool(sentence.get("overlap_suspected")) for sentence in sentences),
-            "speaker_turn_valid": not any(bool(sentence.get("overlap_suspected")) for sentence in sentences),
-            "timing_ambiguous": any(bool(sentence.get("timing_ambiguous")) for sentence in sentences),
+            "overlap_suspected": any(_coerce_flag(sentence.get("overlap_suspected")) for sentence in sentences),
+            "speaker_turn_valid": not any(_coerce_flag(sentence.get("overlap_suspected")) for sentence in sentences),
+            "timing_ambiguous": any(_coerce_flag(sentence.get("timing_ambiguous")) for sentence in sentences),
             "timing_confidence": min(
-                [float(sentence["timing_confidence"]) for sentence in sentences if sentence.get("timing_confidence") is not None]
+                [
+                    _safe_float(sentence.get("timing_confidence"), default=1.0)
+                    for sentence in sentences
+                    if sentence.get("timing_confidence") is not None
+                    and math.isfinite(_safe_float(sentence.get("timing_confidence"), default=1.0))
+                ]
                 or [1.0]
             ),
         }
@@ -992,25 +1025,38 @@ Retorne APENAS o JSON.
                 continue
 
             metadata = {
-                "overlap_suspected": any(bool(block.get("overlap_suspected")) for block in valid_blocks),
-                "timing_ambiguous": any(bool(block.get("timing_ambiguous")) for block in valid_blocks),
-                "speaker_turn_valid": all(block.get("speaker_turn_valid", True) is not False for block in valid_blocks),
+                "overlap_suspected": any(_coerce_flag(block.get("overlap_suspected")) for block in valid_blocks),
+                "timing_ambiguous": any(_coerce_flag(block.get("timing_ambiguous")) for block in valid_blocks),
+                "speaker_turn_valid": all(_coerce_flag(block.get("speaker_turn_valid"), default=True) for block in valid_blocks),
                 "timing_confidence": min(
-                    [float(block.get("timing_confidence")) for block in valid_blocks if block.get("timing_confidence") is not None]
+                    [
+                        _safe_float(block.get("timing_confidence"), default=1.0)
+                        for block in valid_blocks
+                        if block.get("timing_confidence") is not None
+                        and math.isfinite(_safe_float(block.get("timing_confidence"), default=1.0))
+                    ]
                     or [1.0]
                 ),
             }
-            preliminary_text = " ".join(block["text"] for block in valid_blocks)
-            preliminary_flags = self._editorial_flags(preliminary_text, metadata)
-            if preliminary_flags["starts_mid_sentence"] and block_indices[0] > 0:
+            context_recovery = {"applied": False, "reason": "antecedente não precisou ser recuperado"}
+            previous_for_opening = all_blocks[block_indices[0] - 1] if block_indices[0] > 0 else None
+            opening_signal = self._opening_context_signal(valid_blocks[0], previous_for_opening)
+            if opening_signal["weak"] and block_indices[0] > 0:
                 previous = all_blocks[block_indices[0] - 1]
                 gap = float(valid_blocks[0]["start"]) - float(previous["end"])
                 joined_duration = float(valid_blocks[-1]["end"]) - float(previous["start"])
                 if gap <= 2.5 and joined_duration <= self.max_duration:
                     valid_blocks.insert(0, previous)
                     block_indices.insert(0, block_indices[0] - 1)
-                    metadata["overlap_suspected"] = metadata["overlap_suspected"] or bool(previous.get("overlap_suspected"))
-                    metadata["timing_ambiguous"] = metadata["timing_ambiguous"] or bool(previous.get("timing_ambiguous"))
+                    metadata["overlap_suspected"] = metadata["overlap_suspected"] or _coerce_flag(previous.get("overlap_suspected"))
+                    metadata["timing_ambiguous"] = metadata["timing_ambiguous"] or _coerce_flag(previous.get("timing_ambiguous"))
+                    context_recovery = {
+                        "applied": True,
+                        "reason": opening_signal["reason"],
+                        "added_start": float(previous.get("start", 0)),
+                        "original_start": float(valid_blocks[1].get("start", 0)),
+                        "gap_seconds": round(max(0.0, gap), 3),
+                    }
 
             clip_start = valid_blocks[0]["start"]
             clip_end = valid_blocks[-1]["end"]
@@ -1065,6 +1111,7 @@ Retorne APENAS o JSON.
                     "energy": sel.get("energy", "B"),
                 },
                 "source": source,
+                "context_recovery": context_recovery,
                 "duration_preference": self._duration_label(clip_duration, sel),
             })
 
@@ -1271,7 +1318,7 @@ Retorne APENAS o JSON.
                 # A hook without a confirmed payoff is still a useful review
                 # lead, but must not receive the same selection bonus as a
                 # self-contained editorial opening.
-                hook_bonus_cap = 8.0 if bool(hook.get("payoff_confirmed")) else 2.0
+                hook_bonus_cap = 8.0 if _coerce_flag(hook.get("payoff_confirmed")) else 2.0
                 best_hook = max(best_hook, min(hook_bonus_cap, hook_score * 0.08))
         qa_bonus = 0.0
         qa_context_gap = 0.0
@@ -1281,7 +1328,7 @@ Retorne APENAS o JSON.
             overlap = max(0.0, min(end, qa_end) - max(start, qa_start))
             if overlap <= 0:
                 continue
-            needs_question = bool(candidate.get("needs_question"))
+            needs_question = _coerce_flag(candidate.get("needs_question"))
             preserves_question = start <= qa_start + 2.5
             preserves_response = end >= qa_end - 2.5
             if needs_question and not preserves_question:
@@ -1291,7 +1338,7 @@ Retorne APENAS o JSON.
             if needs_question and not preserves_response:
                 qa_context_gap = max(qa_context_gap, 1.5)
                 continue
-            qa_bonus = 3.0 if candidate.get("speaker_boundary") else 1.5
+            qa_bonus = 3.0 if _coerce_flag(candidate.get("speaker_boundary")) else 1.5
             break
         return round(max(-4.0, min(10.0, best_hook + qa_bonus - qa_context_gap)), 2)
 
@@ -1338,6 +1385,15 @@ Retorne APENAS o JSON.
             return min(80, score)
         return min(60, score)
 
+    @staticmethod
+    def _has_multiple_speakers(block):
+        """Return True only for an explicit collection with multiple speakers."""
+        speakers = block.get("speakers") if isinstance(block, dict) else None
+        if not isinstance(speakers, (list, tuple, set)):
+            return False
+        normalized = {str(item).strip().lower() for item in speakers if str(item).strip()}
+        return len(normalized) > 1
+
     def _editorial_flags(self, text, metadata=None):
         """Return conservative, explainable gates shared by every backend."""
         raw = str(text or "").strip()
@@ -1350,7 +1406,7 @@ Retorne APENAS o JSON.
         first_two_words = " ".join(words[:2]) if len(words) >= 2 else first_word
         reference_starters = {item.lower() for item in CONTEXT_REFERENCE_STARTERS_PT}
         starts_with_context_reference = first_word in reference_starters or first_two_words in reference_starters
-        has_question = "?" in raw or first_word in {"como", "por", "porque", "qual", "quais", "quem", "quando", "onde"}
+        has_question = self._looks_like_explicit_question(raw)
         question_index = raw.find("?")
         response_text = raw[question_index + 1:] if question_index >= 0 else ""
         response_words = len(re.findall(r"[\wÀ-ÿ-]+", response_text))
@@ -1368,13 +1424,12 @@ Retorne APENAS o JSON.
             weak_payoff_ending = True
         cliffhanger = any(pattern in normalized[-220:] for pattern in ("em breve", "depois eu", "na proxima", "fique ligado", "vou mostrar"))
         payoff_complete = bool(ends_closed and not cliffhanger and not weak_payoff_ending)
-        overlap_suspected = bool(metadata.get("overlap_suspected"))
-        timing_ambiguous = bool(metadata.get("timing_ambiguous"))
-        speaker_turn_valid = metadata.get("speaker_turn_valid")
-        needs_speaker_review = bool(
-            metadata.get("needs_speaker_review")
-            or metadata.get("speaker_review_required")
-        )
+        overlap_suspected = _coerce_flag(metadata.get("overlap_suspected"))
+        timing_ambiguous = _coerce_flag(metadata.get("timing_ambiguous"))
+        topic_boundary = _coerce_flag(metadata.get("topic_boundary")) or _coerce_flag(metadata.get("topic_change_detected"))
+        speaker_turn_valid = _coerce_flag(metadata.get("speaker_turn_valid"), default=True)
+        needs_speaker_review = _coerce_flag(metadata.get("needs_speaker_review")) or _coerce_flag(metadata.get("speaker_review_required"))
+        needs_topic_review = _coerce_flag(metadata.get("needs_topic_review")) or topic_boundary
         context_complete = bool(
             not starts_mid_sentence
             and not starts_with_context_reference
@@ -1382,6 +1437,7 @@ Retorne APENAS o JSON.
             and len(words) >= 12
             and not overlap_suspected
             and not timing_ambiguous
+            and not topic_boundary
             and speaker_turn_valid is not False
         )
         return {
@@ -1397,6 +1453,7 @@ Retorne APENAS o JSON.
                 question_answer_complete
                 and not overlap_suspected
                 and not timing_ambiguous
+                and not topic_boundary
                 and speaker_turn_valid is not False
             ),
             "speaker_turn_valid": speaker_turn_valid,
@@ -1407,8 +1464,158 @@ Retorne APENAS o JSON.
             ),
             "overlap_suspected": overlap_suspected,
             "timing_ambiguous": timing_ambiguous,
+            "topic_boundary": topic_boundary,
+            "needs_topic_review": needs_topic_review,
+            "topic_review_reason": (
+                "mudança de tópico detectada; confirmar continuidade do assunto"
+                if needs_topic_review else ""
+            ),
             "timing_confidence": metadata.get("timing_confidence"),
         }
+
+    def _opening_context_signal(self, start_block, previous_block=None):
+        """Detect a weak opening even when the transcript is sentence-complete.
+
+        A frequent editorial failure is a response block that starts after the
+        interviewer question. Existing markers catch pronouns and conjunctions,
+        but not a clean answer such as ``A proposta...``. We only recover the
+        adjacent block when it ends like a question and the candidate itself is
+        not another question, keeping the expansion conservative.
+        """
+        opening_flags = self._editorial_flags(start_block.get("text", ""), start_block)
+        if opening_flags.get("starts_mid_sentence") or opening_flags.get("starts_with_context_reference"):
+            return {
+                "weak": True,
+                "reason": "antecedente recuperado antes de início truncado",
+            }
+
+        if not isinstance(previous_block, dict):
+            return {"weak": False, "reason": "antecedente não precisou ser recuperado"}
+
+        previous_text = str(previous_block.get("text") or "").strip()
+        current_text = str(start_block.get("text") or "").strip()
+        if not previous_text or not current_text:
+            return {"weak": False, "reason": "antecedente não precisou ser recuperado"}
+
+        previous_ends_as_question = previous_text.rstrip().endswith(("?", ":"))
+        if not previous_ends_as_question:
+            return {"weak": False, "reason": "antecedente não precisou ser recuperado"}
+
+        first_word = re.sub(r"[^\wÀ-ÿ-]", "", current_text.lower().split()[0]) if current_text.split() else ""
+        response_starters = {
+            "sim", "não", "nao", "depende", "exatamente", "claro", "olha",
+            "bom", "eu", "a", "o", "uma", "um", "essa", "esse", "isso",
+        }
+        current_is_another_question = self._looks_like_explicit_question(current_text)
+        if current_is_another_question and first_word not in response_starters:
+            return {"weak": False, "reason": "antecedente não precisou ser recuperado"}
+
+        return {
+            "weak": True,
+            "reason": "antecedente recuperado para preservar pergunta e resposta",
+        }
+
+    @staticmethod
+    def _looks_like_explicit_question(text):
+        """Detect explicit question blocks without treating explanations as questions."""
+        raw = str(text or "").strip().lower()
+        if not raw:
+            return False
+        if "?" in raw[:160]:
+            return True
+        normalized = re.sub(r"^[\\\"'“”‘’([{]+", "", raw).strip()
+        question_labels = (
+            "pergunta:", "pergunta é", "a pergunta:", "a pergunta é",
+            "questão:", "questão é", "a questão:", "a questão é",
+        )
+        if normalized.startswith(question_labels):
+            return True
+        words = re.findall(r"[\wÀ-ÿ-]+", normalized)
+        question_prefixes = {
+            ("como", "é"), ("como", "foi"), ("como", "fazer"), ("como", "combater"),
+            ("qual", "é"), ("qual", "foi"), ("quais", "são"), ("quais", "foram"),
+            ("quem", "é"), ("quem", "foi"), ("quando", "foi"), ("quando", "será"),
+            ("onde", "está"), ("onde", "foi"), ("por", "que"), ("o", "que"),
+            ("será", "que"), ("seria", "possível"), ("você", "acha"),
+            ("vocês", "acham"), ("você", "concorda"), ("vocês", "concordam"),
+            ("você", "acredita"), ("vocês", "acreditam"),
+        }
+        return tuple(words[:2]) in question_prefixes
+
+    def _extend_for_payoff(self, clip_blocks, clip_end_idx, scored_blocks, used_indices):
+        """Add adjacent blocks only when the current ending is still open.
+
+        A sentence may end with punctuation while the thought remains open
+        (for example, ``porque.``). The previous builder stopped too early in
+        that case, which matches the dominant ``no_payoff`` feedback. This
+        helper uses the same conservative editorial flags as the final gate,
+        adds at most three adjacent blocks, and never crosses the technical
+        duration ceiling or a block already claimed by another candidate.
+        """
+        if not clip_blocks:
+            return clip_blocks, clip_end_idx
+
+        additions = 0
+        while additions < 3:
+            clip_text = " ".join(block.get("text", "") for block in clip_blocks)
+            metadata = {
+                "overlap_suspected": any(_coerce_flag(block.get("overlap_suspected")) for block in clip_blocks),
+                "timing_ambiguous": any(_coerce_flag(block.get("timing_ambiguous")) for block in clip_blocks),
+                "topic_boundary": any(
+                    _coerce_flag(block.get("topic_boundary")) or _coerce_flag(block.get("topic_change_detected"))
+                    for block in clip_blocks
+                ),
+                "speaker_turn_valid": (
+                    False
+                    if any(
+                        _coerce_flag(block.get("speaker_turn_valid"), default=True) is False
+                        or _coerce_flag(block.get("speaker_change_detected"))
+                        or self._has_multiple_speakers(block)
+                        for block in clip_blocks
+                    )
+                    else True
+                ),
+            }
+            flags = self._editorial_flags(clip_text, metadata)
+            if flags.get("payoff_complete"):
+                break
+
+            next_idx = clip_end_idx + 1
+            if next_idx >= len(scored_blocks) or next_idx in used_indices:
+                break
+            next_block = scored_blocks[next_idx][0]
+            if (
+                _coerce_flag(next_block.get("overlap_suspected"))
+                or _coerce_flag(next_block.get("timing_ambiguous"))
+                or _coerce_flag(next_block.get("topic_boundary"))
+                or _coerce_flag(next_block.get("topic_change_detected"))
+                or _coerce_flag(next_block.get("speaker_turn_valid"), default=True) is False
+                or _coerce_flag(next_block.get("speaker_change_detected"))
+                or self._has_multiple_speakers(next_block)
+            ):
+                break
+            current_speaker = str(clip_blocks[-1].get("speaker") or "").strip()
+            next_speaker = str(next_block.get("speaker") or "").strip()
+            if current_speaker and next_speaker and current_speaker != next_speaker:
+                break
+            next_start = float(next_block.get("start", 0) or 0)
+            current_end = float(clip_blocks[-1].get("end", 0) or 0)
+            gap_seconds = next_start - current_end
+            if gap_seconds < -0.25 or gap_seconds > 2.5:
+                break
+            next_text = str(next_block.get("text") or "").strip()
+            next_looks_like_question = self._looks_like_explicit_question(next_text)
+            if next_looks_like_question:
+                break
+            new_duration = float(next_block.get("end", 0)) - float(clip_blocks[0].get("start", 0))
+            if new_duration > self.max_duration:
+                break
+
+            clip_blocks.append(next_block)
+            clip_end_idx = next_idx
+            additions += 1
+
+        return clip_blocks, clip_end_idx
 
     def _build_clips_from_scored_blocks(self, scored_blocks, context_data=None, editorial_context=None):
         """Build clips by joining only the blocks needed for context and payoff.
@@ -1430,22 +1637,37 @@ Retorne APENAS o JSON.
             # Whisper blocks can begin with a continuation or an unresolved
             # reference after a pause. Recover adjacent context when safe instead
             # of publishing an abrupt start such as “isso aconteceu...”.
-            opening_flags = self._editorial_flags(start_block.get("text", ""), start_block)
+            previous_block = scored_blocks[start_idx - 1][0] if start_idx > 0 else None
+            opening_signal = self._opening_context_signal(start_block, previous_block)
             context_recovery = None
             if (
-                (opening_flags.get("starts_mid_sentence") or opening_flags.get("starts_with_context_reference"))
+                opening_signal["weak"]
                 and start_idx > 0
                 and (start_idx - 1) not in used_indices
             ):
                 previous_block = scored_blocks[start_idx - 1][0]
                 gap = float(start_block.get("start", 0)) - float(previous_block.get("end", 0))
                 joined_duration = float(start_block.get("end", 0)) - float(previous_block.get("start", 0))
-                if gap <= 2.5 and joined_duration <= self.max_duration:
+                previous_timing_safe = (
+                    not _coerce_flag(previous_block.get("overlap_suspected"))
+                    and _coerce_flag(previous_block.get("speaker_turn_valid"), default=True)
+                    and not _coerce_flag(previous_block.get("speaker_change_detected"))
+                    and not (_coerce_flag(previous_block.get("topic_boundary")) or _coerce_flag(previous_block.get("topic_change_detected")))
+                    and not self._has_multiple_speakers(previous_block)
+                )
+                current_timing_safe = (
+                    not _coerce_flag(start_block.get("overlap_suspected"))
+                    and _coerce_flag(start_block.get("speaker_turn_valid"), default=True)
+                    and not _coerce_flag(start_block.get("speaker_change_detected"))
+                    and not (_coerce_flag(start_block.get("topic_boundary")) or _coerce_flag(start_block.get("topic_change_detected")))
+                    and not self._has_multiple_speakers(start_block)
+                )
+                if -0.25 <= gap <= 2.5 and previous_timing_safe and current_timing_safe and joined_duration <= self.max_duration:
                     clip_blocks.insert(0, previous_block)
                     clip_duration = joined_duration
                     context_recovery = {
                         "applied": True,
-                        "reason": "antecedente recuperado antes de início truncado",
+                        "reason": opening_signal["reason"],
                         "added_start": float(previous_block.get("start", 0)),
                         "original_start": float(start_block.get("start", 0)),
                         "gap_seconds": round(max(0.0, gap), 3),
@@ -1460,10 +1682,10 @@ Retorne APENAS o JSON.
                     qa_end = float(qa_candidate.get("end", qa_start) or qa_start)
                 except (TypeError, ValueError):
                     continue
-                if qa_end <= qa_start or not bool(qa_candidate.get("needs_question")):
+                if qa_end <= qa_start or not _coerce_flag(qa_candidate.get("needs_question")):
                     continue
-                starts_with_question = float(start_block.get("start", 0) or 0) <= qa_start + 2.5
-                overlaps_question_window = float(start_block.get("end", 0) or 0) >= qa_start - 2.5
+                starts_with_question = float(clip_blocks[0].get("start", 0) or 0) <= qa_start + 2.5
+                overlaps_question_window = float(clip_blocks[-1].get("end", 0) or 0) >= qa_start - 2.5
                 if starts_with_question and overlaps_question_window:
                     qa_completion_end = max(qa_completion_end or qa_end, qa_end)
             start_is_complete = (
@@ -1472,11 +1694,28 @@ Retorne APENAS o JSON.
                 and start_block["text"].rstrip().endswith((".", "!", "?"))
                 and (qa_completion_end is None or float(clip_blocks[-1].get("end", 0) or 0) >= qa_completion_end - 2.5)
             )
+            speaker_transitions = 0
             if not start_is_complete:
-                for next_idx in range(start_idx + 1, len(scored_blocks)):
+                for next_idx in range(clip_end_idx + 1, len(scored_blocks)):
+                    current_speaker = str(clip_blocks[-1].get("speaker") or "").strip()
+                    next_speaker = str(scored_blocks[next_idx][0].get("speaker") or "").strip()
+                    if current_speaker and next_speaker and current_speaker != next_speaker:
+                        if qa_completion_end is None or speaker_transitions >= 1:
+                            break
+                        speaker_transitions += 1
                     if next_idx in used_indices:
                         break
                     next_block = scored_blocks[next_idx][0]
+                    if (
+                        _coerce_flag(next_block.get("overlap_suspected"))
+                        or _coerce_flag(next_block.get("timing_ambiguous"))
+                        or _coerce_flag(next_block.get("topic_boundary"))
+                        or _coerce_flag(next_block.get("topic_change_detected"))
+                        or _coerce_flag(next_block.get("speaker_turn_valid"), default=True) is False
+                        or _coerce_flag(next_block.get("speaker_change_detected"))
+                        or self._has_multiple_speakers(next_block)
+                    ):
+                        break
                     new_duration = next_block["end"] - clip_blocks[0]["start"]
 
                     if new_duration > self.max_duration:
@@ -1500,6 +1739,14 @@ Retorne APENAS o JSON.
                     if clip_duration >= self.target_duration and qa_complete:
                         break
 
+            clip_blocks, clip_end_idx = self._extend_for_payoff(
+                clip_blocks,
+                clip_end_idx,
+                scored_blocks,
+                used_indices,
+            )
+            clip_duration = float(clip_blocks[-1].get("end", 0)) - float(clip_blocks[0].get("start", 0))
+
             if clip_duration < self.min_duration:
                 continue
 
@@ -1510,20 +1757,20 @@ Retorne APENAS o JSON.
             clip_start = clip_blocks[0]["start"]
             clip_end = clip_blocks[-1]["end"]
             qa_speaker_review = any(
-                bool(qa_candidate.get("needs_speaker_review"))
+                _coerce_flag(qa_candidate.get("needs_speaker_review"))
                 and clip_start <= float(qa_candidate.get("end", 0) or 0) + 2.5
                 and clip_end >= float(qa_candidate.get("start", 0) or 0) - 2.5
                 for qa_candidate in (editorial_context or {}).get("qa_candidates", []) or []
             )
-            block_speaker_review = any(bool(block.get("needs_speaker_review")) for block in clip_blocks)
+            block_speaker_review = any(_coerce_flag(block.get("needs_speaker_review")) for block in clip_blocks)
             clip_flags = self._editorial_flags(
                 clip_text,
                 {
-                    "overlap_suspected": any(bool(block.get("overlap_suspected")) for block in clip_blocks),
-                    "timing_ambiguous": any(bool(block.get("timing_ambiguous")) for block in clip_blocks),
-                    "speaker_turn_valid": (
-                        False if any(block.get("speaker_turn_valid") is False for block in clip_blocks)
-                        else True
+                    "overlap_suspected": any(_coerce_flag(block.get("overlap_suspected")) for block in clip_blocks),
+                    "timing_ambiguous": any(_coerce_flag(block.get("timing_ambiguous")) for block in clip_blocks),
+                    "speaker_turn_valid": all(
+                        _coerce_flag(block.get("speaker_turn_valid"), default=True)
+                        for block in clip_blocks
                     ),
                     "needs_speaker_review": qa_speaker_review or block_speaker_review,
                     "timing_confidence": min(
@@ -1639,6 +1886,33 @@ Retorne APENAS o JSON.
 
         return adjusted
 
+    def _previous_contextually_distinct(self, clip, previous):
+        """Keep nearby repeated wording when two independent editorial signals differ."""
+        def flag(value):
+            if isinstance(value, bool):
+                return value
+            if isinstance(value, (int, float)):
+                return value != 0
+            normalized = str(value or "").strip().lower()
+            if normalized in {"1", "true", "yes", "sim", "on", "enabled"}:
+                return True
+            return False
+
+        evidence = 0
+        if clip.get("closure_type") and previous.get("closure_type") and clip.get("closure_type") != previous.get("closure_type"):
+            evidence += 1
+        if flag(clip.get("question_answer_complete")) != flag(previous.get("question_answer_complete")):
+            evidence += 1
+        if flag(clip.get("payoff_complete")) != flag(previous.get("payoff_complete")):
+            evidence += 1
+        if flag(clip.get("qa_bridge")) != flag(previous.get("qa_bridge")):
+            evidence += 1
+        if clip.get("chapter_primary_id") and previous.get("chapter_primary_id") and clip.get("chapter_primary_id") != previous.get("chapter_primary_id"):
+            evidence += 1
+        if clip.get("political_editorial_type") and previous.get("political_editorial_type") and clip.get("political_editorial_type") != previous.get("political_editorial_type"):
+            evidence += 1
+        return evidence >= 2
+
     def _remove_previous_fingerprints(self, clips):
         """Drop candidates that were already exported for this source video."""
         previous = self._previous_clip_fingerprints
@@ -1658,6 +1932,8 @@ Retorne APENAS o JSON.
                     new_end = float(clip.get("end", 0) or 0)
                 except (TypeError, ValueError):
                     continue
+                if not all(math.isfinite(value) for value in (old_start, old_end, new_start, new_end)):
+                    continue
                 if old_start < 0 or old_end <= old_start or new_start < 0 or new_end <= new_start:
                     continue
                 old_duration = old_end - old_start
@@ -1666,7 +1942,12 @@ Retorne APENAS o JSON.
                 overlap = self._calculate_overlap(new_clip, old_clip)
                 text_similarity = self._text_similarity(clip.get("text", ""), old.get("text", ""))
                 boundary_match = abs(new_start - old_start) <= 4.0 and abs(new_end - old_end) <= 6.0
-                if overlap >= 0.45 or boundary_match or (text_similarity >= 0.86 and abs(new_start - old_start) <= 30.0):
+                repeated_by_similarity = (
+                    text_similarity >= 0.86
+                    and abs(new_start - old_start) <= 30.0
+                    and not self._previous_contextually_distinct(clip, old)
+                )
+                if overlap >= 0.45 or boundary_match or repeated_by_similarity:
                     repeated = old
                     break
             if repeated is None:
@@ -1695,14 +1976,21 @@ Retorne APENAS o JSON.
             clips,
             key=lambda clip: (
                 origin_priority(clip),
-                float(clip.get("editorial_potential_score", clip.get("viral_score", 0)) or 0),
-                float(clip.get("confidence", 0) or 0),
-                -float(clip.get("duration", 0) or 0),
+                _safe_float(clip.get("editorial_potential_score", clip.get("viral_score", 0))),
+                _safe_float(clip.get("confidence", 0)),
+                -_safe_float(clip.get("duration", 0)),
             ),
             reverse=True,
         )
         selected = []
         for clip in ordered:
+            try:
+                start = float(clip.get("start"))
+                end = float(clip.get("end"))
+            except (TypeError, ValueError):
+                continue
+            if not all(math.isfinite(value) for value in (start, end)) or start < 0 or end <= start:
+                continue
             duplicate = False
             duplicate_reason = ""
             for existing in selected:
@@ -1755,17 +2043,28 @@ Retorne APENAS o JSON.
         return max(lexical, sequence)
 
     def _calculate_overlap(self, clip_a, clip_b):
-        """Calculate overlap ratio between two clips."""
-        overlap_start = max(clip_a["start"], clip_b["start"])
-        overlap_end = min(clip_a["end"], clip_b["end"])
+        """Calculate overlap ratio, returning zero for malformed intervals."""
+        try:
+            first_start = float(clip_a["start"])
+            first_end = float(clip_a["end"])
+            second_start = float(clip_b["start"])
+            second_end = float(clip_b["end"])
+        except (KeyError, TypeError, ValueError):
+            return 0.0
+        if not all(math.isfinite(value) for value in (first_start, first_end, second_start, second_end)):
+            return 0.0
+        if first_end <= first_start or second_end <= second_start:
+            return 0.0
+        overlap_start = max(first_start, second_start)
+        overlap_end = min(first_end, second_end)
 
         if overlap_start >= overlap_end:
             return 0.0
 
         overlap_duration = overlap_end - overlap_start
-        min_duration = min(clip_a["duration"], clip_b["duration"])
+        min_duration = min(first_end - first_start, second_end - second_start)
 
-        return overlap_duration / max(min_duration, 1)
+        return overlap_duration / max(min_duration, 1.0)
 
     def _format_time(self, seconds):
         """Format seconds as MM:SS."""

@@ -138,6 +138,7 @@ socket.on("editorial_context_complete", (data) => {
     if (!eventJobId || eventJobId !== String(state.contextAnalysisJobId || "")) return;
     state.editorialContext = data?.context || null;
     state.contextAnalysisSourcePath = selectedVideoPathForRequest();
+    state.contextAnalysisJobId = "";
     renderEditorialContextPreview(state.editorialContext || {});
     const status = document.getElementById("contextAnalysisStatus");
     if (status) status.textContent = "Contexto pronto. O próximo corte poderá usar esta leitura como referência.";
@@ -734,15 +735,16 @@ function renderEditorialLearning(calibration = {}) {
         const coverageEntries = Object.entries(coverageLabels).map(([key, label]) => {
             const item = coverageCategories[key] || {};
             const total = Number(item.total || 0);
-            const usable = Boolean(item.usable);
+            const usable = safeBooleanFlag(item.usable);
             return `<span class="editorial-learning-coverage-chip ${usable ? "usable" : "insufficient"}" title="${usable ? "Amostra suficiente para este sinal" : "Ainda sem amostra suficiente para calibrar"}"><b>${escapeHtml(label)}</b> ${total} ${usable ? "utilizável" : "insuficiente"}</span>`;
         });
         coverageTarget.innerHTML = `<span class="editorial-learning-coverage-label">Cobertura dos motivos:</span>${coverageEntries.join("")}`;
     }
-    panel.classList.toggle("is-active", Boolean(calibration.eligible));
-    if (calibration.eligible) {
+    const calibrationEligible = safeBooleanFlag(calibration.eligible);
+    panel.classList.toggle("is-active", calibrationEligible);
+    if (calibrationEligible) {
         title.textContent = "Calibração editorial ativa";
-        const durationNote = durationSignal.usable && Math.abs(durationGap) >= 0.1
+        const durationNote = safeBooleanFlag(durationSignal.usable) && Math.abs(durationGap) >= 0.1
             ? ` A amostra indica preferência por cortes ${durationGap > 0 ? 'mais curtos' : 'mais longos'} em ${Math.abs(durationGap).toFixed(1)}s, como sinal fraco.`
             : " A duração continua sendo apenas uma preferência contextual.";
         const reasonNote = topRejection ? ` Motivo de rejeição mais frequente: ${String(topRejection.reason).replaceAll('_', ' ')} (${topRejection.count}).` : "";
@@ -819,7 +821,7 @@ function renderDailyEditorialGoal(progress = {}) {
     const approved = Number(progress.approved || 0);
     const queue = Number(progress.review_queue || 0);
     const remaining = Math.max(0, Number(progress.remaining_to_minimum ?? (minimum - approved)));
-    const reached = Boolean(progress.target_reached);
+    const reached = safeBooleanFlag(progress.target_reached);
     panel.classList.toggle("is-reached", reached);
     value.textContent = `${approved} / ${minimum} aprovados`;
     bar.style.width = `${Math.max(0, Math.min(100, Number(progress.progress_percent || 0)))}%`;
@@ -956,7 +958,7 @@ function renderTranscriptArchive(items = []) {
         const source = escapeHtml(item.source || "automática");
         const project = item.project_id ? `Projeto #${item.project_id}` : "sem projeto";
         return `<div class="transcript-archive-item">
-            <div class="transcript-archive-meta"><strong>${escapeHtml(item.source_video || item.relative_dir || "Transcrição")}</strong><small>${source} · ${project} · ${Number(item.valid_segment_count || 0)} segmentos válidos</small></div>
+            <div class="transcript-archive-meta"><strong>${escapeHtml(item.source_video || item.relative_dir || "Transcrição")}</strong><small>${source} · ${project} · ${safeNonNegativeCount(item.valid_segment_count)} segmentos válidos</small></div>
             <span class="transcript-quality ${warning ? "warning" : ""}">${escapeHtml(transcriptQualityLabel(quality))}</span>
             <div class="transcript-archive-actions"><a class="btn btn-sm" href="${escapeHtml(item.download_text || "#")}" target="_blank" rel="noopener">TXT</a><a class="btn btn-sm" href="${escapeHtml(item.download_json || "#")}" target="_blank" rel="noopener">JSON</a></div>
         </div>`;
@@ -1087,7 +1089,7 @@ function syncRepositoryRestoreAvailability() {
         return;
     }
     const payload = state.repositorySync || {};
-    const available = Boolean(payload.feedback_snapshot_present && payload.feedback_snapshot_valid);
+    const available = safeBooleanFlag(payload.feedback_snapshot_present) && safeBooleanFlag(payload.feedback_snapshot_valid);
     button.disabled = !available;
     button.title = available
         ? "Reconciliar no banco local as decisões finais existentes no snapshot deste checkout"
@@ -1124,10 +1126,10 @@ function renderRepositorySyncState(payload) {
     const codeDirty = Array.isArray(payload.code_dirty_files)
         ? payload.code_dirty_files
         : (payload.dirty_files || []).filter((item) => item !== snapshotPath);
-    const snapshotPresent = Boolean(payload.feedback_snapshot_present);
-    const snapshotValid = Boolean(payload.feedback_snapshot_valid);
-    const snapshotRecords = Number(payload.feedback_snapshot_records || 0);
-    const invalidSnapshotRecords = Number(payload.feedback_snapshot_invalid_records || 0);
+    const snapshotPresent = safeBooleanFlag(payload.feedback_snapshot_present);
+    const snapshotValid = safeBooleanFlag(payload.feedback_snapshot_valid);
+    const snapshotRecords = safeNonNegativeCount(payload.feedback_snapshot_records);
+    const invalidSnapshotRecords = safeNonNegativeCount(payload.feedback_snapshot_invalid_records);
     const snapshotLabel = snapshotPresent
         ? (snapshotValid
             ? `${snapshotRecords} decisão(ões) no snapshot`
@@ -2412,6 +2414,7 @@ async function pollEditorialContextJob(jobId, button, status, requestToken, sour
             const artifact = Array.isArray(job.artifacts) ? job.artifacts.find(item => item?.type === "editorial_context") : null;
             state.editorialContext = artifact?.context || null;
             state.contextAnalysisSourcePath = sourcePath;
+            state.contextAnalysisJobId = "";
             renderEditorialContextPreview(state.editorialContext || {});
             if (status) status.textContent = "Contexto pronto. O próximo corte poderá usar esta leitura como referência.";
             return;
@@ -2470,13 +2473,16 @@ document.getElementById("btnAnalyzeEditorialContext")?.addEventListener("click",
         addConsoleLog("[Contexto] Dossiê integral concluído e exibido no painel.", "success");
         showToast("Contexto analisado antes do corte.", "success");
     } catch (error) {
-        if (error?.name === "AbortError" || controller.signal.aborted || requestToken !== state.contextAnalysisToken) return;
+        const isCurrentRequest = requestToken === state.contextAnalysisToken;
+        if (isCurrentRequest) state.contextAnalysisJobId = "";
+        if (error?.name === "AbortError" || controller.signal.aborted || !isCurrentRequest) return;
         if (status) status.textContent = error.message;
         addConsoleLog(`[Contexto] ${error.message}`, "error");
         showToast(error.message, "error");
     } finally {
         if (requestToken === state.contextAnalysisToken) {
             state.contextAnalysisController = null;
+            state.contextAnalysisJobId = "";
             button.disabled = false;
             button.classList.remove("loading");
         }
@@ -2705,11 +2711,11 @@ function clipsForReviewQueue() {
 
 function layoutMetaForClip(clip) {
     const framing = clip.framing || {};
-    const framingReviewRequired = Boolean(
-        framing.review_required
-        || clip.framing_review_required
-        || clip.review_flags?.framing_review_required
-    );
+    const framingReviewRequired = [
+        framing.review_required,
+        clip.framing_review_required,
+        clip.review_flags?.framing_review_required,
+    ].some((value) => safeBooleanFlag(value));
     if (framing.mode === "reframe_9_16") {
         return framingReviewRequired
             ? { icon: "visibility", label: "Reframe 9:16 planejado · revisar", hint: framing.reason || "reenquadramento depende de confirmação visual" }
@@ -2733,8 +2739,9 @@ function renderResultsGrid() {
 
     if (searchBar) searchBar.style.display = "flex";
 
-    const avgScore = allClips.length ? allClips.reduce((a, c) => a + (c.viral_score || 0), 0) / allClips.length : 0;
-    const highScoreCount = allClips.filter(c => c.viral_score >= 70).length;
+    const finiteScores = allClips.map((clip) => Number(clip.viral_score)).filter((score) => Number.isFinite(score));
+    const avgScore = finiteScores.length ? finiteScores.reduce((total, score) => total + score, 0) / finiteScores.length : 0;
+    const highScoreCount = allClips.filter((clip) => Number.isFinite(Number(clip.viral_score)) && Number(clip.viral_score) >= 70).length;
     const sourceMap = { "gemini": "Gemini", "llm": "Ollama", "nlp": "NLP" };
     const source = allClips.length > 0 ? (sourceMap[allClips[0].source] || "NLP") : "NLP";
     const sourceIdentity = state.resultSourceIdentity ? ` | Fonte: ${state.resultSourceIdentity}` : "";
@@ -2745,7 +2752,9 @@ function renderResultsGrid() {
     sorted.forEach((clip, i) => {
         const originalIndex = state.clips.indexOf(clip);
         const rank = clip.rank || (i + 1);
-        const scoreClass = clip.viral_score >= 70 ? "high" : clip.viral_score >= 40 ? "medium" : "low";
+        const clipScore = Number(clip.viral_score);
+        const displayScore = Number.isFinite(clipScore) ? clipScore : 0;
+        const scoreClass = displayScore >= 70 ? "high" : displayScore >= 40 ? "medium" : "low";
         const seo = clip.seo || {};
         const titles = seo.titles || [];
         const tags = seo.tags || [];
@@ -2760,15 +2769,15 @@ function renderResultsGrid() {
         const contextRecovery = (clip.context_recovery && typeof clip.context_recovery === "object")
             ? clip.context_recovery
             : (reviewFlags.context_recovery && typeof reviewFlags.context_recovery === "object" ? reviewFlags.context_recovery : {});
-        const contextRecoveryApplied = Boolean(contextRecovery.applied || reviewFlags.context_recovery_applied);
+        const contextRecoveryApplied = [contextRecovery.applied, reviewFlags.context_recovery_applied].some((value) => safeBooleanFlag(value));
         const contextRecoveryLabel = String(contextRecovery.reason || (contextRecoveryApplied ? "antecedente recuperado antes do início" : "")).trim();
-        const contextReferenceFlag = Boolean(clip.starts_with_context_reference || reviewFlags.starts_with_context_reference);
-        const weakPayoffFlag = Boolean(clip.payoff_weak_ending || reviewFlags.payoff_weak_ending);
+        const contextReferenceFlag = [clip.starts_with_context_reference, reviewFlags.starts_with_context_reference].some((value) => safeBooleanFlag(value));
+        const weakPayoffFlag = [clip.payoff_weak_ending, reviewFlags.payoff_weak_ending].some((value) => safeBooleanFlag(value));
         const closureType = String(clip.closure_type || "");
         const closureLabels = { conclusion: "conclusão", closed_statement: "frase fechada", cliffhanger: "continuidade", open: "fecho a revisar" };
         const speakerLabel = String(clip.speaker || clip.speaker_role || "").trim();
         const speakerConfidence = Number(clip.speaker_confidence);
-        const overlapSuspected = Boolean(clip.overlap_suspected || clip.speaker_overlap);
+        const overlapSuspected = [clip.overlap_suspected, clip.speaker_overlap, reviewFlags.overlap_suspected].some((value) => safeBooleanFlag(value));
         const visualFormat = String(clip.visual_format || clip.format_family || "").trim();
         const visualFormatConfidence = Number(clip.visual_format_confidence);
         const framing = clip.framing || {};
@@ -2808,24 +2817,36 @@ function renderResultsGrid() {
             visual_meme: "meme / arte composta",
             desconhecido: "formato a revisar",
         };
-        const preserveComposition = Boolean(clip.preserve_composition || reviewFlags.preserve_composition || clip.reframe_policy === "preservar_composicao");
-        const needsFactReview = Boolean(reviewFlags.needs_fact_review || reviewFlags.needsFactReview);
-        const needsLegalReview = Boolean(reviewFlags.needs_legal_review || reviewFlags.needsLegalReview);
+        const preserveComposition = [clip.preserve_composition, reviewFlags.preserve_composition].some((value) => safeBooleanFlag(value))
+            || clip.reframe_policy === "preservar_composicao";
+        const needsFactReview = [reviewFlags.needs_fact_review, reviewFlags.needsFactReview].some((value) => safeBooleanFlag(value));
+        const needsLegalReview = [reviewFlags.needs_legal_review, reviewFlags.needsLegalReview].some((value) => safeBooleanFlag(value));
         const primaryEntityRole = String(clip.primary_entity_role || reviewFlags.primary_entity_role || "").trim().toLowerCase();
-        const entityContextReviewRequired = Boolean(clip.entity_context_review_required || reviewFlags.entity_context_review_required);
+        const entityContextReviewRequired = [clip.entity_context_review_required, reviewFlags.entity_context_review_required].some((value) => safeBooleanFlag(value));
         const entityContextReviewHint = primaryEntityRole === "lateral"
             ? "A entidade aparece, mas a tese do trecho pode estar em outro assunto."
             : "Confirme se a entidade é alvo central ou apenas comparação no trecho.";
-        const chapterCount = Number(clip.chapter_count || reviewFlags.chapter_count || 0);
+        const chapterCount = safeNonNegativeCount(clip.chapter_count, reviewFlags.chapter_count);
         const chapterScore = Number(clip.chapter_coherence_score ?? reviewFlags.chapter_coherence_score);
-        const chapterBridge = Boolean(clip.qa_bridge || reviewFlags.qa_bridge);
+        const chapterBridge = [clip.qa_bridge, reviewFlags.qa_bridge].some((value) => safeBooleanFlag(value));
         const qaBoundaryBasis = String(clip.qa_boundary_basis || reviewFlags.qa_boundary_basis || "").trim();
-        const qaBoundaryReviewRequired = Boolean(clip.qa_boundary_review_required || reviewFlags.qa_boundary_review_required);
-        const speakerReviewRequired = Boolean(
-            clip.speaker_review_required
-            || reviewFlags.speaker_review_required
-            || (clip.qa_boundary_review_required && clip.question_detected)
-        );
+        const qaBoundaryReviewRequired = [clip.qa_boundary_review_required, reviewFlags.qa_boundary_review_required].some((value) => safeBooleanFlag(value));
+        const speakerReviewRequired = safeBooleanFlag(clip.speaker_review_required)
+            || safeBooleanFlag(reviewFlags.speaker_review_required)
+            || (safeBooleanFlag(clip.qa_boundary_review_required) && safeBooleanFlag(clip.question_detected));
+        const topicReviewRequired = [
+            clip.topic_review_required,
+            reviewFlags.topic_review_required,
+            clip.topic_boundary,
+            clip.topic_change_detected,
+            reviewFlags.topic_boundary,
+            reviewFlags.topic_change_detected,
+        ].some((value) => safeBooleanFlag(value));
+        const topicReviewReason = String(
+            clip.topic_review_reason
+            || reviewFlags.topic_review_reason
+            || "mudança de tópico detectada; confirme a continuidade do assunto"
+        ).trim();
         const speakerReviewReason = String(
             clip.speaker_review_reason
             || reviewFlags.speaker_review_reason
@@ -2838,13 +2859,16 @@ function renderResultsGrid() {
             sem_diarizacao: "sem diarização confiável",
         };
         const qaBoundaryLabel = qaBoundaryLabels[qaBoundaryBasis] || qaBoundaryBasis.replaceAll("_", " ");
-        const durationSeconds = Number(clip.duration || ((clip.end || 0) - (clip.start || 0)) || 0);
+        const rawDurationSeconds = Number(clip.duration || ((clip.end || 0) - (clip.start || 0)) || 0);
+        const durationSeconds = Number.isFinite(rawDurationSeconds) && rawDurationSeconds >= 0 ? rawDurationSeconds : 0;
+        const displayDurationSeconds = durationSeconds;
         const durationFit = Number(clip.duration_fit ?? factors.duration_fit);
         const durationPreference = clip.duration_preference || {};
         const durationStatus = String(durationPreference.status || reviewFlags.duration_preference || (
             durationSeconds <= 180 ? "curto_preferencial" : "longo_para_revisao"
         ));
-        const durationException = Boolean(durationPreference.exception || reviewFlags.duration_exception || durationStatus === "excecao_contextual");
+        const durationException = [durationPreference.exception, reviewFlags.duration_exception].some((value) => safeBooleanFlag(value))
+            || durationStatus === "excecao_contextual";
         const durationPolicyMeta = {
             curto_preferencial: {
                 label: "Corte curto por preferência",
@@ -2872,18 +2896,24 @@ function renderResultsGrid() {
             ? contextualHook.payoff_signals.map((signal) => String(signal || "").trim()).filter(Boolean).slice(0, 3)
             : [];
         const contextualHookAvailable = Boolean(contextualHook.hook_text || contextualHook.family);
-        const contextualHookReview = Boolean(clip.hook_review_required || reviewFlags.hook_review_required || reviewFlags.visual_evidence_review_required);
+        const contextualHookScoreValue = Number(contextualHook.score);
+        const contextualHookScoreLabel = Number.isFinite(contextualHookScoreValue)
+            ? `${Math.max(0, Math.min(100, contextualHookScoreValue)).toFixed(1)}/100`
+            : "score não validado";
+        const contextualPayoffConfirmed = safeBooleanFlag(contextualHook.payoff_confirmed);
+        const contextualHookReview = [clip.hook_review_required, reviewFlags.hook_review_required, reviewFlags.visual_evidence_review_required].some((value) => safeBooleanFlag(value));
         const contextualHookReviewReasons = [];
         if (contextualHookReview) {
             if (speakerReviewRequired || clip.speaker_turn_valid == null) contextualHookReviewReasons.push("locutor não diarizado");
             if (contextualHook.audio_signal && contextualHook.audio_signal.available === false) contextualHookReviewReasons.push("áudio sem sinal contextual");
-            if (clip.overlap_suspected || reviewFlags.overlap_suspected) contextualHookReviewReasons.push("possível sobreposição");
+            if ([clip.overlap_suspected, reviewFlags.overlap_suspected].some((value) => safeBooleanFlag(value))) contextualHookReviewReasons.push("possível sobreposição");
             if (contextualHook.visual_evidence_required || contextualHook.visual_review_reason) contextualHookReviewReasons.push(String(contextualHook.visual_review_reason || "confirmar gráfico, pesquisa ou imagem mencionada"));
         }
         const contextualHookReviewHint = contextualHookReviewReasons.join(" · ") || "confirmar no vídeo";
         const transcriptionCoverageStatus = String(clip.transcription_coverage_status || reviewFlags.transcription_coverage_status || clip.review_provenance?.transcript_coverage_status || "").trim().toLowerCase();
         const transcriptionCoverageNeedsReview = ["partial", "mismatch_suspected", "empty", "unknown"].includes(transcriptionCoverageStatus);
-        const transcriptionReviewRequired = Boolean(clip.transcription_review_required || reviewFlags.transcription_review_required || transcriptionCoverageNeedsReview);
+        const transcriptionReviewRequired = [clip.transcription_review_required, reviewFlags.transcription_review_required].some((value) => safeBooleanFlag(value))
+            || transcriptionCoverageNeedsReview;
         const transcriptionReviewReasons = {
             partial: "cobertura parcial da transcrição; confirme o trecho no vídeo",
             mismatch_suspected: "a transcrição pode pertencer a outra fonte; confirme identidade e trecho no vídeo",
@@ -2891,17 +2921,20 @@ function renderResultsGrid() {
             unknown: "a cobertura temporal da transcrição não foi validada; confirme o trecho no vídeo",
         };
         const transcriptionReviewReason = String(clip.transcription_review_reason || reviewFlags.transcription_review_reason || transcriptionReviewReasons[transcriptionCoverageStatus] || "identidade temporal da transcrição não validada; confirme o trecho no vídeo").trim();
-        const campaignPriorAvailable = Boolean(campaignPrior.available || reviewFlags.campaign_hub_prior_available);
+        const campaignPriorAvailable = [campaignPrior.available, reviewFlags.campaign_hub_prior_available].some((value) => safeBooleanFlag(value));
         const campaignHookFamily = String(campaignPrior.hook_family || reviewFlags.campaign_hub_hook_family || "").trim();
-        const campaignSampleCount = Number(campaignPrior.sample_count || reviewFlags.campaign_hub_sample_count || 0);
+        const campaignSampleCount = safeNonNegativeCount(campaignPrior.sample_count, reviewFlags.campaign_hub_sample_count);
         const feedbackCalibration = clip.feedback_calibration || {};
         const feedbackDurationSignal = feedbackCalibration.duration_signal || {};
-        const feedbackCalibrationAvailable = Boolean(feedbackCalibration.eligible || reviewFlags.feedback_calibration_eligible);
-        const feedbackSampleSize = Number(feedbackCalibration.sample_size || reviewFlags.feedback_sample_size || 0);
+        const feedbackCalibrationAvailable = [feedbackCalibration.eligible, reviewFlags.feedback_calibration_eligible].some((value) => safeBooleanFlag(value));
+        const feedbackSampleSize = safeNonNegativeCount(feedbackCalibration.sample_size, reviewFlags.feedback_sample_size);
         const feedbackDurationGap = Number(feedbackDurationSignal.gap_seconds ?? reviewFlags.feedback_duration_gap_seconds ?? 0);
         const reviewStatus = reviewStatusOf(clip);
         const reviewMeta = reviewStatusMeta(reviewStatus);
-        const confidence = Math.round((clip.confidence || 0) * 100);
+        const rawConfidence = Number(clip.confidence);
+        const confidence = Number.isFinite(rawConfidence)
+            ? Math.round(Math.max(0, Math.min(1, rawConfidence)) * 100)
+            : 0;
         const clipSource = clip.source || "nlp";
         const sourceLabels = { "gemini": "Gemini Flash", "llm": "Ollama", "nlp": "NLP local" };
         const sourceLabel = sourceLabels[clipSource] || "NLP";
@@ -2960,13 +2993,14 @@ function renderResultsGrid() {
             ? `<section class="clip-quality-scorecard" aria-label="Scorecard de qualidade do corte">
                 <div class="clip-quality-scorecard-head"><span><span class="material-icons-round">analytics</span><b>Scorecard de qualidade</b></span><span class="clip-quality-status ${qualityStatus === "review_required" ? "review" : "candidate"}">${escapeHtml(qualityStatusLabel)}</span></div>
                 <div class="clip-quality-scorecard-grid">${qualityScorecardItems.map(([key, label, icon]) => {
-                    const value = Math.max(0, Math.min(100, Number(qualityScorecard[key] || 0)));
+                    const rawValue = Number(qualityScorecard[key]);
+                    const value = Number.isFinite(rawValue) ? Math.max(0, Math.min(100, rawValue)) : 0;
                     return `<div class="clip-quality-score"><span class="material-icons-round">${icon}</span><span class="clip-quality-score-label">${label}</span><strong>${Math.round(value)}</strong><div class="clip-quality-score-track"><i style="width:${value}%"></i></div></div>`;
                 }).join("")}</div>
                 <small>São dimensões independentes: um corte pode ter força editorial alta e ainda exigir revisão técnica ou de contexto.</small>
             </section>`
             : "";
-        const reviewBusy = Boolean(clip.review_busy);
+        const reviewBusy = safeBooleanFlag(clip.review_busy);
         const feedbackReasonOptions = [
             ["", "Motivo opcional"],
             ["excellent_context", "Contexto e payoff excelentes"],
@@ -3004,7 +3038,7 @@ function renderResultsGrid() {
                 <div class="result-rank">#${rank}</div>
                 <div class="viral-score-badge ${scoreClass}">
                     <span class="material-icons-round">trending_up</span>
-                    <span class="score-value">${clip.viral_score || 0}</span>
+                    <span class="score-value">${displayScore}</span>
                     <span class="score-label">/100</span>
                 </div>
                 ${clip.has_hook ? '<span class="hook-badge"><span class="material-icons-round" style="font-size:12px">flash_on</span> Gancho</span>' : ''}
@@ -3035,12 +3069,13 @@ function renderResultsGrid() {
                 ${campaignPriorAvailable ? `<div class="clip-performance-prior"><span class="material-icons-round">insights</span><span><b>Histórico observado:</b> hook ${escapeHtml(campaignHookFamily || 'não classificado')} · amostra ${Math.max(0, campaignSampleCount)} · influência limitada ao ranking</span></div>` : ''}
                 ${transcriptionReviewRequired ? `<div class="clip-review-risk"><span class="material-icons-round">history_edu</span><span><b>Transcrição para revisão:</b> ${escapeHtml(transcriptionReviewReason)}${transcriptionCoverageStatus ? ` · status ${escapeHtml(transcriptionCoverageStatus)}` : ''}</span></div>` : ''}
                 ${provenanceMarkup}
-                ${contextualHookAvailable ? `<div class="clip-hook-provenance ${contextualHookReview ? 'review' : ''}"><span class="material-icons-round">bolt</span><span><b>Hook contextual:</b> ${escapeHtml(String(contextualHook.family || 'não classificado'))} · ${Number(contextualHook.score || 0).toFixed(1)}/100${contextualHook.payoff_confirmed ? ' · payoff próximo' : ' · payoff a confirmar'}${contextualHookReview ? ` · ${escapeHtml(contextualHookReviewHint)}` : ''}<br><q>${escapeHtml(String(contextualHook.hook_text || ''))}</q>${contextualPayoffSignals.length ? `<small class="clip-hook-payoff-signals">Evidência: ${escapeHtml(contextualPayoffSignals.join(' · '))}</small>` : ''}</span></div>` : ''}
+                ${contextualHookAvailable ? `<div class="clip-hook-provenance ${contextualHookReview ? 'review' : ''}"><span class="material-icons-round">bolt</span><span><b>Hook contextual:</b> ${escapeHtml(String(contextualHook.family || 'não classificado'))} · ${contextualHookScoreLabel}${contextualPayoffConfirmed ? ' · payoff próximo' : ' · payoff a confirmar'}${contextualHookReview ? ` · ${escapeHtml(contextualHookReviewHint)}` : ''}<br><q>${escapeHtml(String(contextualHook.hook_text || ''))}</q>${contextualPayoffSignals.length ? `<small class="clip-hook-payoff-signals">Evidência: ${escapeHtml(contextualPayoffSignals.join(' · '))}</small>` : ''}</span></div>` : ''}
                 ${contextRecoveryApplied ? `<div class="clip-review-risk"><span class="material-icons-round">history</span><span><b>Abertura ampliada para contexto:</b> ${escapeHtml(contextRecoveryLabel)}${Number.isFinite(Number(contextRecovery.original_start)) && Number.isFinite(Number(contextRecovery.added_start)) ? ` · início recuperado de ${formatTime(contextRecovery.original_start)} para ${formatTime(contextRecovery.added_start)}` : ''}${Number.isFinite(Number(contextRecovery.gap_seconds)) ? ` · pausa ${Number(contextRecovery.gap_seconds).toFixed(1)}s` : ''} · confirme se o antecedente realmente explica o hook.</span></div>` : ''}
                 ${feedbackCalibrationAvailable ? `<div class="clip-feedback-prior"><span class="material-icons-round">tune</span><span><b>Feedback editorial aplicado:</b> ${Math.max(0, feedbackSampleSize)} decisões finais${Math.abs(feedbackDurationGap) >= 0.1 ? ` · aprovados ${feedbackDurationGap > 0 ? 'tendem a ser mais curtos' : 'tiveram duração média maior'} em ${Math.abs(feedbackDurationGap).toFixed(1)}s` : ''} · influência limitada</span></div>` : ''}
                 ${(needsFactReview || needsLegalReview) ? `<div class="clip-review-risk ${needsLegalReview ? 'legal' : ''}"><span class="material-icons-round">${needsLegalReview ? 'gavel' : 'fact_check'}</span> ${needsLegalReview ? 'Revisão factual e jurídica' : 'Revisão factual recomendada'}</div>` : ''}
                 ${entityContextReviewRequired ? `<div class="clip-review-risk"><span class="material-icons-round">manage_search</span><span><b>Entidade para confirmar:</b> ${escapeHtml(entityContextReviewHint)} O nome não é usado sozinho para classificar o tema.</span></div>` : ''}
                 ${speakerReviewRequired ? `<div class="clip-review-risk"><span class="material-icons-round">record_voice_over</span><span><b>Locutor/ponte para confirmar:</b> ${escapeHtml(speakerReviewReason)}</span></div>` : ''}
+                ${topicReviewRequired ? `<div class="clip-review-risk"><span class="material-icons-round">account_tree</span><span><b>Continuidade do tópico para confirmar:</b> ${escapeHtml(topicReviewReason)}</span></div>` : ''}
                 ${topicSignature ? `<div class="clip-topic-chip" title="Sinal lexical usado somente para diversificar o portfólio">Tema: ${escapeHtml(topicSignature.replace(':', ' · ').replaceAll('-', ', '))}</div>` : ''}
                 ${durationStatus ? `<div class="clip-duration-policy ${durationMeta.className}" title="${escapeHtml(String(durationPreference.reason || durationMeta.hint))}"><span class="material-icons-round">${durationMeta.icon}</span><span><b>${escapeHtml(durationMeta.label)}</b>${Number.isFinite(durationFit) ? ` · brevidade ${Math.round(Math.max(0, Math.min(100, durationFit)))}%` : ''}${durationException ? ' · contexto excepcional preservado' : ''}</span></div>` : ''}
                 ${closureType ? `<div class="clip-closure-chip ${escapeHtml(closureType)}"><span class="material-icons-round">${closureType === 'conclusion' ? 'task_alt' : closureType === 'cliffhanger' ? 'hourglass_top' : 'subtitles'}</span> ${escapeHtml(closureLabels[closureType] || closureType)}</div>` : ''}
@@ -3050,7 +3085,7 @@ function renderResultsGrid() {
                 ${diversityPenalty >= 20 ? `<div class="clip-diversity-note"><span class="material-icons-round">filter_list</span> Similaridade com outro corte: ${diversityPenalty}%${diversityReason ? ` · ${escapeHtml(diversityReason)}` : ''}</div>` : ''}
                 <div class="result-duration">
                     <span class="material-icons-round" style="font-size:14px">schedule</span>
-                    ${formatTime(clip.start)} - ${formatTime(clip.end)} (${Number(clip.duration || 0).toFixed(1)}s)
+                    ${formatTime(clip.start)} - ${formatTime(clip.end)} (${displayDurationSeconds.toFixed(1)}s)
                 </div>
                 ${qualityScorecardMarkup}
                 ${(editorialBlock.thesis || editorialBlock.context_summary || blockTags.length) ? `<div class="editorial-block-dossier">
@@ -3194,8 +3229,9 @@ async function previewClipBoundary(index) {
         if (feedback) feedback.textContent = "Informe entrada e saída válidas.";
         return;
     }
-    const sourceDuration = Number(clip.source_duration ?? clip.video_duration ?? clip.duration);
-    if (Number.isFinite(sourceDuration) && sourceDuration > 0 && (start < 0 || end > sourceDuration)) {
+    const rawSourceDuration = Number(clip.source_duration ?? clip.video_duration ?? clip.duration);
+    const sourceDuration = Number.isFinite(rawSourceDuration) && rawSourceDuration > 0 ? rawSourceDuration : null;
+    if (sourceDuration !== null && (start < 0 || end > sourceDuration)) {
         if (feedback) feedback.textContent = `Os limites precisam ficar entre 0:00 e ${formatTime(sourceDuration)}.`;
         return;
     }
@@ -3212,7 +3248,7 @@ async function previewClipBoundary(index) {
                 clip,
                 start,
                 end,
-                duration: clip.source_duration || clip.video_duration || null,
+                duration: sourceDuration,
                 transcript_segments: clip.transcript_segments || clip.segments || [],
             }),
         });
@@ -3236,7 +3272,7 @@ async function previewClipBoundary(index) {
         const removedAfter = Math.max(0, Number(originalBounds.end || 0) - Number(data.clip.end || 0));
         const removalSummary = `Removeu ${removedBefore.toFixed(1)}s antes e ${removedAfter.toFixed(1)}s depois`;
         const boundary = data.clip.boundary_adjustment || {};
-        const snapped = Boolean(boundary.snapped_start || boundary.snapped_end);
+        const snapped = [boundary.snapped_start, boundary.snapped_end].some((value) => safeBooleanFlag(value));
         const boundarySummary = snapped
             ? "Os limites foram aproximados aos blocos da transcrição para evitar cortar uma fala."
             : "Os limites permaneceram exatamente como informados manualmente.";
@@ -3260,7 +3296,9 @@ async function persistClipBoundary(index) {
         ...(clip.latest_adjustment || {
             start: Number(clip.start),
             end: Number(clip.end),
-            duration: Number(clip.duration),
+            duration: Number.isFinite(Number(clip.duration))
+                ? Number(clip.duration)
+                : Math.max(0, Number(clip.end) - Number(clip.start)),
         }),
         boundary_adjustment: {
             ...(clip.latest_adjustment?.boundary_adjustment || clip.boundary_adjustment || {}),
@@ -3341,7 +3379,7 @@ function openContextReview(index) {
     const contextRecovery = (clip.context_recovery && typeof clip.context_recovery === "object")
         ? clip.context_recovery
         : (reviewFlags.context_recovery && typeof reviewFlags.context_recovery === "object" ? reviewFlags.context_recovery : {});
-    const contextRecoveryApplied = Boolean(contextRecovery.applied || reviewFlags.context_recovery_applied);
+    const contextRecoveryApplied = [contextRecovery.applied, reviewFlags.context_recovery_applied].some((value) => safeBooleanFlag(value));
     const recoveryTiming = Number.isFinite(Number(contextRecovery.original_start)) && Number.isFinite(Number(contextRecovery.added_start))
         ? ` · início recuperado de ${formatTime(contextRecovery.original_start)} para ${formatTime(contextRecovery.added_start)}`
         : "";
@@ -3363,6 +3401,7 @@ function closeContextReview() {
 async function setClipReview(index, action) {
     const clip = state.clips[index];
     if (!clip || clip.review_busy) return;
+    const rawConfidence = Number(clip.confidence);
     clip.review_busy = true;
     const previousStatus = reviewStatusOf(clip);
     const previousUpdatedAt = clip.review_updated_at;
@@ -3385,7 +3424,7 @@ async function setClipReview(index, action) {
             const reviewMetadata = {
                 candidate_origin: String(clip.candidate_origin || ""),
                 selection_source: String(clip.selection_source || state.selectionSource || ""),
-                confidence: Number(clip.confidence || 0),
+                confidence: Number.isFinite(rawConfidence) ? Math.max(0, Math.min(1, rawConfidence)) : 0,
             };
             const feedbackAdjustments = { _review_metadata: reviewMetadata };
             const response = await fetch(`/api/clips/${clip.clip_id}/feedback`, {
@@ -3463,21 +3502,21 @@ function updateResultsModeBadge(source) {
 function renderCandidateVolumeNotice(diagnostics = {}) {
     const notice = document.getElementById("candidateVolumeNotice");
     if (!notice) return;
-    const expected = Number(diagnostics.expected_count || 0);
-    const primary = Number(diagnostics.primary_count || 0);
-    const fallback = Number(diagnostics.fallback_count || 0);
-    const discarded = Number(diagnostics.fallback_discarded_count || 0);
-    const discardedOverlap = Number(diagnostics.fallback_discarded_overlap || 0);
-    const discardedSimilarity = Number(diagnostics.fallback_discarded_similarity || 0);
-    const previousDiscarded = Number(diagnostics.previous_discarded_count || 0);
-    const previousApproved = Number(diagnostics.previous_discarded_approved || 0);
-    const previousRejected = Number(diagnostics.previous_discarded_rejected || 0);
+    const expected = safeNonNegativeCount(diagnostics.expected_count);
+    const primary = safeNonNegativeCount(diagnostics.primary_count);
+    const fallback = safeNonNegativeCount(diagnostics.fallback_count);
+    const discarded = safeNonNegativeCount(diagnostics.fallback_discarded_count);
+    const discardedOverlap = safeNonNegativeCount(diagnostics.fallback_discarded_overlap);
+    const discardedSimilarity = safeNonNegativeCount(diagnostics.fallback_discarded_similarity);
+    const previousDiscarded = safeNonNegativeCount(diagnostics.previous_discarded_count);
+    const previousApproved = safeNonNegativeCount(diagnostics.previous_discarded_approved);
+    const previousRejected = safeNonNegativeCount(diagnostics.previous_discarded_rejected);
     const previousNote = previousDiscarded > 0
         ? ` ${previousDiscarded} intervalo(s) já gerado(s) foram evitados${previousApproved || previousRejected ? ` (${previousApproved} aprovado(s) e ${previousRejected} rejeitado(s) no histórico)` : ''}; novas partes permaneceram elegíveis.`
         : '';
-    const finalCount = Number(diagnostics.final_count || 0);
-    const renderableCount = Number(diagnostics.renderable_candidate_count ?? finalCount);
-    const deferredByGate = Number(diagnostics.editorial_gate_deferred_count || 0);
+    const finalCount = safeNonNegativeCount(diagnostics.final_count);
+    const renderableCount = safeNonNegativeCount(diagnostics.renderable_candidate_count, finalCount);
+    const deferredByGate = safeNonNegativeCount(diagnostics.editorial_gate_deferred_count);
     const diagnosticReason = String(diagnostics.reason || "").trim().toLowerCase();
     const reasonLabels = {
         no_candidates: "A fonte não entregou candidatos autossuficientes para revisar.",
@@ -3497,7 +3536,7 @@ function renderCandidateVolumeNotice(diagnostics = {}) {
     notice.className = "candidate-volume-notice";
     if (diagnosticReason === "render_failed_after_selection" || diagnosticReason === "partial_render_failure") {
         notice.classList.add("warning");
-        const rejected = Number(diagnostics.render_rejection_count || 0);
+        const rejected = safeNonNegativeCount(diagnostics.render_rejection_count);
         notice.innerHTML = `<span class="material-icons-round">build_circle</span><span>${escapeHtml(diagnosticReasonLabel)} ${rejected ? `${rejected} ocorrência(s) foram registradas no job.` : "Consulte o console para a causa."}</span>`;
         return;
     }
@@ -3725,13 +3764,15 @@ function renderTranscriptArchiveList(items = [], persistentDir = "") {
             needs_attention: "estrutura requer atenção",
         };
         const qualityLabel = qualityLabels[String(quality.quality || "")] || "qualidade estrutural não validada";
-        const scoreLabel = quality.score !== undefined ? `${Number(quality.score).toFixed(0)}/100` : "sem score";
-        const semanticLabel = quality.semantic_accuracy_verified ? "semântica validada" : "semântica não validada";
+        const scoreValue = Number(quality.score);
+        const scoreLabel = Number.isFinite(scoreValue) ? `${scoreValue.toFixed(0)}/100` : "sem score";
+        const semanticVerified = safeBooleanFlag(quality.semantic_accuracy_verified);
+        const semanticLabel = semanticVerified ? "semântica validada" : "semântica não validada";
         const source = String(item.source || "automatic").replace(/_/g, " ");
         const compatibility = transcriptArchiveCompatibility(item);
         const coverageLabel = transcriptArchiveCoverage(item);
-        const archiveClass = quality.quality === "structurally_ok" && quality.semantic_accuracy_verified ? "" : " warning";
-        return `<article class="transcript-archive-item${archiveClass}"><div><strong>${escapeHtml(sourceVideo)}</strong><small>${escapeHtml(source)} · ${escapeHtml(scoreLabel)} · ${escapeHtml(qualityLabel)} · ${escapeHtml(semanticLabel)} · ${Number(quality.valid_segment_count || 0)} segmentos válidos</small><small class="transcript-archive-coverage">${escapeHtml(coverageLabel)}</small><small class="transcript-archive-compatibility">${escapeHtml(compatibility)}</small></div><div class="transcript-archive-links"><a class="btn btn-sm btn-outline" href="${escapeHtml(item.download_text || "#")}" target="_blank" rel="noopener">TXT</a><a class="btn btn-sm btn-outline" href="${escapeHtml(item.download_json || "#")}" target="_blank" rel="noopener">JSON</a><button type="button" class="btn btn-sm btn-outline" data-open-transcript-folder="${escapeHtml(item.relative_dir || "")}">Pasta</button></div></article>`;
+        const archiveClass = quality.quality === "structurally_ok" && semanticVerified ? "" : " warning";
+        return `<article class="transcript-archive-item${archiveClass}"><div><strong>${escapeHtml(sourceVideo)}</strong><small>${escapeHtml(source)} · ${escapeHtml(scoreLabel)} · ${escapeHtml(qualityLabel)} · ${escapeHtml(semanticLabel)} · ${safeNonNegativeCount(quality.valid_segment_count)} segmentos válidos</small><small class="transcript-archive-coverage">${escapeHtml(coverageLabel)}</small><small class="transcript-archive-compatibility">${escapeHtml(compatibility)}</small></div><div class="transcript-archive-links"><a class="btn btn-sm btn-outline" href="${escapeHtml(item.download_text || "#")}" target="_blank" rel="noopener">TXT</a><a class="btn btn-sm btn-outline" href="${escapeHtml(item.download_json || "#")}" target="_blank" rel="noopener">JSON</a><button type="button" class="btn btn-sm btn-outline" data-open-transcript-folder="${escapeHtml(item.relative_dir || "")}">Pasta</button></div></article>`;
     }).join("");
 }
 
@@ -3798,10 +3839,29 @@ function showSourceStatus(message, type = "") {
     });
 }
 
+function safeNonNegativeCount(...values) {
+    for (const value of values) {
+        const parsed = Number(value);
+        if (Number.isFinite(parsed) && parsed >= 0) return Math.floor(parsed);
+    }
+    return 0;
+}
+
+function safeBooleanFlag(value, fallback = false) {
+    if (typeof value === "boolean") return value;
+    if (typeof value === "number" && Number.isFinite(value)) return value !== 0;
+    if (value == null) return Boolean(fallback);
+    const normalized = String(value).trim().toLowerCase();
+    if (!normalized) return Boolean(fallback);
+    if (["0", "false", "no", "não", "nao", "off", "disabled"].includes(normalized)) return false;
+    if (["1", "true", "yes", "sim", "on", "enabled"].includes(normalized)) return true;
+    return Boolean(fallback);
+}
+
 function transcriptCoverageLabel(transcription) {
-    const coverage = transcription?.coverage || {};
+    const coverage = transcription?.coverage || transcription?.transcription_quality || {};
     const status = String(coverage.status || "unknown");
-    const segments = Number(coverage.segment_count || transcription?.segment_count || transcription?.segments?.length || 0);
+    const segments = safeNonNegativeCount(coverage.segment_count, transcription?.segment_count, Array.isArray(transcription?.segments) ? transcription.segments.length : 0);
     const endRatio = Number(coverage.end_ratio);
     const firstRatio = Number(coverage.first_ratio);
     const first = Number(coverage.first_timestamp);
@@ -3817,7 +3877,10 @@ function transcriptCoverageLabel(transcription) {
         return `cobertura parcial até ${formatTime(last)} de ${formatTime(duration)}${lateStart}; cortes ficarão limitados a esse trecho`;
     }
     if (status === "covered" && Number.isFinite(endRatio) && endRatio > 0) {
-        return `${segments} segmentos com cobertura temporal até ${Math.round(endRatio * 100)}% do vídeo`;
+        const identityNote = coverage.semantic_identity_verified === false
+            ? "; identidade da transcrição ainda não validada"
+            : "";
+        return `${segments} segmentos com cobertura temporal até ${Math.round(endRatio * 100)}% do vídeo${identityNote}`;
     }
     return `${segments} segmentos timestampados; confira a sincronização no vídeo`;
 }
@@ -4516,7 +4579,7 @@ function applySettings() {
     const geminiStatus = document.getElementById("geminiKeyStatus");
     const geminiInput = document.getElementById("settingGeminiKey");
     if (geminiStatus) {
-        const configured = Boolean(s.gemini_api_key_configured || s.gemini_api_key);
+        const configured = safeBooleanFlag(s.gemini_api_key_configured) || Boolean(String(s.gemini_api_key || "").trim());
         geminiStatus.textContent = configured ? "Gemini configurado nesta instalação; o valor permanece oculto. Deixe o campo vazio para preservar." : "Gemini sem chave nesta instalação; o app usará legenda pública ou fallback local.";
         geminiStatus.className = `ai-key-status ${configured ? "configured" : "missing"}`;
         if (geminiInput) {
@@ -4625,7 +4688,7 @@ document.getElementById("btnSaveSettings").addEventListener("click", async () =>
         });
         if (res.ok) {
             showToast("Configuracoes salvas!", "success");
-            state.settings = { ...state.settings, ...settings, gemini_api_key_configured: Boolean(typedGeminiKey || state.settings.gemini_api_key_configured) };
+            state.settings = { ...state.settings, ...settings, gemini_api_key_configured: Boolean(String(typedGeminiKey || "").trim()) || safeBooleanFlag(state.settings.gemini_api_key_configured) };
             applySettings();
         }
     } catch (e) {

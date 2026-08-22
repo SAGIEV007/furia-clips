@@ -3,6 +3,7 @@ import os
 import re
 import unicodedata
 import subprocess
+import math
 from config import EXPORT_DIR
 from .media_validation import validate_media
 from .render_presets import get_preset, ffmpeg_video_filter
@@ -150,7 +151,16 @@ class VideoCutter:
         if emit_progress:
             emit_progress(f"Cortando clip {start_time:.1f}s - {end_time:.1f}s...")
 
+        try:
+            start_time = float(start_time)
+            end_time = float(end_time)
+        except (TypeError, ValueError):
+            start_time = end_time = float("nan")
         duration = end_time - start_time
+        if not all(math.isfinite(value) for value in (start_time, end_time, duration)) or duration <= 0:
+            if emit_progress:
+                emit_progress("[Render] Limites inválidos; clip ignorado.", "warning")
+            return None
 
         active_preset = preset or self.preset
         vf_str = ffmpeg_video_filter(active_preset, layout=video_layout or "center") if vertical else None
@@ -198,7 +208,16 @@ class VideoCutter:
         if emit_progress:
             emit_progress(f"Cortando clip com face tracking {start_time:.1f}s - {end_time:.1f}s...")
 
+        try:
+            start_time = float(start_time)
+            end_time = float(end_time)
+        except (TypeError, ValueError):
+            start_time = end_time = float("nan")
         duration = end_time - start_time
+        if not all(math.isfinite(value) for value in (start_time, end_time, duration)) or duration <= 0:
+            if emit_progress:
+                emit_progress("[Render] Limites inválidos para face tracking; clip ignorado.", "warning")
+            return None
 
         info = self.get_video_info(video_path)
         video_stream = next(
@@ -304,7 +323,7 @@ class VideoCutter:
             source_duration = float(source_duration) if source_duration is not None else None
         except (TypeError, ValueError):
             source_duration = None
-        if source_duration is not None and source_duration <= 0:
+        if source_duration is not None and (not math.isfinite(source_duration) or source_duration <= 0):
             source_duration = None
 
         for i, cut in enumerate(cuts):
@@ -328,7 +347,11 @@ class VideoCutter:
                 raw_end = float(cut["end"])
             except (KeyError, TypeError, ValueError):
                 raw_start = raw_end = 0.0
-            if raw_start < 0 or raw_end <= raw_start:
+            if (
+                not all(math.isfinite(value) for value in (raw_start, raw_end))
+                or raw_start < 0
+                or raw_end <= raw_start
+            ):
                 if emit_progress:
                     emit_progress(
                         f"[Render] Intervalo {rank} possui limites inválidos; ignorado.",

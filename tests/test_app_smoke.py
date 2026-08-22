@@ -57,6 +57,62 @@ class AppSmokeTests(unittest.TestCase):
 
         self.assertEqual(provenance["transcript_source"], "manual")
         self.assertEqual(provenance["transcript_coverage_status"], "covered")
+        self.assertFalse(provenance["transcript_semantic_identity_verified"])
+        self.assertIsNone(provenance["transcript_end_ratio"])
+
+    def test_review_provenance_coerces_legacy_identity_flag(self):
+        provenance = furia_app._review_provenance(
+            {
+                "source": "public_subtitle",
+                "coverage": {"status": "covered", "semantic_identity_verified": "false"},
+            },
+            {},
+            "local_dossier",
+        )
+
+        self.assertFalse(provenance["transcript_semantic_identity_verified"])
+
+
+    def test_review_provenance_exposes_bounded_temporal_coverage(self):
+        provenance = furia_app._review_provenance(
+            {
+                "source": "public_subtitle",
+                "coverage": {
+                    "status": "partial",
+                    "semantic_identity_verified": True,
+                    "end_ratio": 1.7,
+                },
+            },
+            {},
+            "local_dossier",
+        )
+
+        self.assertTrue(provenance["transcript_semantic_identity_verified"])
+        self.assertEqual(provenance["transcript_end_ratio"], 1.0)
+
+    def test_review_provenance_ignores_invalid_legacy_end_ratio(self):
+        provenance = furia_app._review_provenance(
+            {"source": "public_subtitle", "coverage": {"status": "partial", "end_ratio": "not-a-number"}},
+            {},
+            "local_dossier",
+        )
+
+        self.assertIsNone(provenance["transcript_end_ratio"])
+
+    def test_transcription_quality_exposes_reviewable_temporal_identity(self):
+        coverage = furia_app._transcription_coverage_report({"segments": [{"start": 10, "end": 20}]}, 100)
+
+        quality = {
+            "status": coverage["status"],
+            "end_ratio": coverage["end_ratio"],
+            "semantic_identity_verified": bool(coverage["semantic_identity_verified"]),
+            "review_required": coverage["status"] != "covered",
+        }
+
+        self.assertEqual(quality["status"], "partial")
+        self.assertEqual(quality["end_ratio"], 0.2)
+        self.assertFalse(quality["semantic_identity_verified"])
+        self.assertTrue(quality["review_required"])
 
     def test_empty_transcription_coverage_requires_review(self):
         coverage = furia_app._transcription_coverage_report({"segments": []}, 120)
@@ -186,6 +242,29 @@ class AppSmokeTests(unittest.TestCase):
         self.assertEqual(result[0]["visual_format"], "fake_tweet")
         self.assertTrue(result[0]["fake_tweet"])
         self.assertEqual(result[0]["visual_observation_confidence"], 0.9)
+
+    def test_multimodal_visual_flags_accept_schema_aliases_safely(self):
+        clips = [{"start": 0, "end": 20, "text": "fala"}]
+        result = furia_app._attach_multimodal_visual_observations(
+            clips,
+            {
+                "source_identity_status": "validated",
+                "source_identity_confidence": 0.9,
+                "visual_observations": [{
+                    "start": 0,
+                    "end": 20,
+                    "visual_format": "text_panel",
+                    "has_text_panel": "true",
+                    "fake_tweet": "false",
+                    "split_screen": "0",
+                    "confidence": "0.9",
+                }],
+            },
+        )
+        self.assertTrue(result[0]["text_panel"])
+        self.assertFalse(result[0]["fake_tweet"])
+        self.assertFalse(result[0]["split_screen"])
+
 
     def test_batch_rank_returns_quality_gated_portfolio(self):
         response = self.client.post(

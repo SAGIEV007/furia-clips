@@ -43,6 +43,32 @@ def test_feedback_reason_coverage_exposes_context_categories_without_reclassific
     assert "decisões sem motivo" in coverage["interpretation"]
 
 
+def test_ranker_ignores_text_false_feedback_eligibility():
+    ranker = EditorialRanker(
+        feedback_calibration={
+            "eligible": "false",
+            "factor_deltas": {"hook": 25},
+            "reason_coverage": {
+                "categories": {
+                    "context_payoff": {"approved": 8, "rejected": 2, "total": 10},
+                },
+            },
+        }
+    )
+
+    scored = ranker.score_clip({
+        "text": "A verdade é que isso precisa mudar agora. A conclusão é clara.",
+        "duration": 35,
+        "question_detected": True,
+        "context_complete": True,
+        "payoff_complete": True,
+    })
+
+    assert scored["feedback_calibration"]["eligible"] is False
+    assert scored["feedback_calibration"]["adjustment"] == 0.0
+    assert scored["factors"]["feedback_reason_alignment"] == 50.0
+
+
 def test_ranker_uses_reason_category_as_bounded_context_signal():
     calibration = {
         "eligible": True,

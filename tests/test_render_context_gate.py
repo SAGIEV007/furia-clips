@@ -28,6 +28,24 @@ def test_context_incomplete_candidate_is_deferred_before_rendering():
     assert deferred[0]["errors"] == [deferred[0]["reason"]]
 
 
+def test_text_false_context_contract_is_deferred_before_rendering():
+    renderable, deferred = _defer_context_incomplete_candidates([
+        {
+            "start": 10,
+            "end": 30,
+            "duration": 20,
+            "context_complete": "false",
+            "starts_mid_sentence": "false",
+            "starts_with_context_reference": "false",
+        },
+        {"start": 40, "end": 60, "duration": 20, "context_complete": "true"},
+    ])
+
+    assert [clip["start"] for clip in renderable] == [40]
+    assert [clip["start"] for clip in deferred] == [10]
+    assert deferred[0]["errors"] == ["contexto autossuficiente não confirmado"]
+
+
 def test_technical_review_candidate_is_deferred_before_rendering():
     renderable, deferred = _defer_context_incomplete_candidates([
         {

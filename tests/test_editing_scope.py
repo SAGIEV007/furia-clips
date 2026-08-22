@@ -52,6 +52,15 @@ def test_face_tracking_is_optional_and_guarded_before_detection():
     assert '"mode": "original"' in source
 
 
+def test_short_cut_pipeline_passes_visual_composition_to_layout_planner():
+    source = inspect.getsource(app_module.api_cut_shorts)
+
+    assert 'visual_format=clip.get("visual_format")' in source
+    assert 'text_panel=bool(clip.get("text_panel"))' in source
+    assert 'fake_tweet=bool(clip.get("fake_tweet") or clip.get("social_post"))' in source
+    assert 'external_evidence=bool(clip.get("external_evidence"))' in source
+
+
 def test_framing_requires_confidence_without_review_flag_before_crop():
     source = inspect.getsource(app_module.api_cut_shorts)
     complete_source = inspect.getsource(app_module.api_process_complete)
@@ -75,11 +84,45 @@ def test_complete_pipeline_terminal_events_keep_job_identity():
     assert '}, job_id=ctx.job_id)' in source
 
 
+def test_legacy_transcription_archives_manual_and_automatic_results():
+    source = inspect.getsource(app_module.api_transcribe)
+    assert "duration = _probe_video_duration_seconds(video_path)" in source
+    assert "_transcription_from_request(data, duration=duration)" in source
+    assert 'result["coverage"] = _transcription_coverage_report(result, duration)' in source
+    assert "transcript_archive = archive_transcription(" in source
+    assert 'result["archive"] = transcript_archive' in source
+    assert 'result["quality"] = transcript_archive.get("quality", {})' in source
+
+
 def test_complete_pipeline_reuses_shared_transcription_fallback_policy():
     source = inspect.getsource(app_module.api_process_complete)
     assert "_transcribe_video_automatically(" in source
     assert 'fallback_settings = {**settings, "transcription_source": "whisper"}' in source
     assert "cancel_check=ctx.check_cancel" in source
+
+
+def test_editorial_context_archives_transcription_for_later_review():
+    import inspect
+    import app as app_module
+
+    source = inspect.getsource(app_module.api_analyze_editorial_context)
+    assert "transcript_archive = archive_transcription(" in source
+    assert 'enriched["transcription_archive"]' in source
+    assert '"relative_dir": transcript_archive.get("relative_dir", "")' in source
+
+
+def test_prefetched_context_requires_matching_source_signature_when_present():
+    cut_source = inspect.getsource(app_module.api_cut_shorts)
+    complete_source = inspect.getsource(app_module.api_process_complete)
+
+    for source in (cut_source, complete_source):
+        assert "prefetched_context_signature" in source
+        assert "current_source_signature = get_source_signature(video_path)" in source
+        assert "prefetched_context_signature == current_source_signature" in source
+        assert "prefetched_signature_matches" in source
+
+    context_source = inspect.getsource(app_module.api_analyze_editorial_context)
+    assert 'enriched["source_signature"] = source_signature' in context_source
 
 
 def test_complete_pipeline_applies_context_gate_before_rendering():
@@ -119,6 +162,24 @@ def test_complete_pipeline_keeps_original_timeline_after_silence_artifact():
     assert "working_video = video_path" in source
     assert "a seleção continuará usando a timeline original." in source
     assert "without an explicit TimelineMap conversion." in source
+
+
+def test_project_transcript_reuse_requires_matching_source_identity():
+    import inspect
+    import app as app_module
+
+    source = inspect.getsource(app_module._project_matches_video)
+    assert "get_project(int(project_id))" in source
+    assert "os.path.realpath(stored_source) == os.path.realpath(video_path)" in source
+    assert "stored_signature and current_signature" in source
+
+
+def test_smart_cut_preserves_all_canonical_transcript_sources():
+    source = inspect.getsource(app_module.api_cut_shorts)
+    assert 'transcription_source_name = str(transcription.get("source") or "").strip().lower()' in source
+    assert 'transcription_source_name == "public_subtitles"' in source
+    assert 'transcription_source_name == "whisper"' in source
+    assert "Transcrição já disponível; o motor não será executado novamente." in source
 
 
 def test_smart_cut_uses_job_context_for_whisper_cancellation_and_transcript_provenance():

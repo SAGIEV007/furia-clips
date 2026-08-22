@@ -23,6 +23,51 @@ class ClipSelectionTests(unittest.TestCase):
         self.assertEqual(sentences[0]["text"], "A primeira ideia.")
         self.assertEqual(sentences[1]["start"], 3.2)
 
+    def test_selector_coerces_legacy_boolean_flags(self):
+        from modules.clip_selector import _coerce_flag
+
+        assert _coerce_flag("false") is False
+        assert _coerce_flag("true") is True
+        assert _coerce_flag("0") is False
+        assert _coerce_flag("1") is True
+
+    def test_previous_fingerprint_keeps_nearby_contextually_distinct_candidate(self):
+        self.selector._previous_clip_fingerprints = [{
+            "start": 0.0,
+            "end": 20.0,
+            "duration": 20.0,
+            "text": "A proposta precisa de uma resposta clara e responsável.",
+            "closure_type": "cliffhanger",
+            "question_answer_complete": "false",
+            "payoff_complete": "false",
+            "qa_bridge": "false",
+            "chapter_primary_id": 1,
+        }]
+        candidate = {
+            "start": 22.0,
+            "end": 42.0,
+            "duration": 20.0,
+            "text": "A proposta precisa de uma resposta clara e responsável.",
+            "closure_type": "conclusion",
+            "question_answer_complete": True,
+            "payoff_complete": True,
+            "qa_bridge": True,
+            "chapter_primary_id": 2,
+        }
+
+        assert self.selector._remove_previous_fingerprints([candidate]) == [candidate]
+
+    def test_remove_overlaps_tolerates_malformed_ranking_numbers(self):
+        clips = [
+            {"start": 0.0, "end": 10.0, "duration": "indisponível", "viral_score": "n/a", "confidence": ""},
+            {"start": 20.0, "end": 30.0, "duration": 10.0, "viral_score": 70, "confidence": 0.8},
+        ]
+
+        selected = self.selector._remove_overlaps(clips)
+
+        assert len(selected) == 2
+        assert {clip["start"] for clip in selected} == {0.0, 20.0}
+
     def test_remove_overlaps_keeps_non_duplicate_candidates(self):
         clips = [
             {"start": 0.0, "end": 10.0, "duration": 10.0, "viral_score": 90},
@@ -44,6 +89,54 @@ class ClipSelectionTests(unittest.TestCase):
         self.assertTrue(clips)
         self.assertTrue(all(clip["duration"] <= 30 for clip in clips))
 
+    def test_sentence_blocks_ignore_non_finite_timing_confidence(self):
+        segments = [
+            {"start": 0.0, "end": 2.0, "text": "Uma afirmação clara.", "timing_confidence": "nan"},
+            {"start": 2.1, "end": 4.0, "text": "Outra frase clara.", "timing_confidence": "inf"},
+        ]
+
+        sentences = self.selector._build_sentences(segments)
+        blocks = self.selector._build_transcript_blocks(sentences)
+
+        assert sentences
+        assert blocks
+        assert all(item["timing_confidence"] is None for item in sentences)
+        assert all(item["timing_confidence"] == 1.0 for item in blocks)
+
+    def test_payoff_extension_ignores_legacy_false_flags(self):
+        first = {
+            "start": 0.0,
+            "end": 4.0,
+            "duration": 4.0,
+            "text": "Isso aconteceu porque.",
+            "overlap_suspected": "false",
+            "timing_ambiguous": "false",
+            "topic_boundary": "false",
+            "speaker_turn_valid": "true",
+            "speaker_change_detected": "false",
+        }
+        second = {
+            "start": 4.2,
+            "end": 9.0,
+            "duration": 4.8,
+            "text": "A regra foi aplicada de forma objetiva.",
+            "overlap_suspected": "false",
+            "timing_ambiguous": "false",
+            "topic_boundary": "false",
+            "speaker_turn_valid": "true",
+            "speaker_change_detected": "false",
+        }
+
+        blocks, end_index = self.selector._extend_for_payoff(
+            [first],
+            0,
+            [(first, 80.0), (second, 70.0)],
+            set(),
+        )
+
+        assert end_index == 1
+        assert len(blocks) == 2
+
     def test_context_recovery_records_when_previous_block_is_prepended(self):
         scored_blocks = [
             ({"start": 0.0, "end": 4.0, "duration": 4.0, "text": "A decisão foi anunciada."}, 10.0),
@@ -58,6 +151,101 @@ class ClipSelectionTests(unittest.TestCase):
         assert recovery["added_start"] == 0.0
         assert recovery["original_start"] == 5.0
         assert "antecedente recuperado" in recovery["reason"]
+
+    def test_context_recovery_adds_question_before_clean_answer_opening(self):
+        scored_blocks = [
+            ({"start": 0.0, "end": 4.0, "duration": 4.0, "text": "Qual é a proposta?"}, 25.0),
+            ({"start": 4.2, "end": 12.0, "duration": 7.8, "text": "A proposta reduz impostos e protege o cidadão."}, 95.0),
+        ]
+
+        clips = self.selector._build_clips_from_scored_blocks(scored_blocks, context_data={})
+
+        assert clips
+        assert clips[0]["start"] == 0.0
+        assert "Qual é a proposta?" in clips[0]["text"]
+        assert clips[0]["context_recovery"]["applied"] is True
+        assert "pergunta e resposta" in clips[0]["context_recovery"]["reason"]
+
+    def test_context_recovery_accepts_single_text_speaker_label(self):
+        scored_blocks = [
+            ({"start": 0.0, "end": 4.0, "duration": 4.0, "text": "Qual é a proposta?", "speaker": "Entrevistador", "speakers": "Entrevistador"}, 20.0),
+            ({"start": 4.2, "end": 12.0, "duration": 7.8, "text": "A proposta protege o cidadão.", "speaker": "Renan", "speakers": "Renan"}, 95.0),
+        ]
+
+        clips = self.selector._build_clips_from_scored_blocks(scored_blocks, context_data={})
+
+        assert clips
+        assert clips[0]["start"] == 0.0
+        assert "Qual é a proposta?" in clips[0]["text"]
+        assert clips[0]["context_recovery"]["applied"] is True
+
+    def test_context_recovery_skips_multi_speaker_question(self):
+        scored_blocks = [
+            ({"start": 0.0, "end": 4.0, "duration": 4.0, "text": "Qual é a proposta?", "speaker_change_detected": True, "speakers": ["Entrevistador", "Renan"]}, 20.0),
+            ({"start": 4.2, "end": 12.0, "duration": 7.8, "text": "A proposta protege o cidadão."}, 95.0),
+        ]
+
+        clips = self.selector._build_clips_from_scored_blocks(scored_blocks, context_data={})
+
+        assert clips
+        assert clips[0]["start"] == 4.2
+        assert "Qual é a proposta?" not in clips[0]["text"]
+
+    def test_context_recovery_skips_ambiguous_answer(self):
+        scored_blocks = [
+            ({"start": 0.0, "end": 4.0, "duration": 4.0, "text": "Qual é a proposta?"}, 20.0),
+            ({"start": 4.2, "end": 12.0, "duration": 7.8, "text": "A proposta protege o cidadão.", "speaker_turn_valid": False}, 95.0),
+        ]
+
+        clips = self.selector._build_clips_from_scored_blocks(scored_blocks, context_data={})
+
+        assert clips
+        assert clips[0]["start"] == 4.2
+        assert "Qual é a proposta?" not in clips[0]["text"]
+
+    def test_context_recovery_skips_unsafe_overlapping_question(self):
+        scored_blocks = [
+            ({"start": 0.0, "end": 5.0, "duration": 5.0, "text": "Qual é a proposta?", "overlap_suspected": True}, 20.0),
+            ({"start": 4.6, "end": 12.0, "duration": 7.4, "text": "A proposta protege o cidadão."}, 95.0),
+        ]
+
+        clips = self.selector._build_clips_from_scored_blocks(scored_blocks, context_data={})
+
+        assert clips
+        assert clips[0]["start"] == 4.6
+        assert "Qual é a proposta?" not in clips[0]["text"]
+
+    def test_llm_parser_recovers_question_before_clean_answer_opening(self):
+        all_blocks = [
+            {"index": 0, "start": 0.0, "end": 4.0, "duration": 4.0, "text": "Qual é a proposta?"},
+            {"index": 1, "start": 4.2, "end": 12.0, "duration": 7.8, "text": "A proposta reduz impostos e protege o cidadão."},
+        ]
+        response = '[{"blocks": [1], "title": "A proposta", "reason": "resposta", "hook": "B", "flow": "B", "value": "B", "energy": "B"}]'
+
+        clips = self.selector._parse_llm_response(response, [], all_blocks, 0, source="gemini")
+
+        assert clips
+        assert clips[0]["start"] == 0.0
+        assert "Qual é a proposta?" in clips[0]["text"]
+        assert clips[0]["context_recovery"]["applied"] is True
+        assert "pergunta e resposta" in clips[0]["context_recovery"]["reason"]
+
+    def test_recovered_question_keeps_qa_candidate_until_its_completion(self):
+        scored_blocks = [
+            ({"start": 0.0, "end": 4.0, "duration": 4.0, "text": "Qual é a proposta?"}, 25.0),
+            ({"start": 4.2, "end": 12.0, "duration": 7.8, "text": "A proposta reduz impostos e protege o cidadão."}, 95.0),
+            ({"start": 12.2, "end": 18.0, "duration": 5.8, "text": "Isso gera economia e segurança."}, 70.0),
+            ({"start": 18.2, "end": 25.0, "duration": 6.8, "text": "Esse é o resultado final para a população."}, 65.0),
+        ]
+        context = {"qa_candidates": [{"start": 0.0, "end": 25.0, "needs_question": True}]}
+        selector = ClipSelector(target_duration=15, max_clips=5, min_duration=5, max_duration=30)
+
+        clips = selector._build_clips_from_scored_blocks(scored_blocks, context_data={}, editorial_context=context)
+
+        assert clips
+        assert clips[0]["start"] == 0.0
+        assert clips[0]["end"] == 25.0
+        assert clips[0]["qa_bridge"] is True
 
     def test_nlp_builder_preserves_full_qa_bridge_before_natural_stop(self):
         scored_blocks = [
@@ -94,6 +282,173 @@ class ClipSelectionTests(unittest.TestCase):
         self.assertIn("menor trecho autossuficiente", prompt)
         self.assertIn("180 segundos", prompt)
         self.assertNotIn("30 a 180 segundos por clip", prompt)
+
+    def test_nlp_builder_extends_open_payoff_to_adjacent_block(self):
+        scored_blocks = [
+            ({"start": 0.0, "end": 8.0, "duration": 8.0, "text": "A proposta resolve porque."}, 95.0),
+            ({"start": 8.2, "end": 15.0, "duration": 6.8, "text": "reduz custos e protege o cidadão."}, 70.0),
+        ]
+
+        selector = ClipSelector(target_duration=8, max_clips=5, min_duration=5, max_duration=30)
+        clips = selector._build_clips_from_scored_blocks(scored_blocks, context_data={})
+
+        assert clips
+        assert clips[0]["end"] == 15.0
+        assert "reduz custos" in clips[0]["text"]
+        assert clips[0]["payoff_complete"] is True
+
+    def test_editorial_flags_distinguish_questions_from_discourse_connectors(self):
+        assert self.selector._editorial_flags("Como combater o crime organizado de forma efetiva?")["question_detected"] is True
+        assert self.selector._editorial_flags("O que fazer diante desse problema")["question_detected"] is True
+        assert self.selector._editorial_flags("Como resultado, a proposta foi aprovada.")["question_detected"] is False
+        assert self.selector._editorial_flags("Por fim, a medida protege o cidadão.")["question_detected"] is False
+
+    def test_question_detector_distinguishes_explicit_question_labels(self):
+        assert self.selector._looks_like_explicit_question("Pergunta: qual é o próximo ponto") is True
+        assert self.selector._looks_like_explicit_question("A questão: como resolver isso") is True
+        assert self.selector._looks_like_explicit_question("A questão central é o custo da medida") is False
+        assert self.selector._looks_like_explicit_question("Será que essa proposta funciona") is True
+        assert self.selector._looks_like_explicit_question("Você acha que isso resolve o problema") is True
+        assert self.selector._looks_like_explicit_question("Como resultado, a proposta foi aprovada") is False
+        assert self.selector._looks_like_explicit_question("Por fim, a medida protege o cidadão") is False
+
+    def test_payoff_extension_stops_before_labeled_question(self):
+        scored_blocks = [
+            ({"start": 0.0, "end": 8.0, "duration": 8.0, "text": "A proposta resolve porque."}, 95.0),
+            ({"start": 8.2, "end": 15.0, "duration": 6.8, "text": "Pergunta: qual é o próximo ponto?"}, 70.0),
+        ]
+        selector = ClipSelector(target_duration=8, max_clips=5, min_duration=5, max_duration=30)
+
+        clips = selector._build_clips_from_scored_blocks(scored_blocks, context_data={})
+
+        assert clips
+        assert clips[0]["end"] == 8.0
+        assert "Pergunta:" not in clips[0]["text"]
+
+    def test_payoff_extension_does_not_cross_confirmed_speaker_change(self):
+        scored_blocks = [
+            ({"start": 0.0, "end": 8.0, "duration": 8.0, "text": "A proposta resolve porque.", "speaker": "Renan"}, 95.0),
+            ({"start": 8.2, "end": 15.0, "duration": 6.8, "text": "Qual é o próximo ponto?", "speaker": "Entrevistador", "speaker_turn_valid": False}, 70.0),
+        ]
+        selector = ClipSelector(target_duration=8, max_clips=5, min_duration=5, max_duration=30)
+
+        clips = selector._build_clips_from_scored_blocks(scored_blocks, context_data={})
+
+        assert clips
+        assert clips[0]["start"] == 0.0
+        assert clips[0]["end"] == 8.0
+        assert "Qual é o próximo ponto?" not in clips[0]["text"]
+
+    def test_initial_builder_stops_before_ambiguous_block(self):
+        scored_blocks = [
+            ({"start": 0.0, "end": 4.0, "duration": 4.0, "text": "A proposta começa."}, 95.0),
+            ({"start": 4.2, "end": 12.0, "duration": 7.8, "text": "Fala com áudio incerto.", "timing_ambiguous": True}, 70.0),
+        ]
+        selector = ClipSelector(target_duration=20, max_clips=5, min_duration=5, max_duration=30)
+
+        clips = selector._build_clips_from_scored_blocks(scored_blocks, context_data={})
+
+        assert clips
+        assert clips[0]["start"] == 4.2
+        assert clips[0]["end"] == 12.0
+        assert "Qual é a proposta?" not in clips[0]["text"]
+
+    def test_payoff_extension_stops_before_multi_speaker_block(self):
+        scored_blocks = [
+            ({"start": 0.0, "end": 8.0, "duration": 8.0, "text": "A proposta resolve porque."}, 95.0),
+            ({"start": 8.2, "end": 15.0, "duration": 6.8, "text": "reduz custos e protege o cidadão.", "speaker_change_detected": True, "speakers": ["Renan", "Entrevistador"]}, 70.0),
+        ]
+        selector = ClipSelector(target_duration=8, max_clips=5, min_duration=5, max_duration=30)
+
+        clips = selector._build_clips_from_scored_blocks(scored_blocks, context_data={})
+
+        assert clips
+        assert clips[0]["end"] == 8.0
+        assert "reduz custos" not in clips[0]["text"]
+
+    def test_payoff_extension_stops_before_a_new_question(self):
+        scored_blocks = [
+            ({"start": 0.0, "end": 8.0, "duration": 8.0, "text": "A proposta resolve porque."}, 95.0),
+            ({"start": 8.2, "end": 15.0, "duration": 6.8, "text": "Qual é o próximo ponto do debate?"}, 70.0),
+        ]
+        selector = ClipSelector(target_duration=8, max_clips=5, min_duration=5, max_duration=30)
+
+        clips = selector._build_clips_from_scored_blocks(scored_blocks, context_data={})
+
+        assert clips
+        assert clips[0]["end"] == 8.0
+        assert "Qual é o próximo ponto" not in clips[0]["text"]
+
+    def test_payoff_extension_stops_after_a_long_pause(self):
+        scored_blocks = [
+            ({"start": 0.0, "end": 8.0, "duration": 8.0, "text": "A proposta resolve porque."}, 95.0),
+            ({"start": 20.0, "end": 27.0, "duration": 7.0, "text": "reduz custos e protege o cidadão."}, 70.0),
+        ]
+        selector = ClipSelector(target_duration=8, max_clips=5, min_duration=5, max_duration=30)
+
+        clips = selector._build_clips_from_scored_blocks(scored_blocks, context_data={})
+
+        assert clips
+        assert clips[0]["end"] == 8.0
+        assert "reduz custos" not in clips[0]["text"]
+
+    def test_payoff_extension_keeps_explanatory_porque_continuation(self):
+        scored_blocks = [
+            ({"start": 0.0, "end": 8.0, "duration": 8.0, "text": "A proposta é necessária porque."}, 95.0),
+            ({"start": 8.2, "end": 15.0, "duration": 6.8, "text": "porque protege o cidadão."}, 70.0),
+        ]
+        selector = ClipSelector(target_duration=8, max_clips=5, min_duration=5, max_duration=30)
+
+        clips = selector._build_clips_from_scored_blocks(scored_blocks, context_data={})
+
+        assert clips
+        assert clips[0]["end"] == 15.0
+        assert "porque protege" in clips[0]["text"]
+        assert clips[0]["payoff_complete"] is True
+
+    def test_response_reference_requires_adjacent_question_context(self):
+        flags = self.selector._editorial_flags("A resposta é proteger o cidadão com transparência.")
+
+        self.assertTrue(flags["starts_with_context_reference"])
+        self.assertFalse(flags["context_complete"])
+
+        recovered = self.selector._opening_context_signal(
+            {"text": "A resposta é proteger o cidadão com transparência."},
+            {"text": "Qual é a proposta para o problema?"},
+        )
+        self.assertTrue(recovered["weak"])
+        self.assertIn("antecedente recuperado", recovered["reason"])
+
+
+    def test_editorial_flags_do_not_treat_por_fim_as_question(self):
+        flags = self.selector._editorial_flags("Por fim, essa medida protege o cidadão.")
+
+        self.assertFalse(flags["question_detected"])
+        self.assertTrue(flags["payoff_complete"])
+
+    def test_payoff_extension_keeps_como_resultado_continuation(self):
+        scored_blocks = [
+            ({"start": 0.0, "end": 8.0, "duration": 8.0, "text": "A medida é necessária porque."}, 95.0),
+            ({"start": 8.2, "end": 15.0, "duration": 6.8, "text": "Como resultado, a segurança melhora."}, 70.0),
+        ]
+        selector = ClipSelector(target_duration=8, max_clips=5, min_duration=5, max_duration=30)
+
+        clips = selector._build_clips_from_scored_blocks(scored_blocks, context_data={})
+
+        assert clips
+        assert clips[0]["end"] == 15.0
+        assert "Como resultado" in clips[0]["text"]
+
+    def test_editorial_flags_expose_topic_boundary(self):
+        flags = self.selector._editorial_flags(
+            "A primeira pauta foi concluída com contexto suficiente.",
+            {"topic_boundary": True},
+        )
+
+        self.assertTrue(flags["topic_boundary"])
+        self.assertTrue(flags["needs_topic_review"])
+        self.assertIn("mudança de tópico", flags["topic_review_reason"])
+        self.assertFalse(flags["context_complete"])
 
     def test_payoff_gate_rejects_linguistically_open_ending(self):
         weak = self.selector._editorial_flags(

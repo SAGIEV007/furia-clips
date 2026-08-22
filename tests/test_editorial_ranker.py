@@ -23,6 +23,22 @@ class EditorialRankerTests(unittest.TestCase):
         self.assertIn("context_match", result["factors"])
         self.assertIn("completeness", result["factors"])
 
+    def test_direct_audience_challenge_is_a_hook_but_generic_challenge_is_not(self):
+        direct = self.ranker.score_clip({
+            "start": 0,
+            "end": 24,
+            "duration": 24,
+            "text": "Meu desafio para vocês é conferir os dados e cobrar uma resposta concreta.",
+        })
+        generic = self.ranker.score_clip({
+            "start": 0,
+            "end": 24,
+            "duration": 24,
+            "text": "O primeiro desafio da proposta é organizar os dados antes da decisão.",
+        })
+
+        assert direct["factors"]["hook"] > generic["factors"]["hook"]
+
     def test_quality_scorecard_separates_context_editorial_technical_and_confidence(self):
         result = self.ranker.score_clip({
             "start": 0,
@@ -269,6 +285,176 @@ def test_context_quality_penalizes_abrupt_start_and_unresolved_question():
     assert complete["editorial_potential_score"] > abrupt["editorial_potential_score"]
 
 
+def test_ranker_does_not_treat_nonfinite_flags_as_true():
+    from modules.editorial_ranker import _coerce_flag
+
+    assert _coerce_flag(float("nan")) is False
+    assert _coerce_flag(float("inf")) is False
+    assert _coerce_flag(float("nan"), default=True) is True
+
+
+def test_ranker_does_not_promote_textual_false_speaker_boundary():
+    ranker = EditorialRanker()
+    result = ranker.score_clip({
+        "start": 0,
+        "end": 20,
+        "duration": 20,
+        "speaker_turn_valid": True,
+        "speaker_change_detected": "false",
+        "speaker_boundary": "false",
+        "text": "Uma explicação com contexto suficiente e termina com uma conclusão clara.",
+    })
+
+    assert result["factors"]["speaker_boundary"] == 50.0
+
+
+def test_ranker_sanitizes_nonfinite_editorial_factors():
+    ranker = EditorialRanker()
+    result = ranker.score_clip({
+        "start": 0,
+        "end": 20,
+        "duration": 20,
+        "speaker_confidence": float("nan"),
+        "chapter_coherence_score": float("inf"),
+        "visual_change_density": float("nan"),
+        "contextual_hook": {"hook_text": "abertura", "score": float("nan")},
+        "hook_distance_seconds": float("inf"),
+        "text": "Uma explicação com contexto suficiente e termina com uma conclusão clara.",
+    })
+
+    assert result["factors"]["speaker_boundary"] == 50.0
+    assert result["factors"]["chapter_coherence"] == 50.0
+    assert result["factors"]["visual_change_density"] == 50.0
+    assert result["factors"]["contextual_hook_alignment"] == 50.0
+    assert 0 <= result["editorial_potential_score"] <= 100
+
+
+def test_ranker_sanitizes_malformed_feedback_numbers():
+    ranker = EditorialRanker(feedback_calibration={
+        "eligible": "true",
+        "sample_size": "nan",
+        "approved_count": "bad",
+        "rejected_count": "inf",
+        "duration_signal": {
+            "usable": "true",
+            "approved_mean_seconds": "nan",
+            "rejected_mean_seconds": "bad",
+            "gap_seconds": "inf",
+        },
+        "candidate_origin_deltas": {"nlp": "nan"},
+        "factor_deltas": {"hook": "inf"},
+    })
+    result = ranker.score_clip({
+        "start": 0,
+        "end": 20,
+        "duration": 20,
+        "candidate_origin": "nlp",
+        "confidence": "nan",
+        "text": "Uma explicação com contexto suficiente e termina com uma conclusão clara.",
+    })
+
+    assert result["feedback_calibration"]["sample_size"] == 0
+    assert result["feedback_calibration"]["approved_count"] == 0
+    assert result["feedback_calibration"]["duration_signal"]["gap_seconds"] == 0.0
+    assert result["feedback_calibration"]["candidate_origin_delta"] == 0.0
+    assert result["feedback_calibration"]["candidate_origin_confidence"] == 0.75
+
+
+def test_ranker_treats_malformed_intervals_as_non_overlapping():
+    from modules.editorial_ranker import _interval_overlap
+
+    assert _interval_overlap({"start": "nan", "end": 20}, {"start": 0, "end": 10}) == 0.0
+    assert _interval_overlap({"start": 20, "end": 10}, {"start": 0, "end": 10}) == 0.0
+
+
+def test_ranker_normalizes_legacy_flags_in_review_payload():
+    ranker = EditorialRanker()
+    result = ranker.score_clip({
+        "start": 0,
+        "end": 20,
+        "duration": 20,
+        "text": "Uma explicação curta com contexto e fechamento claro.",
+        "context_complete": "false",
+        "payoff_complete": "false",
+        "question_detected": "false",
+        "overlap_suspected": "false",
+        "timing_ambiguous": "false",
+        "speaker_turn_valid": "false",
+        "framing": {"review_required": "false"},
+        "editorial_chapter_available": "false",
+        "chapter_crosses_boundary": "false",
+        "context_recovery": {"applied": "false"},
+    })
+
+    assert result["context_complete"] is False
+    assert result["payoff_complete"] is False
+    assert result["question_detected"] is False
+    assert result["review_flags"]["overlap_suspected"] is False
+    assert result["review_flags"]["timing_ambiguous"] is False
+    assert result["review_flags"]["speaker_turn_valid"] is False
+    assert result["factors"]["speaker_boundary"] == 25.0
+    assert result["framing_review_required"] is False
+    assert result["review_flags"]["editorial_chapter_available"] is False
+    assert result["review_flags"]["chapter_crosses_boundary"] is False
+    assert result["review_flags"]["context_recovery_applied"] is False
+
+
+def test_ranker_uses_finite_audio_and_confidence_fallbacks():
+    ranker = EditorialRanker()
+    result = ranker.score_clip(
+        {
+            "start": 0,
+            "end": 12,
+            "duration": 12,
+            "audio_energy": "nan",
+            "text": "A explicação tem contexto suficiente e termina com uma conclusão clara.",
+        },
+        energy_profile=[
+            {"time": "bad", "energy_normalized": "nan"},
+            {"time": 2, "energy_normalized": 0.8},
+        ],
+    )
+
+    assert result["factors"]["audio_energy"] == 87.0
+    assert 0.0 <= result["confidence"] <= 1.0
+
+
+def test_ranker_uses_finite_duration_fallback_for_legacy_values():
+    ranker = EditorialRanker()
+    malformed = ranker.score_clip({
+        "start": "0",
+        "end": "30",
+        "duration": "nan",
+        "text": "A explicação tem contexto suficiente e termina com uma conclusão clara.",
+    })
+
+    assert malformed["duration_preference"]["status"] == "curto_preferencial"
+    assert malformed["duration_fit"] == 100.0
+    ranked = ranker.rank_clips([
+        {"start": 0, "end": 30, "duration": "not-a-number", "text": "A explicação tem contexto suficiente e termina com uma conclusão clara."},
+        {"start": 0, "end": 20, "duration": 20, "text": "A explicação tem contexto suficiente e termina com uma conclusão clara."},
+    ])
+    assert ranked
+    assert all(ranked_item["duration_fit"] == 100.0 for ranked_item in ranked)
+
+
+def test_context_quality_coerces_legacy_string_flags():
+    ranker = EditorialRanker()
+    text = "Uma explicação com contexto suficiente para comparação editorial."
+    boolean_result = ranker._context_quality(
+        {"context_complete": False, "payoff_complete": False, "question_detected": False},
+        text,
+        "open",
+    )
+    textual_result = ranker._context_quality(
+        {"context_complete": "false", "payoff_complete": "false", "question_detected": "false"},
+        text,
+        "open",
+    )
+
+    assert textual_result == boolean_result
+
+
 def test_observed_high_impact_openers_score_as_hooks():
     ranker = EditorialRanker()
     observed = ranker.score_clip({
@@ -285,6 +471,27 @@ def test_observed_high_impact_openers_score_as_hooks():
     })
     assert observed["factors"]["hook"] > plain["factors"]["hook"]
     assert observed["factors"]["hook"] >= 70
+
+
+def test_contextually_distinct_coerces_legacy_string_flags():
+    from modules.editorial_ranker import _contextually_distinct
+
+    first = {
+        "closure_type": "conclusion",
+        "question_answer_complete": True,
+        "payoff_complete": True,
+        "qa_bridge": True,
+        "chapter_primary_id": 1,
+    }
+    second = {
+        "closure_type": "cliffhanger",
+        "question_answer_complete": "false",
+        "payoff_complete": "false",
+        "qa_bridge": "false",
+        "chapter_primary_id": 2,
+    }
+
+    assert _contextually_distinct(first, second) is True
 
 
 def test_diversity_penalty_exposes_explainable_reason():
@@ -418,6 +625,33 @@ def test_partial_transcription_caps_score_confidence_and_explains_gate():
     assert partial["review_flags"]["transcription_review_required"] is True
 
 
+def test_technical_gate_coerces_legacy_string_flags_safely():
+    ranker = EditorialRanker()
+    result = ranker.score_clip({
+        "start": 0,
+        "end": 30,
+        "duration": 30,
+        "text": "A explicação apresenta contexto, evidência e uma conclusão clara.",
+        "context_complete": "true",
+        "payoff_complete": "true",
+        "evidence_present": "true",
+        "topic_boundary": "false",
+        "topic_change_detected": "false",
+        "overlap_suspected": "false",
+        "timing_ambiguous": "false",
+        "speaker_turn_valid": "true",
+        "review_flags": {
+            "topic_review_required": "false",
+            "speaker_review_required": "false",
+        },
+    })
+
+    assert result["topic_review_required"] is False
+    assert result["review_flags"]["topic_review_required"] is False
+    assert result["technical_gate"]["status"] == "clean"
+    assert "mudança de tópico" not in result["technical_gate"]["reasons"]
+
+
 def test_speaker_review_required_caps_score_and_exposes_reason():
     ranker = EditorialRanker()
     result = ranker.score_clip({
@@ -437,6 +671,65 @@ def test_speaker_review_required_caps_score_and_exposes_reason():
     assert result["review_flags"]["speaker_review_required"] is True
     assert "locutor" in result["speaker_review_reason"]
     assert result["technical_gate"]["status"] == "review_required"
+
+
+def test_topic_boundary_requires_review_and_caps_score():
+    ranker = EditorialRanker()
+    result = ranker.score_clip({
+        "start": 0,
+        "end": 36,
+        "duration": 36,
+        "text": "A proposta tem contexto, uma explicação concreta e um fechamento claro.",
+        "context_complete": True,
+        "payoff_complete": True,
+        "evidence_present": True,
+        "topic_boundary": True,
+    })
+
+    assert result["topic_review_required"] is True
+    assert result["editorial_potential_score"] <= 72
+    assert result["review_flags"]["topic_review_required"] is True
+    assert "mudança de tópico" in result["topic_review_reason"]
+    assert result["technical_gate"]["status"] == "review_required"
+    assert any("mudança de tópico" in reason for reason in result["technical_gate"]["reasons"])
+    assert "mudança de tópico" in result["reason"]
+
+
+def test_topic_change_alias_uses_same_review_contract():
+    ranker = EditorialRanker()
+    result = ranker.score_clip({
+        "start": 0,
+        "end": 30,
+        "duration": 30,
+        "text": "A explicação tem começo, desenvolvimento, evidência e conclusão.",
+        "context_complete": True,
+        "payoff_complete": True,
+        "topic_change_detected": True,
+    })
+
+    assert result["topic_review_required"] is True
+    assert result["topic_boundary"] is False
+    assert result["topic_change_detected"] is True
+    assert result["review_flags"]["topic_review_required"] is True
+    assert result["review_flags"]["topic_change_detected"] is True
+    assert result["technical_gate"]["status"] == "review_required"
+
+
+def test_nested_topic_flags_use_same_review_contract():
+    ranker = EditorialRanker()
+    result = ranker.score_clip({
+        "start": 0,
+        "end": 30,
+        "duration": 30,
+        "text": "A explicação apresenta a pauta e fecha com uma consequência concreta.",
+        "context_complete": True,
+        "payoff_complete": True,
+        "review_flags": {"topic_boundary": True},
+    })
+
+    assert result["topic_review_required"] is True
+    assert result["review_flags"]["topic_review_required"] is True
+    assert result["technical_gate"]["topic_review_required"] is True
 
 
 def test_feedback_cannot_override_speaker_review_score_cap():

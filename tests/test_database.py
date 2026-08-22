@@ -16,6 +16,15 @@ class DatabaseMigrationTests(unittest.TestCase):
         database.DB_PATH = self.original_path
         self.tempdir.cleanup()
 
+    def test_invalid_setting_json_falls_back_to_default(self):
+        connection = database.get_db()
+        connection.execute("UPDATE settings SET value = ? WHERE key = ?", ("{not-json", "cut_duration"))
+        connection.commit()
+        connection.close()
+
+        self.assertEqual(database.get_setting("cut_duration"), database.DEFAULT_SETTINGS["cut_duration"])
+        self.assertEqual(database.get_all_settings()["cut_duration"], database.DEFAULT_SETTINGS["cut_duration"])
+
     def test_campaign_hub_account_is_normalized_on_write_and_read(self):
         database.set_setting("campaign_hub_account", "@partidomissao")
         self.assertEqual(database.get_setting("campaign_hub_account"), "@partidomissao")
@@ -87,6 +96,56 @@ class DatabaseMigrationTests(unittest.TestCase):
         })
         self.assertNotIn("source_video", clip["review_provenance"])
         self.assertNotIn("raw_transcript", clip["review_provenance"])
+
+    def test_legacy_coverage_aliases_survive_database_round_trip(self):
+        project_id = database.create_project("Aliases de cobertura", "uploads/aliases.mp4")
+        clip_id = database.save_clip(project_id, "exports/aliases.mp4", 0, 18, 18, 78, True, 0, "Trecho com cobertura.")
+        database.update_clip_editorial_score(
+            clip_id,
+            78,
+            {"hook": 72},
+            0.8,
+            review_metadata={
+                "transcript_coverage_status": "complete",
+            },
+        )
+
+        clip = database.get_clips(project_id)[0]
+        assert clip["review_provenance"]["transcript_coverage_status"] == "complete"
+
+    def test_pending_coverage_alias_is_kept_for_review(self):
+        project_id = database.create_project("Cobertura pendente", "uploads/pending.mp4")
+        clip_id = database.save_clip(project_id, "exports/pending.mp4", 0, 18, 18, 78, True, 0, "Trecho pendente.")
+        database.update_clip_editorial_score(
+            clip_id,
+            78,
+            {"hook": 72},
+            0.8,
+            review_metadata={"transcript_coverage_status": "pending"},
+        )
+
+        clip = database.get_clips(project_id)[0]
+        assert clip["review_provenance"]["transcript_coverage_status"] == "pending"
+
+    def test_textual_provenance_booleans_are_normalized(self):
+        project_id = database.create_project("Booleanos legados", "uploads/booleanos.mp4")
+        clip_id = database.save_clip(project_id, "exports/booleanos.mp4", 0, 18, 18, 78, True, 0, "Trecho.")
+        database.update_clip_editorial_score(
+            clip_id,
+            78,
+            {"hook": 72},
+            0.8,
+            review_metadata={
+                "transcript_archive_present": "true",
+                "transcript_semantic_identity_verified": "false",
+                "framing": {"review_required": "false"},
+            },
+        )
+
+        clip = database.get_clips(project_id)[0]
+        assert clip["review_provenance"]["transcript_archive_present"] is True
+        assert clip["review_provenance"]["transcript_semantic_identity_verified"] is False
+        assert clip["review_provenance"]["framing"]["review_required"] is False
 
     def test_framing_metadata_survives_database_round_trip(self):
         project_id = database.create_project("Persistência de framing", "uploads/framing.mp4")
@@ -333,6 +392,41 @@ class DatabaseMigrationTests(unittest.TestCase):
         assert database.get_project(second_project)["source_signature"]
         assert len(second_fingerprints) == 1
         assert second_fingerprints[0]["text"] == "Trecho da fonte B"
+
+
+    def test_duplicate_source_projects_return_one_fingerprint(self):
+        source_path = os.path.join(self.tempdir.name, "downloads", "entrevista.mp4")
+        os.makedirs(os.path.dirname(source_path), exist_ok=True)
+        with open(source_path, "wb") as handle:
+            handle.write(b"same-source" * 2048)
+
+        first_project = database.create_project("Execução 1", source_path)
+        second_project = database.create_project("Execução 2", source_path)
+        database.save_clip(first_project, "exports/one.mp4", 10, 25, 15, 70, True, 0, "Mesmo trecho")
+        database.save_clip(second_project, "exports/two.mp4", 10, 25, 15, 70, True, 0, "Mesmo trecho")
+
+        fingerprints = database.get_existing_clip_fingerprints(source_path)
+
+        assert len(fingerprints) == 1
+        assert fingerprints[0]["start"] == 10.0
+        assert fingerprints[0]["end"] == 25.0
+
+
+    def test_legacy_same_basename_without_signature_is_path_scoped(self):
+        legacy_path = os.path.join(self.tempdir.name, "notebook-a", "entrevista.mp4")
+        current_path = os.path.join(self.tempdir.name, "notebook-b", "entrevista.mp4")
+        os.makedirs(os.path.dirname(legacy_path), exist_ok=True)
+        os.makedirs(os.path.dirname(current_path), exist_ok=True)
+        with open(legacy_path, "wb") as handle:
+            handle.write(b"legacy-source" * 2048)
+        with open(current_path, "wb") as handle:
+            handle.write(b"current-source" * 2048)
+
+        project_id = database.create_project("Fonte legada", legacy_path, source_signature="")
+        database.save_clip(project_id, "exports/legacy.mp4", 10, 25, 15, 70, True, 0, "Trecho legado")
+
+        assert database.get_existing_clip_fingerprints(legacy_path)
+        assert database.get_existing_clip_fingerprints(current_path) == []
 
 
     def test_restore_feedback_snapshot_falls_back_to_source_signature_and_window(self):

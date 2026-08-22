@@ -11,6 +11,7 @@ import tempfile
 import requests
 import re
 import unicodedata
+import math
 from datetime import datetime
 
 
@@ -87,6 +88,7 @@ from database import (
     get_existing_clip_fingerprints, save_transcription, get_transcription, log_action,
     update_clip_editorial_score, save_clip_feedback, get_clip_feedback,
     update_clip_review_status, save_clip_adjustment, get_feedback_calibration, get_daily_editorial_progress,
+    get_source_signature,
     save_headline_feedback, get_headline_feedback_summary, get_headline_learning_preferences,
     save_performance_snapshot, get_performance_snapshots, get_performance_summary
 )
@@ -367,8 +369,8 @@ def _defer_context_incomplete_candidates(candidates):
         review_flags = candidate.get("review_flags") or {}
         technical_status = candidate.get("technical_gate_status") or review_flags.get("technical_gate_status")
         technical_reasons = candidate.get("technical_gate_reasons") or review_flags.get("technical_gate_reasons") or []
-        context_incomplete = "context_complete" in candidate and candidate.get("context_complete") is False
-        technical_review = technical_status == "review"
+        context_incomplete = "context_complete" in candidate and not _coerce_bool(candidate.get("context_complete"), default=True)
+        technical_review = str(technical_status or "").strip().lower() in {"review", "review_required", "blocked"}
         if not context_incomplete and not technical_review:
             renderable.append(candidate)
             continue
@@ -376,9 +378,9 @@ def _defer_context_incomplete_candidates(candidates):
         reasons = []
         if context_incomplete:
             reasons.append("contexto autossuficiente não confirmado")
-            if candidate.get("starts_mid_sentence"):
+            if _coerce_bool(candidate.get("starts_mid_sentence")):
                 reasons.append("início possivelmente no meio da frase")
-            if candidate.get("starts_with_context_reference"):
+            if _coerce_bool(candidate.get("starts_with_context_reference")):
                 reasons.append("referência contextual sem antecedente recuperado")
         if technical_review:
             reasons.append("revisão técnica editorial obrigatória")
@@ -509,27 +511,56 @@ def _save_transcription_artifacts(video_path, transcription):
     return {"text": txt_path, "json": json_path}
 
 
+def _max_finite_transcript_timestamp(items):
+    values = []
+    for item in items if isinstance(items, (list, tuple)) else []:
+        if not isinstance(item, dict):
+            continue
+        try:
+            value = float(item.get("end") if item.get("end") is not None else item.get("start", 0))
+        except (TypeError, ValueError):
+            continue
+        if math.isfinite(value):
+            values.append(value)
+    return max(values, default=None)
+
+
 def _transcription_from_request(data, duration=None):
     """Return a canonical transcription when the user supplied one."""
     text = data.get("transcript_text") or data.get("manual_transcript") or ""
     if isinstance(text, str) and text.strip():
         result = parse_transcript_text(text, duration=duration)
         raw_result = parse_transcript_text(text, duration=None)
-        result["raw_last_timestamp"] = max((float(item.get("end") if item.get("end") is not None else item.get("start", 0)) for item in raw_result.get("segments", [])), default=None)
+        result["raw_last_timestamp"] = _max_finite_transcript_timestamp(raw_result.get("segments", []))
         result["language"] = data.get("transcript_language", "pt")
         result["source"] = "manual"
         return result
     segments = data.get("transcript_segments")
     if isinstance(segments, list) and segments:
         result = normalize_segment_payload(segments, duration=duration)
-        result["raw_last_timestamp"] = max(
-            (float(item.get("end") if item.get("end") is not None else item.get("start", 0)) for item in segments if isinstance(item, dict)),
-            default=None,
-        )
+        result["raw_last_timestamp"] = _max_finite_transcript_timestamp(segments)
         result["language"] = data.get("transcript_language", "pt")
         result["source"] = "manual"
         return result
     return None
+
+
+def _project_matches_video(project_id, video_path):
+    """Only reuse a project transcript when its source identity matches the video."""
+    if project_id in (None, "") or not video_path:
+        return False
+    try:
+        project = get_project(int(project_id))
+    except (TypeError, ValueError):
+        return False
+    if not project:
+        return False
+    stored_source = _resolve_media_input(project.get("source_video", ""))
+    if stored_source and os.path.realpath(stored_source) == os.path.realpath(video_path):
+        return True
+    stored_signature = str(project.get("source_signature") or "").strip()
+    current_signature = get_source_signature(video_path)
+    return bool(stored_signature and current_signature and stored_signature == current_signature)
 
 
 def _analyze_energy_with_cancel(analyzer, video_path, emit_progress, cancel_check=None):
@@ -661,12 +692,22 @@ def _review_provenance(transcription=None, editorial_context=None, context_sourc
     selected_context_source = str(context_source or ("local_dossier" if isinstance(editorial_context, dict) else "none"))
     if selected_context_source not in {"local_dossier", "multimodal_auxiliary", "none"}:
         selected_context_source = "none"
+    try:
+        transcript_end_ratio = float(coverage.get("end_ratio"))
+    except (TypeError, ValueError):
+        transcript_end_ratio = None
     return {
         "transcript_source": transcript_source,
         "transcript_coverage_status": coverage_status,
         "transcript_archive_present": bool(
             isinstance(transcription, dict)
             and (transcription.get("archive") or transcription.get("archive_metadata") or transcription.get("quality"))
+        ),
+        "transcript_semantic_identity_verified": _coerce_bool(coverage.get("semantic_identity_verified"), default=False),
+        "transcript_end_ratio": (
+            round(max(0.0, min(1.0, transcript_end_ratio)), 3)
+            if transcript_end_ratio is not None
+            else None
         ),
         "context_source": selected_context_source,
     }
@@ -750,6 +791,14 @@ def _timestamp_value(value):
         return None
 
 
+def _coerce_visual_flag(value):
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value != 0
+    return str(value or "").strip().lower() in {"1", "true", "yes", "sim", "on"}
+
+
 def _attach_multimodal_visual_observations(clips, multimodal):
     """Attach the strongest overlapping Gemini visual observation to each clip."""
     if not isinstance(multimodal, dict):
@@ -794,9 +843,21 @@ def _attach_multimodal_visual_observations(clips, multimodal):
         if not ranked:
             continue
         _, _, observation = max(ranked, key=lambda item: (item[0], item[1]))
-        for key in ("visual_format", "text_panel", "fake_tweet", "social_post", "visual_meme", "split_screen", "external_evidence"):
-            if key in observation:
-                clip[key] = observation[key]
+        if "visual_format" in observation:
+            clip["visual_format"] = str(observation.get("visual_format") or "desconhecido").strip()[:40]
+        visual_flag_aliases = {
+            "text_panel": ("text_panel", "has_text_panel"),
+            "fake_tweet": ("fake_tweet",),
+            "social_post": ("social_post",),
+            "visual_meme": ("visual_meme",),
+            "split_screen": ("split_screen",),
+            "external_evidence": ("external_evidence",),
+        }
+        for key, aliases in visual_flag_aliases.items():
+            for alias in aliases:
+                if alias in observation:
+                    clip[key] = _coerce_visual_flag(observation.get(alias))
+                    break
         if observation.get("composition_note"):
             clip["visual_observation"] = str(observation["composition_note"])[:400]
         if observation.get("confidence") is not None:
@@ -817,8 +878,8 @@ def _should_allow_followup_video_analysis(transcription, settings):
     source = str((transcription or {}).get("source", "") or "").strip().lower()
     settings = settings or {}
     if source in {"manual", "manual_confirmed"}:
-        return bool(settings.get("gemini_manual_video_analysis", False))
-    return bool(settings.get("gemini_video_analysis_with_transcript", False))
+        return _coerce_bool(settings.get("gemini_manual_video_analysis"), default=False)
+    return _coerce_bool(settings.get("gemini_video_analysis_with_transcript"), default=False)
 
 
 def _should_request_editorial_context_multimodal(transcription, analyze_video, multimodal_result, settings):
@@ -1476,7 +1537,7 @@ def api_source_import():
         _set_legacy_task("source_import", active=True, job_id=source_job_id)
 
     max_height = data.get("max_height", settings.get("source_max_height", 1080))
-    auto_transcribe = bool(data.get("auto_transcribe", True))
+    auto_transcribe = _coerce_bool(data.get("auto_transcribe"), default=True)
     set_setting("source_download_dir", destination)
     set_setting("source_max_height", max_height)
 
@@ -1757,7 +1818,8 @@ def api_transcribe():
             check_current_task_cancel()
             settings = get_all_settings()
             settings = {**settings, "transcription_source": data.get("transcription_source", settings.get("transcription_source", "auto"))}
-            result = _transcription_from_request(data)
+            duration = _probe_video_duration_seconds(video_path)
+            result = _transcription_from_request(data, duration=duration)
             if result:
                 emit_progress(f"[Transcrição manual] {result['segment_count']} segmentos importados; Whisper não será executado.", "success")
             else:
@@ -1767,12 +1829,27 @@ def api_transcribe():
                     emit_progress,
                     cancel_check=check_current_task_cancel,
                 )
+            result["coverage"] = _transcription_coverage_report(result, duration)
 
             if project_id:
                 save_transcription(
                     project_id, result["segments"], result["full_text"],
                     result["language"], result.get("source", settings.get("whisper_model", "small"))
                 )
+            transcript_archive = archive_transcription(
+                result,
+                source_video=video_path,
+                source=str(result.get("source") or settings.get("transcription_source", "automatic")),
+                project_id=project_id,
+                duration=duration,
+                archive_name=os.path.splitext(os.path.basename(video_path))[0],
+            )
+            result["quality"] = transcript_archive.get("quality", {})
+            result["archive"] = transcript_archive
+            emit_progress(
+                f"[Transcrição] Backup persistente salvo em {os.path.join(os.path.abspath(PERSISTENT_TRANSCRIPTS_DIR), transcript_archive.get('relative_dir', ''))}.",
+                "info",
+            )
 
             check_current_task_cancel()
             result["source_video_path"] = data.get("video_path") or (
@@ -1817,10 +1894,16 @@ def api_cut_shorts():
         preferred_format = "auto"
     prefetched_context = data.get("editorial_context")
     prefetched_context_path = _resolve_media_input(data.get("editorial_context_source_path", ""))
+    prefetched_context_signature = str((prefetched_context or {}).get("source_signature") or "").strip() if isinstance(prefetched_context, dict) else ""
+    current_source_signature = get_source_signature(video_path)
+    prefetched_signature_matches = not prefetched_context_signature or (
+        bool(current_source_signature) and prefetched_context_signature == current_source_signature
+    )
     prefetched_context_matches = bool(
         isinstance(prefetched_context, dict)
         and prefetched_context_path
         and os.path.realpath(prefetched_context_path) == os.path.realpath(video_path)
+        and prefetched_signature_matches
     )
 
     if not os.path.exists(video_path):
@@ -1890,10 +1973,16 @@ def api_cut_shorts():
                         "os cortes ficarão limitados ao trecho importado.",
                         "warning",
                     )
-            if transcription and transcription.get("source") == "manual":
-                emit_progress(f"[Transcrição manual] {transcription['segment_count']} segmentos importados; Whisper não será executado.", "success")
-            elif transcription and transcription.get("source") == "gemini_video":
-                emit_progress(f"[Gemini] {transcription['segment_count']} segmentos obtidos da análise multimodal; Whisper não será executado.", "success")
+            if transcription:
+                transcription_source_name = str(transcription.get("source") or "").strip().lower()
+                if transcription_source_name == "manual":
+                    emit_progress(f"[Transcrição manual] {transcription['segment_count']} segmentos importados; Whisper não será executado.", "success")
+                elif transcription_source_name == "gemini_video":
+                    emit_progress(f"[Gemini] {transcription['segment_count']} segmentos obtidos da análise multimodal; Whisper não será executado.", "success")
+                elif transcription_source_name == "public_subtitles":
+                    emit_progress(f"[Legenda pública] {transcription['segment_count']} segmentos importados; Whisper não será executado.", "success")
+                elif transcription_source_name == "whisper":
+                    emit_progress("[Whisper] Transcrição já disponível; o motor não será executado novamente.", "success")
             else:
                 transcriber = Transcriber(
                     model_name=settings.get("whisper_model", "small"),
@@ -2156,6 +2245,11 @@ def api_cut_shorts():
                         layout_plan = plan_layout(
                             detected_layout=video_layout,
                             tracking_assessment=assessment,
+                            visual_format=clip.get("visual_format"),
+                            text_panel=bool(clip.get("text_panel")),
+                            fake_tweet=bool(clip.get("fake_tweet") or clip.get("social_post")),
+                            visual_meme=bool(clip.get("visual_meme")),
+                            external_evidence=bool(clip.get("external_evidence")),
                             target_aspect=target_aspect,
                         )
                         layout_plans[index] = layout_plan
@@ -2416,7 +2510,7 @@ def api_analyze_editorial_context():
         return jsonify({"error": "Video não encontrado"}), 404
     project_id = data.get("project_id")
     user_context = str(data.get("user_context", "") or "").strip()
-    analyze_video = bool(data.get("analyze_video", True))
+    analyze_video = _coerce_bool(data.get("analyze_video"), default=True)
 
     def task(ctx):
         def progress(message, level="info", percentage=None):
@@ -2442,7 +2536,10 @@ def api_analyze_editorial_context():
         ctx.check_cancel()
         transcription = _transcription_from_request(data, duration=video_duration)
         if not transcription and project_id:
-            transcription = get_transcription(project_id)
+            if _project_matches_video(project_id, video_path):
+                transcription = get_transcription(project_id)
+            else:
+                progress("[Contexto] A transcrição persistida não foi reutilizada: o projeto não corresponde à fonte selecionada.", "warning", 18)
         multimodal_result = None
         if not transcription:
             progress("[Contexto] Não há transcrição confirmada; Gemini tentará gerar a leitura temporal.", "info", 18)
@@ -2511,14 +2608,34 @@ def api_analyze_editorial_context():
                 raise
             except Exception as local_exc:
                 progress(f"[Contexto] Auditoria local de áudio não concluída; mantendo sinais textuais: {str(local_exc)[:180]}", "warning", 78)
+        quality_status = str(coverage.get("status", "unknown") or "unknown").strip().lower()
         enriched["transcription_quality"] = {
-            "status": coverage.get("status", "unknown"),
+            "status": quality_status,
             "segment_count": len(transcription.get("segments", [])),
             "last_timestamp": coverage.get("last_timestamp"),
             "video_duration_seconds": coverage.get("video_duration_seconds"),
+            "end_ratio": coverage.get("end_ratio"),
+            "semantic_identity_verified": _coerce_bool(coverage.get("semantic_identity_verified"), default=False),
+            "review_required": quality_status not in {"covered", "complete"},
         }
         if not enriched.get("analysis_mode"):
             enriched["analysis_mode"] = "transcript_plus_video" if multimodal_result else "transcript_only"
+        source_signature = get_source_signature(video_path)
+        if source_signature:
+            enriched["source_signature"] = source_signature
+        transcript_archive = archive_transcription(
+            transcription,
+            source_video=video_path,
+            source=str(transcription.get("source") or "editorial_context"),
+            project_id=project_id,
+            duration=video_duration,
+            archive_name=os.path.splitext(os.path.basename(video_path))[0],
+        )
+        transcription["archive"] = transcript_archive
+        enriched["transcription_archive"] = {
+            "relative_dir": transcript_archive.get("relative_dir", ""),
+            "quality": transcript_archive.get("quality", {}),
+        }
         if project_id:
             save_transcription(
                 project_id,
@@ -2744,7 +2861,7 @@ def api_analyze_headline_studio():
     transcript = str(data.get("transcript", "") or "")
     mini_context = str(data.get("mini_context", "") or "")
     preferred_format = str(data.get("preferred_format", "auto") or "auto")
-    use_ai = bool(data.get("use_ai", True))
+    use_ai = _coerce_bool(data.get("use_ai"), default=True)
     clip_id = data.get("clip_id")
     clip = None
     if clip_id not in (None, ""):
@@ -2904,10 +3021,16 @@ def api_process_complete():
     transcription_source = data.get("transcription_source")
     prefetched_context = data.get("editorial_context")
     prefetched_context_path = _resolve_media_input(data.get("editorial_context_source_path", ""))
+    prefetched_context_signature = str((prefetched_context or {}).get("source_signature") or "").strip() if isinstance(prefetched_context, dict) else ""
+    current_source_signature = get_source_signature(video_path)
+    prefetched_signature_matches = not prefetched_context_signature or (
+        bool(current_source_signature) and prefetched_context_signature == current_source_signature
+    )
     prefetched_context_matches = bool(
         isinstance(prefetched_context, dict)
         and prefetched_context_path
         and os.path.realpath(prefetched_context_path) == os.path.realpath(video_path)
+        and prefetched_signature_matches
     )
 
     if not os.path.exists(video_path):

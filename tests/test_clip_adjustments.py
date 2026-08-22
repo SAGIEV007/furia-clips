@@ -59,6 +59,15 @@ def test_adjust_clip_bounds_does_not_snap_far_boundaries():
     assert adjusted["boundary_adjustment"]["source"] == "manual"
 
 
+def test_adjust_clip_bounds_rejects_non_finite_bounds_and_duration():
+    for kwargs in ({"start": "nan"}, {"end": "inf"}, {"duration": "nan"}):
+        with pytest.raises(ValueError):
+            adjust_clip_bounds(
+                {"start": 10, "end": 30, "duration": 20},
+                **kwargs,
+            )
+
+
 def test_adjust_clip_bounds_rejects_invalid_interval():
     with pytest.raises(ValueError):
         adjust_clip_bounds({"start": 10, "end": 20}, start=20, end=10)

@@ -1,0 +1,43 @@
+# Furia Clips — mudanças da rodada de 22 de agosto de 2026
+
+Esta rodada consolidou uma evolução de robustez editorial e de experiência de revisão. O objetivo foi reduzir falsos positivos causados por dados legados, impedir que o contexto de um vídeo seja aplicado a outro e preservar evidências suficientes para que o editor possa conferir cada decisão.
+
+## Contexto e seleção editorial
+
+O seletor agora normaliza flags textuais e numéricas provenientes de dados antigos em perguntas e respostas, payoff, tópico, timing, sobreposição e locutor. Valores temporais, de confiança e de energia que não sejam finitos são descartados antes de influenciar a seleção, evitando que `NaN` ou infinito contaminem scores, gates ou limites de corte.
+
+A recuperação de contexto ficou mais conservadora. Uma transcrição persistida só é reutilizada quando o caminho canônico da fonte ou a assinatura leve da mídia coincide com o vídeo atual. Dossiês pré-analisados também precisam corresponder ao caminho e à assinatura da fonte antes de influenciar o ranking. Isso protege o fluxo contra a combinação acidental de um vídeo com a transcrição de outro.
+
+O ranking continua explicável e não teve pesos recalibrados artificialmente. Priors históricos, feedbacks e sinais do Campaign Hub permanecem limitados, separados por conta e tratados como evidência auxiliar; eles não são promessa de viralização nem substituem a revisão humana.
+
+## Transcrições e evidências persistentes
+
+A análise integral de contexto agora arquiva a transcrição timestampada usada no dossiê, além de expor no resultado a qualidade estrutural e o diretório relativo do arquivo persistente. O endpoint legado do botão de transcrição recebeu a mesma proteção: mede a duração da fonte, calcula cobertura, reutiliza uma transcrição manual sem iniciar Whisper, arquiva resultados manuais e automáticos e devolve qualidade e proveniência no evento de conclusão.
+
+Com isso, o editor pode revisar posteriormente a transcrição completa e o trecho associado ao clip, mesmo que a sessão do navegador seja reconectada ou que o checkout do código seja substituído. Mídias, bancos, transcrições completas, feedbacks detalhados, snapshots e chaves continuam fora do repositório.
+
+## Jobs, cancelamento e interface
+
+O refinamento opcional agora encerra corretamente o vínculo com o job em sucesso, falha e cancelamento. Eventos WebSocket atrasados ou repetidos não conseguem mais reaplicar um dossiê depois que a análise terminou. A troca de vídeo continua invalidando tokens, fonte, contexto e resultados anteriores.
+
+A interface também mantém a distinção entre contexto pronto, contexto incompatível, erro e cancelamento, sem transformar uma operação antiga em resultado do vídeo atualmente selecionado. O objetivo é tornar a revisão visualmente compreensível sem esconder as limitações estruturais da transcrição, da diarização, do áudio ou da identidade da fonte.
+
+## Validação
+
+A rodada adicionou regressões para persistência de transcrição, identidade de fonte, limpeza do job de contexto, descarte de eventos tardios e precedência da transcrição manual. A validação final executou `node --check`, compilação Python, a suíte integral, `git diff --check` e a varredura de padrões de credenciais.
+
+> Resultado final: **604 testes aprovados em 5,73 segundos**.
+
+Nenhuma chave de API, banco de dados, vídeo privado, transcrição privada ou URL assinada faz parte desta documentação. A publicação contém somente código, testes e documentação sanitizada.
+
+## Próximos pontos de validação pelo editor
+
+Depois de atualizar o checkout, o teste mais útil é selecionar um vídeo, confirmar uma transcrição manual, executar somente a análise integral de contexto e verificar se o dossiê é exibido e se o arquivo aparece no painel de arquivo de transcrições. Em seguida, trocar para outro vídeo e repetir a análise; o dossiê anterior não deve ser reutilizado. O segundo teste é iniciar a transcrição, solicitar parada e confirmar que a HUD informa o encerramento seguro sem deixar o job preso.
+
+O feedback real de aprovação, rejeição, ajuste de entrada/saída e motivo editorial continuará sendo a melhor evidência para futuras calibrações. A amostra histórica existente é pequena e desbalanceada, portanto nenhum peso do ranking será alterado apenas por ela.
+
+Veja também o [roadmap de evolução](roadmap.md) e o [plano de métricas long-form](long-to-short-metrics-and-plan-2026-08-21.md).
+
+---
+
+**Estado de publicação desta rodada:** código e testes preparados para o repositório selecionado; dados persistentes e credenciais mantidos fora do Git.

@@ -11,6 +11,7 @@ import ipaddress
 import os
 import socket
 import time
+import math
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -93,8 +94,31 @@ def probe_public_url(url: str) -> dict:
         "uploader": info.get("uploader") or info.get("channel") or "",
         "webpage_url": info.get("webpage_url") or value,
         "extractor": info.get("extractor", ""),
-        "is_live": bool(info.get("is_live")),
+        "is_live": _coerce_flag(info.get("is_live")),
     }
+
+
+def _coerce_bounded_int(value, default, minimum, maximum):
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return default
+    if not math.isfinite(parsed):
+        return default
+    return max(minimum, min(int(parsed), maximum))
+
+
+def _coerce_flag(value, default=False):
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value != 0 and math.isfinite(float(value))
+    normalized = str(value or "").strip().lower()
+    if normalized in {"1", "true", "yes", "sim", "on", "enabled"}:
+        return True
+    if normalized in {"0", "false", "no", "não", "nao", "off", "disabled"}:
+        return False
+    return bool(default)
 
 
 def _common_yt_dlp_options():
@@ -192,6 +216,46 @@ def download_public_video(url: str, destination: str, progress=None, max_height:
     yt_dlp = _yt_dlp()
     target = Path(destination).expanduser().resolve()
     target.mkdir(parents=True, exist_ok=True)
+    preexisting_paths = {item.resolve() for item in target.iterdir() if item.is_file()}
+    download_paths = set()
+    output = None
+
+    def remember_download_path(value):
+        raw = str(value or "").strip()
+        if not raw:
+            return
+        try:
+            candidate = Path(raw).expanduser().resolve()
+            if candidate.parent == target:
+                download_paths.add(candidate)
+        except (OSError, RuntimeError, TypeError):
+            return
+
+    def cleanup_cancelled_download():
+        candidates = set(download_paths)
+        if output:
+            try:
+                candidates.add(Path(output).expanduser().resolve())
+            except (OSError, RuntimeError, TypeError):
+                pass
+        try:
+            candidates.update(
+                item.resolve()
+                for item in target.iterdir()
+                if item.is_file() and item.resolve() not in preexisting_paths
+                and item.name.endswith((".part", ".ytdl", ".ytdl.part"))
+            )
+        except (OSError, RuntimeError):
+            return
+        for candidate in candidates:
+            if candidate in preexisting_paths or candidate.parent != target:
+                continue
+            try:
+                if candidate.is_file():
+                    candidate.unlink()
+            except OSError:
+                continue
+
     hooks = []
     postprocessor_hooks = []
     if progress:
@@ -202,6 +266,8 @@ def download_public_video(url: str, destination: str, progress=None, max_height:
             if cancel_check:
                 cancel_check()
             filename = str(status.get("tmpfilename") or status.get("filename") or "stream")
+            remember_download_path(status.get("tmpfilename"))
+            remember_download_path(status.get("filename"))
             format_id = str(status.get("format_id") or (status.get("info_dict") or {}).get("format_id") or "")
             stream_key = f"{format_id}:{filename}"
             stream_label = _stream_label(status)
@@ -245,7 +311,7 @@ def download_public_video(url: str, destination: str, progress=None, max_height:
         postprocessor_hooks.append(postprocessor_hook)
 
     try:
-        height_limit = max(144, min(int(max_height or 1080), 1080))
+        height_limit = _coerce_bounded_int(max_height, 1080, 144, 1080)
     except (TypeError, ValueError):
         height_limit = 1080
 
@@ -263,13 +329,12 @@ def download_public_video(url: str, destination: str, progress=None, max_height:
         "quiet": True,
         "no_warnings": True,
         **_common_yt_dlp_options(),
-        "retries": max(1, min(int(retries or 3), 5)),
+        "retries": _coerce_bounded_int(retries, 3, 1, 5),
         "progress_hooks": hooks,
         "postprocessor_hooks": postprocessor_hooks,
     }
-    max_attempts = max(1, min(int(retries or 3), 5))
+    max_attempts = _coerce_bounded_int(retries, 3, 1, 5)
     last_error = None
-    output = None
     info = {}
     for attempt in range(1, max_attempts + 1):
         try:
@@ -296,6 +361,7 @@ def download_public_video(url: str, destination: str, progress=None, max_height:
             if output and output.exists():
                 break
         except OperationCancelled:
+            cleanup_cancelled_download()
             raise
         except Exception as exc:
             last_error = exc
@@ -314,9 +380,10 @@ def download_public_video(url: str, destination: str, progress=None, max_height:
 
     source_duration = info.get("duration") if isinstance(info, dict) else None
     try:
-        expected_duration = float(source_duration) if source_duration else None
+        parsed_duration = float(source_duration) if source_duration is not None else None
     except (TypeError, ValueError):
-        expected_duration = None
+        parsed_duration = None
+    expected_duration = parsed_duration if parsed_duration is not None and math.isfinite(parsed_duration) and parsed_duration > 0 else None
     validation = validate_media(
         str(output),
         expected_duration=expected_duration,

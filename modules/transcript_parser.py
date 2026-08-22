@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import html
+import math
 import re
 from typing import Iterable
 
@@ -40,6 +41,14 @@ def _clean_text(text: str) -> str:
     # reliable diarization and should not pollute the editorial transcript.
     text = re.sub(r"(?:^|\s)(?:>>|>)\s*", " ", text)
     return re.sub(r"\s+", " ", text).strip()
+
+
+def _finite_float(value):
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return None
+    return parsed if math.isfinite(parsed) else None
 
 
 def _word_tokens(text: str) -> list[str]:
@@ -83,8 +92,12 @@ def _deduplicate_progressive_segments(segments: Iterable[dict]) -> list[dict]:
         if delta is None:
             cleaned.append(item)
             continue
-        if item.get("end") is not None and previous.get("end") is not None:
-            previous["end"] = max(float(previous["end"]), float(item["end"]))
+        previous_end = _finite_float(previous.get("end"))
+        item_end = _finite_float(item.get("end"))
+        if previous_end is not None and item_end is not None:
+            previous["end"] = max(previous_end, item_end)
+        elif item.get("end") is not None and item_end is None:
+            item.pop("end", None)
         if delta:
             item["text"] = _clean_text(delta)
             cleaned.append(item)
@@ -92,25 +105,41 @@ def _deduplicate_progressive_segments(segments: Iterable[dict]) -> list[dict]:
 
 
 def _normalize(segments: Iterable[dict], duration: float | None = None) -> list[dict]:
-    ordered = sorted(
-        [s for s in segments if s.get("text") and s.get("start") is not None],
-        key=lambda s: float(s["start"]),
-    )
+    candidates = []
+    for raw in segments:
+        if not isinstance(raw, dict) or not raw.get("text"):
+            continue
+        start = _finite_float(raw.get("start"))
+        if start is None:
+            continue
+        item = dict(raw)
+        item["start"] = start
+        if item.get("end") is not None:
+            end = _finite_float(item.get("end"))
+            if end is None:
+                item.pop("end", None)
+            else:
+                item["end"] = end
+        candidates.append(item)
+    ordered = sorted(candidates, key=lambda s: s["start"])
+    duration_limit = _finite_float(duration)
+    if duration_limit is not None and duration_limit <= 0:
+        duration_limit = None
     result = []
     for index, item in enumerate(ordered):
-        start = max(0.0, float(item["start"]))
-        next_start = float(ordered[index + 1]["start"]) if index + 1 < len(ordered) else None
+        start = max(0.0, item["start"])
+        next_start = ordered[index + 1]["start"] if index + 1 < len(ordered) else None
         end = item.get("end")
         if end is None:
             if next_start is not None and next_start > start:
                 end = next_start
-            elif len(ordered) == 1 and duration is not None and float(duration) > start:
-                end = float(duration)
+            elif len(ordered) == 1 and duration_limit is not None and duration_limit > start:
+                end = duration_limit
             else:
                 end = start + 2.0
-        end = max(start + 0.05, float(end))
-        if duration is not None:
-            end = min(end, max(start + 0.05, float(duration)))
+        end = max(start + 0.05, _finite_float(end) if _finite_float(end) is not None else start + 2.0)
+        if duration_limit is not None:
+            end = min(end, max(start + 0.05, duration_limit))
         normalized = {
             "id": index,
             "start": round(start, 3),

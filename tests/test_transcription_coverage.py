@@ -1,4 +1,13 @@
-from app import _transcription_coverage_report
+from app import _max_finite_transcript_timestamp, _transcription_coverage_report
+
+
+def test_max_finite_transcript_timestamp_ignores_invalid_values():
+    value = _max_finite_transcript_timestamp([
+        {"start": 0, "end": 3},
+        {"start": "nan", "end": "inf"},
+        {"start": 4, "end": "malformed"},
+    ])
+    assert value == 3.0
 
 
 def test_coverage_report_marks_full_transcript_as_covered():

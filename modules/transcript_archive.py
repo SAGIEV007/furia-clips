@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 import re
 from datetime import datetime, timezone
@@ -28,9 +29,10 @@ def _slug(value: str, max_length: int = 72) -> str:
 
 def _number(value: Any, default: float = 0.0) -> float:
     try:
-        return float(value)
+        parsed = float(value)
     except (TypeError, ValueError):
         return default
+    return parsed if math.isfinite(parsed) else default
 
 
 def _segment_text(segment: dict) -> str:
@@ -38,7 +40,7 @@ def _segment_text(segment: dict) -> str:
 
 
 def format_timestamp(seconds: float) -> str:
-    seconds = max(0.0, float(seconds or 0.0))
+    seconds = max(0.0, _number(seconds, 0.0))
     hours = int(seconds // 3600)
     minutes = int((seconds % 3600) // 60)
     remainder = seconds % 60

@@ -3,6 +3,7 @@ import numpy as np
 import json
 import os
 import tempfile
+import math
 
 from .cancellation import OperationCancelled
 
@@ -105,44 +106,53 @@ class AudioAnalyzer:
         return energy_profile
 
     def find_high_energy_moments(self, energy_profile, threshold=0.6, min_duration=3.0, window_seconds=1.0):
+        """Find high-energy windows while tolerating legacy JSON values."""
+        normalized_profile = []
+        for entry in energy_profile or []:
+            if not isinstance(entry, dict):
+                continue
+            try:
+                time = float(entry.get("time"))
+                energy = float(entry.get("energy_normalized", 0))
+            except (TypeError, ValueError):
+                continue
+            if not math.isfinite(time) or not math.isfinite(energy):
+                continue
+            normalized_profile.append((time, max(0.0, min(1.0, energy))))
+        if not normalized_profile:
+            return []
+
         high_moments = []
         in_high = False
-        start_time = 0
-
-        for entry in energy_profile:
-            if entry.get("energy_normalized", 0) >= threshold:
+        start_time = 0.0
+        for time, energy in normalized_profile:
+            if energy >= threshold:
                 if not in_high:
                     in_high = True
-                    start_time = entry["time"]
-            else:
-                if in_high:
-                    end_time = entry["time"]
-                    duration = end_time - start_time
-                    if duration >= min_duration:
-                        avg_energy = np.mean([
-                            e["energy_normalized"] for e in energy_profile
-                            if start_time <= e["time"] <= end_time
-                        ])
-                        high_moments.append({
-                            "start": start_time,
-                            "end": end_time,
-                            "duration": round(duration, 3),
-                            "avg_energy": round(float(avg_energy), 4),
-                        })
-                    in_high = False
+                    start_time = time
+            elif in_high:
+                end_time = time
+                duration = end_time - start_time
+                if duration >= min_duration:
+                    values = [value for point, value in normalized_profile if start_time <= point <= end_time]
+                    high_moments.append({
+                        "start": start_time,
+                        "end": end_time,
+                        "duration": round(duration, 3),
+                        "avg_energy": round(float(np.mean(values)), 4),
+                    })
+                in_high = False
 
         if in_high:
-            end_time = energy_profile[-1]["time"] + window_seconds
+            end_time = normalized_profile[-1][0] + window_seconds
             duration = end_time - start_time
             if duration >= min_duration:
+                values = [value for point, value in normalized_profile if point >= start_time]
                 high_moments.append({
                     "start": start_time,
                     "end": end_time,
                     "duration": round(duration, 3),
-                    "avg_energy": round(float(np.mean([
-                        e["energy_normalized"] for e in energy_profile
-                        if e["time"] >= start_time
-                    ])), 4),
+                    "avg_energy": round(float(np.mean(values)), 4),
                 })
 
         high_moments.sort(key=lambda x: x["avg_energy"], reverse=True)

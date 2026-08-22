@@ -8,8 +8,30 @@ crosses (or does not cross) a chapter boundary.
 
 from __future__ import annotations
 
+import math
 import re
 from collections import Counter
+
+
+def _safe_float(value, default=0.0):
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return float(default)
+    return parsed if math.isfinite(parsed) else float(default)
+
+
+def _coerce_flag(value, default=False):
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value != 0
+    normalized = str(value or "").strip().lower()
+    if normalized in {"1", "true", "yes", "sim", "on", "enabled"}:
+        return True
+    if normalized in {"0", "false", "no", "não", "nao", "off", "disabled"}:
+        return False
+    return bool(default)
 
 
 _DEFAULT_TARGET_SECONDS = 85.0
@@ -86,7 +108,7 @@ def build_editorial_chapters(
             "segment_start": int(group[0].get("segment_index", 0)),
             "segment_end": int(group[-1].get("segment_index", 0)),
             "segment_count": len(group),
-            "has_question": any(bool(item.get("is_question")) for item in group),
+            "has_question": any(_coerce_flag(item.get("is_question")) for item in group),
             "has_qa_bridge": bool(qa_ids),
             "qa_candidate_ids": qa_ids,
             "topic_terms": topic_terms,
@@ -137,7 +159,7 @@ def annotate_clip_with_chapters(clip: dict, editorial_context: dict | None) -> d
         if start <= qa_start + 2.5 and end >= qa_end - 2.5 and coverage >= 0.72:
             qa_bridge = True
             qa_boundary_basis = str(candidate.get("boundary_basis") or "sem_diarização")
-            qa_boundary_review_required = bool(candidate.get("needs_speaker_review") or candidate.get("overlap_suspected"))
+            qa_boundary_review_required = _coerce_flag(candidate.get("needs_speaker_review")) or _coerce_flag(candidate.get("overlap_suspected"))
             break
 
     if not overlaps:
@@ -201,15 +223,15 @@ def _attach_nearest_hook(clip: dict, hook_candidates: list[dict] | None) -> None
         "score": candidate.get("score", 0),
         "start": candidate.get("start", 0),
         "end": candidate.get("end", 0),
-        "payoff_confirmed": bool(candidate.get("payoff_confirmed")),
+        "payoff_confirmed": _coerce_flag(candidate.get("payoff_confirmed")),
         "payoff_signals": list(candidate.get("payoff_signals") or [])[:4],
-        "visual_evidence_required": bool(candidate.get("visual_evidence_required")),
+        "visual_evidence_required": _coerce_flag(candidate.get("visual_evidence_required")),
         "visual_review_reason": str(candidate.get("visual_review_reason") or ""),
         "audio_signal": candidate.get("audio_signal") or {"available": False},
         "campaign_hub_prior": candidate.get("campaign_hub_prior"),
     }
     clip["hook_distance_seconds"] = round(float(distance), 3)
-    clip["hook_review_required"] = bool(candidate.get("needs_visual_review") or candidate.get("needs_speaker_review"))
+    clip["hook_review_required"] = _coerce_flag(candidate.get("needs_visual_review")) or _coerce_flag(candidate.get("needs_speaker_review"))
 
 
 def _normalize_segments(segments: list[dict]) -> list[dict]:
@@ -221,6 +243,8 @@ def _normalize_segments(segments: list[dict]) -> list[dict]:
             start = float(source.get("start", 0) or 0)
             end = float(source.get("end", start) or start)
         except (TypeError, ValueError):
+            continue
+        if not all(math.isfinite(value) for value in (start, end)) or start < 0:
             continue
         if end <= start:
             end = start + 0.1

@@ -1,8 +1,54 @@
 import pytest
 
+from modules.cancellation import OperationCancelled
 from modules.editorial_context import analyze_transcript_context
 from modules.source_ingest import SourceIngestError, normalize_public_url, validate_public_url
 from modules.transcript_parser import parse_transcript_text
+
+
+def test_cancelled_public_download_cleans_new_partial_files(monkeypatch, tmp_path):
+    from types import SimpleNamespace
+    import modules.source_ingest as source_ingest
+
+    existing = tmp_path / "arquivo-do-editor.txt"
+    existing.write_text("preservar", encoding="utf-8")
+    partial = tmp_path / "novo-video.mp4.part"
+
+    class FakeYoutubeDL:
+        def __init__(self, options):
+            self.options = options
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def extract_info(self, _url, download=True):
+            partial.write_bytes(b"parcial")
+            self.options["progress_hooks"][0]({
+                "status": "downloading",
+                "tmpfilename": str(partial),
+                "filename": str(partial),
+                "format_id": "video",
+                "vcodec": "avc1",
+                "acodec": "none",
+            })
+            raise OperationCancelled("parado durante o download")
+
+    monkeypatch.setattr(source_ingest, "validate_public_url", lambda value: value)
+    monkeypatch.setattr(source_ingest, "_yt_dlp", lambda: SimpleNamespace(YoutubeDL=FakeYoutubeDL))
+
+    with pytest.raises(OperationCancelled, match="parado durante o download"):
+        source_ingest.download_public_video(
+            "https://www.youtube.com/watch?v=cancel",
+            str(tmp_path),
+            progress=lambda _update: None,
+            cancel_check=lambda: None,
+        )
+
+    assert not partial.exists()
+    assert existing.read_text(encoding="utf-8") == "preservar"
 
 
 def test_parse_tactiq_preserves_timestamps_and_format():
@@ -47,6 +93,18 @@ def test_coverage_marks_narrow_span_as_partial():
 
     assert report["status"] == "partial"
     assert report["span_ratio"] == 0.4
+
+
+def test_editorial_context_ignores_invalid_legacy_segment_count():
+    transcription = {
+        "segments": [{"start": 0.0, "end": 3.0, "text": "Abertura contextual."}],
+        "coverage": {"status": "partial", "segment_count": "corrompido"},
+    }
+
+    context = analyze_transcript_context(transcription, focus="generic")
+
+    assert context["transcription_quality"]["segment_count"] == 1
+    assert context["transcription_quality"]["review_required"] is True
 
 
 def test_editorial_context_detects_question_response_and_renan_signal():
@@ -220,6 +278,22 @@ def test_editorial_context_can_force_generic_focus_even_with_renan_reference():
     )
     context = analyze_transcript_context(transcription, focus="generic")
     assert context["focus"] == "generic_political"
+
+
+def test_editorial_context_ignores_non_finite_timestamps_and_legacy_false_overlap():
+    transcription = {
+        "segments": [
+            {"start": "nan", "end": 5.0, "text": "Ignorar este trecho.", "overlap_suspected": "true"},
+            {"start": 0.0, "end": 2.0, "text": "Uma fala clara.", "overlap_suspected": "false"},
+            {"start": 2.1, "end": 5.0, "text": "Outra fala clara.", "overlap_suspected": "false"},
+        ]
+    }
+
+    context = analyze_transcript_context(transcription, focus="generic")
+
+    assert context["signals"]["overlap_count"] == 0
+    assert context["signals"]["possible_overlap"] is False
+    assert context["segment_count"] == 2
 
 
 def test_editorial_context_preserves_optional_speaker_confidence_and_overlap():

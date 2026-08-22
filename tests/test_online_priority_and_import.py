@@ -2,6 +2,17 @@ from pathlib import Path
 from types import SimpleNamespace
 
 
+def test_public_ingest_normalizes_non_finite_options_and_live_flags():
+    from modules.source_ingest import _coerce_bounded_int, _coerce_flag
+
+    assert _coerce_bounded_int("nan", 1080, 144, 1080) == 1080
+    assert _coerce_bounded_int("inf", 3, 1, 5) == 3
+    assert _coerce_bounded_int("720", 1080, 144, 1080) == 720
+    assert _coerce_flag("false") is False
+    assert _coerce_flag("true") is True
+    assert _coerce_flag(float("nan")) is False
+
+
 def test_automatic_transcription_prefers_gemini_before_cpu(monkeypatch, tmp_path):
     import app as app_module
 
@@ -81,6 +92,34 @@ def test_source_import_passes_normalized_url_to_downloader(monkeypatch, tmp_path
     assert received["url"] == "https://www.youtube.com/watch?v=normalized"
     assert received["max_height"] == 1080
     assert response.get_json()["job_id"]
+    assert app_module.current_task["active"] is False
+
+
+def test_source_import_accepts_string_false_for_download_only(monkeypatch, tmp_path):
+    import app as app_module
+
+    downloaded = tmp_path / "download-only.mp4"
+    downloaded.write_bytes(b"video")
+    calls = {"subtitle": 0, "automatic": 0}
+    monkeypatch.setattr(app_module, "validate_public_url", lambda value: value)
+    monkeypatch.setattr(
+        app_module,
+        "download_public_video",
+        lambda *args, **kwargs: {"path": str(downloaded), "title": "Download", "duration": 2, "url": "u", "extractor": "youtube"},
+    )
+    monkeypatch.setattr(app_module, "create_project", lambda *args, **kwargs: 993)
+    monkeypatch.setattr(app_module, "download_public_subtitles", lambda *args, **kwargs: calls.__setitem__("subtitle", calls["subtitle"] + 1))
+    monkeypatch.setattr(app_module, "_transcribe_video_automatically", lambda *args, **kwargs: calls.__setitem__("automatic", calls["automatic"] + 1))
+    monkeypatch.setattr(app_module.threading, "Thread", lambda target, daemon=True: SimpleNamespace(start=target))
+    app_module.current_task["active"] = False
+    response = app_module.app.test_client().post(
+        "/api/source/import",
+        json={"url": "https://www.youtube.com/watch?v=download", "destination_dir": str(tmp_path), "auto_transcribe": "false"},
+    )
+
+    assert response.status_code == 200
+    assert calls == {"subtitle": 0, "automatic": 0}
+    assert "sem transcrição" in response.get_json()["message"]
     assert app_module.current_task["active"] is False
 
 
@@ -301,6 +340,20 @@ def test_long_cpu_video_uses_fast_model_for_discovery(monkeypatch, tmp_path):
     assert result["source"] == "whisper"
     assert calls == ["small", "base"]
     assert any("modelo base" in message for message, _ in events)
+
+
+def test_followup_video_analysis_coerces_legacy_false_setting():
+    import app as app_module
+
+    assert app_module._should_allow_followup_video_analysis(
+        {"source": "manual"}, {"gemini_manual_video_analysis": "false"}
+    ) is False
+    assert app_module._should_allow_followup_video_analysis(
+        {"source": "public_subtitles"}, {"gemini_video_analysis_with_transcript": "false"}
+    ) is False
+    assert app_module._should_allow_followup_video_analysis(
+        {"source": "manual"}, {"gemini_manual_video_analysis": "true"}
+    ) is True
 
 
 def test_followup_video_analysis_is_opt_in_after_canonical_transcript():

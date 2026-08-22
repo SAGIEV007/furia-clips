@@ -37,6 +37,20 @@ class TranscriptArchiveTests(unittest.TestCase):
         self.assertIn("excedem a duração", report["issues"][0])
         self.assertFalse(report["semantic_accuracy_verified"])
 
+    def test_quality_report_rejects_non_finite_timestamps(self):
+        report = transcript_archive.validate_transcription(
+            {
+                "segments": [
+                    {"start": "nan", "end": 2, "text": "Abertura inválida."},
+                    {"start": 3, "end": "inf", "text": "Fechamento inválido."},
+                    {"start": 4, "end": 6, "text": "Segmento válido com contexto suficiente."},
+                ]
+            }
+        )
+        self.assertEqual(report["valid_segment_count"], 1)
+        self.assertEqual(report["quality"], "needs_attention")
+        self.assertIn("intervalo inválido", report["issues"][0])
+
     def test_empty_transcription_has_zero_quality_score(self):
         report = transcript_archive.validate_transcription({"segments": []})
         self.assertEqual(report["quality"], "needs_attention")

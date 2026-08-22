@@ -236,8 +236,11 @@ class JobManager:
             previous_seconds = float(previous) if isinstance(previous, (int, float)) else 0.0
             stage_timings[current_stage] = round(previous_seconds + _elapsed_seconds(stage_started_at, now), 3)
             stage_started_at = now
+        next_state = state if state is not None else current["state"]
+        if current.get("state") == "cancel_requested" and next_state not in {"completed", "failed", "cancelled"}:
+            next_state = "cancel_requested"
         values = {
-            "state": state if state is not None else current["state"],
+            "state": next_state,
             "stage": next_stage,
             "progress": max(0, min(100, int(progress))) if progress is not None else current["progress"],
             "message": message if message is not None else current["message"],

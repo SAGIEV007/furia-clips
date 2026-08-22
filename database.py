@@ -2,6 +2,7 @@ import sqlite3
 import json
 import os
 import hashlib
+import math
 from datetime import datetime
 from config import DB_PATH, DEFAULT_SETTINGS
 
@@ -15,9 +16,25 @@ _ALLOWED_CANDIDATE_ORIGINS = {
 _ALLOWED_SELECTION_SOURCES = {"gemini", "llm", "nlp", "local"}
 _ALLOWED_TRANSCRIPT_SOURCES = {"manual", "public_subtitle", "gemini_video", "whisper", "automatic", "unknown"}
 _ALLOWED_CONTEXT_SOURCES = {"local_dossier", "multimodal_auxiliary", "none"}
-_ALLOWED_COVERAGE_STATUSES = {"covered", "partial", "mismatch_suspected", "empty", "unknown"}
+_ALLOWED_COVERAGE_STATUSES = {"covered", "complete", "partial", "mismatch_suspected", "empty", "pending", "unknown"}
 _SUPPORTED_CAMPAIGN_HUB_ACCOUNTS = {"@renansantosmbl", "@renansantosreserva", "@partidomissao"}
 _DEFAULT_CAMPAIGN_HUB_ACCOUNT = "@renansantosmbl"
+
+
+def _parse_optional_bool(value):
+    """Return a parsed boolean or None without inventing a value for unknown input."""
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        return value != 0
+    normalized = str(value).strip().lower()
+    if normalized in {"1", "true", "yes", "sim", "on", "enabled"}:
+        return True
+    if normalized in {"0", "false", "no", "não", "nao", "off", "disabled"}:
+        return False
+    return None
 
 
 def _normalize_campaign_hub_account(value):
@@ -48,8 +65,9 @@ def _normalize_review_provenance(value):
         confidence = float(value.get("confidence"))
     except (TypeError, ValueError):
         confidence = None
-    if confidence is not None:
+    if confidence is not None and math.isfinite(confidence):
         result["confidence"] = round(max(0.0, min(1.0, confidence)), 3)
+
     transcript_source = str(value.get("transcript_source") or "").strip()[:24]
     if transcript_source in _ALLOWED_TRANSCRIPT_SOURCES:
         result["transcript_source"] = transcript_source
@@ -59,8 +77,19 @@ def _normalize_review_provenance(value):
     coverage_status = str(value.get("transcript_coverage_status") or "").strip()[:32]
     if coverage_status in _ALLOWED_COVERAGE_STATUSES:
         result["transcript_coverage_status"] = coverage_status
-    if isinstance(value.get("transcript_archive_present"), bool):
-        result["transcript_archive_present"] = value["transcript_archive_present"]
+    transcript_archive_present = _parse_optional_bool(value.get("transcript_archive_present"))
+    if transcript_archive_present is not None:
+        result["transcript_archive_present"] = transcript_archive_present
+    semantic_identity_verified = _parse_optional_bool(value.get("transcript_semantic_identity_verified"))
+    if semantic_identity_verified is not None:
+        result["transcript_semantic_identity_verified"] = semantic_identity_verified
+    try:
+        transcript_end_ratio = float(value.get("transcript_end_ratio"))
+    except (TypeError, ValueError):
+        transcript_end_ratio = None
+    if transcript_end_ratio is not None and math.isfinite(transcript_end_ratio):
+        result["transcript_end_ratio"] = round(max(0.0, min(1.0, transcript_end_ratio)), 3)
+
     if isinstance(value.get("framing"), dict):
         raw_framing = value["framing"]
     elif any(key in value for key in ("framing_mode", "framing_reason", "framing_confidence", "framing_review_required")):
@@ -74,15 +103,16 @@ def _normalize_review_provenance(value):
     framing_reason = str(raw_framing.get("reason") or raw_framing.get("framing_reason") or "").strip()[:240]
     if framing_reason:
         framing["reason"] = framing_reason
-    review_required = raw_framing.get("review_required", raw_framing.get("framing_review_required"))
-    if isinstance(review_required, bool):
+    review_required = _parse_optional_bool(raw_framing.get("review_required", raw_framing.get("framing_review_required")))
+    if review_required is not None:
         framing["review_required"] = review_required
     try:
         framing_confidence = float(raw_framing.get("confidence", raw_framing.get("framing_confidence")))
     except (TypeError, ValueError):
         framing_confidence = None
-    if framing_confidence is not None:
+    if framing_confidence is not None and math.isfinite(framing_confidence):
         framing["confidence"] = round(max(0.0, min(1.0, framing_confidence)), 3)
+
     if framing:
         result["framing"] = framing
     return result
@@ -143,6 +173,11 @@ def _source_signature(source_video):
         return digest.hexdigest()[:32]
     except (OSError, ValueError):
         return ""
+
+
+def get_source_signature(source_video):
+    """Expose the bounded local media signature for source-identity contracts."""
+    return _source_signature(source_video)
 
 
 def _editorial_clip_key(source_video, start_time, end_time, transcript):
@@ -366,12 +401,19 @@ def init_db():
     conn.close()
 
 
+def _decode_setting_value(raw_value, fallback=None):
+    try:
+        return json.loads(raw_value)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return fallback
+
+
 def get_setting(key):
     conn = get_db()
     row = conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
     conn.close()
     if row:
-        value = json.loads(row["value"])
+        value = _decode_setting_value(row["value"], DEFAULT_SETTINGS.get(key))
     else:
         value = DEFAULT_SETTINGS.get(key)
     return _normalize_campaign_hub_account(value) if key == "campaign_hub_account" else value
@@ -600,7 +642,7 @@ def get_all_settings():
     conn.close()
     settings = {}
     for row in rows:
-        settings[row["key"]] = json.loads(row["value"])
+        settings[row["key"]] = _decode_setting_value(row["value"], DEFAULT_SETTINGS.get(row["key"]))
     for key, value in DEFAULT_SETTINGS.items():
         if key not in settings:
             settings[key] = value
@@ -684,7 +726,7 @@ def get_existing_clip_fingerprints(source_video=""):
     rows = conn.execute(
         f"""SELECT clips.start_time, clips.end_time, clips.duration,
                          clips.transcript, clips.review_status, clips.editorial_key,
-                         projects.source_signature
+                         projects.source_signature, projects.source_video
            FROM clips
            JOIN projects ON projects.id = clips.project_id
           WHERE {normalized_source} = ? OR {normalized_source} LIKE ?""",
@@ -693,6 +735,7 @@ def get_existing_clip_fingerprints(source_video=""):
     conn.close()
     current_signature = _source_signature(source_video)
     fingerprints = []
+    seen_identities = set()
     for row in rows:
         try:
             start = float(row[0] or 0)
@@ -702,9 +745,15 @@ def get_existing_clip_fingerprints(source_video=""):
         if end <= start:
             continue
         stored_signature = str(row[6] or "")
+        stored_source = str(row[7] or "").replace("\\", "/").strip().lower()
         if current_signature and stored_signature and stored_signature != current_signature:
             continue
-        fingerprints.append({
+        # Legacy projects may lack a content signature. If the current file has
+        # one, do not let a same-basename file from another location inherit
+        # those intervals; an exact path remains backward-compatible.
+        if current_signature and not stored_signature and stored_source != source_text:
+            continue
+        fingerprint = {
             "start": round(start, 3),
             "end": round(end, 3),
             "duration": round(float(row[2] or end - start), 3),
@@ -712,7 +761,14 @@ def get_existing_clip_fingerprints(source_video=""):
             "review_status": str(row[4] or "pending"),
             "editorial_key": str(row[5] or "")[:64],
             "source_signature": stored_signature,
-        })
+        }
+        identity = fingerprint["editorial_key"] or (
+            f"{fingerprint['start']:.3f}|{fingerprint['end']:.3f}|{fingerprint['text'].lower()}"
+        )
+        if identity in seen_identities:
+            continue
+        seen_identities.add(identity)
+        fingerprints.append(fingerprint)
     return fingerprints
 
 

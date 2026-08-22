@@ -42,7 +42,7 @@ def test_visual_evidence_review_flag_reaches_contextual_hook_card():
 def test_review_card_exposes_speaker_review_reason_to_editor():
     source = APP_JS.read_text(encoding="utf-8")
 
-    assert "const speakerReviewRequired = Boolean(" in source
+    assert "const speakerReviewRequired = safeBooleanFlag(clip.speaker_review_required)" in source
     assert "Locutor/ponte para confirmar:" in source
     assert "speaker_review_reason" in source
 
@@ -226,6 +226,16 @@ def test_restored_feedback_refreshes_visible_cards_without_rerendering_source():
     assert "invalid || unmatched" in source
 
 
+def test_repository_sync_normalizes_invalid_snapshot_counts():
+    source = APP_JS.read_text(encoding="utf-8")
+    status_start = source.find("function renderRepositorySyncState(payload)")
+    status_end = source.find("async function checkRepositorySync", status_start)
+    block = source[status_start:status_end]
+
+    assert "const snapshotRecords = safeNonNegativeCount(payload.feedback_snapshot_records);" in block
+    assert "const invalidSnapshotRecords = safeNonNegativeCount(payload.feedback_snapshot_invalid_records);" in block
+
+
 def test_repository_sync_explains_semantically_invalid_feedback_snapshot():
     source = APP_JS.read_text(encoding="utf-8")
     status_start = source.find("function renderRepositorySyncState(payload)")
@@ -235,6 +245,16 @@ def test_repository_sync_explains_semantically_invalid_feedback_snapshot():
     assert "feedback_snapshot_invalid_records" in block
     assert "registro(s) precisam ser revisados" in block
     assert "snapshot inválido; revisão necessária" in block
+
+
+def test_review_feedback_scopes_confidence_before_persisting_decision():
+    source = APP_JS.read_text(encoding="utf-8")
+    review_start = source.find("async function setClipReview(index, action)")
+    review_end = source.find("// --- Transcript Toggle ---", review_start)
+    block = source[review_start:review_end]
+
+    assert 'const rawConfidence = Number(clip.confidence);' in block
+    assert 'Number.isFinite(rawConfidence) ? Math.max(0, Math.min(1, rawConfidence)) : 0' in block
 
 
 def test_review_feedback_refreshes_daily_goal_and_editorial_integrity_hud():
@@ -250,6 +270,17 @@ def test_review_feedback_refreshes_daily_goal_and_editorial_integrity_hud():
     assert "if (clip.clip_id) await refreshVisibleReviewState();" in block
     assert "Clip aprovado" in block
     assert "Clip rejeitado" in block
+
+
+def test_clip_card_exposes_topic_review_with_safe_boolean_flags():
+    source = APP_JS.read_text(encoding="utf-8")
+
+    assert "function safeBooleanFlag(value, fallback = false)" in source
+    assert "const topicReviewRequired = [" in source
+    assert "clip.topic_review_required" in source
+    assert "reviewFlags.topic_change_detected" in source
+    assert "Continuidade do tópico para confirmar:" in source
+    assert "safeBooleanFlag(clip.speaker_review_required)" in source
 
 
 def test_transcription_completion_preserves_source_identity_after_video_change():
@@ -433,7 +464,15 @@ def test_transcript_archive_list_does_not_present_structural_quality_as_semantic
     assert "semântica não validada" in source
     assert "quality.semantic_accuracy_verified" in source
     assert "valid_segment_count" in source
-    assert "const archiveClass = quality.quality === \"structurally_ok\" && quality.semantic_accuracy_verified" in source
+    assert "const archiveClass = quality.quality === \"structurally_ok\" && semanticVerified" in source
+
+
+def test_transcript_coverage_uses_safe_count_for_legacy_metadata():
+    source = APP_JS.read_text(encoding="utf-8")
+
+    assert "function safeNonNegativeCount(...values)" in source
+    assert "safeNonNegativeCount(coverage.segment_count" in source
+    assert "safeNonNegativeCount(quality.valid_segment_count)" in source
 
 
 def test_source_import_notice_does_not_overwrite_current_transcript_status():
@@ -563,10 +602,104 @@ def test_transcript_coverage_status_can_force_review_for_legacy_clips():
     assert "clip.review_provenance?.transcript_coverage_status" in source
 
 
-def test_framing_card_does_not_call_review_required_reframe_safe():
+def test_preview_boundary_normalizes_source_duration_before_request():
     source = APP_JS.read_text(encoding="utf-8")
 
-    assert "const framingReviewRequired = Boolean(" in source
+    assert "const rawSourceDuration = Number(clip.source_duration ?? clip.video_duration ?? clip.duration);" in source
+    assert "const sourceDuration = Number.isFinite(rawSourceDuration) && rawSourceDuration > 0 ? rawSourceDuration : null;" in source
+    assert "duration: sourceDuration," in source
+
+
+def test_persist_boundary_derives_finite_legacy_duration():
+    source = APP_JS.read_text(encoding="utf-8")
+
+    assert "duration: Number.isFinite(Number(clip.duration))" in source
+    assert "Math.max(0, Number(clip.end) - Number(clip.start))" in source
+
+
+def test_clip_confidence_normalizes_non_finite_values_safely():
+    source = APP_JS.read_text(encoding="utf-8")
+
+    assert "const rawConfidence = Number(clip.confidence);" in source
+    assert "Math.round(Math.max(0, Math.min(1, rawConfidence)) * 100)" in source
+    assert "Number.isFinite(rawConfidence) ? Math.max(0, Math.min(1, rawConfidence)) : 0" in source
+
+
+def test_clip_prior_counts_normalize_legacy_numbers_safely():
+    source = APP_JS.read_text(encoding="utf-8")
+
+    assert "const campaignSampleCount = safeNonNegativeCount(campaignPrior.sample_count, reviewFlags.campaign_hub_sample_count);" in source
+    assert "const feedbackSampleSize = safeNonNegativeCount(feedbackCalibration.sample_size, reviewFlags.feedback_sample_size);" in source
+
+
+def test_candidate_volume_notice_normalizes_legacy_counts_safely():
+    source = APP_JS.read_text(encoding="utf-8")
+
+    assert "const expected = safeNonNegativeCount(diagnostics.expected_count);" in source
+    assert "const finalCount = safeNonNegativeCount(diagnostics.final_count);" in source
+    assert "const renderableCount = safeNonNegativeCount(diagnostics.renderable_candidate_count, finalCount);" in source
+    assert "const rejected = safeNonNegativeCount(diagnostics.render_rejection_count);" in source
+
+
+def test_frontend_quality_scores_normalize_non_finite_values_safely():
+    source = APP_JS.read_text(encoding="utf-8")
+
+    assert "const contextualHookScoreLabel = Number.isFinite(contextualHookScoreValue)" in source
+    assert "score não validado" in source
+    assert "const rawValue = Number(qualityScorecard[key]);" in source
+    assert "Number.isFinite(rawValue) ? Math.max(0, Math.min(100, rawValue)) : 0" in source
+
+
+def test_frontend_state_flags_normalize_legacy_false_safely():
+    source = APP_JS.read_text(encoding="utf-8")
+
+    assert "const reached = safeBooleanFlag(progress.target_reached);" in source
+    assert "const available = safeBooleanFlag(payload.feedback_snapshot_present) && safeBooleanFlag(payload.feedback_snapshot_valid);" in source
+    assert "const reviewBusy = safeBooleanFlag(clip.review_busy);" in source
+    assert "const configured = safeBooleanFlag(s.gemini_api_key_configured)" in source
+
+
+def test_contextual_hook_normalizes_legacy_payoff_flag_safely():
+    source = APP_JS.read_text(encoding="utf-8")
+
+    assert "const contextualPayoffConfirmed = safeBooleanFlag(contextualHook.payoff_confirmed);" in source
+    assert "contextualPayoffConfirmed ? ' · payoff próximo' : ' · payoff a confirmar'" in source
+
+
+def test_calibration_panel_normalizes_legacy_boolean_metadata_safely():
+    source = APP_JS.read_text(encoding="utf-8")
+
+    assert "const usable = safeBooleanFlag(item.usable);" in source
+    assert "const calibrationEligible = safeBooleanFlag(calibration.eligible);" in source
+    assert "safeBooleanFlag(durationSignal.usable)" in source
+
+
+def test_transcript_archive_normalizes_legacy_semantic_quality_safely():
+    source = APP_JS.read_text(encoding="utf-8")
+
+    assert "const scoreValue = Number(quality.score);" in source
+    assert "Number.isFinite(scoreValue)" in source
+    assert "const semanticVerified = safeBooleanFlag(quality.semantic_accuracy_verified);" in source
+    assert "quality.quality === \"structurally_ok\" && semanticVerified" in source
+
+
+def test_boundary_preview_normalizes_legacy_snapped_flags_safely():
+    source = APP_JS.read_text(encoding="utf-8")
+
+    assert "const snapped = [boundary.snapped_start, boundary.snapped_end].some((value) => safeBooleanFlag(value));" in source
+
+
+def test_context_review_normalizes_legacy_recovery_flag_safely():
+    source = APP_JS.read_text(encoding="utf-8")
+
+    assert "const contextRecoveryApplied = [contextRecovery.applied, reviewFlags.context_recovery_applied].some((value) => safeBooleanFlag(value));" in source
+
+
+def test_framing_card_normalizes_legacy_review_required_reframe_safely():
+    source = APP_JS.read_text(encoding="utf-8")
+
+    assert "const framingReviewRequired = [" in source
+    assert ".some((value) => safeBooleanFlag(value));" in source
     assert 'label: "Reframe 9:16 planejado · revisar"' in source
     assert 'label: "Reframe 9:16 seguro"' in source
     assert "reenquadramento depende de confirmação visual" in source
@@ -702,6 +835,27 @@ def test_cancel_requested_job_disables_repeat_cancel_action():
     assert "cancelRequested" in source
     assert "Parada solicitada; aguardando encerramento seguro" in source
     assert "job.state === \"cancel_requested\"" in source
+
+
+def test_context_analysis_clears_job_id_on_terminal_states_and_ignores_late_events():
+    source = APP_JS.read_text(encoding="utf-8")
+    event_start = source.find('socket.on("editorial_context_complete"')
+    event_end = source.find("// ─── Ollama Status", event_start)
+    event_block = source[event_start:event_end]
+    assert 'state.contextAnalysisJobId = "";' in event_block
+
+    polling_start = source.find("async function pollEditorialContextJob")
+    polling_end = source.find('document.getElementById("btnAnalyzeEditorialContext")', polling_start)
+    polling_block = source[polling_start:polling_end]
+    assert 'state.contextAnalysisJobId = "";' in polling_block
+    assert 'job.state === "failed" || job.state === "cancelled"' in polling_block
+
+    analysis_start = source.find('document.getElementById("btnAnalyzeEditorialContext")')
+    analysis_end = source.find("// ─── Results Display ───", analysis_start)
+    analysis_block = source[analysis_start:analysis_end]
+    assert "const isCurrentRequest = requestToken === state.contextAnalysisToken;" in analysis_block
+    assert 'if (isCurrentRequest) state.contextAnalysisJobId = "";' in analysis_block
+    assert 'state.contextAnalysisJobId = "";' in analysis_block
 
 
 def test_context_analysis_discards_stale_source_results():

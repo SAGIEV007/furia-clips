@@ -84,6 +84,19 @@ def test_existing_clip_fingerprints_ignore_invalid_intervals(monkeypatch, tmp_pa
     assert fingerprints[0]["end"] == 20.0
 
 
+def test_source_signature_changes_when_same_path_content_changes(tmp_path):
+    source = tmp_path / "replaceable.mp4"
+    source.write_bytes(b"video-original" * 200000)
+    original = database.get_source_signature(str(source))
+
+    source.write_bytes(b"video-substituido" * 200000)
+    replaced = database.get_source_signature(str(source))
+
+    assert original
+    assert replaced
+    assert replaced != original
+
+
 def test_source_signature_prevents_same_basename_collision(monkeypatch, tmp_path):
     monkeypatch.setattr(database, "DB_PATH", str(tmp_path / "signature.sqlite"))
     database.init_db()

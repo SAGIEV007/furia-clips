@@ -7,6 +7,7 @@ that produced it, so the review UI can explain and calibrate the ranking.
 
 from __future__ import annotations
 
+import math
 import re
 import unicodedata
 from typing import Iterable, Optional
@@ -31,6 +32,7 @@ HOOK_PATTERNS = [
     r"qual\s+(e|é)\s+(o\s+)?nosso\s+maior\s+inimigo",
     r"que\s+brasil\s+vou\s+pegar",
     r"eles\s+nao\s+querem\s+que\s+voce\s+veja",
+    r"desafio\s+(pra|para|ao|a)\s+(voce|voces)",
 ]
 
 EMOTIONAL_TERMS = {
@@ -55,6 +57,41 @@ RESOLUTION_PATTERNS = ("portanto", "por isso", "entao", "a conclusao", "fica cla
 ARGUMENT_MARKERS = ("porque", "portanto", "por isso", "significa", "se ", "entao", "logo", "portanto")
 PREFERRED_MAX_DURATION = 180.0
 
+
+
+def _safe_float(value, default=0.0):
+    """Return a finite float for legacy or incomplete ranking fields."""
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return float(default)
+    return parsed if math.isfinite(parsed) else float(default)
+
+
+def _optional_finite_float(value):
+    """Return None for malformed or non-finite interval boundaries."""
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return None
+    return parsed if math.isfinite(parsed) else None
+
+
+def _coerce_flag(value, default=False):
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(default) if not math.isfinite(value) else value != 0
+    if value is None:
+        return bool(default)
+    normalized = str(value).strip().lower()
+    if not normalized:
+        return bool(default)
+    if normalized in {"0", "false", "no", "não", "nao", "off", "disabled"}:
+        return False
+    if normalized in {"1", "true", "yes", "sim", "on", "enabled"}:
+        return True
+    return bool(default)
 
 
 class EditorialRanker:
@@ -87,7 +124,7 @@ class EditorialRanker:
             key=lambda clip: (
                 clip.get("editorial_potential_score", clip.get("viral_score", 0)),
                 (clip.get("factors") or {}).get("duration_fit", 50),
-                -float(clip.get("duration", 0) or 0),
+                -_safe_float(clip.get("duration", 0), 0.0),
             ),
             reverse=True,
         )
@@ -112,7 +149,7 @@ class EditorialRanker:
             key=lambda clip: (
                 clip.get("editorial_potential_score", 0),
                 (clip.get("factors") or {}).get("duration_fit", 50),
-                -float(clip.get("duration", 0) or 0),
+                -_safe_float(clip.get("duration", 0), 0.0),
             ),
             reverse=True,
         )
@@ -127,7 +164,10 @@ class EditorialRanker:
 
     def score_clip(self, clip: dict, *, user_context: str = "", energy_profile=None) -> dict:
         text = str(clip.get("text") or "").strip()
-        duration = float(clip.get("duration") or max(1.0, float(clip.get("end", 0)) - float(clip.get("start", 0))))
+        start = _safe_float(clip.get("start", 0), 0.0)
+        end = _safe_float(clip.get("end", start), start)
+        fallback_duration = max(1.0, end - start)
+        duration = _safe_float(clip.get("duration"), fallback_duration)
         closure_type = self._closure_type(text)
         review_provenance = clip.get("review_provenance") if isinstance(clip.get("review_provenance"), dict) else {}
         review_flags = clip.get("review_flags") if isinstance(clip.get("review_flags"), dict) else {}
@@ -137,7 +177,7 @@ class EditorialRanker:
             or review_flags.get("transcription_coverage_status")
             or ("unknown" if review_provenance else "")
         ).strip().lower()
-        transcription_needs_review = bool(clip.get("transcription_review_required")) or transcription_coverage_status in {"partial", "mismatch_suspected", "empty", "unknown"}
+        transcription_needs_review = _coerce_flag(clip.get("transcription_review_required")) or transcription_coverage_status in {"partial", "mismatch_suspected", "empty", "unknown"}
         transcription_review_reason = {
             "partial": "cobertura parcial da transcrição; confirme o trecho no vídeo",
             "mismatch_suspected": "a transcrição pode pertencer a outra fonte; confirme identidade e trecho no vídeo",
@@ -145,15 +185,26 @@ class EditorialRanker:
             "unknown": "cobertura temporal não validada; confirme o trecho no vídeo",
         }.get(transcription_coverage_status, "transcrição requer confirmação editorial" if transcription_needs_review else "")
         clip_review_flags = clip.get("review_flags") if isinstance(clip.get("review_flags"), dict) else {}
-        speaker_review_required = bool(
-            clip.get("needs_speaker_review")
-            or clip.get("speaker_review_required")
-            or clip_review_flags.get("speaker_review_required")
-            or (clip.get("qa_boundary_review_required") and clip.get("question_detected"))
+        speaker_review_required = any(
+            _coerce_flag(clip.get(key))
+            for key in ("needs_speaker_review", "speaker_review_required")
+        ) or _coerce_flag(clip_review_flags.get("speaker_review_required")) or (
+            _coerce_flag(clip.get("qa_boundary_review_required")) and _coerce_flag(clip.get("question_detected"))
         )
         speaker_review_reason = (
             "locutor ou ponte pergunta–resposta sem confirmação confiável; revisar áudio e vídeo"
             if speaker_review_required else ""
+        )
+        topic_review_required = any(
+            _coerce_flag(clip.get(key))
+            for key in ("topic_boundary", "topic_change_detected", "needs_topic_review")
+        ) or any(
+            _coerce_flag(clip_review_flags.get(key))
+            for key in ("topic_review_required", "topic_boundary", "topic_change_detected")
+        )
+        topic_review_reason = (
+            "mudança de tópico detectada; confirmar continuidade do assunto"
+            if topic_review_required else ""
         )
         format_profile = classify_editorial_format(clip, text)
         contextual_hook_payload = clip.get("contextual_hook") if isinstance(clip.get("contextual_hook"), dict) else {}
@@ -237,9 +288,9 @@ class EditorialRanker:
 
         # Chapter coherence is a bounded, explainable adjustment layered on top
         # of the established score so legacy ranking remains comparable.
-        if clip.get("editorial_chapter_available"):
+        if _coerce_flag(clip.get("editorial_chapter_available")):
             score += int(round((factors["chapter_coherence"] - 65.0) * 0.08))
-            if clip.get("chapter_crosses_boundary") and not clip.get("qa_bridge"):
+            if _coerce_flag(clip.get("chapter_crosses_boundary")) and not _coerce_flag(clip.get("qa_bridge")):
                 score -= 2
         if campaign_hub_prior["available"]:
             # Post-publication evidence is intentionally bounded to +/- 2 points.
@@ -257,15 +308,19 @@ class EditorialRanker:
             for key in (
                 "starts_mid_sentence", "question_detected", "question_answer_complete",
                 "evidence_present", "payoff_complete", "context_complete",
+                "topic_boundary", "topic_change_detected", "needs_topic_review",
             )
         )
         technical_gate = self._technical_gate(clip, factors, political_signals)
         framing = clip.get("framing") if isinstance(clip.get("framing"), dict) else {}
         framing_mode = str(framing.get("mode") or clip.get("framing_mode") or "").strip().lower()
-        framing_review_required = bool(
-            framing.get("review_required")
-            or clip.get("framing_review_required")
-            or (clip.get("review_flags") or {}).get("framing_review_required")
+        framing_review_required = any(
+            _coerce_flag(value)
+            for value in (
+                framing.get("review_required"),
+                clip.get("framing_review_required"),
+                (clip.get("review_flags") or {}).get("framing_review_required"),
+            )
         )
         if framing_review_required:
             score = min(score, 78)
@@ -277,15 +332,20 @@ class EditorialRanker:
             if speaker_review_reason and speaker_review_reason not in technical_gate["reasons"]:
                 technical_gate["reasons"].append(speaker_review_reason)
             technical_gate["status"] = "review_required"
+        if topic_review_required:
+            score = min(score, 72)
+            if topic_review_reason and topic_review_reason not in technical_gate["reasons"]:
+                technical_gate["reasons"].append(topic_review_reason)
+            technical_gate["status"] = "review_required"
         if transcription_needs_review:
             score = min(score, 74 if transcription_coverage_status == "partial" else 66)
         score -= technical_gate["penalty"]
         if context_contract:
-            if not clip.get("context_complete") and not clip.get("qa_bridge"):
+            if not _coerce_flag(clip.get("context_complete")) and not _coerce_flag(clip.get("qa_bridge")):
                 score = min(score, 74)
-            if clip.get("overlap_suspected"):
+            if _coerce_flag(clip.get("overlap_suspected")):
                 score = min(score, 62)
-            elif clip.get("timing_ambiguous"):
+            elif _coerce_flag(clip.get("timing_ambiguous")):
                 score = min(score, 70)
         score = max(0, min(100, score))
 
@@ -308,14 +368,16 @@ class EditorialRanker:
             score = min(score, 78)
         if speaker_review_required:
             score = min(score, 78)
+        if topic_review_required:
+            score = min(score, 72)
         if transcription_needs_review:
             score = min(score, 74 if transcription_coverage_status == "partial" else 66)
         if context_contract:
-            if not clip.get("context_complete") and not clip.get("qa_bridge"):
+            if not _coerce_flag(clip.get("context_complete")) and not _coerce_flag(clip.get("qa_bridge")):
                 score = min(score, 74)
-            if clip.get("overlap_suspected"):
+            if _coerce_flag(clip.get("overlap_suspected")):
                 score = min(score, 62)
-            elif clip.get("timing_ambiguous"):
+            elif _coerce_flag(clip.get("timing_ambiguous")):
                 score = min(score, 70)
 
         feedback_calibration = self._feedback_payload(
@@ -338,6 +400,7 @@ class EditorialRanker:
             review_required=(
                 framing_review_required
                 or speaker_review_required
+                or topic_review_required
                 or transcription_needs_review
             ),
         )
@@ -353,6 +416,8 @@ class EditorialRanker:
             }
 
         reason = self._reason(factors, user_context)
+        if topic_review_required and topic_review_reason:
+            reason = f"{reason}; {topic_review_reason}"
         topic_signature = self._topic_signature(text, political_signals)
         score_version = (
             "v3-context-gates-feedback" if feedback_adjustment and context_contract
@@ -366,15 +431,15 @@ class EditorialRanker:
             "editorial_score_version": score_version,
             "topic_signature": topic_signature,
             "closure_type": closure_type,
-            "starts_mid_sentence": bool(clip.get("starts_mid_sentence")),
-            "question_detected": bool(clip.get("question_detected")),
-            "question_answer_complete": bool(clip.get("question_answer_complete")),
-            "evidence_present": bool(clip.get("evidence_present")),
-            "payoff_complete": bool(clip.get("payoff_complete")),
-            "context_complete": bool(clip.get("context_complete")),
-            "starts_with_context_reference": bool(clip.get("starts_with_context_reference")),
+            "starts_mid_sentence": _coerce_flag(clip.get("starts_mid_sentence")),
+            "question_detected": _coerce_flag(clip.get("question_detected")),
+            "question_answer_complete": _coerce_flag(clip.get("question_answer_complete")),
+            "evidence_present": _coerce_flag(clip.get("evidence_present")),
+            "payoff_complete": _coerce_flag(clip.get("payoff_complete")),
+            "context_complete": _coerce_flag(clip.get("context_complete")),
+            "starts_with_context_reference": _coerce_flag(clip.get("starts_with_context_reference")),
             "context_recovery": dict(clip.get("context_recovery") or {"applied": False, "reason": "antecedente não precisou ser recuperado"}),
-            "payoff_weak_ending": bool(clip.get("payoff_weak_ending")),
+            "payoff_weak_ending": _coerce_flag(clip.get("payoff_weak_ending")),
             "transcription_review_required": transcription_needs_review,
             "transcription_coverage_status": transcription_coverage_status,
             "framing": {
@@ -385,6 +450,10 @@ class EditorialRanker:
             "framing_review_required": framing_review_required,
             "speaker_review_required": speaker_review_required,
             "speaker_review_reason": speaker_review_reason,
+            "topic_boundary": _coerce_flag(clip.get("topic_boundary")),
+            "topic_change_detected": _coerce_flag(clip.get("topic_change_detected")),
+            "topic_review_required": topic_review_required,
+            "topic_review_reason": topic_review_reason,
             "breakdown": breakdown,
             "factors": {key: round(value, 1) for key, value in factors.items()},
             "confidence": round(confidence, 2),
@@ -396,28 +465,30 @@ class EditorialRanker:
             "political_profile": self.editorial_profile if political_signals else "",
             "political_editorial_type": political_signals.get("editorial_type", "") if political_signals else "",
             "political_signals": political_signals,
-            "entity_context_review_required": bool(political_signals.get("entity_context_review_required")),
+            "entity_context_review_required": _coerce_flag(political_signals.get("entity_context_review_required")),
             "primary_entity_role": str(political_signals.get("primary_entity_role", "none") or "none"),
             "visual_format": format_profile["visual_format"],
             "visual_format_confidence": format_profile["visual_format_confidence"],
             "visual_format_reason": format_profile["visual_format_reason"],
             "visual_observation": str(clip.get("visual_observation") or ""),
             "visual_observation_confidence": clip.get("visual_observation_confidence"),
-            "visual_evidence_required": bool(clip.get("visual_evidence_required") or contextual_hook_payload.get("visual_evidence_required")),
+            "visual_evidence_required": _coerce_flag(clip.get("visual_evidence_required")) or _coerce_flag(contextual_hook_payload.get("visual_evidence_required")),
             "editorial_chapter_ids": list(clip.get("editorial_chapter_ids") or []),
             "chapter_primary_id": clip.get("chapter_primary_id"),
-            "chapter_count": int(clip.get("chapter_count", 0) or 0),
+            "chapter_count": int(_safe_float(clip.get("chapter_count", 0), 0.0)),
             "chapter_coherence_score": clip.get("chapter_coherence_score"),
-            "qa_bridge": bool(clip.get("qa_bridge")),
+            "qa_bridge": _coerce_flag(clip.get("qa_bridge")),
             "qa_boundary_basis": str(clip.get("qa_boundary_basis", "") or ""),
-            "qa_boundary_review_required": bool(clip.get("qa_boundary_review_required")),
-            "speaker_turn_valid": clip.get("speaker_turn_valid"),
-                "speaker_boundary_score": factors["speaker_boundary"],
-                "qa_boundary_score": factors["qa_boundary"],
-                "contextual_hook_alignment": factors["contextual_hook_alignment"],
-                "feedback_reason_alignment": factors["feedback_reason_alignment"],
-                "transcription_review_required": transcription_needs_review,
-                "transcription_coverage_status": transcription_coverage_status,
+            "qa_boundary_review_required": _coerce_flag(clip.get("qa_boundary_review_required")),
+            "speaker_turn_valid": (
+                None if "speaker_turn_valid" not in clip else _coerce_flag(clip.get("speaker_turn_valid"), default=True)
+            ),
+            "speaker_boundary_score": factors["speaker_boundary"],
+            "qa_boundary_score": factors["qa_boundary"],
+            "contextual_hook_alignment": factors["contextual_hook_alignment"],
+            "feedback_reason_alignment": factors["feedback_reason_alignment"],
+            "transcription_review_required": transcription_needs_review,
+            "transcription_coverage_status": transcription_coverage_status,
             "transcription_review_reason": str(clip.get("transcription_review_reason") or transcription_review_reason),
             "campaign_hub_prior": campaign_hub_prior,
             "instagram_pattern_prior": instagram_pattern_prior,
@@ -433,37 +504,44 @@ class EditorialRanker:
                 "needs_legal_review": bool(political_signals.get("needs_legal_review")),
                 "sensitive_claim_hits": int(political_signals.get("sensitive_claim_hits", 0) or 0),
                 "named_entity_count": int(political_signals.get("named_entity_count", 0) or 0),
-                "entity_context_review_required": bool(political_signals.get("entity_context_review_required")),
+                "entity_context_review_required": _coerce_flag(political_signals.get("entity_context_review_required")),
                 "primary_entity_role": str(political_signals.get("primary_entity_role", "none") or "none"),
                 "preserve_composition": format_profile["preserve_composition"],
                 "visual_observation_available": bool(clip.get("visual_observation")),
-                "visual_evidence_required": bool(clip.get("visual_evidence_required") or contextual_hook_payload.get("visual_evidence_required")),
-                "visual_evidence_review_required": bool(clip.get("visual_evidence_required") or contextual_hook_payload.get("visual_evidence_required")),
+                "visual_evidence_required": _coerce_flag(clip.get("visual_evidence_required")) or _coerce_flag(contextual_hook_payload.get("visual_evidence_required")),
+                "visual_evidence_review_required": _coerce_flag(clip.get("visual_evidence_required")) or _coerce_flag(contextual_hook_payload.get("visual_evidence_required")),
                 "framing_review_required": framing_review_required,
                 "framing_mode": framing_mode,
-                "editorial_chapter_available": bool(clip.get("editorial_chapter_available")),
+                "editorial_chapter_available": _coerce_flag(clip.get("editorial_chapter_available")),
                 "chapter_coherence_score": clip.get("chapter_coherence_score"),
-                "chapter_count": int(clip.get("chapter_count", 0) or 0),
-                "qa_bridge": bool(clip.get("qa_bridge")),
+                "chapter_count": int(_safe_float(clip.get("chapter_count", 0), 0.0)),
+                "qa_bridge": _coerce_flag(clip.get("qa_bridge")),
                 "qa_boundary_basis": str(clip.get("qa_boundary_basis", "") or ""),
-                "qa_boundary_review_required": bool(clip.get("qa_boundary_review_required")),
-                "chapter_crosses_boundary": bool(clip.get("chapter_crosses_boundary")),
+                "qa_boundary_review_required": _coerce_flag(clip.get("qa_boundary_review_required")),
+                "chapter_crosses_boundary": _coerce_flag(clip.get("chapter_crosses_boundary")),
                 "duration_preference": duration_preference["status"],
                 "duration_exception": bool(duration_preference["exception"]),
-                "starts_mid_sentence": bool(clip.get("starts_mid_sentence")),
-                "starts_with_context_reference": bool(clip.get("starts_with_context_reference")),
-                "context_recovery_applied": bool((clip.get("context_recovery") or {}).get("applied")),
-                "payoff_weak_ending": bool(clip.get("payoff_weak_ending")),
-                "question_detected": bool(clip.get("question_detected")),
-                "question_answer_complete": bool(clip.get("question_answer_complete")),
-                "evidence_present": bool(clip.get("evidence_present")),
-                "payoff_complete": bool(clip.get("payoff_complete")),
-                "context_complete": bool(clip.get("context_complete")),
-                "overlap_suspected": bool(clip.get("overlap_suspected")),
-                "timing_ambiguous": bool(clip.get("timing_ambiguous")),
-                "speaker_turn_valid": clip.get("speaker_turn_valid"),
+                "starts_mid_sentence": _coerce_flag(clip.get("starts_mid_sentence")),
+                "starts_with_context_reference": _coerce_flag(clip.get("starts_with_context_reference")),
+                "context_recovery_applied": _coerce_flag((clip.get("context_recovery") or {}).get("applied")),
+                "payoff_weak_ending": _coerce_flag(clip.get("payoff_weak_ending")),
+                "question_detected": _coerce_flag(clip.get("question_detected")),
+                "question_answer_complete": _coerce_flag(clip.get("question_answer_complete")),
+                "evidence_present": _coerce_flag(clip.get("evidence_present")),
+                "payoff_complete": _coerce_flag(clip.get("payoff_complete")),
+                "context_complete": _coerce_flag(clip.get("context_complete")),
+                "overlap_suspected": _coerce_flag(clip.get("overlap_suspected")),
+                "timing_ambiguous": _coerce_flag(clip.get("timing_ambiguous")),
+                "speaker_turn_valid": (
+                    None if "speaker_turn_valid" not in clip
+                    else _coerce_flag(clip.get("speaker_turn_valid"), default=True)
+                ),
                 "speaker_review_required": speaker_review_required,
                 "speaker_review_reason": speaker_review_reason,
+                "topic_boundary": _coerce_flag(clip.get("topic_boundary")),
+                "topic_change_detected": _coerce_flag(clip.get("topic_change_detected")),
+                "topic_review_required": topic_review_required,
+                "topic_review_reason": topic_review_reason,
                 "transcription_review_required": transcription_needs_review,
                 "transcription_coverage_status": transcription_coverage_status,
                 "transcription_review_reason": str(clip.get("transcription_review_reason") or transcription_review_reason),
@@ -503,7 +581,7 @@ class EditorialRanker:
             for name in names:
                 value = factors.get(name)
                 if isinstance(value, (int, float)) and not isinstance(value, bool):
-                    values.append(max(0.0, min(100.0, float(value))))
+                    values.append(max(0.0, min(100.0, _safe_float(value, 50.0))))
             return round(sum(values) / len(values), 1) if values else default
 
         gate_status = str((technical_gate or {}).get("status") or "pass").strip().lower()
@@ -512,42 +590,44 @@ class EditorialRanker:
             "context": average(("context_quality", "completeness", "argument_structure", "chapter_coherence", "qa_boundary")),
             "editorial_strength": average(("hook", "flow", "value", "contextual_hook_alignment", "editorial_family_fit")),
             "technical": average(("audio_energy", "speaker_boundary", "qa_boundary", "duration_fit", "visual_change_density")),
-            "confidence": round(round(max(0.0, min(1.0, float(confidence))), 2) * 100.0, 1),
+            "confidence": round(round(max(0.0, min(1.0, _safe_float(confidence, 0.0))), 2) * 100.0, 1),
             "status": status,
             "gate_status": gate_status,
         }
 
     def _speaker_boundary_score(self, clip: dict) -> float:
-        if clip.get("speaker_turn_valid") is False:
+        if not _coerce_flag(clip.get("speaker_turn_valid"), default=True):
             return 25.0
-        confidence = clip.get("speaker_confidence")
-        if isinstance(confidence, (int, float)):
-            normalized = max(0.0, min(1.0, float(confidence)))
+        confidence = _optional_finite_float(clip.get("speaker_confidence"))
+        if confidence is not None:
+            normalized = max(0.0, min(1.0, confidence))
             return round(45.0 + normalized * 45.0, 1)
-        if clip.get("speaker_change_detected") or clip.get("speaker_boundary"):
+        if _coerce_flag(clip.get("speaker_change_detected")) or _coerce_flag(clip.get("speaker_boundary")):
             return 82.0
         return 50.0
 
     def _qa_boundary_score(self, clip: dict) -> float:
-        if clip.get("qa_bridge"):
+        if _coerce_flag(clip.get("qa_bridge")):
             return 90.0
-        if clip.get("question_answer_complete"):
+        if _coerce_flag(clip.get("question_answer_complete")):
             return 78.0
-        if clip.get("question_detected"):
-            return 42.0 if clip.get("needs_speaker_review") else 58.0
+        if _coerce_flag(clip.get("question_detected")):
+            return 42.0 if _coerce_flag(clip.get("needs_speaker_review")) else 58.0
         return 55.0
 
     def _feedback_reason_alignment(self, clip: dict) -> float:
         calibration = self.feedback_calibration if isinstance(self.feedback_calibration, dict) else {}
         coverage = calibration.get("reason_coverage") if isinstance(calibration.get("reason_coverage"), dict) else {}
-        if not calibration.get("eligible") or not coverage:
+        if not _coerce_flag(calibration.get("eligible")) or not coverage:
             return 50.0
         categories = coverage.get("categories") if isinstance(coverage.get("categories"), dict) else {}
-        if clip.get("overlap_suspected") or clip.get("speaker_turn_valid") is False:
+        if _coerce_flag(clip.get("overlap_suspected")) or not _coerce_flag((
+                None if "speaker_turn_valid" not in clip else _coerce_flag(clip.get("speaker_turn_valid"), default=True)
+            ), default=True):
             category = "speaker_audio"
-        elif clip.get("duration", 0) > PREFERRED_MAX_DURATION:
+        elif _safe_float(clip.get("duration", 0), 0.0) > PREFERRED_MAX_DURATION:
             category = "duration"
-        elif clip.get("question_detected") or clip.get("context_complete") or clip.get("payoff_complete"):
+        elif _coerce_flag(clip.get("question_detected")) or _coerce_flag(clip.get("context_complete")) or _coerce_flag(clip.get("payoff_complete")):
             category = "context_payoff"
         else:
             category = "hook"
@@ -563,11 +643,12 @@ class EditorialRanker:
         hook = clip.get("contextual_hook")
         if not isinstance(hook, dict) or not str(hook.get("hook_text") or "").strip():
             return 50.0
-        try:
-            hook_score = max(0.0, min(100.0, float(hook.get("score", 50) or 50)))
-            distance = max(0.0, float(clip.get("hook_distance_seconds", 0) or 0))
-        except (TypeError, ValueError):
+        hook_score = _optional_finite_float(hook.get("score", 50))
+        distance = _optional_finite_float(clip.get("hook_distance_seconds", 0))
+        if hook_score is None or distance is None:
             return 50.0
+        hook_score = max(0.0, min(100.0, hook_score))
+        distance = max(0.0, distance)
         proximity = max(0.0, min(1.0, 1.0 - distance / 12.0))
         return round(50.0 + (hook_score - 50.0) * 0.55 * proximity, 1)
 
@@ -579,36 +660,50 @@ class EditorialRanker:
             "starts_mid_sentence", "question_detected", "question_answer_complete",
             "evidence_present", "payoff_complete", "context_complete",
             "overlap_suspected", "timing_ambiguous", "speaker_turn_valid",
+            "topic_boundary", "topic_change_detected", "needs_topic_review",
         }
         has_contract = any(key in clip for key in contract_keys)
         inferred_context = bool(
             factors.get("context_completeness", 50) >= 70
             or factors.get("completeness", 50) >= 75
         )
-        context_complete = bool(clip.get("context_complete")) if "context_complete" in clip else inferred_context
-        payoff_complete = bool(clip.get("payoff_complete")) if "payoff_complete" in clip else bool(factors.get("completeness", 50) >= 75)
-        question_detected = bool(clip.get("question_detected")) if "question_detected" in clip else False
-        qa_bridge = bool(clip.get("qa_bridge")) if "qa_bridge" in clip else False
-        starts_mid_sentence = bool(clip.get("starts_mid_sentence"))
-        overlap_suspected = bool(clip.get("overlap_suspected"))
-        timing_ambiguous = bool(clip.get("timing_ambiguous"))
+        context_complete = _coerce_flag(clip.get("context_complete"), default=inferred_context) if "context_complete" in clip else inferred_context
+        payoff_complete = _coerce_flag(clip.get("payoff_complete"), default=factors.get("completeness", 50) >= 75) if "payoff_complete" in clip else bool(factors.get("completeness", 50) >= 75)
+        question_detected = _coerce_flag(clip.get("question_detected")) if "question_detected" in clip else False
+        qa_bridge = _coerce_flag(clip.get("qa_bridge")) if "qa_bridge" in clip else False
+        starts_mid_sentence = _coerce_flag(clip.get("starts_mid_sentence"))
+        overlap_suspected = _coerce_flag(clip.get("overlap_suspected"))
+        timing_ambiguous = _coerce_flag(clip.get("timing_ambiguous"))
+        speaker_turn_invalid = not _coerce_flag((
+                None if "speaker_turn_valid" not in clip else _coerce_flag(clip.get("speaker_turn_valid"), default=True)
+            ), default=True)
         contextual_hook = clip.get("contextual_hook") if isinstance(clip.get("contextual_hook"), dict) else {}
-        visual_evidence_required = bool(clip.get("visual_evidence_required") or contextual_hook.get("visual_evidence_required"))
+        visual_evidence_required = _coerce_flag(clip.get("visual_evidence_required")) or _coerce_flag(contextual_hook.get("visual_evidence_required"))
         transcription_coverage_status = str(clip.get("transcription_coverage_status", "") or "").strip().lower()
-        transcription_review_required = bool(clip.get("transcription_review_required")) or transcription_coverage_status in {"partial", "mismatch_suspected", "empty", "unknown"}
+        transcription_review_required = _coerce_flag(clip.get("transcription_review_required")) or transcription_coverage_status in {"partial", "mismatch_suspected", "empty", "unknown"}
         clip_review_flags = clip.get("review_flags") if isinstance(clip.get("review_flags"), dict) else {}
-        speaker_review_required = bool(
-            clip.get("needs_speaker_review")
-            or clip.get("speaker_review_required")
-            or clip_review_flags.get("speaker_review_required")
-            or (clip.get("qa_boundary_review_required") and clip.get("question_detected"))
+        speaker_review_required = any(
+            _coerce_flag(clip.get(key))
+            for key in ("needs_speaker_review", "speaker_review_required")
+        ) or _coerce_flag(clip_review_flags.get("speaker_review_required")) or (
+            _coerce_flag(clip.get("qa_boundary_review_required")) and question_detected
         )
-        if speaker_review_required and clip.get("speaker_turn_valid") is not False:
+        topic_review_required = any(
+            _coerce_flag(clip.get(key))
+            for key in ("topic_boundary", "topic_change_detected", "needs_topic_review")
+        ) or any(
+            _coerce_flag(clip_review_flags.get(key))
+            for key in ("topic_review_required", "topic_boundary", "topic_change_detected")
+        )
+        if topic_review_required:
+            penalty += 8
+            reasons.append("mudança de tópico detectada; confirmar continuidade do assunto")
+        if speaker_review_required and not speaker_turn_invalid:
             penalty += 8
             reasons.append("locutor ou ponte pergunta–resposta sem confirmação confiável")
         political_signals = political_signals if isinstance(political_signals, dict) else {}
         sensitive_claim_hits = int(political_signals.get("sensitive_claim_hits", 0) or 0)
-        entity_context_review_required = bool(political_signals.get("entity_context_review_required"))
+        entity_context_review_required = _coerce_flag(political_signals.get("entity_context_review_required"))
         explicit_context_contract = any(
             key in clip for key in ("context_complete", "evidence_present", "payoff_complete")
         )
@@ -638,13 +733,13 @@ class EditorialRanker:
         if has_contract and not payoff_complete:
             penalty += 12
             reasons.append("payoff ou fechamento não confirmado")
-        if clip.get("speaker_turn_valid") is False:
+        if speaker_turn_invalid:
             penalty += 18
             reasons.append("troca de locutor incompatível")
         if has_contract and not context_complete and len(_normalize(str(clip.get("text") or "")).split()) < 12:
             penalty += 8
             reasons.append("pouca evidência textual para contexto autossuficiente")
-        if sensitive_claim_hits and explicit_context_contract and (not context_complete or not bool(clip.get("evidence_present"))):
+        if sensitive_claim_hits and explicit_context_contract and (not context_complete or not _coerce_flag(clip.get("evidence_present"))):
             penalty += 10
             reasons.append("alegação sensível sem contexto ou evidência explícitos")
         if entity_context_review_required:
@@ -660,6 +755,8 @@ class EditorialRanker:
             "timing_gate": not (timing_ambiguous or overlap_suspected),
             "visual_evidence_gate": not visual_evidence_required,
             "visual_evidence_required": visual_evidence_required,
+            "topic_review_required": topic_review_required,
+            "topic_review_reason": "mudança de tópico detectada; confirmar continuidade do assunto" if topic_review_required else "",
             "entity_context_review_required": entity_context_review_required,
             "contract_available": has_contract,
         }
@@ -735,35 +832,33 @@ class EditorialRanker:
         duration_signal = calibration.get("duration_signal") if isinstance(calibration.get("duration_signal"), dict) else {}
         origin_deltas = calibration.get("candidate_origin_deltas") if isinstance(calibration.get("candidate_origin_deltas"), dict) else {}
         origin_delta = origin_deltas.get(str(candidate_origin or ""), 0.0)
+        origin_delta = _safe_float(origin_delta, 0.0)
         try:
-            origin_delta = float(origin_delta)
-        except (TypeError, ValueError):
-            origin_delta = 0.0
-        try:
-            normalized_confidence = max(0.0, min(1.0, float(candidate_confidence)))
+            normalized_confidence = max(0.0, min(1.0, _safe_float(candidate_confidence, 0.75)))
         except (TypeError, ValueError):
             normalized_confidence = 0.75
         origin_adjustment = origin_delta * 0.075 * (0.5 + normalized_confidence * 0.5)
         return {
-            "eligible": bool(calibration.get("eligible")),
-            "sample_size": int(calibration.get("sample_size", 0) or 0),
-            "approved_count": int(calibration.get("approved_count", 0) or 0),
-            "rejected_count": int(calibration.get("rejected_count", 0) or 0),
-            "adjustment": round(float(adjustment or 0.0), 2),
+            "eligible": _coerce_flag(calibration.get("eligible")),
+            "sample_size": int(_safe_float(calibration.get("sample_size", 0), 0.0)),
+            "approved_count": int(_safe_float(calibration.get("approved_count", 0), 0.0)),
+            "rejected_count": int(_safe_float(calibration.get("rejected_count", 0), 0.0)),
+            "adjustment": round(_safe_float(adjustment, 0.0), 2),
             "candidate_origin": str(candidate_origin or ""),
             "candidate_origin_delta": round(origin_delta, 2),
             "candidate_origin_adjustment": round(origin_adjustment, 2),
             "candidate_origin_confidence": round(normalized_confidence, 3),
-            "origin_calibration_eligible": bool(
+            "origin_calibration_eligible": _coerce_flag(
                 calibration.get("origin_calibration", {}).get("eligible")
                 if isinstance(calibration.get("origin_calibration"), dict)
-                else False
+                else False,
+                default=False,
             ),
             "duration_signal": {
-                "usable": bool(duration_signal.get("usable")),
-                "approved_mean_seconds": float(duration_signal.get("approved_mean_seconds", 0.0) or 0.0),
-                "rejected_mean_seconds": float(duration_signal.get("rejected_mean_seconds", 0.0) or 0.0),
-                "gap_seconds": float(duration_signal.get("gap_seconds", 0.0) or 0.0),
+                "usable": _coerce_flag(duration_signal.get("usable")),
+                "approved_mean_seconds": _safe_float(duration_signal.get("approved_mean_seconds", 0.0), 0.0),
+                "rejected_mean_seconds": _safe_float(duration_signal.get("rejected_mean_seconds", 0.0), 0.0),
+                "gap_seconds": _safe_float(duration_signal.get("gap_seconds", 0.0), 0.0),
                 "interpretation": str(duration_signal.get("interpretation") or ""),
             },
         }
@@ -776,18 +871,19 @@ class EditorialRanker:
         the global +/- 6 point cap, so provenance never overrides context gates.
         """
         calibration = self.feedback_calibration
-        if not calibration.get("eligible"):
+        if not _coerce_flag(calibration.get("eligible")):
             return 0.0
         deltas = calibration.get("factor_deltas") or {}
         contributions = []
         for factor, delta in deltas.items():
-            value = factors.get(factor)
-            if not isinstance(value, (int, float)) or not isinstance(delta, (int, float)):
+            value = _optional_finite_float(factors.get(factor))
+            delta_value = _optional_finite_float(delta)
+            if value is None or delta_value is None:
                 continue
-            if abs(delta) < 2:
+            if abs(delta_value) < 2:
                 continue
-            direction = 1.0 if delta > 0 else -1.0
-            contributions.append(direction * ((float(value) - 50.0) / 50.0) * min(abs(float(delta)), 25.0))
+            direction = 1.0 if delta_value > 0 else -1.0
+            contributions.append(direction * ((value - 50.0) / 50.0) * min(abs(delta_value), 25.0))
         factor_adjustment = (
             sum(contributions) / len(contributions) * 0.35
             if contributions
@@ -795,12 +891,9 @@ class EditorialRanker:
         )
         origin_deltas = calibration.get("candidate_origin_deltas") or {}
         origin_delta = origin_deltas.get(str(candidate_origin or ""), 0.0)
+        origin_delta = _safe_float(origin_delta, 0.0)
         try:
-            origin_delta = float(origin_delta)
-        except (TypeError, ValueError):
-            origin_delta = 0.0
-        try:
-            confidence = max(0.0, min(1.0, float(candidate_confidence)))
+            confidence = max(0.0, min(1.0, _safe_float(candidate_confidence, 0.75)))
         except (TypeError, ValueError):
             confidence = 0.75
         origin_adjustment = origin_delta * 0.075 * (0.5 + confidence * 0.5)
@@ -874,19 +967,19 @@ class EditorialRanker:
         return min(100.0, 25.0 + (matched / len(words)) * 75.0)
 
     def _chapter_coherence(self, clip: dict) -> float:
-        value = clip.get("chapter_coherence_score")
-        if isinstance(value, (int, float)):
-            return max(0.0, min(100.0, float(value)))
+        value = _optional_finite_float(clip.get("chapter_coherence_score"))
+        if value is not None:
+            return max(0.0, min(100.0, value))
         return 50.0
 
     def _visual_change_density(self, clip: dict) -> float:
         """Estimate visual rhythm only when the pipeline provides scene metadata."""
         for key in ("visual_change_density", "scene_change_density"):
-            value = clip.get(key)
-            if isinstance(value, (int, float)):
-                return max(0.0, min(100.0, float(value)))
+            value = _optional_finite_float(clip.get(key))
+            if value is not None:
+                return max(0.0, min(100.0, value))
         changes = clip.get("scene_changes")
-        duration = float(clip.get("duration") or 0.0)
+        duration = _safe_float(clip.get("duration"), 0.0)
         if isinstance(changes, (list, tuple)) and duration > 0:
             changes_per_second = len(changes) / duration
             return max(0.0, min(100.0, 45.0 + changes_per_second * 35.0))
@@ -895,23 +988,23 @@ class EditorialRanker:
     def _audio_energy(self, clip: dict, energy_profile) -> float:
         for key in ("audio_energy", "energy_score", "energy"):
             value = clip.get(key)
-            if isinstance(value, (int, float)):
-                return max(0.0, min(100.0, float(value)))
+            if isinstance(value, (int, float)) and not isinstance(value, bool):
+                return max(0.0, min(100.0, _safe_float(value, 55.0)))
         if isinstance(energy_profile, dict):
             value = energy_profile.get("score") or energy_profile.get("mean")
-            if isinstance(value, (int, float)):
-                return max(0.0, min(100.0, float(value)))
+            if isinstance(value, (int, float)) and not isinstance(value, bool):
+                return max(0.0, min(100.0, _safe_float(value, 55.0)))
         if isinstance(energy_profile, (list, tuple)):
-            start = float(clip.get("start", 0))
-            end = float(clip.get("end", start))
+            start = _safe_float(clip.get("start", 0), 0.0)
+            end = _safe_float(clip.get("end", start), start)
             points = [
                 item for item in energy_profile
-                if start <= float(item.get("time", -1)) <= end
+                if isinstance(item, dict)
+                and start <= _safe_float(item.get("time", -1), -1.0) <= end
             ]
             normalized = [
-                float(item.get("energy_normalized", 0.0))
+                _safe_float(item.get("energy_normalized", 0.0), 0.0)
                 for item in points
-                if isinstance(item, dict)
             ]
             if normalized:
                 mean_energy = sum(normalized) / len(normalized)
@@ -965,19 +1058,19 @@ class EditorialRanker:
         """Score whether the candidate can stand alone without hiding uncertainty."""
         flags = clip if isinstance(clip, dict) else {}
         score = 50.0
-        if flags.get("context_complete"):
+        if _coerce_flag(flags.get("context_complete")):
             score += 18.0
-        if flags.get("starts_mid_sentence"):
+        if _coerce_flag(flags.get("starts_mid_sentence")):
             score -= 28.0
-        if flags.get("starts_with_context_reference"):
+        if _coerce_flag(flags.get("starts_with_context_reference")):
             score -= 22.0
-        if flags.get("question_answer_complete") or flags.get("qa_bridge"):
+        if _coerce_flag(flags.get("question_answer_complete")) or _coerce_flag(flags.get("qa_bridge")):
             score += 14.0
-        elif flags.get("question_detected"):
+        elif _coerce_flag(flags.get("question_detected")):
             score -= 4.0
-        if flags.get("evidence_present"):
+        if _coerce_flag(flags.get("evidence_present")):
             score += 6.0
-        if flags.get("payoff_complete") or closure_type in {"conclusion", "closed_statement"}:
+        if _coerce_flag(flags.get("payoff_complete")) or closure_type in {"conclusion", "closed_statement"}:
             score += 12.0
         if closure_type == "cliffhanger":
             score -= 18.0
@@ -987,9 +1080,11 @@ class EditorialRanker:
 
     def _confidence(self, text: str, factors: dict, duration: float) -> float:
         evidence = min(1.0, len(text.split()) / 35.0)
-        consistency = 1.0 - (max(factors.values()) - min(factors.values())) / 200.0
+        numeric_factors = [_safe_float(value, 50.0) for value in (factors or {}).values()]
+        spread = (max(numeric_factors) - min(numeric_factors)) if numeric_factors else 0.0
+        consistency = 1.0 - spread / 200.0
         duration_evidence = 1.0 if 8 <= duration <= PREFERRED_MAX_DURATION else 0.78
-        context_evidence = max(0.35, min(1.0, float(factors.get("context_quality", 50.0)) / 100.0))
+        context_evidence = max(0.35, min(1.0, _safe_float(factors.get("context_quality", 50.0), 50.0) / 100.0))
         return max(0.0, min(1.0, 0.30 * evidence + 0.30 * consistency + 0.20 * duration_evidence + 0.20 * context_evidence))
 
     def _reason(self, factors: dict, context: str) -> str:
@@ -1078,11 +1173,11 @@ def _contextually_distinct(first: dict, second: dict) -> bool:
     evidence = 0
     if first.get("closure_type") and second.get("closure_type") and first.get("closure_type") != second.get("closure_type"):
         evidence += 1
-    if bool(first.get("question_answer_complete")) != bool(second.get("question_answer_complete")):
+    if _coerce_flag(first.get("question_answer_complete")) != _coerce_flag(second.get("question_answer_complete")):
         evidence += 1
-    if bool(first.get("payoff_complete")) != bool(second.get("payoff_complete")):
+    if _coerce_flag(first.get("payoff_complete")) != _coerce_flag(second.get("payoff_complete")):
         evidence += 1
-    if bool(first.get("qa_bridge")) != bool(second.get("qa_bridge")):
+    if _coerce_flag(first.get("qa_bridge")) != _coerce_flag(second.get("qa_bridge")):
         evidence += 1
     if first.get("chapter_primary_id") and second.get("chapter_primary_id") and first.get("chapter_primary_id") != second.get("chapter_primary_id"):
         evidence += 1
@@ -1097,11 +1192,19 @@ def _normalize(text: str) -> str:
 
 
 def _interval_overlap(first: dict, second: dict) -> float:
-    start = max(float(first.get("start", 0)), float(second.get("start", 0)))
-    end = min(float(first.get("end", 0)), float(second.get("end", 0)))
+    first_start = _optional_finite_float(first.get("start"))
+    first_end = _optional_finite_float(first.get("end"))
+    second_start = _optional_finite_float(second.get("start"))
+    second_end = _optional_finite_float(second.get("end"))
+    if None in (first_start, first_end, second_start, second_end):
+        return 0.0
+    if first_end <= first_start or second_end <= second_start:
+        return 0.0
+    start = max(first_start, second_start)
+    end = min(first_end, second_end)
     intersection = max(0.0, end - start)
-    first_duration = max(0.001, float(first.get("end", 0)) - float(first.get("start", 0)))
-    second_duration = max(0.001, float(second.get("end", 0)) - float(second.get("start", 0)))
+    first_duration = first_end - first_start
+    second_duration = second_end - second_start
     return intersection / min(first_duration, second_duration)
 
 

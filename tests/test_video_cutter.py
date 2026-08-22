@@ -280,6 +280,23 @@ def test_batch_cut_clamps_padding_to_source_duration(monkeypatch, tmp_path):
     assert calls == [(8.5, 10.0)]
 
 
+def test_batch_cut_skips_non_finite_interval_before_render(monkeypatch, tmp_path):
+    import modules.video_cutter as module
+
+    events = []
+    results = module.VideoCutter(preset="shorts").batch_cut(
+        "fonte.mp4",
+        [{"start": "nan", "end": 30.0, "duration": 30.0, "title": "invalido"}],
+        "limites-nao-finitos",
+        output_dir=str(tmp_path),
+        source_duration=60.0,
+        emit_progress=lambda message, level="info": events.append((message, level)),
+    )
+
+    assert results == []
+    assert any("limites inválidos" in message for message, _level in events)
+
+
 def test_batch_cut_skips_interval_that_collapses_at_source_end(monkeypatch, tmp_path):
     import modules.video_cutter as module
 

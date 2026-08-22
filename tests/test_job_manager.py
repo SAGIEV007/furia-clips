@@ -64,6 +64,17 @@ class JobManagerTests(unittest.TestCase):
         self.assertIsNotNone(final)
         self.assertEqual(final["state"], "cancelled")
 
+    def test_progress_update_does_not_overwrite_cancel_request(self):
+        created = self.manager.create("cancel-race")
+        self.manager.update(created["id"], state="running", stage="analysis", progress=10)
+        self.manager.request_cancel(created["id"])
+
+        updated = self.manager.update(created["id"], stage="rendering", progress=50, message="Ainda encerrando")
+
+        self.assertEqual(updated["state"], "cancel_requested")
+        self.assertEqual(updated["stage"], "rendering")
+        self.assertEqual(updated["progress"], 50)
+
     def test_cancel_request_before_worker_start_never_runs_target(self):
         started = []
 
