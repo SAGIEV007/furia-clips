@@ -1536,6 +1536,10 @@ function selectVideo(item, sourceElement = null) {
     const transcriptBelongsToItem = state.manualTranscript && (
         mediaPathsMatch(state.manualTranscriptVideo, item.path) || state.manualTranscriptVideo === "pending-source"
     );
+    const transcriptToRestore = transcriptBelongsToItem ? state.manualTranscript : null;
+    const transcriptArchiveToRestore = transcriptBelongsToItem
+        ? (state.transcriptArchive || state.manualTranscript?.archive || state.manualTranscript?.archive_metadata || null)
+        : null;
     state.selectedVideo = item.path;
     state.selectedVideoName = item.name;
     if (transcriptBelongsToItem && state.manualTranscriptVideo === "pending-source") {
@@ -1552,6 +1556,9 @@ function selectVideo(item, sourceElement = null) {
         const contextStatus = document.getElementById("contextAnalysisStatus");
         if (contextStatus) contextStatus.textContent = "Vídeo alterado. Execute uma nova análise de contexto para esta fonte.";
         renderEditorialAudit(null);
+    }
+    if (transcriptBelongsToItem) {
+        hydrateTranscriptEditor(transcriptToRestore, transcriptArchiveToRestore);
     }
     if (!transcriptBelongsToItem) {
         state.manualTranscript = null;

@@ -1026,6 +1026,19 @@ def test_video_change_explains_previous_job_scope_in_processing_hud():
     assert "cancelRequested: state.activeJob.state === \"cancel_requested\"" in block
 
 
+def test_selecting_bound_source_rehydrates_transcript_editor_and_archive():
+    source = APP_JS.read_text(encoding="utf-8")
+    start = source.find("function selectVideo(item, sourceElement = null)")
+    end = source.find("async function openOutputFolderForVideo", start)
+    block = source[start:end]
+
+    assert "const transcriptToRestore = transcriptBelongsToItem ? state.manualTranscript : null;" in block
+    assert "const transcriptArchiveToRestore = transcriptBelongsToItem" in block
+    assert "state.manualTranscript?.archive" in block
+    assert "hydrateTranscriptEditor(transcriptToRestore, transcriptArchiveToRestore);" in block
+    assert "if (!transcriptBelongsToItem)" in block
+
+
 def test_video_change_clears_unbound_transcript_and_source_identity():
     source = APP_JS.read_text(encoding="utf-8")
 

@@ -90,3 +90,10 @@ A validação integral desta rodada confirmou **610 testes aprovados**.
 O botão de análise integral agora envia a transcrição manual somente quando ela está vinculada ao vídeo atualmente selecionado. Se houver um transcript carregado de outra fonte, ele é descartado para essa análise e o console informa o motivo; texto ainda digitado, mas não aplicado, continua disponível para o editor enviar conscientemente.
 
 A validação integral desta rodada confirmou **611 testes aprovados**.
+
+
+## Reidratação ao selecionar a fonte correta
+
+Quando uma transcrição terminava em segundo plano enquanto outro vídeo estava selecionado, ela permanecia guardada com sua identidade. Ao selecionar posteriormente a fonte correspondente, a interface agora reidrata o editor com a transcrição e o arquivo persistente corretos. Para outra fonte, a limpeza continua acontecendo normalmente.
+
+A validação integral desta rodada confirmou **612 testes aprovados**.
