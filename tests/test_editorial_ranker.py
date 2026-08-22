@@ -815,3 +815,48 @@ def test_qa_boundary_review_requires_speaker_review_only_for_questions():
 
     assert question["speaker_review_required"] is True
     assert statement["speaker_review_required"] is False
+
+
+
+def test_ranker_exposes_review_only_audio_context_signal():
+    ranker = EditorialRanker(editorial_profile="renan_santos_politics")
+    result = ranker.score_clip({
+        "start": 0,
+        "end": 20,
+        "duration": 20,
+        "text": "A proposta é clara e termina com uma solução concreta.",
+    }, energy_profile=[
+        {"time": 0, "energy_normalized": 0.4, "onset_strength": 0.1, "possible_reaction_signal": 0.1},
+        {"time": 5, "energy_normalized": 0.9, "onset_strength": 0.8, "possible_reaction_signal": 0.7},
+        {"time": 10, "energy_normalized": 0.8, "onset_strength": 0.2, "possible_reaction_signal": 0.4},
+    ])
+
+    assert result["audio_context"]["available"] is True
+    assert 0 <= result["audio_context"]["signal"] <= 100
+    assert result["audio_context"]["review_required"] is True
+    assert "não é classificador" in result["audio_context"]["reason"]
+    assert result["review_flags"]["audio_context_review_required"] is True
+
+
+def test_ranker_favorability_is_bounded_and_does_not_override_context_gate():
+    ranker = EditorialRanker(
+        editorial_profile="renan_santos_politics",
+        channel_context="cortes políticos Renan Santos MBL",
+    )
+    result = ranker.score_clip({
+        "start": 0,
+        "end": 35,
+        "duration": 35,
+        "speaker": "renan",
+        "text": "A verdade é que a proposta tem dados concretos. Por isso, fica claro qual é a solução.",
+        "context_complete": False,
+        "payoff_complete": False,
+        "question_detected": True,
+        "question_answer_complete": False,
+    })
+
+    assert result["favorability"]["available"] is True
+    assert result["favorability"]["signal"] <= 100
+    assert result["favorability"]["confidence"] == 0.72
+    assert result["quality_scorecard"]["status"] == "review_required"
+    assert result["technical_gate"]["status"] in {"review", "weak"}

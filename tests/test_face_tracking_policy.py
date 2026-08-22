@@ -103,3 +103,22 @@ def test_tracker_close_is_idempotent():
     tracker.close()
     tracker.close()
     assert tracker.detector is None
+
+
+
+def test_segment_motion_is_bounded_and_does_not_persist_identity():
+    assessment = FaceTracker().summarize_segment_motion(_positions(jump=0.08))
+    assert assessment["available"] is True
+    assert 0 <= assessment["signal"] <= 100
+    assert assessment["sample_count"] == 5
+    assert assessment["review_required"] is True
+    assert "identidade" not in assessment
+
+
+def test_segment_motion_falls_back_for_multiple_faces_or_invalid_points():
+    assessment = FaceTracker().summarize_segment_motion([
+        {"time": 0, "center_x": 0.3, "center_y": 0.5, "confidence": 0.9, "face_count": 2},
+        {"time": 2, "center_x": "nan", "center_y": 0.5, "confidence": 0.9, "face_count": 1},
+    ])
+    assert assessment["available"] is False
+    assert assessment["review_required"] is True

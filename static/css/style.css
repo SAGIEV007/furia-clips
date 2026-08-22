@@ -5285,3 +5285,42 @@ body::before {
 .clip-acervo-note.review .material-icons-round, .clip-audience-note.review .material-icons-round { color: #e9c56b; }
 .clip-acervo-note b, .clip-audience-note b { color: #eaf5ff; }
 .clip-acervo-note.review b, .clip-audience-note.review b { color: #ffe9ae; }
+
+/* Sinais locais de áudio e favorabilidade: auxiliares, bounded e revisáveis. */
+.clip-audio-note, .clip-favorability-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 7px;
+    margin: 7px 0;
+    padding: 8px 10px;
+    border: 1px solid rgba(172, 131, 255, .18);
+    border-radius: 9px;
+    background: rgba(132, 91, 193, .07);
+    color: #d9c9f3;
+    font-size: 10px;
+    line-height: 1.4;
+}
+.clip-audio-note .material-icons-round, .clip-favorability-note .material-icons-round { color: #bd9bff; font-size: 16px; flex: 0 0 auto; }
+.clip-audio-note.review, .clip-favorability-note.review { border-color: rgba(233, 197, 107, .32); background: rgba(233, 197, 107, .07); color: #f2ddb0; }
+.clip-audio-note.review .material-icons-round, .clip-favorability-note.review .material-icons-round { color: #e9c56b; }
+.clip-audio-note b, .clip-favorability-note b { color: #f0e7ff; }
+.clip-audio-note.review b, .clip-favorability-note.review b { color: #ffe9ae; }
+
+.clip-motion-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 7px;
+    margin: 7px 0;
+    padding: 8px 10px;
+    border: 1px solid rgba(93, 205, 175, .18);
+    border-radius: 9px;
+    background: rgba(44, 155, 125, .07);
+    color: #b9eadb;
+    font-size: 10px;
+    line-height: 1.4;
+}
+.clip-motion-note .material-icons-round { color: #6fe0bd; font-size: 16px; flex: 0 0 auto; }
+.clip-motion-note.review { border-color: rgba(233, 197, 107, .32); background: rgba(233, 197, 107, .07); color: #f2ddb0; }
+.clip-motion-note.review .material-icons-round { color: #e9c56b; }
+.clip-motion-note b { color: #e1fff5; }
+.clip-motion-note.review b { color: #ffe9ae; }

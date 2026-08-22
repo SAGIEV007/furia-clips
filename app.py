@@ -2353,6 +2353,10 @@ def api_cut_shorts():
                         start = float(clip.get("start", 0))
                         end = float(clip.get("end", start))
                         assessment = tracker.assess_segment_tracking(all_face_positions, start, end)
+                        motion_context = tracker.summarize_segment_motion(assessment.get("positions", []))
+                        clip["motion_context"] = motion_context
+                        clip["motion_intensity"] = motion_context.get("signal", 50.0)
+                        clip["motion_review_required"] = bool(motion_context.get("review_required"))
                         layout_plan = plan_layout(
                             detected_layout=video_layout,
                             tracking_assessment=assessment,
@@ -2502,6 +2506,11 @@ def api_cut_shorts():
                     "audience_fit": clip_info.get("audience_fit", {}),
                     "acervo_review_required": bool((clip_info.get("acervo_alignment") or {}).get("review_required")),
                     "audience_review_required": bool((clip_info.get("audience_fit") or {}).get("review_required")),
+                    "audio_context": clip_info.get("audio_context", {}),
+                    "favorability": clip_info.get("favorability", {}),
+                    "motion_context": clip_info.get("motion_context", {}),
+                    "motion_intensity": clip_info.get("motion_intensity"),
+                    "motion_review_required": bool(clip_info.get("motion_review_required")),
                     "speaker": clip_info.get("speaker", ""),
                     "speaker_confidence": clip_info.get("speaker_confidence"),
                     "overlap_suspected": clip_info.get("overlap_suspected", False),
@@ -3432,6 +3441,10 @@ def api_process_complete():
                     all_faces = tracker.detect_faces_in_video(video_path, sample_interval=2.0, emit_progress=emit_progress)
                     for index, clip in enumerate(top_clips):
                         assessment = tracker.assess_segment_tracking(all_faces, clip["start"], clip["end"])
+                        motion_context = tracker.summarize_segment_motion(assessment.get("positions", []))
+                        clip["motion_context"] = motion_context
+                        clip["motion_intensity"] = motion_context.get("signal", 50.0)
+                        clip["motion_review_required"] = bool(motion_context.get("review_required"))
                         layout_plan = plan_layout(
                             detected_layout=video_layout,
                             tracking_assessment=assessment,
@@ -3675,6 +3688,11 @@ def api_process_complete():
                     "audience_fit": clip_info.get("audience_fit", {}),
                     "acervo_review_required": bool((clip_info.get("acervo_alignment") or {}).get("review_required")),
                     "audience_review_required": bool((clip_info.get("audience_fit") or {}).get("review_required")),
+                    "audio_context": clip_info.get("audio_context", {}),
+                    "favorability": clip_info.get("favorability", {}),
+                    "motion_context": clip_info.get("motion_context", {}),
+                    "motion_intensity": clip_info.get("motion_intensity"),
+                    "motion_review_required": bool(clip_info.get("motion_review_required")),
                     "closure_type": clip_info.get("closure_type", ""),
                     "starts_mid_sentence": bool(clip_info.get("starts_mid_sentence")),
                     "starts_with_context_reference": bool(clip_info.get("starts_with_context_reference")),

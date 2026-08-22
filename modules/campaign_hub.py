@@ -677,14 +677,26 @@ def build_acervo_alignment(
         })
         return result
     strength, block, overlap, semantic = best
-    review_required = bool(block.get("gate_warnings") or block.get("needs_context") or block.get("content_class") != "fala")
+    content_class = str(block.get("content_class") or "").strip().lower()
+    renan_speaking = block.get("renan_speaking")
+    persona_match = renan_speaking is not False and content_class in {"", "fala"}
+    review_required = bool(
+        block.get("gate_warnings")
+        or block.get("needs_context")
+        or content_class != "fala"
+        or renan_speaking is False
+        or str(block.get("trust_tier") or "").strip().lower() not in {"owner", "qa", "verified"}
+    )
+    bounded_signal = 50.0 + min(8.0, strength * 8.0) if persona_match else min(50.0, 50.0 + strength * 2.0)
     result.update({
         "available": True,
-        "signal": round(50.0 + min(8.0, strength * 8.0), 1),
+        "signal": round(bounded_signal, 1),
         "confidence": round(min(0.98, 0.45 + strength * 0.5), 2),
         "status": "aligned_same_source",
         "review_required": review_required,
-        "reason": "bloco Acervo QA-gated sobreposto à mesma fonte; confirme áudio, legenda e contexto antes de aprovar",
+        "persona_match": persona_match,
+        "renan_speaking": renan_speaking,
+        "reason": "bloco Acervo de fala sobreposto à mesma fonte; confirme locutor, áudio, legenda e contexto antes de aprovar" if persona_match else "bloco Acervo sobreposto, mas não há evidência suficiente de fala de Renan; manter somente para revisão",
         "account": selected_account,
         "block_id": block.get("block_id", ""),
         "origin": "pauta" if block in account_data.get("acervo_pauta", []) else "acervo_block",

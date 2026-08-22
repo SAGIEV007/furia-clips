@@ -124,7 +124,7 @@ def test_feedback_calibration_is_eligible_and_ranker_marks_adjustment(monkeypatc
         "audio_energy": 85,
     })
 
-    assert scored["editorial_score_version"] == "v1-feedback-calibrated"
+    assert scored["editorial_score_version"] == "v4-renan-signals"
     assert "editor_feedback_alignment" in scored["factors"]
     assert 0 <= scored["viral_score"] <= 100
 

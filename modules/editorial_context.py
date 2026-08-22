@@ -567,7 +567,7 @@ def _hook_text_similarity(left: str, right: str) -> float:
 def _audio_signal_for_window(energy_profile: list[dict] | None, start: float, end: float) -> dict:
     """Summarize local RMS energy around a candidate without storing audio."""
     if not isinstance(energy_profile, list) or not energy_profile:
-        return {"available": False, "mean": None, "peak": None, "contrast": None}
+        return {"available": False, "mean": None, "peak": None, "contrast": None, "onset_peak": None, "reaction_peak": None, "review_required": True}
     entries = []
     baseline_entries = []
     midpoint = (start + end) / 2.0
@@ -582,14 +582,28 @@ def _audio_signal_for_window(energy_profile: list[dict] | None, start: float, en
         if midpoint - 30 <= timestamp <= midpoint - 5:
             baseline_entries.append(normalized)
     if not entries:
-        return {"available": False, "mean": None, "peak": None, "contrast": None}
+        return {"available": False, "mean": None, "peak": None, "contrast": None, "onset_peak": None, "reaction_peak": None, "review_required": True}
     mean_value = sum(entries) / len(entries)
     baseline = sum(baseline_entries) / len(baseline_entries) if baseline_entries else mean_value
+    onset_values = []
+    reaction_values = []
+    for item in energy_profile:
+        try:
+            timestamp = float(item.get("time", 0) or 0)
+            if start - 1.5 <= timestamp <= end:
+                onset_values.append(max(0.0, min(1.0, float(item.get("onset_strength", 0) or 0))))
+                reaction_values.append(max(0.0, min(1.0, float(item.get("possible_reaction_signal", 0) or 0))))
+        except (TypeError, ValueError):
+            continue
+    reaction_peak = max(reaction_values, default=0.0)
     return {
         "available": True,
         "mean": round(mean_value, 3),
         "peak": round(max(entries), 3),
         "contrast": round(mean_value - baseline, 3),
+        "onset_peak": round(max(onset_values, default=0.0), 3),
+        "reaction_peak": round(reaction_peak, 3),
+        "review_required": reaction_peak >= 0.58,
     }
 
 

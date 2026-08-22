@@ -2963,6 +2963,21 @@ function renderResultsGrid() {
         const audienceFitAvailable = safeBooleanFlag(audienceFit.available);
         const audienceFitReview = safeBooleanFlag(audienceFit.review_required) || safeBooleanFlag(clip.audience_review_required);
         const audienceFitSegment = String(audienceFit.segment || "").trim();
+        const audioContext = clip.audio_context && typeof clip.audio_context === "object" ? clip.audio_context : {};
+        const audioContextAvailable = safeBooleanFlag(audioContext.available);
+        const audioContextReview = safeBooleanFlag(audioContext.review_required);
+        const audioReactionPeak = Number(audioContext.possible_reaction_peak);
+        const audioContextReason = String(audioContext.reason || "").trim();
+        const favorability = clip.favorability && typeof clip.favorability === "object" ? clip.favorability : {};
+        const favorabilityAvailable = safeBooleanFlag(favorability.available);
+        const favorabilityReview = safeBooleanFlag(favorability.review_required) || safeBooleanFlag(clip.favorability_review_required);
+        const favorabilitySignal = Number(favorability.signal);
+        const favorabilityReason = String(favorability.reason || "").trim();
+        const motionContext = clip.motion_context && typeof clip.motion_context === "object" ? clip.motion_context : {};
+        const motionAvailable = safeBooleanFlag(motionContext.available);
+        const motionReview = safeBooleanFlag(motionContext.review_required) || safeBooleanFlag(clip.motion_review_required);
+        const motionSignal = Number(motionContext.signal ?? clip.motion_intensity);
+        const motionReason = String(motionContext.reason || "").trim();
         const contextualHook = clip.contextual_hook || {};
         const contextualPayoffSignals = Array.isArray(contextualHook.payoff_signals)
             ? contextualHook.payoff_signals.map((signal) => String(signal || "").trim()).filter(Boolean).slice(0, 3)
@@ -3147,6 +3162,9 @@ function renderResultsGrid() {
                 ${campaignPriorAvailable ? `<div class="clip-performance-prior"><span class="material-icons-round">insights</span><span><b>Histórico observado:</b> hook ${escapeHtml(campaignHookFamily || 'não classificado')} · amostra ${Math.max(0, campaignSampleCount)} · influência limitada ao ranking</span></div>` : ''}
                 ${acervoAlignmentAvailable ? `<div class="clip-acervo-note ${acervoAlignmentReview ? 'review' : ''}"><span class="material-icons-round">inventory_2</span><span><b>Acervo alinhado:</b> ${escapeHtml(acervoAlignmentTitle || 'bloco QA-gated')} · ${Number.isFinite(acervoAlignmentConfidence) ? `${Math.round(Math.max(0, Math.min(1, acervoAlignmentConfidence)) * 100)}% de confiança` : 'confiança não validada'}${acervoAlignmentReview ? ' · confirmar no áudio e no vídeo' : ''}${acervoAlignmentReason ? ` — ${escapeHtml(acervoAlignmentReason)}` : ''}</span></div>` : ''}
                 ${audienceFitAvailable ? `<div class="clip-audience-note ${audienceFitReview ? 'review' : ''}"><span class="material-icons-round">groups</span><span><b>Audiência auxiliar:</b> ${escapeHtml(audienceFitSegment || 'segmento explícito')} · prior limitado e não causal${audienceFitReview ? ' · confirmar amostra e plataforma' : ''}</span></div>` : ''}
+                ${audioContextAvailable ? `<div class="clip-audio-note ${audioContextReview ? 'review' : ''}"><span class="material-icons-round">graphic_eq</span><span><b>Áudio contextual:</b> ${Number.isFinite(audioReactionPeak) ? `reação acústica possível ${Math.round(Math.max(0, Math.min(1, audioReactionPeak)) * 100)}%` : 'energia e textura de fala'} · não é classificador de risada${audioContextReview ? ' · confirmar no áudio' : ''}${audioContextReason ? ` — ${escapeHtml(audioContextReason)}` : ''}</span></div>` : ''}
+                ${favorabilityAvailable ? `<div class="clip-favorability-note ${favorabilityReview ? 'review' : ''}"><span class="material-icons-round">shield</span><span><b>Força editorial para o perfil:</b> ${Number.isFinite(favorabilitySignal) ? `${Math.round(Math.max(0, Math.min(100, favorabilitySignal)))}%` : 'não quantificada'} · prior bounded${favorabilityReview ? ' · confirmar locutor e contexto' : ''}${favorabilityReason ? ` — ${escapeHtml(favorabilityReason)}` : ''}</span></div>` : ''}
+                ${motionAvailable ? `<div class="clip-motion-note ${motionReview ? 'review' : ''}"><span class="material-icons-round">directions_run</span><span><b>Movimento visual auxiliar:</b> ${Number.isFinite(motionSignal) ? `${Math.round(Math.max(0, Math.min(100, motionSignal)))}%` : 'não quantificado'} · não identifica a pessoa${motionReview ? ' · confirmar ação e composição' : ''}${motionReason ? ` — ${escapeHtml(motionReason)}` : ''}</span></div>` : ''}
                 ${transcriptionReviewRequired ? `<div class="clip-review-risk"><span class="material-icons-round">history_edu</span><span><b>Transcrição para revisão:</b> ${escapeHtml(transcriptionReviewReason)}${transcriptionCoverageStatus ? ` · status ${escapeHtml(transcriptionCoverageStatus)}` : ''}</span></div>` : ''}
                 ${provenanceMarkup}
                 ${contextualHookAvailable ? `<div class="clip-hook-provenance ${contextualHookReview ? 'review' : ''}"><span class="material-icons-round">bolt</span><span><b>Hook contextual:</b> ${escapeHtml(String(contextualHook.family || 'não classificado'))} · ${contextualHookScoreLabel}${contextualPayoffConfirmed ? ' · payoff próximo' : ' · payoff a confirmar'}${contextualHookReview ? ` · ${escapeHtml(contextualHookReviewHint)}` : ''}<br><q>${escapeHtml(String(contextualHook.hook_text || ''))}</q>${contextualPayoffSignals.length ? `<small class="clip-hook-payoff-signals">Evidência: ${escapeHtml(contextualPayoffSignals.join(' · '))}</small>` : ''}</span></div>` : ''}

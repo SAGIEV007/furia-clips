@@ -77,6 +77,16 @@ def _optional_finite_float(value):
     return parsed if math.isfinite(parsed) else None
 
 
+def _bounded_score(value, default=50.0):
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        parsed = float(default)
+    if not math.isfinite(parsed):
+        parsed = float(default)
+    return max(0.0, min(100.0, parsed))
+
+
 def _coerce_flag(value, default=False):
     if isinstance(value, bool):
         return value
@@ -92,6 +102,82 @@ def _coerce_flag(value, default=False):
     if normalized in {"1", "true", "yes", "sim", "on", "enabled"}:
         return True
     return bool(default)
+
+
+def _audio_context_signal(clip: dict, energy_profile, start: float, end: float) -> dict:
+    """Return a bounded acoustic cue; it is never a laughter verdict."""
+    supplied = clip.get("audio_context") if isinstance(clip.get("audio_context"), dict) else clip.get("audio_signal")
+    if isinstance(supplied, dict) and supplied.get("available"):
+        payload = dict(supplied)
+        payload["signal"] = _bounded_score(payload.get("signal", 50.0))
+        payload["review_required"] = bool(payload.get("review_required")) or _safe_float(payload.get("possible_reaction_peak"), 0.0) >= 0.58
+        return payload
+    if not isinstance(energy_profile, (list, tuple)):
+        return {"available": False, "signal": 50.0, "review_required": True, "reason": "perfil de áudio ausente"}
+    points = []
+    for item in energy_profile:
+        if not isinstance(item, dict):
+            continue
+        timestamp = _optional_finite_float(item.get("time"))
+        if timestamp is None or timestamp < start - 1.5 or timestamp > end:
+            continue
+        points.append(item)
+    if not points:
+        return {"available": False, "signal": 50.0, "review_required": True, "reason": "janela de áudio sem pontos"}
+    def mean(key, default=0.0):
+        values = [_safe_float(item.get(key), default) for item in points]
+        values = [value for value in values if math.isfinite(value)]
+        return sum(values) / len(values) if values else default
+    mean_energy = max(0.0, min(1.0, mean("energy_normalized")))
+    peak_energy = max((max(0.0, min(1.0, _safe_float(item.get("energy_normalized"), 0.0))) for item in points), default=0.0)
+    reaction_peak = max((max(0.0, min(1.0, _safe_float(item.get("possible_reaction_signal"), 0.0))) for item in points), default=0.0)
+    onset = max(0.0, min(1.0, mean("onset_strength")))
+    # Energy and onset are the primary cues; reaction texture is deliberately small.
+    signal = 35.0 + mean_energy * 25.0 + peak_energy * 20.0 + onset * 10.0 + reaction_peak * 10.0
+    return {
+        "available": True,
+        "signal": round(_bounded_score(signal), 1),
+        "mean_energy": round(mean_energy, 4),
+        "peak_energy": round(peak_energy, 4),
+        "mean_onset": round(onset, 4),
+        "possible_reaction_peak": round(reaction_peak, 4),
+        "confidence": 0.45,
+        "review_required": reaction_peak >= 0.58,
+        "reason": "sinal acústico auxiliar; não é classificador de risada; confirmar música, plateia ou fala no áudio",
+    }
+
+
+def _favorability_signal(clip: dict, text: str, political_signals: dict, editorial_profile: str, channel_context: str) -> dict:
+    """Estimate editorial strength for the configured persona, not personal identity."""
+    normalized_profile = _normalize(f"{editorial_profile} {channel_context}")
+    eligible = any(token in normalized_profile for token in ("renan", "mbl", "politic")) or _coerce_flag(clip.get("favorability_enabled"))
+    if not eligible:
+        return {"available": False, "eligible": False, "signal": 50.0, "confidence": 0.0, "review_required": False, "reason": "perfil genérico sem favorabilidade habilitada"}
+    signals = political_signals if isinstance(political_signals, dict) else {}
+    strength_values = [
+        _bounded_score(signals.get("claim_strength", 50.0)),
+        _bounded_score(signals.get("evidence_density", 50.0)),
+        _bounded_score(signals.get("conflict_or_stakes", 50.0)),
+        _bounded_score(signals.get("conclusion", 50.0)),
+        _bounded_score(signals.get("context_completeness", 50.0)),
+    ]
+    base = sum(strength_values) / len(strength_values)
+    normalized = _normalize(text)
+    defensive_cues = sum(normalized.count(cue) for cue in ("fui acusado", "estou sendo acusado", "nao sei", "talvez", "preciso verificar", "vou apurar"))
+    reversal_cues = sum(normalized.count(cue) for cue in ("por isso", "a verdade e", "fica claro", "na pratica", "mas a realidade"))
+    known_renan_speaker = _normalize(str(clip.get("speaker") or "")) in {"renan", "renan santos"} or _coerce_flag(clip.get("renan_speaking"))
+    signal = base + (8.0 if known_renan_speaker else 0.0) + min(8.0, reversal_cues * 2.0) - min(12.0, defensive_cues * 4.0)
+    confidence = 0.72 if known_renan_speaker else 0.42
+    review_required = _coerce_flag(clip.get("favorability_review_required")) or _coerce_flag(clip.get("speaker_review_required"))
+    return {
+        "available": True,
+        "eligible": True,
+        "signal": round(_bounded_score(signal), 1),
+        "confidence": confidence,
+        "review_required": review_required,
+        "speaker_basis": "speaker_metadata_or_acervo" if known_renan_speaker else "textual_editorial_signal_only",
+        "reason": "tese, evidência, consequência e conclusão favorecem posição editorial forte" if signal >= 60 else "força editorial ambígua; confirmar se Renan está em posição de resposta ou defesa",
+    }
 
 
 class EditorialRanker:
@@ -228,6 +314,8 @@ class EditorialRanker:
             segment=str(clip.get("audience_segment") or ""),
         )
         instagram_pattern_prior = build_editorial_pattern_prior(text, clip)
+        audio_context = _audio_context_signal(clip, energy_profile, start, end)
+        favorability = _favorability_signal(clip, text, political_signals if 'political_signals' in locals() else {}, self.editorial_profile, self.channel_context)
         factors = {
             "hook": self._hook(text),
             "flow": self._flow(text, duration),
@@ -235,7 +323,10 @@ class EditorialRanker:
             "argument_structure": self._argument_structure(text, closure_type),
             "context_match": self._context_match(text, user_context),
             "audio_energy": self._audio_energy(clip, energy_profile),
+            "audio_reaction": audio_context.get("signal", 50.0),
+            "audio_onset": _bounded_score(_safe_float(audio_context.get("mean_onset"), 0.0) * 100.0),
             "visual_change_density": self._visual_change_density(clip),
+            "motion_intensity": _bounded_score(clip.get("motion_intensity", clip.get("motion_score", 50.0))),
             "clarity": self._clarity(text),
             "completeness": self._completeness(text, closure_type),
             "context_quality": self._context_quality(clip, text, closure_type),
@@ -250,6 +341,7 @@ class EditorialRanker:
             "campaign_hub_prior": campaign_hub_prior["observed_signal"],
             "acervo_alignment": acervo_alignment.get("signal", 50.0),
             "audience_fit": audience_fit.get("signal", 50.0),
+            "favorability": favorability.get("signal", 50.0),
         }
         political_signals = {}
         if self.editorial_profile in (PROFILE_NAME, "politics", "political"):
@@ -265,6 +357,8 @@ class EditorialRanker:
                 and not isinstance(value, bool)
                 and key not in {"questions", "exclamations", "sensitive_claim_hits", "named_entity_count"}
             })
+        favorability = _favorability_signal(clip, text, political_signals, self.editorial_profile, self.channel_context)
+        factors["favorability"] = favorability.get("signal", 50.0)
         weights = {
             "hook": 0.17,
             "flow": 0.16,
@@ -317,6 +411,12 @@ class EditorialRanker:
         if audience_fit.get("available"):
             # Audience is only active after an explicit segment and adequate sample.
             score += int(round(max(-1.0, min(1.0, (audience_fit.get("signal", 50.0) - 50.0) * 0.10))))
+        if audio_context.get("available"):
+            # Local acoustic cues help tie-break energetic moments, but remain review-only.
+            score += int(round(max(-2.0, min(2.0, (audio_context.get("signal", 50.0) - 50.0) * 0.04))))
+        if favorability.get("available"):
+            # Persona favorability is bounded and never overrides a context gate.
+            score += int(round(max(-2.0, min(2.0, (favorability.get("signal", 50.0) - 50.0) * 0.05))))
         # Speaker and Q&A boundaries are tie-breakers, never substitutes for
         # context, payoff or technical gates. Combined impact is <= 4 points.
         score += int(round(
@@ -426,6 +526,8 @@ class EditorialRanker:
                 or transcription_needs_review
                 or bool(acervo_alignment.get("review_required"))
                 or bool(audience_fit.get("review_required"))
+                or bool(audio_context.get("review_required") and audio_context.get("available"))
+                or bool(favorability.get("review_required") and favorability.get("available"))
             ),
         )
         breakdown = {
@@ -444,7 +546,9 @@ class EditorialRanker:
             reason = f"{reason}; {topic_review_reason}"
         topic_signature = self._topic_signature(text, political_signals)
         score_version = (
-            "v3-context-gates-feedback" if feedback_adjustment and context_contract
+            "v4-renan-signals-context-gates" if (audio_context.get("available") or favorability.get("available")) and context_contract
+            else "v4-renan-signals" if (audio_context.get("available") or favorability.get("available"))
+            else "v3-context-gates-feedback" if feedback_adjustment and context_contract
             else "v3-context-gates" if context_contract
             else "v1-feedback-calibrated" if feedback_adjustment
             else "v1-explainable"
@@ -517,6 +621,9 @@ class EditorialRanker:
             "campaign_hub_prior": campaign_hub_prior,
             "acervo_alignment": acervo_alignment,
             "audience_fit": audience_fit,
+            "audio_context": audio_context,
+            "favorability": favorability,
+            "favorability_score": favorability.get("signal", 50.0),
             "instagram_pattern_prior": instagram_pattern_prior,
             "feedback_calibration": feedback_calibration,
             "technical_gate": technical_gate,
@@ -585,6 +692,12 @@ class EditorialRanker:
                 "audience_fit_available": bool(audience_fit.get("available")),
                 "audience_fit_status": str(audience_fit.get("status") or ""),
                 "audience_review_required": bool(audience_fit.get("review_required")),
+                "audio_context_available": bool(audio_context.get("available")),
+                "audio_context_review_required": bool(audio_context.get("review_required")),
+                "favorability_available": bool(favorability.get("available")),
+                "favorability_review_required": bool(favorability.get("review_required")),
+                "favorability_eligible": bool(favorability.get("eligible")),
+                "favorability_score": favorability.get("signal", 50.0),
                 "instagram_pattern_prior_available": bool(instagram_pattern_prior["available"]),
                 "instagram_pattern_family": instagram_pattern_prior["family"],
                 "instagram_pattern_sample_count": instagram_pattern_prior["sample_count"],
@@ -621,8 +734,8 @@ class EditorialRanker:
         status = "review_required" if review_required or gate_requires_review else "candidate"
         return {
             "context": average(("context_quality", "completeness", "argument_structure", "chapter_coherence", "qa_boundary")),
-            "editorial_strength": average(("hook", "flow", "value", "contextual_hook_alignment", "editorial_family_fit")),
-            "technical": average(("audio_energy", "speaker_boundary", "qa_boundary", "duration_fit", "visual_change_density")),
+            "editorial_strength": average(("hook", "flow", "value", "contextual_hook_alignment", "editorial_family_fit", "favorability")),
+            "technical": average(("audio_energy", "audio_reaction", "audio_onset", "speaker_boundary", "qa_boundary", "duration_fit", "visual_change_density")),
             "confidence": round(round(max(0.0, min(1.0, _safe_float(confidence, 0.0))), 2) * 100.0, 1),
             "status": status,
             "gate_status": gate_status,
@@ -1129,7 +1242,10 @@ class EditorialRanker:
             "context_match": "aderência ao pedido",
             "context_completeness": "contexto autossuficiente",
             "audio_energy": "energia de áudio",
+            "audio_reaction": "textura acústica para revisão",
+            "audio_onset": "pico de energia contextual",
             "visual_change_density": "ritmo visual",
+            "motion_intensity": "movimento visual auxiliar",
             "clarity": "clareza de fala",
             "completeness": "raciocínio completo",
             "topic_relevance": "tema político aderente",
@@ -1151,6 +1267,7 @@ class EditorialRanker:
             "qa_boundary": "ponte pergunta–resposta",
             "contextual_hook_alignment": "alinhamento ao hook contextual",
             "feedback_reason_alignment": "calibração por motivo editorial",
+            "favorability": "força editorial para o perfil configurado",
         }
         ordered = sorted(factors.items(), key=lambda pair: pair[1], reverse=True)
         top = [labels[key] for key, value in ordered[:3] if value >= 60]

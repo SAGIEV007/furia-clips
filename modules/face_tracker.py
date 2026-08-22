@@ -1,6 +1,7 @@
 import os
 import subprocess
 import json
+import math
 
 
 # Layout types
@@ -475,6 +476,44 @@ class FaceTracker:
             "largest_jump": round(largest_jump, 3),
             "multiple_face_samples": multiple_face_samples,
             "reason": reason,
+        }
+
+    def summarize_segment_motion(self, positions):
+        """Summarize frame-to-frame motion without retaining identity or embeddings."""
+        valid = []
+        for item in positions or []:
+            if not isinstance(item, dict):
+                continue
+            try:
+                time_value = float(item.get("time"))
+                center_x = float(item.get("center_x"))
+                center_y = float(item.get("center_y"))
+                confidence = float(item.get("confidence", 0.0))
+            except (TypeError, ValueError):
+                continue
+            if not all(math.isfinite(value) for value in (time_value, center_x, center_y, confidence)):
+                continue
+            if confidence <= 0 or int(item.get("face_count", 1) or 1) > 1:
+                continue
+            valid.append((time_value, max(0.0, min(1.0, center_x)), max(0.0, min(1.0, center_y))))
+        if len(valid) < 2:
+            return {"available": False, "signal": 50.0, "confidence": 0.0, "review_required": True, "reason": "poucos pontos faciais válidos para movimento"}
+        valid.sort(key=lambda value: value[0])
+        distances = []
+        for previous, current in zip(valid, valid[1:]):
+            distances.append(((current[1] - previous[1]) ** 2 + (current[2] - previous[2]) ** 2) ** 0.5)
+        mean_motion = sum(distances) / len(distances)
+        max_motion = max(distances, default=0.0)
+        signal = max(0.0, min(100.0, 35.0 + mean_motion * 220.0 + max_motion * 80.0))
+        return {
+            "available": True,
+            "signal": round(signal, 1),
+            "mean_motion": round(mean_motion, 4),
+            "max_motion": round(max_motion, 4),
+            "sample_count": len(valid),
+            "confidence": 0.45,
+            "review_required": True,
+            "reason": "movimento facial/da câmera auxiliar; confirmar ação visual no vídeo",
         }
 
     def get_average_face_position(self, positions):

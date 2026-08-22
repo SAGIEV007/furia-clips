@@ -206,3 +206,12 @@ Blocos Acervo só são alinhados a um candidato quando o identificador da mesma 
 A busca editorial local também consulta blocos e pautas presentes em `~/FuriaClipsData/campaign_hub/profile.json`, com timestamps, previews canônicos do YouTube e indicação de leitura somente local. A interface global do snapshot agora exibe contagens de hooks, blocos, pautas e audiência, enquanto os logs dos fluxos inteligente e completo registram a mesma cobertura.
 
 Foram adicionados testes de normalização, alinhamento same-source, rejeição de fonte diferente, snapshot rico sem hooks, audiência com segmento explícito, ranking subordinado aos gates, endpoint de status e busca de bloco Acervo. A validação integral desta rodada confirmou **644 testes aprovados**, além de `node --check`, `py_compile`, `git diff --check` e varredura de segredos sem achados.
+
+## Sinais locais de áudio, movimento e força editorial do perfil Renan
+A análise local de áudio agora preserva o RMS existente e acrescenta, em streaming, zero-crossing rate, onset strength, crest factor e um sinal acústico possível de reação. Esses valores não são apresentados como detecção certa de risada, música ou plateia: permanecem com baixa confiança e revisão obrigatória quando a textura acústica é ambígua. O resumo por janela alimenta os hooks e o ranking apenas como desempate bounded.
+
+O ranker passou a expor `audio_context`, `favorability` e `favorability_score`. A favorabilidade representa força estrutural do trecho para o perfil editorial configurado — tese, evidência, consequência, conclusão e resposta — e não reconhecimento biométrico nem afirmação de que Renan está falando. Quando o locutor não foi confirmado, o resultado exibe base textual e pode exigir revisão explícita; o sinal não supera gates de contexto, payoff, locutor ou técnica.
+
+O face tracking opcional também calcula movimento efêmero por segmento a partir de posições normalizadas, descartando pontos inválidos e múltiplas faces. O índice é mostrado como evidência de movimento visual e não identifica pessoas, não cria memória facial e exige confirmação da ação no vídeo. Menções Acervo sem `renanSpeaking` confirmado permanecem em revisão e não recebem prior positivo.
+
+A interface passou a mostrar áudio contextual, movimento e força editorial do perfil nos cards, com linguagem que diferencia sinal auxiliar de fato confirmado. A validação integral desta rodada confirmou **651 testes aprovados**, além de `node --check`, `py_compile`, `git diff --check` e varredura de segredos sem achados.

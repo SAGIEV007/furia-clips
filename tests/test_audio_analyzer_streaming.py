@@ -94,3 +94,42 @@ def test_analyze_energy_kills_ffmpeg_when_cancelled(monkeypatch):
 
     assert process.killed is True
     assert process.waited is True
+
+
+
+def test_analyze_energy_exposes_bounded_acoustic_cues(tmp_path):
+    source = tmp_path / "tone-cues.wav"
+    sample_rate = 16000
+    frames = bytearray()
+    for index in range(sample_rate * 2):
+        amplitude = 12000 if index < sample_rate else 22000
+        value = int(amplitude * math.sin(2 * math.pi * 440 * index / sample_rate))
+        frames.extend(value.to_bytes(2, byteorder="little", signed=True))
+    with wave.open(str(source), "wb") as handle:
+        handle.setnchannels(1)
+        handle.setsampwidth(2)
+        handle.setframerate(sample_rate)
+        handle.writeframes(bytes(frames))
+
+    profile = AudioAnalyzer().analyze_energy(str(source), window_seconds=1.0)
+
+    assert len(profile) == 2
+    for item in profile:
+        assert 0.0 <= item["zero_crossing_rate"] <= 1.0
+        assert 0.0 <= item["onset_strength"] <= 1.0
+        assert 0.0 <= item["possible_reaction_signal"] <= 1.0
+        assert item["audio_review_required"] is True
+
+
+def test_summarize_window_is_review_only_and_ignores_invalid_values():
+    summary = AudioAnalyzer().summarize_window([
+        {"time": 10, "energy_normalized": 0.8, "onset_strength": 0.4, "zero_crossing_rate": 0.1, "possible_reaction_signal": 0.5},
+        {"time": 12, "energy_normalized": 0.9, "onset_strength": 0.6, "zero_crossing_rate": 0.2, "possible_reaction_signal": 0.7},
+        {"time": "nan", "energy_normalized": 1.0},
+    ], 9, 13)
+
+    assert summary["available"] is True
+    assert summary["review_required"] is True
+    assert summary["peak_energy"] == 0.9
+    assert summary["possible_reaction_peak"] == 0.7
+    assert summary["confidence"] <= 0.5

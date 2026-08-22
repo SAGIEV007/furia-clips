@@ -538,3 +538,37 @@ def test_ranker_exposes_acervo_alignment_without_removing_context_gate():
     assert result["review_flags"]["acervo_alignment_available"] is True
     assert result["quality_scorecard"]["status"] == "review_required"
     assert result["technical_gate"]["status"] in {"review", "weak"}
+
+
+
+def test_acervo_mention_without_renan_speaking_is_review_only():
+    snapshot = normalize_snapshot({
+        "accounts": {
+            "@renansantosmbl": {
+                "acervo_blocks": [{
+                    "id": "mention-1",
+                    "contentClass": "mencao",
+                    "renanSpeaking": False,
+                    "title": "Menção lateral a Renan",
+                    "startS": 10,
+                    "endS": 30,
+                    "densityRank": 99,
+                    "selfContainedRank": 99,
+                    "trustTier": "owner",
+                    "video": {"youtubeId": "AbCdEfGhI12"},
+                }],
+            },
+        },
+    })
+    result = build_acervo_alignment(
+        "Menção lateral a Renan em contexto de segurança pública.",
+        12,
+        20,
+        source_id="AbCdEfGhI12",
+        account="@renansantosmbl",
+        snapshot=snapshot,
+    )
+    assert result["available"] is True
+    assert result["persona_match"] is False
+    assert result["review_required"] is True
+    assert result["signal"] <= 50
