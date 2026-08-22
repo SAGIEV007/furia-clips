@@ -487,3 +487,6 @@ Quando o editor escolhe explicitamente 1:1, 9:16 ou fake tweet, a recomendação
 
 ## Headline Studio: fake tweet sem vazamento de contexto interno — 2026-08-22
 O minic contexto agora serve apenas para orientar a análise e a atribuição; ele não é concatenado ao texto do fake tweet. A primeira pessoa só aparece quando o editor identifica explicitamente Renan, evitando publicar instruções internas ou atribuir uma opinião ao locutor errado. Validação focada: **26 testes aprovados**.
+
+## Headline Studio: selo superior contextual — 2026-08-22
+No formato 1:1, cortes sobre impostos, tributação, dívida ou despesas agora recebem “ATENÇÃO” como chamada superior quando não houver um sinal mais específico, em vez de “IMPRESSIONANTE” por padrão. A mudança deixa o layout mais coerente com a tese sem alterar a headline ou inventar urgência. Validação integral: **741 testes aprovados**.

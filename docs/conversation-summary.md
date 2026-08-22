@@ -230,3 +230,7 @@ O Headline Studio agora respeita o formato selecionado pelo editor mesmo se a IA
 ## 28. Fake tweet separado do minic contexto
 
 O texto do fake tweet não mistura mais o minic contexto interno do editor com a sugestão que será copiada. Quando o locutor não foi identificado, o texto permanece impessoal; quando Renan é explicitamente confirmado, a primeira pessoa pode ser usada dentro dos fatos da legenda.
+
+## 29. Selo superior contextual
+
+No formato 1:1, o Headline Studio agora usa “ATENÇÃO” para uma legenda fiscal quando não há um sinal mais específico. Isso substitui o selo genérico “IMPRESSIONANTE” no exemplo fornecido e deixa a chamada superior coerente com o assunto, sem afirmar urgência nem mudar o conteúdo da headline.

@@ -515,3 +515,15 @@ def test_fake_tweet_keeps_editor_context_out_of_copy_and_uses_first_person_only_
     attributed_post = attributed["formats"][FORMAT_TWEET]["suggestions"][0]["post_text"]
     assert "Comentário interno" not in attributed_post
     assert attributed_post.startswith("Eu ")
+
+
+
+def test_fiscal_headline_uses_contextual_attention_word():
+    result = generate_artwork_copy(
+        FISCAL_CUT_TRANSCRIPT,
+        preferred_format=FORMAT_SQUARE,
+        ai_backend=None,
+    )
+
+    assert result["attention_word"] == "ATENÇÃO"
+    assert result["formats"][FORMAT_SQUARE]["suggestions"][0]["eyebrow"] == "ATENÇÃO"

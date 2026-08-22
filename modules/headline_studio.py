@@ -236,6 +236,8 @@ def _attention_word(text: str, signals: dict[str, Any]) -> str:
         return "ABSURDO"
     if signals.get("claim_strength", 0) >= 55:
         return "ATENÇÃO"
+    if any(term in folded for term in ("imposto", "tribut", "despesa", "divida")):
+        return "ATENÇÃO"
     return "IMPRESSIONANTE"
 
 
