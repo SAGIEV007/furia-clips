@@ -280,3 +280,8 @@ O topo do Alfinetei agora fica sem palavra de impacto quando a legenda é neutra
 ## 39. Claims extractivos priorizam respostas
 
 Quando a legenda tem uma pergunta e depois uma resposta, o Headline Studio prefere a resposta concluída para a arte. Ele não reescreve o sentido: apenas escolhe e compacta palavras que já estão no corte.
+
+
+## 40. Sinais descontraídos na legenda
+
+O Headline Studio agora reconhece quando a legenda fala de berrante, cavalgada, cavalo, fazenda ou bastidor. Isso ajuda a separar cortes descontraídos de discurso político, mas não substitui a confirmação da imagem e do áudio.

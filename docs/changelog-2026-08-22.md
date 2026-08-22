@@ -538,3 +538,9 @@ Regressões adicionadas para neutralidade e urgência explícita.
 O fallback agora separa as frases da legenda e prioriza afirmações ou respostas concluídas, deixando perguntas de abertura em segundo plano quando existe uma conclusão melhor no mesmo corte. A redação continua sendo copiada da fonte, apenas compactada para o limite do formato; nenhuma frase nova é inventada. O mesmo critério é usado no fake tweet genérico.
 
 Validação integral: **751 testes aprovados**.
+
+
+## Família descontraída para momentos não verbais — 2026-08-22
+O classificador do Headline Studio passou a reconhecer termos textuais como berrante, cavalgada, cavalo, fazenda, rodeio, cachorro e bastidor como uma família editorial “descontraído”. Isso não afirma que a imagem foi vista: apenas evita classificar a legenda como política quando ela descreve uma ação ou reação não verbal. A headline continua ancorada nas palavras do corte e deve ser conferida visualmente pelo editor.
+
+Regressão adicionada para berrante e cavalgada; testes específicos: **37 aprovados**.

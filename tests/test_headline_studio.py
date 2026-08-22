@@ -674,3 +674,17 @@ def test_explicit_urgency_keeps_alert_seal():
         ai_backend=None,
     )
     assert result["attention_word"] == "ALERTA"
+
+
+
+def test_nonverbal_discontraido_terms_get_a_grounded_headline_family():
+    result = generate_artwork_copy(
+        "Renan toca berrante e cavalga pela fazenda durante o intervalo.",
+        preferred_format=FORMAT_SQUARE,
+        ai_backend=None,
+    )
+    assert result["topic"] == "descontraído"
+    headlines = [item["headline"] for item in result["formats"][FORMAT_SQUARE]["suggestions"]]
+    assert headlines
+    assert any("BERRANTE" in headline or "CAVALGA" in headline for headline in headlines)
+    assert all("IMPASSE DA POLÍTICA" not in headline for headline in headlines)

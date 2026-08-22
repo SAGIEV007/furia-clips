@@ -60,6 +60,7 @@ TOPIC_RULES = (
     ("saúde", ("saúde", "saude", "sus", "hospital", "médico", "medico", "paciente", "atendimento", "fila")),
     ("educação", ("educação", "educacao", "escola", "ensino", "professor", "aluno", "universidade")),
     ("humor", ("risada", "risadas", "rir", "rindo", "piada", "engraçado", "engracado", "humor")),
+    ("descontraído", ("cavalo", "cavalos", "cavalgando", "cavalgada", "berrante", "fazenda", "rodeio", "cachorro", "bastidor")),
     ("impostos", ("imposto", "impostos", "tributo", "tributos", "tributação", "tributacao", "tributar", "taxado", "taxação", "taxacao", "iof", "taxa")),
     ("economia", ("economia", "emprego", "salário", "salario", "inflação", "inflacao", "pobreza", "dívida", "divida", "despesa", "despesas", "benefício", "beneficios", "renúncia fiscal", "renuncia fiscal")),
     ("liberdade", ("liberdade", "censura", "regular", "regulação", "regulacao", "estado")),
