@@ -1952,28 +1952,63 @@ Retorne APENAS o JSON.
     # ═══════════════════════════════════════════════════
 
     def _adjust_to_scene_boundaries(self, clips, scene_changes):
-        """Adjust clip start/end to nearest scene boundary to avoid cutting mid-transition."""
+        """Snap only outward to nearby scene boundaries.
+
+        A scene transition should not cut spoken content. Therefore an opening
+        may move to the nearest earlier boundary and an ending to the nearest
+        later boundary, but neither edge is allowed to move inward. Invalid or
+        non-finite scene timestamps are ignored and the original interval is
+        preserved when the expanded interval would be unsafe.
+        """
         if not scene_changes or len(scene_changes) < 2:
+            return clips
+
+        safe_scenes = []
+        for value in scene_changes:
+            try:
+                boundary = float(value)
+            except (TypeError, ValueError):
+                continue
+            if math.isfinite(boundary) and boundary >= 0:
+                safe_scenes.append(boundary)
+        safe_scenes = sorted(set(safe_scenes))
+        if len(safe_scenes) < 2:
             return clips
 
         adjusted = []
         for clip in clips:
-            best_start = clip["start"]
-            best_end = clip["end"]
+            try:
+                original_start = float(clip.get("start"))
+                original_end = float(clip.get("end"))
+            except (AttributeError, TypeError, ValueError):
+                continue
+            if not math.isfinite(original_start) or not math.isfinite(original_end) or original_start < 0 or original_end <= original_start:
+                continue
 
-            for sc in scene_changes:
-                if abs(sc - clip["start"]) < 2.0:
-                    best_start = sc
-                    break
+            best_start = original_start
+            best_end = original_end
+            earlier = [boundary for boundary in safe_scenes if boundary <= original_start and original_start - boundary < 2.0]
+            later = [boundary for boundary in safe_scenes if boundary >= original_end and boundary - original_end < 2.0]
+            if earlier:
+                best_start = max(earlier)
+            if later:
+                best_end = min(later)
 
-            for sc in scene_changes:
-                if abs(sc - clip["end"]) < 2.0:
-                    best_end = sc
-                    break
+            if best_end <= best_start:
+                best_start = original_start
+                best_end = original_end
 
-            clip["start"] = best_start
-            clip["end"] = best_end
+            clip["start"] = round(best_start, 3)
+            clip["end"] = round(best_end, 3)
             clip["duration"] = round(best_end - best_start, 3)
+            clip["scene_boundary_adjustment"] = {
+                "applied": best_start != original_start or best_end != original_end,
+                "original_start": round(original_start, 3),
+                "original_end": round(original_end, 3),
+                "adjusted_start": round(best_start, 3),
+                "adjusted_end": round(best_end, 3),
+                "direction": "outward_only",
+            }
 
             if clip["duration"] >= self.min_duration:
                 adjusted.append(clip)

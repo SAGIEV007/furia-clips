@@ -664,5 +664,40 @@ def test_sentence_builder_preserves_numeric_word_spans_only():
     ]
 
 
+def test_scene_boundary_adjustment_only_expands_clip_edges():
+    selector = ClipSelector(target_duration=8, max_clips=5, min_duration=5, max_duration=30)
+    clips = selector._adjust_to_scene_boundaries(
+        [{"start": 10.5, "end": 19.5, "duration": 9.0}],
+        [0.0, 9.0, 12.0, 20.5, 30.0],
+    )
+
+    assert clips[0]["start"] == 9.0
+    assert clips[0]["end"] == 20.5
+    assert clips[0]["duration"] == 11.5
+    assert clips[0]["scene_boundary_adjustment"]["direction"] == "outward_only"
+
+
+def test_scene_boundary_adjustment_never_shrinks_spoken_interval():
+    selector = ClipSelector(target_duration=8, max_clips=5, min_duration=5, max_duration=30)
+    clips = selector._adjust_to_scene_boundaries(
+        [{"start": 10.0, "end": 20.0, "duration": 10.0}],
+        [0.0, 10.8, 19.2, 30.0],
+    )
+
+    assert clips[0]["start"] == 10.0
+    assert clips[0]["end"] == 20.0
+    assert clips[0]["scene_boundary_adjustment"]["applied"] is False
+
+
+def test_scene_boundary_adjustment_ignores_invalid_timestamps():
+    selector = ClipSelector(target_duration=8, max_clips=5, min_duration=5, max_duration=30)
+    clips = selector._adjust_to_scene_boundaries(
+        [{"start": 10.0, "end": 20.0, "duration": 10.0}],
+        ["nan", None, "inf", -1, 0.0],
+    )
+
+    assert clips == [{"start": 10.0, "end": 20.0, "duration": 10.0}]
+
+
 if __name__ == "__main__":
     unittest.main()

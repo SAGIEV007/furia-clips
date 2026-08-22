@@ -280,3 +280,11 @@ O payload de revisão passou a transportar `boundary_refinement`, `render_start`
 A mudança torna auditável a diferença entre o intervalo editorial escolhido e o intervalo enviado ao FFmpeg, sem exibir texto bruto de palavras nem sobrecarregar candidatos que não possuem refinamento. Foi adicionada cobertura de contrato no frontend.
 
 Validação: **679 testes aprovados**, `node --check`, `py_compile`, `git diff --check` e auditoria de segredos sem achados. Campaign Hub permaneceu somente leitura.
+
+## Qualidade — snapping de cena somente para fora do discurso
+
+O ajuste opcional por mudanças de cena deixou de mover limites para dentro do trecho falado. O início só pode recuar até uma transição anterior próxima e o fim só pode avançar até uma transição posterior próxima; timestamps inválidos, negativos ou não finitos são ignorados. O intervalo original é mantido quando o ajuste seria inválido, e cada clip recebe `scene_boundary_adjustment` com a direção e os limites antes/depois.
+
+A mudança preserva o conteúdo semântico já selecionado e reduz o risco de cortar a primeira ou a última palavra apenas porque uma transição visual foi detectada. Foram adicionados testes para expansão externa, não redução e entradas inválidas.
+
+Validação: **682 testes aprovados**, `node --check`, `py_compile`, `git diff --check` e auditoria de segredos sem achados. Campaign Hub permaneceu somente leitura.
