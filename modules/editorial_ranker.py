@@ -54,6 +54,11 @@ FILLERS = {
 MID_SENTENCE_STARTERS = {"e", "mas", "porem", "entao", "porque", "que", "ai", "ou", "nem"}
 CONTINUITY_PATTERNS = ("acompanhe", "aguarde", "em breve", "novidades", "vou mostrar", "depois eu", "na proxima", "fique ligado")
 RESOLUTION_PATTERNS = ("portanto", "por isso", "entao", "a conclusao", "fica claro", "e isso", "essa e a verdade")
+OPEN_TAIL_TERMS = {
+    "porque", "mas", "porem", "se", "quando", "que", "como", "embora", "entao", "portanto",
+    "logo", "de", "do", "da", "dos", "das", "em", "no", "na", "nos", "nas", "para", "por",
+    "com", "sem", "entre", "contra", "e", "ou", "nem", "eu", "ele", "ela", "eles", "elas",
+}
 ARGUMENT_MARKERS = ("porque", "portanto", "por isso", "significa", "se ", "entao", "logo", "portanto")
 PREFERRED_MAX_DURATION = 180.0
 
@@ -1223,6 +1228,13 @@ class EditorialRanker:
             return "cliffhanger"
         if has_resolution:
             return "conclusion"
+        normalized_words = re.findall(r"[a-z0-9À-ÿ-]+", ending)
+        tail = normalized_words[-2:]
+        has_open_tail = bool(tail and tail[-1] in OPEN_TAIL_TERMS)
+        if len(tail) >= 2 and " ".join(tail) in {"por isso", "dessa forma", "com isso", "a partir"}:
+            has_open_tail = True
+        if has_open_tail:
+            return "open"
         if str(text or "").rstrip().endswith((".", "!", "?")):
             return "closed_statement"
         return "open"
@@ -1236,10 +1248,12 @@ class EditorialRanker:
         first = _normalize(text).split()[:1]
         if first and first[0] in MID_SENTENCE_STARTERS:
             score -= 30
-        # Cliffhangers may still be good updates, but they cannot be ranked as
-        # equally self-contained as a resolved statement or answer.
+        # Cliffhangers and syntactically open tails may still be useful leads,
+        # but they cannot be ranked as equally self-contained as a resolution.
         if closure_type == "cliffhanger":
             score -= 12
+        elif closure_type == "open":
+            score -= 18
         elif closure_type == "conclusion":
             score += 6
         return max(0.0, min(100.0, score))

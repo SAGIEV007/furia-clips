@@ -460,3 +460,6 @@ Os blocos enviados aos caminhos Gemini e Ollama agora incluem, quando disponíve
 
 ## Recuperação de perguntas sem pontuação — 2026-08-22
 O seletor local agora reconhece padrões comuns de pergunta em entrevistas mesmo quando a legenda timestampada não contém `?`, como “Você pode explicar...” ou “Poderia falar...”. Quando a resposta começa no bloco seguinte, o Furia pode recuperar o antecedente se a continuidade temporal for segura. A mudança ataca o motivo `starts_late` observado com maior frequência no feedback local, sem relaxar gates de sobreposição, locutor, tópico ou duração. Validação integral: **728 testes aprovados**.
+
+## Caudas abertas e payoff mais conservador — 2026-08-22
+O seletor e o ranker passaram a reconhecer como pensamento aberto alguns finais com pontuação artificial, incluindo preposições, conectivos e pronomes. Esses trechos deixam de parecer concluídos apenas porque a legenda termina em ponto; o seletor pode buscar a continuação adjacente quando for temporalmente segura. Fechamentos declarativos completos continuam fechados. Validação integral: **731 testes aprovados**.

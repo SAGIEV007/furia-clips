@@ -816,3 +816,37 @@ def test_question_detector_accepts_common_interview_request_without_question_mar
 
     assert selector._looks_like_explicit_question("Você pode explicar a proposta") is True
     assert selector._looks_like_explicit_question("Como resultado, a proposta foi aprovada") is False
+
+
+def test_payoff_gate_marks_punctuated_preposition_tail_as_open():
+    selector = ClipSelector()
+
+    flags = selector._editorial_flags(
+        "A proposta precisa ser aplicada porque.",
+        {},
+    )
+
+    assert flags["payoff_weak_ending"] is True
+    assert flags["payoff_complete"] is False
+
+
+def test_payoff_gate_keeps_complete_declarative_tail_closed():
+    selector = ClipSelector()
+
+    flags = selector._editorial_flags(
+        "A proposta precisa ser aplicada por todos.",
+        {},
+    )
+
+    assert flags["payoff_weak_ending"] is False
+    assert flags["payoff_complete"] is True
+
+
+def test_ranker_marks_punctuated_open_tail_as_open_and_less_complete():
+    from modules.editorial_ranker import EditorialRanker
+
+    ranker = EditorialRanker(editorial_profile="generic")
+    assert ranker._closure_type("A resposta depende de.") == "open"
+    assert ranker._completeness("A resposta depende de.", "open") < ranker._completeness(
+        "A resposta depende de todos.", "closed_statement"
+    )

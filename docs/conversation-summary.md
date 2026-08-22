@@ -194,3 +194,7 @@ Para aumentar a precisão contextual, cada bloco enviado às IAs pode mostrar os
 ## 19. Recuperação de perguntas sem pontuação
 
 Como `starts_late` foi o motivo de rejeição mais frequente na amostra local, o seletor passou a reconhecer perguntas de entrevista sem depender do ponto de interrogação. Quando a legenda começa diretamente na resposta, ele pode recuperar a pergunta anterior somente se a continuidade temporal for segura; a revisão de locutor e contexto continua obrigatória.
+
+## 20. Detector de payoff mais conservador
+
+Para reduzir rejeições por `no_payoff`, finais que terminam em conectivo, preposição ou pronome passaram a ser tratados como potencialmente abertos mesmo quando a pontuação da legenda parece encerrar a frase. O ranker também reduz a completude desses casos, enquanto o seletor tenta uma continuação próxima sem atravessar sobreposição, tópico ou locutor ambíguo.

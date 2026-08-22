@@ -68,6 +68,9 @@ EVIDENCE_TERMS_PT = {
 WEAK_PAYOFF_ENDINGS_PT = {
     "porque", "mas", "porém", "porem", "se", "quando", "que", "como", "embora",
     "então", "entao", "portanto", "logo", "ou seja", "por isso", "dessa forma", "com isso",
+    "e", "ou", "nem", "ao", "aos", "à", "às", "de", "do", "da", "dos", "das",
+    "em", "no", "na", "nos", "nas", "para", "por", "com", "sem", "entre", "contra",
+    "eu", "ele", "ela", "eles", "elas",
 }
 
 
