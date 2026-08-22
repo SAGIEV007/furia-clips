@@ -285,3 +285,8 @@ Quando a legenda tem uma pergunta e depois uma resposta, o Headline Studio prefe
 ## 40. Sinais descontraídos na legenda
 
 O Headline Studio agora reconhece quando a legenda fala de berrante, cavalgada, cavalo, fazenda ou bastidor. Isso ajuda a separar cortes descontraídos de discurso político, mas não substitui a confirmação da imagem e do áudio.
+
+
+## 41. Pergunta–resposta no ranking extractivo
+
+Quando o corte contém “Como resolver?” e depois apresenta a resposta, o sistema coloca a resposta como primeira opção de headline. A pergunta não é apagada; apenas deixa de vencer automaticamente por estar no início.

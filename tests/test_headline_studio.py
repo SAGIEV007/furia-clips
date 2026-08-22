@@ -688,3 +688,15 @@ def test_nonverbal_discontraido_terms_get_a_grounded_headline_family():
     assert headlines
     assert any("BERRANTE" in headline or "CAVALGA" in headline for headline in headlines)
     assert all("IMPASSE DA POLÍTICA" not in headline for headline in headlines)
+
+
+
+def test_extractive_ranking_prefers_answer_over_opening_question():
+    result = generate_artwork_copy(
+        "Como vamos resolver isso? A resposta é ampliar o atendimento básico e medir o resultado.",
+        preferred_format=FORMAT_SQUARE,
+        ai_backend=None,
+    )
+    first = result["formats"][FORMAT_SQUARE]["suggestions"][0]["headline"]
+    assert first.startswith("A RESPOSTA É AMPLIAR")
+    assert "COMO VAMOS RESOLVER" not in first

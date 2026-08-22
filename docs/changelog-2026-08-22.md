@@ -544,3 +544,7 @@ Validação integral: **751 testes aprovados**.
 O classificador do Headline Studio passou a reconhecer termos textuais como berrante, cavalgada, cavalo, fazenda, rodeio, cachorro e bastidor como uma família editorial “descontraído”. Isso não afirma que a imagem foi vista: apenas evita classificar a legenda como política quando ela descreve uma ação ou reação não verbal. A headline continua ancorada nas palavras do corte e deve ser conferida visualmente pelo editor.
 
 Regressão adicionada para berrante e cavalgada; testes específicos: **37 aprovados**.
+
+
+## Regressão de pergunta–resposta — 2026-08-22
+Foi adicionada uma regressão para o caso em que a legenda começa com uma pergunta e traz a resposta logo depois. O primeiro claim deve preferir a resposta concluída, mantendo a pergunta disponível como alternativa e sem criar uma conclusão externa.
