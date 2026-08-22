@@ -1415,3 +1415,15 @@ def test_source_import_reuses_configured_directory_without_opening_picker_twice(
     assert 'const rendered = String(label?.textContent || "").trim();' in block
     assert "if (rendered && !isPlaceholderSourceDirectory(rendered))" in block
     assert "return chooseSourceDirectory();" in block
+
+
+
+def test_source_import_locks_both_actions_while_folder_picker_is_open():
+    source = APP_JS.read_text(encoding="utf-8")
+    assert "sourceImportPreparing: false" in source
+    assert "function refreshSourceImportButtons()" in source
+    assert "const busy = Boolean(state.sourceImportActive || state.sourceImportPreparing);" in source
+    assert "function setSourceImportPreparing(active)" in source
+    assert "if (state.sourceImportActive || state.sourceImportPreparing) return;" in source
+    assert "setSourceImportPreparing(true);" in source
+    assert "setSourceImportPreparing(false);" in source

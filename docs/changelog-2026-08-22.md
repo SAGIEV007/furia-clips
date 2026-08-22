@@ -427,3 +427,6 @@ O JobManager não marca mais como cancelado um trabalho que já retornou resulta
 
 ## Contrato de importação da fonte — baixar versus baixar e transcrever — 2026-08-22
 A separação dos dois botões foi coberta explicitamente: **Baixar** envia `auto_transcribe=false` e não gera transcrição; **Baixar e transcrever** envia `auto_transcribe=true` e pode anexar uma transcrição manual previamente confirmada para a fonte. O destino configurado é reutilizado antes de abrir o explorador, reduzindo a chance de duas solicitações de pasta na mesma operação. Foram adicionados contratos frontend para preservar essa distinção e a validação integral fechou com **710 testes aprovados**. Nenhuma credencial ou dado privado foi incluído.
+
+## Trava durante a escolha da pasta de download — 2026-08-22
+O fluxo de fonte agora bloqueia imediatamente os dois botões de importação enquanto o explorador nativo está aberto. Isso elimina a janela em que dois cliques poderiam abrir seletores concorrentes antes de existir um `job_id`. A trava é distinta do estado de download em andamento, é liberada também quando o editor cancela a escolha e mantém as ações **Baixar** e **Baixar e transcrever** semanticamente separadas. Foram adicionados contratos frontend; a validação integral fechou com **711 testes aprovados**.

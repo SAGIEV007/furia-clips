@@ -37,6 +37,7 @@ const state = {
     sourceDownloadDir: "",
     sourceMaxHeight: 1080,
     sourceImportActive: false,
+    sourceImportPreparing: false,
     sourceImportJobId: "",
     sourceImportInitialVideoPath: "",
     operationDashboardLoading: false,
@@ -4975,20 +4976,33 @@ async function ensureSourceDirectory() {
     return chooseSourceDirectory();
 }
 
-function setSourceImportBusy(active) {
-    state.sourceImportActive = Boolean(active);
-    const buttons = [
+function sourceImportButtons() {
+    return [
         document.getElementById("btnDownloadSource"),
         document.getElementById("btnDownloadTranscribeSource"),
     ].filter(Boolean);
-    buttons.forEach(button => {
-        button.disabled = state.sourceImportActive;
-        button.classList.toggle("loading", state.sourceImportActive);
+}
+
+function refreshSourceImportButtons() {
+    const busy = Boolean(state.sourceImportActive || state.sourceImportPreparing);
+    sourceImportButtons().forEach(button => {
+        button.disabled = busy;
+        button.classList.toggle("loading", busy);
     });
 }
 
+function setSourceImportPreparing(active) {
+    state.sourceImportPreparing = Boolean(active);
+    refreshSourceImportButtons();
+}
+
+function setSourceImportBusy(active) {
+    state.sourceImportActive = Boolean(active);
+    refreshSourceImportButtons();
+}
+
 async function importSource(autoTranscribe = false) {
-    if (state.sourceImportActive) return;
+    if (state.sourceImportActive || state.sourceImportPreparing) return;
     const input = document.getElementById("sourceUrlInput");
     const url = normalizePublicUrlInput(input?.value);
     if (input && url) input.value = url;
@@ -4996,7 +5010,13 @@ async function importSource(autoTranscribe = false) {
         showSourceStatus("Informe uma URL pública.", "error");
         return;
     }
-    const destination = await ensureSourceDirectory();
+    let destination = "";
+    setSourceImportPreparing(true);
+    try {
+        destination = await ensureSourceDirectory();
+    } finally {
+        setSourceImportPreparing(false);
+    }
     if (!destination) {
         showSourceStatus("Importação cancelada: escolha uma pasta para salvar o vídeo.", "warning");
         return;
