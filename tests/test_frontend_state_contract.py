@@ -352,6 +352,18 @@ def test_transcription_completion_preserves_source_identity_after_video_change()
     assert 'emit_status("transcribe_complete", result, job_id=legacy_job_id)' in backend_source
 
 
+def test_scorecard_render_recognizes_legacy_non_clean_gate_status():
+    source = APP_JS.read_text(encoding="utf-8")
+    start = source.find("const qualityScorecard =")
+    end = source.find("const reviewBusy =", start)
+    block = source[start:end]
+
+    assert "const qualityGateStatus = String(qualityScorecard.gate_status || \"\").trim().toLowerCase();" in block
+    assert '["review", "weak", "review_required", "blocked"].includes(qualityGateStatus)' in block
+    assert "const qualityRequiresReview =" in block
+    assert '"revisão necessária"' in block
+
+
 def test_cut_without_dossier_explains_how_to_run_context_review():
     source = APP_JS.read_text(encoding="utf-8")
     cut_start = source.find("async function startSmartCut()")

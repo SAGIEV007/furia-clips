@@ -132,3 +132,10 @@ A validação integral desta rodada confirmou **615 testes aprovados**.
 Foi corrigida uma inconsistência de revisão: um clip podia ter `technical_gate` em estado `review` ou `weak`, com motivos de risco de contexto/payoff, mas ainda aparecer no scorecard como `candidate`. Agora qualquer gate técnico não limpo aparece como `review_required`, mantendo o ranking e seus pesos inalterados e tornando a decisão humana mais clara.
 
 A validação integral desta rodada confirmou **616 testes aprovados**.
+
+
+## Scorecard legado coerente
+
+A interface agora interpreta também scorecards antigos com `status` ou `gate_status` em `review`, `weak`, `review_required` ou `blocked` como “revisão necessária”. Assim, resultados já existentes não voltam a aparecer como simples candidatos quando seus próprios gates registram risco de contexto, payoff, locutor ou técnica.
+
+A validação integral desta rodada confirmou **617 testes aprovados**.

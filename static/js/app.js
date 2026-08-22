@@ -3018,10 +3018,14 @@ function renderResultsGrid() {
             ["confidence", "Confiança", "verified"],
         ];
         const qualityStatus = String(qualityScorecard.status || "").trim().toLowerCase();
-        const qualityStatusLabel = qualityStatus === "review_required" ? "revisão necessária" : qualityStatus === "candidate" ? "candidato" : "status não informado";
+        const qualityGateStatus = String(qualityScorecard.gate_status || "").trim().toLowerCase();
+        const qualityRequiresReview = qualityStatus === "review_required"
+            || ["review", "weak", "review_required", "blocked"].includes(qualityStatus)
+            || ["review", "weak", "review_required", "blocked"].includes(qualityGateStatus);
+        const qualityStatusLabel = qualityRequiresReview ? "revisão necessária" : qualityStatus === "candidate" ? "candidato" : "status não informado";
         const qualityScorecardMarkup = qualityScorecardItems.some(([key]) => Number.isFinite(Number(qualityScorecard[key])))
             ? `<section class="clip-quality-scorecard" aria-label="Scorecard de qualidade do corte">
-                <div class="clip-quality-scorecard-head"><span><span class="material-icons-round">analytics</span><b>Scorecard de qualidade</b></span><span class="clip-quality-status ${qualityStatus === "review_required" ? "review" : "candidate"}">${escapeHtml(qualityStatusLabel)}</span></div>
+                <div class="clip-quality-scorecard-head"><span><span class="material-icons-round">analytics</span><b>Scorecard de qualidade</b></span><span class="clip-quality-status ${qualityRequiresReview ? "review" : "candidate"}">${escapeHtml(qualityStatusLabel)}</span></div>
                 <div class="clip-quality-scorecard-grid">${qualityScorecardItems.map(([key, label, icon]) => {
                     const rawValue = Number(qualityScorecard[key]);
                     const value = Number.isFinite(rawValue) ? Math.max(0, Math.min(100, rawValue)) : 0;
