@@ -241,9 +241,8 @@ def _audio_language_report(info: dict) -> dict:
         language = str(item.get("language") or item.get("audio_language") or "").strip().lower()
         if language:
             audio_languages.append(language)
-    top_level = str((info or {}).get("language") or "").strip().lower() if isinstance(info, dict) else ""
-    if top_level and top_level not in audio_languages:
-        audio_languages.append(top_level)
+    # ``info.language`` can describe the upload rather than the selected audio
+    # stream, so it is intentionally not used to claim Portuguese confirmation.
     portuguese = next((lang for lang in audio_languages if lang.startswith(("pt", "por"))), None)
     if portuguese:
         return {

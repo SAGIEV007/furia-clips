@@ -475,3 +475,14 @@ def test_audio_language_report_is_unknown_without_audio_metadata():
     report = _audio_language_report({"requested_formats": []})
     assert report["status"] == "unknown"
     assert report["observed_languages"] == []
+
+
+def test_audio_language_report_does_not_confirm_upload_language_without_stream_language():
+    from modules.source_ingest import _audio_language_report
+
+    report = _audio_language_report({
+        "language": "pt-BR",
+        "requested_formats": [{"vcodec": "none", "acodec": "opus"}],
+    })
+    assert report["language"] is None
+    assert report["status"] == "unknown"

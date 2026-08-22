@@ -442,3 +442,6 @@ A seleção do yt-dlp continua priorizando faixas `pt-BR`, `pt` e `por` antes do
 
 ## Recuperação de jobs concluídos durante desconexão — 2026-08-22
 A reconexão já recuperava jobs ainda ativos, mas um job persistente que terminasse enquanto o navegador estivesse offline podia deixar a HUD local em `running`. A recuperação agora guarda o job anterior, compara-o com o histórico persistente e reconcilia estados terminais (`completed`, `failed` ou `cancelled`). Para jobs de corte, processo completo ou ajuste individual concluídos, a bancada também atualiza o estado dos clips e a biblioteca do projeto. A mudança não reabre jobs antigos nem substitui uma operação concorrente. Teste focado: **193 aprovados**; validação integral: **720 testes aprovados**.
+
+## Confirmação de áudio somente pela faixa selecionada — 2026-08-22
+A auditoria foi endurecida: o campo geral de idioma do upload não é usado para declarar que o áudio é português, pois ele pode descrever o vídeo e não a faixa efetivamente escolhida. A confirmação agora depende exclusivamente do idioma observado na faixa de áudio retornada pelo provedor; sem esse metadado, o status permanece `unknown` ou `fallback_unverified` e a interface pede conferência manual. Validação integral: **721 testes aprovados**.

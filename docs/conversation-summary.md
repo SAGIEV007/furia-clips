@@ -170,3 +170,7 @@ Como houve um caso de download em espanhol, a seleção pública mantém a prefe
 ## 13. Recuperação terminal após desconexão
 
 Após uma reconexão, a interface agora compara o job persistente que estava em andamento antes da perda de conexão com o histórico local. Se esse mesmo job terminou, falhou ou foi cancelado enquanto o navegador estava offline, a HUD deixa de ficar presa em “em andamento” e mostra o estado real. Para cortes, processo completo e ajustes individuais concluídos, os clips e a biblioteca do projeto também são atualizados. A lógica ignora jobs legados e operações concorrentes, preservando a associação entre fonte, projeto e revisão.
+
+## 14. Confirmação de áudio pela faixa efetiva
+
+O diagnóstico de idioma foi tornado mais conservador. O Furia não usa o idioma geral do upload para afirmar que a faixa baixada é portuguesa; só confirma português quando a própria faixa de áudio selecionada traz metadado compatível. Quando o provedor não informa a faixa, o estado permanece desconhecido ou não confirmado e o editor é orientado a conferir a reprodução.
