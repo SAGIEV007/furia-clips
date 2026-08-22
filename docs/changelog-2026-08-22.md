@@ -125,3 +125,10 @@ A validação integral desta rodada confirmou **614 testes aprovados**.
 Ao iniciar um corte sem contexto editorial vinculado, o console agora deixa explícito que o processamento seguirá com os sinais disponíveis e informa a ação recomendada: executar “Revisar contexto” antes do corte para orientar perguntas–respostas, capítulos e payoff. O aviso não bloqueia o editor nem transforma a análise opcional em requisito obrigatório.
 
 A validação integral desta rodada confirmou **615 testes aprovados**.
+
+
+## Status coerente do scorecard
+
+Foi corrigida uma inconsistência de revisão: um clip podia ter `technical_gate` em estado `review` ou `weak`, com motivos de risco de contexto/payoff, mas ainda aparecer no scorecard como `candidate`. Agora qualquer gate técnico não limpo aparece como `review_required`, mantendo o ranking e seus pesos inalterados e tornando a decisão humana mais clara.
+
+A validação integral desta rodada confirmou **616 testes aprovados**.

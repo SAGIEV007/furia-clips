@@ -259,6 +259,22 @@ if __name__ == "__main__":
     unittest.main()
 
 
+def test_scorecard_status_matches_non_clean_technical_gate():
+    ranker = EditorialRanker()
+    result = ranker.score_clip({
+        "start": 0,
+        "end": 30,
+        "duration": 30,
+        "text": "A proposta precisa de uma resposta clara porque os dados oficiais mostram uma consequência concreta para o cidadão.",
+        "context_complete": True,
+        "payoff_complete": False,
+    })
+
+    assert result["technical_gate"]["status"] == "review"
+    assert result["quality_scorecard"]["gate_status"] == "review"
+    assert result["quality_scorecard"]["status"] == "review_required"
+
+
 def test_context_quality_penalizes_abrupt_start_and_unresolved_question():
     ranker = EditorialRanker()
     abrupt = ranker.score_clip({

@@ -585,7 +585,8 @@ class EditorialRanker:
             return round(sum(values) / len(values), 1) if values else default
 
         gate_status = str((technical_gate or {}).get("status") or "pass").strip().lower()
-        status = "review_required" if review_required or gate_status in {"review_required", "blocked"} else "candidate"
+        gate_requires_review = gate_status in {"review", "weak", "review_required", "blocked"}
+        status = "review_required" if review_required or gate_requires_review else "candidate"
         return {
             "context": average(("context_quality", "completeness", "argument_structure", "chapter_coherence", "qa_boundary")),
             "editorial_strength": average(("hook", "flow", "value", "contextual_hook_alignment", "editorial_family_fit")),
