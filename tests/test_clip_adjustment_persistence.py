@@ -59,3 +59,34 @@ def test_feedback_rejects_unknown_clip(monkeypatch, tmp_path):
 
     with pytest.raises(ValueError, match="Clip não encontrado"):
         database.save_clip_feedback(999, "approved")
+
+
+def test_scene_boundary_adjustment_round_trips_through_scorecard(monkeypatch, tmp_path):
+    project_id, clip_id = _clip_in_temp_db(monkeypatch, tmp_path)
+
+    database.update_clip_editorial_score(
+        clip_id,
+        82,
+        {"hook": 82},
+        confidence=0.84,
+        scene_boundary_adjustment={
+            "applied": True,
+            "original_start": 10.5,
+            "original_end": 19.5,
+            "adjusted_start": 9.0,
+            "adjusted_end": 20.5,
+            "direction": "outward_only",
+            "private_note": "não deve persistir",
+        },
+    )
+
+    clip = database.get_clips(project_id)[0]
+
+    assert clip["scene_boundary_adjustment"] == {
+        "applied": True,
+        "original_start": 10.5,
+        "original_end": 19.5,
+        "adjusted_start": 9.0,
+        "adjusted_end": 20.5,
+        "direction": "outward_only",
+    }

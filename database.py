@@ -71,6 +71,37 @@ def _normalize_dedup_context(value):
 
 
 
+def _normalize_scene_boundary_adjustment(value):
+    """Keep only finite, outward-only scene snapping metadata."""
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except json.JSONDecodeError:
+            return {}
+    if not isinstance(value, dict):
+        return {}
+    result = {}
+    applied = _parse_optional_bool(value.get("applied"))
+    if applied is not None:
+        result["applied"] = applied
+    for key in ("original_start", "original_end", "adjusted_start", "adjusted_end"):
+        try:
+            number = float(value.get(key))
+        except (TypeError, ValueError):
+            continue
+        if math.isfinite(number) and number >= 0:
+            result[key] = round(number, 3)
+    direction = str(value.get("direction") or "").strip()[:24]
+    if direction == "outward_only":
+        result["direction"] = direction
+    if result.get("applied") and not all(
+        key in result for key in ("original_start", "original_end", "adjusted_start", "adjusted_end")
+    ):
+        return {}
+    return result
+
+
+
 def _normalize_review_provenance(value):
     """Keep only bounded, non-sensitive origin fields for local calibration."""
     if isinstance(value, str):
@@ -919,6 +950,9 @@ def get_clips(project_id):
         clip["quality_scorecard"] = _normalize_quality_scorecard(
             factors.get("_quality_scorecard") if isinstance(factors, dict) else None
         )
+        clip["scene_boundary_adjustment"] = _normalize_scene_boundary_adjustment(
+            factors.get("_scene_boundary_adjustment") if isinstance(factors, dict) else None
+        )
         raw_review_provenance = factors.get("_review_metadata") if isinstance(factors, dict) else None
         normalized_provenance = _normalize_review_provenance(raw_review_provenance)
         if not normalized_provenance and isinstance(review_flags, dict):
@@ -980,7 +1014,7 @@ def update_clip_seo(clip_id, titles, tags, description, hashtags):
     conn.close()
 
 
-def update_clip_editorial_score(clip_id, score, factors, confidence, version="v1-explainable", review_flags=None, review_metadata=None, context_recovery=None, quality_scorecard=None):
+def update_clip_editorial_score(clip_id, score, factors, confidence, version="v1-explainable", review_flags=None, review_metadata=None, context_recovery=None, quality_scorecard=None, scene_boundary_adjustment=None):
     conn = get_db()
     score_payload = dict(factors or {})
     if isinstance(review_flags, dict) and review_flags:
@@ -995,6 +1029,9 @@ def update_clip_editorial_score(clip_id, score, factors, confidence, version="v1
     )
     if normalized_dedup_context:
         score_payload["_dedup_context"] = normalized_dedup_context
+    normalized_scene_adjustment = _normalize_scene_boundary_adjustment(scene_boundary_adjustment)
+    if normalized_scene_adjustment:
+        score_payload["_scene_boundary_adjustment"] = normalized_scene_adjustment
     normalized_metadata = _normalize_review_provenance(review_metadata)
     if normalized_metadata:
         score_payload["_review_metadata"] = normalized_metadata

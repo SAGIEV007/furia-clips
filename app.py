@@ -2683,6 +2683,7 @@ def api_cut_shorts():
                     },
                     context_recovery=clip_data.get("context_recovery"),
                     quality_scorecard=clip_data.get("quality_scorecard"),
+                    scene_boundary_adjustment=clip_data.get("scene_boundary_adjustment"),
                 )
                 if not output_folder:
                     output_folder = res.get("output_folder", "")
@@ -3824,6 +3825,7 @@ def api_process_complete():
                     },
                     context_recovery=clip_data.get("context_recovery"),
                     quality_scorecard=clip_data.get("quality_scorecard"),
+                    scene_boundary_adjustment=clip_data.get("scene_boundary_adjustment"),
                 )
 
             ctx.update(stage="subtitles", progress=86, message="Legendas processadas")

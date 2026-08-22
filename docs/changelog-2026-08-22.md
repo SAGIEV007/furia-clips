@@ -336,3 +336,9 @@ Foram adicionados contratos estáticos para o payload e a mensagem visível. Val
 O contexto persistido usado na deduplicação agora recupera também sinais que o ranker mantém dentro de `review_flags`, especialmente `qa_bridge`. Isso evita que a distinção entre uma janela repetida e uma nova versão pergunta–resposta seja perdida ao reabrir o clip a partir do SQLite. A mudança continua limitada a flags editoriais pequenos e não textuais; não altera pesos, score, gates ou dados do Campaign Hub.
 
 Foi adicionado contrato estático para o fallback aninhado. Validação: **691 testes aprovados**, `node --check`, `py_compile`, `git diff --check` e auditoria de segredos sem achados. Campaign Hub permaneceu somente leitura.
+
+## Persistência de revisão — scene adjustment após reabertura
+
+A metadata de snapping de cena agora percorre o scorecard editorial e é reidratada por `get_clips`. Assim, depois de recarregar um projeto, a bancada continua sabendo se o intervalo foi expandido, quais eram os limites original/ajustado e que a política foi outward-only. A normalização aceita somente números finitos, valores não negativos e a direção conhecida; campos extras são descartados.
+
+Foi adicionada regressão de round-trip SQLite e os dois fluxos de corte passaram a fornecer a metadata ao persistir o score. Validação: **692 testes aprovados**, `node --check`, `py_compile`, `git diff --check` e auditoria de segredos sem achados. Campaign Hub permaneceu somente leitura.
