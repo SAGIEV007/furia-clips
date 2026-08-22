@@ -3738,7 +3738,7 @@ function transcriptArchiveCompatibility(item = {}) {
     const archivedPath = String(item.source_video || "").replaceAll("\\", "/").trim();
     if (!selectedPath) return "selecione um vídeo para comparar";
     if (!archivedPath) return "fonte arquivada não identificada · revisar";
-    if (selectedPath === archivedPath) return "fonte atual registrada";
+    if (mediaPathsMatch(selectedPath, archivedPath)) return "fonte atual registrada";
     const selectedName = selectedPath.split("/").pop().toLowerCase();
     const archivedName = archivedPath.split("/").pop().toLowerCase();
     return selectedName && selectedName === archivedName

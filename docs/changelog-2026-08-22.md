@@ -55,3 +55,10 @@ A regressão cobre conclusão, cancelamento e erro recebidos antes da resposta d
 A aba de transcrição agora usa a mesma identidade normalizada do pipeline para comparar a fonte vinculada com o vídeo selecionado. Caminhos relativos e absolutos equivalentes deixam de aparecer como incompatíveis por engano, enquanto fontes realmente diferentes continuam sinalizadas para revisão. A correção não relaxa a validação do backend nem autoriza reutilização entre mídias diferentes.
 
 A validação integral desta rodada confirmou **606 testes aprovados**.
+
+
+## Proveniência no arquivo persistente
+
+O painel que lista transcrições arquivadas também passou a reconhecer caminhos relativos e absolutos equivalentes como a fonte atual. O fallback por nome-base continua deliberadamente marcado como “confirmar arquivo”, pois nomes iguais não provam identidade de mídia.
+
+A validação integral desta rodada confirmou **607 testes aprovados**.

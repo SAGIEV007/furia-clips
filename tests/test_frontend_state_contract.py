@@ -47,6 +47,17 @@ def test_review_card_exposes_speaker_review_reason_to_editor():
     assert "speaker_review_reason" in source
 
 
+def test_transcript_archive_uses_normalized_source_identity_for_current_source():
+    source = APP_JS.read_text(encoding="utf-8")
+    start = source.find("function transcriptArchiveCompatibility")
+    end = source.find("function renderTranscriptArchiveList", start)
+    block = source[start:end]
+
+    assert "if (mediaPathsMatch(selectedPath, archivedPath)) return \"fonte atual registrada\";" in block
+    assert "if (selectedPath === archivedPath)" not in block
+    assert "mesmo nome-base · confirmar arquivo" in block
+
+
 def test_transcript_status_uses_normalized_source_identity_for_success():
     source = APP_JS.read_text(encoding="utf-8")
     start = source.find("function hydrateTranscriptEditor")
