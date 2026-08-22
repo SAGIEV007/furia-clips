@@ -272,3 +272,11 @@ O `batch_cut` deixou de reaplicar automaticamente o padding legado de 300 ms ant
 O resultado de render agora informa `render_start`, `render_end`, `render_boundary_policy` e o refinamento aplicado, permitindo auditar a diferença entre o intervalo editorial canônico e o intervalo efetivamente enviado ao renderizador. Foram adicionados testes de integração para os caminhos refinado e legado.
 
 Validação: **678 testes aprovados**, `node --check`, `py_compile`, `git diff --check` e auditoria de segredos sem achados. Campaign Hub permaneceu somente leitura.
+
+## Revisão — transparência dos limites efetivamente renderizados
+
+O payload de revisão passou a transportar `boundary_refinement`, `render_start`, `render_end` e `render_boundary_policy`. A fila de clips exibe uma nota discreta quando a ancoragem por timestamps de palavras foi aplicada, com o intervalo renderizado, a poda segura em cada lado e a confirmação de que o padding adicional não foi reaplicado.
+
+A mudança torna auditável a diferença entre o intervalo editorial escolhido e o intervalo enviado ao FFmpeg, sem exibir texto bruto de palavras nem sobrecarregar candidatos que não possuem refinamento. Foi adicionada cobertura de contrato no frontend.
+
+Validação: **679 testes aprovados**, `node --check`, `py_compile`, `git diff --check` e auditoria de segredos sem achados. Campaign Hub permaneceu somente leitura.

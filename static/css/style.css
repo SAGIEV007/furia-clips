@@ -5914,3 +5914,42 @@ body.has-selected-source #btnAnalyzeEditorialContext:hover { background: var(--f
 body.has-editorial-context #actionCut { border-color: color-mix(in srgb, var(--furia-accent) 55%, var(--furia-border-subtle)); }
 body.has-editorial-context #actionCut .btn-action { border-color: var(--furia-accent); background: var(--furia-accent); color: var(--furia-text-inverse); }
 body.has-review-candidates #resultsSection > .section-header { border-bottom-color: var(--furia-accent); }
+
+
+/* Boundary refinement: visible proof of the render interval, kept secondary to editorial context. */
+.clip-boundary-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin: 8px 0;
+    padding: 8px 10px;
+    border: 1px solid color-mix(in srgb, var(--furia-accent, #f2b84b) 28%, transparent);
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--furia-accent, #f2b84b) 8%, transparent);
+    color: var(--furia-text-secondary, #c7ccd4);
+    font-size: 12px;
+    line-height: 1.45;
+}
+
+.clip-boundary-note .material-icons-round {
+    flex: 0 0 auto;
+    color: var(--furia-accent, #f2b84b);
+    font-size: 16px;
+    line-height: 1.35;
+}
+
+.clip-boundary-note b {
+    color: var(--furia-text-primary, #f3f4f6);
+}
+
+@media (max-width: 720px) {
+    .clip-boundary-note {
+        font-size: 11px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .clip-boundary-note {
+        transition: none;
+    }
+}

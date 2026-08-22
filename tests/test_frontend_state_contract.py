@@ -1301,3 +1301,14 @@ def test_refresh_review_state_normalizes_persisted_bounds_and_scorecard():
     assert "persisted.start ?? persisted.start_time ?? clip.start ?? 0" in block
     assert "persisted.end ?? persisted.end_time ?? clip.end ?? 0" in block
     assert "persisted.quality_scorecard || clip.quality_scorecard || {}" in block
+
+
+
+def test_review_card_exposes_refined_render_boundaries():
+    source = APP_JS.read_text(encoding="utf-8")
+
+    assert "const boundaryRefinement = clip.boundary_refinement" in source
+    assert "const boundaryRefinementApplied = safeBooleanFlag(boundaryRefinement.applied);" in source
+    assert "const renderStart = Number(clip.render_start);" in source
+    assert "const renderEnd = Number(clip.render_end);" in source
+    assert "sem padding adicional no render" in source

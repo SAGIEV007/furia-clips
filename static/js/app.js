@@ -3193,6 +3193,15 @@ function renderResultsGrid() {
         const latestAdjustment = clip.latest_adjustment || {};
         const adjustmentState = clip.adjustment_state || (latestAdjustment.start != null ? "saved" : "");
         const clipTranscriptText = String(clip.text || clip.transcript || "");
+        const boundaryRefinement = clip.boundary_refinement && typeof clip.boundary_refinement === "object" ? clip.boundary_refinement : {};
+        const boundaryRefinementApplied = safeBooleanFlag(boundaryRefinement.applied);
+        const renderStart = Number(clip.render_start);
+        const renderEnd = Number(clip.render_end);
+        const boundaryTrimBefore = Number(boundaryRefinement.trim_before);
+        const boundaryTrimAfter = Number(boundaryRefinement.trim_after);
+        const boundaryRefinementMarkup = boundaryRefinementApplied
+            ? `<div class="clip-boundary-note"><span class="material-icons-round">content_cut</span><span><b>Limites refinados:</b> ${Number.isFinite(renderStart) && Number.isFinite(renderEnd) ? `${formatTime(renderStart)}–${formatTime(renderEnd)}` : 'intervalo ancorado na fala'}${Number.isFinite(boundaryTrimBefore) || Number.isFinite(boundaryTrimAfter) ? ` · poda segura: −${Number.isFinite(boundaryTrimBefore) ? boundaryTrimBefore.toFixed(1) : '0.0'}s no início / −${Number.isFinite(boundaryTrimAfter) ? boundaryTrimAfter.toFixed(1) : '0.0'}s no fim` : ''} · sem padding adicional no render</span></div>`
+            : "";
         const qualityScorecard = clip.quality_scorecard && typeof clip.quality_scorecard === "object" ? clip.quality_scorecard : {};
         const qualityScorecardItems = [
             ["context", "Contexto", "account_tree"],
@@ -3297,6 +3306,7 @@ function renderResultsGrid() {
                 ${politicalType ? `<div style="font-size:12px; color:#f59e0b; margin-bottom:6px"><span class="material-icons-round" style="font-size:14px; vertical-align:middle">account_balance</span> Formato editorial: ${escapeHtml(politicalType)}</div>` : ''}
                 ${visualFormat ? `<div class="clip-visual-format-note ${preserveComposition ? 'preserve' : ''}"><span class="material-icons-round">${preserveComposition ? 'aspect_ratio' : 'center_focus_strong'}</span><span><b>${escapeHtml(visualFormatLabels[visualFormat] || visualFormat)}</b> · ${preserveComposition ? 'preservar composição' : 'reframe somente se seguro'}${Number.isFinite(visualFormatConfidence) ? ` · ${Math.round(Math.max(0, Math.min(1, visualFormatConfidence)) * 100)}%` : ''}${clip.visual_format_reason ? ` — ${escapeHtml(String(clip.visual_format_reason))}` : ''}</span></div>` : ''}
                 ${framingMode ? `<div class="clip-visual-format-note ${framingMode === 'face_tracking' ? '' : 'preserve'}"><span class="material-icons-round">${framingMode === 'face_tracking' ? 'center_focus_strong' : 'aspect_ratio'}</span><span><b>Enquadramento: ${escapeHtml(framingLabels[framingMode] || framingMode)}</b>${Number.isFinite(framingConfidence) ? ` · ${Math.round(Math.max(0, Math.min(1, framingConfidence)) * 100)}%` : ''}${framingReason ? ` — ${escapeHtml(framingReason)}` : ''}</span></div>` : ''}
+                ${boundaryRefinementMarkup}
                 ${multimodalIdentityReview ? `<div class="clip-review-risk ${multimodalIdentityStatus === 'mismatch' ? 'legal' : ''}"><span class="material-icons-round">visibility_off</span><span><b>Identidade multimodal:</b> ${escapeHtml(multimodalIdentityLabel)}${Number.isFinite(multimodalIdentityConfidence) ? ` · ${Math.round(Math.max(0, Math.min(1, multimodalIdentityConfidence)) * 100)}%` : ''}</span></div>` : ''}
                                 ${clip.visual_observation ? `<div class="clip-visual-observation"><span class="material-icons-round">visibility</span><span><b>Evidência visual:</b> ${escapeHtml(String(clip.visual_observation))}${Number.isFinite(Number(clip.visual_observation_confidence)) ? ` · ${Math.round(Math.max(0, Math.min(1, Number(clip.visual_observation_confidence))) * 100)}% de confiança` : ''}</span></div>` : ''}
                 ${nonverbalMomentMarkup}
