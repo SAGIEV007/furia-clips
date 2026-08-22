@@ -102,3 +102,27 @@ def test_adjust_clip_bounds_prefers_word_boundaries_when_available():
     assert adjusted["start"] == 10.6
     assert adjusted["end"] == 24.3
     assert adjusted["boundary_adjustment"]["source"] == "transcript"
+
+
+
+def test_adjust_clip_bounds_falls_back_to_nearby_segment_when_words_are_far():
+    adjusted = adjust_clip_bounds(
+        {"start": 50, "end": 70},
+        start=50.8,
+        end=69.2,
+        snap_tolerance=1.0,
+        transcript_segments=[
+            {
+                "start": 50.0,
+                "end": 55.0,
+            },
+            {
+                "start": 10.0,
+                "end": 20.0,
+                "words": [{"start": 10.0, "end": 10.5}],
+            },
+        ],
+    )
+
+    assert adjusted["start"] == 50.0
+    assert adjusted["end"] == 69.2

@@ -318,3 +318,9 @@ A cobertura de integração confirma o caminho SQLite → fingerprint → select
 O snapping outward-only agora preserva o intervalo original quando a expansão até as transições próximas ultrapassaria `max_duration`. O Furia não encurta o discurso para caber no teto e também não cria um clip maior que o limite técnico configurado. O comportamento anterior de ignorar timestamps inválidos e manter o intervalo quando o ajuste é inseguro permanece ativo.
 
 Foi adicionada regressão para expansão acima do teto. Validação: **687 testes aprovados**, `node --check`, `py_compile`, `git diff --check` e auditoria de segredos sem achados. Campaign Hub permaneceu somente leitura.
+
+## Ajuste manual — fallback de proximidade por nível
+
+O alinhamento de limites agora tenta primeiro a fronteira de palavra mais próxima quando ela está dentro da tolerância configurada. Se as palavras timestampadas estiverem longe, o Furia volta a considerar os limites do segmento; se nenhum nível estiver próximo, mantém o valor solicitado. Isso preserva a precisão fina sem transformar a existência de uma palavra distante em motivo para ignorar um segmento útil.
+
+Foi adicionada regressão para o fallback palavra → segmento. Validação: **688 testes aprovados**, `node --check`, `py_compile`, `git diff --check` e auditoria de segredos sem achados. Campaign Hub permaneceu somente leitura.

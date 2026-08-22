@@ -126,8 +126,7 @@ def _snap_boundary(
             continue
         if math.isfinite(boundary) and boundary >= 0:
             segment_candidates.append(boundary)
-    candidates = word_candidates or segment_candidates
-    if not candidates:
+    if not word_candidates and not segment_candidates:
         return value
     try:
         tolerance_value = float(tolerance)
@@ -135,8 +134,14 @@ def _snap_boundary(
         tolerance_value = 0.0
     if not math.isfinite(tolerance_value):
         tolerance_value = 0.0
-    nearest = min(candidates, key=lambda boundary: abs(boundary - value))
-    return nearest if abs(nearest - value) <= max(0.0, tolerance_value) else value
+    allowed_distance = max(0.0, tolerance_value)
+    for candidates in (word_candidates, segment_candidates):
+        if not candidates:
+            continue
+        nearest = min(candidates, key=lambda boundary: abs(boundary - value))
+        if abs(nearest - value) <= allowed_distance:
+            return nearest
+    return value
 
 
 def _expand_interval(start: float, end: float, minimum: float, limit: float | None) -> tuple[float, float]:
