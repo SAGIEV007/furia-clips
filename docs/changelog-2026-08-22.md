@@ -413,3 +413,8 @@ A conclusão emite evento específico para atualizar o player, os limites ativos
 A bancada também reidrata jobs `adjust_clip_render` ativos a partir do artefato persistente mínimo e evita perder a conclusão caso o evento chegue antes do registro local. Após o reload, o botão continua ocupado e o card conserva os limites ativos, o caminho derivado e os limites canônicos originais.
 
 A cobertura de cancelamento foi ampliada com regressão do worker de ajuste antes do início do FFmpeg e teste unitário de encerramento do subprocesso. A suíte integral do ciclo fechou com **705 testes aprovados**, mantendo a regra de nenhum dado editorial privado no Git e nenhuma escrita no Campaign Hub.
+
+## Registro durável da conversa e identificação do clip na HUD — 2026-08-22
+Foi criado `docs/conversation-summary.md`, um resumo sanitizado da visão do produto, requisitos editoriais, decisões de privacidade, capacidades implementadas, limitações, commits recentes, estrutura de dados persistentes e próximos passos. O documento existe para permitir continuidade caso o editor não faça backup da conversa do Manus; ele não reproduz credenciais, cookies, vídeos, bancos, transcrições privadas, feedback bruto ou URLs assinadas.
+
+A fila persistente passou a identificar o clip ajustado na mensagem da operação, usando somente o `clip_id` e o tipo do job. Isso reduz a ambiguidade quando a bancada tem mais de uma operação ou quando o editor reconecta. A documentação continua registrando que Campaign Hub é somente leitura e que `~/FuriaClipsData` precisa de backup privado separado do GitHub.

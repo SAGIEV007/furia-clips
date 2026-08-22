@@ -716,10 +716,12 @@ function operationJobTime(value) {
 }
 
 function operationJobMessage(job = {}) {
-    if (String(job.stage || "") === "stale_recovered" || String(job.error || "") === "stale_job_recovered") {
-        return "Operação interrompida após recuperação do servidor; nenhum novo corte foi executado. Confira a fonte e inicie novamente.";
-    }
-    return String(job.error || job.message || job.stage || "Aguardando execução");
+    const baseMessage = String(job.stage || "") === "stale_recovered" || String(job.error || "") === "stale_job_recovered"
+        ? "Operação interrompida após recuperação do servidor; nenhum novo corte foi executado. Confira a fonte e inicie novamente."
+        : String(job.error || job.message || job.stage || "Aguardando execução");
+    const clipArtifact = (Array.isArray(job.artifacts) ? job.artifacts : []).find((item) => item?.type === "adjustment_render_pending" || item?.type === "adjusted_clip");
+    const clipId = Number(clipArtifact?.clip_id);
+    return Number.isInteger(clipId) && clipId > 0 ? `Clip #${clipId} · ${baseMessage}` : baseMessage;
 }
 
 function operationJobStateLabel(state = "queued") {
@@ -3804,7 +3806,7 @@ async function persistClipBoundary(index) {
                 clipId: clip.clip_id,
                 previousButtonMarkup,
             };
-            registerStartedOperation(data, "Renderização do ajuste em andamento.");
+            registerStartedOperation(data, `Renderização do clip #${clip.clip_id} em andamento.`);
             showProgressBar();
             if (feedback) feedback.textContent = `Renderização enfileirada no job ${String(data.job_id).slice(0, 8)}. Você pode acompanhar na HUD e cancelar com segurança.`;
             addConsoleLog(`[Ajuste] Renderização do clip ${index + 1} enfileirada; o arquivo atual permanece tocando até a conclusão.`, "info");

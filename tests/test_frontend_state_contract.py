@@ -718,7 +718,7 @@ def test_adjust_render_queues_job_and_keeps_card_busy_until_terminal_event():
     assert "let queuedForBackground = false;" in source
     assert "if (response.status === 202 && data.job_id)" in source
     assert "state.adjustmentRenderJobs[data.job_id]" in source
-    assert 'registerStartedOperation(data, "Renderização do ajuste em andamento.");' in source
+    assert "registerStartedOperation(data, `Renderização do clip #${clip.clip_id} em andamento.`);" in source
     assert "if (!queuedForBackground && currentButton)" in source
 
 
@@ -729,6 +729,13 @@ def test_adjust_render_terminal_event_rehydrates_active_bounds_and_media():
     assert "active_bounds: { start: activeStart, end: activeEnd, duration: activeDuration }" in source
     assert "path: render.path || clip.path" in source
     assert "refreshVisibleReviewState();" in source
+
+
+def test_operation_hud_identifies_adjustment_clip_without_private_paths():
+    source = APP_JS.read_text(encoding="utf-8")
+    assert 'item?.type === "adjustment_render_pending" || item?.type === "adjusted_clip"' in source
+    assert "return Number.isInteger(clipId) && clipId > 0 ? `Clip #${clipId} · ${baseMessage}` : baseMessage;" in source
+    assert 'Renderização do clip #${clip.clip_id} em andamento.' in source
 
 
 def test_active_adjustment_job_is_rehydrated_into_the_review_card():
