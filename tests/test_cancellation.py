@@ -1,6 +1,7 @@
 from types import SimpleNamespace
 
 import pytest
+from unittest.mock import patch
 
 from modules.cancellation import OperationCancelled
 from modules.job_manager import JobCancelled
@@ -340,3 +341,45 @@ def test_editorial_context_worker_propagates_job_cancellation_during_local_audit
 
     with pytest.raises(JobCancelled, match="parado durante auditoria"):
         submitted["target"](Context())
+
+
+def test_adjust_render_worker_propagates_cancellation_before_ffmpeg(monkeypatch, tmp_path):
+    import app as app_module
+    import database
+
+    source = tmp_path / "source.mp4"
+    source.write_bytes(b"fake-video")
+    db_path = tmp_path / "adjust-cancel.sqlite"
+    submitted = {}
+
+    class CapturingJobManager:
+        def submit(self, job_type, target, project_id=None):
+            submitted.update(type=job_type, target=target, project_id=project_id)
+            return {"id": "job-adjust-cancel", "state": "queued"}
+
+    class Context:
+        job_id = "job-adjust-cancel"
+
+        def update(self, **_kwargs):
+            return {}
+
+        def check_cancel(self):
+            raise JobCancelled("parado antes do FFmpeg")
+
+    with patch.object(database, "DB_PATH", str(db_path)):
+        database.init_db()
+        project_id = database.create_project("Projeto de cancelamento", str(source))
+        clip_id = database.save_clip(project_id, "exports/original.mp4", 10.0, 52.0, 42.0)
+        monkeypatch.setattr(app_module, "job_manager", CapturingJobManager())
+        monkeypatch.setattr(app_module, "_resolve_media_input", lambda _value: str(source))
+        app_module.active_adjust_render_ids.clear()
+        response = app_module.app.test_client().post(
+            f"/api/clips/{clip_id}/adjust/render",
+            json={"adjustment": {"start": 12.0, "end": 49.0}, "source_duration": 60.0},
+        )
+
+    assert response.status_code == 202
+    assert submitted["type"] == "adjust_clip_render"
+    with pytest.raises(JobCancelled, match="parado antes do FFmpeg"):
+        submitted["target"](Context())
+    assert app_module.active_adjust_render_ids == set()
