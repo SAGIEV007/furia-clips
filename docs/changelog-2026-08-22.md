@@ -484,3 +484,6 @@ O gerador não atribui mais automaticamente uma crítica a Renan quando a legend
 
 ## Headline Studio: formato escolhido preservado — 2026-08-22
 Quando o editor escolhe explicitamente 1:1, 9:16 ou fake tweet, a recomendação devolvida pela IA não pode trocar esse formato. O gerador continua refinando somente o perfil solicitado, evitando que o painel mostre um formato diferente daquele que será produzido. Validação integral: **739 testes aprovados**.
+
+## Headline Studio: fake tweet sem vazamento de contexto interno — 2026-08-22
+O minic contexto agora serve apenas para orientar a análise e a atribuição; ele não é concatenado ao texto do fake tweet. A primeira pessoa só aparece quando o editor identifica explicitamente Renan, evitando publicar instruções internas ou atribuir uma opinião ao locutor errado. Validação focada: **26 testes aprovados**.

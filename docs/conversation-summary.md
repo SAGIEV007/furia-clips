@@ -226,3 +226,7 @@ O Headline Studio deixou de inserir “RENAN” automaticamente em uma headline 
 ## 27. Formato escolhido preservado
 
 O Headline Studio agora respeita o formato selecionado pelo editor mesmo se a IA sugerir outro formato no JSON. Isso evita uma inconsistência em que o painel poderia parecer recomendar 9:16 quando o editor havia escolhido 1:1; a IA continua responsável apenas pela redação dentro do perfil escolhido.
+
+## 28. Fake tweet separado do minic contexto
+
+O texto do fake tweet não mistura mais o minic contexto interno do editor com a sugestão que será copiada. Quando o locutor não foi identificado, o texto permanece impessoal; quando Renan é explicitamente confirmado, a primeira pessoa pode ser usada dentro dos fatos da legenda.

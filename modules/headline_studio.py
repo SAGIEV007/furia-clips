@@ -322,11 +322,20 @@ def _claim_candidates(text: str, topic: str, speaker_prefix: str = "") -> list[s
 
 def _safe_fake_tweet(text: str, topic: str, mini_context: str) -> list[str]:
     folded = normalize(text)
+    speaker_explicit = bool(_speaker_prefix(mini_context))
     lead = ""
     if ("pais pobre" in folded or "pais que e pobre" in folded) and "pais rico" in folded:
-        lead = "O país é pobre, cobra imposto de país rico e vai precisar mexer nas despesas."
+        lead = (
+            "Eu estou sendo direto: o país é pobre, cobra imposto de país rico e vai precisar mexer nas despesas."
+            if speaker_explicit
+            else "O país é pobre, cobra imposto de país rico e vai precisar mexer nas despesas."
+        )
     elif "duzentos bilhoes" in folded or "200 bilhoes" in folded or "200 bilhões" in text.lower():
-        lead = "A conta apresentada é direta: será preciso mexer em mais de 200 bilhões por ano nas despesas."
+        lead = (
+            "Eu estou avisando: serão necessários mais de 200 bilhões por ano em despesas."
+            if speaker_explicit
+            else "A conta apresentada é direta: será preciso mexer em mais de 200 bilhões por ano nas despesas."
+        )
     elif "cobra imposto" in folded and "pais rico" in folded:
         lead = "O Brasil cobra imposto de país rico, mas precisa encarar a revisão das despesas."
     elif "caminho arcaico" in folded:
@@ -337,8 +346,6 @@ def _safe_fake_tweet(text: str, topic: str, mini_context: str) -> list[str]:
         lead = "A pergunta é simples: o Estado será amigável ou hostil à inovação?"
     else:
         lead = f"O debate sobre {topic} precisa olhar para o futuro, não para o medo."
-    if mini_context:
-        lead = _compact(f"{lead} {mini_context}", 180)
     return [_compact(lead, 180)]
 
 

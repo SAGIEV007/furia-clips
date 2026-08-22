@@ -492,3 +492,26 @@ def test_explicit_format_cannot_be_overridden_by_ai_recommendation():
     assert result["recommended_format"] == FORMAT_SQUARE
     assert result["generated_format"] == FORMAT_SQUARE
     assert result["formats"][FORMAT_VERTICAL]["suggestions"] == []
+
+
+
+def test_fake_tweet_keeps_editor_context_out_of_copy_and_uses_first_person_only_when_identified():
+    generic = generate_artwork_copy(
+        FISCAL_CUT_TRANSCRIPT,
+        mini_context="Comentário interno do editor, não publicar.",
+        preferred_format=FORMAT_TWEET,
+        ai_backend=None,
+    )
+    generic_post = generic["formats"][FORMAT_TWEET]["suggestions"][0]["post_text"]
+    assert "Comentário interno" not in generic_post
+    assert not generic_post.startswith("Eu ")
+
+    attributed = generate_artwork_copy(
+        FISCAL_CUT_TRANSCRIPT,
+        mini_context="Fala identificada de Renan Santos sobre economia.",
+        preferred_format=FORMAT_TWEET,
+        ai_backend=None,
+    )
+    attributed_post = attributed["formats"][FORMAT_TWEET]["suggestions"][0]["post_text"]
+    assert "Comentário interno" not in attributed_post
+    assert attributed_post.startswith("Eu ")
