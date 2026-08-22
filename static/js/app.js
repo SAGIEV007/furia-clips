@@ -1544,7 +1544,28 @@ function handleJobUpdate(job, options = {}) {
 }
 
 async function recoverActiveJobs() {
+    const previousJob = state.activeJob && { ...state.activeJob };
+    const previousJobWasActive = Boolean(
+        previousJob?.id
+        && !String(previousJob.id).startsWith("legacy-")
+        && ["queued", "running", "cancel_requested"].includes(String(previousJob.state || ""))
+    );
     await loadOperationDashboard();
+    if (!previousJobWasActive) return;
+    const recoveredJob = (state.operationJobs || []).find((job) => String(job?.id || "") === String(previousJob.id));
+    if (!recoveredJob || !["completed", "failed", "cancelled"].includes(String(recoveredJob.state || ""))) return;
+    handleJobUpdate(recoveredJob, { refreshDashboard: false });
+    const jobType = String(recoveredJob.type || "");
+    if (recoveredJob.state === "completed" && ["cut_shorts", "process_complete", "adjust_clip_render"].includes(jobType)) {
+        await refreshVisibleReviewState();
+        await loadProjectLibrary();
+    }
+    const stateLabel = recoveredJob.state === "completed"
+        ? "concluída"
+        : recoveredJob.state === "cancelled"
+            ? "cancelada"
+            : "falhou";
+    addConsoleLog(`[Recuperação] A operação ${stateLabel} enquanto a conexão estava indisponível; estado local sincronizado.`, recoveredJob.state === "completed" ? "success" : "warning");
 }
 
 function hideProgressBar() {

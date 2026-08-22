@@ -166,3 +166,7 @@ O re-render de um clip ajustado não consegue reconstruir automaticamente as pos
 ## 12. Proteção contra áudio em idioma inesperado
 
 Como houve um caso de download em espanhol, a seleção pública mantém a preferência `pt-BR/pt/por` antes do fallback genérico. O resultado do importador agora também relata se o português foi confirmado pelos metadados da faixa, se houve fallback sem confirmação ou se o idioma não foi informado. O console orienta conferir o primeiro trecho quando a plataforma não provar o idioma; o Furia não afirma que o áudio é português apenas por preferir essa faixa. A mudança foi coberta por testes de seleção e transparência.
+
+## 13. Recuperação terminal após desconexão
+
+Após uma reconexão, a interface agora compara o job persistente que estava em andamento antes da perda de conexão com o histórico local. Se esse mesmo job terminou, falhou ou foi cancelado enquanto o navegador estava offline, a HUD deixa de ficar presa em “em andamento” e mostra o estado real. Para cortes, processo completo e ajustes individuais concluídos, os clips e a biblioteca do projeto também são atualizados. A lógica ignora jobs legados e operações concorrentes, preservando a associação entre fonte, projeto e revisão.

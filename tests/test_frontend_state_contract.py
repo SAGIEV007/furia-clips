@@ -1427,3 +1427,18 @@ def test_source_import_locks_both_actions_while_folder_picker_is_open():
     assert "if (state.sourceImportActive || state.sourceImportPreparing) return;" in source
     assert "setSourceImportPreparing(true);" in source
     assert "setSourceImportPreparing(false);" in source
+
+
+
+def test_reconnect_reconciles_persisted_terminal_job_and_refreshes_review_state():
+    source = APP_JS.read_text(encoding="utf-8")
+    recovery_start = source.find("async function recoverActiveJobs()")
+    recovery_end = source.find("function hideProgressBar()", recovery_start)
+    block = source[recovery_start:recovery_end]
+    assert "const previousJob = state.activeJob && { ...state.activeJob };" in block
+    assert '"completed", "failed", "cancelled"' in block
+    assert "const recoveredJob = (state.operationJobs || []).find" in block
+    assert "handleJobUpdate(recoveredJob, { refreshDashboard: false });" in block
+    assert '"cut_shorts", "process_complete", "adjust_clip_render"' in block
+    assert "await refreshVisibleReviewState();" in block
+    assert "operação" in block and "conexão estava indisponível" in block
