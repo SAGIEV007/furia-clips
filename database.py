@@ -726,7 +726,13 @@ def get_existing_clip_fingerprints(source_video=""):
     rows = conn.execute(
         f"""SELECT clips.start_time, clips.end_time, clips.duration,
                          clips.transcript, clips.review_status, clips.editorial_key,
-                         projects.source_signature, projects.source_video
+                         projects.source_signature, projects.source_video,
+                         (SELECT adjustments
+                            FROM clip_feedback AS feedback
+                           WHERE feedback.clip_id = clips.id
+                             AND feedback.action = 'adjusted'
+                           ORDER BY feedback.created_at DESC, feedback.id DESC
+                           LIMIT 1) AS latest_adjustment
            FROM clips
            JOIN projects ON projects.id = clips.project_id
           WHERE {normalized_source} = ? OR {normalized_source} LIKE ?""",
@@ -761,14 +767,49 @@ def get_existing_clip_fingerprints(source_video=""):
             "review_status": str(row[4] or "pending"),
             "editorial_key": str(row[5] or "")[:64],
             "source_signature": stored_signature,
+            "interval_source": "canonical",
         }
         identity = fingerprint["editorial_key"] or (
             f"{fingerprint['start']:.3f}|{fingerprint['end']:.3f}|{fingerprint['text'].lower()}"
         )
-        if identity in seen_identities:
+        if identity not in seen_identities:
+            seen_identities.add(identity)
+            fingerprints.append(fingerprint)
+
+        try:
+            adjustment = json.loads(row[8] or "{}")
+        except (TypeError, ValueError, json.JSONDecodeError):
+            adjustment = {}
+        if not isinstance(adjustment, dict):
+            adjustment = {}
+        try:
+            adjusted_start = float(adjustment.get("start"))
+            adjusted_end = float(adjustment.get("end"))
+        except (TypeError, ValueError):
+            adjusted_start = adjusted_end = None
+        if (
+            adjusted_start is None
+            or adjusted_end is None
+            or not all(math.isfinite(value) for value in (adjusted_start, adjusted_end))
+            or adjusted_start < 0
+            or adjusted_end <= adjusted_start
+            or (abs(adjusted_start - start) < 0.001 and abs(adjusted_end - end) < 0.001)
+        ):
             continue
-        seen_identities.add(identity)
-        fingerprints.append(fingerprint)
+        adjusted_fingerprint = dict(fingerprint)
+        adjusted_fingerprint.update({
+            "start": round(adjusted_start, 3),
+            "end": round(adjusted_end, 3),
+            "duration": round(adjusted_end - adjusted_start, 3),
+            "interval_source": "manual_adjustment",
+        })
+        adjusted_identity = (
+            f"{adjusted_fingerprint['editorial_key']}|adjusted|"
+            f"{adjusted_fingerprint['start']:.3f}|{adjusted_fingerprint['end']:.3f}"
+        )
+        if adjusted_identity not in seen_identities:
+            seen_identities.add(adjusted_identity)
+            fingerprints.append(adjusted_fingerprint)
     return fingerprints
 
 

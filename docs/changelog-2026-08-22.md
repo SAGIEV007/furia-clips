@@ -300,3 +300,9 @@ Foi adicionada cobertura de regressão para confirmar a preferência por palavra
 A deduplicação entre execuções agora não descarta automaticamente um intervalo apenas porque ele se sobrepõe a um clip já exportado. Quando o novo candidato apresenta pelo menos duas diferenças editoriais coerentes — como conclusão, completude de pergunta–resposta, payoff, ponte de contexto, capítulo ou tipo editorial — ele pode permanecer na fila para revisão. Duplicatas exatas, limites praticamente iguais e repetições lexicalmente equivalentes continuam sendo removidos.
 
 Isso preserva a possibilidade de uma segunda passada encontrar a conclusão de uma resposta ou um enquadramento editorial diferente dentro de uma janela já visitada, sem reabrir o risco de repetir o mesmo corte. Foram adicionados testes para sobreposição contextualmente distinta e para duplicata exata. Validação: **685 testes aprovados**, `node --check`, `py_compile`, `git diff --check` e auditoria de segredos sem achados. Campaign Hub permaneceu somente leitura.
+
+## Persistência editorial — deduplicação do intervalo ajustado
+
+Os fingerprints locais agora incluem, além do intervalo canônico salvo no clip, o último intervalo manual válido registrado pelo editor. Assim, uma nova execução evita repetir tanto a janela originalmente selecionada quanto a versão refinada que foi efetivamente revisada. A identidade da fonte, o filtro por assinatura e o fallback de registros legados permanecem inalterados; ajustes inválidos ou iguais ao intervalo canônico não geram fingerprint extra.
+
+Foi adicionada regressão de integração para confirmar a recuperação dos dois intervalos a partir do SQLite. Validação: **686 testes aprovados**, `node --check`, `py_compile`, `git diff --check` e auditoria de segredos sem achados. Campaign Hub permaneceu somente leitura.

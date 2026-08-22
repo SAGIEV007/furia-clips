@@ -117,3 +117,42 @@ def test_source_signature_prevents_same_basename_collision(monkeypatch, tmp_path
     assert len(fingerprints) == 1
     assert fingerprints[0]["text"] == "A"
     assert fingerprints[0]["source_signature"]
+
+
+
+def test_existing_clip_fingerprints_include_latest_manual_adjustment(monkeypatch, tmp_path):
+    monkeypatch.setattr(database, "DB_PATH", str(tmp_path / "adjusted-fingerprint.sqlite"))
+    database.init_db()
+    source_path = tmp_path / "downloads" / "entrevista.mp4"
+    source_path.parent.mkdir(parents=True)
+    source_path.write_bytes(b"source-with-adjustment" * 2048)
+    project_id = database.create_project("Ajuste", str(source_path))
+    clip_id = database.save_clip(
+        project_id,
+        "exports/clip.mp4",
+        10.0,
+        40.0,
+        30.0,
+        80,
+        True,
+        0,
+        "Pergunta e resposta completas.",
+    )
+    database.save_clip_adjustment(
+        clip_id,
+        {
+            "start": 12.4,
+            "end": 37.8,
+            "duration": 25.4,
+            "boundary_adjustment": {"source": "transcript"},
+        },
+        note="Preserva a fala completa.",
+    )
+
+    fingerprints = database.get_existing_clip_fingerprints(str(source_path))
+
+    assert len(fingerprints) == 2
+    assert {(item["start"], item["end"], item["interval_source"]) for item in fingerprints} == {
+        (10.0, 40.0, "canonical"),
+        (12.4, 37.8, "manual_adjustment"),
+    }
