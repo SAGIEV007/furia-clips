@@ -526,6 +526,7 @@ def _merge_ai_suggestions(
     if not isinstance(suggested, dict):
         return base
     allowed_formats = (preferred_format,) if preferred_format in FORMAT_IDS else (FORMAT_VERTICAL, FORMAT_SQUARE)
+    accepted_any = False
     for format_id in allowed_formats:
         variants = suggested.get(format_id)
         if not isinstance(variants, list):
@@ -558,6 +559,7 @@ def _merge_ai_suggestions(
             })
         if accepted:
             base["formats"][format_id]["suggestions"] = accepted
+            accepted_any = True
     tweets = suggested.get(FORMAT_TWEET) if preferred_format in {"auto", FORMAT_TWEET} else None
     if isinstance(tweets, list):
         accepted_tweets = []
@@ -571,12 +573,14 @@ def _merge_ai_suggestions(
                 })
         if accepted_tweets:
             base["formats"][FORMAT_TWEET]["suggestions"] = accepted_tweets
-    requested = payload.get("recommended_format")
-    if preferred_format not in FORMAT_IDS and requested in FORMAT_IDS:
-        base["recommended_format"] = requested
-    if isinstance(payload.get("recommendation_reason"), str):
-        base["recommendation_reason"] = _compact(payload["recommendation_reason"], 220)
-    base["generation_source"] = "ai_refined"
+            accepted_any = True
+    if accepted_any:
+        requested = payload.get("recommended_format")
+        if preferred_format not in FORMAT_IDS and requested in FORMAT_IDS:
+            base["recommended_format"] = requested
+        if isinstance(payload.get("recommendation_reason"), str):
+            base["recommendation_reason"] = _compact(payload["recommendation_reason"], 220)
+        base["generation_source"] = "ai_refined"
     return base
 
 

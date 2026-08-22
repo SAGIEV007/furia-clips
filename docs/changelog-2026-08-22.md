@@ -493,3 +493,6 @@ No formato 1:1, cortes sobre impostos, tributação, dívida ou despesas agora r
 
 ## Headline Studio: bloqueio de entidades e números sem evidência — 2026-08-22
 O filtro do refinamento por IA agora rejeita headlines que introduzem nomes políticos ou números ausentes da legenda. Ele aceita apenas números literalmente presentes ou aliases explicitamente equivalentes, como “duzentos” para 200, e mantém a exigência de dois sinais relevantes do texto. Validação integral: **742 testes aprovados**.
+
+## Headline Studio: origem do resultado sem falso refinamento — 2026-08-22
+Se a resposta da IA contém apenas headlines rejeitadas por falta de evidência, o resultado permanece marcado como fallback editorial. O painel não apresenta “IA refinada” quando nenhuma sugestão foi aceita; nomes e números sem suporte continuam bloqueados. Validação integral: **743 testes aprovados**.

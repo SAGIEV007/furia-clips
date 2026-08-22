@@ -537,3 +537,31 @@ def test_ai_headline_filter_rejects_unseen_entities_and_numbers():
     assert _suggestion_has_evidence("LULA E IMPOSTOS NA CONTA", source) is False
     assert _suggestion_has_evidence("500 BILHÕES EM DESPESAS", source) is False
     assert _suggestion_has_evidence("200 BILHÕES EM DESPESAS", source) is True
+
+
+
+def test_rejected_ai_payload_keeps_editorial_fallback_source():
+    class FakeBackend:
+        def generate(self, prompt, system, emit_progress=None):
+            return json.dumps({
+                "recommended_format": FORMAT_VERTICAL,
+                "recommendation_reason": "Uma razão genérica da IA.",
+                "formats": {
+                    FORMAT_SQUARE: [
+                        {"headline": "LULA PROMETE 500 BILHÕES EM DESPESAS", "accent": "white"}
+                    ],
+                    FORMAT_VERTICAL: [
+                        {"headline": "BOLSONARO PROMETE 500 BILHÕES EM DESPESAS", "accent": "white"}
+                    ],
+                },
+            })
+
+    result = generate_artwork_copy(
+        FISCAL_CUT_TRANSCRIPT,
+        preferred_format=FORMAT_SQUARE,
+        ai_backend=FakeBackend(),
+    )
+
+    assert result["generation_source"] == "editorial_fallback"
+    assert result["recommended_format"] == FORMAT_SQUARE
+    assert result["recommendation_reason"].startswith("A tese")

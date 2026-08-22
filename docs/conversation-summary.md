@@ -238,3 +238,7 @@ No formato 1:1, o Headline Studio agora usa “ATENÇÃO” para uma legenda fis
 ## 30. Proteção contra entidades e números inventados
 
 O refinamento por IA agora verifica nomes políticos e números antes de aceitar uma sugestão. Uma headline que introduza “Lula”, “Bolsonaro” ou um valor não mencionado no corte é descartada; “200” pode ser aceito quando a legenda diz “duzentos”. Isso protege o contexto sem impedir variações naturais da redação.
+
+## 31. Origem do resultado sem falso refinamento
+
+O Headline Studio agora diferencia uma sugestão realmente aceita pela IA de uma resposta que foi toda descartada pelas regras de segurança. Quando nenhuma opção passa pela validação, o sistema mantém a origem “regras editoriais”, preserva o formato escolhido e não mostra uma justificativa genérica da IA como se tivesse sido aplicada.
