@@ -2002,7 +2002,8 @@ async function startSmartCut() {
     const userContext = document.getElementById("userContextInput").value.trim();
     const boundTranscript = transcriptPayloadForSelectedVideo();
     const currentVideoPath = selectedVideoPathForRequest();
-    const boundEditorialContext = state.editorialContext && state.contextAnalysisSourcePath === currentVideoPath
+    const boundEditorialContext = state.editorialContext
+        && mediaPathsMatch(state.contextAnalysisSourcePath, currentVideoPath)
         ? state.editorialContext
         : null;
     addConsoleLog("[Acao] Iniciando corte inteligente de shorts...", "info");
@@ -2067,7 +2068,8 @@ document.getElementById("actionComplete").querySelector(".btn-action").addEventL
     const userContext = document.getElementById("userContextInput").value.trim();
     const boundTranscript = transcriptPayloadForSelectedVideo();
     const currentVideoPath = selectedVideoPathForRequest();
-    const boundEditorialContext = state.editorialContext && state.contextAnalysisSourcePath === currentVideoPath
+    const boundEditorialContext = state.editorialContext
+        && mediaPathsMatch(state.contextAnalysisSourcePath, currentVideoPath)
         ? state.editorialContext
         : null;
     addConsoleLog("[Acao] Iniciando processo completo...", "info");

@@ -359,7 +359,7 @@ def test_context_dossier_is_sent_only_for_matching_selected_source():
     block = source[cut_start:cut_end]
 
     assert "const currentVideoPath = selectedVideoPathForRequest();" in block
-    assert "state.contextAnalysisSourcePath === currentVideoPath" in block
+    assert "mediaPathsMatch(state.contextAnalysisSourcePath, currentVideoPath)" in block
     assert 'editorial_context_source_path: boundEditorialContext ? currentVideoPath : ""' in block
     assert "...(boundEditorialContext ? { editorial_context: boundEditorialContext } : {})," in block
 

@@ -111,3 +111,10 @@ A validação integral desta rodada confirmou **613 testes aprovados**.
 Foi corrigido um erro funcional no botão “Abrir pasta de downloads”: ele estava enviando a pasta de saída dos clips (`outputDir`) ao sistema operacional. Agora abre a pasta configurada para salvar fontes baixadas (`sourceDownloadDir`) e, quando ela ainda não existe, solicita a escolha dessa pasta antes de abrir. A pasta de exports não é mais apresentada como se fosse a pasta de downloads.
 
 A validação integral desta rodada confirmou **614 testes aprovados**.
+
+
+## Vínculo do dossiê no corte
+
+O corte inteligente e o processo completo agora reutilizam um dossiê editorial pré-analisado usando a mesma identidade normalizada de mídia do restante da aplicação. Isso evita perder um dossiê válido por diferenças de representação de caminho, sem permitir que um dossiê de outra fonte seja aplicado; a verificação correspondente continua existindo no backend.
+
+A validação integral desta rodada confirmou **614 testes aprovados**.
