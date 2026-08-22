@@ -478,6 +478,7 @@ def test_batch_cut_preserves_word_refined_boundaries_without_legacy_padding(monk
     assert calls == [(10.0, 19.5)]
     assert results[0]["render_start"] == 10.0
     assert results[0]["render_end"] == 19.5
+    assert results[0]["render_duration"] == 9.5
     assert results[0]["render_boundary_policy"] == "word_timestamps_preserved"
     assert results[0]["boundary_refinement"]["applied"] is True
     assert results[0]["scene_boundary_adjustment"] == {
@@ -518,5 +519,6 @@ def test_batch_cut_keeps_legacy_padding_without_boundary_metadata(monkeypatch, t
     )
 
     assert calls == [(9.7, 20.3)]
+    assert results[0]["render_duration"] == 10.6
     assert results[0]["render_boundary_policy"] == "legacy_safety_padding"
     assert results[0]["boundary_refinement"] is None

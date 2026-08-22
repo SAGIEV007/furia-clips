@@ -348,3 +348,9 @@ Foi adicionada regressão de round-trip SQLite e os dois fluxos de corte passara
 O resultado de `VideoCutter.batch_cut` agora devolve também a metadata sanitizada de `scene_boundary_adjustment`, junto de `render_start`, `render_end` e da política de limites. Isso mantém o artefato de render autocontido para consumidores genéricos, revisão e diagnósticos: quem recebe somente o resultado consegue saber se a cena expandiu o intervalo para preservar a fala, sem depender do payload original do selector.
 
 Foi adicionada regressão no contrato de render, preservando os caminhos legados de padding e as políticas de refinamento por palavras. Validação: **692 testes aprovados**, `node --check`, `py_compile`, `git diff --check` e auditoria de segredos sem achados. Campaign Hub permaneceu somente leitura.
+
+## Contrato temporal — duração efetivamente renderizada
+
+Os resultados de `VideoCutter.batch_cut` agora incluem `render_duration`, calculada a partir de `render_start` e `render_end` após padding legado, refinamento por palavras e limites da fonte. Isso evita que consumidores confundam a duração editorial do candidato com a duração real do arquivo gerado, especialmente em clips legados com padding ou próximos ao fim do vídeo.
+
+A regressão cobre tanto o caminho refinado sem padding quanto o caminho legado com padding. Validação: **692 testes aprovados**, `node --check`, `py_compile`, `git diff --check` e auditoria de segredos sem achados. Não houve alteração de pesos de ranking nem escrita no Campaign Hub.

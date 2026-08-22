@@ -517,6 +517,7 @@ class VideoCutter:
                     "duration": cut["duration"],
                     "render_start": round(padded_start, 3),
                     "render_end": round(padded_end, 3),
+                    "render_duration": round(padded_end - padded_start, 3),
                     "render_boundary_policy": render_boundary_policy,
                     "boundary_refinement": dict(boundary_refinement) if boundary_refinement else None,
                     "scene_boundary_adjustment": (
