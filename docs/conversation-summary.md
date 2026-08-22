@@ -242,3 +242,7 @@ O refinamento por IA agora verifica nomes políticos e números antes de aceitar
 ## 31. Origem do resultado sem falso refinamento
 
 O Headline Studio agora diferencia uma sugestão realmente aceita pela IA de uma resposta que foi toda descartada pelas regras de segurança. Quando nenhuma opção passa pela validação, o sistema mantém a origem “regras editoriais”, preserva o formato escolhido e não mostra uma justificativa genérica da IA como se tivesse sido aplicada.
+
+## 32. Identificação explícita para atribuição a Renan
+
+Mencionar “Renan” dentro da legenda não basta para o sistema escrever como se ele fosse o autor da fala. O Headline Studio agora exige confirmação explícita no minic contexto para liberar primeira pessoa ou “Renan critica”; sem isso, a sugestão permanece temática e impessoal.

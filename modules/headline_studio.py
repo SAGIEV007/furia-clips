@@ -490,8 +490,8 @@ def _extract_json(value: str) -> dict[str, Any] | None:
             return None
 
 
-def _suggestion_has_evidence(value: str, source_text: str) -> bool:
-    """Require more than one source anchor before accepting an AI variation."""
+def _suggestion_has_evidence(value: str, source_text: str, *, allow_renan: bool = False) -> bool:
+    """Require source anchors and explicit permission for Renan attribution."""
     normalized_source = normalize(source_text)
     normalized_value = normalize(value)
     source_tokens = set(re.findall(r"[a-z0-9]+", normalized_source))
@@ -507,6 +507,8 @@ def _suggestion_has_evidence(value: str, source_text: str) -> bool:
     suggestion_entities = set(re.findall(r"[a-z0-9]+", normalized_value)) & PROTECTED_ENTITY_TOKENS
     if suggestion_entities - source_entities:
         return False
+    if "renan" in suggestion_entities and not allow_renan:
+        return False
     source_numbers = set(re.findall(r"\d+", normalized_source))
     for number in set(re.findall(r"\d+", normalized_value)):
         aliases = NUMBER_WORD_ALIASES.get(number, set())
@@ -520,6 +522,7 @@ def _merge_ai_suggestions(
     payload: dict[str, Any],
     source_text: str = "",
     preferred_format: str = "auto",
+    allow_renan: bool = False,
 ) -> dict[str, Any]:
     """Accept only short, evidence-backed AI variations; deterministic safety stays intact."""
     suggested = payload.get("formats") if isinstance(payload, dict) else None
@@ -540,7 +543,7 @@ def _merge_ai_suggestions(
             if len(headline.split()) < 2:
                 continue
             profile = FORMAT_PROFILES[format_id]
-            if source_text and not _suggestion_has_evidence(headline, source_text):
+            if source_text and not _suggestion_has_evidence(headline, source_text, allow_renan=allow_renan):
                 continue
             normalized_headline = headline.upper()
             accepted.append({
@@ -565,7 +568,7 @@ def _merge_ai_suggestions(
         accepted_tweets = []
         for item in tweets[:2]:
             text = _compact(str(item.get("post_text", "")), FORMAT_PROFILES[FORMAT_TWEET]["headline_limit"])
-            if len(text.split()) >= 4 and (not source_text or _suggestion_has_evidence(text, source_text)):
+            if len(text.split()) >= 4 and (not source_text or _suggestion_has_evidence(text, source_text, allow_renan=allow_renan)):
                 accepted_tweets.append({
                     "post_text": text,
                     "character_count": len(text),
@@ -624,9 +627,9 @@ def generate_artwork_copy(
         if emit_progress:
             emit_progress("[Texto de arte] Refinando opções curtas pelo modo de IA configurado...", "info")
         attribution_rule = (
-            "Só use 'RENAN:' ou 'RENAN CRITICA' se a transcrição ou o minic contexto identificar explicitamente Renan; caso contrário, não atribua a fala a uma pessoa específica."
-            if _speaker_prefix(context) or "renan" in normalize(text)
-            else "Não atribua a fala a Renan nem a qualquer pessoa específica sem identificação explícita na transcrição ou no minic contexto."
+            "Só use 'RENAN:' ou 'RENAN CRITICA' porque o minic contexto identifica explicitamente Renan; caso contrário, não atribua a fala a uma pessoa específica."
+            if _speaker_prefix(context)
+            else "Não atribua a fala a Renan nem a qualquer pessoa específica sem identificação explícita no minic contexto."
         )
         system = f"""Você é editor de vídeos políticos curtos no Brasil. Gere texto de ARTE, não SEO.
 Use somente ideias claramente presentes na transcrição. Intensifique o contraste sem inventar fatos, crimes, números, intenções ou acusações. {attribution_rule}
@@ -667,6 +670,7 @@ Gere no máximo 3 alternativas por formato permitido. Se houver um formato solic
                     refined,
                     source_text=f"{text}\n{context}".strip(),
                     preferred_format=preferred,
+                    allow_renan=bool(_speaker_prefix(context)),
                 )
         except Exception:
             # A deterministic, explainable output is preferable to a failed screen.

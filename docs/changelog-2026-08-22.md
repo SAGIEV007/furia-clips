@@ -496,3 +496,6 @@ O filtro do refinamento por IA agora rejeita headlines que introduzem nomes pol�
 
 ## Headline Studio: origem do resultado sem falso refinamento — 2026-08-22
 Se a resposta da IA contém apenas headlines rejeitadas por falta de evidência, o resultado permanece marcado como fallback editorial. O painel não apresenta “IA refinada” quando nenhuma sugestão foi aceita; nomes e números sem suporte continuam bloqueados. Validação integral: **743 testes aprovados**.
+
+## Headline Studio: Renan só com identificação explícita — 2026-08-22
+Mesmo que a legenda mencione o nome Renan, isso não autoriza automaticamente uma headline em primeira pessoa ou a frase “Renan critica”. A atribuição só é liberada quando o minic contexto do editor confirma explicitamente o locutor. Isso evita confundir menção, entrevistado e autor da fala. Validação integral: **743 testes aprovados**.
