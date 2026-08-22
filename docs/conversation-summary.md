@@ -178,3 +178,7 @@ O diagnóstico de idioma foi tornado mais conservador. O Furia não usa o idioma
 ## 15. Formato combinado e confirmação de áudio
 
 A auditoria de áudio também considera downloads em que vídeo e áudio vêm juntos. Nessa situação, o idioma geral só é usado quando o próprio registro também declara um codec de áudio válido; um campo de idioma isolado não basta. Assim, o Furia permanece conservador sem rejeitar uma confirmação legítima de formato combinado.
+
+## 16. Limite e sanitização dos metadados de áudio
+
+Os metadados externos usados no diagnóstico de áudio agora são tratados como dados não confiáveis: códigos de idioma são normalizados, limitados e sanitizados antes de aparecerem no resultado, e a lista de idiomas observados também é limitada. Isso mantém a transparência sem deixar valores anormais contaminarem o console ou a interface.

@@ -502,3 +502,19 @@ def test_audio_language_report_ignores_top_level_language_when_codec_is_missing(
     report = _audio_language_report({"language": "pt-BR"})
     assert report["language"] is None
     assert report["status"] == "unknown"
+
+
+def test_audio_language_report_bounds_and_sanitizes_provider_metadata():
+    from modules.source_ingest import _audio_language_report
+
+    report = _audio_language_report({
+        "requested_formats": [{
+            "vcodec": "none",
+            "acodec": "opus",
+            "language": "PT-BR\n<provider-noise>" + ("x" * 200),
+        }],
+    })
+    assert report["status"] == "portuguese_confirmed"
+    assert report["language"] == ("pt-brprovider-noise" + ("x" * 200))[:32]
+    assert len(report["language"]) <= 32
+    assert "\\n" not in report["language"]

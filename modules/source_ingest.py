@@ -229,6 +229,11 @@ def download_public_subtitles(url: str, destination: str, progress=None, cancel_
         return None
 
 
+def _bounded_audio_language(value) -> str:
+    raw = str(value or "").strip().lower()
+    return "".join(char for char in raw if char.isalnum() or char in {"-", "_"})[:32]
+
+
 def _audio_language_report(info: dict) -> dict:
     """Summarize selected audio language without claiming more than metadata proves."""
     requested_formats = info.get("requested_formats") if isinstance(info, dict) else None
@@ -238,14 +243,14 @@ def _audio_language_report(info: dict) -> dict:
             continue
         if str(item.get("acodec") or "").lower() == "none":
             continue
-        language = str(item.get("language") or item.get("audio_language") or "").strip().lower()
+        language = _bounded_audio_language(item.get("language") or item.get("audio_language"))
         if language:
             audio_languages.append(language)
     # For a combined format, yt-dlp may expose the selected audio metadata on
     # the top-level record. Use it only when that record demonstrably has audio;
     # never use a language field by itself as proof of the downloaded track.
     if not requested_formats and isinstance(info, dict):
-        top_level = str(info.get("language") or info.get("audio_language") or "").strip().lower()
+        top_level = _bounded_audio_language(info.get("language") or info.get("audio_language"))
         top_acodec = str(info.get("acodec") or "").strip().lower()
         if top_level and top_acodec and top_acodec != "none":
             audio_languages.append(top_level)
@@ -255,7 +260,7 @@ def _audio_language_report(info: dict) -> dict:
             "policy": "pt-BR/pt/por-first",
             "language": portuguese,
             "status": "portuguese_confirmed",
-            "observed_languages": sorted(set(audio_languages)),
+            "observed_languages": sorted(set(audio_languages))[:8],
         }
     return {
         "policy": "pt-BR/pt/por-first",

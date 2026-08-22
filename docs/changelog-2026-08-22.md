@@ -448,3 +448,6 @@ A auditoria foi endurecida: o campo geral de idioma do upload não é usado para
 
 ## Áudio combinado com confirmação segura — 2026-08-22
 O diagnóstico também cobre formatos em que vídeo e áudio vêm no mesmo registro: o Furia só aceita a língua geral quando o mesmo registro apresenta um codec de áudio válido. Um campo de idioma sem codec continua sem confirmação. Isso reduz tanto o risco de aceitar espanhol por engano quanto o de descartar um formato combinado que realmente traz metadado de áudio. Validação integral: **723 testes aprovados**.
+
+## Metadados de áudio limitados e sanitizados — 2026-08-22
+Os códigos de idioma retornados pelo provedor agora são normalizados, removem caracteres de controle e ficam limitados a 32 caracteres; a lista de idiomas observados fica limitada a oito entradas. O relatório continua sendo apenas diagnóstico e não transforma metadado externo em confirmação sem codec de áudio correspondente. Validação integral: **724 testes aprovados**.
