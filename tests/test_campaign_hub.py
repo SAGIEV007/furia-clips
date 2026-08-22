@@ -350,3 +350,71 @@ def test_hook_detector_normalizes_string_and_non_finite_speaker_confidence():
         {"start": 0.0, "end": 5.0, "text": "A verdade sobre este caso muda tudo.", "speaker": "Renan", "speaker_confidence": "nan"},
     ], limit=3)
     assert nan_candidates[0]["needs_speaker_review"] is True
+
+
+
+def test_snapshot_status_distinguishes_empty_file(tmp_path):
+    snapshot_path = tmp_path / "empty.json"
+    snapshot_path.write_text("  \n", encoding="utf-8")
+
+    status = snapshot_status(str(snapshot_path))
+
+    assert status["available"] is False
+    assert status["status"] == "empty"
+    assert status["path"] == str(snapshot_path)
+    assert status["influences_ranking"] is False
+
+
+def test_snapshot_status_distinguishes_invalid_json(tmp_path):
+    snapshot_path = tmp_path / "invalid.json"
+    snapshot_path.write_text("{not-json", encoding="utf-8")
+
+    status = snapshot_status(str(snapshot_path))
+
+    assert status["available"] is False
+    assert status["status"] == "invalid"
+    assert "JSON inválido" in status["message"]
+    assert status["influences_ranking"] is False
+
+
+def test_snapshot_status_distinguishes_structurally_valid_but_empty_snapshot(tmp_path):
+    snapshot_path = tmp_path / "no-observations.json"
+    snapshot_path.write_text(
+        '{"accounts":{"@renansantosmbl":{"hook_observations":[],"examples":[],"cohorts":[]}}}',
+        encoding="utf-8",
+    )
+
+    status = snapshot_status(str(snapshot_path))
+
+    assert status["available"] is False
+    assert status["status"] == "empty"
+    assert status["total_hook_observations"] == 0
+    assert status["influences_ranking"] is False
+
+
+def test_snapshot_status_exposes_bounded_ranking_influence(tmp_path):
+    snapshot_path = tmp_path / "ready.json"
+    snapshot_path.write_text(
+        '{"version":"ready-v1","accounts":{"@renansantosmbl":{"hook_observations":['
+        '{"hook":"tese-provocativa","ratio":1.0},'
+        '{"hook":"tese-provocativa","ratio":1.1},'
+        '{"hook":"tese-provocativa","ratio":1.2}]}}}',
+        encoding="utf-8",
+    )
+
+    status = snapshot_status(str(snapshot_path))
+
+    assert status["available"] is True
+    assert status["status"] == "ready"
+    assert status["total_hook_observations"] == 3
+    assert status["influences_ranking"] is True
+    assert "não cria cortes" in status["influence_scope"]
+
+
+def test_snapshot_status_missing_explicit_file_is_read_only(tmp_path):
+    status = snapshot_status(str(tmp_path / "does-not-exist.json"))
+
+    assert status["available"] is False
+    assert status["status"] == "missing"
+    assert status["read_only"] is True
+    assert status["influences_ranking"] is False

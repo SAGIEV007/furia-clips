@@ -1039,22 +1039,36 @@ function renderCampaignHubLocalStatus(payload) {
     const element = document.getElementById("campaignHubLocalStatus");
     if (!element) return;
     const dot = element.querySelector(".status-dot");
-    const label = element.querySelector("span:last-child");
+    const label = element.querySelector(".campaign-hub-local-label") || element.querySelector("span:last-child");
+    const detail = document.getElementById("campaignHubLocalDetail");
     const previous = state.campaignHubSnapshotStatus;
     state.campaignHubSnapshotStatus = payload || null;
+    const status = String(payload?.status || "missing").toLowerCase();
+    const statusLabels = {
+        missing: "Snapshot offline não encontrado",
+        empty: "Snapshot offline sem dados utilizáveis",
+        invalid: "Snapshot offline inválido",
+        ready: "Snapshot offline carregado",
+        error: "Snapshot offline indisponível",
+    };
     if (!payload?.available) {
-        if (dot) dot.className = `status-dot ${payload?.status === "invalid" ? "warning" : "offline"}`;
-        if (label) label.textContent = payload?.message || "Sem snapshot editorial local";
-        element.title = "O Furia funciona offline, mas não recebeu memória editorial local.";
+        if (dot) dot.className = `status-dot ${status === "invalid" ? "warning" : "offline"}`;
+        if (label) label.textContent = statusLabels[status] || "Sem snapshot editorial local";
+        if (detail) detail.textContent = payload?.message || "O ranking continua funcionando sem o snapshot histórico.";
+        element.title = `${payload?.path ? `Arquivo: ${payload.path}. ` : ""}${payload?.message || "O Furia funciona sem memória editorial local."}`;
         return;
     }
     const changed = Boolean(previous?.modified_at && payload.modified_at && previous.modified_at !== payload.modified_at);
     if (dot) dot.className = `status-dot ${changed ? "warning" : "online"}`;
     const accountCount = Object.keys(payload.accounts || {}).length;
+    const observationCount = Number(payload.total_hook_observations || 0);
     if (label) label.textContent = changed
         ? `Novo snapshot detectado · ${accountCount} perfil(is) · será usado no próximo corte`
-        : `Memória local pronta · ${accountCount} perfil(is) · somente leitura`;
-    element.title = `${payload.version || "Snapshot editorial"}${payload.modified_at ? ` · atualizado em ${new Date(payload.modified_at).toLocaleString("pt-BR")}` : ""}. O próximo job relê o arquivo automaticamente.`;
+        : `${statusLabels.ready} · ${accountCount} perfil(is)`;
+    if (detail) detail.textContent = payload.influences_ranking
+        ? `${observationCount} observação(ões) de hook · prior limitado no ranking; não cria cortes nem substitui contexto`
+        : "Arquivo lido, mas sem observações suficientes para influenciar o ranking.";
+    element.title = `${payload.version || "Snapshot editorial"}${payload.path ? ` · ${payload.path}` : ""}${payload.modified_at ? ` · atualizado em ${new Date(payload.modified_at).toLocaleString("pt-BR")}` : ""}. Releitura automática no próximo job; somente leitura.`;
 }
 
 async function loadCampaignHubLocalStatus() {

@@ -188,3 +188,12 @@ A validação integral desta rodada confirmou **628 testes aprovados**, além de
 Durante a validação do fluxo publicado foi identificado que o processo completo anexava os momentos não verbais, mas o caminho “Corte inteligente” ainda não os propagava antes do ranking e do payload final. O caminho inteligente agora usa o mesmo anexador seguro; os campos chegam aos dois tipos de resultado e continuam explicitamente fora do cálculo de score e dos gates automáticos. A ausência de mídia local de teste impediu um render audiovisual real nesta rodada, então a cobertura foi feita por testes sintéticos de contrato e pelo fluxo de payload.
 
 Foram adicionados testes de seleção do melhor evento sobreposto, descarte por fonte incompatível, limite de confiança sem identidade validada e neutralidade do ranking. A validação integral desta rodada confirmou **632 testes aprovados**, além das checagens de sintaxe, compilação, whitespace e segredos.
+
+## Diagnóstico transparente do snapshot offline do Campaign Hub
+O Furia agora diferencia explicitamente quatro estados da memória editorial local: arquivo não encontrado, arquivo vazio ou sem observações utilizáveis, JSON/formato inválido e snapshot carregado. A interface e os logs mostram se há observações de hooks suficientes para auxiliar o ranking, além de explicar que esse prior é somente leitura, limitado e não cria cortes, não substitui a análise do vídeo e não promete viralidade.
+
+O leitor também ficou mais defensivo contra listas corrompidas nos campos de observações, exemplos e cohorts. O endpoint `/api/campaign-hub/status` expõe apenas metadados bounded e o escopo de influência; não existe caminho de escrita ou sincronização automática com o Campaign Hub.
+
+No ambiente de validação, o snapshot persistente local foi reconhecido como **carregado**, com 46 observações de hooks, 45 exemplos e 2 cohorts distribuídos entre dois perfis. Isso significa que ele pode auxiliar o desempate e a classificação de hooks quando houver amostra suficiente; os cortes continuam dependentes principalmente da transcrição, contexto, payoff, áudio, layout e gates editoriais.
+
+A validação integral desta rodada confirmou **638 testes aprovados**, além de `node --check`, `py_compile`, `git diff --check` e varredura de segredos sem achados.

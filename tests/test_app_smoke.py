@@ -580,3 +580,26 @@ def test_multimodal_nonverbal_moment_ignores_non_finite_confidence():
 
 if __name__ == "__main__":
     unittest.main()
+
+
+
+def test_campaign_hub_status_endpoint_exposes_read_only_snapshot_influence(tmp_path):
+    snapshot_path = tmp_path / "profile.json"
+    snapshot_path.write_text(
+        '{"accounts":{"@renansantosmbl":{"hook_observations":['
+        '{"hook":"news-peg","ratio":1.0},'
+        '{"hook":"news-peg","ratio":1.1},'
+        '{"hook":"news-peg","ratio":1.2}]}}}',
+        encoding="utf-8",
+    )
+    client = furia_app.app.test_client()
+    with patch.object(furia_app, "get_all_settings", return_value={"campaign_hub_snapshot_path": str(snapshot_path)}):
+        response = client.get("/api/campaign-hub/status")
+
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["status"] == "ready"
+    assert payload["available"] is True
+    assert payload["influences_ranking"] is True
+    assert payload["read_only"] is True
+    assert "não cria cortes" in payload["influence_scope"]

@@ -82,6 +82,10 @@ def normalize_snapshot(payload: Any) -> dict[str, Any] | None:
             continue
         observations = []
         raw_observations = raw.get("hook_observations", [])
+        if raw_observations is None:
+            raw_observations = []
+        if not isinstance(raw_observations, (list, tuple)):
+            return None
         for item in raw_observations:
             if not isinstance(item, dict):
                 continue
@@ -96,7 +100,12 @@ def normalize_snapshot(payload: Any) -> dict[str, Any] | None:
         # post-level rows. Reconstruct bounded pseudo-observations solely so the
         # existing conservative prior logic can consume the portable format.
         if not observations:
-            for item in raw.get("hook_priors", []):
+            raw_priors = raw.get("hook_priors", [])
+            if raw_priors is None:
+                raw_priors = []
+            if not isinstance(raw_priors, (list, tuple)):
+                return None
+            for item in raw_priors:
                 if not isinstance(item, dict):
                     continue
                 hook = str(item.get("hook") or "").strip().lower()
@@ -107,11 +116,19 @@ def normalize_snapshot(payload: Any) -> dict[str, Any] | None:
                     continue
                 if hook and ratio >= 0:
                     observations.extend({"hook": hook[:80], "ratio": ratio} for _ in range(count))
+        raw_examples = raw.get("examples", [])
+        raw_cohorts = raw.get("cohorts", [])
+        if raw_examples is None:
+            raw_examples = []
+        if raw_cohorts is None:
+            raw_cohorts = []
+        if not isinstance(raw_examples, (list, tuple)) or not isinstance(raw_cohorts, (list, tuple)):
+            return None
         normalized_accounts[account_key] = {
             "platform": str(raw.get("platform", "instagram") or "instagram").lower(),
             "hook_observations": observations[:1000],
-            "examples": [item for item in raw.get("examples", []) if isinstance(item, dict)][:100],
-            "cohorts": [item for item in raw.get("cohorts", []) if isinstance(item, dict)][:100],
+            "examples": [item for item in raw_examples if isinstance(item, dict)][:100],
+            "cohorts": [item for item in raw_cohorts if isinstance(item, dict)][:100],
         }
     if not normalized_accounts:
         return None
@@ -126,48 +143,91 @@ def normalize_snapshot(payload: Any) -> dict[str, Any] | None:
 
 
 def snapshot_status(path: str | os.PathLike[str] | None = None) -> dict[str, Any]:
-    """Return bounded local metadata for the read-only editorial snapshot."""
+    """Return bounded read-only metadata and effective influence of a local snapshot."""
     explicit = path or os.environ.get("FURIA_CAMPAIGN_HUB_SNAPSHOT")
     candidates = [Path(explicit).expanduser()] if explicit else [DEFAULT_SNAPSHOT_PATH, PACKAGED_SNAPSHOT_PATH]
+    first_problem = None
     for candidate in candidates:
         try:
             stat = candidate.stat()
-        except (FileNotFoundError, OSError):
-            continue
-        snapshot = load_snapshot(str(candidate))
-        if not snapshot:
-            return {
-                "available": False,
-                "source": "campaign_hub_local_snapshot",
-                "path": str(candidate),
-                "status": "invalid",
-                "message": "Snapshot local encontrado, mas não passou pela validação.",
-                "read_only": True,
-            }
-        accounts = snapshot.get("accounts", {}) if isinstance(snapshot, dict) else {}
-        account_summary = {}
-        for account, data in accounts.items():
-            if not isinstance(data, dict):
+            if not candidate.is_file():
                 continue
-            account_summary[account] = {
-                "hook_observations": len(data.get("hook_observations", [])),
-                "examples": len(data.get("examples", [])),
-                "cohorts": len(data.get("cohorts", [])),
+            raw_text = candidate.read_text(encoding="utf-8")
+        except FileNotFoundError:
+            continue
+        except (OSError, UnicodeDecodeError) as exc:
+            if first_problem is None:
+                first_problem = {
+                    "status": "invalid",
+                    "path": str(candidate),
+                    "message": f"Snapshot encontrado, mas não pôde ser lido: {str(exc)[:180]}",
+                }
+            continue
+
+        if not raw_text.strip():
+            problem = {
+                "status": "empty",
+                "path": str(candidate),
+                "message": "O arquivo do snapshot existe, mas está vazio.",
             }
-        from datetime import datetime, timezone
-        return {
-            "available": True,
-            "source": "campaign_hub_local_snapshot",
-            "path": str(candidate),
-            "status": "ready",
-            "version": snapshot.get("version", ""),
-            "collected_at": snapshot.get("collected_at", ""),
-            "modified_at": datetime.fromtimestamp(float(stat.st_mtime), tz=timezone.utc).isoformat(),
-            "default_account": snapshot.get("default_account", ""),
-            "accounts": account_summary,
-            "read_only": True,
-            "auto_reload_on_next_analysis": True,
-        }
+            if explicit:
+                return _snapshot_status_payload(problem, read_only=True, auto_reload_on_next_analysis=False)
+            if first_problem is None:
+                first_problem = problem
+            continue
+
+        try:
+            payload = json.loads(raw_text)
+        except json.JSONDecodeError as exc:
+            problem = {
+                "status": "invalid",
+                "path": str(candidate),
+                "message": f"O snapshot contém JSON inválido na linha {exc.lineno}, coluna {exc.colno}.",
+            }
+            if explicit:
+                return _snapshot_status_payload(problem, read_only=True, auto_reload_on_next_analysis=False)
+            if first_problem is None:
+                first_problem = problem
+            continue
+        except (TypeError, ValueError) as exc:
+            problem = {
+                "status": "invalid",
+                "path": str(candidate),
+                "message": f"O snapshot não pôde ser interpretado: {str(exc)[:180]}",
+            }
+            if explicit:
+                return _snapshot_status_payload(problem, read_only=True, auto_reload_on_next_analysis=False)
+            if first_problem is None:
+                first_problem = problem
+            continue
+
+        snapshot = normalize_snapshot(payload)
+        if not snapshot:
+            problem = {
+                "status": "invalid",
+                "path": str(candidate),
+                "message": "O snapshot foi lido, mas não contém contas suportadas em formato válido.",
+            }
+            if explicit:
+                return _snapshot_status_payload(problem, read_only=True, auto_reload_on_next_analysis=False)
+            if first_problem is None:
+                first_problem = problem
+            continue
+
+        metadata = _snapshot_metadata(snapshot, candidate, stat)
+        if metadata["total_hook_observations"] <= 0:
+            metadata.update({
+                "available": False,
+                "status": "empty",
+                "message": "O snapshot tem estrutura válida, mas não contém observações de hooks utilizáveis pelo ranking.",
+                "influences_ranking": False,
+                "influence_scope": "nenhuma; são necessários priors de hooks observados",
+            })
+            return metadata
+        return metadata
+
+    if first_problem:
+        return _snapshot_status_payload(first_problem, read_only=True, auto_reload_on_next_analysis=False)
     return {
         "available": False,
         "source": "campaign_hub_local_snapshot",
@@ -175,6 +235,64 @@ def snapshot_status(path: str | os.PathLike[str] | None = None) -> dict[str, Any
         "message": "Nenhum snapshot editorial local foi encontrado.",
         "read_only": True,
         "auto_reload_on_next_analysis": False,
+        "influences_ranking": False,
+        "influence_scope": "nenhuma; o Furia usa apenas sinais do vídeo e dados locais",
+    }
+
+
+def _snapshot_status_payload(details: dict[str, Any], *, read_only: bool, auto_reload_on_next_analysis: bool) -> dict[str, Any]:
+    return {
+        "available": False,
+        "source": "campaign_hub_local_snapshot",
+        "status": details.get("status", "invalid"),
+        "path": details.get("path", ""),
+        "message": details.get("message", "Snapshot local indisponível."),
+        "read_only": read_only,
+        "auto_reload_on_next_analysis": auto_reload_on_next_analysis,
+        "influences_ranking": False,
+        "influence_scope": "nenhuma; o Furia continua operando sem prior histórico",
+    }
+
+
+def _snapshot_metadata(snapshot: dict[str, Any], candidate: Path, stat: os.stat_result) -> dict[str, Any]:
+    from datetime import datetime, timezone
+
+    accounts = snapshot.get("accounts", {}) if isinstance(snapshot, dict) else {}
+    account_summary = {}
+    total_hook_observations = 0
+    total_examples = 0
+    total_cohorts = 0
+    for account, data in accounts.items():
+        if not isinstance(data, dict):
+            continue
+        hook_count = len(data.get("hook_observations", []))
+        example_count = len(data.get("examples", []))
+        cohort_count = len(data.get("cohorts", []))
+        total_hook_observations += hook_count
+        total_examples += example_count
+        total_cohorts += cohort_count
+        account_summary[account] = {
+            "hook_observations": hook_count,
+            "examples": example_count,
+            "cohorts": cohort_count,
+        }
+    return {
+        "available": True,
+        "source": "campaign_hub_local_snapshot",
+        "path": str(candidate),
+        "status": "ready",
+        "version": snapshot.get("version", ""),
+        "collected_at": snapshot.get("collected_at", ""),
+        "modified_at": datetime.fromtimestamp(float(stat.st_mtime), tz=timezone.utc).isoformat(),
+        "default_account": snapshot.get("default_account", ""),
+        "accounts": account_summary,
+        "total_hook_observations": total_hook_observations,
+        "total_examples": total_examples,
+        "total_cohorts": total_cohorts,
+        "influences_ranking": True,
+        "influence_scope": "prior limitado de hooks históricos; não cria cortes, não substitui contexto e não promete viralidade",
+        "read_only": True,
+        "auto_reload_on_next_analysis": True,
     }
 
 

@@ -580,7 +580,7 @@ def _enrich_editorial_context_locally(video_path, transcription, editorial_conte
     """Add local audio and hook evidence without uploading the source video."""
     from modules.audio_analyzer import AudioAnalyzer
     from modules.editorial_context import detect_hook_candidates
-    from modules.campaign_hub import load_snapshot
+    from modules.campaign_hub import load_snapshot, snapshot_status
 
     analyzer = AudioAnalyzer()
     energy_profile = _analyze_energy_with_cancel(analyzer, video_path, emit_progress, cancel_check)
@@ -1069,7 +1069,7 @@ def api_batch_rank():
         return jsonify({"error": "Cada candidato deve ser um objeto JSON"}), 400
 
     from modules.viral_ranker import ViralRanker
-    from modules.campaign_hub import load_snapshot
+    from modules.campaign_hub import load_snapshot, snapshot_status
 
     options = data.get("options") or {}
     campaign_hub_snapshot = load_snapshot(options.get("campaign_hub_snapshot_path"))
@@ -2199,7 +2199,7 @@ def api_cut_shorts():
             energy_profile = _analyze_energy_with_cancel(analyzer, video_path, emit_progress, ctx.check_cancel)
             try:
                 from modules.editorial_context import detect_hook_candidates
-                from modules.campaign_hub import load_snapshot
+                from modules.campaign_hub import load_snapshot, snapshot_status
                 context_snapshot = load_snapshot(settings.get("campaign_hub_snapshot_path"))
                 settings.setdefault("editorial_context", {})["hook_candidates"] = detect_hook_candidates(
                     transcription.get("segments", []),
@@ -2263,17 +2263,25 @@ def api_cut_shorts():
                         if start <= float(change) <= end
                     ]
             from modules.viral_ranker import ViralRanker
-            from modules.campaign_hub import load_snapshot
+            from modules.campaign_hub import load_snapshot, snapshot_status
             feedback_calibration = get_feedback_calibration()
             campaign_hub_snapshot = load_snapshot(settings.get("campaign_hub_snapshot_path"))
+            campaign_hub_status = snapshot_status(settings.get("campaign_hub_snapshot_path"))
             campaign_hub_account = str(
                 settings.get("campaign_hub_account")
                 or (campaign_hub_snapshot or {}).get("default_account", "")
             )
             if campaign_hub_snapshot:
                 emit_progress(
-                    f"[Campaign Hub] Priors locais carregados para {campaign_hub_account or 'conta padrão'}; impacto limitado e explicável.",
+                    f"[Campaign Hub] Snapshot offline carregado para {campaign_hub_account or 'conta padrão'}; "
+                    f"{campaign_hub_status.get('total_hook_observations', 0)} observação(ões) de hook; impacto limitado e explicável.",
                     "info",
+                )
+            else:
+                emit_progress(
+                    f"[Campaign Hub] Snapshot offline não aplicado (status: {campaign_hub_status.get('status', 'missing')}); "
+                    "ranking segue sem prior histórico e continua usando os sinais do vídeo.",
+                    "warning",
                 )
             if feedback_calibration.get("eligible"):
                 emit_progress(
@@ -3276,7 +3284,7 @@ def api_process_complete():
             energy_profile = _analyze_energy_with_cancel(analyzer, working_video, emit_progress, ctx.check_cancel)
             try:
                 from modules.editorial_context import detect_hook_candidates
-                from modules.campaign_hub import load_snapshot
+                from modules.campaign_hub import load_snapshot, snapshot_status
                 context_snapshot = load_snapshot(settings.get("campaign_hub_snapshot_path"))
                 settings.setdefault("editorial_context", {})["hook_candidates"] = detect_hook_candidates(
                     transcription.get("segments", []),
@@ -3320,19 +3328,27 @@ def api_process_complete():
             # ── Step 4: Rank and cut ──
             emit_progress("━━━ ETAPA 4/6: Ranqueando e Cortando ━━━", "info")
             from modules.viral_ranker import ViralRanker
-            from modules.campaign_hub import load_snapshot
+            from modules.campaign_hub import load_snapshot, snapshot_status
             from modules.video_cutter import VideoCutter
             from modules.layout_planner import plan_layout
 
             campaign_hub_snapshot = load_snapshot(settings.get("campaign_hub_snapshot_path"))
+            campaign_hub_status = snapshot_status(settings.get("campaign_hub_snapshot_path"))
             campaign_hub_account = str(
                 settings.get("campaign_hub_account")
                 or (campaign_hub_snapshot or {}).get("default_account", "")
             )
             if campaign_hub_snapshot:
                 emit_progress(
-                    f"[Campaign Hub] Priors locais carregados para {campaign_hub_account or 'conta padrão'}; impacto limitado e explicável.",
+                    f"[Campaign Hub] Snapshot offline carregado para {campaign_hub_account or 'conta padrão'}; "
+                    f"{campaign_hub_status.get('total_hook_observations', 0)} observação(ões) de hook; impacto limitado e explicável.",
                     "info",
+                )
+            else:
+                emit_progress(
+                    f"[Campaign Hub] Snapshot offline não aplicado (status: {campaign_hub_status.get('status', 'missing')}); "
+                    "ranking segue sem prior histórico e continua usando os sinais do vídeo.",
+                    "warning",
                 )
             feedback_calibration = get_feedback_calibration()
             ranker = ViralRanker(
