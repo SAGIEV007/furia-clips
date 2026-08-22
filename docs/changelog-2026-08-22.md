@@ -237,3 +237,14 @@ Os priors aggregate-only foram ampliados com duração p25/mediana/p75, família
 Foi adicionado o exportador A/B local em JSON/CSV. `/api/batch/rank` gera ou recebe `run_id` e registra `favorability_mode`, `ai_backend`, `seeds_enabled` e candidatos sanitizados. Também existem endpoints explícitos de exportação e leitura por run. O modo inválido cai para `off`; o default de produção não foi alterado. Seeds Acervo continuam revisáveis e nunca renderizam automaticamente.
 
 Foram adicionados templates operacionais e documentação para o editor. A correção de cobertura em `test_daily_portfolio.py` recolocou os testes de `prioritize` e `require` na coleta normal. A validação integral desta rodada confirmou **673 testes aprovados**, `node --check`, `py_compile`, `git diff --check` e auditoria de segredos sem achados reais. Campaign Hub permaneceu somente leitura e nenhum dataset artificial foi criado.
+
+
+## Camada UI — redesign da bancada editorial
+
+- Integrados os tokens dark-first do Design System em `static/css/furia-tokens.css`, com superfícies neutras, âmbar de ação, estados semânticos e foco acessível.
+- Reformulado o shell com navegação lateral Bancada/Ferramentas, toggle de sidebar, workflow visual, KPI strip sticky e adaptação para viewport estreito.
+- Reorganizada a revisão de clips em player persistente + fila, preservando `resultsGrid`, filtros, busca, ações de aprovação/rejeição e revisão de contexto.
+- Adicionados estado de foco do clip, score drawer “Por que este score?”, resumo de fatores, sinais de favorabilidade/coice/seed e empty state acionável.
+- Implementados atalhos `J/K/A/R/E/H/?`, `Ctrl/Cmd+K` para command palette, alternância de densidade e foco visível. Sons permanecem desligados por padrão e `prefers-reduced-motion` é respeitado.
+- Mantidos os contratos do backend, IDs legados e a regra de que Campaign Hub é somente leitura. Nenhuma mídia, transcrição, snapshot privado, feedback bruto ou credencial foi incluída.
+- Validação desta rodada: `node --check`, `py_compile`, `git diff --check` e **673 testes aprovados**.

@@ -5,9 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Furia Clips - Corte. Ranqueie. Domine.</title>
     <link rel="stylesheet" href="/static/vendor/fonts.css">
+    <link rel="stylesheet" href="/static/css/furia-tokens.css">
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
-<body>
+<body class="furia-app" data-theme="dark" data-density="compact">
     <!-- Sidebar -->
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-header">
@@ -20,7 +21,22 @@
                     <span class="slogan">Corte. Ranqueie. Domine.</span>
                 </div>
             </div>
+            <button class="sidebar-collapse-btn" id="btnSidebarToggle" type="button" aria-label="Recolher navegação" title="Recolher navegação">
+                <span class="material-icons-round">left_panel_close</span>
+            </button>
         </div>
+
+        <nav class="furia-sidebar-nav" aria-label="Navegação principal">
+            <span class="furia-sidebar-label">Bancada</span>
+            <a href="#mediaLibrarySection" class="furia-sidebar-link active" data-nav-target="mediaLibrarySection"><span class="material-icons-round">movie</span><span>Fonte</span><kbd>1</kbd></a>
+            <a href="#contextSection" class="furia-sidebar-link" data-nav-target="contextSection"><span class="material-icons-round">account_tree</span><span>Contexto</span><kbd>2</kbd></a>
+            <a href="#actionsSection" class="furia-sidebar-link" data-nav-target="actionsSection"><span class="material-icons-round">content_cut</span><span>Cortar</span><kbd>3</kbd></a>
+            <a href="#resultsSection" class="furia-sidebar-link" data-nav-target="resultsSection"><span class="material-icons-round">fact_check</span><span>Revisão</span><kbd>4</kbd></a>
+            <span class="furia-sidebar-label furia-sidebar-label--secondary">Ferramentas</span>
+            <a href="#headlineStudioSection" class="furia-sidebar-link" data-nav-target="headlineStudioSection"><span class="material-icons-round">title</span><span>Headline Studio</span></a>
+            <a href="#contextSection" class="furia-sidebar-link" data-nav-target="campaignSearchInput"><span class="material-icons-round">manage_search</span><span>Pesquisa editorial</span></a>
+            <a href="#editorialLearning" class="furia-sidebar-link" data-nav-target="editorialLearning"><span class="material-icons-round">school</span><span>Learning</span></a>
+        </nav>
 
         <div class="sidebar-content">
             <!-- Video Selection -->
@@ -286,6 +302,15 @@
             <a class="workbench-nav-link" href="#resultsSection"><span>04</span> Revisar</a>
             <a class="workbench-nav-link" href="#headlineStudioSection"><span>05</span> Texto de arte</a>
         </nav>
+
+        <div class="furia-kpi-strip" id="furiaKpiStrip" aria-label="Resumo do batch atual" aria-live="polite">
+            <div class="furia-kpi-item"><strong id="furiaKpiCandidates">0</strong><span>candidatos</span></div>
+            <div class="furia-kpi-item"><strong id="furiaKpiApproved">0</strong><span>aprovados</span></div>
+            <div class="furia-kpi-item"><strong id="furiaKpiSeeds">0</strong><span>seeds</span></div>
+            <div class="furia-kpi-item furia-kpi-item--coice"><strong id="furiaKpiCoice">0</strong><span>coices</span></div>
+            <div class="furia-kpi-item furia-kpi-item--mode"><strong id="furiaKpiMode">OFF</strong><span>favorabilidade</span></div>
+            <span class="furia-kpi-alert" id="furiaKpiAlert"></span>
+        </div>
 
         <!-- Media Library (like CapCut) -->
         <section class="section" id="mediaLibrarySection">
@@ -764,23 +789,32 @@
                 </div>
             </div>
 
-            <!-- Transcript Search -->
-            <div class="transcript-search-bar" id="transcriptSearchBar" style="display:none">
-                <span class="material-icons-round">search</span>
-                <input type="text" id="transcriptSearchInput" placeholder="Buscar na transcricao..." autocomplete="off">
-                <span class="search-count" id="searchCount"></span>
-                <button class="btn btn-icon btn-sm" id="btnClearSearch" style="display:none">
-                    <span class="material-icons-round">close</span>
-                </button>
-            </div>
-
-            <div class="context-review-panel" id="contextReviewPanel" hidden aria-live="polite">
-                <div class="context-review-head"><div><span class="review-eyebrow"><span class="material-icons-round">fact_check</span> Revisão guiada</span><h4 id="contextReviewTitle">Revisão de contexto do clip</h4><p id="contextReviewMeta"></p></div><button class="btn btn-sm btn-icon" type="button" title="Fechar revisão" onclick="closeContextReview()"><span class="material-icons-round">close</span></button></div>
-                <div class="context-review-grid"><article><h5>Trecho usado no clip</h5><pre id="contextReviewExcerpt"></pre></article><article><h5>Transcrição completa disponível</h5><pre id="contextReviewFull"></pre></article></div>
-                <p class="context-review-help">Revisar contexto não aprova nem rejeita o corte. Ele salva o estado como “revisão necessária” e mostra o trecho junto do contexto completo para sua decisão.</p>
-            </div>
-            <div class="results-grid" id="resultsGrid">
-                <!-- Results loaded dynamically -->
+            <div class="review-workspace" id="reviewWorkspace">
+                <section class="review-focus-pane" aria-label="Player do clip selecionado">
+                    <div class="review-focus-head"><div><span class="review-eyebrow"><span class="material-icons-round">play_circle</span> Clip em foco</span><h4 id="reviewFocusTitle">Selecione um candidato</h4><p id="reviewFocusMeta">O player mostra o intervalo escolhido na fila.</p></div><span class="furia-focus-status" id="reviewFocusStatus">aguardando</span></div>
+                    <div class="review-focus-video-wrap"><div class="review-focus-empty" id="reviewFocusEmpty"><span class="material-icons-round">movie_filter</span><strong>Nenhum clip em foco</strong><span>Clique em um card para revisar o trecho sem perder a fila.</span></div><video id="reviewFocusVideo" controls preload="metadata" playsinline></video></div>
+                    <div class="review-focus-timeline" id="reviewFocusTimeline"><span class="review-focus-time" id="reviewFocusStart">00:00</span><div class="review-focus-track"><span id="reviewFocusMarker"></span></div><span class="review-focus-time" id="reviewFocusEnd">00:00</span></div>
+                    <div class="review-focus-copy"><div class="review-focus-hook" id="reviewFocusHook">O hook e o diagnóstico aparecerão aqui.</div><div class="review-focus-factors" id="reviewFocusFactors"></div></div>
+                    <div class="review-focus-actions"><button class="btn btn-sm btn-success" id="reviewFocusApprove" type="button"><span class="material-icons-round">check_circle</span> Aprovar <kbd>A</kbd></button><button class="btn btn-sm btn-review-context" id="reviewFocusContext" type="button"><span class="material-icons-round">visibility</span> Revisar contexto <kbd>E</kbd></button><button class="btn btn-sm btn-danger" id="reviewFocusReject" type="button"><span class="material-icons-round">cancel</span> Rejeitar <kbd>R</kbd></button><button class="btn btn-sm btn-outline" id="reviewFocusHeadline" type="button"><span class="material-icons-round">title</span> Headline <kbd>H</kbd></button></div>
+                </section>
+                <section class="review-queue-pane" aria-label="Fila de clips">
+                    <div class="review-queue-head"><div><span class="review-eyebrow"><span class="material-icons-round">view_list</span> Fila de revisão</span><h4>Escolha o próximo corte</h4></div><span class="review-queue-count" id="reviewQueueCount">0 candidatos</span></div>
+                    <!-- Transcript Search -->
+                    <div class="transcript-search-bar" id="transcriptSearchBar" style="display:none">
+                        <span class="material-icons-round">search</span>
+                        <input type="text" id="transcriptSearchInput" placeholder="Buscar na transcrição…" autocomplete="off">
+                        <span class="search-count" id="searchCount"></span>
+                        <button class="btn btn-icon btn-sm" id="btnClearSearch" style="display:none" aria-label="Limpar busca"><span class="material-icons-round">close</span></button>
+                    </div>
+                    <div class="context-review-panel" id="contextReviewPanel" hidden aria-live="polite">
+                        <div class="context-review-head"><div><span class="review-eyebrow"><span class="material-icons-round">fact_check</span> Revisão guiada</span><h4 id="contextReviewTitle">Revisão de contexto do clip</h4><p id="contextReviewMeta"></p></div><button class="btn btn-sm btn-icon" type="button" title="Fechar revisão" onclick="closeContextReview()"><span class="material-icons-round">close</span></button></div>
+                        <div class="context-review-grid"><article><h5>Trecho usado no clip</h5><pre id="contextReviewExcerpt"></pre></article><article><h5>Transcrição completa disponível</h5><pre id="contextReviewFull"></pre></article></div>
+                        <p class="context-review-help">Revisar contexto não aprova nem rejeita o corte. Ele salva o estado como “revisão necessária” e mostra o trecho junto do contexto completo para sua decisão.</p>
+                    </div>
+                    <div class="results-grid" id="resultsGrid">
+                        <!-- Results loaded dynamically -->
+                    </div>
+                </section>
             </div>
         </section>
 
@@ -816,6 +850,31 @@
             </div>
         </section>
     </main>
+
+    <!-- Command palette -->
+    <div class="furia-command-palette" id="furiaCommandPalette" hidden>
+        <div class="furia-command-backdrop" data-command-close></div>
+        <section class="furia-command-dialog" role="dialog" aria-modal="true" aria-labelledby="furiaCommandTitle">
+            <div class="furia-command-search"><span class="material-icons-round">search</span><input id="furiaCommandInput" type="search" placeholder="Buscar uma ação…" autocomplete="off"><kbd>Esc</kbd></div>
+            <h2 id="furiaCommandTitle">Ações da bancada</h2>
+            <div class="furia-command-list" id="furiaCommandList" role="listbox"></div>
+            <footer><span><kbd>↑</kbd><kbd>↓</kbd> navegar</span><span><kbd>Enter</kbd> executar</span><span><kbd>Esc</kbd> fechar</span></footer>
+        </section>
+    </div>
+
+    <!-- Score drawer -->
+    <aside class="furia-score-drawer" id="furiaScoreDrawer" aria-hidden="true" aria-labelledby="furiaScoreDrawerTitle">
+        <div class="furia-drawer-head"><div><span class="furia-drawer-kicker">DIAGNÓSTICO DO CORTE</span><h2 id="furiaScoreDrawerTitle">Por que este score?</h2></div><button class="btn btn-icon" type="button" data-score-drawer-close aria-label="Fechar diagnóstico"><span class="material-icons-round">close</span></button></div>
+        <div id="furiaScoreDrawerBody" class="furia-drawer-body"><p class="furia-empty-copy">Selecione um clip para ver os fatores.</p></div>
+    </aside>
+
+    <!-- Keyboard shortcuts modal -->
+    <div class="modal-overlay" id="shortcutsModal">
+        <div class="modal modal-shortcuts">
+            <div class="modal-header"><h3><span class="material-icons-round">keyboard</span> Atalhos da revisão</h3><button class="btn btn-icon modal-close" data-shortcuts-close aria-label="Fechar atalhos"><span class="material-icons-round">close</span></button></div>
+            <div class="shortcuts-grid"><div><kbd>J</kbd><span>Próximo clip</span></div><div><kbd>K</kbd><span>Clip anterior</span></div><div><kbd>A</kbd><span>Aprovar</span></div><div><kbd>R</kbd><span>Rejeitar</span></div><div><kbd>E</kbd><span>Ajustar entrada/saída</span></div><div><kbd>H</kbd><span>Abrir Headline Studio</span></div><div><kbd>Espaço</kbd><span>Play / pause</span></div><div><kbd>F</kbd><span>Focar busca</span></div><div><kbd>Ctrl K</kbd><span>Abrir ações</span></div><div><kbd>?</kbd><span>Mostrar este painel</span></div></div>
+        </div>
+    </div>
 
     <!-- Subtitle Configuration Modal -->
     <div class="modal-overlay" id="subtitleModal">

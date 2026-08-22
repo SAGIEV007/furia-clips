@@ -27,6 +27,9 @@ const state = {
     editorialContext: null,
     reviewFilter: "all",
     reviewSort: "score",
+    reviewFocusIndex: -1,
+    uiDensity: localStorage.getItem("furia-ui-density") || "compact",
+    sidebarCollapsed: localStorage.getItem("furia-sidebar-collapsed") === "true",
     videoLayout: "unknown",
     lastReviewAction: null,
     sourceUrl: "",
@@ -2694,6 +2697,100 @@ function labelForLayout(videoLayout) {
     return labels[videoLayout] || labels.unknown;
 }
 
+function reviewClipIndex() {
+    if (Number.isInteger(state.reviewFocusIndex) && state.reviewFocusIndex >= 0 && state.clips[state.reviewFocusIndex]) return state.reviewFocusIndex;
+    const first = clipsForReviewQueue()[0];
+    return first ? state.clips.indexOf(first) : -1;
+}
+
+function reviewSignalSummary(clip) {
+    const favorability = clip?.favorability && typeof clip.favorability === "object" ? clip.favorability : {};
+    const counterpunch = clip?.counterpunch && typeof clip.counterpunch === "object" ? clip.counterpunch : (favorability.counterpunch && typeof favorability.counterpunch === "object" ? favorability.counterpunch : {});
+    const seed = safeBooleanFlag(clip?.context_seed_only) || safeBooleanFlag(clip?.from_acervo_seed) || safeBooleanFlag(clip?.acervo_context?.seed_only);
+    const signals = [];
+    if (Number.isFinite(Number(favorability.signal))) signals.push(`favorabilidade ${Math.round(Math.max(0, Math.min(100, Number(favorability.signal))))}`);
+    if (safeBooleanFlag(counterpunch.available)) signals.push(`coice ${Number.isFinite(Number(counterpunch.signal)) ? Math.round(Math.max(0, Math.min(100, Number(counterpunch.signal)))) : "revisar"}`);
+    if (seed) signals.push("seed Acervo");
+    if (safeBooleanFlag(clip?.review_required) || reviewStatusOf(clip) === "needs_review") signals.push("revisar");
+    return signals;
+}
+
+function resetReviewFocusPane() {
+    const empty = document.getElementById("reviewFocusEmpty");
+    const video = document.getElementById("reviewFocusVideo");
+    if (empty) empty.hidden = false;
+    if (video) {
+        video.removeAttribute("src");
+        video.load();
+        video.hidden = true;
+    }
+    ["reviewFocusTitle", "reviewFocusMeta", "reviewFocusHook", "reviewFocusFactors"].forEach((id) => {
+        const element = document.getElementById(id);
+        if (element) element.textContent = id === "reviewFocusTitle" ? "Selecione um candidato" : id === "reviewFocusMeta" ? "O player mostra o intervalo escolhido na fila." : id === "reviewFocusHook" ? "O hook e o diagnóstico aparecerão aqui." : "";
+    });
+    const status = document.getElementById("reviewFocusStatus");
+    if (status) status.textContent = "aguardando";
+}
+
+function focusReviewClip(index, options = {}) {
+    const clip = state.clips?.[index];
+    if (!clip) return;
+    state.reviewFocusIndex = index;
+    const score = Number(clip.viral_score ?? clip.score ?? 0);
+    const duration = Number(clip.duration || ((clip.end || 0) - (clip.start || 0)) || 0);
+    const status = reviewStatusOf(clip);
+    const meta = reviewStatusMeta(status);
+    const title = String(clip.title || clip.contextual_hook?.hook_text || `Corte #${clip.rank || index + 1}`).trim();
+    const hook = String(clip.contextual_hook?.hook_text || clip.text || "Hook ainda não confirmado; revise o trecho no player.").trim();
+    const video = document.getElementById("reviewFocusVideo");
+    const empty = document.getElementById("reviewFocusEmpty");
+    const source = mediaUrlForClip(clip);
+    const titleEl = document.getElementById("reviewFocusTitle");
+    const metaEl = document.getElementById("reviewFocusMeta");
+    const statusEl = document.getElementById("reviewFocusStatus");
+    const hookEl = document.getElementById("reviewFocusHook");
+    const factorsEl = document.getElementById("reviewFocusFactors");
+    if (titleEl) titleEl.textContent = title;
+    if (metaEl) metaEl.textContent = `${formatTime(clip.start)} → ${formatTime(clip.end)} · ${duration.toFixed(1)}s · score ${Number.isFinite(score) ? Math.round(score) : 0}/100 · ${meta.label.toLowerCase()}`;
+    if (statusEl) {
+        statusEl.textContent = meta.label.toLowerCase();
+        statusEl.className = `furia-focus-status furia-focus-status--${status}`;
+    }
+    if (hookEl) hookEl.textContent = hook.length > 260 ? `${hook.slice(0, 257)}…` : hook;
+    if (factorsEl) {
+        const factors = clip.factors && typeof clip.factors === "object" ? Object.entries(clip.factors).filter(([key, value]) => key !== "diversity" && Number.isFinite(Number(value))).slice(0, 4) : [];
+        const signals = reviewSignalSummary(clip);
+        factorsEl.innerHTML = factors.map(([key, value]) => `<span class="furia-factor-mini"><b>${escapeHtml(key.replaceAll("_", " "))}</b><i><em style="width:${Math.max(0, Math.min(100, Number(value)))}%"></em></i><strong>${Math.round(Number(value))}</strong></span>`).join("") + (signals.length ? `<span class="furia-focus-signal"><span class="material-icons-round">visibility</span>${escapeHtml(signals.join(" · "))}</span>` : "");
+    }
+    const startEl = document.getElementById("reviewFocusStart");
+    const endEl = document.getElementById("reviewFocusEnd");
+    if (startEl) startEl.textContent = formatTime(clip.start);
+    if (endEl) endEl.textContent = formatTime(clip.end);
+    const marker = document.getElementById("reviewFocusMarker");
+    const sourceDuration = Number(clip.source_duration ?? clip.video_duration);
+    if (marker) marker.style.left = Number.isFinite(sourceDuration) && sourceDuration > 0 ? `${Math.max(0, Math.min(100, (Number(clip.start || 0) / sourceDuration) * 100))}%` : "50%";
+    if (video) {
+        video.hidden = !source;
+        if (empty) empty.hidden = Boolean(source);
+        if (source && video.src !== source) {
+            video.src = source;
+            video.load();
+        }
+    }
+    const actions = {
+        reviewFocusApprove: () => setClipReview(index, "approved"),
+        reviewFocusContext: () => openContextReview(index),
+        reviewFocusReject: () => setClipReview(index, "rejected"),
+        reviewFocusHeadline: () => { toggleClipHeadlineStudio(index); document.getElementById(`clip-headline-studio-${index}`)?.scrollIntoView({ behavior: "smooth", block: "center" }); },
+    };
+    Object.entries(actions).forEach(([id, handler]) => {
+        const button = document.getElementById(id);
+        if (button) { button.onclick = handler; button.disabled = Boolean(clip.review_busy); }
+    });
+    document.querySelectorAll(".result-card[data-clip-index]").forEach((card) => card.classList.toggle("is-focus", Number(card.dataset.clipIndex) === index));
+    if (options.scroll) document.querySelector(`.result-card[data-clip-index="${index}"]`)?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
 function renderReviewCommandCenter() {
     const center = document.getElementById("reviewCommandCenter");
     if (!center) return;
@@ -2704,6 +2801,23 @@ function renderReviewCommandCenter() {
 
     center.style.display = "block";
     document.getElementById("reviewTotalCount").textContent = stats.total;
+    const kpiCandidates = document.getElementById("furiaKpiCandidates");
+    const kpiApproved = document.getElementById("furiaKpiApproved");
+    const kpiSeeds = document.getElementById("furiaKpiSeeds");
+    const kpiCoice = document.getElementById("furiaKpiCoice");
+    const kpiMode = document.getElementById("furiaKpiMode");
+    const kpiAlert = document.getElementById("furiaKpiAlert");
+    const seedsCount = state.clips.filter((clip) => safeBooleanFlag(clip.context_seed_only) || safeBooleanFlag(clip.from_acervo_seed) || safeBooleanFlag(clip.acervo_context?.seed_only)).length;
+    const coiceCount = state.clips.filter((clip) => safeBooleanFlag(clip.counterpunch?.available) || safeBooleanFlag(clip.counterpunch?.signal) || safeBooleanFlag(clip.favorability?.counterpunch?.available)).length;
+    const favorabilityMode = String(state.clips[0]?.favorability_mode || state.clips[0]?.run?.favorability_mode || state.favorabilityMode || "off").toUpperCase();
+    if (kpiCandidates) kpiCandidates.textContent = stats.total;
+    if (kpiApproved) kpiApproved.textContent = stats.approved;
+    if (kpiSeeds) kpiSeeds.textContent = seedsCount;
+    if (kpiCoice) kpiCoice.textContent = coiceCount;
+    if (kpiMode) kpiMode.textContent = favorabilityMode === "PRIORITIZE" ? "PRIO" : favorabilityMode;
+    if (kpiAlert) kpiAlert.textContent = favorabilityMode === "REQUIRE" && stats.total < 3 ? "pool reduzido · revise o contexto" : "";
+    const queueCount = document.getElementById("reviewQueueCount");
+    if (queueCount) queueCount.textContent = `${clipsForReviewQueue().length} ${clipsForReviewQueue().length === 1 ? "candidato" : "candidatos"}`;
     document.getElementById("reviewPendingCount").textContent = stats.pending;
     document.getElementById("reviewApprovedCount").textContent = stats.approved;
     document.getElementById("reviewNeedsReviewCount").textContent = stats.needsReview;
@@ -2795,6 +2909,8 @@ function renderResultsGrid() {
     summary.textContent = `${clips.length} de ${allClips.length} visíveis | Média: ${avgScore.toFixed(0)} | ${highScoreCount} com alto potencial | via ${source}${sourceIdentity}`;
 
     const sorted = clips;
+    const queueCount = document.getElementById("reviewQueueCount");
+    if (queueCount) queueCount.textContent = `${clips.length} ${clips.length === 1 ? "candidato" : "candidatos"}`;
 
     sorted.forEach((clip, i) => {
         const originalIndex = state.clips.indexOf(clip);
@@ -3129,6 +3245,23 @@ function renderResultsGrid() {
 
         const card = document.createElement("div");
         card.className = `result-card review-${reviewStatus}`;
+        card.dataset.clipIndex = String(originalIndex);
+        card.setAttribute("role", "option");
+        card.setAttribute("aria-selected", String(state.reviewFocusIndex === originalIndex));
+        card.tabIndex = 0;
+        card.addEventListener("click", (event) => {
+            if (event.target.closest("button, input, select, textarea, a, video")) return;
+            focusReviewClip(originalIndex);
+        });
+        card.addEventListener("keydown", (event) => {
+            if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                focusReviewClip(originalIndex);
+            }
+        });
+        card.addEventListener("dblclick", (event) => {
+            if (!event.target.closest("button, input, select, textarea, a, video")) openScoreDrawer(originalIndex);
+        });
         card.innerHTML = `
             <div class="result-header-bar" style="position:relative">
                 <div class="result-rank">#${rank}</div>
@@ -3311,8 +3444,55 @@ function renderResultsGrid() {
     });
 
     if (clips.length === 0) {
-        grid.innerHTML = `<div class="review-empty-state"><span class="material-icons-round">filter_alt_off</span><strong>Nenhum corte nesta fila</strong><p>Altere o filtro para revisar os outros candidatos.</p></div>`;
+        state.reviewFocusIndex = -1;
+        grid.innerHTML = `<div class="review-empty-state"><span class="material-icons-round">filter_alt_off</span><strong>Nenhum corte nesta fila</strong><p>Altere o filtro para revisar os outros candidatos.</p><button class="btn btn-sm btn-outline" type="button" data-clear-review-filter>Limpar filtros</button></div>`;
+        resetReviewFocusPane();
+        grid.querySelector("[data-clear-review-filter]")?.addEventListener("click", () => {
+            state.reviewFilter = "all";
+            renderReviewCommandCenter();
+            renderResultsGrid();
+        });
+    } else {
+        const current = state.reviewFocusIndex >= 0 && state.clips[state.reviewFocusIndex] ? state.reviewFocusIndex : state.clips.indexOf(sorted[0]);
+        focusReviewClip(current);
     }
+}
+
+function openScoreDrawer(index) {
+    const clip = state.clips?.[index];
+    const drawer = document.getElementById("furiaScoreDrawer");
+    const body = document.getElementById("furiaScoreDrawerBody");
+    if (!clip || !drawer || !body) return;
+    state.reviewFocusIndex = index;
+    const score = Number(clip.viral_score ?? clip.score ?? 0);
+    const scoreValue = Number.isFinite(score) ? Math.max(0, Math.min(100, score)) : 0;
+    const factors = clip.factors && typeof clip.factors === "object" ? Object.entries(clip.factors).filter(([key, value]) => key !== "diversity" && Number.isFinite(Number(value))).slice(0, 5) : [];
+    const favorability = clip.favorability && typeof clip.favorability === "object" ? clip.favorability : {};
+    const counterpunch = clip.counterpunch && typeof clip.counterpunch === "object" ? clip.counterpunch : {};
+    const seed = safeBooleanFlag(clip.context_seed_only) || safeBooleanFlag(clip.from_acervo_seed) || safeBooleanFlag(clip.acervo_context?.seed_only);
+    const gates = clip.quality_scorecard && typeof clip.quality_scorecard === "object" ? clip.quality_scorecard : {};
+    const status = reviewStatusOf(clip);
+    const statusMeta = reviewStatusMeta(status);
+    const formatFactor = (key, value) => `<div class="furia-drawer-factor"><div><span>${escapeHtml(key.replaceAll("_", " "))}</span><strong>${Math.round(Math.max(0, Math.min(100, Number(value))))}</strong></div><i><em style="width:${Math.max(0, Math.min(100, Number(value)))}%"></em></i></div>`;
+    body.innerHTML = `
+        <div class="furia-drawer-score"><div class="furia-score-ring furia-score-ring--${scoreValue >= 70 ? "high" : scoreValue >= 50 ? "mid" : "low"}" style="--score:${scoreValue * 3.6}deg"><strong>${Math.round(scoreValue)}</strong><span>/100</span></div><div><span class="furia-drawer-kicker">POTENCIAL EDITORIAL</span><h3>${escapeHtml(String(clip.title || `Corte #${clip.rank || index + 1}`))}</h3><p>${formatTime(clip.start)} → ${formatTime(clip.end)} · ${escapeHtml(statusMeta.label.toLowerCase())}</p></div></div>
+        <section class="furia-drawer-section"><h4>Fatores principais</h4>${factors.length ? factors.map(([key, value]) => formatFactor(key, value)).join("") : '<p class="furia-empty-copy">Nenhum fator detalhado disponível.</p>'}</section>
+        <section class="furia-drawer-section"><h4>Gates e revisão</h4><div class="furia-drawer-flags"><span class="furia-drawer-flag ${gates.context ? "is-on" : ""}">${gates.context ? "✓" : "—"} contexto</span><span class="furia-drawer-flag ${gates.editorial_strength ? "is-on" : ""}">${gates.editorial_strength ? "✓" : "—"} força editorial</span><span class="furia-drawer-flag ${gates.technical ? "is-on" : ""}">${gates.technical ? "✓" : "—"} técnica</span><span class="furia-drawer-flag ${status === "needs_review" ? "is-warn" : ""}">${status === "needs_review" ? "!" : "✓"} ${escapeHtml(statusMeta.label.toLowerCase())}</span></div></section>
+        <section class="furia-drawer-section"><h4>Sinais auxiliares</h4><div class="furia-drawer-facts"><p><b>Favorabilidade:</b> ${Number.isFinite(Number(favorability.signal)) ? `${Math.round(Math.max(0, Math.min(100, Number(favorability.signal))))}/100` : "não quantificada"} · bounded, não é aprovação automática.</p><p><b>Coice:</b> ${safeBooleanFlag(counterpunch.available) ? `${Number.isFinite(Number(counterpunch.signal)) ? Math.round(Number(counterpunch.signal)) : "revisar"}/100` : "não identificado"} · hipótese pergunta–resposta.</p><p><b>Acervo:</b> ${seed ? "seed temporal, revisão obrigatória" : "sem seed aplicado"}.</p></div></section>
+        <button class="btn btn-sm btn-outline furia-copy-diagnosis" type="button" data-copy-diagnosis="${index}"><span class="material-icons-round">content_copy</span> Copiar diagnóstico</button>`;
+    drawer.classList.add("is-open");
+    drawer.setAttribute("aria-hidden", "false");
+    body.querySelector("[data-copy-diagnosis]")?.addEventListener("click", () => {
+        const diagnosis = `Furia Clips — ${String(clip.title || `Corte #${clip.rank || index + 1}`)}\\nIntervalo: ${formatTime(clip.start)}–${formatTime(clip.end)}\\nScore: ${Math.round(scoreValue)}/100\\nStatus: ${statusMeta.label}`;
+        navigator.clipboard?.writeText(diagnosis).then(() => showToast("Diagnóstico copiado.", "success")).catch(() => showToast("Não foi possível copiar o diagnóstico.", "warning"));
+    });
+}
+
+function closeScoreDrawer() {
+    const drawer = document.getElementById("furiaScoreDrawer");
+    if (!drawer) return;
+    drawer.classList.remove("is-open");
+    drawer.setAttribute("aria-hidden", "true");
 }
 
 function toggleBoundaryEditor(index) {
@@ -4916,6 +5096,108 @@ function showToast(message, type = "info") {
     }, 4000);
 }
 
+const furiaCommands = [
+    { id: "next", icon: "arrow_downward", label: "Próximo clip", hint: "J", run: () => moveReviewFocus(1) },
+    { id: "previous", icon: "arrow_upward", label: "Clip anterior", hint: "K", run: () => moveReviewFocus(-1) },
+    { id: "approve", icon: "check_circle", label: "Aprovar clip em foco", hint: "A", run: () => reviewFocusAction("approved") },
+    { id: "reject", icon: "cancel", label: "Rejeitar clip em foco", hint: "R", run: () => reviewFocusAction("rejected") },
+    { id: "context", icon: "visibility", label: "Revisar contexto do clip", hint: "E", run: () => reviewFocusAction("needs_review") },
+    { id: "headline", icon: "title", label: "Abrir Headline Studio", hint: "H", run: () => { const index = reviewClipIndex(); if (index >= 0) { toggleClipHeadlineStudio(index); document.getElementById(`clip-headline-studio-${index}`)?.scrollIntoView({ behavior: "smooth", block: "center" }); } } },
+    { id: "density", icon: "density_medium", label: "Alternar densidade", hint: "", run: () => toggleUiDensity() },
+    { id: "shortcuts", icon: "keyboard", label: "Mostrar atalhos", hint: "?", run: () => openShortcutsModal() },
+];
+let furiaCommandIndex = 0;
+
+function moveReviewFocus(delta) {
+    const visible = clipsForReviewQueue();
+    if (!visible.length) { showToast("A fila de revisão está vazia.", "warning"); return; }
+    const currentIndex = Math.max(0, visible.findIndex((clip) => state.clips.indexOf(clip) === state.reviewFocusIndex));
+    const next = visible[(currentIndex + delta + visible.length) % visible.length];
+    const index = state.clips.indexOf(next);
+    focusReviewClip(index, { scroll: true });
+}
+
+function reviewFocusAction(action) {
+    const index = reviewClipIndex();
+    if (index < 0) { showToast("Selecione um clip na fila primeiro.", "warning"); return; }
+    if (action === "needs_review") openContextReview(index);
+    else setClipReview(index, action);
+}
+
+function toggleUiDensity() {
+    state.uiDensity = state.uiDensity === "compact" ? "comfortable" : "compact";
+    document.body.dataset.density = state.uiDensity;
+    localStorage.setItem("furia-ui-density", state.uiDensity);
+    showToast(`Densidade ${state.uiDensity === "compact" ? "compacta" : "confortável"}.`, "info");
+}
+
+function openShortcutsModal() {
+    document.getElementById("shortcutsModal")?.classList.add("active");
+}
+
+function closeCommandPalette() {
+    const palette = document.getElementById("furiaCommandPalette");
+    if (!palette) return;
+    palette.hidden = true;
+    document.body.classList.remove("command-palette-open");
+}
+
+function renderCommandPalette(query = "") {
+    const list = document.getElementById("furiaCommandList");
+    if (!list) return;
+    const normalized = String(query || "").trim().toLowerCase();
+    const matches = furiaCommands.filter((command) => !normalized || `${command.label} ${command.hint}`.toLowerCase().includes(normalized));
+    furiaCommandIndex = Math.max(0, Math.min(furiaCommandIndex, Math.max(0, matches.length - 1)));
+    list.innerHTML = matches.length ? matches.map((command, index) => `<button class="furia-command-item ${index === furiaCommandIndex ? "is-active" : ""}" type="button" role="option" aria-selected="${index === furiaCommandIndex}" data-command-id="${command.id}"><span class="material-icons-round">${command.icon}</span><span>${escapeHtml(command.label)}</span>${command.hint ? `<kbd>${escapeHtml(command.hint)}</kbd>` : ""}</button>`).join("") : '<div class="furia-command-empty">Nenhuma ação encontrada.</div>';
+    list.querySelectorAll("[data-command-id]").forEach((button) => button.addEventListener("click", () => {
+        const command = furiaCommands.find((item) => item.id === button.dataset.commandId);
+        closeCommandPalette();
+        command?.run();
+    }));
+}
+
+function openCommandPalette() {
+    const palette = document.getElementById("furiaCommandPalette");
+    const input = document.getElementById("furiaCommandInput");
+    if (!palette) return;
+    palette.hidden = false;
+    document.body.classList.add("command-palette-open");
+    furiaCommandIndex = 0;
+    renderCommandPalette();
+    requestAnimationFrame(() => input?.focus());
+}
+
+function toggleSidebar() {
+    state.sidebarCollapsed = !state.sidebarCollapsed;
+    document.body.classList.toggle("sidebar-collapsed", state.sidebarCollapsed);
+    localStorage.setItem("furia-sidebar-collapsed", String(state.sidebarCollapsed));
+    const button = document.getElementById("btnSidebarToggle");
+    if (button) {
+        button.setAttribute("aria-label", state.sidebarCollapsed ? "Expandir navegação" : "Recolher navegação");
+        button.title = state.sidebarCollapsed ? "Expandir navegação" : "Recolher navegação";
+        button.querySelector(".material-icons-round").textContent = state.sidebarCollapsed ? "left_panel_open" : "left_panel_close";
+    }
+}
+
+function initFuriaUi() {
+    document.body.dataset.density = state.uiDensity === "comfortable" ? "comfortable" : "compact";
+    document.body.classList.toggle("sidebar-collapsed", state.sidebarCollapsed);
+    const sidebarToggle = document.getElementById("btnSidebarToggle");
+    if (sidebarToggle) {
+        sidebarToggle.setAttribute("aria-label", state.sidebarCollapsed ? "Expandir navegação" : "Recolher navegação");
+        sidebarToggle.title = state.sidebarCollapsed ? "Expandir navegação" : "Recolher navegação";
+        sidebarToggle.querySelector(".material-icons-round").textContent = state.sidebarCollapsed ? "left_panel_open" : "left_panel_close";
+        sidebarToggle.addEventListener("click", toggleSidebar);
+    }
+    document.querySelectorAll("[data-command-close]").forEach((element) => element.addEventListener("click", closeCommandPalette));
+    document.querySelector("[data-score-drawer-close]")?.addEventListener("click", closeScoreDrawer);
+    document.querySelector("[data-shortcuts-close]")?.addEventListener("click", () => document.getElementById("shortcutsModal")?.classList.remove("active"));
+    document.getElementById("furiaCommandInput")?.addEventListener("input", (event) => { furiaCommandIndex = 0; renderCommandPalette(event.target.value); });
+    document.querySelectorAll(".furia-sidebar-link, .workbench-nav-link").forEach((link) => link.addEventListener("click", () => {
+        document.querySelectorAll(".furia-sidebar-link, .workbench-nav-link").forEach((item) => item.classList.toggle("active", item === link || item.getAttribute("href") === link.getAttribute("href")));
+    }));
+}
+
 // ─── Export All ───
 
 document.getElementById("btnExportAll").addEventListener("click", () => {
@@ -4998,7 +5280,35 @@ if (btnClearSearch) {
 // ─── Keyboard Shortcuts ───
 
 document.addEventListener("keydown", (e) => {
-    // Don't capture if typing in input/textarea
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        openCommandPalette();
+        return;
+    }
+    const commandPalette = document.getElementById("furiaCommandPalette");
+    if (commandPalette && !commandPalette.hidden) {
+        const query = document.getElementById("furiaCommandInput")?.value || "";
+        const matches = furiaCommands.filter((command) => !query.trim() || `${command.label} ${command.hint}`.toLowerCase().includes(query.trim().toLowerCase()));
+        if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+            e.preventDefault();
+            furiaCommandIndex = matches.length ? (furiaCommandIndex + (e.key === "ArrowDown" ? 1 : -1) + matches.length) % matches.length : 0;
+            renderCommandPalette(query);
+            return;
+        }
+        if (e.key === "Enter") {
+            e.preventDefault();
+            const command = matches[furiaCommandIndex];
+            closeCommandPalette();
+            command?.run();
+            return;
+        }
+        if (e.key === "Escape") {
+            e.preventDefault();
+            closeCommandPalette();
+            return;
+        }
+    }
+    // Don't capture if typing in input/textarea/select
     if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA" || e.target.tagName === "SELECT") {
         return;
     }
@@ -5011,10 +5321,51 @@ document.addEventListener("keydown", (e) => {
     }
 
     switch (e.key) {
+        case "j":
+        case "J":
+            e.preventDefault();
+            moveReviewFocus(1);
+            break;
+        case "k":
+        case "K":
+            e.preventDefault();
+            moveReviewFocus(-1);
+            break;
+        case "a":
+        case "A":
+            e.preventDefault();
+            reviewFocusAction("approved");
+            break;
+        case "r":
+        case "R":
+            e.preventDefault();
+            reviewFocusAction("rejected");
+            break;
+        case "e":
+        case "E": {
+            e.preventDefault();
+            const index = reviewClipIndex();
+            if (index >= 0) toggleBoundaryEditor(index);
+            break;
+        }
+        case "h":
+        case "H": {
+            e.preventDefault();
+            const index = reviewClipIndex();
+            if (index >= 0) {
+                toggleClipHeadlineStudio(index);
+                document.getElementById(`clip-headline-studio-${index}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+            }
+            break;
+        }
+        case "?":
+            e.preventDefault();
+            openShortcutsModal();
+            break;
         case " ":
             // Space = play/pause current video
             e.preventDefault();
-            const activeVideo = document.querySelector(".result-card video");
+            const activeVideo = document.getElementById("reviewFocusVideo") || document.querySelector(".result-card video");
             if (activeVideo) {
                 if (activeVideo.paused) activeVideo.play();
                 else activeVideo.pause();
@@ -5027,6 +5378,7 @@ document.addEventListener("keydown", (e) => {
             if (transcriptSearchInput) transcriptSearchInput.focus();
             break;
         case "Escape":
+            closeScoreDrawer();
             if (state.activeJob && ["queued", "running", "cancel_requested"].includes(state.activeJob.state)) {
                 requestCancelOperation();
                 return;
@@ -5040,6 +5392,7 @@ document.addEventListener("keydown", (e) => {
 // ─── Init ───
 
 document.addEventListener("DOMContentLoaded", () => {
+    initFuriaUi();
     loadSettings();
     startCampaignHubLocalStatusPolling();
     loadMediaFiles();

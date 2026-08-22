@@ -1,0 +1,166 @@
+/**
+ * Furia Clips — Design Tokens (dark-first)
+ * Incluir no static global antes dos estilos de layout.
+ * Light mode opcional via [data-theme="light"].
+ */
+
+:root,
+[data-theme="dark"] {
+  /* Surfaces */
+  --furia-bg-void: #0b0c0f;
+  --furia-bg-base: #111318;
+  --furia-bg-elevated: #181b22;
+  --furia-bg-hover: #1e222b;
+  --furia-bg-popover: #222733;
+  --furia-border-subtle: #2a2f3a;
+  --furia-border-strong: #3a4150;
+
+  /* Text */
+  --furia-text-primary: #f2f4f8;
+  --furia-text-secondary: #9aa3b5;
+  --furia-text-muted: #6b7385;
+  --furia-text-inverse: #111318;
+
+  /* Brand */
+  --furia-accent: #e8a317;
+  --furia-accent-hover: #f0b33a;
+  --furia-accent-soft: rgba(232, 163, 23, 0.14);
+  --furia-accent-ring: rgba(232, 163, 23, 0.45);
+
+  /* Semantic */
+  --furia-ok: #3ddc97;
+  --furia-ok-soft: rgba(61, 220, 151, 0.14);
+  --furia-warn: #f5c542;
+  --furia-warn-soft: rgba(245, 197, 66, 0.14);
+  --furia-danger: #ff5c5c;
+  --furia-danger-soft: rgba(255, 92, 92, 0.14);
+  --furia-info: #5b8cff;
+  --furia-info-soft: rgba(91, 140, 255, 0.14);
+  --furia-coice: #ff7a45;
+  --furia-coice-soft: rgba(255, 122, 69, 0.16);
+  --furia-renan: #7cffb2;
+  --furia-renan-soft: rgba(124, 255, 178, 0.12);
+
+  /* Density */
+  --furia-radius-sm: 6px;
+  --furia-radius-md: 8px;
+  --furia-radius-lg: 12px;
+  --furia-space-1: 4px;
+  --furia-space-2: 8px;
+  --furia-space-3: 12px;
+  --furia-space-4: 16px;
+  --furia-space-5: 20px;
+  --furia-space-6: 24px;
+  --furia-space-8: 32px;
+
+  --furia-sidebar-width: 220px;
+  --furia-sidebar-collapsed: 56px;
+  --furia-kpi-height: 52px;
+  --furia-font-sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --furia-font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  --furia-shadow-popover: 0 8px 28px rgba(0, 0, 0, 0.45);
+  --furia-focus-ring: 0 0 0 2px var(--furia-bg-base), 0 0 0 4px var(--furia-accent-ring);
+
+  --furia-duration-fast: 100ms;
+  --furia-duration: 160ms;
+  --furia-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+[data-theme="light"] {
+  --furia-bg-void: #f4f5f7;
+  --furia-bg-base: #ffffff;
+  --furia-bg-elevated: #ffffff;
+  --furia-bg-hover: #eef0f4;
+  --furia-bg-popover: #ffffff;
+  --furia-border-subtle: #d8dde8;
+  --furia-border-strong: #b8c0d0;
+
+  --furia-text-primary: #141820;
+  --furia-text-secondary: #5c6578;
+  --furia-text-muted: #8b93a7;
+  --furia-text-inverse: #f2f4f8;
+
+  --furia-accent: #c48400;
+  --furia-accent-hover: #a86f00;
+  --furia-accent-soft: rgba(196, 132, 0, 0.12);
+  --furia-accent-ring: rgba(196, 132, 0, 0.35);
+
+  --furia-ok: #0f9f6e;
+  --furia-warn: #b8860b;
+  --furia-danger: #d64545;
+  --furia-info: #3b6ded;
+  --furia-coice: #e85d2a;
+  --furia-renan: #0a8f5b;
+
+  --furia-shadow-popover: 0 8px 28px rgba(20, 24, 32, 0.12);
+}
+
+/* Density variants on body or main shell */
+[data-density="compact"] {
+  --furia-row-height: 36px;
+  --furia-card-padding: var(--furia-space-3);
+  --furia-card-gap: var(--furia-space-2);
+  --furia-font-size-body: 13px;
+}
+
+[data-density="comfortable"] {
+  --furia-row-height: 40px;
+  --furia-card-padding: var(--furia-space-4);
+  --furia-card-gap: var(--furia-space-3);
+  --furia-font-size-body: 14px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --furia-duration-fast: 1ms;
+    --furia-duration: 1ms;
+  }
+}
+
+/* Base application chrome helpers */
+.furia-app {
+  background: var(--furia-bg-void);
+  color: var(--furia-text-primary);
+  font-family: var(--furia-font-sans);
+  font-size: var(--furia-font-size-body, 13px);
+  line-height: 1.4;
+}
+
+.furia-app :focus-visible {
+  outline: none;
+  box-shadow: var(--furia-focus-ring);
+}
+
+.furia-card {
+  background: var(--furia-bg-elevated);
+  border: 1px solid var(--furia-border-subtle);
+  border-radius: var(--furia-radius-md);
+  padding: var(--furia-card-padding, 12px);
+}
+
+.furia-btn-primary {
+  background: var(--furia-accent);
+  color: var(--furia-text-inverse);
+  border: none;
+  border-radius: var(--furia-radius-sm);
+  font-weight: 600;
+  padding: 8px 14px;
+  cursor: pointer;
+}
+.furia-btn-primary:hover {
+  background: var(--furia-accent-hover);
+}
+
+.furia-btn-ghost {
+  background: transparent;
+  color: var(--furia-text-secondary);
+  border: 1px solid var(--furia-border-subtle);
+  border-radius: var(--furia-radius-sm);
+  padding: 8px 12px;
+  cursor: pointer;
+}
+.furia-btn-ghost:hover {
+  background: var(--furia-bg-hover);
+  color: var(--furia-text-primary);
+}
