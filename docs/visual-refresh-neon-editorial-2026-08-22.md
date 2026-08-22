@@ -46,3 +46,12 @@ O verde-limão não representa aprovação automática, viralização ou confian
 [3]: https://vizard.ai/tools/ai-video-editor "Vizard — AI Video Editor"
 [4]: https://www.capcut.com/resource/capcut-tutorial-for-beginners "CapCut — Tutorial and editing workflow"
 [5]: https://www.raycast.com/ "Raycast — productivity launcher"
+
+
+## Segunda rodada: redesign estrutural
+
+A primeira versão foi considerada superficial porque alterava principalmente cores. A segunda rodada corrigiu isso com três mudanças estruturais. O cabeçalho principal recebeu o asset original `static/assets/furia-hero-atlas.png`, criado especificamente para o Furia em 2560×1440, com composição cinematográfica e espaço negativo para o título. A sidebar deixou de ser uma coluna colada à janela e passou a funcionar visualmente como um dock flutuante, com borda, raio, sombra e respiro próprios. O cabeçalho passou a ser uma âncora de marca com imagem, máscara, leitura `LONGFORM → SHORTS` e estado de workspace.
+
+A aplicação continua organizada como uma ferramenta de edição, mas a estética agora comunica uma estação de inteligência editorial: imagem de abertura, workflow em trilha, painéis em camadas, sinais de estado e ação primária iluminada. O asset é original e não contém logos, pessoas identificáveis, texto gerado ou marca de terceiros.
+
+A validação headless em 1440×1000 confirmou a presença do hero, o carregamento HTTP do PNG e a composição integrada. O teste visual da tela inicial vazia não substitui uma captura futura com clips carregados; por isso, a fila de revisão mantém seus estilos específicos e deve ser revisitada quando houver um lote disponível.

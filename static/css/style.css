@@ -4878,3 +4878,125 @@ body::before {
     .sidebar .setting-hint { max-height: 22px; }
     .sidebar .setting-group:focus-within .setting-hint { max-height: 140px; }
 }
+
+
+/* Furia Atlas hero — the visual anchor of the workstation */
+.main-header {
+    min-height: 300px;
+    padding: 34px 34px 31px;
+    margin: -2px 0 24px;
+    border: 1px solid rgba(131,184,255,.18);
+    border-radius: 24px;
+    background: #0b0e16;
+    box-shadow: 0 22px 70px rgba(0,0,0,.28), inset 0 1px rgba(255,255,255,.05);
+}
+.main-header::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background: linear-gradient(90deg, rgba(9,12,19,.96) 0%, rgba(9,12,19,.88) 28%, rgba(9,12,19,.28) 62%, rgba(9,12,19,.1) 100%);
+    z-index: 1;
+}
+.main-header::after {
+    z-index: 3;
+    right: 34px;
+    bottom: 22px;
+    width: min(31vw, 380px);
+}
+.main-header-copy, .main-header-actions { position: relative; z-index: 4; }
+.main-header-copy { align-self: center; max-width: 490px; }
+.main-header h2 { max-width: 470px; font-size: clamp(35px, 4vw, 60px); line-height: .94; text-wrap: balance; }
+.main-header-copy > p { max-width: 390px; color: #a4b1c4; font-size: 13px; }
+.main-header-actions { align-self: flex-start; }
+
+.hero-art {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+    pointer-events: none;
+}
+.hero-art::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(5,8,14,.12), transparent 45%, rgba(5,8,14,.48)), linear-gradient(90deg, rgba(5,8,14,.76), transparent 58%);
+}
+.hero-art img {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 75%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center right;
+    opacity: .98;
+    filter: saturate(.92) contrast(1.04);
+}
+.hero-readout {
+    position: absolute;
+    right: 28px;
+    bottom: 24px;
+    z-index: 2;
+    display: grid;
+    gap: 4px;
+    min-width: 178px;
+    padding: 10px 12px;
+    border: 1px solid rgba(131,184,255,.25);
+    border-radius: 11px;
+    background: rgba(8,12,20,.56);
+    box-shadow: 0 12px 26px rgba(0,0,0,.2), inset 0 1px rgba(255,255,255,.08);
+    backdrop-filter: blur(14px);
+}
+.hero-readout span { color: var(--furia-yellow); font-size: 8px; font-weight: 800; letter-spacing: .18em; }
+.hero-readout strong { color: var(--furia-white); font-size: 11px; letter-spacing: .04em; }
+.hero-readout strong i { color: var(--furia-yellow); font-style: normal; padding: 0 4px; }
+.hero-readout small { color: #a3b1c7; font-size: 9px; }
+
+@media (max-width: 900px) {
+    .main-header { min-height: 270px; padding: 28px 25px; }
+    .hero-art img { width: 86%; opacity: .72; }
+    .hero-readout { right: 18px; bottom: 17px; }
+}
+
+@media (max-width: 680px) {
+    .main-header { min-height: 350px; margin-top: 0; padding: 23px 18px; border-radius: 18px; }
+    .main-header::before { background: linear-gradient(180deg, rgba(9,12,19,.96) 0%, rgba(9,12,19,.7) 44%, rgba(9,12,19,.25) 100%); }
+    .main-header h2 { max-width: 300px; font-size: 38px; }
+    .main-header-copy > p { max-width: 280px; font-size: 11px; }
+    .hero-art img { top: 28%; width: 120%; height: 72%; opacity: .65; object-position: 74% center; }
+    .hero-readout { right: 13px; bottom: 14px; min-width: 154px; }
+    .main-header-actions { align-self: auto; }
+}
+
+
+/* Floating control dock: a structural change, not just a color treatment. */
+@media (min-width: 901px) {
+    .sidebar {
+        top: 14px;
+        left: 14px;
+        bottom: 14px;
+        height: auto;
+        border: 1px solid rgba(131,184,255,.15);
+        border-radius: 22px;
+        overflow: hidden auto;
+    }
+    .sidebar::after { border-radius: 0 22px 22px 0; }
+    .main-content {
+        width: calc(100% - 330px);
+        margin-left: 330px;
+        padding-top: 28px;
+    }
+}
+
+@media (max-width: 900px) and (min-width: 681px) {
+    .sidebar { top: 10px; left: 10px; bottom: 10px; height: auto; border-radius: 18px; overflow: hidden auto; }
+    .main-content { width: calc(100% - 278px); margin-left: 278px; }
+}
+
+@media (max-width: 680px) {
+    .sidebar { top: 0; left: 0; bottom: 0; height: 100vh; border-radius: 0; }
+    .main-content { width: 100%; margin-left: 0; }
+}
