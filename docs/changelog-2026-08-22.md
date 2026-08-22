@@ -472,3 +472,6 @@ Arquivos TXT exportados pelo CapCut frequentemente não trazem pontuação final
 
 ## Headline Studio: filtro de IA mais fiel à legenda — 2026-08-22
 O refinamento por IA agora recebe a base textual obrigatória e só aceita uma variação quando encontra pelo menos dois sinais relevantes da transcrição, com tolerância morfológica segura para singular/plural. Uma única palavra coincidente não basta para validar uma chamada genérica. O formato explicitamente escolhido continua sendo o único refinado. Validação integral: **737 testes aprovados**.
+
+## Headline Studio: claim principal visível — 2026-08-22
+A leitura editorial do resultado agora destaca primeiro o claim mais forte extraído da legenda, em vez de mostrar apenas palavras-chave soltas. O editor consegue conferir rapidamente qual ideia concreta orientou a chamada antes de copiá-la. Validação focada: **160 testes aprovados**.

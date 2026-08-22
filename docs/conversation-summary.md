@@ -210,3 +210,7 @@ O Headline Studio não usa mais a ausência de ponto final como prova de que a l
 ## 23. Filtro de evidência no refinamento por IA
 
 O caminho de IA do Headline Studio passou a receber os claims e termos usados pela regra local. Uma sugestão só substitui o fallback quando possui pelo menos dois sinais relevantes da legenda; variações naturais como “despesa” e “despesas” são reconhecidas, mas coincidências isoladas não. Isso reduz o risco de uma IA retornar uma frase chamativa, porém fora do contexto do corte.
+
+## 24. Claim principal visível no Headline Studio
+
+A interface passou a mostrar primeiro o claim mais forte usado para fundamentar a headline. No exemplo fiscal, o editor vê uma ideia concreta como “A CONTA EXIGE CORTAR MAIS DE 200 BILHÕES POR ANO”, em vez de apenas uma lista de palavras-chave.

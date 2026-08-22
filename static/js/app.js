@@ -4618,7 +4618,7 @@ function renderHeadlineStudioResults(studio, options = {}) {
     const basis = studio.analysis?.headline_basis && typeof studio.analysis.headline_basis === "object" ? studio.analysis.headline_basis : {};
     const basisTerms = Array.isArray(basis.evidence_terms) ? basis.evidence_terms.filter(Boolean).slice(0, 5) : [];
     const basisClaims = Array.isArray(basis.grounded_claims) ? basis.grounded_claims.filter(Boolean).slice(0, 2) : [];
-    const basisLabel = basisTerms.length ? basisTerms.join(" · ") : basisClaims.join(" · ");
+    const basisLabel = basisClaims.length ? basisClaims[0] : basisTerms.join(" · ");
     const availableFormats = [selectedFormat].filter(format => ["vertical_916", "square_alfinetei"].includes(format));
     const formatCards = availableFormats.map(format => {
         const config = formats[format] || {};
