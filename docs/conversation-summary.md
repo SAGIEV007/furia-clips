@@ -162,3 +162,7 @@ Após a consolidação inicial, foi identificada e corrigida uma borda de concor
 ## 11. Política de composição no ajuste manual
 
 O re-render de um clip ajustado não consegue reconstruir automaticamente as posições faciais usadas no render original. Para evitar uma mudança visual silenciosa, o backend passou a inferir a política de preservação da composição a partir dos metadados persistidos quando o pedido não informa uma preferência explícita. Clips com `reframe_9_16`, `face_tracking` ou composição original passam a preservar o quadro da fonte por segurança; o editor ainda pode enviar uma preferência explícita quando quiser outro preset. Essa política foi coberta por regressão backend e a suíte integral chegou a 716 testes aprovados.
+
+## 12. Proteção contra áudio em idioma inesperado
+
+Como houve um caso de download em espanhol, a seleção pública mantém a preferência `pt-BR/pt/por` antes do fallback genérico. O resultado do importador agora também relata se o português foi confirmado pelos metadados da faixa, se houve fallback sem confirmação ou se o idioma não foi informado. O console orienta conferir o primeiro trecho quando a plataforma não provar o idioma; o Furia não afirma que o áudio é português apenas por preferir essa faixa. A mudança foi coberta por testes de seleção e transparência.

@@ -436,3 +436,6 @@ O importador público agora apresenta diagnósticos mais claros para vídeo/pág
 
 ## Fallback seguro de composição no ajuste manual — 2026-08-22
 O re-render individual agora infere uma política conservadora quando o clip persistido indica `reframe_9_16`, `face_tracking` ou composição original: sem uma preferência explícita, o quadro da fonte é preservado em vez de aplicar um crop centralizado que poderia perder o locutor. O tracking não é fingido nem reproduzido sem metadados suficientes; a decisão permanece revisável e explícita. Foi adicionada regressão backend e a validação integral fechou com **716 testes aprovados**.
+
+## Transparência de idioma de áudio na fonte pública — 2026-08-22
+A seleção do yt-dlp continua priorizando faixas `pt-BR`, `pt` e `por` antes do fallback genérico. O resultado do download agora inclui um status seguro: **português confirmado** quando os metadados da faixa escolhida sustentam isso, **fallback não confirmado** quando só há outra língua observada e **idioma desconhecido** quando a fonte não informa metadados. O console orienta a conferência do primeiro trecho nos dois últimos casos, evitando que uma fonte em espanhol passe despercebida. Foram adicionadas regressões e a validação integral fechou com **719 testes aprovados**.

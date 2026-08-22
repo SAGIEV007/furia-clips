@@ -441,3 +441,37 @@ def test_public_source_unsupported_platform_offers_local_import_fallback():
     message = str(_source_error("Não foi possível ler a fonte pública", RuntimeError("Unsupported URL")))
     assert "não é suportado" in message
     assert "importe o arquivo localmente" in message
+
+
+
+def test_audio_language_report_confirms_portuguese_from_requested_audio_metadata():
+    from modules.source_ingest import _audio_language_report
+
+    report = _audio_language_report({
+        "requested_formats": [
+            {"vcodec": "avc1", "acodec": "none"},
+            {"vcodec": "none", "acodec": "opus", "language": "pt-BR"},
+        ],
+    })
+    assert report["policy"] == "pt-BR/pt/por-first"
+    assert report["language"] == "pt-br"
+    assert report["status"] == "portuguese_confirmed"
+
+
+def test_audio_language_report_marks_non_portuguese_metadata_as_unverified_fallback():
+    from modules.source_ingest import _audio_language_report
+
+    report = _audio_language_report({
+        "requested_formats": [{"vcodec": "none", "acodec": "opus", "language": "es"}],
+    })
+    assert report["language"] is None
+    assert report["status"] == "fallback_unverified"
+    assert report["observed_languages"] == ["es"]
+
+
+def test_audio_language_report_is_unknown_without_audio_metadata():
+    from modules.source_ingest import _audio_language_report
+
+    report = _audio_language_report({"requested_formats": []})
+    assert report["status"] == "unknown"
+    assert report["observed_languages"] == []

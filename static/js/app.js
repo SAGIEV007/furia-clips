@@ -400,6 +400,12 @@ function handleStatusUpdate(data) {
             state.sourceDownloadDir = data.data.destination_dir || state.sourceDownloadDir;
             if (!preserveCurrentSelection) {
                 state.transcriptArchive = data.data.transcription_archive || data.data.transcription_files?.archive || null;
+                const audioStatus = String(data.data.audio_language_status || "unknown");
+                const audioNote = audioStatus === "portuguese_confirmed"
+                    ? " Áudio em português confirmado pelos metadados."
+                    : audioStatus === "fallback_unverified"
+                        ? " Atenção: o idioma do áudio não foi confirmado; confira o primeiro trecho."
+                        : " Idioma do áudio não informado; confira a reprodução antes de cortar.";
                 if (data.data.transcription) {
                     state.manualTranscript = data.data.transcription;
                     state.manualTranscriptVideo = importedPath;
@@ -407,9 +413,9 @@ function handleStatusUpdate(data) {
                     const transcriptCount = data.data.transcription.segment_count || data.data.transcription.segments?.length || 0;
                     const transcriptFile = data.data.transcription_archive?.text || data.data.transcription_files?.archive?.text || data.data.transcription_files?.text;
                     const transcriptLabel = transcriptFile ? ` Arquivo persistente: ${transcriptFile}` : "";
-                    showSourceStatus(`Fonte importada e transcrição automática pronta: ${transcriptCount} segmentos.${transcriptLabel}`, "success");
+                    showSourceStatus(`Fonte importada e transcrição automática pronta: ${transcriptCount} segmentos.${transcriptLabel}${audioNote}`, audioStatus === "portuguese_confirmed" ? "success" : "warning");
                 } else {
-                    showSourceStatus("Fonte importada; a transcrição automática não ficou disponível. Você pode clicar em Gerar do vídeo.", "warning");
+                    showSourceStatus(`Fonte importada; a transcrição automática não ficou disponível. Você pode clicar em Gerar do vídeo.${audioNote}`, "warning");
                 }
             } else {
                 showSourceOnlyStatus("Fonte importada; a seleção atual foi preservada. Selecione a nova fonte na biblioteca para usar sua transcrição.", "warning");

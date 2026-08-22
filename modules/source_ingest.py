@@ -229,6 +229,37 @@ def download_public_subtitles(url: str, destination: str, progress=None, cancel_
         return None
 
 
+def _audio_language_report(info: dict) -> dict:
+    """Summarize selected audio language without claiming more than metadata proves."""
+    requested_formats = info.get("requested_formats") if isinstance(info, dict) else None
+    audio_languages = []
+    for item in requested_formats or []:
+        if not isinstance(item, dict):
+            continue
+        if str(item.get("acodec") or "").lower() == "none":
+            continue
+        language = str(item.get("language") or item.get("audio_language") or "").strip().lower()
+        if language:
+            audio_languages.append(language)
+    top_level = str((info or {}).get("language") or "").strip().lower() if isinstance(info, dict) else ""
+    if top_level and top_level not in audio_languages:
+        audio_languages.append(top_level)
+    portuguese = next((lang for lang in audio_languages if lang.startswith(("pt", "por"))), None)
+    if portuguese:
+        return {
+            "policy": "pt-BR/pt/por-first",
+            "language": portuguese,
+            "status": "portuguese_confirmed",
+            "observed_languages": sorted(set(audio_languages)),
+        }
+    return {
+        "policy": "pt-BR/pt/por-first",
+        "language": None,
+        "status": "fallback_unverified" if audio_languages else "unknown",
+        "observed_languages": sorted(set(audio_languages)),
+    }
+
+
 def _stream_label(status: dict) -> str:
     """Return a human-readable label for a yt-dlp transfer hook."""
     info = status.get("info_dict") or {}
@@ -436,6 +467,7 @@ def download_public_video(url: str, destination: str, progress=None, max_height:
         detail = "; ".join(validation.errors)
         raise SourceIngestError(f"O arquivo baixado não passou na validação de mídia: {detail}")
 
+    audio_report = _audio_language_report(info)
     return {
         "path": str(output),
         "title": info.get("title", ""),
@@ -443,4 +475,8 @@ def download_public_video(url: str, destination: str, progress=None, max_height:
         "url": value,
         "extractor": info.get("extractor", ""),
         "max_height": height_limit,
+        "audio_language_policy": audio_report["policy"],
+        "audio_language": audio_report["language"],
+        "audio_language_status": audio_report["status"],
+        "audio_observed_languages": audio_report["observed_languages"],
     }

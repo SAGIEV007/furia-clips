@@ -2128,6 +2128,22 @@ def api_source_import():
                 cancel_check=check_current_task_cancel,
                 progress=lambda update: emit_progress(_format_source_import_progress(update), "info"),
             )
+            audio_status = str(result.get("audio_language_status") or "unknown")
+            if audio_status == "portuguese_confirmed":
+                emit_progress(
+                    f"[Fonte] Áudio em português identificado nos metadados ({result.get('audio_language')}).",
+                    "success",
+                )
+            elif audio_status == "fallback_unverified":
+                emit_progress(
+                    "[Fonte] Atenção: o idioma do áudio não foi confirmado como português; confira o primeiro trecho antes de cortar.",
+                    "warning",
+                )
+            else:
+                emit_progress(
+                    "[Fonte] Idioma do áudio não informado pela fonte; confirme a reprodução antes da análise editorial.",
+                    "warning",
+                )
             result_path = os.path.abspath(result["path"])
             display_path = os.path.relpath(result_path, WORKSPACE_DIR) if _is_under(result_path, WORKSPACE_DIR) else result_path
             project_id = create_project(result.get("title") or os.path.basename(result_path), result_path)
