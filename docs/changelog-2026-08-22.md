@@ -62,3 +62,10 @@ A validação integral desta rodada confirmou **606 testes aprovados**.
 O painel que lista transcrições arquivadas também passou a reconhecer caminhos relativos e absolutos equivalentes como a fonte atual. O fallback por nome-base continua deliberadamente marcado como “confirmar arquivo”, pois nomes iguais não provam identidade de mídia.
 
 A validação integral desta rodada confirmou **607 testes aprovados**.
+
+
+## Cobertura comportamental da transcrição manual
+
+Foi adicionado um teste de integração da API legada de transcrição. O cenário simula uma fonte real, envia uma transcrição manual, confirma que o fallback Whisper não é necessário, verifica o salvamento no projeto e valida que o evento de conclusão devolve cobertura, qualidade e referência ao arquivo persistente.
+
+A validação integral desta rodada confirmou **608 testes aprovados**.
