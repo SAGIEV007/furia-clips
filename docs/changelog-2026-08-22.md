@@ -248,3 +248,11 @@ Foram adicionados templates operacionais e documentação para o editor. A corre
 - Implementados atalhos `J/K/A/R/E/H/?`, `Ctrl/Cmd+K` para command palette, alternância de densidade e foco visível. Sons permanecem desligados por padrão e `prefers-reduced-motion` é respeitado.
 - Mantidos os contratos do backend, IDs legados e a regra de que Campaign Hub é somente leitura. Nenhuma mídia, transcrição, snapshot privado, feedback bruto ou credencial foi incluída.
 - Validação desta rodada: `node --check`, `py_compile`, `git diff --check` e **673 testes aprovados**.
+
+## Passe Professional UI/UX — bancada orientada à decisão
+
+A interface recebeu um segundo passe estrutural orientado à rotina do editor. O shell agora muda de estado entre `empty`, `source`, `analysis` e `review`, atualiza o título e o status da bancada conforme a tarefa e oculta a faixa de KPIs quando ainda não existe fonte ativa. Depois que uma fonte é selecionada, a drop zone deixa de ocupar a superfície principal; quando há candidatos, a revisão recebe prioridade visual.
+
+As ações foram contidas em uma rail compacta com um único acento dominante, os gradientes multicoloridos dos ícones foram removidos e as ações primárias passaram a ser promovidas por etapa. O estado visual combina texto, ícone, borda e cor, preservando a distinção entre aprovado, rejeitado e revisão necessária. O passe mantém os IDs, rotas, contratos de API, ranking e integrações existentes.
+
+A auditoria heurística persistente registrou média observada de 3,1/5 antes deste passe e definiu os critérios de QA: localizar a ação primária em até dois segundos, identificar a fonte ativa, encontrar score/timecode na fila e operar por teclado. A validação desta rodada confirmou **673 testes aprovados**, `node --check`, `py_compile`, `git diff --check` e auditoria de segredos. Nenhum dado privado ou conteúdo do Campaign Hub foi incluído.

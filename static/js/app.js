@@ -1626,6 +1626,7 @@ function selectVideo(item, sourceElement = null) {
         showProcessingControls(`[Job ${jobLabel}] ${previousOperationMessage}`, { cancelRequested: state.activeJob.state === "cancel_requested" });
         addConsoleLog("[Sistema] A nova seleção foi liberada; a tarefa anterior continua vinculada ao vídeo anterior.", "info");
     }
+    refreshWorkspaceStage();
     addConsoleLog(`[Sistema] Video selecionado: ${item.name}`, "info");
     showToast(`Video selecionado: ${truncateName(item.name, 30)}`, "success");
 }
@@ -1805,6 +1806,7 @@ function deselectVideo() {
             <p>Nenhum video selecionado</p>
         </div>`;
 
+    refreshWorkspaceStage();
     // Hide and invalidate preview so an old media event cannot repaint this state.
     clearVideoPreview();
 }
@@ -2456,6 +2458,7 @@ async function pollEditorialContextJob(jobId, button, status, requestToken, sour
             state.editorialContext = artifact?.context || null;
             state.contextAnalysisSourcePath = sourcePath;
             state.contextAnalysisJobId = "";
+            refreshWorkspaceStage();
             renderEditorialContextPreview(state.editorialContext || {});
             if (status) status.textContent = "Contexto pronto. O próximo corte poderá usar esta leitura como referência.";
             return;
@@ -2492,6 +2495,7 @@ document.getElementById("btnAnalyzeEditorialContext")?.addEventListener("click",
     const requestToken = ++state.contextAnalysisToken;
     state.editorialContext = null;
     state.contextAnalysisSourcePath = "";
+    refreshWorkspaceStage();
     const contextResult = document.getElementById("contextAnalysisResult");
     if (contextResult) {
         contextResult.hidden = true;
@@ -2792,6 +2796,7 @@ function focusReviewClip(index, options = {}) {
 }
 
 function renderReviewCommandCenter() {
+    refreshWorkspaceStage();
     const center = document.getElementById("reviewCommandCenter");
     if (!center) return;
     const stats = reviewStats();
@@ -5179,9 +5184,44 @@ function toggleSidebar() {
     }
 }
 
+function refreshWorkspaceStage() {
+    const body = document.body;
+    const hasSource = Boolean(state.selectedVideo);
+    const hasContext = Boolean(state.editorialContext && typeof state.editorialContext === "object" && Object.keys(state.editorialContext).length > 0);
+    const hasClips = Array.isArray(state.clips) && state.clips.length > 0;
+    body.classList.toggle("has-selected-source", hasSource);
+    body.classList.toggle("has-editorial-context", hasContext);
+    body.classList.toggle("has-review-candidates", hasClips);
+    body.dataset.workspaceStage = hasClips ? "review" : hasContext ? "analysis" : hasSource ? "source" : "empty";
+
+    const titleEl = document.querySelector(".main-header h2");
+    const subtitleEl = document.querySelector(".main-header-copy > p");
+    const copyByStage = {
+        empty: ["Comece pela fonte.", "Importe uma live, transcrição ou link público para abrir a bancada editorial."],
+        source: ["Entenda antes de cortar.", "A fonte está selecionada. Analise o contexto antes de transformar fala em candidato."],
+        analysis: ["Contexto encontrado. Revise a tese.", "O dossiê editorial está pronto para conferência antes do corte."],
+        review: ["Escolha a fala que importa.", "A fila está pronta. Revise o trecho, ajuste os limites e decida com confiança."],
+    };
+    const stageCopy = copyByStage[body.dataset.workspaceStage] || copyByStage.empty;
+    if (titleEl) titleEl.textContent = stageCopy[0];
+    if (subtitleEl) subtitleEl.textContent = stageCopy[1];
+    const stateEl = document.getElementById("workspaceState");
+    if (stateEl) {
+        const stage = hasClips ? ["fact_check", "Fila pronta para revisão", "review"] : hasContext ? ["account_tree", "Contexto analisado", "analysis"] : hasSource ? ["play_circle", "Fonte selecionada", "source"] : ["radio_button_unchecked", "Pronto para importar", "empty"];
+        stateEl.innerHTML = `<span class="status-dot ${hasClips || hasContext || hasSource ? "online" : "offline"}"></span><span>${stage[1]}</span>`;
+        stateEl.dataset.stage = stage[2];
+    }
+    document.querySelectorAll(".workflow-step").forEach((step, index) => {
+        const complete = (hasSource && index === 0) || (hasContext && index === 1) || (hasClips && index === 2);
+        step.classList.toggle("is-complete", complete);
+        step.classList.toggle("active", (body.dataset.workspaceStage === "empty" && index === 0) || (body.dataset.workspaceStage === "source" && index === 1) || (body.dataset.workspaceStage === "analysis" && index === 2) || (body.dataset.workspaceStage === "review" && index === 2));
+    });
+}
+
 function initFuriaUi() {
     document.body.dataset.density = state.uiDensity === "comfortable" ? "comfortable" : "compact";
     document.body.classList.toggle("sidebar-collapsed", state.sidebarCollapsed);
+    refreshWorkspaceStage();
     const sidebarToggle = document.getElementById("btnSidebarToggle");
     if (sidebarToggle) {
         sidebarToggle.setAttribute("aria-label", state.sidebarCollapsed ? "Expandir navegação" : "Recolher navegação");
