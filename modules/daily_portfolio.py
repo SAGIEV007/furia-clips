@@ -45,18 +45,54 @@ def _format_key(clip: dict) -> str:
     return str(clip.get("visual_format") or clip.get("format_family") or "desconhecido")
 
 
+def _favorability_details(clip: dict) -> tuple[bool, float, bool]:
+    value = clip.get("favorability")
+    if isinstance(value, dict):
+        available = bool(value.get("available") and value.get("eligible", True))
+        score = value.get("signal", value.get("score", 50.0))
+        review_required = bool(value.get("review_required"))
+    elif "favorability_score" in clip:
+        available = bool(clip.get("favorability_available", True))
+        score = clip.get("favorability_score", 50.0)
+        review_required = bool(clip.get("favorability_review_required"))
+    else:
+        available = False
+        score = 50.0
+        review_required = False
+    try:
+        normalized_score = max(0.0, min(100.0, float(score)))
+    except (TypeError, ValueError):
+        normalized_score = 50.0
+    return available, normalized_score, review_required
+
+
 def _text_key(clip: dict) -> str:
     text = " ".join(str(clip.get("text") or "").lower().split())
     return text
 
 
-def _quality_reasons(clip: dict, min_score: float) -> list[str]:
+def _quality_reasons(
+    clip: dict,
+    min_score: float,
+    *,
+    favorability_mode: str = "off",
+    favorability_min: float = 60.0,
+) -> list[str]:
     reasons: list[str] = []
     score = float(clip.get("editorial_potential_score", clip.get("viral_score", 0)) or 0)
     if score < min_score:
         reasons.append("score_abaixo_do_minimo")
     if clip.get("passes_gates") is False:
         reasons.append("gate_explicitamente_reprovado")
+
+    if favorability_mode == "require":
+        available, favorability_score, review_required = _favorability_details(clip)
+        if not available:
+            reasons.append("favorabilidade_indisponivel")
+        elif favorability_score < favorability_min:
+            reasons.append("favorabilidade_abaixo_do_minimo")
+        elif review_required:
+            reasons.append("favorabilidade_requer_revisao")
 
     factors = clip.get("factors") or {}
     political = clip.get("political_signals") or {}
@@ -82,6 +118,17 @@ def _similarity(left: str, right: str) -> float:
     return len(left_words & right_words) / len(left_words | right_words)
 
 
+def _selection_score(clip: dict, favorability_mode: str) -> float:
+    base = float(clip.get("editorial_potential_score", clip.get("viral_score", 0)) or 0)
+    if favorability_mode != "prioritize":
+        return base
+    available, signal, review_required = _favorability_details(clip)
+    if not available or review_required:
+        return base
+    # Tie-breaker bounded to +/- 2 points; context and technical gates remain primary.
+    return base + max(-2.0, min(2.0, (signal - 50.0) * 0.04))
+
+
 def build_daily_portfolio(
     candidates: Iterable[dict],
     *,
@@ -92,12 +139,21 @@ def build_daily_portfolio(
     max_per_family: int = DEFAULT_MAX_PER_FAMILY,
     duplicate_similarity: float = 0.86,
     reference_intervals: Iterable[Any] | None = None,
+    favorability_mode: str = "off",
+    favorability_min: float = 60.0,
 ) -> dict:
     """Return a globally ranked, quality-gated daily portfolio and audit data."""
+    favorability_mode = str(favorability_mode or "off").strip().lower()
+    if favorability_mode not in {"off", "prioritize", "require"}:
+        favorability_mode = "off"
+    try:
+        favorability_min = max(0.0, min(100.0, float(favorability_min)))
+    except (TypeError, ValueError):
+        favorability_min = 60.0
     source_candidates = [dict(candidate) for candidate in candidates]
     source_candidates.sort(
         key=lambda clip: (
-            float(clip.get("editorial_potential_score", clip.get("viral_score", 0)) or 0),
+            _selection_score(clip, favorability_mode),
             float((clip.get("factors") or {}).get("duration_fit", clip.get("duration_fit", 50)) or 50),
             float(clip.get("confidence", 0) or 0),
             -float(clip.get("duration", 0) or 0),
@@ -107,9 +163,25 @@ def build_daily_portfolio(
 
     rejected = Counter()
     eligible: list[dict] = []
+    favorability_stats = Counter()
     seen_texts: list[str] = []
     for clip in source_candidates:
-        reasons = _quality_reasons(clip, min_score)
+        available, favorability_score, review_required = _favorability_details(clip)
+        if favorability_mode != "off":
+            favorability_stats["available"] += int(available)
+            favorability_stats["unavailable"] += int(not available)
+            favorability_stats["review_required"] += int(review_required or not available or favorability_score < favorability_min)
+            if favorability_mode == "prioritize":
+                clip["daily_favorability_status"] = (
+                    "prioritized" if available and not review_required and favorability_score >= favorability_min else "needs_review"
+                )
+                clip["daily_favorability_review_required"] = clip["daily_favorability_status"] == "needs_review"
+        reasons = _quality_reasons(
+            clip,
+            min_score,
+            favorability_mode=favorability_mode,
+            favorability_min=favorability_min,
+        )
         if reasons:
             for reason in reasons:
                 rejected[reason] += 1
@@ -169,7 +241,7 @@ def build_daily_portfolio(
 
     selected.sort(
         key=lambda clip: (
-            float(clip.get("editorial_potential_score", clip.get("viral_score", 0)) or 0),
+            _selection_score(clip, favorability_mode),
             float((clip.get("factors") or {}).get("duration_fit", clip.get("duration_fit", 50)) or 50),
             float(clip.get("confidence", 0) or 0),
             -float(clip.get("duration", 0) or 0),
@@ -200,6 +272,20 @@ def build_daily_portfolio(
         "format_counts": dict(format_counts),
         "rejections": dict(rejected),
         "status": "faixa_operacional_atingida" if target_min <= len(selected) <= max_clips else "material_insuficiente_ou_concentrado",
+        "favorability_policy": {
+            "mode": favorability_mode,
+            "minimum": round(favorability_min, 1),
+            "available_candidates": int(favorability_stats.get("available", 0)),
+            "unavailable_candidates": int(favorability_stats.get("unavailable", 0)),
+            "review_candidates": int(favorability_stats.get("review_required", 0)),
+            "interpretation": (
+                "sinal opt-in usado somente como desempate; ambíguos permanecem revisáveis"
+                if favorability_mode == "prioritize"
+                else "gate estrito aplicado somente por solicitação explícita"
+                if favorability_mode == "require"
+                else "favorabilidade desligada; modo genérico preservado"
+            ),
+        },
     }
     if reference_intervals is not None:
         summary["quality_evaluation"] = evaluate_temporal_quality(selected, reference_intervals)

@@ -5324,3 +5324,22 @@ body::before {
 .clip-motion-note.review .material-icons-round { color: #e9c56b; }
 .clip-motion-note b { color: #e1fff5; }
 .clip-motion-note.review b { color: #ffe9ae; }
+
+.clip-counterpunch-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 7px;
+    margin: 7px 0;
+    padding: 8px 10px;
+    border: 1px solid rgba(255, 154, 101, .2);
+    border-radius: 9px;
+    background: rgba(200, 95, 55, .08);
+    color: #f3c8b2;
+    font-size: 10px;
+    line-height: 1.4;
+}
+.clip-counterpunch-note .material-icons-round { color: #ffad83; font-size: 16px; flex: 0 0 auto; }
+.clip-counterpunch-note.review { border-color: rgba(233, 197, 107, .34); background: rgba(233, 197, 107, .08); color: #f2ddb0; }
+.clip-counterpunch-note.review .material-icons-round { color: #e9c56b; }
+.clip-counterpunch-note b { color: #ffe2d4; }
+.clip-counterpunch-note.review b { color: #ffe9ae; }

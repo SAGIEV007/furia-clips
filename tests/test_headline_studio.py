@@ -325,3 +325,26 @@ def test_generic_headlines_do_not_attribute_speaker_without_explicit_context():
     headlines = [item["headline"] for item in result["formats"][FORMAT_VERTICAL]["suggestions"]]
     assert headlines
     assert all("RENAN" not in headline for headline in headlines)
+
+
+
+def test_headline_studio_uses_aggregate_approved_clip_format_prior_only_when_eligible():
+    result = generate_artwork_copy(
+        CRYPTO_SRT,
+        preferred_format="",
+        ai_backend=None,
+        editorial_learning={
+            "approved_clip_prior": {
+                "eligible": True,
+                "approved_count": 18,
+                "approved_by_format": {FORMAT_SQUARE: 12, FORMAT_VERTICAL: 6},
+                "influence_scope": "aggregate-only; bounded prior, never a gate or fine-tune",
+            }
+        },
+    )
+    assert result["recommended_format"] == FORMAT_SQUARE
+    assert result["learning_applied"]["applied"] is True
+    assert result["learning_applied"]["selected_count"] == 12
+    assert "aggregate-only" in result["analysis"]["approved_clip_prior"]["influence_scope"]
+    assert result["formats"][FORMAT_SQUARE]["suggestions"]
+    assert "approved_by_format" not in str(result["formats"][FORMAT_SQUARE]["suggestions"])

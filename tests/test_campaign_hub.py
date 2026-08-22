@@ -1,4 +1,13 @@
-from modules.campaign_hub import build_acervo_alignment, build_audience_fit, build_performance_prior, classify_hook, classify_hook_details, normalize_snapshot, snapshot_status
+from modules.campaign_hub import (
+    merge_acervo_seed_candidates,
+    build_acervo_alignment,
+    build_audience_fit,
+    build_performance_prior,
+    classify_hook,
+    classify_hook_details,
+    normalize_snapshot,
+    snapshot_status,
+)
 from modules.editorial_context import detect_hook_candidates
 from modules.editorial_ranker import EditorialRanker
 
@@ -572,3 +581,66 @@ def test_acervo_mention_without_renan_speaking_is_review_only():
     assert result["persona_match"] is False
     assert result["review_required"] is True
     assert result["signal"] <= 50
+
+
+
+def test_merge_acervo_seed_candidates_adds_review_only_same_source_seed():
+    snapshot = normalize_snapshot({
+        "default_account": "@renansantosmbl",
+        "accounts": {
+            "@renansantosmbl": {
+                "acervo_blocks": [{
+                    "id": "block-seed-1",
+                    "contentClass": "fala",
+                    "renanSpeaking": True,
+                    "densityRank": 92,
+                    "selfContainedRank": 88,
+                    "trustTier": "owner",
+                    "startS": 10,
+                    "endS": 34,
+                    "title": "Resposta sobre segurança pública",
+                    "summary": "Resposta com tese, consequência e contexto.",
+                    "video": {"youtubeId": "AbCdEfGhI12"},
+                    "highlights": [{"startS": 12, "endS": 30, "text": "A resposta apresenta os dados."}],
+                }],
+            },
+        },
+    })
+    merged = merge_acervo_seed_candidates(
+        [{"start": 60, "end": 80, "duration": 20, "source_id": "AbCdEfGhI12", "text": "Outro candidato."}],
+        snapshot,
+        account="@renansantosmbl",
+        source_id="AbCdEfGhI12",
+    )
+
+    assert len(merged) == 2
+    seed = merged[-1]
+    assert seed["candidate_origin"] == "campaign_hub_acervo_seed"
+    assert seed["context_seed_only"] is True
+    assert seed["transcription_review_required"] is True
+    assert seed["acervo_alignment"]["status"] == "aligned_same_source"
+
+
+def test_merge_acervo_seed_candidates_does_not_cross_source_or_duplicate_interval():
+    snapshot = normalize_snapshot({
+        "default_account": "@renansantosmbl",
+        "accounts": {
+            "@renansantosmbl": {
+                "acervo_blocks": [{
+                    "id": "block-seed-2",
+                    "contentClass": "fala",
+                    "renanSpeaking": True,
+                    "startS": 10,
+                    "endS": 34,
+                    "title": "Seed",
+                    "summary": "Resumo",
+                    "video": {"youtubeId": "AbCdEfGhI12"},
+                }],
+            },
+        },
+    })
+    existing = [{"start": 10, "end": 34, "duration": 24, "source_id": "AbCdEfGhI12", "text": "Já existe."}]
+    merged = merge_acervo_seed_candidates(existing, snapshot, account="@renansantosmbl", source_id="OutroVideo99")
+    assert merged == existing
+    merged_same = merge_acervo_seed_candidates(existing, snapshot, account="@renansantosmbl", source_id="AbCdEfGhI12")
+    assert merged_same == existing

@@ -87,7 +87,7 @@ from database import (
     save_clip, get_clip, get_clips, update_clip_seo, update_clip_thumbnail,
     get_existing_clip_fingerprints, save_transcription, get_transcription, log_action,
     update_clip_editorial_score, save_clip_feedback, get_clip_feedback,
-    update_clip_review_status, save_clip_adjustment, get_feedback_calibration, get_daily_editorial_progress,
+    update_clip_review_status, save_clip_adjustment, get_feedback_calibration, get_approved_clip_feature_prior, get_daily_editorial_progress,
     get_source_signature,
     save_headline_feedback, get_headline_feedback_summary, get_headline_learning_preferences,
     save_performance_snapshot, get_performance_snapshots, get_performance_summary
@@ -171,6 +171,22 @@ def _runtime_revision():
 
 PROGRAM_VERSION = "rebuild-opus-parity"
 PROGRAM_REVISION = _runtime_revision()
+
+
+def _get_approved_clip_prior():
+    """Prefer a real sanitized import when eligible; otherwise use local DB aggregates."""
+    database_prior = get_approved_clip_feature_prior()
+    try:
+        from modules.approved_clip_priors import build_feature_prior, load_feature_records
+        imported_prior = build_feature_prior(load_feature_records())
+    except (OSError, TypeError, ValueError):
+        imported_prior = {"available": False, "eligible": False}
+    if imported_prior.get("eligible"):
+        return imported_prior
+    if database_prior.get("eligible") or database_prior.get("available"):
+        return database_prior
+    return imported_prior if imported_prior.get("available") else database_prior
+
 
 processing_lock = threading.Lock()
 current_task = {
@@ -580,7 +596,7 @@ def _enrich_editorial_context_locally(video_path, transcription, editorial_conte
     """Add local audio and hook evidence without uploading the source video."""
     from modules.audio_analyzer import AudioAnalyzer
     from modules.editorial_context import detect_hook_candidates
-    from modules.campaign_hub import attach_acervo_context, load_snapshot, snapshot_status
+    from modules.campaign_hub import attach_acervo_context, merge_acervo_seed_candidates, load_snapshot, snapshot_status
 
     analyzer = AudioAnalyzer()
     energy_profile = _analyze_energy_with_cancel(analyzer, video_path, emit_progress, cancel_check)
@@ -1069,7 +1085,7 @@ def api_batch_rank():
         return jsonify({"error": "Cada candidato deve ser um objeto JSON"}), 400
 
     from modules.viral_ranker import ViralRanker
-    from modules.campaign_hub import attach_acervo_context, load_snapshot, snapshot_status
+    from modules.campaign_hub import attach_acervo_context, merge_acervo_seed_candidates, load_snapshot, snapshot_status
 
     options = data.get("options") or {}
     campaign_hub_snapshot = load_snapshot(options.get("campaign_hub_snapshot_path"))
@@ -1095,6 +1111,8 @@ def api_batch_rank():
             max_clips=min(50, int(options.get("max_clips", 50))),
             max_per_source=max(1, int(options.get("max_per_source", 8))),
             max_per_family=max(1, int(options.get("max_per_family", 14))),
+            favorability_mode=str(options.get("favorability_mode", "off") or "off"),
+            favorability_min=float(options.get("favorability_min", 60) or 60),
         )
     except (TypeError, ValueError) as exc:
         return jsonify({"error": f"Parâmetros de ranking inválidos: {exc}"}), 400
@@ -1196,6 +1214,34 @@ def api_persist_clip_adjustment(clip_id):
         },
         "render_status": "preview_only",
     })
+
+
+@app.route("/api/editorial/learning", methods=["GET"])
+def api_editorial_learning():
+    """Return aggregate-only reviewed-clip priors; raw text and media stay local."""
+    from modules.approved_clip_priors import build_feature_prior, load_feature_records
+    return jsonify(build_feature_prior(load_feature_records()))
+
+
+@app.route("/api/editorial/learning/import", methods=["POST"])
+def api_editorial_learning_import():
+    """Import a real local CSV/JSON/JSONL export into persistent aggregate features."""
+    data = request.get_json(silent=True) or {}
+    requested = str(data.get("path") or data.get("input_path") or "").strip()
+    if not requested:
+        return jsonify({"error": "Informe o caminho local do CSV, JSON ou JSONL."}), 400
+    target = os.path.abspath(os.path.expanduser(requested)) if os.path.isabs(requested) else os.path.abspath(os.path.join(_PERSISTENT_ROOT, requested))
+    allowed_roots = [os.path.abspath(_PERSISTENT_ROOT), os.path.abspath(WORKSPACE_DIR)]
+    if not any(_is_under(target, root) for root in allowed_roots) or not os.path.isfile(target):
+        return jsonify({"error": "O dataset deve existir em FuriaClipsData ou no workspace local."}), 400
+    try:
+        from modules.learning_importer import import_review_dataset
+        manifest = import_review_dataset(target)
+        from modules.approved_clip_priors import build_feature_prior, load_feature_records
+        manifest["prior"] = build_feature_prior(load_feature_records(manifest["output_path"]))
+        return jsonify(manifest)
+    except (OSError, ValueError, TypeError) as exc:
+        return jsonify({"error": str(exc)[:300]}), 400
 
 
 @app.route("/api/editorial/calibration", methods=["GET"])
@@ -2143,7 +2189,10 @@ def api_cut_shorts():
                         preferred_format=preferred_format,
                         ai_backend=None,
                         emit_progress=None,
-                        editorial_learning=get_headline_learning_preferences(),
+                        editorial_learning={
+                            **get_headline_learning_preferences(),
+                            "approved_clip_prior": _get_approved_clip_prior(),
+                        },
                     )
                     emit_progress(
                         f"[Auditoria editorial] Formato recomendado: {editorial_audit.get('recommended_format', 'auto')}; "
@@ -2199,7 +2248,7 @@ def api_cut_shorts():
             energy_profile = _analyze_energy_with_cancel(analyzer, video_path, emit_progress, ctx.check_cancel)
             try:
                 from modules.editorial_context import detect_hook_candidates
-                from modules.campaign_hub import attach_acervo_context, load_snapshot, snapshot_status
+                from modules.campaign_hub import attach_acervo_context, merge_acervo_seed_candidates, load_snapshot, snapshot_status
                 context_snapshot = load_snapshot(settings.get("campaign_hub_snapshot_path"))
                 settings.setdefault("editorial_context", {})["hook_candidates"] = detect_hook_candidates(
                     transcription.get("segments", []),
@@ -2263,7 +2312,7 @@ def api_cut_shorts():
                         if start <= float(change) <= end
                     ]
             from modules.viral_ranker import ViralRanker
-            from modules.campaign_hub import attach_acervo_context, load_snapshot, snapshot_status
+            from modules.campaign_hub import attach_acervo_context, merge_acervo_seed_candidates, load_snapshot, snapshot_status
             feedback_calibration = get_feedback_calibration()
             campaign_hub_snapshot = load_snapshot(settings.get("campaign_hub_snapshot_path"))
             campaign_hub_status = snapshot_status(settings.get("campaign_hub_snapshot_path"))
@@ -2278,6 +2327,13 @@ def api_cut_shorts():
                 account=campaign_hub_account,
                 source_id=source_context_id,
                 audience_segment=str(settings.get("audience_segment") or ""),
+            )
+            top_clips = merge_acervo_seed_candidates(
+                top_clips,
+                campaign_hub_snapshot,
+                account=campaign_hub_account,
+                source_id=source_context_id,
+                max_seeds=int(settings.get("campaign_hub_seed_limit", 8) or 8),
             )
             if campaign_hub_snapshot:
                 emit_progress(
@@ -2508,6 +2564,7 @@ def api_cut_shorts():
                     "audience_review_required": bool((clip_info.get("audience_fit") or {}).get("review_required")),
                     "audio_context": clip_info.get("audio_context", {}),
                     "favorability": clip_info.get("favorability", {}),
+                    "counterpunch": clip_info.get("counterpunch", {}),
                     "motion_context": clip_info.get("motion_context", {}),
                     "motion_intensity": clip_info.get("motion_intensity"),
                     "motion_review_required": bool(clip_info.get("motion_review_required")),
@@ -3027,7 +3084,10 @@ def api_analyze_headline_studio():
             mini_context=mini_context,
             preferred_format=preferred_format,
             ai_backend=ai,
-            editorial_learning=get_headline_learning_preferences(topic=learning_topic),
+            editorial_learning={
+                **get_headline_learning_preferences(topic=learning_topic),
+                "approved_clip_prior": _get_approved_clip_prior(),
+            },
         )
         result["clip_id"] = clip_id
         result["editorial_key"] = str((clip or {}).get("editorial_key") or "")
@@ -3307,7 +3367,7 @@ def api_process_complete():
             energy_profile = _analyze_energy_with_cancel(analyzer, working_video, emit_progress, ctx.check_cancel)
             try:
                 from modules.editorial_context import detect_hook_candidates
-                from modules.campaign_hub import attach_acervo_context, load_snapshot, snapshot_status
+                from modules.campaign_hub import attach_acervo_context, merge_acervo_seed_candidates, load_snapshot, snapshot_status
                 context_snapshot = load_snapshot(settings.get("campaign_hub_snapshot_path"))
                 settings.setdefault("editorial_context", {})["hook_candidates"] = detect_hook_candidates(
                     transcription.get("segments", []),
@@ -3351,7 +3411,7 @@ def api_process_complete():
             # ── Step 4: Rank and cut ──
             emit_progress("━━━ ETAPA 4/6: Ranqueando e Cortando ━━━", "info")
             from modules.viral_ranker import ViralRanker
-            from modules.campaign_hub import attach_acervo_context, load_snapshot, snapshot_status
+            from modules.campaign_hub import attach_acervo_context, merge_acervo_seed_candidates, load_snapshot, snapshot_status
             from modules.video_cutter import VideoCutter
             from modules.layout_planner import plan_layout
 
@@ -3382,6 +3442,13 @@ def api_process_complete():
                 account=campaign_hub_account,
                 source_id=source_context_id,
                 audience_segment=str(settings.get("audience_segment") or ""),
+            )
+            top_clips = merge_acervo_seed_candidates(
+                top_clips,
+                campaign_hub_snapshot,
+                account=campaign_hub_account,
+                source_id=source_context_id,
+                max_seeds=int(settings.get("campaign_hub_seed_limit", 8) or 8),
             )
             feedback_calibration = get_feedback_calibration()
             ranker = ViralRanker(
@@ -3690,6 +3757,7 @@ def api_process_complete():
                     "audience_review_required": bool((clip_info.get("audience_fit") or {}).get("review_required")),
                     "audio_context": clip_info.get("audio_context", {}),
                     "favorability": clip_info.get("favorability", {}),
+                    "counterpunch": clip_info.get("counterpunch", {}),
                     "motion_context": clip_info.get("motion_context", {}),
                     "motion_intensity": clip_info.get("motion_intensity"),
                     "motion_review_required": bool(clip_info.get("motion_review_required")),

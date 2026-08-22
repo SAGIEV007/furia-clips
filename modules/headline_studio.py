@@ -301,6 +301,13 @@ def _format_from_learning(editorial_learning: dict[str, Any] | None) -> tuple[st
         leader, count = max(overall_counts.items(), key=lambda item: int(item[1] or 0))
         if leader in FORMAT_IDS and int(count or 0) >= 4:
             return leader, int(count), "no seu histórico geral"
+    approved_prior = editorial_learning.get("approved_clip_prior")
+    if isinstance(approved_prior, dict) and approved_prior.get("eligible"):
+        approved_by_format = approved_prior.get("approved_by_format")
+        if isinstance(approved_by_format, dict) and approved_by_format:
+            leader, count = max(approved_by_format.items(), key=lambda item: int(item[1] or 0))
+            if leader in FORMAT_IDS and int(count or 0) >= 4:
+                return leader, int(count), "nos cortes aprovados locais"
     return "", 0, ""
 
 
@@ -379,6 +386,11 @@ def _fallback_result(
             "context_completeness": signals.get("context_completeness", 0),
             "claim_strength": signals.get("claim_strength", 0),
             "conflict_or_stakes": signals.get("conflict_or_stakes", 0),
+            "approved_clip_prior": {
+                "eligible": bool((editorial_learning or {}).get("approved_clip_prior", {}).get("eligible")) if isinstance((editorial_learning or {}).get("approved_clip_prior"), dict) else False,
+                "approved_count": int((editorial_learning or {}).get("approved_clip_prior", {}).get("approved_count", 0) or 0) if isinstance((editorial_learning or {}).get("approved_clip_prior"), dict) else 0,
+                "influence_scope": str((editorial_learning or {}).get("approved_clip_prior", {}).get("influence_scope", "") or "") if isinstance((editorial_learning or {}).get("approved_clip_prior"), dict) else "",
+            },
         },
         "generation_source": "editorial_fallback",
         "learning_applied": {
@@ -526,6 +538,9 @@ TRANSCRIÇÃO DO CORTE:
 
 MINICONTEXTO DO EDITOR:
 {context or '(nenhum)'}
+
+HISTÓRICO AGREGADO DE CORTES APROVADOS (use apenas como padrão, nunca copie texto e nunca substitua a transcrição):
+{json.dumps((result.get('analysis') or {}).get('approved_clip_prior') or {}, ensure_ascii=False)}
 
 Produza JSON neste formato:
 {{

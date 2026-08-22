@@ -65,3 +65,28 @@ class DailyPortfolioTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+    def test_favorability_prioritize_keeps_ambiguous_candidates_in_review(self):
+        candidates = [
+            self._candidate("live-a", "Uma tese clara termina com consequência.", score=80, favorability={"available": True, "eligible": True, "signal": 82, "review_required": False}),
+            self._candidate("live-b", "Outra tese clara termina com consequência.", score=79, favorability={"available": True, "eligible": True, "signal": 48, "review_required": True}),
+        ]
+        result = build_daily_portfolio(candidates, target_min=1, max_clips=2, favorability_mode="prioritize")
+        assert result["summary"]["favorability_policy"]["mode"] == "prioritize"
+        assert result["summary"]["selected_count"] == 2
+        ambiguous = next(item for item in result["clips"] if item["source_id"] == "live-b")
+        assert ambiguous["daily_favorability_status"] == "needs_review"
+        assert ambiguous["daily_favorability_review_required"] is True
+
+    def test_favorability_require_is_explicit_and_does_not_change_default_mode(self):
+        candidates = [
+            self._candidate("live-a", "Uma tese clara termina com consequência.", score=90),
+            self._candidate("live-b", "Uma defesa clara termina com consequência.", score=89, favorability={"available": True, "eligible": True, "signal": 42}),
+        ]
+        default_result = build_daily_portfolio(candidates, target_min=1, max_clips=2)
+        strict_result = build_daily_portfolio(candidates, target_min=1, max_clips=2, favorability_mode="require", favorability_min=60)
+        assert default_result["summary"]["favorability_policy"]["mode"] == "off"
+        assert default_result["summary"]["selected_count"] == 2
+        assert strict_result["summary"]["selected_count"] == 0
+        assert strict_result["summary"]["rejections"]["favorabilidade_abaixo_do_minimo"] == 1

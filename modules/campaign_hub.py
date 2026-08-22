@@ -246,9 +246,16 @@ def _token_similarity(left: Any, right: Any) -> float:
     return round(max(jaccard, sequence * 0.75), 4)
 
 
-def _interval_overlap_ratio(start: float, end: float, other_start: float, other_end: float) -> float:
-    overlap = max(0.0, min(end, other_end) - max(start, other_start))
-    return overlap / max(0.001, min(end - start, other_end - other_start))
+def _interval_overlap_ratio(start: float | None, end: float | None, other_start: float | None, other_end: float | None) -> float:
+    try:
+        start_value, end_value = float(start), float(end)
+        other_start_value, other_end_value = float(other_start), float(other_end)
+    except (TypeError, ValueError):
+        return 0.0
+    if end_value <= start_value or other_end_value <= other_start_value:
+        return 0.0
+    overlap = max(0.0, min(end_value, other_end_value) - max(start_value, other_start_value))
+    return overlap / max(0.001, min(end_value - start_value, other_end_value - other_start_value))
 
 
 def normalize_snapshot(payload: Any) -> dict[str, Any] | None:
@@ -714,6 +721,106 @@ def build_acervo_alignment(
         "source_video_id": block.get("source_video_id", ""),
     })
     return result
+
+
+def merge_acervo_seed_candidates(
+    clips: list[dict[str, Any]],
+    snapshot: dict[str, Any] | None,
+    *,
+    account: str | None = None,
+    source_id: Any = "",
+    max_seeds: int = 8,
+) -> list[dict[str, Any]]:
+    """Add same-source Acervo moments as review-only candidate seeds.
+
+    Seeds never use text similarity alone. They require a verified source id and
+    a valid timestamp interval from the exported snapshot. The text is a short
+    editorial summary, not a substitute for the local transcript, so the seed
+    is always marked ``context_seed_only`` and ``transcription_review_required``.
+    """
+    if not isinstance(clips, list) or not isinstance(snapshot, dict):
+        return clips
+    local_source = _source_key(source_id)
+    if not local_source:
+        return clips
+    accounts = snapshot.get("accounts", {}) if isinstance(snapshot.get("accounts"), dict) else {}
+    selected_account = account if account in SUPPORTED_ACCOUNTS else snapshot.get("default_account", "@renansantosmbl")
+    account_data = accounts.get(selected_account, {}) if isinstance(accounts.get(selected_account), dict) else {}
+    blocks = list(account_data.get("acervo_blocks", []) or []) + list(account_data.get("acervo_pauta", []) or [])
+    if not blocks:
+        return clips
+    try:
+        seed_limit = max(1, min(24, int(max_seeds or 1)))
+    except (TypeError, ValueError):
+        seed_limit = 8
+    existing = [item for item in clips if isinstance(item, dict)]
+    seeds = []
+    for block in blocks:
+        if len(seeds) >= seed_limit:
+            break
+        if not isinstance(block, dict):
+            continue
+        block_source = _source_key(block.get("source_video_id") or block.get("source_url"))
+        if not block_source or block_source != local_source:
+            continue
+        start = _normalize_time(block.get("start_seconds"))
+        end = _normalize_time(block.get("end_seconds"))
+        if start is None or end is None or end <= start:
+            continue
+        highlight = next((item for item in block.get("highlights", []) if isinstance(item, dict)), {})
+        summary = _safe_text(
+            " ".join(
+                part for part in (
+                    highlight.get("text", ""),
+                    block.get("title", ""),
+                    block.get("summary", ""),
+                ) if str(part or "").strip()
+            ),
+            420,
+        )
+        if not summary:
+            continue
+        if any(
+            _source_key(item.get("source_id") or item.get("source_video_id") or item.get("video_id")) == local_source
+            and _interval_overlap_ratio(_normalize_time(item.get("start")), _normalize_time(item.get("end")), start, end) >= 0.72
+            for item in existing + seeds
+            if _normalize_time(item.get("start")) is not None and _normalize_time(item.get("end")) is not None
+        ):
+            continue
+        alignment = build_acervo_alignment(
+            summary, start, end, source_id=local_source, account=selected_account, snapshot=snapshot,
+        )
+        if not alignment.get("available"):
+            continue
+        seeds.append({
+            "start": start,
+            "end": end,
+            "duration": round(end - start, 3),
+            "text": summary,
+            "title": block.get("title", ""),
+            "reason": "seed Acervo same-source; resumo importado precisa ser confirmado na transcrição local",
+            "source": "campaign_hub_acervo_seed",
+            "candidate_origin": "campaign_hub_acervo_seed",
+            "source_id": local_source,
+            "source_video_id": local_source,
+            "context_seed_only": True,
+            "transcription_review_required": True,
+            "transcription_coverage_status": "summary_only",
+            "review_flags": {"context_seed_only": True, "transcription_review_required": True},
+            "speaker": "",
+            "renan_speaking": block.get("renan_speaking"),
+            "acervo_seed": {
+                "block_id": block.get("block_id", ""),
+                "title": block.get("title", ""),
+                "category": block.get("category", ""),
+                "density_rank": block.get("density_rank"),
+                "self_contained_rank": block.get("self_contained_rank"),
+                "review_required": True,
+                "reason": "seed temporal same-source; revisar transcrição, locutor e contexto antes de aprovar",
+            },
+            "acervo_alignment": alignment,
+        })
+    return existing + seeds
 
 
 def build_audience_fit(

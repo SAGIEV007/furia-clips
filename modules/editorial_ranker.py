@@ -166,7 +166,31 @@ def _favorability_signal(clip: dict, text: str, political_signals: dict, editori
     defensive_cues = sum(normalized.count(cue) for cue in ("fui acusado", "estou sendo acusado", "nao sei", "talvez", "preciso verificar", "vou apurar"))
     reversal_cues = sum(normalized.count(cue) for cue in ("por isso", "a verdade e", "fica claro", "na pratica", "mas a realidade"))
     known_renan_speaker = _normalize(str(clip.get("speaker") or "")) in {"renan", "renan santos"} or _coerce_flag(clip.get("renan_speaking"))
+    question_text = _normalize(" ".join(str(clip.get(key) or "") for key in ("question_text", "setup_text", "previous_text"))).strip()
+    hostile_question_cues = ("voce nao", "como voce explica", "voce admite", "voce defende", "isso nao e", "qual a sua culpa", "por que voce")
+    hostile_question = _coerce_flag(clip.get("hostile_question")) or _coerce_flag(clip.get("question_attack")) or any(cue in question_text for cue in hostile_question_cues)
+    question_detected = _coerce_flag(clip.get("question_detected")) or bool(question_text)
+    qa_complete = _coerce_flag(clip.get("question_answer_complete")) or _coerce_flag(clip.get("qa_bridge"))
+    answer_markers = sum(normalized.count(cue) for cue in ("a verdade e", "por isso", "na pratica", "fica claro", "os dados", "a prova", "a resposta"))
+    counterpunch_available = bool(question_detected and (qa_complete or question_text))
+    counterpunch_signal = 50.0
+    if question_detected:
+        counterpunch_signal += 8.0
+    if hostile_question:
+        counterpunch_signal += 12.0
+    if qa_complete:
+        counterpunch_signal += 16.0
+    if known_renan_speaker:
+        counterpunch_signal += 8.0
+    counterpunch_signal += min(8.0, answer_markers * 2.0)
+    if question_detected and not qa_complete:
+        counterpunch_signal -= 18.0
+    if not counterpunch_available:
+        counterpunch_signal = 50.0
+    counterpunch_signal = _bounded_score(counterpunch_signal)
     signal = base + (8.0 if known_renan_speaker else 0.0) + min(8.0, reversal_cues * 2.0) - min(12.0, defensive_cues * 4.0)
+    if counterpunch_available:
+        signal += (counterpunch_signal - 50.0) * 0.12
     confidence = 0.72 if known_renan_speaker else 0.42
     review_required = _coerce_flag(clip.get("favorability_review_required")) or _coerce_flag(clip.get("speaker_review_required"))
     return {
@@ -176,7 +200,17 @@ def _favorability_signal(clip: dict, text: str, political_signals: dict, editori
         "confidence": confidence,
         "review_required": review_required,
         "speaker_basis": "speaker_metadata_or_acervo" if known_renan_speaker else "textual_editorial_signal_only",
-        "reason": "tese, evidência, consequência e conclusão favorecem posição editorial forte" if signal >= 60 else "força editorial ambígua; confirmar se Renan está em posição de resposta ou defesa",
+        "counterpunch": {
+            "available": counterpunch_available,
+            "signal": round(counterpunch_signal, 1),
+            "hostile_question": hostile_question,
+            "question_detected": question_detected,
+            "answer_complete": qa_complete,
+            "confidence": round(0.72 if known_renan_speaker and qa_complete else 0.42 if counterpunch_available else 0.0, 2),
+            "review_required": bool(counterpunch_available and (not known_renan_speaker or not qa_complete)),
+            "reason": "pergunta potencialmente hostil seguida de resposta com tese ou evidência; confirmar locutores e contexto" if counterpunch_signal >= 68 else "sinal QA incompleto ou ambíguo; não tratar como coice confirmado",
+        },
+        "reason": "resposta forte após possível ataque, com tese, evidência e consequência" if counterpunch_signal >= 68 and signal >= 60 else "tese, evidência, consequência e conclusão favorecem posição editorial forte" if signal >= 60 else "força editorial ambígua; confirmar se Renan está em posição de resposta ou defesa",
     }
 
 
@@ -315,7 +349,6 @@ class EditorialRanker:
         )
         instagram_pattern_prior = build_editorial_pattern_prior(text, clip)
         audio_context = _audio_context_signal(clip, energy_profile, start, end)
-        favorability = _favorability_signal(clip, text, political_signals if 'political_signals' in locals() else {}, self.editorial_profile, self.channel_context)
         factors = {
             "hook": self._hook(text),
             "flow": self._flow(text, duration),
@@ -341,7 +374,6 @@ class EditorialRanker:
             "campaign_hub_prior": campaign_hub_prior["observed_signal"],
             "acervo_alignment": acervo_alignment.get("signal", 50.0),
             "audience_fit": audience_fit.get("signal", 50.0),
-            "favorability": favorability.get("signal", 50.0),
         }
         political_signals = {}
         if self.editorial_profile in (PROFILE_NAME, "politics", "political"):
@@ -359,6 +391,7 @@ class EditorialRanker:
             })
         favorability = _favorability_signal(clip, text, political_signals, self.editorial_profile, self.channel_context)
         factors["favorability"] = favorability.get("signal", 50.0)
+        factors["counterpunch"] = (favorability.get("counterpunch") or {}).get("signal", 50.0)
         weights = {
             "hook": 0.17,
             "flow": 0.16,
@@ -424,6 +457,7 @@ class EditorialRanker:
             + (factors["qa_boundary"] - 50.0) * 0.04
             + (factors["contextual_hook_alignment"] - 50.0) * 0.05
             + (factors["feedback_reason_alignment"] - 50.0) * 0.03
+            + (factors["counterpunch"] - 50.0) * 0.04
         ))
         context_contract = any(
             key in clip
@@ -624,6 +658,7 @@ class EditorialRanker:
             "audio_context": audio_context,
             "favorability": favorability,
             "favorability_score": favorability.get("signal", 50.0),
+            "counterpunch": favorability.get("counterpunch", {}),
             "instagram_pattern_prior": instagram_pattern_prior,
             "feedback_calibration": feedback_calibration,
             "technical_gate": technical_gate,
@@ -698,6 +733,8 @@ class EditorialRanker:
                 "favorability_review_required": bool(favorability.get("review_required")),
                 "favorability_eligible": bool(favorability.get("eligible")),
                 "favorability_score": favorability.get("signal", 50.0),
+                "counterpunch_available": bool((favorability.get("counterpunch") or {}).get("available")),
+                "counterpunch_review_required": bool((favorability.get("counterpunch") or {}).get("review_required")),
                 "instagram_pattern_prior_available": bool(instagram_pattern_prior["available"]),
                 "instagram_pattern_family": instagram_pattern_prior["family"],
                 "instagram_pattern_sample_count": instagram_pattern_prior["sample_count"],
@@ -734,7 +771,7 @@ class EditorialRanker:
         status = "review_required" if review_required or gate_requires_review else "candidate"
         return {
             "context": average(("context_quality", "completeness", "argument_structure", "chapter_coherence", "qa_boundary")),
-            "editorial_strength": average(("hook", "flow", "value", "contextual_hook_alignment", "editorial_family_fit", "favorability")),
+            "editorial_strength": average(("hook", "flow", "value", "contextual_hook_alignment", "editorial_family_fit", "favorability", "counterpunch")),
             "technical": average(("audio_energy", "audio_reaction", "audio_onset", "speaker_boundary", "qa_boundary", "duration_fit", "visual_change_density")),
             "confidence": round(round(max(0.0, min(1.0, _safe_float(confidence, 0.0))), 2) * 100.0, 1),
             "status": status,
@@ -804,7 +841,7 @@ class EditorialRanker:
         penalty = 0
         contract_keys = {
             "starts_mid_sentence", "question_detected", "question_answer_complete",
-            "evidence_present", "payoff_complete", "context_complete",
+            "evidence_present", "payoff_complete", "context_complete", "context_seed_only",
             "overlap_suspected", "timing_ambiguous", "speaker_turn_valid",
             "topic_boundary", "topic_change_detected", "needs_topic_review",
         }
@@ -813,7 +850,10 @@ class EditorialRanker:
             factors.get("context_completeness", 50) >= 70
             or factors.get("completeness", 50) >= 75
         )
+        context_seed_only = _coerce_flag(clip.get("context_seed_only"))
         context_complete = _coerce_flag(clip.get("context_complete"), default=inferred_context) if "context_complete" in clip else inferred_context
+        if context_seed_only:
+            context_complete = False
         payoff_complete = _coerce_flag(clip.get("payoff_complete"), default=factors.get("completeness", 50) >= 75) if "payoff_complete" in clip else bool(factors.get("completeness", 50) >= 75)
         question_detected = _coerce_flag(clip.get("question_detected")) if "question_detected" in clip else False
         qa_bridge = _coerce_flag(clip.get("qa_bridge")) if "qa_bridge" in clip else False
@@ -844,6 +884,9 @@ class EditorialRanker:
         if topic_review_required:
             penalty += 8
             reasons.append("mudança de tópico detectada; confirmar continuidade do assunto")
+        if context_seed_only:
+            penalty += 22
+            reasons.append("seed Acervo baseado em resumo; confirmar transcrição local, locutor e contexto")
         if speaker_review_required and not speaker_turn_invalid:
             penalty += 8
             reasons.append("locutor ou ponte pergunta–resposta sem confirmação confiável")
@@ -905,6 +948,7 @@ class EditorialRanker:
             "topic_review_reason": "mudança de tópico detectada; confirmar continuidade do assunto" if topic_review_required else "",
             "entity_context_review_required": entity_context_review_required,
             "contract_available": has_contract,
+            "context_seed_only": context_seed_only,
         }
 
     def _duration_fit(self, duration: float) -> float:
@@ -1268,6 +1312,7 @@ class EditorialRanker:
             "contextual_hook_alignment": "alinhamento ao hook contextual",
             "feedback_reason_alignment": "calibração por motivo editorial",
             "favorability": "força editorial para o perfil configurado",
+            "counterpunch": "resposta forte após possível ataque",
         }
         ordered = sorted(factors.items(), key=lambda pair: pair[1], reverse=True)
         top = [labels[key] for key, value in ordered[:3] if value >= 60]

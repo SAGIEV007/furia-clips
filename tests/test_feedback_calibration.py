@@ -259,3 +259,17 @@ def test_origin_signal_requires_balanced_origin_sample(monkeypatch, tmp_path):
         "confidence": 0.9,
     })
     assert scored["feedback_calibration"]["candidate_origin_adjustment"] == 0.0
+
+
+
+def test_database_approved_clip_feature_prior_is_aggregate_only(monkeypatch, tmp_path):
+    _build_feedback_history(monkeypatch, tmp_path)
+    from database import get_approved_clip_feature_prior
+
+    prior = get_approved_clip_feature_prior(min_samples=6)
+    assert prior["eligible"] is True
+    assert prior["approved_count"] == 6
+    assert prior["rejected_count"] == 6
+    assert prior["influence_scope"].startswith("aggregate-only")
+    assert "transcript" not in str(prior)
+    assert "file_path" not in str(prior)

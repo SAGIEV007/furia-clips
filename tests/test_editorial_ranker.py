@@ -860,3 +860,62 @@ def test_ranker_favorability_is_bounded_and_does_not_override_context_gate():
     assert result["favorability"]["confidence"] == 0.72
     assert result["quality_scorecard"]["status"] == "review_required"
     assert result["technical_gate"]["status"] in {"review", "weak"}
+
+
+
+def test_counterpunch_signal_requires_qa_and_keeps_review_when_speaker_is_unknown():
+    ranker = EditorialRanker(
+        editorial_profile="renan_santos_politics",
+        channel_context="cortes políticos Renan Santos MBL",
+    )
+    result = ranker.score_clip({
+        "start": 0,
+        "end": 42,
+        "duration": 42,
+        "speaker": "",
+        "question_text": "Como você explica que isso não é uma falha?",
+        "question_detected": True,
+        "question_answer_complete": True,
+        "text": "A verdade é que os dados mostram o contrário. Por isso, fica claro qual é a resposta.",
+    })
+
+    signal = result["counterpunch"]
+    assert signal["available"] is True
+    assert signal["hostile_question"] is True
+    assert signal["answer_complete"] is True
+    assert signal["review_required"] is True
+    assert 0 <= signal["signal"] <= 100
+    assert result["review_flags"]["counterpunch_review_required"] is True
+
+
+def test_counterpunch_does_not_create_a_context_gate_without_question_evidence():
+    ranker = EditorialRanker(editorial_profile="renan_santos_politics")
+    result = ranker.score_clip({
+        "start": 0,
+        "end": 30,
+        "duration": 30,
+        "speaker": "renan",
+        "text": "A resposta é clara e os dados sustentam a proposta.",
+    })
+
+    assert result["counterpunch"]["available"] is False
+    assert result["counterpunch"]["signal"] == 50.0
+    assert result["review_flags"]["counterpunch_available"] is False
+
+
+
+def test_acervo_context_seed_is_always_review_only():
+    ranker = EditorialRanker(editorial_profile="renan_santos_politics")
+    result = ranker.score_clip({
+        "start": 10,
+        "end": 34,
+        "duration": 24,
+        "text": "Resumo editorial: resposta com tese e consequência.",
+        "context_seed_only": True,
+        "transcription_review_required": True,
+        "transcription_coverage_status": "summary_only",
+    })
+    assert result["technical_gate"]["context_seed_only"] is True
+    assert result["technical_gate"]["status"] in {"review", "weak"}
+    assert result["quality_scorecard"]["status"] == "review_required"
+    assert result["review_flags"]["technical_gate_status"] in {"review", "weak", "review_required"}

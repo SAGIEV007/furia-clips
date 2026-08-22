@@ -1407,6 +1407,57 @@ def get_feedback_calibration(min_samples=12, min_per_outcome=3):
 
 
 
+def get_approved_clip_feature_prior(min_samples=12):
+    """Build aggregate-only priors from local final clip decisions.
+
+    Raw transcript, file paths and headline text are never returned. This is a
+    local calibration aid, not model fine-tuning and not a Campaign Hub write.
+    """
+    from modules.approved_clip_priors import build_feature_prior
+
+    conn = get_db()
+    rows = conn.execute(
+        """SELECT clips.duration, clips.score_factors, clips.review_status,
+                  (SELECT format_id FROM headline_feedback
+                   WHERE headline_feedback.clip_id = clips.id
+                     AND headline_feedback.action = 'selected'
+                   ORDER BY headline_feedback.id DESC LIMIT 1) AS format_id,
+                  (SELECT artwork_text FROM headline_feedback
+                   WHERE headline_feedback.clip_id = clips.id
+                     AND headline_feedback.action = 'selected'
+                   ORDER BY headline_feedback.id DESC LIMIT 1) AS artwork_text,
+                  (SELECT topic FROM headline_feedback
+                   WHERE headline_feedback.clip_id = clips.id
+                     AND headline_feedback.action = 'selected'
+                   ORDER BY headline_feedback.id DESC LIMIT 1) AS topic
+           FROM clips
+           WHERE clips.review_status IN ('approved', 'rejected')"""
+    ).fetchall()
+    conn.close()
+    records = []
+    for row in rows:
+        try:
+            factors = json.loads(row["score_factors"] or "{}")
+        except (TypeError, ValueError, json.JSONDecodeError):
+            factors = {}
+        if not isinstance(factors, dict):
+            factors = {}
+        numeric_factors = {
+            key: value for key, value in factors.items()
+            if isinstance(key, str) and isinstance(value, (int, float)) and math.isfinite(float(value))
+        }
+        records.append({
+            "decision": row["review_status"],
+            "duration": row["duration"],
+            "format_id": row["format_id"] or "unknown",
+            "headline": row["artwork_text"] or "",
+            "topic": row["topic"] or "unknown",
+            "hook_family": factors.get("editorial_family") or factors.get("hook_family") or "unknown",
+            "factors": numeric_factors,
+        })
+    return build_feature_prior(records, min_samples=min_samples)
+
+
 def get_daily_editorial_progress(target_min=39, target_max=50):
     """Summarize today's review workflow from persisted clip decisions.
 
