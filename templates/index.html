@@ -35,8 +35,8 @@
             </div>
 
             <!-- Settings -->
-            <div class="sidebar-section">
-                <h3><span class="material-icons-round">settings</span> Configuracoes</h3>
+            <details class="sidebar-section sidebar-disclosure" open>
+                <summary><span class="material-icons-round">settings</span><span>Configurações</span><span class="summary-meta">essencial</span><span class="summary-indicator material-icons-round">expand_more</span></summary>
 
                 <div class="setting-group">
                     <label>Modelo Whisper (fallback local)</label>
@@ -155,11 +155,11 @@
                         <div class="toggle-slider"></div>
                     </div>
                 </div>
-            </div>
+            </details>
 
             <!-- AI Backend -->
-            <div class="sidebar-section">
-                <h3><span class="material-icons-round">smart_toy</span> Backend de IA</h3>
+            <details class="sidebar-section sidebar-disclosure">
+                <summary><span class="material-icons-round">smart_toy</span><span>Motor de IA</span><span class="summary-meta">avançado</span><span class="summary-indicator material-icons-round">expand_more</span></summary>
 
                 <div class="setting-group">
                     <label>Motor de IA</label>
@@ -212,11 +212,11 @@
                         <span class="mode-label" id="ollamaModeLabel">---</span>
                     </div>
                 </div>
-            </div>
+            </details>
 
             <!-- Output Directory -->
-            <div class="sidebar-section">
-                <h3><span class="material-icons-round">folder_open</span> Pasta de Saida</h3>
+            <details class="sidebar-section sidebar-disclosure" open>
+                <summary><span class="material-icons-round">folder_open</span><span>Pasta de saída</span><span class="summary-meta">destino</span><span class="summary-indicator material-icons-round">expand_more</span></summary>
                 <div class="setting-group">
                     <div class="output-dir-display" id="outputDirDisplay">
                         <span class="material-icons-round">folder</span>
@@ -229,7 +229,7 @@
                         <span class="material-icons-round">folder_open</span> Abrir Pasta de Downloads
                     </button>
                 </div>
-            </div>
+            </details>
 
             <button class="btn btn-save-settings" id="btnSaveSettings">
                 <span class="material-icons-round">save</span>
@@ -274,6 +274,15 @@
             <div class="workflow-step"><span class="workflow-index">04</span><span><strong>Aprendizado</strong><small>Calibrar o ranking</small></span></div>
         </nav>
 
+        <nav class="workbench-nav" aria-label="Atalhos da bancada editorial">
+            <span class="workbench-nav-label"><span class="material-icons-round">north_east</span> navegar pela bancada</span>
+            <a class="workbench-nav-link active" href="#mediaLibrarySection"><span>01</span> Fonte</a>
+            <a class="workbench-nav-link" href="#contextSection"><span>02</span> Contexto</a>
+            <a class="workbench-nav-link" href="#actionsSection"><span>03</span> Cortar</a>
+            <a class="workbench-nav-link" href="#resultsSection"><span>04</span> Revisar</a>
+            <a class="workbench-nav-link" href="#headlineStudioSection"><span>05</span> Texto de arte</a>
+        </nav>
+
         <!-- Media Library (like CapCut) -->
         <section class="section" id="mediaLibrarySection">
             <div class="section-header">
@@ -289,6 +298,9 @@
                 <span class="material-icons-round">cloud_upload</span>
                 <p>Arraste um video aqui ou clique em <strong>Importar Video</strong></p>
                 <span class="drop-formats">MP4, MKV, AVI, MOV, WebM</span>
+                <div class="drop-zone-flow" aria-hidden="true">
+                    <span><b>01</b> importar</span><i></i><span><b>02</b> entender</span><i></i><span><b>03</b> revisar</span>
+                </div>
             </div>
 
             <div class="media-grid" id="mediaGrid">

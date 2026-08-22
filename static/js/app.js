@@ -5015,3 +5015,45 @@ document.getElementById("campaignSearchInput")?.addEventListener("keydown", (eve
         searchCampaignHubEditorial();
     }
 });
+
+
+// ─── Editorial workbench navigation ───
+function setupWorkbenchNavigation() {
+    const links = Array.from(document.querySelectorAll(".workbench-nav-link[href^='#']"));
+    if (!links.length) return;
+    const entries = links.map((link) => ({
+        link,
+        section: document.querySelector(link.getAttribute("href")),
+    })).filter(({ section }) => section);
+    if (!entries.length) return;
+
+    const setActive = (activeLink) => {
+        links.forEach((link) => link.classList.toggle("active", link === activeLink));
+    };
+    const refresh = () => {
+        const visibleEntries = entries.filter(({ section }) => {
+            const style = window.getComputedStyle(section);
+            return style.display !== "none" && !section.hidden;
+        });
+        if (!visibleEntries.length) return;
+        let current = visibleEntries[0];
+        visibleEntries.forEach((entry) => {
+            if (entry.section.getBoundingClientRect().top <= 190) current = entry;
+        });
+        setActive(current.link);
+    };
+    const scheduleRefresh = () => {
+        if (window.__furiaWorkbenchNavFrame) return;
+        window.__furiaWorkbenchNavFrame = window.requestAnimationFrame(() => {
+            window.__furiaWorkbenchNavFrame = 0;
+            refresh();
+        });
+    };
+
+    links.forEach((link) => link.addEventListener("click", () => setActive(link)));
+    window.addEventListener("scroll", scheduleRefresh, { passive: true });
+    window.addEventListener("resize", scheduleRefresh);
+    refresh();
+}
+
+document.addEventListener("DOMContentLoaded", setupWorkbenchNavigation);
