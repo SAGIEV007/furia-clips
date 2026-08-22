@@ -300,3 +300,8 @@ Não basta a IA escrever “eu”. Sem identificação explícita do locutor no 
 ## 43. Eyebrow com segurança contextual
 
 A IA não pode esconder uma invenção no selo superior. Se o eyebrow trouxer um nome, número ou primeira pessoa que a legenda não sustenta, toda a alternativa é descartada. Um selo estilístico sem fato continua permitido.
+
+
+## 44. Países não são inferidos
+
+A palavra “país” não vira automaticamente “Brasil”. O Headline Studio só usa o nome Brasil quando ele está na transcrição ou no contexto permitido, evitando atribuição geográfica inventada.

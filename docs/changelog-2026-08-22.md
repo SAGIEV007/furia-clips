@@ -560,3 +560,9 @@ Regressão adicionada para uma resposta de IA com “Eu defendo...”; testes es
 O filtro do Headline Studio agora verifica o texto superior da arte além da headline. Entidades políticas, números ou primeira pessoa inventados no eyebrow fazem a sugestão inteira ser rejeitada; palavras estilísticas sem alegação factual, como “ATENÇÃO”, continuam permitidas.
 
 Regressão adicionada para eyebrow “LULA” sem fonte; testes específicos: **40 aprovados**.
+
+
+## País não inferido como Brasil — 2026-08-22
+Foi corrigida uma deriva semântica adicional: claims como “O BRASIL COBRA...” e “BRASIL ESCOLHEU...” agora só são gerados quando a legenda contém explicitamente Brasil. Se a fonte disser apenas “um país” ou “o país”, o texto permanece nessa forma ou usa a frase extractiva original.
+
+Regressões adicionadas para fiscal e cripto; testes específicos: **41 aprovados**.

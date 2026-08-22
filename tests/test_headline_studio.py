@@ -745,3 +745,24 @@ def test_ai_filter_rejects_unseen_entity_in_eyebrow():
     )
     assert result["generation_source"] == "editorial_fallback"
     assert result["formats"][FORMAT_SQUARE]["suggestions"][0]["eyebrow"] == ""
+
+
+
+def test_country_is_not_inferred_as_brazil_in_grounded_headlines():
+    fiscal = generate_artwork_copy(
+        "Um país pobre cobra imposto de país rico e precisa mexer nas despesas.",
+        preferred_format=FORMAT_SQUARE,
+        ai_backend=None,
+    )
+    fiscal_headlines = [item["headline"] for item in fiscal["formats"][FORMAT_SQUARE]["suggestions"]]
+    assert "O BRASIL COBRA IMPOSTO DE PAÍS RICO" not in fiscal_headlines
+    assert "PAÍS POBRE COBRA IMPOSTO DE PAÍS RICO" in fiscal_headlines
+
+    crypto = generate_artwork_copy(
+        "O país escolheu o caminho arcaico para tratar as criptos.",
+        preferred_format=FORMAT_SQUARE,
+        ai_backend=None,
+    )
+    crypto_headlines = [item["headline"] for item in crypto["formats"][FORMAT_SQUARE]["suggestions"]]
+    assert all("BRASIL" not in headline for headline in crypto_headlines)
+    assert any("CAMINHO ARCAICO" in headline for headline in crypto_headlines)
