@@ -71,3 +71,34 @@ def test_adjust_clip_bounds_rejects_non_finite_bounds_and_duration():
 def test_adjust_clip_bounds_rejects_invalid_interval():
     with pytest.raises(ValueError):
         adjust_clip_bounds({"start": 10, "end": 20}, start=20, end=10)
+
+
+
+def test_adjust_clip_bounds_prefers_word_boundaries_when_available():
+    adjusted = adjust_clip_bounds(
+        {"start": 10, "end": 25},
+        start=10.95,
+        end=24.35,
+        transcript_segments=[
+            {
+                "start": 10.0,
+                "end": 15.0,
+                "words": [
+                    {"start": 10.6, "end": 11.0},
+                    {"start": 12.0, "end": 12.5},
+                ],
+            },
+            {
+                "start": 18.0,
+                "end": 24.0,
+                "words": [
+                    {"start": 23.8, "end": 24.3},
+                    {"start": 24.15, "end": 24.6},
+                ],
+            },
+        ],
+    )
+
+    assert adjusted["start"] == 10.6
+    assert adjusted["end"] == 24.3
+    assert adjusted["boundary_adjustment"]["source"] == "transcript"

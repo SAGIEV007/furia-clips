@@ -288,3 +288,9 @@ O ajuste opcional por mudanças de cena deixou de mover limites para dentro do t
 A mudança preserva o conteúdo semântico já selecionado e reduz o risco de cortar a primeira ou a última palavra apenas porque uma transição visual foi detectada. Foram adicionados testes para expansão externa, não redução e entradas inválidas.
 
 Validação: **682 testes aprovados**, `node --check`, `py_compile`, `git diff --check` e auditoria de segredos sem achados. Campaign Hub permaneceu somente leitura.
+
+## Precisão editorial — ajuste manual orientado por palavras
+
+O ajuste manual de entrada e saída agora prefere `word.start` para o início e `word.end` para o fim quando a transcrição timestampada contém palavras válidas. Isso evita que um clique aproximado seja alinhado apenas ao limite amplo do segmento e reduz o risco de incluir ou remover fala desnecessária. Se não houver palavras válidas, o comportamento anterior por segmentos permanece como fallback; entradas inválidas continuam sendo ignoradas com segurança.
+
+Foi adicionada cobertura de regressão para confirmar a preferência por palavras, a não mutação do clip canônico, a duração mínima e a rejeição de limites não finitos. Validação: **683 testes aprovados**, `node --check`, `py_compile`, `git diff --check` e auditoria de segredos sem achados. Campaign Hub permaneceu somente leitura.

@@ -105,18 +105,28 @@ def _snap_boundary(
 ) -> float:
     if not isinstance(segments, list) or not segments:
         return value
-    candidates = []
+    word_candidates = []
+    segment_candidates = []
+    key = "start" if side == "start" else "end"
     for segment in segments:
         if not isinstance(segment, dict):
             continue
-        key = "start" if side == "start" else "end"
+        for word in segment.get("words") or []:
+            if not isinstance(word, dict):
+                continue
+            try:
+                boundary = float(word.get(key))
+            except (TypeError, ValueError):
+                continue
+            if math.isfinite(boundary) and boundary >= 0:
+                word_candidates.append(boundary)
         try:
             boundary = float(segment.get(key))
         except (TypeError, ValueError):
             continue
-        if not math.isfinite(boundary) or boundary < 0:
-            continue
-        candidates.append(boundary)
+        if math.isfinite(boundary) and boundary >= 0:
+            segment_candidates.append(boundary)
+    candidates = word_candidates or segment_candidates
     if not candidates:
         return value
     try:
