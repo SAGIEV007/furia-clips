@@ -190,3 +190,7 @@ Além de verificar a expressão de prioridade, o teste do importador agora confe
 ## 18. Evidência de locutor nos prompts de seleção
 
 Para aumentar a precisão contextual, cada bloco enviado às IAs pode mostrar os turnos temporais dos locutores e suas confianças. Sem diarização, o modelo é instruído a não presumir quem fala. Isso ajuda a separar pergunta, resposta e troca de participante, mas continua exigindo revisão quando a fonte não identifica os locutores.
+
+## 19. Recuperação de perguntas sem pontuação
+
+Como `starts_late` foi o motivo de rejeição mais frequente na amostra local, o seletor passou a reconhecer perguntas de entrevista sem depender do ponto de interrogação. Quando a legenda começa diretamente na resposta, ele pode recuperar a pergunta anterior somente se a continuidade temporal for segura; a revisão de locutor e contexto continua obrigatória.

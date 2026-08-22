@@ -1541,7 +1541,8 @@ Retorne APENAS o JSON.
             return {"weak": False, "reason": "antecedente não precisou ser recuperado"}
 
         previous_ends_as_question = previous_text.rstrip().endswith(("?", ":"))
-        if not previous_ends_as_question:
+        previous_looks_like_question = self._looks_like_explicit_question(previous_text)
+        if not previous_ends_as_question and not previous_looks_like_question:
             return {"weak": False, "reason": "antecedente não precisou ser recuperado"}
 
         first_word = re.sub(r"[^\wÀ-ÿ-]", "", current_text.lower().split()[0]) if current_text.split() else ""
@@ -1582,6 +1583,9 @@ Retorne APENAS o JSON.
             ("será", "que"), ("seria", "possível"), ("você", "acha"),
             ("vocês", "acham"), ("você", "concorda"), ("vocês", "concordam"),
             ("você", "acredita"), ("vocês", "acreditam"),
+            ("você", "pode"), ("vocês", "podem"), ("pode", "explicar"),
+            ("pode", "falar"), ("poderia", "explicar"), ("poderia", "falar"),
+            ("me", "explica"), ("me", "diz"), ("me", "diga"),
         }
         return tuple(words[:2]) in question_prefixes
 

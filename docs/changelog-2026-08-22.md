@@ -457,3 +457,6 @@ O teste de integração do importador agora verifica simultaneamente a expressã
 
 ## Evidência de locutor nos blocos analisados — 2026-08-22
 Os blocos enviados aos caminhos Gemini e Ollama agora incluem, quando disponíveis, os turnos temporais de locutor e a confiança correspondente. Quando não existe diarização, o prompt recebe uma instrução explícita para não assumir quem está respondendo. A informação é limitada e serve para melhorar a escolha de pergunta–resposta, sem transformar diarização ausente em identificação automática. Validação integral: **726 testes aprovados**.
+
+## Recuperação de perguntas sem pontuação — 2026-08-22
+O seletor local agora reconhece padrões comuns de pergunta em entrevistas mesmo quando a legenda timestampada não contém `?`, como “Você pode explicar...” ou “Poderia falar...”. Quando a resposta começa no bloco seguinte, o Furia pode recuperar o antecedente se a continuidade temporal for segura. A mudança ataca o motivo `starts_late` observado com maior frequência no feedback local, sem relaxar gates de sobreposição, locutor, tópico ou duração. Validação integral: **728 testes aprovados**.

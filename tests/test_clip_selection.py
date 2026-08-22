@@ -798,3 +798,21 @@ def test_prompt_block_warns_models_not_to_assume_unknown_speaker():
 
     assert "locutor não identificado" in rendered
     assert "não assuma" in rendered
+
+
+def test_opening_context_recovers_unpunctuated_question_before_answer():
+    selector = ClipSelector()
+    signal = selector._opening_context_signal(
+        {"text": "A proposta começa pela prevenção."},
+        {"text": "Você pode explicar como isso funciona"},
+    )
+
+    assert signal["weak"] is True
+    assert "pergunta e resposta" in signal["reason"]
+
+
+def test_question_detector_accepts_common_interview_request_without_question_mark():
+    selector = ClipSelector()
+
+    assert selector._looks_like_explicit_question("Você pode explicar a proposta") is True
+    assert selector._looks_like_explicit_question("Como resultado, a proposta foi aprovada") is False
