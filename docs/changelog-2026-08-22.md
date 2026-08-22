@@ -502,3 +502,9 @@ Mesmo que a legenda mencione o nome Renan, isso não autoriza automaticamente um
 
 ## Regressão de atribuição coberta por teste — 2026-08-22
 Foi adicionada uma regressão real: uma resposta de IA que escreve “RENAN CRITICA” é rejeitada quando a legenda apenas menciona Renan e o editor não confirmou o locutor no minic contexto.
+
+
+## Classificação temática e fallback extractivo — 2026-08-22
+O Headline Studio passou a reconhecer sinais claros de **saúde**, **educação** e **humor**, evitando classificar qualquer legenda como política por padrão. Quando não há uma regra editorial específica, o fallback agora usa frases reais da legenda, compactadas sem deixar artigos ou conectivos soltos no final; deixou de usar claims genéricos como “A VERDADE INCÔMODA SOBRE...”. O caso fiscal foi mantido e continua sem deriva para cripto.
+
+Regressões adicionadas: tema de saúde não cai em política e fallback extractivo não termina em palavra solta. Probe privado com temas variados validou o comportamento.

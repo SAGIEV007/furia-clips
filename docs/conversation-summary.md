@@ -250,3 +250,8 @@ Mencionar “Renan” dentro da legenda não basta para o sistema escrever como 
 ## 33. Regressão de atribuição coberta
 
 O caso em que a IA transforma uma menção a Renan em autoria agora está protegido por teste automatizado. Sem confirmação no minic contexto, o resultado continua sendo o fallback editorial seguro.
+
+
+## 34. Classificação temática e fallback extractivo
+
+O Headline Studio agora reconhece sinais claros de saúde, educação e humor. Quando não existe uma regra específica, ele usa uma frase real da legenda como base da headline, em vez de afirmar uma “verdade incômoda” que não foi dita. O texto é compactado sem terminar em artigo ou conectivo solto.

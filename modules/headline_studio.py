@@ -57,6 +57,9 @@ TOPIC_RULES = (
     ("cripto", ("bitcoin", "cripto", "criptos", "crypto", "cryptos", "criptomoeda", "criptomoedas", "blockchain")),
     ("emendas", ("emenda", "emendas", "parlamentar", "parlamentares", "orçamento", "orcamento", "indicadores")),
     ("segurança", ("segurança", "seguranca", "crime", "polícia", "policia", "violência", "violencia", "bandido")),
+    ("saúde", ("saúde", "saude", "sus", "hospital", "médico", "medico", "paciente", "atendimento", "fila")),
+    ("educação", ("educação", "educacao", "escola", "ensino", "professor", "aluno", "universidade")),
+    ("humor", ("risada", "risadas", "rir", "rindo", "piada", "engraçado", "engracado", "humor")),
     ("impostos", ("imposto", "impostos", "tributo", "tributos", "tributação", "tributacao", "tributar", "taxado", "taxação", "taxacao", "iof", "taxa")),
     ("economia", ("economia", "emprego", "salário", "salario", "inflação", "inflacao", "pobreza", "dívida", "divida", "despesa", "despesas", "benefício", "beneficios", "renúncia fiscal", "renuncia fiscal")),
     ("liberdade", ("liberdade", "censura", "regular", "regulação", "regulacao", "estado")),
@@ -99,12 +102,27 @@ class ArtworkSuggestion:
         }
 
 
+CLAIM_TRAILING_STOPWORDS = {
+    "a", "as", "o", "os", "um", "uma", "uns", "umas", "e", "ou", "de", "do", "da", "dos", "das",
+    "em", "no", "na", "nos", "nas", "por", "para", "com", "sem", "que", "se",
+}
+
+
 def _compact(value: str, limit: int) -> str:
     text = re.sub(r"\s+", " ", str(value or "")).strip(" .,:;–—-")
     if len(text) <= limit:
         return text
     short = text[: limit + 1].rsplit(" ", 1)[0].strip()
     return short or text[:limit].strip()
+
+
+def _compact_claim(value: str, limit: int = 64) -> str:
+    """Compact an extractive claim without leaving a dangling connector."""
+    claim = _compact(value, limit)
+    words = claim.split()
+    while len(words) > 3 and normalize(words[-1]) in CLAIM_TRAILING_STOPWORDS:
+        words.pop()
+    return " ".join(words)
 
 
 def _transcript_ends_incomplete(value: str) -> bool:
@@ -192,7 +210,7 @@ def _topic(text: str) -> str:
     """
     folded = normalize(text)
     tokens = set(re.findall(r"[a-z0-9]+", folded))
-    best = "política"
+    best = "geral"
     best_score = 0.0
     for label, terms in TOPIC_RULES:
         normalized_terms = dict.fromkeys(normalize(term) for term in terms if normalize(term))
@@ -306,17 +324,22 @@ def _claim_candidates(text: str, topic: str, speaker_prefix: str = "") -> list[s
         else:
             candidates.append("O DEBATE SOBRE IMPOSTOS EXIGE UMA RESPOSTA CLARA")
     if not candidates:
-        label = topic.upper()
-        generic_claims = [
-            f"EXPLICA O IMPASSE DA {label}",
-            f"O BRASIL PRECISA DECIDIR O RUMO DA {label}",
-            f"A VERDADE INCÔMODA SOBRE {label}",
+        # Prefer an extractive sentence over a dramatic but unsupported claim.
+        # This keeps unknown topics faithful to the supplied caption.
+        sentences = [
+            part.strip()
+            for part in re.split(r"(?<=[.!?])\s+|\n+", text.strip())
+            if len(part.split()) >= 4
         ]
+        if not sentences:
+            words = re.findall(r"[a-z0-9À-ÿ-]+", text.strip())
+            sentences = [" ".join(words[:12])] if len(words) >= 4 else []
         candidates.extend(
-            [f"{speaker_prefix} {generic_claims[0]}".strip(), *generic_claims[1:]]
-            if speaker_prefix
-            else generic_claims
+            [f"{speaker_prefix} {_compact_claim(sentence, 64)}".strip() for sentence in sentences[:3]]
         )
+        if not candidates:
+            label = topic.upper()
+            candidates.append(f"A QUESTÃO CENTRAL SOBRE {label}")
     unique: list[str] = []
     for candidate in candidates:
         candidate_folded = normalize(candidate)

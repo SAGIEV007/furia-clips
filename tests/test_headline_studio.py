@@ -587,3 +587,28 @@ def test_rejected_ai_payload_keeps_editorial_fallback_source():
     assert result["generation_source"] == "editorial_fallback"
     assert result["recommended_format"] == FORMAT_SQUARE
     assert result["recommendation_reason"].startswith("A tese")
+
+
+
+def test_headline_topic_and_claim_follow_health_transcript_instead_of_politics():
+    result = generate_artwork_copy(
+        "A fila da saúde não se resolve só com promessa. O município precisa ampliar o atendimento básico.",
+        preferred_format=FORMAT_SQUARE,
+        ai_backend=None,
+    )
+    assert result["topic"] == "saúde"
+    headlines = [item["headline"] for item in result["formats"][FORMAT_SQUARE]["suggestions"]]
+    assert headlines
+    assert any("SAÚDE" in headline or "ATENDIMENTO" in headline for headline in headlines)
+    assert all("IMPASSE DA POLÍTICA" not in headline for headline in headlines)
+
+
+def test_extractive_fallback_does_not_end_on_a_dangling_stopword():
+    result = generate_artwork_copy(
+        "A situação mudou nos últimos meses e agora precisamos decidir os próximos passos com responsabilidade.",
+        preferred_format=FORMAT_VERTICAL,
+        ai_backend=None,
+    )
+    headline = result["formats"][FORMAT_VERTICAL]["suggestions"][0]["headline"]
+    assert headline.split()[-1] not in {"A", "AS", "O", "OS", "DE", "DA", "DO", "E", "QUE"}
+    assert "SITUAÇÃO MUDOU" in headline
