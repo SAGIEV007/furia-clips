@@ -266,6 +266,7 @@ function handleStatusUpdate(data) {
     if (!isCurrentJobEvent(data) || terminalEventWasHandled(data)) return;
     const sourceEvent = data.status === "source_import_complete" || data.data?.operation === "source_import";
     const sourceEventJobId = String(data?.job_id || data?.data?.job_id || "");
+    if (sourceEvent && !state.sourceImportActive && !state.sourceImportJobId) return;
     if (sourceEvent && state.sourceImportJobId && sourceEventJobId && sourceEventJobId !== String(state.sourceImportJobId)) return;
     settleLegacyStatusJob(data);
     switch (data.status) {

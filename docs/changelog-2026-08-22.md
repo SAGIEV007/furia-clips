@@ -97,3 +97,10 @@ A validação integral desta rodada confirmou **611 testes aprovados**.
 Quando uma transcrição terminava em segundo plano enquanto outro vídeo estava selecionado, ela permanecia guardada com sua identidade. Ao selecionar posteriormente a fonte correspondente, a interface agora reidrata o editor com a transcrição e o arquivo persistente corretos. Para outra fonte, a limpeza continua acontecendo normalmente.
 
 A validação integral desta rodada confirmou **612 testes aprovados**.
+
+
+## Eventos órfãos do importador
+
+O frontend agora descarta eventos de importação quando não existe job de fonte ativo ou aguardando resposta. Isso evita que um evento atrasado de um download antigo substitua silenciosamente a seleção atual ou reabra a HUD. A corrida legítima continua coberta: enquanto o importador está ativo, o evento pode chegar antes da resposta HTTP e o resultado é preservado.
+
+A validação integral desta rodada confirmou **613 testes aprovados**.

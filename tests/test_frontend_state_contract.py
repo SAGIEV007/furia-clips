@@ -886,6 +886,17 @@ def test_cancel_requested_job_disables_repeat_cancel_action():
     assert "job.state === \"cancel_requested\"" in source
 
 
+def test_orphan_source_import_events_are_ignored_without_active_job():
+    source = APP_JS.read_text(encoding="utf-8")
+    start = source.find("function handleStatusUpdate(data)")
+    end = source.find("// ─── Console", start)
+    block = source[start:end]
+
+    assert "const sourceEvent = data.status === \"source_import_complete\"" in block
+    assert "if (sourceEvent && !state.sourceImportActive && !state.sourceImportJobId) return;" in block
+    assert "if (sourceEvent && state.sourceImportJobId && sourceEventJobId" in block
+
+
 def test_source_import_does_not_reactivate_hud_after_terminal_event_race():
     source = APP_JS.read_text(encoding="utf-8")
     import_start = source.find("async function importSource")
