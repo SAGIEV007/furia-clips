@@ -1435,6 +1435,7 @@ async function loadOperationDashboard() {
         const payload = await parseJsonResponse(response, "Histórico de operações");
         if (!response.ok) throw new Error(payload.error || "Não foi possível carregar os jobs");
         state.operationJobs = Array.isArray(payload.jobs) ? payload.jobs : [];
+        rehydrateAdjustmentRenderJobs();
         await recoverLegacyOperation();
         renderOperationDashboard();
         loadEditorialLearning();
@@ -1477,6 +1478,7 @@ function handleJobUpdate(job, options = {}) {
     const existingIndex = (state.operationJobs || []).findIndex((item) => item.id === job.id);
     if (existingIndex >= 0) state.operationJobs[existingIndex] = job;
     else state.operationJobs = [job, ...(state.operationJobs || [])];
+    rehydrateAdjustmentRenderJobs();
     renderOperationDashboard();
     if (staleConcurrentJob) {
         return;

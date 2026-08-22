@@ -731,6 +731,12 @@ def test_adjust_render_terminal_event_rehydrates_active_bounds_and_media():
     assert "refreshVisibleReviewState();" in source
 
 
+def test_operation_hud_rehydrates_adjustment_jobs_on_load_and_event():
+    source = APP_JS.read_text(encoding="utf-8")
+    assert "state.operationJobs = Array.isArray(payload.jobs) ? payload.jobs : [];\n        rehydrateAdjustmentRenderJobs();" in source
+    assert "else state.operationJobs = [job, ...(state.operationJobs || [])];\n    rehydrateAdjustmentRenderJobs();" in source
+
+
 def test_operation_hud_identifies_adjustment_clip_without_private_paths():
     source = APP_JS.read_text(encoding="utf-8")
     assert 'item?.type === "adjustment_render_pending" || item?.type === "adjusted_clip"' in source
