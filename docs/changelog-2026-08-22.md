@@ -424,3 +424,6 @@ A HUD agora reidrata jobs `adjust_clip_render` tanto ao carregar o histórico pe
 
 ## Corrida de cancelamento tardio — 2026-08-22
 O JobManager não marca mais como cancelado um trabalho que já retornou resultado e está entrando na finalização. Os workers continuam responsáveis por checar cancelamento antes de operações irreversíveis; depois que o resultado é devolvido, a operação é registrada como concluída e seus artefatos não são mascarados por um clique tardio em parar. Foi adicionada regressão real do JobManager, enquanto cancelamentos cooperativos durante o trabalho continuam cobertos. Campaign Hub permaneceu somente leitura.
+
+## Contrato de importação da fonte — baixar versus baixar e transcrever — 2026-08-22
+A separação dos dois botões foi coberta explicitamente: **Baixar** envia `auto_transcribe=false` e não gera transcrição; **Baixar e transcrever** envia `auto_transcribe=true` e pode anexar uma transcrição manual previamente confirmada para a fonte. O destino configurado é reutilizado antes de abrir o explorador, reduzindo a chance de duas solicitações de pasta na mesma operação. Foram adicionados contratos frontend para preservar essa distinção e a validação integral fechou com **710 testes aprovados**. Nenhuma credencial ou dado privado foi incluído.

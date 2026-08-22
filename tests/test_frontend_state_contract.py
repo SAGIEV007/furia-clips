@@ -1389,3 +1389,29 @@ def test_adjust_render_button_has_busy_state_and_clears_it_after_request():
     assert 'renderButton.innerHTML = \'<span class="material-icons-round">hourglass_top</span> Renderizando…\';' in source
     assert 'if (state.clips[index]) state.clips[index].adjustment_render_busy = false;' in source
     assert 'if (currentButton.innerHTML.includes("hourglass_top")) currentButton.innerHTML = previousButtonMarkup;' in source
+
+
+
+def test_source_import_keeps_download_and_download_transcribe_as_distinct_actions():
+    source = APP_JS.read_text(encoding="utf-8")
+    start = source.find("async function importSource(autoTranscribe = false)")
+    end = source.find("function normalizePublicUrlInput", start)
+    block = source[start:end]
+    assert 'document.getElementById("btnDownloadSource")?.addEventListener("click", () => importSource(false))' in source
+    assert 'document.getElementById("btnDownloadTranscribeSource")?.addEventListener("click", () => importSource(true))' in source
+    assert "auto_transcribe: autoTranscribe" in block
+    assert "manual_transcript: confirmedTranscript" in block
+    assert "const confirmedTranscript = autoTranscribe" in block
+    assert "Download iniciado; nenhuma transcrição será gerada." in block
+
+
+def test_source_import_reuses_configured_directory_without_opening_picker_twice():
+    source = APP_JS.read_text(encoding="utf-8")
+    start = source.find("async function ensureSourceDirectory()")
+    end = source.find("function setSourceImportBusy", start)
+    block = source[start:end]
+    assert 'if (existing && !isPlaceholderSourceDirectory(existing)) {' in block
+    assert "return existing;" in block
+    assert 'const rendered = String(label?.textContent || "").trim();' in block
+    assert "if (rendered && !isPlaceholderSourceDirectory(rendered))" in block
+    assert "return chooseSourceDirectory();" in block
