@@ -498,6 +498,65 @@ def test_multimodal_nonverbal_moment_attaches_as_reviewable_evidence():
     assert result[0]["nonverbal_moment_review_required"] is True
 
 
+def test_multimodal_nonverbal_attaches_only_the_best_overlapping_moment():
+    clips = [{"start": 20, "end": 40, "text": "fala"}]
+    result = furia_app._attach_multimodal_visual_observations(
+        clips,
+        {
+            "source_identity_status": "validated",
+            "source_identity_confidence": 0.9,
+            "nonverbal_moments": [
+                {"start": 18, "end": 22, "kind": "risada", "description": "risada curta", "confidence": 0.95},
+                {"start": 20, "end": 32, "kind": "cavalgada", "description": "cavalgada com interação com o ambiente", "confidence": 0.8},
+            ],
+        },
+    )
+
+    assert result[0]["nonverbal_moment_kind"] == "cavalgada"
+    assert "cavalgada" in result[0]["nonverbal_moment"]
+
+
+def test_multimodal_nonverbal_mismatch_is_discarded():
+    clips = [{"start": 0, "end": 20, "text": "fala"}]
+    result = furia_app._attach_multimodal_visual_observations(
+        clips,
+        {
+            "source_identity_status": "mismatch",
+            "source_identity_confidence": 0.99,
+            "nonverbal_moments": [{
+                "start": 0,
+                "end": 20,
+                "kind": "berrante",
+                "description": "fonte incompatível",
+                "confidence": 0.99,
+            }],
+        },
+    )
+
+    assert "nonverbal_moment" not in result[0]
+
+
+def test_multimodal_nonverbal_unverified_confidence_is_capped_and_requires_review():
+    clips = [{"start": 0, "end": 20, "text": "fala"}]
+    result = furia_app._attach_multimodal_visual_observations(
+        clips,
+        {
+            "source_identity_status": " unverified ",
+            "source_identity_confidence": 0.2,
+            "nonverbal_moments": [{
+                "start": 0,
+                "end": 20,
+                "kind": "risada",
+                "description": "risada observada",
+                "confidence": 0.99,
+            }],
+        },
+    )
+
+    assert result[0]["nonverbal_moment_confidence"] == 0.35
+    assert result[0]["nonverbal_moment_review_required"] is True
+
+
 def test_multimodal_nonverbal_moment_ignores_non_finite_confidence():
     clips = [{"start": 0, "end": 20, "text": "fala"}]
     result = furia_app._attach_multimodal_visual_observations(

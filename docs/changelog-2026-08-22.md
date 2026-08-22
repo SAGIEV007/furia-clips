@@ -183,3 +183,8 @@ A análise multimodal agora solicita momentos não verbais timestampados — com
 O reenquadramento facial opcional agora filtra sinais não finitos, strings inválidas e confianças não positivas, limita coordenadas a `[0,1]` e usa o centro do quadro quando nenhum ponto confiável sobra, mantendo o fallback convencional e um aviso explicável. Não há persistência biométrica nem identificação pública de pessoas.
 
 A validação integral desta rodada confirmou **628 testes aprovados**, além de `node --check`, `py_compile`, `git diff --check` e varredura de segredos sem achados.
+
+## Correção prática: evidência multimodal no corte inteligente
+Durante a validação do fluxo publicado foi identificado que o processo completo anexava os momentos não verbais, mas o caminho “Corte inteligente” ainda não os propagava antes do ranking e do payload final. O caminho inteligente agora usa o mesmo anexador seguro; os campos chegam aos dois tipos de resultado e continuam explicitamente fora do cálculo de score e dos gates automáticos. A ausência de mídia local de teste impediu um render audiovisual real nesta rodada, então a cobertura foi feita por testes sintéticos de contrato e pelo fluxo de payload.
+
+Foram adicionados testes de seleção do melhor evento sobreposto, descarte por fonte incompatível, limite de confiança sem identidade validada e neutralidade do ranking. A validação integral desta rodada confirmou **632 testes aprovados**, além das checagens de sintaxe, compilação, whitespace e segredos.

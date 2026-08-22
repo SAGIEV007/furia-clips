@@ -805,7 +805,7 @@ def _attach_multimodal_nonverbal_moments(clips, multimodal):
     """Attach one conservative overlapping nonverbal observation per clip."""
     if not isinstance(multimodal, dict):
         return clips
-    identity_status = str(multimodal.get("source_identity_status", "unverified") or "unverified").lower()
+    identity_status = str(multimodal.get("source_identity_status", "unverified") or "unverified").strip().lower()
     try:
         identity_confidence = float(multimodal.get("source_identity_confidence", 0) or 0)
     except (TypeError, ValueError):
@@ -892,7 +892,7 @@ def _attach_multimodal_visual_observations(clips, multimodal):
     if not isinstance(multimodal, dict):
         return clips
     _attach_multimodal_nonverbal_moments(clips, multimodal)
-    identity_status = str(multimodal.get("source_identity_status", "unverified") or "unverified").lower()
+    identity_status = str(multimodal.get("source_identity_status", "unverified") or "unverified").strip().lower()
     try:
         identity_confidence = max(0.0, min(1.0, float(multimodal.get("source_identity_confidence", 0) or 0)))
     except (TypeError, ValueError):
@@ -2237,8 +2237,11 @@ def api_cut_shorts():
                 scene_changes=scene_changes,
                 video_layout=video_layout,
             )
-
+            if multimodal_result is not None:
+                top_clips = _attach_multimodal_visual_observations(top_clips, multimodal_result)
+                emit_progress("[Evidência visual] Momentos não verbais foram anexados apenas para revisão; ranking e gates permanecem independentes.", "info")
             selection_source = selector.get_selection_source()
+
             candidate_diagnostics = selector.get_candidate_diagnostics()
             socketio.emit("selection_mode", {
                 "source": selection_source,
@@ -2480,6 +2483,14 @@ def api_cut_shorts():
                     "speaker": clip_info.get("speaker", ""),
                     "speaker_confidence": clip_info.get("speaker_confidence"),
                     "overlap_suspected": clip_info.get("overlap_suspected", False),
+                    "nonverbal_moment": clip_info.get("nonverbal_moment", ""),
+                    "nonverbal_editorial_value": clip_info.get("nonverbal_editorial_value", ""),
+                    "nonverbal_moment_kind": clip_info.get("nonverbal_moment_kind", ""),
+                    "nonverbal_moment_start": clip_info.get("nonverbal_moment_start"),
+                    "nonverbal_moment_end": clip_info.get("nonverbal_moment_end"),
+                    "nonverbal_moment_confidence": clip_info.get("nonverbal_moment_confidence"),
+                    "nonverbal_moment_review_required": bool(clip_info.get("nonverbal_moment_review_required")),
+                    "nonverbal_moment_review_reason": clip_info.get("nonverbal_moment_review_reason", ""),
                     "editorial_block": build_editorial_block({
                         **clip_info,
                         "start": res.get("start"),
@@ -3635,6 +3646,14 @@ def api_process_complete():
                     "speaker": clip_info.get("speaker", ""),
                     "speaker_confidence": clip_info.get("speaker_confidence"),
                     "overlap_suspected": clip_info.get("overlap_suspected", False),
+                    "nonverbal_moment": clip_info.get("nonverbal_moment", ""),
+                    "nonverbal_editorial_value": clip_info.get("nonverbal_editorial_value", ""),
+                    "nonverbal_moment_kind": clip_info.get("nonverbal_moment_kind", ""),
+                    "nonverbal_moment_start": clip_info.get("nonverbal_moment_start"),
+                    "nonverbal_moment_end": clip_info.get("nonverbal_moment_end"),
+                    "nonverbal_moment_confidence": clip_info.get("nonverbal_moment_confidence"),
+                    "nonverbal_moment_review_required": bool(clip_info.get("nonverbal_moment_review_required")),
+                    "nonverbal_moment_review_reason": clip_info.get("nonverbal_moment_review_reason", ""),
                     "multimodal_identity_status": clip_info.get("multimodal_identity_status", ""),
                     "multimodal_identity_confidence": clip_info.get("multimodal_identity_confidence"),
                     "visual_observation_review_required": bool(clip_info.get("visual_observation_review_required")),

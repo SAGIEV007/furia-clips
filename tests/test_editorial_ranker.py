@@ -72,6 +72,27 @@ class EditorialRankerTests(unittest.TestCase):
         self.assertEqual(result["context_recovery"], recovery)
         self.assertTrue(result["review_flags"]["context_recovery_applied"])
 
+    def test_nonverbal_evidence_does_not_change_score_or_gate(self):
+        base = {
+            "start": 0,
+            "end": 28,
+            "duration": 28,
+            "text": "A proposta tem dados oficiais e termina com uma solução clara.",
+        }
+        with_evidence = {
+            **base,
+            "nonverbal_moment": "Renan toca o berrante ao ar livre.",
+            "nonverbal_moment_kind": "berrante",
+            "nonverbal_moment_confidence": 0.9,
+            "nonverbal_moment_review_required": True,
+        }
+
+        without = self.ranker.score_clip(base)
+        with_signal = self.ranker.score_clip(with_evidence)
+
+        self.assertEqual(with_signal["editorial_potential_score"], without["editorial_potential_score"])
+        self.assertEqual(with_signal["technical_gate"], without["technical_gate"])
+
     def test_audio_energy_uses_windows_inside_clip(self):
         result = self.ranker.score_clip(
             {
