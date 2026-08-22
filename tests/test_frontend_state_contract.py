@@ -352,6 +352,17 @@ def test_transcription_completion_preserves_source_identity_after_video_change()
     assert 'emit_status("transcribe_complete", result, job_id=legacy_job_id)' in backend_source
 
 
+def test_candidate_volume_notice_does_not_claim_deferred_candidates_were_renderable():
+    source = APP_JS.read_text(encoding="utf-8")
+    start = source.find("if (deferredByGate > 0)")
+    end = source.find("if (expected && finalCount < expected)", start)
+    block = source[start:end]
+
+    assert "const renderSummary = renderableCount > 0" in block
+    assert '"Nenhum candidato foi liberado para render"' in block
+    assert "${renderSummary}; ${deferredByGate} foram adiados" in block
+
+
 def test_candidate_volume_notice_explains_editorial_gate_blocking():
     source = APP_JS.read_text(encoding="utf-8")
     start = source.find("function renderCandidateVolumeNotice")

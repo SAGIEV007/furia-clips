@@ -146,3 +146,10 @@ A validação integral desta rodada confirmou **617 testes aprovados**.
 O aviso de volume agora reconhece `editorial_gate_blocked` e explica que nenhum candidato foi liberado porque todos exigem revisão editorial ou técnica antes do render. Isso diferencia ausência de material autossuficiente, redundância, falha de render e bloqueio deliberado por qualidade.
 
 A validação integral desta rodada confirmou **618 testes aprovados**.
+
+
+## Contagem de candidatos adiados
+
+O aviso de volume não afirma mais que candidatos foram liberados para render quando todos foram adiados por contexto incompleto ou revisão técnica. A interface agora mostra “Nenhum candidato foi liberado para render” quando a contagem renderizável é zero, mantendo a quantidade adiada e a explicação dos motivos.
+
+A validação integral desta rodada confirmou **619 testes aprovados**.

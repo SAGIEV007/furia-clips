@@ -3596,8 +3596,10 @@ function renderCandidateVolumeNotice(diagnostics = {}) {
     }
     if (deferredByGate > 0) {
         notice.classList.add("warning");
-        const reviewCount = renderableCount || primary || expected;
-        notice.innerHTML = `<span class="material-icons-round">rule</span><span>${reviewCount} candidato(s) liberado(s) para render; ${deferredByGate} foram adiados antes do render por contexto incompleto ou revisão técnica obrigatória. O editor pode conferir os motivos no diagnóstico.</span>`;
+        const renderSummary = renderableCount > 0
+            ? `${renderableCount} candidato(s) liberado(s) para render`
+            : "Nenhum candidato foi liberado para render";
+        notice.innerHTML = `<span class="material-icons-round">rule</span><span>${renderSummary}; ${deferredByGate} foram adiados antes do render por contexto incompleto ou revisão técnica obrigatória. O editor pode conferir os motivos no diagnóstico.</span>`;
         return;
     }
     if (expected && finalCount < expected) {
