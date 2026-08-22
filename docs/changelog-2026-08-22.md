@@ -566,3 +566,9 @@ Regressão adicionada para eyebrow “LULA” sem fonte; testes específicos: **
 Foi corrigida uma deriva semântica adicional: claims como “O BRASIL COBRA...” e “BRASIL ESCOLHEU...” agora só são gerados quando a legenda contém explicitamente Brasil. Se a fonte disser apenas “um país” ou “o país”, o texto permanece nessa forma ou usa a frase extractiva original.
 
 Regressões adicionadas para fiscal e cripto; testes específicos: **41 aprovados**.
+
+
+## Proximidade entre entidade e claim — 2026-08-22
+A checagem de país agora exige que Brasil esteja no mesmo trecho local da relação usada pela headline. Em transcrições longas, uma menção introdutória distante não autoriza “Brasil cobra imposto” ou “Brasil escolheu...”. O resultado fiscal privado foi revalidado: a tese indevida desapareceu do `headline_basis` e as quatro evidências restantes permanecem ancoradas.
+
+Regressão adicionada para menção distante; testes específicos: **42 aprovados**.

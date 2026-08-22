@@ -766,3 +766,15 @@ def test_country_is_not_inferred_as_brazil_in_grounded_headlines():
     crypto_headlines = [item["headline"] for item in crypto["formats"][FORMAT_SQUARE]["suggestions"]]
     assert all("BRASIL" not in headline for headline in crypto_headlines)
     assert any("CAMINHO ARCAICO" in headline for headline in crypto_headlines)
+
+
+
+def test_distant_brazil_mention_does_not_authorize_local_country_claim():
+    transcript = "Brasil apareceu em um trecho introdutório. " + ("contexto adicional. " * 20) + "Um país cobra imposto de país rico."
+    result = generate_artwork_copy(
+        transcript,
+        preferred_format=FORMAT_SQUARE,
+        ai_backend=None,
+    )
+    headlines = [item["headline"] for item in result["formats"][FORMAT_SQUARE]["suggestions"]]
+    assert all("O BRASIL COBRA" not in headline for headline in headlines)

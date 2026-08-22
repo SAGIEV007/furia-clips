@@ -305,3 +305,8 @@ A IA não pode esconder uma invenção no selo superior. Se o eyebrow trouxer um
 ## 44. Países não são inferidos
 
 A palavra “país” não vira automaticamente “Brasil”. O Headline Studio só usa o nome Brasil quando ele está na transcrição ou no contexto permitido, evitando atribuição geográfica inventada.
+
+
+## 45. Proximidade entre entidade e tese
+
+Em uma transcrição longa, citar Brasil em um trecho distante não libera uma headline que atribua a ele a fala de outro trecho. A entidade precisa aparecer perto da relação usada na tese.

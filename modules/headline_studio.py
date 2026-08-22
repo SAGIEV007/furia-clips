@@ -122,6 +122,21 @@ def _has_first_person(value: str) -> bool:
     return bool(set(re.findall(r"[a-z0-9]+", normalize(value))) & FIRST_PERSON_TOKENS)
 
 
+def _terms_nearby(text: str, first: str, second: str, window: int = 96) -> bool:
+    """Require two claim terms to occur in the same local passage."""
+    for match in re.finditer(re.escape(first), text):
+        start = max(0, match.start() - window)
+        end = min(len(text), match.end() + window)
+        if second in text[start:end]:
+            return True
+    for match in re.finditer(re.escape(second), text):
+        start = max(0, match.start() - window)
+        end = min(len(text), match.end() + window)
+        if first in text[start:end]:
+            return True
+    return False
+
+
 def _compact_claim(value: str, limit: int = 64) -> str:
     """Compact an extractive claim without leaving a dangling connector."""
     claim = _compact(value, limit)
@@ -318,7 +333,7 @@ def _speaker_prefix(mini_context: str) -> str:
 def _claim_candidates(text: str, topic: str, speaker_prefix: str = "") -> list[str]:
     folded = normalize(text)
     candidates: list[str] = []
-    if "caminho arcaico" in folded and "brasil" in folded:
+    if "caminho arcaico" in folded and _terms_nearby(folded, "caminho arcaico", "brasil"):
         candidates.append("BRASIL ESCOLHEU O CAMINHO ARCAICO")
     if "com ou sem o estado" in folded or "vao ocorrer de qualquer forma" in folded:
         candidates.append("AS CRIPTOS AVANÇAM COM OU SEM O ESTADO")
@@ -352,7 +367,7 @@ def _claim_candidates(text: str, topic: str, speaker_prefix: str = "") -> list[s
             "MAIS DE 200 BILHÕES POR ANO EM DESPESAS",
             "A CONTA EXIGE MEXER NAS DESPESAS",
         ])
-    if "cobra imposto" in folded and "pais rico" in folded and "brasil" in folded:
+    if "cobra imposto" in folded and "pais rico" in folded and _terms_nearby(folded, "cobra imposto", "brasil"):
         candidates.append("O BRASIL COBRA IMPOSTO DE PAÍS RICO")
     if "despesa" in folded and ("index" in folded or "benef" in folded or "aposent" in folded):
         candidates.append("A CONTA NÃO FECHA SEM REVER DESPESAS")
@@ -395,9 +410,9 @@ def _safe_fake_tweet(text: str, topic: str, mini_context: str) -> list[str]:
             if speaker_explicit
             else "A conta apresentada é direta: será preciso mexer em mais de 200 bilhões por ano nas despesas."
         )
-    elif "cobra imposto" in folded and "pais rico" in folded and "brasil" in folded:
+    elif "cobra imposto" in folded and "pais rico" in folded and _terms_nearby(folded, "cobra imposto", "brasil"):
         lead = "O Brasil cobra imposto de país rico, mas precisa encarar a revisão das despesas."
-    elif "caminho arcaico" in folded and "brasil" in folded:
+    elif "caminho arcaico" in folded and _terms_nearby(folded, "caminho arcaico", "brasil"):
         lead = "O Brasil escolheu o caminho arcaico ao lidar com as criptos."
     elif "reserva de valor" in folded and topic == "cripto":
         lead = "As criptos já são uma reserva de valor para as novas gerações."
