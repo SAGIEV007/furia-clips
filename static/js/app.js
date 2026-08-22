@@ -1062,12 +1062,15 @@ function renderCampaignHubLocalStatus(payload) {
     if (dot) dot.className = `status-dot ${changed ? "warning" : "online"}`;
     const accountCount = Object.keys(payload.accounts || {}).length;
     const observationCount = Number(payload.total_hook_observations || 0);
+    const acervoBlockCount = Number(payload.total_acervo_blocks || 0);
+    const pautaCount = Number(payload.total_pauta_candidates || 0);
+    const audiencePriorCount = Number(payload.total_audience_priors || 0);
     if (label) label.textContent = changed
         ? `Novo snapshot detectado · ${accountCount} perfil(is) · será usado no próximo corte`
         : `${statusLabels.ready} · ${accountCount} perfil(is)`;
     if (detail) detail.textContent = payload.influences_ranking
-        ? `${observationCount} observação(ões) de hook · prior limitado no ranking; não cria cortes nem substitui contexto`
-        : "Arquivo lido, mas sem observações suficientes para influenciar o ranking.";
+        ? `${observationCount} hook(s) · ${acervoBlockCount} bloco(s) Acervo · ${pautaCount} pauta(s)${audiencePriorCount ? ` · ${audiencePriorCount} prior(es) de audiência` : ""} · influência limitada; não cria cortes nem substitui contexto`
+        : "Arquivo lido, mas sem sinais suficientes para influenciar o ranking.";
     element.title = `${payload.version || "Snapshot editorial"}${payload.path ? ` · ${payload.path}` : ""}${payload.modified_at ? ` · atualizado em ${new Date(payload.modified_at).toLocaleString("pt-BR")}` : ""}. Releitura automática no próximo job; somente leitura.`;
 }
 
@@ -2949,6 +2952,17 @@ function renderResultsGrid() {
         };
         const durationMeta = durationPolicyMeta[durationStatus] || durationPolicyMeta.curto_preferencial;
         const campaignPrior = clip.campaign_hub_prior || {};
+        const acervoAlignment = clip.acervo_alignment && typeof clip.acervo_alignment === "object" ? clip.acervo_alignment : {};
+        const acervoAlignmentAvailable = safeBooleanFlag(acervoAlignment.available);
+        const acervoAlignmentStatus = String(acervoAlignment.status || "").trim();
+        const acervoAlignmentReview = safeBooleanFlag(acervoAlignment.review_required) || safeBooleanFlag(clip.acervo_review_required);
+        const acervoAlignmentTitle = String(acervoAlignment.title || "").trim();
+        const acervoAlignmentReason = String(acervoAlignment.reason || "").trim();
+        const acervoAlignmentConfidence = Number(acervoAlignment.confidence);
+        const audienceFit = clip.audience_fit && typeof clip.audience_fit === "object" ? clip.audience_fit : {};
+        const audienceFitAvailable = safeBooleanFlag(audienceFit.available);
+        const audienceFitReview = safeBooleanFlag(audienceFit.review_required) || safeBooleanFlag(clip.audience_review_required);
+        const audienceFitSegment = String(audienceFit.segment || "").trim();
         const contextualHook = clip.contextual_hook || {};
         const contextualPayoffSignals = Array.isArray(contextualHook.payoff_signals)
             ? contextualHook.payoff_signals.map((signal) => String(signal || "").trim()).filter(Boolean).slice(0, 3)
@@ -3131,6 +3145,8 @@ function renderResultsGrid() {
                 ${(chapterCount > 0 || qaBoundaryBasis) ? `<div class="clip-chapter-note ${chapterCount > 0 && chapterScore < 60 ? 'warning' : ''}">
 <span class="material-icons-round">account_tree</span><span><b>Contexto temporal:</b> ${chapterCount > 0 ? `${chapterCount} capítulo(s)${Number.isFinite(chapterScore) ? ` · coerência ${Math.round(Math.max(0, Math.min(100, chapterScore)))}%` : ''}${chapterBridge ? ' · ponte pergunta–resposta preservada' : chapterCount > 1 ? ' · atravessa capítulos; revisar continuidade' : ' · dentro do mesmo bloco'}` : 'fronteira Q&A registrada'}${qaBoundaryBasis ? ` · fronteira: ${escapeHtml(qaBoundaryLabel)}${qaBoundaryReviewRequired ? ' · confirmar locutor' : ''}` : ''}</span></div>` : ''}
                 ${campaignPriorAvailable ? `<div class="clip-performance-prior"><span class="material-icons-round">insights</span><span><b>Histórico observado:</b> hook ${escapeHtml(campaignHookFamily || 'não classificado')} · amostra ${Math.max(0, campaignSampleCount)} · influência limitada ao ranking</span></div>` : ''}
+                ${acervoAlignmentAvailable ? `<div class="clip-acervo-note ${acervoAlignmentReview ? 'review' : ''}"><span class="material-icons-round">inventory_2</span><span><b>Acervo alinhado:</b> ${escapeHtml(acervoAlignmentTitle || 'bloco QA-gated')} · ${Number.isFinite(acervoAlignmentConfidence) ? `${Math.round(Math.max(0, Math.min(1, acervoAlignmentConfidence)) * 100)}% de confiança` : 'confiança não validada'}${acervoAlignmentReview ? ' · confirmar no áudio e no vídeo' : ''}${acervoAlignmentReason ? ` — ${escapeHtml(acervoAlignmentReason)}` : ''}</span></div>` : ''}
+                ${audienceFitAvailable ? `<div class="clip-audience-note ${audienceFitReview ? 'review' : ''}"><span class="material-icons-round">groups</span><span><b>Audiência auxiliar:</b> ${escapeHtml(audienceFitSegment || 'segmento explícito')} · prior limitado e não causal${audienceFitReview ? ' · confirmar amostra e plataforma' : ''}</span></div>` : ''}
                 ${transcriptionReviewRequired ? `<div class="clip-review-risk"><span class="material-icons-round">history_edu</span><span><b>Transcrição para revisão:</b> ${escapeHtml(transcriptionReviewReason)}${transcriptionCoverageStatus ? ` · status ${escapeHtml(transcriptionCoverageStatus)}` : ''}</span></div>` : ''}
                 ${provenanceMarkup}
                 ${contextualHookAvailable ? `<div class="clip-hook-provenance ${contextualHookReview ? 'review' : ''}"><span class="material-icons-round">bolt</span><span><b>Hook contextual:</b> ${escapeHtml(String(contextualHook.family || 'não classificado'))} · ${contextualHookScoreLabel}${contextualPayoffConfirmed ? ' · payoff próximo' : ' · payoff a confirmar'}${contextualHookReview ? ` · ${escapeHtml(contextualHookReviewHint)}` : ''}<br><q>${escapeHtml(String(contextualHook.hook_text || ''))}</q>${contextualPayoffSignals.length ? `<small class="clip-hook-payoff-signals">Evidência: ${escapeHtml(contextualPayoffSignals.join(' · '))}</small>` : ''}</span></div>` : ''}

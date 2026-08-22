@@ -603,3 +603,23 @@ def test_campaign_hub_status_endpoint_exposes_read_only_snapshot_influence(tmp_p
     assert payload["influences_ranking"] is True
     assert payload["read_only"] is True
     assert "não cria cortes" in payload["influence_scope"]
+
+
+
+def test_campaign_hub_status_endpoint_reports_rich_acervo_counts(tmp_path):
+    snapshot_path = tmp_path / "rich-profile.json"
+    snapshot_path.write_text(
+        '{"accounts":{"@renansantosmbl":{"acervo_blocks":[{"id":"b","startS":1,"endS":4,"video":{"youtubeId":"AbCdEfGhI12"}}],"acervo_pauta":[{"id":"p","startS":5,"endS":9,"video":{"youtubeId":"AbCdEfGhI12"}}]}}}',
+        encoding="utf-8",
+    )
+    client = furia_app.app.test_client()
+    with patch.object(furia_app, "get_all_settings", return_value={"campaign_hub_snapshot_path": str(snapshot_path)}):
+        response = client.get("/api/campaign-hub/status")
+
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["available"] is True
+    assert payload["rich_context_available"] is True
+    assert payload["total_acervo_blocks"] == 1
+    assert payload["total_pauta_candidates"] == 1
+    assert payload["read_only"] is True

@@ -14,7 +14,7 @@ from typing import Iterable, Optional
 
 from .editorial_format import classify_editorial_format
 from .political_profile import PROFILE_NAME, analyze_political_text
-from .campaign_hub import build_performance_prior
+from .campaign_hub import build_acervo_alignment, build_audience_fit, build_performance_prior
 from .instagram_editorial_priors import build_editorial_pattern_prior
 
 
@@ -213,6 +213,20 @@ class EditorialRanker:
             account=self.campaign_hub_account,
             snapshot=self.campaign_hub_snapshot,
         )
+        acervo_alignment = clip.get("acervo_alignment") if isinstance(clip.get("acervo_alignment"), dict) else build_acervo_alignment(
+            text,
+            start,
+            end,
+            source_id=clip.get("source_id") or clip.get("source_video_id") or clip.get("video_id") or clip.get("live_id"),
+            account=self.campaign_hub_account,
+            snapshot=self.campaign_hub_snapshot,
+        )
+        audience_fit = clip.get("audience_fit") if isinstance(clip.get("audience_fit"), dict) else build_audience_fit(
+            text,
+            account=self.campaign_hub_account,
+            snapshot=self.campaign_hub_snapshot,
+            segment=str(clip.get("audience_segment") or ""),
+        )
         instagram_pattern_prior = build_editorial_pattern_prior(text, clip)
         factors = {
             "hook": self._hook(text),
@@ -234,6 +248,8 @@ class EditorialRanker:
             "chapter_coherence": self._chapter_coherence(clip),
             "duration_fit": self._duration_fit(duration),
             "campaign_hub_prior": campaign_hub_prior["observed_signal"],
+            "acervo_alignment": acervo_alignment.get("signal", 50.0),
+            "audience_fit": audience_fit.get("signal", 50.0),
         }
         political_signals = {}
         if self.editorial_profile in (PROFILE_NAME, "politics", "political"):
@@ -295,6 +311,12 @@ class EditorialRanker:
         if campaign_hub_prior["available"]:
             # Post-publication evidence is intentionally bounded to +/- 2 points.
             score += int(round((campaign_hub_prior["observed_signal"] - 50.0) * 0.12))
+        if acervo_alignment.get("available"):
+            # A same-source QA-gated block is a small context prior, not a cut command.
+            score += int(round(max(-1.0, min(1.0, (acervo_alignment.get("signal", 50.0) - 50.0) * 0.12))))
+        if audience_fit.get("available"):
+            # Audience is only active after an explicit segment and adequate sample.
+            score += int(round(max(-1.0, min(1.0, (audience_fit.get("signal", 50.0) - 50.0) * 0.10))))
         # Speaker and Q&A boundaries are tie-breakers, never substitutes for
         # context, payoff or technical gates. Combined impact is <= 4 points.
         score += int(round(
@@ -402,6 +424,8 @@ class EditorialRanker:
                 or speaker_review_required
                 or topic_review_required
                 or transcription_needs_review
+                or bool(acervo_alignment.get("review_required"))
+                or bool(audience_fit.get("review_required"))
             ),
         )
         breakdown = {
@@ -491,6 +515,8 @@ class EditorialRanker:
             "transcription_coverage_status": transcription_coverage_status,
             "transcription_review_reason": str(clip.get("transcription_review_reason") or transcription_review_reason),
             "campaign_hub_prior": campaign_hub_prior,
+            "acervo_alignment": acervo_alignment,
+            "audience_fit": audience_fit,
             "instagram_pattern_prior": instagram_pattern_prior,
             "feedback_calibration": feedback_calibration,
             "technical_gate": technical_gate,
@@ -553,6 +579,12 @@ class EditorialRanker:
                 "technical_gate_reasons": list(technical_gate["reasons"]),
                 "campaign_hub_prior_available": bool(campaign_hub_prior["available"]),
                 "campaign_hub_hook_family": campaign_hub_prior["hook_family"],
+                "acervo_alignment_available": bool(acervo_alignment.get("available")),
+                "acervo_alignment_status": str(acervo_alignment.get("status") or ""),
+                "acervo_review_required": bool(acervo_alignment.get("review_required")),
+                "audience_fit_available": bool(audience_fit.get("available")),
+                "audience_fit_status": str(audience_fit.get("status") or ""),
+                "audience_review_required": bool(audience_fit.get("review_required")),
                 "instagram_pattern_prior_available": bool(instagram_pattern_prior["available"]),
                 "instagram_pattern_family": instagram_pattern_prior["family"],
                 "instagram_pattern_sample_count": instagram_pattern_prior["sample_count"],

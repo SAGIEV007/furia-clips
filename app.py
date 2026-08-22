@@ -580,7 +580,7 @@ def _enrich_editorial_context_locally(video_path, transcription, editorial_conte
     """Add local audio and hook evidence without uploading the source video."""
     from modules.audio_analyzer import AudioAnalyzer
     from modules.editorial_context import detect_hook_candidates
-    from modules.campaign_hub import load_snapshot, snapshot_status
+    from modules.campaign_hub import attach_acervo_context, load_snapshot, snapshot_status
 
     analyzer = AudioAnalyzer()
     energy_profile = _analyze_energy_with_cancel(analyzer, video_path, emit_progress, cancel_check)
@@ -1069,7 +1069,7 @@ def api_batch_rank():
         return jsonify({"error": "Cada candidato deve ser um objeto JSON"}), 400
 
     from modules.viral_ranker import ViralRanker
-    from modules.campaign_hub import load_snapshot, snapshot_status
+    from modules.campaign_hub import attach_acervo_context, load_snapshot, snapshot_status
 
     options = data.get("options") or {}
     campaign_hub_snapshot = load_snapshot(options.get("campaign_hub_snapshot_path"))
@@ -2199,7 +2199,7 @@ def api_cut_shorts():
             energy_profile = _analyze_energy_with_cancel(analyzer, video_path, emit_progress, ctx.check_cancel)
             try:
                 from modules.editorial_context import detect_hook_candidates
-                from modules.campaign_hub import load_snapshot, snapshot_status
+                from modules.campaign_hub import attach_acervo_context, load_snapshot, snapshot_status
                 context_snapshot = load_snapshot(settings.get("campaign_hub_snapshot_path"))
                 settings.setdefault("editorial_context", {})["hook_candidates"] = detect_hook_candidates(
                     transcription.get("segments", []),
@@ -2263,7 +2263,7 @@ def api_cut_shorts():
                         if start <= float(change) <= end
                     ]
             from modules.viral_ranker import ViralRanker
-            from modules.campaign_hub import load_snapshot, snapshot_status
+            from modules.campaign_hub import attach_acervo_context, load_snapshot, snapshot_status
             feedback_calibration = get_feedback_calibration()
             campaign_hub_snapshot = load_snapshot(settings.get("campaign_hub_snapshot_path"))
             campaign_hub_status = snapshot_status(settings.get("campaign_hub_snapshot_path"))
@@ -2271,10 +2271,20 @@ def api_cut_shorts():
                 settings.get("campaign_hub_account")
                 or (campaign_hub_snapshot or {}).get("default_account", "")
             )
+            source_context_id = data.get("source_video_id") or data.get("video_id") or data.get("youtube_id") or settings.get("source_video_id") or ""
+            top_clips = attach_acervo_context(
+                top_clips,
+                campaign_hub_snapshot,
+                account=campaign_hub_account,
+                source_id=source_context_id,
+                audience_segment=str(settings.get("audience_segment") or ""),
+            )
             if campaign_hub_snapshot:
                 emit_progress(
                     f"[Campaign Hub] Snapshot offline carregado para {campaign_hub_account or 'conta padrão'}; "
-                    f"{campaign_hub_status.get('total_hook_observations', 0)} observação(ões) de hook; impacto limitado e explicável.",
+                    f"{campaign_hub_status.get('total_hook_observations', 0)} observação(ões) de hook, "
+                    f"{campaign_hub_status.get('total_acervo_blocks', 0)} bloco(s) Acervo e "
+                    f"{campaign_hub_status.get('total_pauta_candidates', 0)} pauta(s); impacto limitado e explicável.",
                     "info",
                 )
             else:
@@ -2488,6 +2498,10 @@ def api_cut_shorts():
                         "multimodal_auxiliary" if multimodal_result is not None else "local_dossier",
                     ),
                     "context_recovery": clip_info.get("context_recovery", {"applied": False, "reason": "antecedente não precisou ser recuperado"}),
+                    "acervo_alignment": clip_info.get("acervo_alignment", {}),
+                    "audience_fit": clip_info.get("audience_fit", {}),
+                    "acervo_review_required": bool((clip_info.get("acervo_alignment") or {}).get("review_required")),
+                    "audience_review_required": bool((clip_info.get("audience_fit") or {}).get("review_required")),
                     "speaker": clip_info.get("speaker", ""),
                     "speaker_confidence": clip_info.get("speaker_confidence"),
                     "overlap_suspected": clip_info.get("overlap_suspected", False),
@@ -3284,7 +3298,7 @@ def api_process_complete():
             energy_profile = _analyze_energy_with_cancel(analyzer, working_video, emit_progress, ctx.check_cancel)
             try:
                 from modules.editorial_context import detect_hook_candidates
-                from modules.campaign_hub import load_snapshot, snapshot_status
+                from modules.campaign_hub import attach_acervo_context, load_snapshot, snapshot_status
                 context_snapshot = load_snapshot(settings.get("campaign_hub_snapshot_path"))
                 settings.setdefault("editorial_context", {})["hook_candidates"] = detect_hook_candidates(
                     transcription.get("segments", []),
@@ -3328,7 +3342,7 @@ def api_process_complete():
             # ── Step 4: Rank and cut ──
             emit_progress("━━━ ETAPA 4/6: Ranqueando e Cortando ━━━", "info")
             from modules.viral_ranker import ViralRanker
-            from modules.campaign_hub import load_snapshot, snapshot_status
+            from modules.campaign_hub import attach_acervo_context, load_snapshot, snapshot_status
             from modules.video_cutter import VideoCutter
             from modules.layout_planner import plan_layout
 
@@ -3341,7 +3355,9 @@ def api_process_complete():
             if campaign_hub_snapshot:
                 emit_progress(
                     f"[Campaign Hub] Snapshot offline carregado para {campaign_hub_account or 'conta padrão'}; "
-                    f"{campaign_hub_status.get('total_hook_observations', 0)} observação(ões) de hook; impacto limitado e explicável.",
+                    f"{campaign_hub_status.get('total_hook_observations', 0)} observação(ões) de hook, "
+                    f"{campaign_hub_status.get('total_acervo_blocks', 0)} bloco(s) Acervo e "
+                    f"{campaign_hub_status.get('total_pauta_candidates', 0)} pauta(s); impacto limitado e explicável.",
                     "info",
                 )
             else:
@@ -3350,6 +3366,14 @@ def api_process_complete():
                     "ranking segue sem prior histórico e continua usando os sinais do vídeo.",
                     "warning",
                 )
+            source_context_id = data.get("source_video_id") or data.get("video_id") or data.get("youtube_id") or settings.get("source_video_id") or ""
+            top_clips = attach_acervo_context(
+                top_clips,
+                campaign_hub_snapshot,
+                account=campaign_hub_account,
+                source_id=source_context_id,
+                audience_segment=str(settings.get("audience_segment") or ""),
+            )
             feedback_calibration = get_feedback_calibration()
             ranker = ViralRanker(
                 channel_context=settings.get("channel_context", ""),
@@ -3647,6 +3671,10 @@ def api_process_complete():
                         "multimodal_auxiliary" if multimodal_result is not None else "local_dossier",
                     ),
                     "context_recovery": clip_info.get("context_recovery", {"applied": False, "reason": "antecedente não precisou ser recuperado"}),
+                    "acervo_alignment": clip_info.get("acervo_alignment", {}),
+                    "audience_fit": clip_info.get("audience_fit", {}),
+                    "acervo_review_required": bool((clip_info.get("acervo_alignment") or {}).get("review_required")),
+                    "audience_review_required": bool((clip_info.get("audience_fit") or {}).get("review_required")),
                     "closure_type": clip_info.get("closure_type", ""),
                     "starts_mid_sentence": bool(clip_info.get("starts_mid_sentence")),
                     "starts_with_context_reference": bool(clip_info.get("starts_with_context_reference")),

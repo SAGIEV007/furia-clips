@@ -3,6 +3,7 @@ from unittest.mock import patch
 
 import app as furia_app
 
+import modules.editorial_search as editorial_search
 from modules.editorial_search import search_cached_campaign_hub
 
 
@@ -466,3 +467,40 @@ def test_editorial_search_endpoint_passes_date_filters_and_remains_read_only():
         published_to="2026-08-17",
         limit=25,
     )
+
+
+
+def test_search_reads_rich_acervo_blocks_from_profile_snapshot(tmp_path):
+    profile = tmp_path / "profile.json"
+    profile.write_text(json.dumps({
+        "accounts": {
+            "@renansantosmbl": {
+                "acervo_blocks": [{
+                    "id": "block-1",
+                    "title": "Segurança pública e resposta concreta",
+                    "summary": "A tese fala de segurança pública e combate ao crime.",
+                    "startS": 120,
+                    "endS": 180,
+                    "densityRank": 95,
+                    "video": {
+                        "youtubeId": "AbCdEfGhI12",
+                        "youtubeUrl": "https://youtu.be/AbCdEfGhI12",
+                        "title": "Live de teste",
+                        "platform": "youtube",
+                    },
+                    "highlights": [{"startS": 130, "endS": 145, "text": "A resposta precisa ser concreta.", "reason": "tese"}],
+                }]
+            }
+        }
+    }), encoding="utf-8")
+
+    with patch.object(editorial_search, "DEFAULT_PROFILE_PATH", profile):
+        result = search_cached_campaign_hub("segurança pública", account="@renansantosmbl", platform="youtube", cache_dir=tmp_path)
+
+    assert result["returned"] == 1
+    item = result["results"][0]
+    assert item["block_id"] == "block-1"
+    assert item["has_timestamps"] is True
+    assert item["source_preview_url"] == "https://www.youtube.com/watch?v=AbCdEfGhI12&t=120s"
+    assert item["moments"][0]["preview_url"] == "https://www.youtube.com/watch?v=AbCdEfGhI12&t=130s"
+    assert result["read_only"] is True

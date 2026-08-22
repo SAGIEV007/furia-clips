@@ -1,4 +1,4 @@
-from modules.campaign_hub import build_performance_prior, classify_hook, classify_hook_details, normalize_snapshot, snapshot_status
+from modules.campaign_hub import build_acervo_alignment, build_audience_fit, build_performance_prior, classify_hook, classify_hook_details, normalize_snapshot, snapshot_status
 from modules.editorial_context import detect_hook_candidates
 from modules.editorial_ranker import EditorialRanker
 
@@ -33,7 +33,90 @@ def test_snapshot_status_reports_bounded_local_metadata(tmp_path):
     assert status["available"] is True
     assert status["read_only"] is True
     assert status["auto_reload_on_next_analysis"] is True
-    assert status["accounts"]["@renansantosmbl"] == {"hook_observations": 1, "examples": 1, "cohorts": 1}
+    assert status["accounts"]["@renansantosmbl"] == {
+        "hook_observations": 1,
+        "examples": 1,
+        "cohorts": 1,
+        "acervo_blocks": 0,
+        "pauta_candidates": 0,
+        "audience_priors": 0,
+        "entity_priors": 0,
+    }
+
+
+def test_acervo_block_aligns_only_same_source_and_overlapping_interval():
+    snapshot = normalize_snapshot({
+        "default_account": "@renansantosmbl",
+        "accounts": {
+            "@renansantosmbl": {
+                "acervo_blocks": [{
+                    "id": "block-1",
+                    "contentClass": "fala",
+                    "title": "Segurança pública precisa de resposta concreta",
+                    "summary": "A proposta trata de segurança pública e combate ao crime organizado.",
+                    "startS": 100,
+                    "endS": 170,
+                    "densityRank": 95,
+                    "selfContainedRank": 90,
+                    "trustTier": "owner",
+                    "video": {"youtubeId": "AbCdEfGhI12", "title": "Fonte de teste"},
+                    "highlights": [{"startS": 120, "endS": 132, "text": "A resposta precisa ser concreta.", "reason": "tese"}],
+                }],
+            },
+        },
+    })
+    aligned = build_acervo_alignment(
+        "A resposta para a segurança pública precisa ser concreta.",
+        118,
+        140,
+        source_id="AbCdEfGhI12",
+        account="@renansantosmbl",
+        snapshot=snapshot,
+    )
+    assert aligned["available"] is True
+    assert aligned["status"] == "aligned_same_source"
+    assert aligned["block_id"] == "block-1"
+    assert 50 < aligned["signal"] <= 58
+
+    wrong_source = build_acervo_alignment(
+        "A resposta para a segurança pública precisa ser concreta.",
+        118,
+        140,
+        source_id="ZzYyXxWwVvU",
+        account="@renansantosmbl",
+        snapshot=snapshot,
+    )
+    assert wrong_source["available"] is False
+    assert wrong_source["status"] == "source_has_no_overlapping_block"
+
+
+def test_rich_snapshot_status_reports_blocks_without_hook_priors(tmp_path):
+    snapshot_path = tmp_path / "rich.json"
+    snapshot_path.write_text(
+        '{"version":"rich-v1","accounts":{"@renansantosmbl":{"acervo_blocks":[{"id":"b","startS":1,"endS":4,"video":{"youtubeId":"AbCdEfGhI12"}}],"audience_priors":[{"segment":"BR","signal":54,"sampleCount":12}]}}}',
+        encoding="utf-8",
+    )
+    status = snapshot_status(str(snapshot_path))
+    assert status["available"] is True
+    assert status["rich_context_available"] is True
+    assert status["total_acervo_blocks"] == 1
+    assert status["total_audience_priors"] == 1
+
+
+def test_audience_prior_requires_explicit_segment_and_sample():
+    snapshot = normalize_snapshot({
+        "accounts": {
+            "@renansantosmbl": {
+                "audience_priors": [{"segment": "BR", "category": "segurança pública", "signal": 55, "sampleCount": 12}],
+            },
+        },
+    })
+    absent = build_audience_fit("segurança pública", account="@renansantosmbl", snapshot=snapshot)
+    assert absent["available"] is False
+    assert absent["status"] == "segment_not_requested"
+    available = build_audience_fit("segurança pública", account="@renansantosmbl", snapshot=snapshot, segment="BR")
+    assert available["available"] is True
+    assert available["review_required"] is True
 
 
 def test_hook_candidates_expose_timestamped_payoff_and_selected_account_prior():
@@ -418,3 +501,40 @@ def test_snapshot_status_missing_explicit_file_is_read_only(tmp_path):
     assert status["status"] == "missing"
     assert status["read_only"] is True
     assert status["influences_ranking"] is False
+
+
+
+def test_ranker_exposes_acervo_alignment_without_removing_context_gate():
+    snapshot = normalize_snapshot({
+        "accounts": {
+            "@renansantosmbl": {
+                "acervo_blocks": [{
+                    "id": "block-ranked",
+                    "contentClass": "fala",
+                    "title": "A proposta de segurança pública",
+                    "summary": "A resposta precisa ser concreta e terminar com uma solução.",
+                    "startS": 0,
+                    "endS": 40,
+                    "densityRank": 99,
+                    "selfContainedRank": 99,
+                    "trustTier": "owner",
+                    "video": {"youtubeId": "AbCdEfGhI12"},
+                }],
+            },
+        },
+    })
+    ranker = EditorialRanker(campaign_hub_snapshot=snapshot, campaign_hub_account="@renansantosmbl")
+    result = ranker.score_clip({
+        "source_id": "AbCdEfGhI12",
+        "start": 0,
+        "end": 35,
+        "duration": 35,
+        "text": "A proposta de segurança pública precisa ser concreta e termina com uma solução.",
+        "context_complete": False,
+        "question_detected": True,
+        "question_answer_complete": False,
+    })
+    assert result["acervo_alignment"]["available"] is True
+    assert result["review_flags"]["acervo_alignment_available"] is True
+    assert result["quality_scorecard"]["status"] == "review_required"
+    assert result["technical_gate"]["status"] in {"review", "weak"}

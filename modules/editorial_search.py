@@ -21,6 +21,10 @@ DEFAULT_CACHE_DIR = Path(
     os.environ.get("FURIA_CLIPS_CHUB_CACHE_DIR", "")
     or Path.home() / "FuriaClipsData" / "analyses" / "campaign_hub_queries"
 )
+DEFAULT_PROFILE_PATH = Path(
+    os.environ.get("FURIA_CAMPAIGN_HUB_SNAPSHOT", "")
+    or Path.home() / "FuriaClipsData" / "campaign_hub" / "profile.json"
+)
 _STOPWORDS = {
     "a", "o", "as", "os", "um", "uma", "de", "do", "da", "dos", "das",
     "e", "ou", "em", "no", "na", "nos", "nas", "para", "por", "com",
@@ -95,6 +99,36 @@ def _iter_cached_records(cache_dir: Path) -> Iterable[dict[str, Any]]:
             record["_query_mode"] = decoded.get("mode", "cached")
             record["_total_mentions"] = decoded.get("totalMentions")
             yield record
+
+
+def _iter_profile_records(profile_path: Path | None = None) -> Iterable[dict[str, Any]]:
+    """Read rich blocks/pauta from the persistent snapshot without writing to it."""
+    path = profile_path or DEFAULT_PROFILE_PATH
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, UnicodeDecodeError):
+        return
+    if not isinstance(payload, dict) or not isinstance(payload.get("accounts"), dict):
+        return
+    for account, account_data in payload["accounts"].items():
+        if not isinstance(account_data, dict):
+            continue
+        for key, mode in (("acervo_blocks", "acervo_block"), ("blocks", "acervo_block"), ("acervo_pauta", "acervo_pauta"), ("pauta_candidates", "acervo_pauta")):
+            rows = account_data.get(key, [])
+            if isinstance(rows, dict):
+                rows = rows.get("items", rows.get("results", []))
+            if not isinstance(rows, list):
+                continue
+            for row in rows:
+                if not isinstance(row, dict):
+                    continue
+                record = dict(row)
+                record["channel"] = str(account)
+                record["account"] = str(account)
+                record["_cache_file"] = str(path)
+                record["_query_mode"] = mode
+                record["_profile_snapshot"] = True
+                yield record
 
 
 def _parse_date_filter(value: Any, field_name: str) -> date | None:
@@ -418,6 +452,25 @@ def search_cached_campaign_hub(
             if end_date and published > end_date:
                 continue
         candidates.append(record)
+    # A rich profile snapshot is a separate source from query result caches. It
+    # is included only when it exists and is still filtered by account/platform/date.
+    for record in _iter_profile_records():
+        row_account = str(record.get("channel") or record.get("account") or "").strip()
+        video = _source_video(record)
+        row_platform = str(_first_value(video, "platform", default=record.get("platform") or "youtube")).strip().lower()
+        if selected_account and row_account != selected_account:
+            continue
+        if selected_platform and row_platform != selected_platform:
+            continue
+        if start_date or end_date:
+            published = _published_date(record)
+            if published is None:
+                continue
+            if start_date and published < start_date:
+                continue
+            if end_date and published > end_date:
+                continue
+        candidates.append(record)
     account_max_ratio: dict[str, float] = {}
     for record in candidates:
         account_key = str(record.get("channel") or record.get("account") or "unknown")
@@ -426,8 +479,8 @@ def search_cached_campaign_hub(
     seen_account_urls: set[tuple[str, str]] = set()
     for record in candidates:
         video = _source_video(record)
-        record_url = str(_first_value(record, "url", "sourceUrl", "source_url", default="")).strip()
-        nested_url = str(_first_value(video, "url", "sourceUrl", default="")).strip()
+        record_url = str(_first_value(record, "url", "sourceUrl", "source_url", "youtubeUrl", default="")).strip()
+        nested_url = str(_first_value(video, "url", "sourceUrl", "youtubeUrl", default="")).strip()
         nested_platform = str(_first_value(video, "platform", default=record.get("platform") or "")).strip().lower()
         url = nested_url if nested_platform == "youtube" and nested_url else record_url or nested_url
         account_key = str(record.get("channel") or record.get("account") or "unknown")

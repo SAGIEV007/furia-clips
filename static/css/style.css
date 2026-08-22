@@ -5265,3 +5265,23 @@ body::before {
     .main-content { display: block; width: 100%; margin: 0; padding: 18px 12px 34px; }
     .main-header { margin-top: 0; }
 }
+
+/* Evidências auxiliares importadas do snapshot Campaign Hub; nunca substituem revisão humana. */
+.clip-acervo-note, .clip-audience-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 7px;
+    margin: 7px 0;
+    padding: 8px 10px;
+    border: 1px solid rgba(127, 197, 255, .18);
+    border-radius: 9px;
+    background: rgba(73, 133, 190, .07);
+    color: #b8d7ec;
+    font-size: 10px;
+    line-height: 1.4;
+}
+.clip-acervo-note .material-icons-round, .clip-audience-note .material-icons-round { color: #8fc8ff; font-size: 16px; flex: 0 0 auto; }
+.clip-acervo-note.review, .clip-audience-note.review { border-color: rgba(233, 197, 107, .32); background: rgba(233, 197, 107, .07); color: #f2ddb0; }
+.clip-acervo-note.review .material-icons-round, .clip-audience-note.review .material-icons-round { color: #e9c56b; }
+.clip-acervo-note b, .clip-audience-note b { color: #eaf5ff; }
+.clip-acervo-note.review b, .clip-audience-note.review b { color: #ffe9ae; }

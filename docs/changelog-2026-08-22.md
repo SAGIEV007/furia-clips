@@ -197,3 +197,12 @@ O leitor também ficou mais defensivo contra listas corrompidas nos campos de ob
 No ambiente de validação, o snapshot persistente local foi reconhecido como **carregado**, com 46 observações de hooks, 45 exemplos e 2 cohorts distribuídos entre dois perfis. Isso significa que ele pode auxiliar o desempate e a classificação de hooks quando houver amostra suficiente; os cortes continuam dependentes principalmente da transcrição, contexto, payoff, áudio, layout e gates editoriais.
 
 A validação integral desta rodada confirmou **638 testes aprovados**, além de `node --check`, `py_compile`, `git diff --check` e varredura de segredos sem achados.
+
+## Extensão read-only do Acervo e dos sinais contextuais do Campaign Hub
+O adaptador offline passou a aceitar, além dos priors de hooks legados, snapshots ricos com blocos Acervo QA-gated, candidatos de pauta, highlights timestampados, regiões ignoradas, entidades e priors de audiência. Os campos são normalizados com limites de tamanho, timestamps finitos, categorias e conta explícita; formatos corrompidos são ignorados com segurança.
+
+Blocos Acervo só são alinhados a um candidato quando o identificador da mesma fonte e o intervalo temporal coincidem. Similaridade textual de outra fonte não é tratada como alinhamento. Quando há coincidência, o Furia mostra título, categoria, confiança, highlights e razão como evidência revisável; o sinal é bounded, não cria cortes, não substitui contexto ou payoff e não remove gates. Priors de audiência só são considerados quando um segmento é solicitado explicitamente e existe amostra suficiente, permanecendo auxiliares e não causais.
+
+A busca editorial local também consulta blocos e pautas presentes em `~/FuriaClipsData/campaign_hub/profile.json`, com timestamps, previews canônicos do YouTube e indicação de leitura somente local. A interface global do snapshot agora exibe contagens de hooks, blocos, pautas e audiência, enquanto os logs dos fluxos inteligente e completo registram a mesma cobertura.
+
+Foram adicionados testes de normalização, alinhamento same-source, rejeição de fonte diferente, snapshot rico sem hooks, audiência com segmento explícito, ranking subordinado aos gates, endpoint de status e busca de bloco Acervo. A validação integral desta rodada confirmou **644 testes aprovados**, além de `node --check`, `py_compile`, `git diff --check` e varredura de segredos sem achados.
