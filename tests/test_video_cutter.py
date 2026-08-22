@@ -426,3 +426,81 @@ def test_face_tracking_uses_center_when_all_face_positions_are_invalid(monkeypat
     vf_index = commands[-1].index("-vf")
     assert commands[-1][vf_index + 1].startswith("crop=1080:1080:420:0")
     assert any("Nenhum sinal facial confiável" in message for message, _ in events)
+
+
+
+def test_batch_cut_preserves_word_refined_boundaries_without_legacy_padding(monkeypatch, tmp_path):
+    from types import SimpleNamespace
+    import modules.video_cutter as module
+
+    calls = []
+
+    def fake_cut(self, video_path, start, end, output_path, **kwargs):
+        calls.append((start, end))
+        open(output_path, "wb").close()
+        return output_path
+
+    monkeypatch.setattr(module.VideoCutter, "cut_clip", fake_cut)
+    monkeypatch.setattr(module, "validate_media", lambda *args, **kwargs: SimpleNamespace(
+        valid=True,
+        errors=[],
+        warnings=[],
+        as_dict=lambda: {"valid": True},
+    ))
+
+    results = module.VideoCutter(preset="shorts").batch_cut(
+        "fonte.mp4",
+        [{
+            "start": 10.0,
+            "end": 19.5,
+            "duration": 9.5,
+            "title": "Tese",
+            "boundary_refinement": {
+                "applied": True,
+                "reason": "ancorado_nas_palavras_com_margem_conservadora",
+                "trim_before": 0.7,
+                "trim_after": 0.8,
+            },
+        }],
+        "preserva-limites",
+        output_dir=str(tmp_path),
+        source_duration=30.0,
+    )
+
+    assert calls == [(10.0, 19.5)]
+    assert results[0]["render_start"] == 10.0
+    assert results[0]["render_end"] == 19.5
+    assert results[0]["render_boundary_policy"] == "word_timestamps_preserved"
+    assert results[0]["boundary_refinement"]["applied"] is True
+
+
+def test_batch_cut_keeps_legacy_padding_without_boundary_metadata(monkeypatch, tmp_path):
+    from types import SimpleNamespace
+    import modules.video_cutter as module
+
+    calls = []
+
+    def fake_cut(self, video_path, start, end, output_path, **kwargs):
+        calls.append((start, end))
+        open(output_path, "wb").close()
+        return output_path
+
+    monkeypatch.setattr(module.VideoCutter, "cut_clip", fake_cut)
+    monkeypatch.setattr(module, "validate_media", lambda *args, **kwargs: SimpleNamespace(
+        valid=True,
+        errors=[],
+        warnings=[],
+        as_dict=lambda: {"valid": True},
+    ))
+
+    results = module.VideoCutter(preset="shorts").batch_cut(
+        "fonte.mp4",
+        [{"start": 10.0, "end": 19.5, "duration": 9.5, "title": "Legado"}],
+        "padding-legado",
+        output_dir=str(tmp_path),
+        source_duration=30.0,
+    )
+
+    assert calls == [(9.7, 20.3)]
+    assert results[0]["render_boundary_policy"] == "legacy_safety_padding"
+    assert results[0]["boundary_refinement"] is None

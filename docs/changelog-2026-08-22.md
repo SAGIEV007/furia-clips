@@ -264,3 +264,11 @@ O selector passou a preservar spans numéricos de palavras quando a fonte de tra
 A mesma regra foi aplicada aos caminhos NLP, Gemini e Ollama. O texto bruto das palavras não é armazenado nesse metadata; somente posições numéricas bounded são propagadas. Foram adicionados testes para poda aplicada, ausência de timestamps seguros, sanitização numérica e compatibilidade do parser de IA.
 
 Validação: **676 testes aprovados**, `node --check`, `py_compile`, `git diff --check` e auditoria de segredos sem achados. Campaign Hub permaneceu somente leitura.
+
+## Qualidade — preservação dos limites refinados no render final
+
+O `batch_cut` deixou de reaplicar automaticamente o padding legado de 300 ms antes e 800 ms depois quando o candidato já traz `boundary_refinement.applied=true`. Assim, o intervalo ancorado nas palavras chega ao FFmpeg sem ser parcialmente desfeito. Candidatos antigos sem esse metadata continuam usando o padding de segurança anterior para preservar compatibilidade.
+
+O resultado de render agora informa `render_start`, `render_end`, `render_boundary_policy` e o refinamento aplicado, permitindo auditar a diferença entre o intervalo editorial canônico e o intervalo efetivamente enviado ao renderizador. Foram adicionados testes de integração para os caminhos refinado e legado.
+
+Validação: **678 testes aprovados**, `node --check`, `py_compile`, `git diff --check` e auditoria de segredos sem achados. Campaign Hub permaneceu somente leitura.

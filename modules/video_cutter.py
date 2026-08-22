@@ -427,9 +427,20 @@ class VideoCutter:
                     )
                 continue
 
-            # +0.3s before (smooth start), +0.8s after (don't cut last word)
-            padded_start = max(0.0, raw_start - 0.3)
-            padded_end = raw_end + 0.8
+            # Word-timestamp refinement already includes a conservative 120 ms
+            # speech margin. Do not add the legacy padding again, otherwise the
+            # final render would partially undo the selector's boundary work.
+            boundary_refinement = cut.get("boundary_refinement") if isinstance(cut.get("boundary_refinement"), dict) else {}
+            refined_boundaries = boundary_refinement.get("applied") is True
+            if refined_boundaries:
+                padded_start = raw_start
+                padded_end = raw_end
+                render_boundary_policy = "word_timestamps_preserved"
+            else:
+                # Legacy candidates keep the historical safety padding.
+                padded_start = max(0.0, raw_start - 0.3)
+                padded_end = raw_end + 0.8
+                render_boundary_policy = "legacy_safety_padding"
             if source_duration is not None:
                 padded_start = min(padded_start, max(0.0, source_duration - 0.1))
                 padded_end = min(padded_end, source_duration)
@@ -504,6 +515,10 @@ class VideoCutter:
                     "start": cut["start"],
                     "end": cut["end"],
                     "duration": cut["duration"],
+                    "render_start": round(padded_start, 3),
+                    "render_end": round(padded_end, 3),
+                    "render_boundary_policy": render_boundary_policy,
+                    "boundary_refinement": dict(boundary_refinement) if boundary_refinement else None,
                     "text": cut.get("text", ""),
                     "title": clip_title,
                     "rank": rank,
