@@ -433,3 +433,6 @@ O fluxo de fonte agora bloqueia imediatamente os dois botões de importação en
 
 ## Diagnóstico de falhas de fontes públicas — 2026-08-22
 O importador público agora apresenta diagnósticos mais claros para vídeo/página inexistente (404), timeout ou rede temporária, conteúdo que exige login/idade, bloqueio regional e plataforma não suportada. As mensagens orientam uma ação segura — conferir o endereço, aguardar, escolher outra fonte pública ou importar arquivo local — sem sugerir contorno de autenticação, CAPTCHA, rate limit ou privacidade. Os retries continuam limitados e o fluxo não inicia operações concorrentes como tentativa de correção. Foram adicionadas regressões para cada categoria; validação integral: **715 testes aprovados**.
+
+## Fallback seguro de composição no ajuste manual — 2026-08-22
+O re-render individual agora infere uma política conservadora quando o clip persistido indica `reframe_9_16`, `face_tracking` ou composição original: sem uma preferência explícita, o quadro da fonte é preservado em vez de aplicar um crop centralizado que poderia perder o locutor. O tracking não é fingido nem reproduzido sem metadados suficientes; a decisão permanece revisável e explícita. Foi adicionada regressão backend e a validação integral fechou com **716 testes aprovados**.

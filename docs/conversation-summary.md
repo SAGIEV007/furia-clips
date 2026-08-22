@@ -158,3 +158,7 @@ A calibração do ranking com cortes aprovados/rejeitados deve esperar uma expor
 ## 10. Correção posterior ao resumo
 
 Após a consolidação inicial, foi identificada e corrigida uma borda de concorrência no JobManager: se o editor solicitasse cancelamento exatamente depois de o worker terminar seu trabalho, mas antes da atualização final do estado, o resultado pronto poderia ser rotulado como cancelado. Agora o cancelamento precisa ser verificado cooperativamente antes do trabalho irreversível; quando o worker retorna um resultado, ele é finalizado como concluído. Cancelamentos explícitos durante o trabalho continuam sendo registrados como cancelados. A regressão foi adicionada aos testes reais do JobManager.
+
+## 11. Política de composição no ajuste manual
+
+O re-render de um clip ajustado não consegue reconstruir automaticamente as posições faciais usadas no render original. Para evitar uma mudança visual silenciosa, o backend passou a inferir a política de preservação da composição a partir dos metadados persistidos quando o pedido não informa uma preferência explícita. Clips com `reframe_9_16`, `face_tracking` ou composição original passam a preservar o quadro da fonte por segurança; o editor ainda pode enviar uma preferência explícita quando quiser outro preset. Essa política foi coberta por regressão backend e a suíte integral chegou a 716 testes aprovados.

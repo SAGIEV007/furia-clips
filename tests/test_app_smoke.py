@@ -818,3 +818,23 @@ def test_adjust_render_claim_releases_when_cutter_constructor_fails(monkeypatch,
 
     assert response.status_code == 500
     assert furia_app.active_adjust_render_ids == set()
+
+
+
+def test_adjustment_framing_inference_defaults_to_safe_original_composition():
+    import json
+
+    assert furia_app._infer_adjustment_preserve_original_aspect({
+        "score_factors": json.dumps({
+            "_review_metadata": {"framing": {"mode": "reframe_9_16"}},
+        }),
+    }) is True
+    assert furia_app._infer_adjustment_preserve_original_aspect({
+        "framing": {"mode": "face_tracking", "tracking_applied": True},
+    }) is True
+    assert furia_app._infer_adjustment_preserve_original_aspect({
+        "framing": {"mode": "original_16_9"},
+    }) is True
+    assert furia_app._infer_adjustment_preserve_original_aspect({
+        "framing": {"mode": "unknown", "tracking_applied": False},
+    }) is False

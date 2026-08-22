@@ -430,6 +430,29 @@ def _normalize_review_bounds(clip):
     return clip
 
 
+def _infer_adjustment_preserve_original_aspect(clip):
+    """Prefer the source composition when a previous reframe cannot be replayed."""
+    if not isinstance(clip, dict):
+        return False
+    framing = clip.get("framing") if isinstance(clip.get("framing"), dict) else None
+    if framing is None:
+        raw_factors = clip.get("score_factors")
+        if isinstance(raw_factors, str):
+            try:
+                raw_factors = json.loads(raw_factors)
+            except (TypeError, ValueError, json.JSONDecodeError):
+                raw_factors = {}
+        if isinstance(raw_factors, dict):
+            metadata = raw_factors.get("_review_metadata")
+            framing = metadata.get("framing") if isinstance(metadata, dict) else None
+    if not isinstance(framing, dict):
+        return False
+    mode = str(framing.get("mode") or "").strip().lower()
+    if mode in {"face_tracking", "reframe_9_16", "original", "original_16_9", "original_16:9"}:
+        return True
+    return _coerce_bool(framing.get("tracking_applied"), default=False)
+
+
 def _selection_coverage_plan(source_video, video_duration):
     """Build a local-only plan for adaptive candidate coverage and deduplication."""
     fingerprints = get_existing_clip_fingerprints(source_video)
@@ -1451,7 +1474,10 @@ def api_render_adjusted_clip(clip_id):
         except ValueError:
             requested_preset = "shorts"
             active_preset = get_preset(requested_preset)
-        preserve_original = _coerce_bool(data.get("preserve_original_aspect"), default=False)
+        preserve_original = _coerce_bool(
+            data.get("preserve_original_aspect"),
+            default=_infer_adjustment_preserve_original_aspect(clip),
+        )
         project_name = str(project.get("name") or f"projeto-{project.get('id', clip_id)}")
         title = str(data.get("title") or clip.get("file_path") or f"clip-{clip_id}").strip()
         normalized["title"] = title
