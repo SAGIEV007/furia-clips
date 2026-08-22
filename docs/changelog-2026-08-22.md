@@ -312,3 +312,9 @@ Foi adicionada regressão de integração para confirmar a recuperação dos doi
 O pipeline de corte agora grava no scorecard apenas os sinais não textuais necessários para deduplicação futura — completude de pergunta–resposta, payoff, ponte de contexto, tipo de fechamento, tipo editorial político e capítulo primário. Na execução seguinte, esses sinais são reconstruídos no fingerprint local e podem preservar um candidato sobreposto quando ele representa uma decisão editorial diferente. Nenhum texto novo, transcript, mídia ou dado do Campaign Hub é enviado ao repositório.
 
 A cobertura de integração confirma o caminho SQLite → fingerprint → selector. Validação: **686 testes aprovados**, `node --check`, `py_compile`, `git diff --check` e auditoria de segredos sem achados. Campaign Hub permaneceu somente leitura.
+
+## Segurança temporal — teto no snapping de cena
+
+O snapping outward-only agora preserva o intervalo original quando a expansão até as transições próximas ultrapassaria `max_duration`. O Furia não encurta o discurso para caber no teto e também não cria um clip maior que o limite técnico configurado. O comportamento anterior de ignorar timestamps inválidos e manter o intervalo quando o ajuste é inseguro permanece ativo.
+
+Foi adicionada regressão para expansão acima do teto. Validação: **687 testes aprovados**, `node --check`, `py_compile`, `git diff --check` e auditoria de segredos sem achados. Campaign Hub permaneceu somente leitura.

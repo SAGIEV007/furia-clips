@@ -749,3 +749,17 @@ def test_previous_fingerprint_still_discards_exact_duplicate():
 
     assert selector._remove_previous_fingerprints([candidate]) == []
     assert selector._candidate_diagnostics["previous_discarded_count"] == 1
+
+
+
+def test_scene_boundary_adjustment_preserves_interval_when_expansion_exceeds_max_duration():
+    selector = ClipSelector(target_duration=8, max_clips=5, min_duration=5, max_duration=10)
+    clips = selector._adjust_to_scene_boundaries(
+        [{"start": 10.5, "end": 19.5, "duration": 9.0}],
+        [0.0, 8.0, 10.0, 12.0, 20.5, 30.0],
+    )
+
+    assert clips[0]["start"] == 10.5
+    assert clips[0]["end"] == 19.5
+    assert clips[0]["duration"] == 9.0
+    assert clips[0]["scene_boundary_adjustment"]["applied"] is False

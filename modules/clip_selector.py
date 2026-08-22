@@ -1994,7 +1994,10 @@ Retorne APENAS o JSON.
             if later:
                 best_end = min(later)
 
-            if best_end <= best_start:
+            max_duration = _safe_float(self.max_duration, TECHNICAL_MAX_DURATION)
+            if best_end <= best_start or (
+                max_duration > 0 and best_end - best_start > max_duration
+            ):
                 best_start = original_start
                 best_end = original_end
 
