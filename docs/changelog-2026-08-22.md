@@ -526,3 +526,9 @@ Regressão adicionada para o comentário editorial e validação específica com
 Foram removidas duas frases automáticas que podiam afirmar “reduzir imposto” ou que a solução necessariamente seria encarar despesas apenas porque a legenda mencionava impostos. Sem uma relação explícita, o fallback agora usa a frase real da legenda; as teses fiscais do caso com “país pobre”, “país rico”, despesas e mais de 200 bilhões continuam disponíveis porque são evidenciadas diretamente.
 
 Regressão adicionada para separar menção a imposto de uma solução não dita.
+
+
+## Selo 1:1 sem exagero automático — 2026-08-22
+O selo superior do formato 1:1 não usa mais “IMPRESSIONANTE” por padrão em qualquer legenda. Também deixou de tratar a palavra comum “agora” como urgência. Sem conflito, claim forte, alerta ou urgência explicitamente declarada, o selo fica vazio; “ALERTA” permanece disponível para palavras e construções inequívocas como “alerta” e “agora mesmo”.
+
+Regressões adicionadas para neutralidade e urgência explícita.

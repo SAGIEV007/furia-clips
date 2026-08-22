@@ -254,7 +254,7 @@ def _attention_word(text: str, signals: dict[str, Any]) -> str:
     folded = normalize(text)
     if "arcaic" in folded:
         return "ARCAICO"
-    if any(term in folded for term in ("urgente", "agora", "alerta")):
+    if re.search(r"\b(?:urgente|alerta)\b", folded) or "agora mesmo" in folded:
         return "ALERTA"
     if signals.get("conflict_or_stakes", 0) >= 55:
         return "ABSURDO"
@@ -262,7 +262,7 @@ def _attention_word(text: str, signals: dict[str, Any]) -> str:
         return "ATENÇÃO"
     if any(term in folded for term in ("imposto", "tribut", "despesa", "divida")):
         return "ATENÇÃO"
-    return "IMPRESSIONANTE"
+    return ""
 
 
 def _speaker_prefix(mini_context: str) -> str:

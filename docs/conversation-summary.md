@@ -270,3 +270,8 @@ O sistema agora diferencia “Renan é o tema do corte” de “Renan é quem fa
 ## 37. Menos inferência fiscal
 
 A menção a imposto, sozinha, não gera mais a conclusão “reduzir imposto” nem uma solução sobre despesas. O Headline Studio só usa essa relação quando a legenda a declara; nos demais casos, extrai a frase original.
+
+
+## 38. Selo neutro no formato 1:1
+
+O topo do Alfinetei agora fica sem palavra de impacto quando a legenda é neutra. Isso evita transformar qualquer corte em “impressionante” ou “alerta”; o selo só aparece quando existe evidência textual ou sinal editorial forte.

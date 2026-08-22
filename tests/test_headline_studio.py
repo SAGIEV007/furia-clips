@@ -653,3 +653,24 @@ def test_tax_topic_without_explicit_solution_uses_extractable_sentence():
     assert "DEBATE SOBRE IMPOSTOS EXIGE" not in joined
     assert "REDUZIR IMPOSTO" not in joined
     assert "DEBATE SOBRE IMPOSTO" in joined
+
+
+
+def test_neutral_square_copy_does_not_add_an_unsupported_attention_seal():
+    result = generate_artwork_copy(
+        "A situação mudou nos últimos meses e agora precisamos decidir os próximos passos com responsabilidade.",
+        preferred_format=FORMAT_SQUARE,
+        ai_backend=None,
+    )
+    assert result["attention_word"] == ""
+    assert result["formats"][FORMAT_SQUARE]["suggestions"][0]["eyebrow"] == ""
+
+
+
+def test_explicit_urgency_keeps_alert_seal():
+    result = generate_artwork_copy(
+        "Alerta: a votação acontece agora mesmo e exige atenção de todos.",
+        preferred_format=FORMAT_SQUARE,
+        ai_backend=None,
+    )
+    assert result["attention_word"] == "ALERTA"
