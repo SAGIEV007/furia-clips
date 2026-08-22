@@ -423,3 +423,45 @@ def test_followup_enrichment_does_not_call_gemini_by_default(monkeypatch):
     )
     assert calls == []
     assert result == {"description": "entrevista"}
+
+
+def test_public_video_download_prefers_portuguese_audio_when_tagged(monkeypatch, tmp_path):
+    import modules.source_ingest as module
+
+    captured = {}
+    output = tmp_path / "fonte.mp4"
+    output.write_bytes(b"video")
+
+    class FakeDownloader:
+        def __init__(self, options):
+            captured.update(options)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def extract_info(self, url, download=False):
+            assert download is True
+            return {"id": "pt-source", "title": "Fonte", "duration": 1, "extractor": "youtube"}
+
+        def prepare_filename(self, info):
+            return str(output)
+
+    monkeypatch.setattr(module, "_yt_dlp", lambda: SimpleNamespace(YoutubeDL=FakeDownloader))
+    monkeypatch.setattr(
+        module,
+        "validate_media",
+        lambda *args, **kwargs: SimpleNamespace(valid=True, errors=[], warnings=[]),
+    )
+
+    result = module.download_public_video(
+        "https://www.youtube.com/watch?v=pt-source",
+        str(tmp_path),
+        max_height=1080,
+    )
+
+    assert result["path"] == str(output)
+    assert "ba[language^=pt]" in captured["format"]
+    assert captured["format"].index("ba[language^=pt]") < captured["format"].index("+ba/")

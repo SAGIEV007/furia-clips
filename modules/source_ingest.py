@@ -316,10 +316,16 @@ def download_public_video(url: str, destination: str, progress=None, max_height:
         height_limit = 1080
 
     options = {
-        # Prefer the best separate video/audio streams up to 1080p. The final
-        # fallback still accepts a combined stream when the extractor exposes
-        # no DASH pair at or below the configured limit.
-        "format": f"bv*[height<={height_limit}]+ba/b[height<={height_limit}]/b",
+        # Prefer the best separate video stream plus a Portuguese-tagged audio
+        # stream. Some YouTube uploads expose dubbed audio tracks; the explicit
+        # preference prevents a Spanish dub from winning when the provider gives
+        # us language metadata. The fallback still accepts the best public audio
+        # or a combined stream when language metadata is unavailable.
+        "format": (
+            f"bv*[height<={height_limit}]+ba[language^=pt]/"
+            f"bv*[height<={height_limit}]+ba/"
+            f"b[height<={height_limit}]/b"
+        ),
         "format_sort": [f"res:{height_limit}", "fps", "codec:h264", "size", "br", "asr"],
         "merge_output_format": "mp4",
         "outtmpl": str(target / "%(title).120B [%(id)s].%(ext)s"),

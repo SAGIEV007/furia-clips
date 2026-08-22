@@ -167,3 +167,12 @@ A validação integral desta rodada confirmou **621 testes aprovados**.
 O face tracking opcional agora trata falhas de `ffprobe` ou ausência de stream de vídeo como indisponibilidade localizada: o clip cai para o corte convencional com o preset selecionado, em vez de abortar a operação inteira. A interface recebe um aviso explícito, e o processamento dos demais clips continua.
 
 A validação integral desta rodada confirmou **622 testes aprovados**.
+
+
+## Preferência por áudio em português
+
+O download de fontes públicas agora tenta primeiro a melhor faixa de áudio marcada como português (`pt`/`pt-BR`) quando o provedor expõe metadados de idioma. Se não houver essa informação, o Furia mantém o fallback para a melhor faixa pública disponível e não inventa uma tradução. Isso reduz o risco de selecionar uma dublagem espanhola em vídeos que oferecem múltiplas faixas.
+
+No benchmark individual do vídeo informado (`KdzrMY_QPiE`), a análise audiovisual confirmou **português do Brasil**, identificou Renan, Edson e Amanda e encontrou ações não verbais relevantes, como berrante, montaria, travessia, fauna e demonstrações culturais. O relatório completo foi salvo somente em `/home/ubuntu/FuriaClipsData/analyses/benchmark-KdzrMY_QPiE-2026-08-22.md`; não foi incluído no Git porque contém análise de mídia e dados de trabalho.
+
+A validação integral desta rodada confirmou **623 testes aprovados**.
