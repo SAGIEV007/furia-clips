@@ -1458,18 +1458,18 @@ def api_render_adjusted_clip(clip_id):
         normalized["text"] = str(data.get("text") or clip.get("transcript") or "").strip()
         if not _claim_adjust_render(clip_id):
             return jsonify({"error": "Este clip já está sendo renderizado. Aguarde a conclusão antes de iniciar outro ajuste."}), 409
-        cutter = VideoCutter(method="intelligent", target_duration=normalized["duration"], preset=active_preset)
         try:
+            cutter = VideoCutter(method="intelligent", target_duration=normalized["duration"], preset=active_preset)
             results = cutter.batch_cut(
-            source_path,
-            [normalized],
-            f"{project_name}-ajustes",
-            use_face_tracking=False,
-            emit_progress=lambda message, level="info": print(message),
-            output_dir=EXPORT_DIR,
-            video_layout=None,
-            preset=active_preset,
-            original_aspect_indices={0} if preserve_original else set(),
+                source_path,
+                [normalized],
+                f"{project_name}-ajustes",
+                use_face_tracking=False,
+                emit_progress=lambda message, level="info": print(message),
+                output_dir=EXPORT_DIR,
+                video_layout=None,
+                preset=active_preset,
+                original_aspect_indices={0} if preserve_original else set(),
                 source_duration=source_duration,
             )
         finally:

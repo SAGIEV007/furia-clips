@@ -754,3 +754,30 @@ def test_adjust_render_claim_is_per_clip_and_releases_cleanly():
     furia_app._release_adjust_render(18)
     assert furia_app._claim_adjust_render(17) is True
     furia_app._release_adjust_render(17)
+
+
+def test_adjust_render_claim_releases_when_cutter_constructor_fails(monkeypatch, tmp_path):
+    import modules.video_cutter as video_module
+
+    db_path = tmp_path / "adjust-render-constructor.sqlite"
+    source_path = tmp_path / "source.mp4"
+    source_path.write_bytes(b"source")
+    with patch.object(database, "DB_PATH", str(db_path)):
+        database.init_db()
+        project_id = database.create_project("Projeto com falha", str(source_path))
+        clip_id = database.save_clip(project_id, "exports/original.mp4", 10.0, 52.0, 42.0)
+
+        class BrokenCutter:
+            def __init__(self, *_args, **_kwargs):
+                raise RuntimeError("falha de inicialização simulada")
+
+        monkeypatch.setattr(furia_app, "_resolve_media_input", lambda _value: str(source_path))
+        monkeypatch.setattr(video_module, "VideoCutter", BrokenCutter)
+        furia_app.active_adjust_render_ids.clear()
+        response = furia_app.app.test_client().post(
+            f"/api/clips/{clip_id}/adjust/render",
+            json={"adjustment": {"start": 12.0, "end": 49.0}, "source_duration": 60.0},
+        )
+
+    assert response.status_code == 500
+    assert furia_app.active_adjust_render_ids == set()
