@@ -546,7 +546,7 @@ def _merge_ai_suggestions(
         if accepted_tweets:
             base["formats"][FORMAT_TWEET]["suggestions"] = accepted_tweets
     requested = payload.get("recommended_format")
-    if requested in FORMAT_IDS:
+    if preferred_format not in FORMAT_IDS and requested in FORMAT_IDS:
         base["recommended_format"] = requested
     if isinstance(payload.get("recommendation_reason"), str):
         base["recommendation_reason"] = _compact(payload["recommendation_reason"], 220)

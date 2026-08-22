@@ -222,3 +222,7 @@ Depois do probe com a legenda exportada do CapCut, a primeira alternativa passou
 ## 26. Atribuição de locutor nas headlines
 
 O Headline Studio deixou de inserir “RENAN” automaticamente em uma headline apenas porque o texto fala de cripto ou política. A atribuição só aparece quando o minic contexto identifica explicitamente Renan; caso contrário, o texto permanece ancorado no tema sem atribuir a fala à pessoa errada.
+
+## 27. Formato escolhido preservado
+
+O Headline Studio agora respeita o formato selecionado pelo editor mesmo se a IA sugerir outro formato no JSON. Isso evita uma inconsistência em que o painel poderia parecer recomendar 9:16 quando o editor havia escolhido 1:1; a IA continua responsável apenas pela redação dentro do perfil escolhido.

@@ -481,3 +481,6 @@ As alternativas da legenda fornecida foram refinadas para priorizar o contraste 
 
 ## Headline Studio: atribuição de locutor mais segura — 2026-08-22
 O gerador não atribui mais automaticamente uma crítica a Renan quando a legenda não identifica explicitamente o locutor. Em textos de cripto sem identificação, a chamada permanece temática e neutra; quando o minic contexto confirma Renan, a atribuição pode ser usada. Validação integral: **738 testes aprovados**.
+
+## Headline Studio: formato escolhido preservado — 2026-08-22
+Quando o editor escolhe explicitamente 1:1, 9:16 ou fake tweet, a recomendação devolvida pela IA não pode trocar esse formato. O gerador continua refinando somente o perfil solicitado, evitando que o painel mostre um formato diferente daquele que será produzido. Validação integral: **739 testes aprovados**.

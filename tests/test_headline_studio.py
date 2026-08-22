@@ -465,3 +465,30 @@ def test_crypto_headline_does_not_attribute_renan_without_explicit_context():
     )
     attributed_text = " ".join(item["headline"] for item in attributed["formats"][FORMAT_SQUARE]["suggestions"])
     assert "RENAN" in attributed_text
+
+
+
+def test_explicit_format_cannot_be_overridden_by_ai_recommendation():
+    class FakeBackend:
+        def generate(self, prompt, system, emit_progress=None):
+            return json.dumps({
+                "recommended_format": FORMAT_VERTICAL,
+                "formats": {
+                    FORMAT_SQUARE: [
+                        {"headline": "IMPOSTO E DESPESAS NA CONTA", "accent": "white"}
+                    ],
+                    FORMAT_VERTICAL: [
+                        {"headline": "FORMATO NÃO SOLICITADO COM IMPOSTO"}
+                    ],
+                },
+            })
+
+    result = generate_artwork_copy(
+        FISCAL_CUT_TRANSCRIPT,
+        preferred_format=FORMAT_SQUARE,
+        ai_backend=FakeBackend(),
+    )
+
+    assert result["recommended_format"] == FORMAT_SQUARE
+    assert result["generated_format"] == FORMAT_SQUARE
+    assert result["formats"][FORMAT_VERTICAL]["suggestions"] == []
