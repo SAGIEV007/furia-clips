@@ -3605,6 +3605,37 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
     color: #a78bfa;
 }
 
+.clip-nonverbal-observation {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin: 6px 0 8px;
+    padding: 7px 10px;
+    border-left: 3px solid rgba(45, 212, 191, .72);
+    border-radius: 7px;
+    color: #c9fff6;
+    background: rgba(20, 184, 166, .08);
+    font-size: 10.5px;
+    line-height: 1.4;
+}
+
+.clip-nonverbal-observation.review {
+    border-left-color: rgba(245, 158, 11, .82);
+    color: #f7d48a;
+    background: rgba(245, 158, 11, .08);
+}
+
+.clip-nonverbal-observation .material-icons-round {
+    flex: 0 0 auto;
+    margin-top: 1px;
+    font-size: 15px;
+    color: #2dd4bf;
+}
+
+.clip-nonverbal-observation.review .material-icons-round {
+    color: #f59e0b;
+}
+
 .clip-chapter-note,
 .clip-performance-prior,
 .clip-feedback-prior {

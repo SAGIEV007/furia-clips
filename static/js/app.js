@@ -2803,6 +2803,20 @@ function renderResultsGrid() {
         const contextRecoveryLabel = String(contextRecovery.reason || (contextRecoveryApplied ? "antecedente recuperado antes do início" : "")).trim();
         const contextReferenceFlag = [clip.starts_with_context_reference, reviewFlags.starts_with_context_reference].some((value) => safeBooleanFlag(value));
         const weakPayoffFlag = [clip.payoff_weak_ending, reviewFlags.payoff_weak_ending].some((value) => safeBooleanFlag(value));
+        const nonverbalMomentText = String(clip.nonverbal_moment || "").trim();
+        const nonverbalMomentKind = String(clip.nonverbal_moment_kind || "outro").trim().toLowerCase();
+        const nonverbalMomentKindLabels = {
+            risada: "risada", reacao: "reação", gesto: "gesto", objeto: "ação com objeto",
+            animal: "interação com animal", montaria: "montaria", cavalgada: "cavalgada",
+            berrante: "berrante", musica: "música", paisagem: "paisagem",
+            interacao: "interação", silencio_expressivo: "silêncio expressivo",
+            acao_visual: "ação visual", outro: "observação visual",
+        };
+        const nonverbalMomentConfidence = Number(clip.nonverbal_moment_confidence);
+        const nonverbalMomentReviewRequired = safeBooleanFlag(clip.nonverbal_moment_review_required, true);
+        const nonverbalMomentMarkup = nonverbalMomentText
+            ? `<div class="clip-nonverbal-observation ${nonverbalMomentReviewRequired ? 'review' : ''}"><span class="material-icons-round">visibility</span><span><b>Momento visual para revisar:</b> ${escapeHtml(nonverbalMomentKindLabels[nonverbalMomentKind] || nonverbalMomentKind)} · ${escapeHtml(nonverbalMomentText)}${Number.isFinite(Number(clip.nonverbal_moment_start)) && Number.isFinite(Number(clip.nonverbal_moment_end)) ? ` · ${formatTime(clip.nonverbal_moment_start)}–${formatTime(clip.nonverbal_moment_end)}` : ''}${Number.isFinite(nonverbalMomentConfidence) ? ` · ${Math.round(Math.max(0, Math.min(1, nonverbalMomentConfidence)) * 100)}%` : ''} · ${nonverbalMomentReviewRequired ? 'confirme imagem e áudio' : 'sinal auxiliar confirmado'}. Não altera o score automaticamente.</span></div>`
+            : "";
         const closureType = String(clip.closure_type || "");
         const closureLabels = { conclusion: "conclusão", closed_statement: "frase fechada", cliffhanger: "continuidade", open: "fecho a revisar" };
         const speakerLabel = String(clip.speaker || clip.speaker_role || "").trim();
@@ -3098,8 +3112,10 @@ function renderResultsGrid() {
                 ${visualFormat ? `<div class="clip-visual-format-note ${preserveComposition ? 'preserve' : ''}"><span class="material-icons-round">${preserveComposition ? 'aspect_ratio' : 'center_focus_strong'}</span><span><b>${escapeHtml(visualFormatLabels[visualFormat] || visualFormat)}</b> · ${preserveComposition ? 'preservar composição' : 'reframe somente se seguro'}${Number.isFinite(visualFormatConfidence) ? ` · ${Math.round(Math.max(0, Math.min(1, visualFormatConfidence)) * 100)}%` : ''}${clip.visual_format_reason ? ` — ${escapeHtml(String(clip.visual_format_reason))}` : ''}</span></div>` : ''}
                 ${framingMode ? `<div class="clip-visual-format-note ${framingMode === 'face_tracking' ? '' : 'preserve'}"><span class="material-icons-round">${framingMode === 'face_tracking' ? 'center_focus_strong' : 'aspect_ratio'}</span><span><b>Enquadramento: ${escapeHtml(framingLabels[framingMode] || framingMode)}</b>${Number.isFinite(framingConfidence) ? ` · ${Math.round(Math.max(0, Math.min(1, framingConfidence)) * 100)}%` : ''}${framingReason ? ` — ${escapeHtml(framingReason)}` : ''}</span></div>` : ''}
                 ${multimodalIdentityReview ? `<div class="clip-review-risk ${multimodalIdentityStatus === 'mismatch' ? 'legal' : ''}"><span class="material-icons-round">visibility_off</span><span><b>Identidade multimodal:</b> ${escapeHtml(multimodalIdentityLabel)}${Number.isFinite(multimodalIdentityConfidence) ? ` · ${Math.round(Math.max(0, Math.min(1, multimodalIdentityConfidence)) * 100)}%` : ''}</span></div>` : ''}
-                ${clip.visual_observation ? `<div class="clip-visual-observation"><span class="material-icons-round">visibility</span><span><b>Evidência visual:</b> ${escapeHtml(String(clip.visual_observation))}${Number.isFinite(Number(clip.visual_observation_confidence)) ? ` · ${Math.round(Math.max(0, Math.min(1, Number(clip.visual_observation_confidence))) * 100)}% de confiança` : ''}</span></div>` : ''}
-                ${(chapterCount > 0 || qaBoundaryBasis) ? `<div class="clip-chapter-note ${chapterCount > 0 && chapterScore < 60 ? 'warning' : ''}"><span class="material-icons-round">account_tree</span><span><b>Contexto temporal:</b> ${chapterCount > 0 ? `${chapterCount} capítulo(s)${Number.isFinite(chapterScore) ? ` · coerência ${Math.round(Math.max(0, Math.min(100, chapterScore)))}%` : ''}${chapterBridge ? ' · ponte pergunta–resposta preservada' : chapterCount > 1 ? ' · atravessa capítulos; revisar continuidade' : ' · dentro do mesmo bloco'}` : 'fronteira Q&A registrada'}${qaBoundaryBasis ? ` · fronteira: ${escapeHtml(qaBoundaryLabel)}${qaBoundaryReviewRequired ? ' · confirmar locutor' : ''}` : ''}</span></div>` : ''}
+                                ${clip.visual_observation ? `<div class="clip-visual-observation"><span class="material-icons-round">visibility</span><span><b>Evidência visual:</b> ${escapeHtml(String(clip.visual_observation))}${Number.isFinite(Number(clip.visual_observation_confidence)) ? ` · ${Math.round(Math.max(0, Math.min(1, Number(clip.visual_observation_confidence))) * 100)}% de confiança` : ''}</span></div>` : ''}
+                ${nonverbalMomentMarkup}
+                ${(chapterCount > 0 || qaBoundaryBasis) ? `<div class="clip-chapter-note ${chapterCount > 0 && chapterScore < 60 ? 'warning' : ''}">
+<span class="material-icons-round">account_tree</span><span><b>Contexto temporal:</b> ${chapterCount > 0 ? `${chapterCount} capítulo(s)${Number.isFinite(chapterScore) ? ` · coerência ${Math.round(Math.max(0, Math.min(100, chapterScore)))}%` : ''}${chapterBridge ? ' · ponte pergunta–resposta preservada' : chapterCount > 1 ? ' · atravessa capítulos; revisar continuidade' : ' · dentro do mesmo bloco'}` : 'fronteira Q&A registrada'}${qaBoundaryBasis ? ` · fronteira: ${escapeHtml(qaBoundaryLabel)}${qaBoundaryReviewRequired ? ' · confirmar locutor' : ''}` : ''}</span></div>` : ''}
                 ${campaignPriorAvailable ? `<div class="clip-performance-prior"><span class="material-icons-round">insights</span><span><b>Histórico observado:</b> hook ${escapeHtml(campaignHookFamily || 'não classificado')} · amostra ${Math.max(0, campaignSampleCount)} · influência limitada ao ranking</span></div>` : ''}
                 ${transcriptionReviewRequired ? `<div class="clip-review-risk"><span class="material-icons-round">history_edu</span><span><b>Transcrição para revisão:</b> ${escapeHtml(transcriptionReviewReason)}${transcriptionCoverageStatus ? ` · status ${escapeHtml(transcriptionCoverageStatus)}` : ''}</span></div>` : ''}
                 ${provenanceMarkup}
@@ -3431,7 +3447,10 @@ function openContextReview(index) {
     const recoverySummary = contextRecoveryApplied
         ? ` · abertura ampliada para contexto: ${String(contextRecovery.reason || "antecedente ampliado").trim()}${recoveryTiming}${Number.isFinite(Number(contextRecovery.gap_seconds)) ? ` · pausa ${Number(contextRecovery.gap_seconds).toFixed(1)}s` : ""} · confirme se o antecedente realmente explica o hook`
         : "";
-    meta.textContent = `${clip.text || "Trecho sem transcrição"} · ${Number(clip.start || 0).toFixed(1)}s–${Number(clip.end || 0).toFixed(1)}s${recoverySummary}`;
+    const nonverbalSummary = clip.nonverbal_moment
+        ? ` · momento visual para revisar (${String(clip.nonverbal_moment_kind || "observação").replaceAll("_", " ")}): ${String(clip.nonverbal_moment)}${Number.isFinite(Number(clip.nonverbal_moment_start)) && Number.isFinite(Number(clip.nonverbal_moment_end)) ? ` · ${formatTime(clip.nonverbal_moment_start)}–${formatTime(clip.nonverbal_moment_end)}` : ""} · confirme imagem e áudio; não substitui o contexto falado`
+        : "";
+    meta.textContent = `${clip.text || "Trecho sem transcrição"} · ${Number(clip.start || 0).toFixed(1)}s–${Number(clip.end || 0).toFixed(1)}s${recoverySummary}${nonverbalSummary}`;
     excerpt.textContent = transcript.excerpt.length ? formatTranscriptForEditor({ segments: transcript.excerpt }) : "O trecho não possui transcrição timestampada disponível.";
     full.textContent = transcript.full.length ? formatTranscriptForEditor({ segments: transcript.full }) : "A transcrição completa ainda não foi arquivada para este vídeo.";
     panel.hidden = false;

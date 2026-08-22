@@ -176,3 +176,10 @@ O download de fontes públicas agora tenta primeiro a melhor faixa de áudio mar
 No benchmark individual do vídeo informado (`KdzrMY_QPiE`), a análise audiovisual confirmou **português do Brasil**, identificou Renan, Edson e Amanda e encontrou ações não verbais relevantes, como berrante, montaria, travessia, fauna e demonstrações culturais. O relatório completo foi salvo somente em `/home/ubuntu/FuriaClipsData/analyses/benchmark-KdzrMY_QPiE-2026-08-22.md`; não foi incluído no Git porque contém análise de mídia e dados de trabalho.
 
 A validação integral desta rodada confirmou **623 testes aprovados**.
+
+## Evidência não verbal revisável e face tracking resiliente
+A análise multimodal agora solicita momentos não verbais timestampados — como risadas, reações, gestos, objetos, animais, montaria, cavalgada, berrante, música, paisagem e silêncio expressivo — sempre com descrição, valor editorial, confiança e `requires_visual_review`. O backend aceita somente intervalos finitos e positivos, categorias permitidas e descrições curtas; descarta observações quando a fonte multimodal é incompatível, limita a confiança quando a identidade não foi validada e anexa no máximo o melhor evento sobreposto a cada clip como evidência auxiliar. A interface mostra o timestamp, a categoria, a confiança e o aviso para confirmar imagem e áudio. O momento não cria corte independente, não altera automaticamente a pontuação e não remove gates de contexto.
+
+O reenquadramento facial opcional agora filtra sinais não finitos, strings inválidas e confianças não positivas, limita coordenadas a `[0,1]` e usa o centro do quadro quando nenhum ponto confiável sobra, mantendo o fallback convencional e um aviso explicável. Não há persistência biométrica nem identificação pública de pessoas.
+
+A validação integral desta rodada confirmou **628 testes aprovados**, além de `node --check`, `py_compile`, `git diff --check` e varredura de segredos sem achados.

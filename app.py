@@ -784,11 +784,13 @@ def _transcription_from_gemini_result(result, language="pt"):
 
 def _timestamp_value(value):
     if isinstance(value, (int, float)):
-        return float(value)
-    try:
-        return parse_timestamp(str(value or "0:00"))
-    except (TypeError, ValueError):
-        return None
+        candidate = float(value)
+    else:
+        try:
+            candidate = parse_timestamp(str(value or "0:00"))
+        except (TypeError, ValueError):
+            return None
+    return candidate if candidate is not None and math.isfinite(candidate) else None
 
 
 def _coerce_visual_flag(value):
@@ -799,10 +801,97 @@ def _coerce_visual_flag(value):
     return str(value or "").strip().lower() in {"1", "true", "yes", "sim", "on"}
 
 
+def _attach_multimodal_nonverbal_moments(clips, multimodal):
+    """Attach one conservative overlapping nonverbal observation per clip."""
+    if not isinstance(multimodal, dict):
+        return clips
+    identity_status = str(multimodal.get("source_identity_status", "unverified") or "unverified").lower()
+    try:
+        identity_confidence = float(multimodal.get("source_identity_confidence", 0) or 0)
+    except (TypeError, ValueError):
+        identity_confidence = 0.0
+    if not math.isfinite(identity_confidence):
+        identity_confidence = 0.0
+    max_confidence = 1.0 if identity_status == "validated" and identity_confidence >= 0.65 else 0.35
+    moments = multimodal.get("nonverbal_moments")
+    allowed_kinds = {
+        "risada", "reacao", "gesto", "objeto", "animal", "montaria", "cavalgada",
+        "berrante", "musica", "paisagem", "interacao", "silencio_expressivo",
+        "acao_visual", "outro",
+    }
+    if not isinstance(moments, list) or identity_status == "mismatch":
+        return clips
+    for clip in clips or []:
+        try:
+            clip_start = float(clip.get("start", 0))
+            clip_end = float(clip.get("end", clip_start))
+        except (TypeError, ValueError):
+            continue
+        ranked = []
+        for moment in moments:
+            if not isinstance(moment, dict):
+                continue
+            start = _timestamp_value(moment.get("start"))
+            end = _timestamp_value(moment.get("end"))
+            kind = str(moment.get("kind") or "").strip().lower()
+            description = str(moment.get("description") or "").strip()
+            if start is None or end is None or end <= start or kind not in allowed_kinds or not description:
+                continue
+            overlap = max(0.0, min(clip_end, end) - max(clip_start, start))
+            if overlap <= 0:
+                continue
+            try:
+                confidence = float(moment.get("confidence", 0) or 0)
+            except (TypeError, ValueError):
+                confidence = 0.0
+            if not math.isfinite(confidence):
+                confidence = 0.0
+            confidence = max(0.0, min(max_confidence, confidence))
+            ranked.append((overlap * max(confidence, 0.25), overlap, moment))
+        if not ranked:
+            continue
+        _, _, moment = max(ranked, key=lambda item: (item[0], item[1]))
+        moment_start = _timestamp_value(moment.get("start"))
+        moment_end = _timestamp_value(moment.get("end"))
+        description = str(moment.get("description") or "").strip()
+        editorial_value = str(moment.get("editorial_value") or "").strip()
+        kind = str(moment.get("kind") or "outro").strip().lower()
+        if description:
+            clip["nonverbal_moment"] = description[:400]
+        if editorial_value:
+            clip["nonverbal_editorial_value"] = editorial_value[:400]
+        clip["nonverbal_moment_kind"] = kind[:40]
+        clip["nonverbal_moment_start"] = moment_start
+        clip["nonverbal_moment_end"] = moment_end
+        try:
+            moment_confidence = float(moment.get("confidence", 0) or 0)
+        except (TypeError, ValueError):
+            moment_confidence = 0.0
+        clip["nonverbal_moment_confidence"] = (
+            max(0.0, min(max_confidence, moment_confidence))
+            if math.isfinite(moment_confidence) else 0.0
+        )
+        requires_review = (
+            _coerce_visual_flag(moment.get("requires_visual_review"))
+            if "requires_visual_review" in moment else True
+        )
+        clip["nonverbal_moment_review_required"] = (
+            requires_review
+            or identity_status != "validated"
+            or clip["nonverbal_moment_confidence"] < 0.75
+        )
+        if clip["nonverbal_moment_review_required"]:
+            clip["nonverbal_moment_review_reason"] = (
+                "momento não verbal é evidência auxiliar; confirme imagem, áudio e contexto antes de aprovar"
+            )
+    return clips
+
+
 def _attach_multimodal_visual_observations(clips, multimodal):
     """Attach the strongest overlapping Gemini visual observation to each clip."""
     if not isinstance(multimodal, dict):
         return clips
+    _attach_multimodal_nonverbal_moments(clips, multimodal)
     identity_status = str(multimodal.get("source_identity_status", "unverified") or "unverified").lower()
     try:
         identity_confidence = max(0.0, min(1.0, float(multimodal.get("source_identity_confidence", 0) or 0)))
@@ -865,6 +954,7 @@ def _attach_multimodal_visual_observations(clips, multimodal):
         if identity_status != "validated":
             clip["visual_observation_review_required"] = True
             clip["visual_observation_review_reason"] = "identidade da fonte multimodal não validada"
+
     return clips
 
 

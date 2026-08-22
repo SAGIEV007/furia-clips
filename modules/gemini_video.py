@@ -238,6 +238,7 @@ Entregue apenas JSON neste formato:
   "speaker_observations": [{{"window": "MM:SS-MM:SS", "speaker_role": "Renan|mediador|convidado|desconhecido", "evidence": "...", "confidence": 0.0}}],
   "qa_moments": [{{"start": "MM:SS", "end": "MM:SS", "question_present": true, "answer_present": true, "renan_focus": true, "overlap_suspected": false, "reason": "...", "confidence": 0.0}}],
   "audio_visual_signals": [{{"start": "MM:SS", "end": "MM:SS", "signal": "pausa|sobreposicao|risos|aplausos|tensao|musica|mudanca_de_bloco|enquadramento", "note": "..."}}],
+  "nonverbal_moments": [{{"start": "MM:SS", "end": "MM:SS", "kind": "risada|reacao|gesto|objeto|animal|montaria|cavalgada|berrante|musica|paisagem|interacao|silencio_expressivo|acao_visual|outro", "description": "o que é visível ou audível no intervalo", "editorial_value": "por que pode render um corte independente ou complementar", "confidence": 0.0, "requires_visual_review": true}}],
   "visual_observations": [{{"start": "MM:SS", "end": "MM:SS", "visual_format": "talking_head|entrevista|podcast|react|split_screen|evidencia_externa|b_roll_argumentativo|palco|institucional|campanha|text_panel|fake_tweet|visual_meme|desconhecido", "has_text_panel": false, "fake_tweet": false, "social_post": false, "visual_meme": false, "split_screen": false, "external_evidence": false, "composition_note": "...", "confidence": 0.0}}],
   "limitations": ["..."],
   "analysis_confidence": 0.0
@@ -245,7 +246,9 @@ Entregue apenas JSON neste formato:
 
 Timestamps devem usar MM:SS. Gere segmentos suficientes para a seleção editorial, sem inventar falas. Não afirme reconhecimento perfeito de voz. Marque como desconhecido quando houver dúvida. Preserve a pergunta quando ela for necessária para entender a resposta. Antes de usar qualquer observação visual como evidência, compare o programa e o sujeito observados com a identidade esperada; se não puder confirmar, use source_identity.status=unverified. Se identificar fonte incompatível, use mismatch e não trate o restante como evidência de treinamento.
 
-Para visual_observations, registre apenas sinais realmente visíveis no intervalo: painel de headline incorporado, post social/fake tweet, montagem/arte composta, split-screen, evidência externa ou palco. Não use o texto da transcrição como prova visual. Quando houver dúvida, use visual_format=desconhecido e confidence baixa. Composição com post, reação, entrevistado ou palco deve ser preservada; não recomende crop centrado em uma única face nesses casos."""
+Para visual_observations, registre apenas sinais realmente visíveis no intervalo: painel de headline incorporado, post social/fake tweet, montagem/arte composta, split-screen, evidência externa ou palco. Não use o texto da transcrição como prova visual. Quando houver dúvida, use visual_format=desconhecido e confidence baixa. Composição com post, reação, entrevistado ou palco deve ser preservada; não recomende crop centrado em uma única face nesses casos.
+
+Para nonverbal_moments, registre somente eventos observáveis no áudio ou na imagem: risada audível, reação espontânea, gesto demonstrativo, uso de objeto, interação com animal, montaria/cavalgada, toque de berrante, música, paisagem ou silêncio expressivo. Não invente eventos a partir do texto. Só proponha um momento como candidato independente quando houver janela temporal clara e valor editorial; se a fala for necessária para entendê-lo, marque como complementar. Use confidence baixa e requires_visual_review=true quando a fonte, a ação ou o locutor não estiverem claros."""
 
     @staticmethod
     def _extract_text(payload: dict) -> str:

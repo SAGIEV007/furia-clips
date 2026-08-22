@@ -243,6 +243,26 @@ class AppSmokeTests(unittest.TestCase):
         self.assertTrue(result[0]["fake_tweet"])
         self.assertEqual(result[0]["visual_observation_confidence"], 0.9)
 
+    def test_multimodal_nonverbal_moment_ignores_non_finite_timestamps_and_no_event(self):
+        clips = [{"start": 0, "end": 20, "text": "fala"}]
+        result = furia_app._attach_multimodal_visual_observations(
+            clips,
+            {
+                "source_identity_status": "validated",
+                "source_identity_confidence": 0.9,
+                "nonverbal_moments": [{
+                    "start": "nan",
+                    "end": "00:10",
+                    "kind": "berrante",
+                    "description": "não deve ser anexado",
+                    "confidence": 0.9,
+                }],
+            },
+        )
+
+        self.assertNotIn("nonverbal_moment", result[0])
+        self.assertNotIn("nonverbal_moment_confidence", result[0])
+
     def test_multimodal_visual_flags_accept_schema_aliases_safely(self):
         clips = [{"start": 0, "end": 20, "text": "fala"}]
         result = furia_app._attach_multimodal_visual_observations(
@@ -450,6 +470,53 @@ def test_coerce_bool_handles_json_and_form_style_values():
     assert furia_app._coerce_bool("off") is False
     assert furia_app._coerce_bool("true") is True
     assert furia_app._coerce_bool(None, default=True) is True
+
+
+
+def test_multimodal_nonverbal_moment_attaches_as_reviewable_evidence():
+    clips = [{"start": 40, "end": 70, "text": "fala sobre a experiência"}]
+    result = furia_app._attach_multimodal_visual_observations(
+        clips,
+        {
+            "source_identity_status": "validated",
+            "source_identity_confidence": 0.9,
+            "nonverbal_moments": [{
+                "start": "00:44",
+                "end": "00:50",
+                "kind": "berrante",
+                "description": "Renan toca o berrante ao ar livre.",
+                "editorial_value": "momento visual e sonoro complementar",
+                "confidence": 0.9,
+                "requires_visual_review": True,
+            }],
+        },
+    )
+
+    assert result[0]["nonverbal_moment_kind"] == "berrante"
+    assert "toca o berrante" in result[0]["nonverbal_moment"]
+    assert result[0]["nonverbal_moment_confidence"] == 0.9
+    assert result[0]["nonverbal_moment_review_required"] is True
+
+
+def test_multimodal_nonverbal_moment_ignores_non_finite_confidence():
+    clips = [{"start": 0, "end": 20, "text": "fala"}]
+    result = furia_app._attach_multimodal_visual_observations(
+        clips,
+        {
+            "source_identity_status": "validated",
+            "source_identity_confidence": 0.9,
+            "nonverbal_moments": [{
+                "start": 0,
+                "end": 20,
+                "kind": "risada",
+                "description": "risada audível",
+                "confidence": "nan",
+            }],
+        },
+    )
+
+    assert result[0]["nonverbal_moment_confidence"] == 0.0
+    assert result[0]["nonverbal_moment_review_required"] is True
 
 
 if __name__ == "__main__":

@@ -379,3 +379,50 @@ def test_face_tracking_falls_back_when_ffprobe_fails(monkeypatch, tmp_path):
     assert captured["vertical"] is True
     assert captured["preset"] == cutter.preset
     assert any("corte convencional" in message for message, _ in events)
+
+
+def test_face_position_sanitizer_filters_invalid_values_and_clamps_coordinates():
+    events = []
+    safe = VideoCutter()._sanitize_face_positions([
+        {"center_x": 1.8, "center_y": -0.4, "confidence": 2.0},
+        {"center_x": "nan", "center_y": 0.5, "confidence": 0.8},
+        {"center_x": 0.5, "center_y": "inf", "confidence": 0.8},
+        {"center_x": 0.5, "center_y": 0.5, "confidence": "not-a-number"},
+        {"center_x": 0.5, "center_y": 0.5, "confidence": 0},
+        "legacy-invalid",
+    ], emit_progress=lambda message, level="info": events.append((message, level)))
+
+    assert safe == [{"center_x": 1.0, "center_y": 0.0, "confidence": 1.0}]
+    assert len(events) == 1
+    assert "inválido" in events[0][0]
+
+
+def test_face_tracking_uses_center_when_all_face_positions_are_invalid(monkeypatch, tmp_path):
+    from types import SimpleNamespace
+    import modules.video_cutter as module
+
+    commands = []
+
+    def fake_run(command, **kwargs):
+        commands.append(command)
+        output_path = command[-1]
+        open(output_path, "wb").close()
+        return SimpleNamespace(returncode=0, stderr="", stdout="")
+
+    monkeypatch.setattr(module.subprocess, "run", fake_run)
+    monkeypatch.setattr(module, "validate_media", lambda *args, **kwargs: SimpleNamespace(valid=True, errors=[], warnings=[]))
+    cutter = module.VideoCutter(preset="square")
+    cutter.get_video_info = lambda _path: {"streams": [{"codec_type": "video", "width": 1920, "height": 1080}]}
+    events = []
+    output = tmp_path / "invalid-face-points.mp4"
+
+    result = cutter.cut_clip_with_face_tracking(
+        "source.mp4", 0.0, 2.0, str(output),
+        face_positions=[{"center_x": "nan", "center_y": "inf", "confidence": "bad"}],
+        emit_progress=lambda message, level="info": events.append((message, level)),
+    )
+
+    assert result == str(output)
+    vf_index = commands[-1].index("-vf")
+    assert commands[-1][vf_index + 1].startswith("crop=1080:1080:420:0")
+    assert any("Nenhum sinal facial confiável" in message for message, _ in events)

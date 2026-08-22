@@ -208,6 +208,43 @@ class VideoCutter:
 
         return output_path
 
+    def _sanitize_face_positions(self, face_positions, emit_progress=None):
+        """Keep only finite positive-confidence points and clamp coordinates."""
+        if not isinstance(face_positions, (list, tuple)):
+            return []
+        sanitized = []
+        discarded = 0
+        for point in face_positions:
+            if not isinstance(point, dict):
+                discarded += 1
+                continue
+            try:
+                center_x = float(point.get("center_x", 0.5))
+                center_y = float(point.get("center_y", 0.5))
+                confidence = float(point.get("confidence", 0))
+            except (TypeError, ValueError):
+                discarded += 1
+                continue
+            if not all(math.isfinite(value) for value in (center_x, center_y, confidence)) or confidence <= 0:
+                discarded += 1
+                continue
+            sanitized.append({
+                "center_x": max(0.0, min(1.0, center_x)),
+                "center_y": max(0.0, min(1.0, center_y)),
+                "confidence": max(0.0001, min(1.0, confidence)),
+            })
+        if discarded and emit_progress:
+            emit_progress(
+                f"[Layout] {discarded} sinal(is) facial(is) inválido(s) descartado(s); crop seguro será preservado.",
+                "warning",
+            )
+        if not sanitized and face_positions and emit_progress:
+            emit_progress(
+                "[Layout] Nenhum sinal facial confiável sobrou; usando enquadramento centralizado.",
+                "warning",
+            )
+        return sanitized
+
     def cut_clip_with_face_tracking(self, video_path, start_time, end_time,
                                      output_path, face_positions=None, emit_progress=None, preset=None):
         if emit_progress:
@@ -270,11 +307,12 @@ class VideoCutter:
             crop_w = orig_w
             crop_h = min(orig_h, max(2, int(round(crop_w / target_aspect))))
 
-        weights = [max(0.01, float(fp.get("confidence", 1.0))) for fp in (face_positions or [])]
+        safe_face_positions = self._sanitize_face_positions(face_positions, emit_progress=emit_progress)
+        weights = [point["confidence"] for point in safe_face_positions]
         if weights:
             total_weight = sum(weights)
-            avg_x = sum(float(fp.get("center_x", 0.5)) * weight for fp, weight in zip(face_positions, weights)) / total_weight
-            avg_y = sum(float(fp.get("center_y", 0.5)) * weight for fp, weight in zip(face_positions, weights)) / total_weight
+            avg_x = sum(point["center_x"] * weight for point, weight in zip(safe_face_positions, weights)) / total_weight
+            avg_y = sum(point["center_y"] * weight for point, weight in zip(safe_face_positions, weights)) / total_weight
         else:
             avg_x = avg_y = 0.5
         crop_x = int(avg_x * orig_w - crop_w / 2)
