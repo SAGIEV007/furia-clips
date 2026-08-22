@@ -1,5 +1,6 @@
 from modules.headline_studio import (
     FORMAT_SQUARE,
+    FORMAT_TWEET,
     FORMAT_VERTICAL,
     generate_artwork_copy,
 )
@@ -348,3 +349,36 @@ def test_headline_studio_uses_aggregate_approved_clip_format_prior_only_when_eli
     assert "aggregate-only" in result["analysis"]["approved_clip_prior"]["influence_scope"]
     assert result["formats"][FORMAT_SQUARE]["suggestions"]
     assert "approved_by_format" not in str(result["formats"][FORMAT_SQUARE]["suggestions"])
+
+
+FISCAL_CUT_TRANSCRIPT = """e o que que nós temos? um país que é pobre mas que cobra imposto de país rico pra você poder mexer nisso sem estourar a trajetória da relação em dívida PIB que hoje tá indo estourar cê vai ter que mexer na despesa e aí eu tô avisando pra todo mundo e eu sou o único pré candidato que não está mentindo sobre esse assunto eu tô falando mexer em mais de duzentos bilhões por ano na parte de despesa então vai ter que mexer nas indexações a subida do salário mínimo pra aposentadoria bpc outros benefícios tô falando das vinculações de educação e saúde"""
+
+
+def test_fiscal_caption_generates_grounded_headlines_without_crypto_drift():
+    result = generate_artwork_copy(
+        FISCAL_CUT_TRANSCRIPT,
+        preferred_format=FORMAT_SQUARE,
+        ai_backend=None,
+    )
+
+    suggestions = result["formats"][FORMAT_SQUARE]["suggestions"]
+    headlines = [item["headline"] for item in suggestions]
+    joined = " ".join(headlines)
+
+    assert result["topic"] == "economia"
+    assert "200 BILHÕES" in joined or "IMPOSTO" in joined or "DESPESAS" in joined
+    assert "CRIPTO" not in joined
+    assert "PRÓPRIO FUTURO" not in joined
+    assert result["analysis"]["headline_basis"]["grounded_claims"]
+
+
+def test_fiscal_caption_fake_tweet_uses_the_cut_claim_not_a_generic_topic_phrase():
+    result = generate_artwork_copy(
+        FISCAL_CUT_TRANSCRIPT,
+        preferred_format=FORMAT_TWEET,
+        ai_backend=None,
+    )
+
+    post_text = result["formats"][FORMAT_TWEET]["suggestions"][0]["post_text"]
+    assert "200 bilhões" in post_text or "imposto" in post_text or "despesas" in post_text
+    assert "olhar para o futuro" not in post_text

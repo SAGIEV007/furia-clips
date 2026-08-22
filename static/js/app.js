@@ -4615,6 +4615,10 @@ function renderHeadlineStudioResults(studio, options = {}) {
         flags.needs_legal_review ? '<span class="artwork-review-chip legal"><span class="material-icons-round">gavel</span>revisar formulação jurídica</span>' : "",
     ].filter(Boolean).join("");
     const selectedFormat = studio.generated_format || recommended;
+    const basis = studio.analysis?.headline_basis && typeof studio.analysis.headline_basis === "object" ? studio.analysis.headline_basis : {};
+    const basisTerms = Array.isArray(basis.evidence_terms) ? basis.evidence_terms.filter(Boolean).slice(0, 5) : [];
+    const basisClaims = Array.isArray(basis.grounded_claims) ? basis.grounded_claims.filter(Boolean).slice(0, 2) : [];
+    const basisLabel = basisTerms.length ? basisTerms.join(" · ") : basisClaims.join(" · ");
     const availableFormats = [selectedFormat].filter(format => ["vertical_916", "square_alfinetei"].includes(format));
     const formatCards = availableFormats.map(format => {
         const config = formats[format] || {};
@@ -4630,7 +4634,7 @@ function renderHeadlineStudioResults(studio, options = {}) {
         <div class="fake-tweet-options">${tweets.map(item => `<article class="fake-tweet-card"><p>${escapeHtml(item.post_text || "")}</p><footer><span>${Number(item.character_count || 0)} caracteres</span><div>${artworkCopyButton(item.post_text || "", "Copiar texto")}${artworkFeedbackButton("fake_tweet", item.post_text || "", clipIndex)}</div></footer></article>`).join("") || '<p class="artwork-empty">Sem alternativa disponível.</p>'}        </div>
     </section>` : "";
     container.innerHTML = `<div class="headline-studio-result-summary">
-<div><span class="artwork-format-kicker">LEITURA EDITORIAL</span><h4>${escapeHtml(artworkFormatLabels[recommended] || recommended)}</h4><p>${escapeHtml(studio.recommendation_reason || "")}</p></div><div class="artwork-analysis-metrics"><span>Tema: <strong>${escapeHtml(studio.topic || "geral")}</strong></span><span>Contexto: <strong>${Math.round(Number(studio.analysis?.context_completeness || 0))}/100</strong></span><span>Fonte: <strong>${studio.generation_source === "ai_refined" ? "IA + regras" : "regras editoriais"}</strong></span><span>Preferência: <strong>${escapeHtml(learningLabel)}</strong></span></div></div><div class="artwork-review-chips">${reviewChips || '<span class="artwork-review-chip safe"><span class="material-icons-round">verified</span>sem alerta lexical automático</span>'}</div><div class="artwork-format-results">${formatCards}${tweetCard}</div>`;
+<div><span class="artwork-format-kicker">LEITURA EDITORIAL</span><h4>${escapeHtml(artworkFormatLabels[recommended] || recommended)}</h4><p>${escapeHtml(studio.recommendation_reason || "")}</p>${basisLabel ? `<p class="artwork-basis-note"><strong>Base da legenda:</strong> ${escapeHtml(basisLabel)}</p>` : ""}</div><div class="artwork-analysis-metrics"><span>Tema: <strong>${escapeHtml(studio.topic || "geral")}</strong></span><span>Contexto: <strong>${Math.round(Number(studio.analysis?.context_completeness || 0))}/100</strong></span><span>Fonte: <strong>${studio.generation_source === "ai_refined" ? "IA + regras" : "regras editoriais"}</strong></span><span>Preferência: <strong>${escapeHtml(learningLabel)}</strong></span></div></div><div class="artwork-review-chips">${reviewChips || '<span class="artwork-review-chip safe"><span class="material-icons-round">verified</span>sem alerta lexical automático</span>'}</div><div class="artwork-format-results">${formatCards}${tweetCard}</div>`;
     container.style.display = "block";
     container.querySelectorAll(".artwork-copy-button").forEach(button => {
         button.addEventListener("click", () => copyToClipboard(decodeURIComponent(button.dataset.artworkCopy || "")));
@@ -4838,7 +4842,7 @@ document.getElementById("artworkTranscriptFileInput")?.addEventListener("change"
         const text = await file.text();
         const input = document.getElementById("artworkTranscriptInput");
         if (input) input.value = text;
-        setHeadlineStudioStatus(`${file.name} carregado. Revise ou gere os textos de arte.`, "success");
+        setHeadlineStudioStatus("Legenda do corte carregada. O nome do arquivo não é usado como contexto; revise o texto antes de gerar.", "success");
     } catch (error) {
         setHeadlineStudioStatus(`Falha ao ler o arquivo: ${error.message}`, "error");
     }

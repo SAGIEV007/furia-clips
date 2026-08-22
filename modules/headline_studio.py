@@ -57,8 +57,8 @@ TOPIC_RULES = (
     ("cripto", ("bitcoin", "cripto", "criptos", "crypto", "cryptos", "criptomoeda", "criptomoedas", "blockchain")),
     ("emendas", ("emenda", "emendas", "parlamentar", "parlamentares", "orçamento", "orcamento", "indicadores")),
     ("segurança", ("segurança", "seguranca", "crime", "polícia", "policia", "violência", "violencia", "bandido")),
-    ("impostos", ("imposto", "tributo", "tributação", "tributacao", "iof", "taxa")),
-    ("economia", ("economia", "emprego", "salário", "salario", "inflação", "inflacao", "pobreza")),
+    ("impostos", ("imposto", "impostos", "tributo", "tributos", "tributação", "tributacao", "tributar", "taxado", "taxação", "taxacao", "iof", "taxa")),
+    ("economia", ("economia", "emprego", "salário", "salario", "inflação", "inflacao", "pobreza", "dívida", "divida", "despesa", "despesas", "benefício", "beneficios", "renúncia fiscal", "renuncia fiscal")),
     ("liberdade", ("liberdade", "censura", "regular", "regulação", "regulacao", "estado")),
     ("política", ("brasil", "governo", "presidente", "congresso", "stf", "eleição", "eleicao", "política", "politica")),
 )
@@ -161,26 +161,31 @@ def _coerce_text(transcript: str) -> tuple[str, dict[str, Any]]:
 
 
 def _topic(text: str) -> str:
-    """Choose the strongest evidenced topic, not the first substring match."""
+    """Choose the strongest evidenced topic using distinct terms and frequency.
+
+    Synonyms such as ``salário``/``salario`` are deduplicated after accent
+    normalization, so a duplicated spelling cannot beat a genuinely repeated
+    topic such as impostos or despesas.
+    """
     folded = normalize(text)
     tokens = set(re.findall(r"[a-z0-9]+", folded))
     best = "política"
-    best_hits = 0
-    best_evidence: list[str] = []
+    best_score = 0.0
     for label, terms in TOPIC_RULES:
-        evidence = []
-        for term in terms:
-            normalized_term = normalize(term)
-            if not normalized_term:
-                continue
+        normalized_terms = dict.fromkeys(normalize(term) for term in terms if normalize(term))
+        distinct_hits = 0
+        frequency_score = 0.0
+        for normalized_term in normalized_terms:
             if " " in normalized_term:
-                present = normalized_term in folded
+                count = len(re.findall(r"(?<![a-z0-9])" + re.escape(normalized_term) + r"(?![a-z0-9])", folded))
             else:
-                present = normalized_term in tokens
-            if present:
-                evidence.append(normalized_term)
-        if len(evidence) > best_hits:
-            best, best_hits, best_evidence = label, len(evidence), evidence
+                count = sum(1 for token in re.findall(r"[a-z0-9]+", folded) if token == normalized_term)
+            if count:
+                distinct_hits += 1
+                frequency_score += min(3, count)
+        score = distinct_hits * 1.5 + frequency_score
+        if score > best_score:
+            best, best_score = label, score
     return best
 
 
@@ -193,9 +198,14 @@ def _topic_evidence(text: str, topic: str) -> list[str]:
         evidence = []
         for term in terms:
             normalized_term = normalize(term)
-            if (" " in normalized_term and normalized_term in folded) or (" " not in normalized_term and normalized_term in tokens):
+            present = (
+                normalized_term in folded
+                if " " in normalized_term
+                else normalized_term in tokens
+            )
+            if present and normalized_term not in evidence:
                 evidence.append(normalized_term)
-        return evidence[:6]
+        return evidence[:8]
     return []
 
 
@@ -229,7 +239,7 @@ def _claim_candidates(text: str, topic: str, speaker_prefix: str = "") -> list[s
         candidates.append("AS CRIPTOS AVANÇAM COM OU SEM O ESTADO")
     if "reserva de valor" in folded and topic == "cripto":
         candidates.append("CRIPTOS SÃO O FUTURO DA RESERVA DE VALOR")
-    if "tribut" in folded and topic in {"cripto", "impostos"}:
+    if "tribut" in folded and topic == "cripto" and "cript" in folded:
         candidates.append("RENAN CRITICA A TRIBUTAÇÃO DAS CRIPTOS")
     if "estado" in folded and "amig" in folded:
         candidates.append("O ESTADO VAI ACOLHER OU AFASTAR AS CRIPTOS?")
@@ -246,8 +256,22 @@ def _claim_candidates(text: str, topic: str, speaker_prefix: str = "") -> list[s
             candidates.append("EMENDA NÃO PODE VIRAR ORÇAMENTO DE PARLAMENTAR")
         if "agua potavel" in folded and "praca" in folded:
             candidates.append("SEM ÁGUA, NÃO TEM PRAÇA")
+    if "duzentos bilhoes" in folded or "200 bilhoes" in folded or "200 bilhões" in text.lower():
+        candidates.extend([
+            "A CONTA EXIGE CORTAR MAIS DE 200 BILHÕES POR ANO",
+            "MAIS DE 200 BILHÕES POR ANO ESTÃO EM JOGO",
+        ])
+    if "cobra imposto" in folded and "pais rico" in folded:
+        candidates.append("O BRASIL COBRA IMPOSTO DE PAÍS RICO")
+    if "despesa" in folded and ("index" in folded or "benef" in folded or "aposent" in folded):
+        candidates.append("A CONTA NÃO FECHA SEM REVER DESPESAS")
     if "imposto" in folded or "tribut" in folded:
-        candidates.append("O BRASIL QUER TRIBUTAR O PRÓPRIO FUTURO?")
+        if "cobra imposto" in folded and "pais rico" in folded:
+            candidates.append("O BRASIL COBRA IMPOSTO DE PAÍS RICO")
+        elif "despesa" in folded:
+            candidates.append("REDUZIR IMPOSTO EXIGE ENCARAR AS DESPESAS")
+        else:
+            candidates.append("O DEBATE SOBRE IMPOSTOS EXIGE UMA RESPOSTA CLARA")
     if not candidates:
         label = topic.upper()
         generic_claims = [
@@ -274,7 +298,11 @@ def _claim_candidates(text: str, topic: str, speaker_prefix: str = "") -> list[s
 def _safe_fake_tweet(text: str, topic: str, mini_context: str) -> list[str]:
     folded = normalize(text)
     lead = ""
-    if "caminho arcaico" in folded:
+    if "duzentos bilhoes" in folded or "200 bilhoes" in folded or "200 bilhões" in text.lower():
+        lead = "A conta apresentada é direta: será preciso mexer em mais de 200 bilhões por ano nas despesas."
+    elif "cobra imposto" in folded and "pais rico" in folded:
+        lead = "O Brasil cobra imposto de país rico, mas precisa encarar a revisão das despesas."
+    elif "caminho arcaico" in folded:
         lead = "O Brasil escolheu o caminho arcaico ao lidar com as criptos."
     elif "reserva de valor" in folded and topic == "cripto":
         lead = "As criptos já são uma reserva de valor para as novas gerações."
@@ -512,6 +540,16 @@ def generate_artwork_copy(
     context = _compact(mini_context, 280)
     preferred = preferred_format if preferred_format in FORMAT_IDS else "auto"
     result = _fallback_result(text, context, preferred, editorial_learning=editorial_learning)
+    basis = result.setdefault("analysis", {}).setdefault("headline_basis", {})
+    basis.update({
+        "topic": result.get("topic", "geral"),
+        "evidence_terms": list(result.get("topic_evidence") or [])[:8],
+        "grounded_claims": [
+            str(item) for item in _claim_candidates(text, result.get("topic", "política"), speaker_prefix="")[:6]
+            if str(item).strip()
+        ],
+        "instruction": "Use somente a legenda e o minic contexto; não invente fatos, números, intenção ou acusação.",
+    })
     result["transcript"] = {
         **transcript_meta,
         "word_count": len(text.split()),
@@ -531,10 +569,15 @@ def generate_artwork_copy(
 Use somente ideias claramente presentes na transcrição. Intensifique o contraste sem inventar fatos, crimes, números, intenções ou acusações. {attribution_rule}
 A resposta deve ser somente JSON válido. Para 1:1 e 9:16, headline é curta, em caixa alta e sem descrição complementar. Respeite rigorosamente os limites informados."""
         format_scope = preferred if preferred in FORMAT_IDS else "todos os três formatos para recomendação"
+        basis_payload = (result.get("analysis") or {}).get("headline_basis") or {}
+        prompt_text = text if len(text) <= 12000 else f"{text[:8000]}\n[trecho intermediário omitido]\n{text[-4000:]}"
         prompt = f"""FORMATO SOLICITADO: {format_scope}
 
-TRANSCRIÇÃO DO CORTE:
-{text[:5000]}
+BASE TEXTUAL OBRIGATÓRIA:
+{json.dumps(basis_payload, ensure_ascii=False)}
+
+TRANSCRIÇÃO COMPLETA OU TRECHOS INICIAL E FINAL DO CORTE:
+{prompt_text}
 
 MINICONTEXTO DO EDITOR:
 {context or '(nenhum)'}

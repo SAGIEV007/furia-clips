@@ -463,3 +463,6 @@ O seletor local agora reconhece padrões comuns de pergunta em entrevistas mesmo
 
 ## Caudas abertas e payoff mais conservador — 2026-08-22
 O seletor e o ranker passaram a reconhecer como pensamento aberto alguns finais com pontuação artificial, incluindo preposições, conectivos e pronomes. Esses trechos deixam de parecer concluídos apenas porque a legenda termina em ponto; o seletor pode buscar a continuação adjacente quando for temporalmente segura. Fechamentos declarativos completos continuam fechados. Validação integral: **731 testes aprovados**.
+
+## Headline Studio: contexto fiscal da legenda e base visível — 2026-08-22
+O gerador deixou de usar uma chamada genérica sobre “tributar o próprio futuro” quando a legenda fala de despesas, impostos e mais de 200 bilhões por ano. A base local agora privilegia claims comprovados pela própria transcrição, evita deriva para cripto sem evidência e cria um rascunho de fake tweet coerente com o corte. O resultado também mostra os termos que fundamentaram as sugestões, e a importação informa que o nome do arquivo — inclusive se estiver em inglês — não é usado como contexto. Validação focada: **157 testes aprovados**; validação integral anterior da implementação: **734 testes aprovados**.

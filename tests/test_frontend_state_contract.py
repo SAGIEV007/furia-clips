@@ -1442,3 +1442,12 @@ def test_reconnect_reconciles_persisted_terminal_job_and_refreshes_review_state(
     assert '"cut_shorts", "process_complete", "adjust_clip_render"' in block
     assert "await refreshVisibleReviewState();" in block
     assert "operação" in block and "conexão estava indisponível" in block
+
+
+
+def test_headline_studio_shows_legend_basis_used_for_suggestions():
+    source = APP_JS.read_text(encoding="utf-8")
+
+    assert "headline_basis" in source
+    assert "basis.evidence_terms" in source
+    assert "Base da legenda:" in source

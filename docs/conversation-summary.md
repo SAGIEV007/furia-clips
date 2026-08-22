@@ -198,3 +198,7 @@ Como `starts_late` foi o motivo de rejeição mais frequente na amostra local, o
 ## 20. Detector de payoff mais conservador
 
 Para reduzir rejeições por `no_payoff`, finais que terminam em conectivo, preposição ou pronome passaram a ser tratados como potencialmente abertos mesmo quando a pontuação da legenda parece encerrar a frase. O ranker também reduz a completude desses casos, enquanto o seletor tenta uma continuação próxima sem atravessar sobreposição, tópico ou locutor ambíguo.
+
+## 21. Headline Studio calibrado com a legenda fiscal fornecida
+
+A legenda exportada do CapCut foi testada diretamente. O problema não era o nome inglês do arquivo, mas a regra local que generalizava qualquer menção a imposto. O gerador agora usa claims presentes no texto, como “mais de 200 bilhões por ano”, “imposto de país rico” e revisão de despesas, sem sugerir cripto quando o corte não fala de cripto. A interface mostra a base textual usada e esclarece que o nome do arquivo não é levado em conta.
