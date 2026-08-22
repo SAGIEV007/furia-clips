@@ -900,6 +900,19 @@ def test_source_import_does_not_reactivate_hud_after_terminal_event_race():
     assert 'if (!receivedJobId) throw new Error("O servidor iniciou a importação sem informar um identificador de job.");' in block
 
 
+def test_context_analysis_uses_only_source_bound_transcript():
+    source = APP_JS.read_text(encoding="utf-8")
+    start = source.find('document.getElementById("btnAnalyzeEditorialContext")')
+    end = source.find("// ─── Results Display", start)
+    block = source[start:end]
+
+    assert "const linkedTranscript = transcriptPayloadForSelectedVideo();" in block
+    assert "const typedTranscript = document.getElementById(\"manualTranscriptInput\")?.value.trim() || \"\";" in block
+    assert "const transcript = linkedTranscript" in block
+    assert ' : state.manualTranscript\n            ? ""' in block
+    assert "Transcrição carregada não está vinculada ao vídeo selecionado" in block
+
+
 def test_context_analysis_clears_job_id_on_terminal_states_and_ignores_late_events():
     source = APP_JS.read_text(encoding="utf-8")
     event_start = source.find('socket.on("editorial_context_complete"')

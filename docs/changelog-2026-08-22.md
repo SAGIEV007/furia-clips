@@ -83,3 +83,10 @@ A validação integral desta rodada confirmou **609 testes aprovados**.
 A revisão de contexto agora só usa a transcrição global quando ela está vinculada, por caminho normalizado, ao vídeo selecionado. Se a transcrição global pertence a outra fonte ou está aguardando vínculo, o painel usa os segmentos persistidos no próprio clip; quando eles não existem, informa que a transcrição não está disponível. Isso evita exibir a fala de outro vídeo como se fosse o contexto do corte atual.
 
 A validação integral desta rodada confirmou **610 testes aprovados**.
+
+
+## Refinamento integral com vínculo de fonte
+
+O botão de análise integral agora envia a transcrição manual somente quando ela está vinculada ao vídeo atualmente selecionado. Se houver um transcript carregado de outra fonte, ele é descartado para essa análise e o console informa o motivo; texto ainda digitado, mas não aplicado, continua disponível para o editor enviar conscientemente.
+
+A validação integral desta rodada confirmou **611 testes aprovados**.

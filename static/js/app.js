@@ -2435,7 +2435,16 @@ document.getElementById("btnAnalyzeEditorialContext")?.addEventListener("click",
         showToast("Selecione um vídeo primeiro.", "warning");
         return;
     }
-    const transcript = state.manualTranscript ? formatTranscriptForEditor(state.manualTranscript) : (document.getElementById("manualTranscriptInput")?.value.trim() || "");
+    const linkedTranscript = transcriptPayloadForSelectedVideo();
+    const typedTranscript = document.getElementById("manualTranscriptInput")?.value.trim() || "";
+    const transcript = linkedTranscript
+        ? formatTranscriptForEditor(linkedTranscript)
+        : state.manualTranscript
+            ? ""
+            : typedTranscript;
+    if (state.manualTranscript && !linkedTranscript) {
+        addConsoleLog("[Contexto] Transcrição carregada não está vinculada ao vídeo selecionado; análise integral seguirá sem essa fonte.", "warning");
+    }
     state.contextAnalysisController?.abort();
     const controller = new AbortController();
     state.contextAnalysisController = controller;
