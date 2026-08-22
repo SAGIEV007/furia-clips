@@ -527,3 +527,13 @@ def test_fiscal_headline_uses_contextual_attention_word():
 
     assert result["attention_word"] == "ATENÇÃO"
     assert result["formats"][FORMAT_SQUARE]["suggestions"][0]["eyebrow"] == "ATENÇÃO"
+
+
+
+def test_ai_headline_filter_rejects_unseen_entities_and_numbers():
+    from modules.headline_studio import _suggestion_has_evidence
+
+    source = "O Brasil precisa rever despesas e mais de duzentos bilhões por ano."
+    assert _suggestion_has_evidence("LULA E IMPOSTOS NA CONTA", source) is False
+    assert _suggestion_has_evidence("500 BILHÕES EM DESPESAS", source) is False
+    assert _suggestion_has_evidence("200 BILHÕES EM DESPESAS", source) is True

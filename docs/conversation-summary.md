@@ -234,3 +234,7 @@ O texto do fake tweet não mistura mais o minic contexto interno do editor com a
 ## 29. Selo superior contextual
 
 No formato 1:1, o Headline Studio agora usa “ATENÇÃO” para uma legenda fiscal quando não há um sinal mais específico. Isso substitui o selo genérico “IMPRESSIONANTE” no exemplo fornecido e deixa a chamada superior coerente com o assunto, sem afirmar urgência nem mudar o conteúdo da headline.
+
+## 30. Proteção contra entidades e números inventados
+
+O refinamento por IA agora verifica nomes políticos e números antes de aceitar uma sugestão. Uma headline que introduza “Lula”, “Bolsonaro” ou um valor não mencionado no corte é descartada; “200” pode ser aceito quando a legenda diz “duzentos”. Isso protege o contexto sem impedir variações naturais da redação.

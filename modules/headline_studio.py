@@ -64,6 +64,12 @@ TOPIC_RULES = (
 )
 
 ATTENTION_WORDS = ("ALERTA", "ARCAICO", "ABSURDO", "ATENÇÃO", "URGENTE", "IMPRESSIONANTE")
+PROTECTED_ENTITY_TOKENS = {"lula", "bolsonaro", "flavio", "dino", "zema", "renan", "stf", "pt"}
+NUMBER_WORD_ALIASES = {
+    "200": {"duzentos", "duzentas"},
+    "100": {"cem"},
+    "1000": {"mil"},
+}
 
 
 @dataclass(frozen=True)
@@ -486,15 +492,26 @@ def _extract_json(value: str) -> dict[str, Any] | None:
 
 def _suggestion_has_evidence(value: str, source_text: str) -> bool:
     """Require more than one source anchor before accepting an AI variation."""
-    source_tokens = set(re.findall(r"[a-z0-9]+", normalize(source_text)))
+    normalized_source = normalize(source_text)
+    normalized_value = normalize(value)
+    source_tokens = set(re.findall(r"[a-z0-9]+", normalized_source))
     source_stems = {token[:6] for token in source_tokens if len(token) >= 6}
-    suggestion_tokens = [token for token in re.findall(r"[a-z0-9]+", normalize(value)) if len(token) >= 5]
+    suggestion_tokens = [token for token in re.findall(r"[a-z0-9]+", normalized_value) if len(token) >= 5]
     stopwords = {"sobre", "depois", "agora", "brasil", "verdade", "precisa", "explica", "debate", "rumo"}
     meaningful = [token for token in suggestion_tokens if token not in stopwords]
     shared = {
         token for token in meaningful
         if token in source_tokens or (len(token) >= 6 and token[:6] in source_stems)
     }
+    source_entities = source_tokens & PROTECTED_ENTITY_TOKENS
+    suggestion_entities = set(re.findall(r"[a-z0-9]+", normalized_value)) & PROTECTED_ENTITY_TOKENS
+    if suggestion_entities - source_entities:
+        return False
+    source_numbers = set(re.findall(r"\d+", normalized_source))
+    for number in set(re.findall(r"\d+", normalized_value)):
+        aliases = NUMBER_WORD_ALIASES.get(number, set())
+        if number not in source_numbers and not (aliases & source_tokens):
+            return False
     return len(shared) >= 2
 
 
@@ -641,7 +658,12 @@ Gere no máximo 3 alternativas por formato permitido. Se houver um formato solic
         try:
             refined = _extract_json(ai_backend.generate(prompt, system, emit_progress))
             if refined:
-                result = _merge_ai_suggestions(result, refined, source_text=text, preferred_format=preferred)
+                result = _merge_ai_suggestions(
+                    result,
+                    refined,
+                    source_text=f"{text}\n{context}".strip(),
+                    preferred_format=preferred,
+                )
         except Exception:
             # A deterministic, explainable output is preferable to a failed screen.
             pass

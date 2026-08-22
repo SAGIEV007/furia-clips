@@ -490,3 +490,6 @@ O minic contexto agora serve apenas para orientar a análise e a atribuição; e
 
 ## Headline Studio: selo superior contextual — 2026-08-22
 No formato 1:1, cortes sobre impostos, tributação, dívida ou despesas agora recebem “ATENÇÃO” como chamada superior quando não houver um sinal mais específico, em vez de “IMPRESSIONANTE” por padrão. A mudança deixa o layout mais coerente com a tese sem alterar a headline ou inventar urgência. Validação integral: **741 testes aprovados**.
+
+## Headline Studio: bloqueio de entidades e números sem evidência — 2026-08-22
+O filtro do refinamento por IA agora rejeita headlines que introduzem nomes políticos ou números ausentes da legenda. Ele aceita apenas números literalmente presentes ou aliases explicitamente equivalentes, como “duzentos” para 200, e mantém a exigência de dois sinais relevantes do texto. Validação integral: **742 testes aprovados**.
