@@ -76,3 +76,10 @@ A validação integral desta rodada confirmou **608 testes aprovados**.
 O status da transcrição deixou de usar uma única etiqueta ambígua de “qualidade”. Agora informa separadamente a **estrutura timestampada** — intervalos válidos, cobertura e avisos — e a **validação semântica**, que permanece não confirmada até revisão adequada. Assim, um arquivo tecnicamente bem timestampado não é apresentado como semanticamente conferido.
 
 A validação integral desta rodada confirmou **609 testes aprovados**.
+
+
+## Revisão de contexto por clip
+
+A revisão de contexto agora só usa a transcrição global quando ela está vinculada, por caminho normalizado, ao vídeo selecionado. Se a transcrição global pertence a outra fonte ou está aguardando vínculo, o painel usa os segmentos persistidos no próprio clip; quando eles não existem, informa que a transcrição não está disponível. Isso evita exibir a fala de outro vídeo como se fosse o contexto do corte atual.
+
+A validação integral desta rodada confirmou **610 testes aprovados**.

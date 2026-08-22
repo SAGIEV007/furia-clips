@@ -83,6 +83,19 @@ def test_transcript_status_uses_normalized_source_identity_for_success():
     assert "linkedPath === selectedPath" not in block
 
 
+def test_clip_context_review_scopes_global_transcript_to_selected_source():
+    source = APP_JS.read_text(encoding="utf-8")
+    start = source.find("function transcriptSegmentsForClip")
+    end = source.find("function openContextReview", start)
+    block = source[start:end]
+
+    assert "const globalTranscriptBelongsToSelection = Boolean(" in block
+    assert "linkedPath !== \"pending-source\"" in block
+    assert "mediaPathsMatch(linkedPath, selectedPath)" in block
+    assert "const fallback = Array.isArray(clip?.transcript_segments)" in block
+    assert "const segments = allSegments.length ? allSegments : fallback;" in block
+
+
 def test_context_analysis_reset_clears_dossier_at_single_workspace_boundary():
     source = APP_JS.read_text(encoding="utf-8")
     reset_start = source.find("function resetReviewWorkspaceForVideoChange()")

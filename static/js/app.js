@@ -3345,7 +3345,18 @@ async function persistClipBoundary(index) {
 }
 
 function transcriptSegmentsForClip(clip) {
-    const allSegments = Array.isArray(state.manualTranscript?.segments) ? state.manualTranscript.segments : [];
+    const linkedPath = String(state.manualTranscriptVideo || "").trim();
+    const selectedPath = String(selectedVideoPathForRequest() || "").trim();
+    const globalTranscriptBelongsToSelection = Boolean(
+        state.manualTranscript
+        && linkedPath
+        && linkedPath !== "pending-source"
+        && selectedPath
+        && mediaPathsMatch(linkedPath, selectedPath)
+    );
+    const allSegments = globalTranscriptBelongsToSelection && Array.isArray(state.manualTranscript?.segments)
+        ? state.manualTranscript.segments
+        : [];
     const fallback = Array.isArray(clip?.transcript_segments) ? clip.transcript_segments : (Array.isArray(clip?.segments) ? clip.segments : []);
     const segments = allSegments.length ? allSegments : fallback;
     const start = Number(clip?.start ?? clip?.start_time ?? 0);
