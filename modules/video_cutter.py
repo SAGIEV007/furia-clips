@@ -16,6 +16,13 @@ class VideoCutter:
         self.preset = get_preset(preset) if isinstance(preset, str) else (preset or get_preset("shorts"))
         self.last_rejections = []
 
+    def _record_render_rejection(self, output_path, errors, warnings=None):
+        self.last_rejections.append({
+            "path": output_path,
+            "errors": [str(error)[:500] for error in (errors or [])],
+            "warnings": [str(warning)[:500] for warning in (warnings or [])],
+        })
+
     def _validate_rendered_output(
         self,
         output_path,
@@ -44,11 +51,7 @@ class VideoCutter:
         )
         if validation.valid:
             return True
-        self.last_rejections.append({
-            "path": output_path,
-            "errors": list(validation.errors),
-            "warnings": list(validation.warnings),
-        })
+        self._record_render_rejection(output_path, validation.errors, validation.warnings)
         try:
             if os.path.exists(output_path):
                 os.remove(output_path)
@@ -185,8 +188,10 @@ class VideoCutter:
         result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
 
         if result.returncode != 0:
+            error_detail = (result.stderr or result.stdout or "FFmpeg encerrou com erro").strip()[-500:]
+            self._record_render_rejection(output_path, [f"FFmpeg: {error_detail}"])
             if emit_progress:
-                emit_progress(f"Erro ao cortar: {result.stderr[-300:]}")
+                emit_progress(f"Erro ao cortar: {error_detail}", "error")
             return None
 
         if not self._validate_rendered_output(
@@ -352,6 +357,7 @@ class VideoCutter:
                 or raw_start < 0
                 or raw_end <= raw_start
             ):
+                self._record_render_rejection(output_path, ["limites de intervalo inválidos"])
                 if emit_progress:
                     emit_progress(
                         f"[Render] Intervalo {rank} possui limites inválidos; ignorado.",
@@ -366,6 +372,7 @@ class VideoCutter:
                 padded_start = min(padded_start, max(0.0, source_duration - 0.1))
                 padded_end = min(padded_end, source_duration)
             if padded_end <= padded_start:
+                self._record_render_rejection(output_path, ["duração não positiva após limitar à fonte"])
                 if emit_progress:
                     emit_progress(
                         f"[Render] Intervalo {rank} não possui duração positiva após limitar à fonte; ignorado.",
@@ -421,6 +428,7 @@ class VideoCutter:
                     require_video=True,
                 )
                 if not validation.valid:
+                    self._record_render_rejection(result, validation.errors, validation.warnings)
                     if emit_progress:
                         emit_progress(
                             f"Validação falhou para {os.path.basename(result)}: "

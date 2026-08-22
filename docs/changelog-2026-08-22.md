@@ -153,3 +153,10 @@ A validação integral desta rodada confirmou **618 testes aprovados**.
 O aviso de volume não afirma mais que candidatos foram liberados para render quando todos foram adiados por contexto incompleto ou revisão técnica. A interface agora mostra “Nenhum candidato foi liberado para render” quando a contagem renderizável é zero, mantendo a quantidade adiada e a explicação dos motivos.
 
 A validação integral desta rodada confirmou **619 testes aprovados**.
+
+
+## Diagnóstico de renderização parcial
+
+Falhas de FFmpeg e intervalos inválidos agora entram no relatório estruturado de rejeições do VideoCutter. Isso permite que o job diferencie seleção insuficiente de falha técnica, preserve os clips válidos de uma execução parcial e mostre a causa na revisão, sem deixar erros silenciosos quando um arquivo não é gerado ou não passa pela validação de mídia.
+
+A validação integral desta rodada confirmou **621 testes aprovados**.

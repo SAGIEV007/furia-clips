@@ -312,3 +312,40 @@ def test_batch_cut_skips_interval_that_collapses_at_source_end(monkeypatch, tmp_
 
     assert results == []
     assert any("limites inválidos" in message for message, _level in events)
+
+
+def test_cut_clip_records_ffmpeg_failure_in_render_rejections(monkeypatch, tmp_path):
+    from types import SimpleNamespace
+    import modules.video_cutter as module
+
+    monkeypatch.setattr(
+        module.subprocess,
+        "run",
+        lambda *args, **kwargs: SimpleNamespace(
+            returncode=1,
+            stderr="codec indisponível",
+            stdout="",
+        ),
+    )
+
+    output = tmp_path / "ffmpeg-failed.mp4"
+    cutter = module.VideoCutter()
+    result = cutter.cut_clip("source.mp4", 0.0, 12.0, str(output), vertical=False)
+
+    assert result is None
+    assert len(cutter.last_rejections) == 1
+    assert "FFmpeg: codec indisponível" in cutter.last_rejections[0]["errors"][0]
+
+
+def test_batch_cut_records_invalid_interval_in_render_rejections(tmp_path):
+    cutter = VideoCutter()
+    results = cutter.batch_cut(
+        "source.mp4",
+        [{"start": "nan", "end": 20.0, "duration": 20.0, "title": "Inválido"}],
+        "intervalo-invalido",
+        output_dir=str(tmp_path),
+    )
+
+    assert results == []
+    assert len(cutter.last_rejections) == 1
+    assert cutter.last_rejections[0]["errors"] == ["limites de intervalo inválidos"]
