@@ -275,3 +275,8 @@ A menção a imposto, sozinha, não gera mais a conclusão “reduzir imposto”
 ## 38. Selo neutro no formato 1:1
 
 O topo do Alfinetei agora fica sem palavra de impacto quando a legenda é neutra. Isso evita transformar qualquer corte em “impressionante” ou “alerta”; o selo só aparece quando existe evidência textual ou sinal editorial forte.
+
+
+## 39. Claims extractivos priorizam respostas
+
+Quando a legenda tem uma pergunta e depois uma resposta, o Headline Studio prefere a resposta concluída para a arte. Ele não reescreve o sentido: apenas escolhe e compacta palavras que já estão no corte.

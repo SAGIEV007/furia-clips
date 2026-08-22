@@ -532,3 +532,9 @@ Regressão adicionada para separar menção a imposto de uma solução não dita
 O selo superior do formato 1:1 não usa mais “IMPRESSIONANTE” por padrão em qualquer legenda. Também deixou de tratar a palavra comum “agora” como urgência. Sem conflito, claim forte, alerta ou urgência explicitamente declarada, o selo fica vazio; “ALERTA” permanece disponível para palavras e construções inequívocas como “alerta” e “agora mesmo”.
 
 Regressões adicionadas para neutralidade e urgência explícita.
+
+
+## Seleção extractiva com prioridade para respostas — 2026-08-22
+O fallback agora separa as frases da legenda e prioriza afirmações ou respostas concluídas, deixando perguntas de abertura em segundo plano quando existe uma conclusão melhor no mesmo corte. A redação continua sendo copiada da fonte, apenas compactada para o limite do formato; nenhuma frase nova é inventada. O mesmo critério é usado no fake tweet genérico.
+
+Validação integral: **751 testes aprovados**.

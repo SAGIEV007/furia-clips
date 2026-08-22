@@ -125,6 +125,36 @@ def _compact_claim(value: str, limit: int = 64) -> str:
     return " ".join(words)
 
 
+def _extractive_sentences(text: str) -> list[str]:
+    """Prefer complete assertions or answers while preserving source wording."""
+    raw_sentences = [
+        part.strip()
+        for part in re.split(r"(?<=[.!?])\s+|\n+", text.strip())
+        if len(part.split()) >= 4
+    ]
+    if not raw_sentences:
+        words = re.findall(r"[a-z0-9À-ÿ-]+", text.strip())
+        raw_sentences = [" ".join(words[:18])] if len(words) >= 4 else []
+    signal_words = {
+        "afirma", "acontece", "ampliar", "aprovou", "decidir", "deve", "exige", "precisa",
+        "resolve", "resultado", "resposta", "sera", "tem", "vai", "vamos", "porque", "portanto",
+    }
+    ranked: list[tuple[int, int, str]] = []
+    for index, sentence in enumerate(raw_sentences):
+        folded = normalize(sentence)
+        tokens = set(re.findall(r"[a-z0-9]+", folded))
+        score = len(tokens & signal_words) * 2
+        if re.search(r"\d", sentence):
+            score += 1
+        if sentence.rstrip().endswith("?"):
+            score -= 3
+        if 5 <= len(sentence.split()) <= 18:
+            score += 1
+        ranked.append((score, -index, sentence))
+    ranked.sort(reverse=True)
+    return [sentence for _, _, sentence in ranked]
+
+
 def _transcript_ends_incomplete(value: str) -> bool:
     """Flag only visibly open endings; plain CapCut TXT often has no periods."""
     raw = re.sub(r"\s+", " ", str(value or "")).strip()
@@ -325,14 +355,7 @@ def _claim_candidates(text: str, topic: str, speaker_prefix: str = "") -> list[s
     if not candidates:
         # Prefer an extractive sentence over a dramatic but unsupported claim.
         # This keeps unknown topics faithful to the supplied caption.
-        sentences = [
-            part.strip()
-            for part in re.split(r"(?<=[.!?])\s+|\n+", text.strip())
-            if len(part.split()) >= 4
-        ]
-        if not sentences:
-            words = re.findall(r"[a-z0-9À-ÿ-]+", text.strip())
-            sentences = [" ".join(words[:12])] if len(words) >= 4 else []
+        sentences = _extractive_sentences(text)
         candidates.extend(
             [f"{speaker_prefix} {_compact_claim(sentence, 64)}".strip() for sentence in sentences[:3]]
         )
@@ -375,14 +398,7 @@ def _safe_fake_tweet(text: str, topic: str, mini_context: str) -> list[str]:
     elif "estado" in folded and "amig" in folded:
         lead = "A pergunta é simples: o Estado será amigável ou hostil à inovação?"
     else:
-        sentences = [
-            part.strip()
-            for part in re.split(r"(?<=[.!?])\s+|\n+", text.strip())
-            if len(part.split()) >= 4
-        ]
-        if not sentences:
-            words = re.findall(r"[a-z0-9À-ÿ-]+", text.strip())
-            sentences = [" ".join(words[:18])] if len(words) >= 4 else []
+        sentences = _extractive_sentences(text)
         extractive = _compact_claim(sentences[0], 170) if sentences else "O corte precisa de revisão editorial antes da publicação"
         lead = (
             f"Eu digo com clareza: {extractive}."

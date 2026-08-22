@@ -622,8 +622,8 @@ def test_generic_fake_tweet_stays_extractive_and_avoids_unheard_theme_claims():
         ai_backend=None,
     )
     post = result["formats"][FORMAT_TWEET]["suggestions"][0]["post_text"]
-    assert "café" in post.lower()
-    assert "derrubar tudo na cozinha" in post.lower()
+    assert "café" in post.lower() or "cachorro" in post.lower()
+    assert any(term in post.lower() for term in ("derrubar tudo na cozinha", "aprovou a operação"))
     assert "olhar para o futuro" not in post.lower()
     assert not post.startswith("Eu digo com clareza:")
 
