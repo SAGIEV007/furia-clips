@@ -322,13 +322,6 @@ def _claim_candidates(text: str, topic: str, speaker_prefix: str = "") -> list[s
         candidates.append("A CONTA NÃO FECHA SEM REVER DESPESAS")
     if "baixar imposto" in folded or "abaixar imposto" in folded:
         candidates.append("REDUZIR IMPOSTO EXIGE MEXER NAS DESPESAS")
-    if "imposto" in folded or "tribut" in folded:
-        if "cobra imposto" in folded and "pais rico" in folded:
-            candidates.append("O BRASIL COBRA IMPOSTO DE PAÍS RICO")
-        elif "despesa" in folded:
-            candidates.append("REDUZIR IMPOSTO EXIGE ENCARAR AS DESPESAS")
-        else:
-            candidates.append("O DEBATE SOBRE IMPOSTOS EXIGE UMA RESPOSTA CLARA")
     if not candidates:
         # Prefer an extractive sentence over a dramatic but unsupported claim.
         # This keeps unknown topics faithful to the supplied caption.

@@ -638,3 +638,18 @@ def test_editor_comment_about_renan_does_not_create_speaker_attribution():
     )
     headline = result["formats"][FORMAT_SQUARE]["suggestions"][0]["headline"]
     assert not headline.startswith("RENAN:")
+
+
+
+def test_tax_topic_without_explicit_solution_uses_extractable_sentence():
+    result = generate_artwork_copy(
+        "O debate sobre imposto é complexo. A proposta ainda precisa ser explicada ao público.",
+        preferred_format=FORMAT_SQUARE,
+        ai_backend=None,
+    )
+    headlines = [item["headline"] for item in result["formats"][FORMAT_SQUARE]["suggestions"]]
+    joined = " ".join(headlines)
+    assert result["topic"] == "impostos"
+    assert "DEBATE SOBRE IMPOSTOS EXIGE" not in joined
+    assert "REDUZIR IMPOSTO" not in joined
+    assert "DEBATE SOBRE IMPOSTO" in joined

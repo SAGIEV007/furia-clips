@@ -520,3 +520,9 @@ Regressão adicionada: fake tweet neutro precisa preservar palavras da frase for
 O detector de Renan deixou de aceitar o nome isolado no minic contexto. Agora exige construções que identificam a pessoa como locutor, como “fala de Renan”, “voz de Renan”, “locutor: Renan” ou “Renan explica”. Comentários editoriais sobre Renan não liberam primeira pessoa nem o prefixo “RENAN:”.
 
 Regressão adicionada para o comentário editorial e validação específica com **33 testes aprovados**.
+
+
+## Menos inferência em claims de impostos — 2026-08-22
+Foram removidas duas frases automáticas que podiam afirmar “reduzir imposto” ou que a solução necessariamente seria encarar despesas apenas porque a legenda mencionava impostos. Sem uma relação explícita, o fallback agora usa a frase real da legenda; as teses fiscais do caso com “país pobre”, “país rico”, despesas e mais de 200 bilhões continuam disponíveis porque são evidenciadas diretamente.
+
+Regressão adicionada para separar menção a imposto de uma solução não dita.

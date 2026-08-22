@@ -265,3 +265,8 @@ Quando a legenda não ativa uma regra editorial específica, o fake tweet agora 
 ## 36. Atribuição por identificação de locutor
 
 O sistema agora diferencia “Renan é o tema do corte” de “Renan é quem fala”. Só a segunda situação, confirmada por um padrão explícito no minic contexto, permite primeira pessoa ou prefixo atribuído.
+
+
+## 37. Menos inferência fiscal
+
+A menção a imposto, sozinha, não gera mais a conclusão “reduzir imposto” nem uma solução sobre despesas. O Headline Studio só usa essa relação quando a legenda a declara; nos demais casos, extrai a frase original.
