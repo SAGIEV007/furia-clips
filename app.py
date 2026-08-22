@@ -385,6 +385,51 @@ def _probe_video_duration_seconds(video_path):
         return None
 
 
+def _normalize_review_bounds(clip):
+    """Expose canonical and active bounds without changing persisted clip columns."""
+    def finite(value, fallback):
+        try:
+            number = float(value)
+        except (TypeError, ValueError):
+            return float(fallback)
+        return number if math.isfinite(number) else float(fallback)
+
+    original_start = max(0.0, finite(clip.get("start_time"), 0.0))
+    original_end = finite(clip.get("end_time"), original_start)
+    if original_end <= original_start:
+        original_end = original_start
+    original = {
+        "start": round(original_start, 3),
+        "end": round(original_end, 3),
+        "duration": round(max(0.0, original_end - original_start), 3),
+    }
+    active = dict(original)
+    latest = clip.get("latest_adjustment")
+    render_status = "canonical"
+    if isinstance(latest, dict) and str(latest.get("render_status") or "").strip().lower() == "rendered":
+        active_start = max(0.0, finite(latest.get("start"), original_start))
+        active_end = finite(latest.get("end"), original_end)
+        if active_end > active_start:
+            active = {
+                "start": round(active_start, 3),
+                "end": round(active_end, 3),
+                "duration": round(max(0.0, active_end - active_start), 3),
+            }
+            render_status = "rendered"
+
+    clip["original_bounds"] = original
+    clip["active_bounds"] = active
+    clip["active_render_status"] = render_status
+    clip["active_start"] = active["start"]
+    clip["active_end"] = active["end"]
+    clip["active_duration"] = active["duration"]
+    # Review consumers use start/end for the file currently in the player.
+    clip["start"] = active["start"]
+    clip["end"] = active["end"]
+    clip["duration"] = active["duration"]
+    return clip
+
+
 def _selection_coverage_plan(source_video, video_duration):
     """Build a local-only plan for adaptive candidate coverage and deduplication."""
     fingerprints = get_existing_clip_fingerprints(source_video)
@@ -2175,15 +2220,19 @@ def api_get_project(project_id):
     project = get_project(project_id)
     if not project:
         return jsonify({"error": "Projeto nao encontrado"}), 404
+    source_path = _resolve_media_input(project.get("source_video"))
+    source_duration = _probe_video_duration_seconds(source_path) if source_path else None
+    if not isinstance(source_duration, (int, float)) or not math.isfinite(float(source_duration)) or float(source_duration) <= 0:
+        source_duration = None
+    project["source_duration"] = source_duration
+    project["source_duration_available"] = source_duration is not None
     project["clips"] = get_clips(project_id)
     for clip in project["clips"]:
-        # Keep the persisted shape compatible with the live pipeline payload.
-        # The database uses file_path/start_time/end_time; the review UI consumes
-        # path/start/end and must remain able to play a re-rendered file after reload.
+        # The database keeps canonical start_time/end_time. The review UI must
+        # play and display the active bounds when the derived MP4 was rendered.
+        _normalize_review_bounds(clip)
         clip.setdefault("path", clip.get("file_path") or "")
-        clip.setdefault("start", clip.get("start_time", 0))
-        clip.setdefault("end", clip.get("end_time", 0))
-        clip.setdefault("duration", clip.get("duration", 0))
+        clip["source_duration"] = source_duration
         clip["clip_id"] = clip.get("id")
     project["transcription"] = get_transcription(project_id)
     return jsonify(project)

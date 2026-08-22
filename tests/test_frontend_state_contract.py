@@ -695,19 +695,22 @@ def test_transcript_coverage_status_can_force_review_for_legacy_clips():
     assert "clip.review_provenance?.transcript_coverage_status" in source
 
 
-def test_preview_boundary_normalizes_source_duration_before_request():
+def test_preview_boundary_uses_only_real_source_duration_before_request():
     source = APP_JS.read_text(encoding="utf-8")
-
-    assert "const rawSourceDuration = Number(clip.source_duration ?? clip.video_duration ?? clip.duration);" in source
+    assert "const rawSourceDuration = Number(clip.source_duration);" in source
     assert "const sourceDuration = Number.isFinite(rawSourceDuration) && rawSourceDuration > 0 ? rawSourceDuration : null;" in source
     assert "duration: sourceDuration," in source
+    assert "clip.video_duration ?? clip.duration" not in source
 
 
-def test_persist_boundary_derives_finite_legacy_duration():
+
+def test_persist_boundary_reads_current_inputs_and_derives_duration():
     source = APP_JS.read_text(encoding="utf-8")
+    assert "const requestedStart = Number(startInput?.value ?? clip.start);" in source
+    assert "const requestedEnd = Number(endInput?.value ?? clip.end);" in source
+    assert "duration: requestedEnd - requestedStart," in source
+    assert "source_duration: clip.source_duration ?? null," in source
 
-    assert "duration: Number.isFinite(Number(clip.duration))" in source
-    assert "Math.max(0, Number(clip.end) - Number(clip.start))" in source
 
 
 def test_clip_confidence_normalizes_non_finite_values_safely():

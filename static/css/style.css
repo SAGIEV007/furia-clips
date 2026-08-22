@@ -5917,6 +5917,28 @@ body.has-review-candidates #resultsSection > .section-header { border-bottom-col
 
 
 /* Boundary refinement: visible proof of the render interval, kept secondary to editorial context. */
+.clip-active-bounds-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    margin: -2px 0 9px;
+    padding: 6px 8px;
+    border-left: 2px solid color-mix(in srgb, var(--furia-accent, #f2b84b) 70%, transparent);
+    color: var(--furia-text-muted, #9299a6);
+    font-size: 10px;
+    line-height: 1.35;
+}
+
+.clip-active-bounds-note .material-icons-round {
+    flex: 0 0 auto;
+    color: var(--furia-accent, #f2b84b);
+    font-size: 14px;
+}
+
+.clip-active-bounds-note b {
+    color: var(--furia-text-secondary, #c7ccd4);
+}
+
 .clip-boundary-note {
     display: flex;
     align-items: flex-start;
@@ -5943,12 +5965,20 @@ body.has-review-candidates #resultsSection > .section-header { border-bottom-col
 }
 
 @media (max-width: 720px) {
+    .clip-active-bounds-note {
+        font-size: 10px;
+    }
+
     .clip-boundary-note {
         font-size: 11px;
     }
 }
 
 @media (prefers-reduced-motion: reduce) {
+    .clip-active-bounds-note {
+        transition: none;
+    }
+
     .clip-boundary-note {
         transition: none;
     }

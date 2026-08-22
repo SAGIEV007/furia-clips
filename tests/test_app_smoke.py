@@ -701,19 +701,49 @@ def test_project_reload_normalizes_persisted_clip_for_review_player(monkeypatch,
             transcript="A fala completa.",
         )
         database.update_clip_rendered_file(clip_id, "exports/ajustado.mp4")
-
+        database.save_clip_adjustment(
+            clip_id,
+            {"start": 7.0, "end": 55.0, "duration": 48.0, "render_status": "rendered", "render_path": "exports/ajustado.mp4"},
+        )
+        monkeypatch.setattr(furia_app, "_resolve_media_input", lambda _value: None)
         response = furia_app.app.test_client().get(f"/api/projects/{project_id}")
-
+    payload = response.get_json()
     assert response.status_code == 200
-    clip = response.get_json()["clips"][0]
+    assert payload["source_duration"] is None
+    assert payload["source_duration_available"] is False
+    clip = payload["clips"][0]
     assert clip["clip_id"] == clip_id
     assert clip["path"] == "exports/ajustado.mp4"
-    assert clip["start"] == 10.0
-    assert clip["end"] == 52.0
-    assert clip["duration"] == 42.0
+    assert clip["start"] == 7.0
+    assert clip["end"] == 55.0
+    assert clip["duration"] == 48.0
+    assert clip["active_bounds"] == {"start": 7.0, "end": 55.0, "duration": 48.0}
+    assert clip["active_render_status"] == "rendered"
+    assert clip["original_bounds"] == {"start": 10.0, "end": 52.0, "duration": 42.0}
+
+
+def test_project_payload_exposes_real_source_duration_on_each_clip(monkeypatch, tmp_path):
+    db_path = tmp_path / "project-source-duration.sqlite"
+    source_path = tmp_path / "source.mp4"
+    source_path.write_bytes(b"source")
+    with patch.object(database, "DB_PATH", str(db_path)):
+        database.init_db()
+        project_id = database.create_project("Projeto com duração", str(source_path))
+        database.save_clip(project_id, "exports/clip.mp4", 2.0, 9.0, 7.0, transcript="Trecho")
+        monkeypatch.setattr(furia_app, "_resolve_media_input", lambda _value: str(source_path))
+        monkeypatch.setattr(furia_app, "_probe_video_duration_seconds", lambda _path: 123.5)
+        response = furia_app.app.test_client().get(f"/api/projects/{project_id}")
+
+    payload = response.get_json()
+    assert response.status_code == 200
+    assert payload["source_duration"] == 123.5
+    assert payload["source_duration_available"] is True
+    assert payload["clips"][0]["source_duration"] == 123.5
+    assert payload["clips"][0]["original_bounds"] == {"start": 2.0, "end": 9.0, "duration": 7.0}
 
 
 def test_adjust_render_claim_is_per_clip_and_releases_cleanly():
+
     furia_app.active_adjust_render_ids.clear()
 
     assert furia_app._claim_adjust_render(17) is True

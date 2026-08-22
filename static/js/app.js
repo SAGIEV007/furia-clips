@@ -3048,6 +3048,12 @@ function renderResultsGrid() {
         const rawDurationSeconds = Number(clip.duration || ((clip.end || 0) - (clip.start || 0)) || 0);
         const durationSeconds = Number.isFinite(rawDurationSeconds) && rawDurationSeconds >= 0 ? rawDurationSeconds : 0;
         const displayDurationSeconds = durationSeconds;
+        const originalStart = Number(clip.original_bounds?.start ?? clip.original_start ?? clip.start ?? 0);
+        const originalEnd = Number(clip.original_bounds?.end ?? clip.original_end ?? clip.end ?? 0);
+        const activeRenderApplied = String(clip.active_render_status || clip.latest_adjustment?.render_status || "").toLowerCase() === "rendered";
+        const activeBoundsMarkup = activeRenderApplied
+            ? `<div class="clip-active-bounds-note"><span class="material-icons-round">tune</span><span><b>Intervalo ativo renderizado:</b> ${formatTime(clip.start)}–${formatTime(clip.end)} · original canônico: ${formatTime(originalStart)}–${formatTime(originalEnd)}</span></div>`
+            : "";
         const durationFit = Number(clip.duration_fit ?? factors.duration_fit);
         const durationPreference = clip.duration_preference || {};
         const durationStatus = String(durationPreference.status || reviewFlags.duration_preference || (
@@ -3353,6 +3359,7 @@ function renderResultsGrid() {
                     <span class="material-icons-round" style="font-size:14px">schedule</span>
                     ${formatTime(clip.start)} - ${formatTime(clip.end)} (${displayDurationSeconds.toFixed(1)}s)
                 </div>
+                ${activeBoundsMarkup}
                 ${qualityScorecardMarkup}
                 ${(editorialBlock.thesis || editorialBlock.context_summary || blockTags.length) ? `<div class="editorial-block-dossier">
                     <div class="editorial-block-kicker"><span class="material-icons-round">inventory_2</span> Dossiê do bloco · ${escapeHtml(editorialBlock.state || "candidato")}</div>
@@ -3366,10 +3373,10 @@ function renderResultsGrid() {
                     <div class="clip-boundary-fields">
                         <label>Entrada <input type="number" min="0" step="0.1" data-boundary-start="${originalIndex}" value="${Number(clip.start || 0).toFixed(1)}"></label>
                         <label>Saída <input type="number" min="0" step="0.1" data-boundary-end="${originalIndex}" value="${Number(clip.end || 0).toFixed(1)}"></label>
-                        <button class="btn btn-sm btn-primary" onclick="previewClipBoundary(${originalIndex})"><span class="material-icons-round">preview</span> Pré-visualizar</button>
+                        <button class="btn btn-sm btn-primary" onclick="previewClipBoundary(${originalIndex})"><span class="material-icons-round">fact_check</span> Validar limites</button>
                         <button class="btn btn-sm btn-success" onclick="persistClipBoundary(${originalIndex})" ${clip.clip_id ? "" : "disabled"}><span class="material-icons-round">movie_edit</span> Renderizar ajuste</button>
                     </div>
-                    <small><b>Como usar:</b> Entrada = primeiro segundo útil; saída = último segundo útil. “Pré-visualizar” ajusta somente este card. “Renderizar ajuste” cria um novo MP4 usando a fonte original, atualiza este resultado e preserva o intervalo canônico para a deduplicação.</small>
+                    <small><b>Como usar:</b> Entrada = primeiro segundo útil; saída = último segundo útil na timeline da fonte. “Validar limites” calcula um ajuste sem alterar o MP4 que está tocando. “Renderizar ajuste” cria um novo MP4 usando a fonte original, atualiza este resultado e preserva o intervalo canônico para a deduplicação.</small>
                     <div class="clip-boundary-feedback" id="boundary-feedback-${originalIndex}" aria-live="polite"></div>
                 </div>
                 <div class="review-format-chip" title="${escapeHtml(layoutMeta.hint)}"><span class="material-icons-round">${escapeHtml(layoutMeta.icon)}</span>${escapeHtml(layoutMeta.label)}</div>
@@ -3542,7 +3549,7 @@ async function previewClipBoundary(index) {
         if (feedback) feedback.textContent = "Informe entrada e saída válidas.";
         return;
     }
-    const rawSourceDuration = Number(clip.source_duration ?? clip.video_duration ?? clip.duration);
+    const rawSourceDuration = Number(clip.source_duration);
     const sourceDuration = Number.isFinite(rawSourceDuration) && rawSourceDuration > 0 ? rawSourceDuration : null;
     if (sourceDuration !== null && (start < 0 || end > sourceDuration)) {
         if (feedback) feedback.textContent = `Os limites precisam ficar entre 0:00 e ${formatTime(sourceDuration)}.`;
@@ -3589,8 +3596,8 @@ async function previewClipBoundary(index) {
         const boundarySummary = snapped
             ? "Os limites foram aproximados aos blocos da transcrição para evitar cortar uma fala."
             : "Os limites permaneceram exatamente como informados manualmente.";
-        if (feedback) feedback.textContent = `Prévia aplicada: ${formatTime(data.clip.start)}–${formatTime(data.clip.end)}. ${boundarySummary} ${removalSummary}. Nada foi salvo ainda; revise o vídeo e clique em “Salvar ajuste” somente se estiver limpo.`;
-        showToast(`Prévia limpa aplicada. ${snapped ? "Limites alinhados à transcrição." : "Limites manuais."}`, "success");
+        if (feedback) feedback.textContent = `Limites validados: ${formatTime(data.clip.start)}–${formatTime(data.clip.end)}. ${boundarySummary} ${removalSummary}. O MP4 atual ainda não mudou; revise o trecho e clique em “Renderizar ajuste” para gerar o arquivo corrigido.`;
+        showToast(`Limites validados. ${snapped ? "Aproximados à transcrição." : "Mantidos manualmente."}`, "success");
     } catch (error) {
         if (feedback) feedback.textContent = error.message;
         showToast(error.message, "error");
@@ -3605,14 +3612,19 @@ async function persistClipBoundary(index) {
         if (feedback) feedback.textContent = "Este resultado ainda não possui um registro persistente.";
         return;
     }
+    const startInput = document.querySelector(`[data-boundary-start="${index}"]`);
+    const endInput = document.querySelector(`[data-boundary-end="${index}"]`);
+    const requestedStart = Number(startInput?.value ?? clip.start);
+    const requestedEnd = Number(endInput?.value ?? clip.end);
+    if (!Number.isFinite(requestedStart) || !Number.isFinite(requestedEnd) || requestedStart < 0 || requestedEnd <= requestedStart) {
+        if (feedback) feedback.textContent = "Informe uma entrada e uma saída válidas antes de renderizar.";
+        return;
+    }
     const adjustment = {
-        ...(clip.latest_adjustment || {
-            start: Number(clip.start),
-            end: Number(clip.end),
-            duration: Number.isFinite(Number(clip.duration))
-                ? Number(clip.duration)
-                : Math.max(0, Number(clip.end) - Number(clip.start)),
-        }),
+        ...(clip.latest_adjustment || {}),
+        start: requestedStart,
+        end: requestedEnd,
+        duration: requestedEnd - requestedStart,
         boundary_adjustment: {
             ...(clip.latest_adjustment?.boundary_adjustment || clip.boundary_adjustment || {}),
             source: (clip.latest_adjustment?.boundary_adjustment?.source || clip.boundary_adjustment?.source) === "transcript"
@@ -3620,11 +3632,7 @@ async function persistClipBoundary(index) {
                 : "manual",
         },
     };
-    if (!Number.isFinite(Number(adjustment.start)) || !Number.isFinite(Number(adjustment.end))) {
-        if (feedback) feedback.textContent = "Pré-visualize limites válidos antes de salvar.";
-        return;
-    }
-    if (feedback) feedback.textContent = "Salvando ajuste editorial...";
+    if (feedback) feedback.textContent = "Validando limites e renderizando o ajuste editorial...";
     try {
         const response = await fetch(`/api/clips/${clip.clip_id}/adjust/render`, {
             method: "POST",
@@ -3636,7 +3644,7 @@ async function persistClipBoundary(index) {
                 text: clip.text || clip.transcript || "",
                 render_preset: state.settings?.render_preset || "shorts",
                 preserve_original_aspect: [clip.framing_mode, clip.framing?.mode, clip.preset].some((value) => ["original_16_9", "original_16:9", "original"].includes(String(value || ""))),
-                source_duration: clip.source_duration ?? clip.video_duration ?? null,
+                source_duration: clip.source_duration ?? null,
                 transcript_segments: clip.transcript_segments || clip.segments || [],
             }),
         });
