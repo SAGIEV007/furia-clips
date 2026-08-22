@@ -451,3 +451,6 @@ O diagnóstico também cobre formatos em que vídeo e áudio vêm no mesmo regis
 
 ## Metadados de áudio limitados e sanitizados — 2026-08-22
 Os códigos de idioma retornados pelo provedor agora são normalizados, removem caracteres de controle e ficam limitados a 32 caracteres; a lista de idiomas observados fica limitada a oito entradas. O relatório continua sendo apenas diagnóstico e não transforma metadado externo em confirmação sem codec de áudio correspondente. Validação integral: **724 testes aprovados**.
+
+## Contrato de idioma no retorno do download — 2026-08-22
+O teste de integração do importador agora verifica simultaneamente a expressão de formato PT-first e os campos devolvidos após o download (`audio_language`, `audio_language_status` e `audio_observed_languages`). Assim, a interface não depende apenas de uma intenção de seleção: o resultado efetivo da fonte também é conferido. Validação integral: **724 testes aprovados**.

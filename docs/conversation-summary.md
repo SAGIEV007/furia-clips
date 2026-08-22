@@ -182,3 +182,7 @@ A auditoria de áudio também considera downloads em que vídeo e áudio vêm ju
 ## 16. Limite e sanitização dos metadados de áudio
 
 Os metadados externos usados no diagnóstico de áudio agora são tratados como dados não confiáveis: códigos de idioma são normalizados, limitados e sanitizados antes de aparecerem no resultado, e a lista de idiomas observados também é limitada. Isso mantém a transparência sem deixar valores anormais contaminarem o console ou a interface.
+
+## 17. Contrato de idioma no resultado do download
+
+Além de verificar a expressão de prioridade, o teste do importador agora confere os campos do resultado real da função de download. Isso garante que a informação mostrada ao editor corresponde à faixa efetivamente devolvida pelo provedor, e não apenas à preferência configurada.

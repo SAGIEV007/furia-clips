@@ -444,7 +444,16 @@ def test_public_video_download_prefers_portuguese_audio_when_tagged(monkeypatch,
 
         def extract_info(self, url, download=False):
             assert download is True
-            return {"id": "pt-source", "title": "Fonte", "duration": 1, "extractor": "youtube"}
+            return {
+                "id": "pt-source",
+                "title": "Fonte",
+                "duration": 1,
+                "extractor": "youtube",
+                "requested_formats": [
+                    {"vcodec": "avc1", "acodec": "none"},
+                    {"vcodec": "none", "acodec": "opus", "language": "pt-BR"},
+                ],
+            }
 
         def prepare_filename(self, info):
             return str(output)
@@ -463,5 +472,8 @@ def test_public_video_download_prefers_portuguese_audio_when_tagged(monkeypatch,
     )
 
     assert result["path"] == str(output)
+    assert result["audio_language"] == "pt-br"
+    assert result["audio_language_status"] == "portuguese_confirmed"
+    assert result["audio_observed_languages"] == ["pt-br"]
     assert "ba[language^=pt]" in captured["format"]
     assert captured["format"].index("ba[language^=pt]") < captured["format"].index("+ba/")
