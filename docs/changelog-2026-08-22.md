@@ -342,3 +342,9 @@ Foi adicionado contrato estático para o fallback aninhado. Validação: **691 t
 A metadata de snapping de cena agora percorre o scorecard editorial e é reidratada por `get_clips`. Assim, depois de recarregar um projeto, a bancada continua sabendo se o intervalo foi expandido, quais eram os limites original/ajustado e que a política foi outward-only. A normalização aceita somente números finitos, valores não negativos e a direção conhecida; campos extras são descartados.
 
 Foi adicionada regressão de round-trip SQLite e os dois fluxos de corte passaram a fornecer a metadata ao persistir o score. Validação: **692 testes aprovados**, `node --check`, `py_compile`, `git diff --check` e auditoria de segredos sem achados. Campaign Hub permaneceu somente leitura.
+
+## Transparência do render — scene adjustment no resultado final
+
+O resultado de `VideoCutter.batch_cut` agora devolve também a metadata sanitizada de `scene_boundary_adjustment`, junto de `render_start`, `render_end` e da política de limites. Isso mantém o artefato de render autocontido para consumidores genéricos, revisão e diagnósticos: quem recebe somente o resultado consegue saber se a cena expandiu o intervalo para preservar a fala, sem depender do payload original do selector.
+
+Foi adicionada regressão no contrato de render, preservando os caminhos legados de padding e as políticas de refinamento por palavras. Validação: **692 testes aprovados**, `node --check`, `py_compile`, `git diff --check` e auditoria de segredos sem achados. Campaign Hub permaneceu somente leitura.

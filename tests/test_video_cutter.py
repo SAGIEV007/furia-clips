@@ -461,6 +461,14 @@ def test_batch_cut_preserves_word_refined_boundaries_without_legacy_padding(monk
                 "trim_before": 0.7,
                 "trim_after": 0.8,
             },
+            "scene_boundary_adjustment": {
+                "applied": True,
+                "original_start": 10.2,
+                "original_end": 19.2,
+                "adjusted_start": 10.0,
+                "adjusted_end": 20.0,
+                "direction": "outward_only",
+            },
         }],
         "preserva-limites",
         output_dir=str(tmp_path),
@@ -472,6 +480,14 @@ def test_batch_cut_preserves_word_refined_boundaries_without_legacy_padding(monk
     assert results[0]["render_end"] == 19.5
     assert results[0]["render_boundary_policy"] == "word_timestamps_preserved"
     assert results[0]["boundary_refinement"]["applied"] is True
+    assert results[0]["scene_boundary_adjustment"] == {
+        "applied": True,
+        "original_start": 10.2,
+        "original_end": 19.2,
+        "adjusted_start": 10.0,
+        "adjusted_end": 20.0,
+        "direction": "outward_only",
+    }
 
 
 def test_batch_cut_keeps_legacy_padding_without_boundary_metadata(monkeypatch, tmp_path):

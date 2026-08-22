@@ -519,6 +519,11 @@ class VideoCutter:
                     "render_end": round(padded_end, 3),
                     "render_boundary_policy": render_boundary_policy,
                     "boundary_refinement": dict(boundary_refinement) if boundary_refinement else None,
+                    "scene_boundary_adjustment": (
+                        dict(cut.get("scene_boundary_adjustment"))
+                        if isinstance(cut.get("scene_boundary_adjustment"), dict)
+                        else None
+                    ),
                     "text": cut.get("text", ""),
                     "title": clip_title,
                     "rank": rank,
