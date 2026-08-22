@@ -486,3 +486,19 @@ def test_audio_language_report_does_not_confirm_upload_language_without_stream_l
     })
     assert report["language"] is None
     assert report["status"] == "unknown"
+
+
+def test_audio_language_report_accepts_top_level_language_for_combined_audio_format():
+    from modules.source_ingest import _audio_language_report
+
+    report = _audio_language_report({"language": "pt-BR", "acodec": "opus"})
+    assert report["language"] == "pt-br"
+    assert report["status"] == "portuguese_confirmed"
+
+
+def test_audio_language_report_ignores_top_level_language_when_codec_is_missing():
+    from modules.source_ingest import _audio_language_report
+
+    report = _audio_language_report({"language": "pt-BR"})
+    assert report["language"] is None
+    assert report["status"] == "unknown"

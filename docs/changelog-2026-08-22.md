@@ -445,3 +445,6 @@ A reconexão já recuperava jobs ainda ativos, mas um job persistente que termin
 
 ## Confirmação de áudio somente pela faixa selecionada — 2026-08-22
 A auditoria foi endurecida: o campo geral de idioma do upload não é usado para declarar que o áudio é português, pois ele pode descrever o vídeo e não a faixa efetivamente escolhida. A confirmação agora depende exclusivamente do idioma observado na faixa de áudio retornada pelo provedor; sem esse metadado, o status permanece `unknown` ou `fallback_unverified` e a interface pede conferência manual. Validação integral: **721 testes aprovados**.
+
+## Áudio combinado com confirmação segura — 2026-08-22
+O diagnóstico também cobre formatos em que vídeo e áudio vêm no mesmo registro: o Furia só aceita a língua geral quando o mesmo registro apresenta um codec de áudio válido. Um campo de idioma sem codec continua sem confirmação. Isso reduz tanto o risco de aceitar espanhol por engano quanto o de descartar um formato combinado que realmente traz metadado de áudio. Validação integral: **723 testes aprovados**.

@@ -174,3 +174,7 @@ Após uma reconexão, a interface agora compara o job persistente que estava em 
 ## 14. Confirmação de áudio pela faixa efetiva
 
 O diagnóstico de idioma foi tornado mais conservador. O Furia não usa o idioma geral do upload para afirmar que a faixa baixada é portuguesa; só confirma português quando a própria faixa de áudio selecionada traz metadado compatível. Quando o provedor não informa a faixa, o estado permanece desconhecido ou não confirmado e o editor é orientado a conferir a reprodução.
+
+## 15. Formato combinado e confirmação de áudio
+
+A auditoria de áudio também considera downloads em que vídeo e áudio vêm juntos. Nessa situação, o idioma geral só é usado quando o próprio registro também declara um codec de áudio válido; um campo de idioma isolado não basta. Assim, o Furia permanece conservador sem rejeitar uma confirmação legítima de formato combinado.

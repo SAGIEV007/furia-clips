@@ -241,8 +241,14 @@ def _audio_language_report(info: dict) -> dict:
         language = str(item.get("language") or item.get("audio_language") or "").strip().lower()
         if language:
             audio_languages.append(language)
-    # ``info.language`` can describe the upload rather than the selected audio
-    # stream, so it is intentionally not used to claim Portuguese confirmation.
+    # For a combined format, yt-dlp may expose the selected audio metadata on
+    # the top-level record. Use it only when that record demonstrably has audio;
+    # never use a language field by itself as proof of the downloaded track.
+    if not requested_formats and isinstance(info, dict):
+        top_level = str(info.get("language") or info.get("audio_language") or "").strip().lower()
+        top_acodec = str(info.get("acodec") or "").strip().lower()
+        if top_level and top_acodec and top_acodec != "none":
+            audio_languages.append(top_level)
     portuguese = next((lang for lang in audio_languages if lang.startswith(("pt", "por"))), None)
     if portuguese:
         return {
