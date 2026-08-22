@@ -189,6 +189,32 @@ def _get_approved_clip_prior():
 
 
 processing_lock = threading.Lock()
+adjust_render_lock = threading.Lock()
+active_adjust_render_ids = set()
+
+
+def _claim_adjust_render(clip_id):
+    """Claim one clip for re-rendering so duplicate clicks cannot race."""
+    try:
+        normalized_id = int(clip_id)
+    except (TypeError, ValueError):
+        return False
+    with adjust_render_lock:
+        if normalized_id in active_adjust_render_ids:
+            return False
+        active_adjust_render_ids.add(normalized_id)
+        return True
+
+
+def _release_adjust_render(clip_id):
+    try:
+        normalized_id = int(clip_id)
+    except (TypeError, ValueError):
+        return
+    with adjust_render_lock:
+        active_adjust_render_ids.discard(normalized_id)
+
+
 current_task = {
     "active": False,
     "cancel": False,
@@ -1385,8 +1411,11 @@ def api_render_adjusted_clip(clip_id):
         title = str(data.get("title") or clip.get("file_path") or f"clip-{clip_id}").strip()
         normalized["title"] = title
         normalized["text"] = str(data.get("text") or clip.get("transcript") or "").strip()
+        if not _claim_adjust_render(clip_id):
+            return jsonify({"error": "Este clip já está sendo renderizado. Aguarde a conclusão antes de iniciar outro ajuste."}), 409
         cutter = VideoCutter(method="intelligent", target_duration=normalized["duration"], preset=active_preset)
-        results = cutter.batch_cut(
+        try:
+            results = cutter.batch_cut(
             source_path,
             [normalized],
             f"{project_name}-ajustes",
@@ -1396,8 +1425,10 @@ def api_render_adjusted_clip(clip_id):
             video_layout=None,
             preset=active_preset,
             original_aspect_indices={0} if preserve_original else set(),
-            source_duration=source_duration,
-        )
+                source_duration=source_duration,
+            )
+        finally:
+            _release_adjust_render(clip_id)
         if not results:
             rejection = cutter.last_rejections[0] if cutter.last_rejections else {}
             errors = "; ".join(rejection.get("errors") or []) or "o renderizador não produziu um arquivo válido"

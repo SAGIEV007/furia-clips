@@ -711,3 +711,16 @@ def test_project_reload_normalizes_persisted_clip_for_review_player(monkeypatch,
     assert clip["start"] == 10.0
     assert clip["end"] == 52.0
     assert clip["duration"] == 42.0
+
+
+def test_adjust_render_claim_is_per_clip_and_releases_cleanly():
+    furia_app.active_adjust_render_ids.clear()
+
+    assert furia_app._claim_adjust_render(17) is True
+    assert furia_app._claim_adjust_render(17) is False
+    assert furia_app._claim_adjust_render(18) is True
+
+    furia_app._release_adjust_render(17)
+    furia_app._release_adjust_render(18)
+    assert furia_app._claim_adjust_render(17) is True
+    furia_app._release_adjust_render(17)
