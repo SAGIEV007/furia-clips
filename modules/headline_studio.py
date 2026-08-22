@@ -466,11 +466,17 @@ def _extract_json(value: str) -> dict[str, Any] | None:
 
 
 def _suggestion_has_evidence(value: str, source_text: str) -> bool:
+    """Require more than one source anchor before accepting an AI variation."""
     source_tokens = set(re.findall(r"[a-z0-9]+", normalize(source_text)))
+    source_stems = {token[:6] for token in source_tokens if len(token) >= 6}
     suggestion_tokens = [token for token in re.findall(r"[a-z0-9]+", normalize(value)) if len(token) >= 5]
     stopwords = {"sobre", "depois", "agora", "brasil", "verdade", "precisa", "explica", "debate", "rumo"}
     meaningful = [token for token in suggestion_tokens if token not in stopwords]
-    return bool(meaningful and any(token in source_tokens for token in meaningful))
+    shared = {
+        token for token in meaningful
+        if token in source_tokens or (len(token) >= 6 and token[:6] in source_stems)
+    }
+    return len(shared) >= 2
 
 
 def _merge_ai_suggestions(

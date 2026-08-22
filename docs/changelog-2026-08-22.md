@@ -469,3 +469,6 @@ O gerador deixou de usar uma chamada genérica sobre “tributar o próprio futu
 
 ## Headline Studio: alerta de final incompleto corrigido — 2026-08-22
 Arquivos TXT exportados pelo CapCut frequentemente não trazem pontuação final. O gerador deixou de marcar todo texto sem ponto como incompleto e agora só alerta quando o final termina com conectivo, preposição, pronome ou pontuação que indica corte aberto. A legenda fiscal anexada passou a ser tratada como estruturalmente completa para a geração de arte. Validação focada: **159 testes aprovados**.
+
+## Headline Studio: filtro de IA mais fiel à legenda — 2026-08-22
+O refinamento por IA agora recebe a base textual obrigatória e só aceita uma variação quando encontra pelo menos dois sinais relevantes da transcrição, com tolerância morfológica segura para singular/plural. Uma única palavra coincidente não basta para validar uma chamada genérica. O formato explicitamente escolhido continua sendo o único refinado. Validação integral: **737 testes aprovados**.

@@ -206,3 +206,7 @@ A legenda exportada do CapCut foi testada diretamente. O problema não era o nom
 ## 22. Alerta de transcrição incompleta em TXT
 
 O Headline Studio não usa mais a ausência de ponto final como prova de que a legenda está incompleta. Isso evita o alerta falso em exportações do CapCut; o aviso permanece quando o texto realmente termina aberto, como em “porque”, “de”, “para” ou com vírgula. A legenda fornecida pelo editor foi reprocessada sem esse alerta.
+
+## 23. Filtro de evidência no refinamento por IA
+
+O caminho de IA do Headline Studio passou a receber os claims e termos usados pela regra local. Uma sugestão só substitui o fallback quando possui pelo menos dois sinais relevantes da legenda; variações naturais como “despesa” e “despesas” são reconhecidas, mas coincidências isoladas não. Isso reduz o risco de uma IA retornar uma frase chamativa, porém fora do contexto do corte.

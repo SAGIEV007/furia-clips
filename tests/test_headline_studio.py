@@ -1,3 +1,5 @@
+import json
+
 from modules.headline_studio import (
     FORMAT_SQUARE,
     FORMAT_TWEET,
@@ -393,3 +395,50 @@ def test_fiscal_caption_fake_tweet_uses_the_cut_claim_not_a_generic_topic_phrase
     post_text = result["formats"][FORMAT_TWEET]["suggestions"][0]["post_text"]
     assert "200 bilhões" in post_text or "imposto" in post_text or "despesas" in post_text
     assert "olhar para o futuro" not in post_text
+
+
+
+def test_ai_headline_filter_requires_two_source_anchors():
+    from modules.headline_studio import _suggestion_has_evidence
+
+    source = "O Brasil precisa rever despesas e impostos para fechar a conta."
+    assert _suggestion_has_evidence("O Brasil quer mudar tudo", source) is False
+    assert _suggestion_has_evidence("REVER DESPESAS E IMPOSTOS", source) is True
+
+
+
+def test_ai_refinement_receives_grounded_basis_and_only_selected_format():
+    captured = {}
+
+    class FakeBackend:
+        def generate(self, prompt, system, emit_progress=None):
+            captured["prompt"] = prompt
+            captured["system"] = system
+            return json.dumps({
+                "recommended_format": FORMAT_SQUARE,
+                "formats": {
+                    FORMAT_SQUARE: [
+                        {
+                            "eyebrow": "ATENÇÃO",
+                            "headline": "IMPOSTO E DESPESAS: A CONTA NÃO FECHA",
+                            "emphasis": "DESPESAS",
+                            "accent": "white",
+                        }
+                    ],
+                    FORMAT_VERTICAL: [
+                        {"headline": "FORMATO NÃO SOLICITADO COM IMPOSTO"}
+                    ],
+                },
+            })
+
+    result = generate_artwork_copy(
+        FISCAL_CUT_TRANSCRIPT,
+        preferred_format=FORMAT_SQUARE,
+        ai_backend=FakeBackend(),
+    )
+
+    assert "BASE TEXTUAL OBRIGATÓRIA" in captured["prompt"]
+    assert "200 BILHÕES" in captured["prompt"]
+    assert result["generation_source"] == "ai_refined"
+    assert result["formats"][FORMAT_SQUARE]["suggestions"][0]["headline"] == "IMPOSTO E DESPESAS: A CONTA NÃO FECHA"
+    assert result["formats"][FORMAT_VERTICAL]["suggestions"] == []
