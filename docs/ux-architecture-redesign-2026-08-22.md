@@ -65,3 +65,10 @@ As referências foram usadas para padrões de UX, não para copiar identidade vi
 [8]: https://grafana.com/blog/getting-started-with-grafana-best-practices-to-design-your-first-dashboard/ "Grafana — dashboard design practices"
 [9]: https://stripe.com/atlas/guides/designing-a-dashboard "Stripe Atlas — dashboard design"
 [10]: https://www.nngroup.com/articles/ten-usability-heuristics/ "Nielsen Norman Group — 10 usability heuristics"
+
+
+## Refinamento posterior
+
+A validação mostrou que a regra mobile herdada podia deixar o dock fora da viewport. O breakpoint foi corrigido para transformar a sidebar em painel superior rolável, mantendo a bancada acessível em 390px. O estado vazio da matéria-prima também ganhou um microfluxo de três etapas.
+
+Dentro das configurações essenciais, detalhes de baixa frequência — pausa mínima, idioma, fonte de transcrição, gênero, perfil editorial, conta histórica e correção com IA — foram reunidos em `Ajustes avançados`, com disclosure próprio. O motor de IA e a pasta de saída continuam em grupos independentes. A intenção é que o editor encontre primeiro o que precisa para começar, sem perder acesso às opções avançadas.

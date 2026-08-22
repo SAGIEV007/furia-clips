@@ -5197,3 +5197,58 @@ body::before {
     .drop-zone-flow i { width: 13px; }
     .drop-zone-flow span { gap: 3px; }
 }
+
+
+.sidebar-subdisclosure {
+    margin: 10px 0 4px;
+    padding: 0 9px 8px;
+    border: 1px solid rgba(131,184,255,.08);
+    border-radius: 10px;
+    background: rgba(5,9,15,.22);
+}
+.sidebar-subdisclosure > summary {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 34px;
+    cursor: pointer;
+    list-style: none;
+    color: #94a3b8;
+    font-size: 9px;
+    font-weight: 750;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+.sidebar-subdisclosure > summary::-webkit-details-marker { display: none; }
+.sidebar-subdisclosure > summary .material-icons-round:first-child { color: #8ea8c6; font-size: 14px; }
+.sidebar-subdisclosure > summary .summary-meta { margin-left: auto; color: #738399; font-size: 8px; letter-spacing: .04em; }
+.sidebar-subdisclosure > summary .summary-indicator { color: #697b91; font-size: 15px; transition: transform .2s ease; }
+.sidebar-subdisclosure[open] > summary .summary-indicator { transform: rotate(180deg); color: var(--furia-yellow); }
+.sidebar-subdisclosure > summary:focus-visible { outline: 2px solid var(--furia-yellow); outline-offset: 2px; border-radius: 4px; }
+.sidebar-subdisclosure .setting-group { margin-bottom: 9px; }
+
+
+/* Mobile is a top control panel, never an off-canvas dead end. */
+@media (max-width: 680px) {
+    body { display: block; min-height: 100%; overflow-x: hidden; }
+    .sidebar {
+        position: relative;
+        top: auto;
+        right: auto;
+        bottom: auto;
+        left: auto;
+        width: 100%;
+        min-height: 0;
+        height: auto;
+        max-height: 340px;
+        transform: none !important;
+        border: 0;
+        border-bottom: 1px solid rgba(131,184,255,.16);
+        border-radius: 0;
+        overflow-y: auto;
+    }
+    .sidebar-header { position: sticky; top: 0; z-index: 2; background: rgba(10,14,22,.96); backdrop-filter: blur(16px); }
+    .sidebar-content { padding: 12px; }
+    .main-content { display: block; width: 100%; margin: 0; padding: 18px 12px 34px; }
+    .main-header { margin-top: 0; }
+}
