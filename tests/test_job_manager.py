@@ -163,6 +163,36 @@ class JobManagerTests(unittest.TestCase):
         self.assertIn("rendering", final["stage_timings"])
         self.assertGreaterEqual(final["stage_timings"]["analysis"], 0.0)
 
+    def test_cancel_after_target_result_keeps_success(self):
+        started = []
+        release = []
+
+        def worker(_ctx):
+            started.append(True)
+            while not release:
+                time.sleep(0.01)
+            return {"artifacts": [{"type": "adjusted_clip", "clip_id": 7}]}
+
+        created = self.manager.submit("adjust_clip_render", worker)
+        deadline = time.time() + 3
+        while not started and time.time() < deadline:
+            time.sleep(0.01)
+        self.assertTrue(started)
+        self.manager.request_cancel(created["id"])
+        release.append(True)
+
+        deadline = time.time() + 3
+        final = None
+        while time.time() < deadline:
+            final = self.manager.get(created["id"])
+            if final and final["state"] in {"completed", "failed", "cancelled"}:
+                break
+            time.sleep(0.02)
+
+        self.assertIsNotNone(final)
+        self.assertEqual(final["state"], "completed")
+        self.assertEqual(final["artifacts"], [{"type": "adjusted_clip", "clip_id": 7}])
+
 
 if __name__ == "__main__":
     unittest.main()

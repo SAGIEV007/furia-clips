@@ -421,3 +421,6 @@ A fila persistente passou a identificar o clip ajustado na mensagem da operaçã
 
 ## Recovery de jobs na HUD — 2026-08-22
 A HUD agora reidrata jobs `adjust_clip_render` tanto ao carregar o histórico persistente quanto ao receber atualizações em tempo real. Isso mantém o card associado ao clip ocupado durante reconexões e reduz o risco de o editor iniciar um segundo ajuste por não enxergar a operação já existente. A mensagem do job identifica o `clip_id` sem expor caminhos ou conteúdo privado. Validação integral desta melhoria: **707 testes aprovados**, JavaScript válido, Python compilado, `git diff --check` e auditoria de segredos sem ocorrência.
+
+## Corrida de cancelamento tardio — 2026-08-22
+O JobManager não marca mais como cancelado um trabalho que já retornou resultado e está entrando na finalização. Os workers continuam responsáveis por checar cancelamento antes de operações irreversíveis; depois que o resultado é devolvido, a operação é registrada como concluída e seus artefatos não são mascarados por um clique tardio em parar. Foi adicionada regressão real do JobManager, enquanto cancelamentos cooperativos durante o trabalho continuam cobertos. Campaign Hub permaneceu somente leitura.

@@ -154,3 +154,7 @@ A calibração do ranking com cortes aprovados/rejeitados deve esperar uma expor
 [3]: https://criadores.missao.org.br/garimpo "Site de criadores da Missão — referência funcional consultada pelo usuário"
 [4]: https://www.instagram.com/renansantosreserva/ "Perfil público Renan Santos Reserva"
 [5]: https://www.instagram.com/renansantosmbl/ "Perfil público Renan Santos MBL"
+
+## 10. Correção posterior ao resumo
+
+Após a consolidação inicial, foi identificada e corrigida uma borda de concorrência no JobManager: se o editor solicitasse cancelamento exatamente depois de o worker terminar seu trabalho, mas antes da atualização final do estado, o resultado pronto poderia ser rotulado como cancelado. Agora o cancelamento precisa ser verificado cooperativamente antes do trabalho irreversível; quando o worker retorna um resultado, ele é finalizado como concluído. Cancelamentos explícitos durante o trabalho continuam sendo registrados como cancelados. A regressão foi adicionada aos testes reais do JobManager.

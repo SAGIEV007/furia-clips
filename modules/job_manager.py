@@ -173,8 +173,10 @@ class JobManager:
         self.update(job_id, state="running", stage="starting", progress=1, message="Job iniciado")
         context = JobContext(self, job_id)
         try:
+            # The target owns cooperative checkpoints before irreversible work.
+            # Once it returns, its result is durable and must not be relabeled as
+            # cancelled merely because a late request raced with finalization.
             result = target(context) or {}
-            context.check_cancel()
             self.update(
                 job_id,
                 state="completed",
