@@ -295,3 +295,8 @@ Quando o corte contém “Como resolver?” e depois apresenta a resposta, o sis
 ## 42. Primeira pessoa também é filtrada na IA
 
 Não basta a IA escrever “eu”. Sem identificação explícita do locutor no minic contexto, o fake tweet é rejeitado e o sistema volta para uma formulação impessoal baseada na legenda.
+
+
+## 43. Eyebrow com segurança contextual
+
+A IA não pode esconder uma invenção no selo superior. Se o eyebrow trouxer um nome, número ou primeira pessoa que a legenda não sustenta, toda a alternativa é descartada. Um selo estilístico sem fato continua permitido.

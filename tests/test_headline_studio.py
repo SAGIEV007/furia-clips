@@ -721,3 +721,27 @@ def test_ai_first_person_is_rejected_without_explicit_speaker_context():
     )
     assert result["generation_source"] == "editorial_fallback"
     assert result["formats"][FORMAT_TWEET]["suggestions"][0]["post_text"].startswith("A proposta melhora")
+
+
+
+def test_ai_filter_rejects_unseen_entity_in_eyebrow():
+    class FakeBackend:
+        def generate(self, prompt, system, emit_progress=None):
+            return json.dumps({
+                "formats": {
+                    FORMAT_SQUARE: [
+                        {
+                            "eyebrow": "LULA",
+                            "headline": "A PROPOSTA PRECISA DE EXPLICAÇÃO",
+                        }
+                    ]
+                }
+            })
+
+    result = generate_artwork_copy(
+        "A proposta precisa de explicação antes de ser apresentada ao público.",
+        preferred_format=FORMAT_SQUARE,
+        ai_backend=FakeBackend(),
+    )
+    assert result["generation_source"] == "editorial_fallback"
+    assert result["formats"][FORMAT_SQUARE]["suggestions"][0]["eyebrow"] == ""

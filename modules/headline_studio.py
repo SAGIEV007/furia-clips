@@ -560,6 +560,7 @@ def _suggestion_has_evidence(
     *,
     allow_renan: bool = False,
     allow_first_person: bool = False,
+    require_anchors: bool = True,
 ) -> bool:
     """Require source anchors and explicit permission for Renan attribution."""
     normalized_source = normalize(source_text)
@@ -586,7 +587,7 @@ def _suggestion_has_evidence(
         aliases = NUMBER_WORD_ALIASES.get(number, set())
         if number not in source_numbers and not (aliases & source_tokens):
             return False
-    return len(shared) >= 2
+    return not require_anchors or len(shared) >= 2
 
 
 def _merge_ai_suggestions(
@@ -620,6 +621,14 @@ def _merge_ai_suggestions(
                 source_text,
                 allow_renan=allow_renan,
                 allow_first_person=allow_renan,
+            ):
+                continue
+            if source_text and eyebrow and not _suggestion_has_evidence(
+                eyebrow,
+                source_text,
+                allow_renan=allow_renan,
+                allow_first_person=allow_renan,
+                require_anchors=False,
             ):
                 continue
             normalized_headline = headline.upper()

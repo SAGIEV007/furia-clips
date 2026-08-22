@@ -554,3 +554,9 @@ Foi adicionada uma regressão para o caso em que a legenda começa com uma pergu
 O filtro de sugestões agora rejeita fake tweets em primeira pessoa quando o minic contexto não identifica explicitamente quem fala. Isso cobre frases com “eu”, “meu”, “nossa” e equivalentes; a exceção só é liberada quando o editor confirma o locutor, mantendo a regra já usada no fallback local.
 
 Regressão adicionada para uma resposta de IA com “Eu defendo...”; testes específicos: **39 aprovados**.
+
+
+## Segurança também no eyebrow da IA — 2026-08-22
+O filtro do Headline Studio agora verifica o texto superior da arte além da headline. Entidades políticas, números ou primeira pessoa inventados no eyebrow fazem a sugestão inteira ser rejeitada; palavras estilísticas sem alegação factual, como “ATENÇÃO”, continuam permitidas.
+
+Regressão adicionada para eyebrow “LULA” sem fonte; testes específicos: **40 aprovados**.
