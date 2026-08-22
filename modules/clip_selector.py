@@ -703,8 +703,7 @@ FORMATO DE RESPOSTA — retorne APENAS um array JSON valido:
         """Build prompt with deterministic interview context plus the transcript."""
         lines = []
         for b in blocks:
-            timestamp = f"[{self._format_time(b['start'])} - {self._format_time(b['end'])}]"
-            lines.append(f"BLOCO {b['index']}: {timestamp} ({b['duration']}s)\n{b['text']}\n")
+            lines.append(self._format_prompt_block(b))
 
         transcript_text = "\n".join(lines)
 
@@ -856,8 +855,7 @@ FORMATO — retorne APENAS JSON valido:
         """Build local prompt with the same interview signals as the online path."""
         lines = []
         for b in blocks:
-            timestamp = f"[{self._format_time(b['start'])} - {self._format_time(b['end'])}]"
-            lines.append(f"BLOCO {b['index']}: {timestamp} ({b['duration']}s)\n{b['text']}\n")
+            lines.append(self._format_prompt_block(b))
 
         transcript_text = "\n".join(lines)
 
@@ -897,6 +895,29 @@ TRANSCRICAO (blocos {chunk_offset} a {chunk_offset + len(blocks) - 1} de {total_
 Combine blocos consecutivos apenas ate o menor trecho com contexto completo e conclusao.
 Retorne APENAS o JSON.
 """
+
+    def _format_prompt_block(self, block):
+        """Render a bounded block with speaker evidence for model review."""
+        timestamp = f"[{self._format_time(block['start'])} - {self._format_time(block['end'])}]"
+        speaker_notes = []
+        for sentence in block.get("sentences") or []:
+            start = _safe_float(sentence.get("start"), 0.0)
+            end = _safe_float(sentence.get("end"), start)
+            label = " ".join(str(sentence.get("speaker") or "").split())[:40]
+            labels = [
+                " ".join(str(item).split())[:40]
+                for item in (sentence.get("speakers") or [])
+                if str(item).strip()
+            ][:3]
+            label = label or ", ".join(dict.fromkeys(labels))
+            if label:
+                confidence = _safe_float(sentence.get("speaker_confidence"), -1.0)
+                confidence_note = f"; confiança {confidence:.0%}" if 0.0 <= confidence <= 1.0 else "; confiança não informada"
+                speaker_notes.append(f"{self._format_time(start)}–{self._format_time(end)}: {label}{confidence_note}")
+        if not speaker_notes:
+            speaker_notes.append("locutor não identificado; não assuma quem está respondendo")
+        speaker_note = "; ".join(speaker_notes[:4])
+        return f"BLOCO {block['index']}: {timestamp} ({block['duration']}s)\nLOCUTOR/CONFIANÇA: {speaker_note}\n{block['text']}\n"
 
     def _build_transcript_blocks(self, sentences):
         """Group sentences into compact editorial blocks for analysis."""

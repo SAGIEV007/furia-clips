@@ -763,3 +763,38 @@ def test_scene_boundary_adjustment_preserves_interval_when_expansion_exceeds_max
     assert clips[0]["end"] == 19.5
     assert clips[0]["duration"] == 9.0
     assert clips[0]["scene_boundary_adjustment"]["applied"] is False
+
+
+def test_prompt_block_exposes_speaker_turns_and_confidence_to_editorial_models():
+    selector = ClipSelector()
+    block = selector._make_editorial_block(
+        0,
+        0.0,
+        8.0,
+        "Você pode explicar? A resposta começa agora.",
+        [
+            {"start": 0.0, "end": 3.0, "text": "Você pode explicar?", "speaker": "Entrevistador", "speakers": ["Entrevistador"], "speaker_confidence": 0.91},
+            {"start": 3.0, "end": 8.0, "text": "A resposta começa agora.", "speaker": "Renan", "speakers": ["Renan"], "speaker_confidence": 0.83},
+        ],
+    )
+
+    rendered = selector._format_prompt_block(block)
+
+    assert "LOCUTOR/CONFIANÇA:" in rendered
+    assert "Entrevistador" in rendered and "91%" in rendered
+    assert "Renan" in rendered and "83%" in rendered
+
+
+def test_prompt_block_warns_models_not_to_assume_unknown_speaker():
+    selector = ClipSelector()
+    rendered = selector._format_prompt_block({
+        "index": 1,
+        "start": 10.0,
+        "end": 13.0,
+        "duration": 3.0,
+        "text": "Uma fala sem diarização.",
+        "sentences": [{"start": 10.0, "end": 13.0, "text": "Uma fala sem diarização."}],
+    })
+
+    assert "locutor não identificado" in rendered
+    assert "não assuma" in rendered

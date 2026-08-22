@@ -186,3 +186,7 @@ Os metadados externos usados no diagnóstico de áudio agora são tratados como 
 ## 17. Contrato de idioma no resultado do download
 
 Além de verificar a expressão de prioridade, o teste do importador agora confere os campos do resultado real da função de download. Isso garante que a informação mostrada ao editor corresponde à faixa efetivamente devolvida pelo provedor, e não apenas à preferência configurada.
+
+## 18. Evidência de locutor nos prompts de seleção
+
+Para aumentar a precisão contextual, cada bloco enviado às IAs pode mostrar os turnos temporais dos locutores e suas confianças. Sem diarização, o modelo é instruído a não presumir quem fala. Isso ajuda a separar pergunta, resposta e troca de participante, mas continua exigindo revisão quando a fonte não identifica os locutores.

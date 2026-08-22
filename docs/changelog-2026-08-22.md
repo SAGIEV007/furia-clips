@@ -454,3 +454,6 @@ Os códigos de idioma retornados pelo provedor agora são normalizados, removem 
 
 ## Contrato de idioma no retorno do download — 2026-08-22
 O teste de integração do importador agora verifica simultaneamente a expressão de formato PT-first e os campos devolvidos após o download (`audio_language`, `audio_language_status` e `audio_observed_languages`). Assim, a interface não depende apenas de uma intenção de seleção: o resultado efetivo da fonte também é conferido. Validação integral: **724 testes aprovados**.
+
+## Evidência de locutor nos blocos analisados — 2026-08-22
+Os blocos enviados aos caminhos Gemini e Ollama agora incluem, quando disponíveis, os turnos temporais de locutor e a confiança correspondente. Quando não existe diarização, o prompt recebe uma instrução explícita para não assumir quem está respondendo. A informação é limitada e serve para melhorar a escolha de pergunta–resposta, sem transformar diarização ausente em identificação automática. Validação integral: **726 testes aprovados**.
