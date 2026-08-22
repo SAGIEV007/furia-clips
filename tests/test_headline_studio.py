@@ -468,6 +468,28 @@ def test_crypto_headline_does_not_attribute_renan_without_explicit_context():
 
 
 
+def test_ai_does_not_attribute_renan_from_transcript_mention_alone():
+    class FakeBackend:
+        def generate(self, prompt, system, emit_progress=None):
+            return json.dumps({
+                "recommended_format": FORMAT_SQUARE,
+                "formats": {
+                    FORMAT_SQUARE: [
+                        {"headline": "RENAN CRITICA O IMPOSTO E AS DESPESAS", "accent": "white"}
+                    ]
+                },
+            })
+
+    result = generate_artwork_copy(
+        "Renan explica que o país cobra imposto de país rico e precisa mexer nas despesas.",
+        preferred_format=FORMAT_SQUARE,
+        ai_backend=FakeBackend(),
+    )
+    assert result["generation_source"] == "editorial_fallback"
+    headlines = " ".join(item["headline"] for item in result["formats"][FORMAT_SQUARE]["suggestions"])
+    assert "RENAN CRITICA" not in headlines
+
+
 def test_explicit_format_cannot_be_overridden_by_ai_recommendation():
     class FakeBackend:
         def generate(self, prompt, system, emit_progress=None):

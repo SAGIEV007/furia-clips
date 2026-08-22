@@ -246,3 +246,7 @@ O Headline Studio agora diferencia uma sugestão realmente aceita pela IA de uma
 ## 32. Identificação explícita para atribuição a Renan
 
 Mencionar “Renan” dentro da legenda não basta para o sistema escrever como se ele fosse o autor da fala. O Headline Studio agora exige confirmação explícita no minic contexto para liberar primeira pessoa ou “Renan critica”; sem isso, a sugestão permanece temática e impessoal.
+
+## 33. Regressão de atribuição coberta
+
+O caso em que a IA transforma uma menção a Renan em autoria agora está protegido por teste automatizado. Sem confirmação no minic contexto, o resultado continua sendo o fallback editorial seguro.

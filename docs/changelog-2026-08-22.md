@@ -499,3 +499,6 @@ Se a resposta da IA contém apenas headlines rejeitadas por falta de evidência,
 
 ## Headline Studio: Renan só com identificação explícita — 2026-08-22
 Mesmo que a legenda mencione o nome Renan, isso não autoriza automaticamente uma headline em primeira pessoa ou a frase “Renan critica”. A atribuição só é liberada quando o minic contexto do editor confirma explicitamente o locutor. Isso evita confundir menção, entrevistado e autor da fala. Validação integral: **743 testes aprovados**.
+
+## Regressão de atribuição coberta por teste — 2026-08-22
+Foi adicionada uma regressão real: uma resposta de IA que escreve “RENAN CRITICA” é rejeitada quando a legenda apenas menciona Renan e o editor não confirmou o locutor no minic contexto.
