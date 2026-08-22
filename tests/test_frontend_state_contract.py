@@ -352,6 +352,17 @@ def test_transcription_completion_preserves_source_identity_after_video_change()
     assert 'emit_status("transcribe_complete", result, job_id=legacy_job_id)' in backend_source
 
 
+def test_cut_without_dossier_explains_how_to_run_context_review():
+    source = APP_JS.read_text(encoding="utf-8")
+    cut_start = source.find("async function startSmartCut()")
+    cut_end = source.find('document.getElementById("actionCut")', cut_start)
+    block = source[cut_start:cut_end]
+
+    assert "Nenhum dossiê pré-analisado está vinculado a esta fonte" in block
+    assert "Execute Revisar contexto antes de cortar" in block
+    assert 'sinais disponíveis. Execute Revisar contexto antes de cortar para orientar Q&A, capítulos e payoff.", "warning");' in block
+
+
 def test_context_dossier_is_sent_only_for_matching_selected_source():
     source = APP_JS.read_text(encoding="utf-8")
     cut_start = source.find("async function startSmartCut()")

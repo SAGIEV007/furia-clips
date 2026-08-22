@@ -118,3 +118,10 @@ A validação integral desta rodada confirmou **614 testes aprovados**.
 O corte inteligente e o processo completo agora reutilizam um dossiê editorial pré-analisado usando a mesma identidade normalizada de mídia do restante da aplicação. Isso evita perder um dossiê válido por diferenças de representação de caminho, sem permitir que um dossiê de outra fonte seja aplicado; a verificação correspondente continua existindo no backend.
 
 A validação integral desta rodada confirmou **614 testes aprovados**.
+
+
+## Orientação quando não há dossiê pré-analisado
+
+Ao iniciar um corte sem contexto editorial vinculado, o console agora deixa explícito que o processamento seguirá com os sinais disponíveis e informa a ação recomendada: executar “Revisar contexto” antes do corte para orientar perguntas–respostas, capítulos e payoff. O aviso não bloqueia o editor nem transforma a análise opcional em requisito obrigatório.
+
+A validação integral desta rodada confirmou **615 testes aprovados**.

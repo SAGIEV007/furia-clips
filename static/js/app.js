@@ -2007,7 +2007,11 @@ async function startSmartCut() {
         ? state.editorialContext
         : null;
     addConsoleLog("[Acao] Iniciando corte inteligente de shorts...", "info");
-    if (boundEditorialContext) addConsoleLog("[Contexto] Dossiê pré-analisado desta fonte será reutilizado no ranking.", "success");
+    if (boundEditorialContext) {
+        addConsoleLog("[Contexto] Dossiê pré-analisado desta fonte será reutilizado no ranking.", "success");
+    } else {
+        addConsoleLog("[Contexto] Nenhum dossiê pré-analisado está vinculado a esta fonte; o corte seguirá com os sinais disponíveis. Execute Revisar contexto antes de cortar para orientar Q&A, capítulos e payoff.", "warning");
+    }
     addConsoleLog(`[Enquadramento] Facetracking ${state.faceTracking ? "ativado" : "desativado"}; o fallback mantém a proporção original quando necessário.`, "info");
     if (userContext) addConsoleLog(`[Contexto] "${userContext}"`, "info");
     const videoGenre = document.getElementById("settingVideoGenre").value;
@@ -2073,7 +2077,11 @@ document.getElementById("actionComplete").querySelector(".btn-action").addEventL
         ? state.editorialContext
         : null;
     addConsoleLog("[Acao] Iniciando processo completo...", "info");
-    if (boundEditorialContext) addConsoleLog("[Contexto] Dossiê pré-analisado desta fonte será reutilizado no processo completo.", "success");
+    if (boundEditorialContext) {
+        addConsoleLog("[Contexto] Dossiê pré-analisado desta fonte será reutilizado no processo completo.", "success");
+    } else {
+        addConsoleLog("[Contexto] Nenhum dossiê pré-analisado está vinculado a esta fonte; o processo seguirá com os sinais disponíveis. Execute Revisar contexto antes de iniciar para orientar Q&A, capítulos e payoff.", "warning");
+    }
     if (userContext) addConsoleLog(`[Contexto] "${userContext}"`, "info");
     const videoGenreComplete = document.getElementById("settingVideoGenre").value;
     const response = await fetch("/api/process/complete", {
