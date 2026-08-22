@@ -349,3 +349,33 @@ def test_batch_cut_records_invalid_interval_in_render_rejections(tmp_path):
     assert results == []
     assert len(cutter.last_rejections) == 1
     assert cutter.last_rejections[0]["errors"] == ["limites de intervalo inválidos"]
+
+
+def test_face_tracking_falls_back_when_ffprobe_fails(monkeypatch, tmp_path):
+    import modules.video_cutter as module
+
+    captured = {}
+
+    def fake_cut(self, video_path, start, end, output_path, **kwargs):
+        captured.update(kwargs)
+        return output_path
+
+    cutter = module.VideoCutter(preset="square")
+    cutter.get_video_info = lambda _path: (_ for _ in ()).throw(RuntimeError("ffprobe indisponível"))
+    monkeypatch.setattr(module.VideoCutter, "cut_clip", fake_cut)
+
+    events = []
+    output = tmp_path / "fallback.mp4"
+    result = cutter.cut_clip_with_face_tracking(
+        "source.mp4",
+        0.0,
+        12.0,
+        str(output),
+        face_positions=[{"center_x": 0.5, "center_y": 0.5, "confidence": 0.9}],
+        emit_progress=lambda message, level="info": events.append((message, level)),
+    )
+
+    assert result == str(output)
+    assert captured["vertical"] is True
+    assert captured["preset"] == cutter.preset
+    assert any("corte convencional" in message for message, _ in events)

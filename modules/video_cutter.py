@@ -224,16 +224,40 @@ class VideoCutter:
                 emit_progress("[Render] Limites inválidos para face tracking; clip ignorado.", "warning")
             return None
 
-        info = self.get_video_info(video_path)
+        active_preset = preset or self.preset
+        try:
+            info = self.get_video_info(video_path)
+        except Exception as exc:
+            if emit_progress:
+                emit_progress(
+                    f"Face tracking indisponível; usando corte convencional: {str(exc)[:240]}",
+                    "warning",
+                )
+            return self.cut_clip(
+                video_path,
+                start_time,
+                end_time,
+                output_path,
+                vertical=True,
+                emit_progress=emit_progress,
+                preset=active_preset,
+            )
         video_stream = next(
             (s for s in info.get("streams", []) if s["codec_type"] == "video"), None
         )
         if not video_stream:
-            return self.cut_clip(video_path, start_time, end_time, output_path, True, emit_progress)
+            return self.cut_clip(
+                video_path,
+                start_time,
+                end_time,
+                output_path,
+                vertical=True,
+                emit_progress=emit_progress,
+                preset=active_preset,
+            )
 
         orig_w = int(video_stream["width"])
         orig_h = int(video_stream["height"])
-        active_preset = preset or self.preset
         target_w = int(active_preset["width"])
         target_h = int(active_preset["height"])
         target_aspect = target_w / max(target_h, 1)

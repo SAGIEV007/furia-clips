@@ -160,3 +160,10 @@ A validação integral desta rodada confirmou **619 testes aprovados**.
 Falhas de FFmpeg e intervalos inválidos agora entram no relatório estruturado de rejeições do VideoCutter. Isso permite que o job diferencie seleção insuficiente de falha técnica, preserve os clips válidos de uma execução parcial e mostre a causa na revisão, sem deixar erros silenciosos quando um arquivo não é gerado ou não passa pela validação de mídia.
 
 A validação integral desta rodada confirmou **621 testes aprovados**.
+
+
+## Fallback seguro do face tracking
+
+O face tracking opcional agora trata falhas de `ffprobe` ou ausência de stream de vídeo como indisponibilidade localizada: o clip cai para o corte convencional com o preset selecionado, em vez de abortar a operação inteira. A interface recebe um aviso explícito, e o processamento dos demais clips continua.
+
+A validação integral desta rodada confirmou **622 testes aprovados**.
