@@ -69,3 +69,10 @@ A validação integral desta rodada confirmou **607 testes aprovados**.
 Foi adicionado um teste de integração da API legada de transcrição. O cenário simula uma fonte real, envia uma transcrição manual, confirma que o fallback Whisper não é necessário, verifica o salvamento no projeto e valida que o evento de conclusão devolve cobertura, qualidade e referência ao arquivo persistente.
 
 A validação integral desta rodada confirmou **608 testes aprovados**.
+
+
+## Linguagem de qualidade na aba de transcrição
+
+O status da transcrição deixou de usar uma única etiqueta ambígua de “qualidade”. Agora informa separadamente a **estrutura timestampada** — intervalos válidos, cobertura e avisos — e a **validação semântica**, que permanece não confirmada até revisão adequada. Assim, um arquivo tecnicamente bem timestampado não é apresentado como semanticamente conferido.
+
+A validação integral desta rodada confirmou **609 testes aprovados**.

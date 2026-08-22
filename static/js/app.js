@@ -3700,9 +3700,22 @@ function hydrateTranscriptEditor(transcription, archive = null) {
     const input = document.getElementById("manualTranscriptInput");
     if (input) input.value = formatTranscriptForEditor(transcription);
     const count = transcription?.segment_count || transcription?.segments?.length || 0;
-    const quality = transcription?.quality?.quality || transcription?.archive_metadata?.quality?.quality || "não validada semanticamente";
+    const structuralQuality = transcription?.quality?.quality || transcription?.archive_metadata?.quality?.quality || "não validada";
+    const structuralQualityLabels = {
+        structurally_ok: "estrutura timestampada válida",
+        review_recommended: "estrutura válida · revisar avisos",
+        needs_attention: "estrutura requer atenção",
+    };
+    const structuralQualityLabel = structuralQualityLabels[structuralQuality] || "estrutura timestampada não validada";
+    const semanticAccuracyVerified = safeBooleanFlag(
+        transcription?.quality?.semantic_accuracy_verified
+            ?? transcription?.archive_metadata?.quality?.semantic_accuracy_verified,
+    );
+    const semanticLabel = semanticAccuracyVerified ? "semântica validada" : "semântica não validada";
     const qualityScore = transcription?.quality?.score || transcription?.archive_metadata?.quality?.score;
-    const suffix = Number.isFinite(Number(qualityScore)) ? ` Qualidade estrutural: ${qualityScore}/100 (${quality}).` : ` Qualidade: ${quality}.`;
+    const suffix = Number.isFinite(Number(qualityScore))
+        ? ` Estrutura timestampada: ${qualityScore}/100 (${structuralQualityLabel}); ${semanticLabel}.`
+        : ` Estrutura timestampada: ${structuralQualityLabel}; ${semanticLabel}.`;
     const linkedPath = String(state.manualTranscriptVideo || "").trim();
     const linkedName = linkedPath && linkedPath !== "pending-source" ? linkedPath.split(/[\\/]/).pop() : "vídeo ainda não confirmado";
     const selectedPath = String(selectedVideoPathForRequest() || "").trim();
@@ -3719,7 +3732,7 @@ function hydrateTranscriptEditor(transcription, archive = null) {
     const status = document.getElementById("transcriptStatus");
     if (status) {
         status.textContent = `Transcrição pronta: ${count} segmentos. ${linkage}${archiveLabel}${suffix}`;
-        status.className = `source-status ${quality === "structurally_ok" && transcriptLinkedToSelection ? "success" : "warning"}`;
+        status.className = `source-status ${structuralQuality === "structurally_ok" && transcriptLinkedToSelection ? "success" : "warning"}`;
     }
 }
 

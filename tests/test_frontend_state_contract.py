@@ -58,6 +58,20 @@ def test_transcript_archive_uses_normalized_source_identity_for_current_source()
     assert "mesmo nome-base · confirmar arquivo" in block
 
 
+def test_transcript_status_separates_structural_and_semantic_quality():
+    source = APP_JS.read_text(encoding="utf-8")
+    start = source.find("function hydrateTranscriptEditor")
+    end = source.find("function transcriptArchiveCoverage", start)
+    block = source[start:end]
+
+    assert "const structuralQualityLabels = {" in block
+    assert 'structurally_ok: "estrutura timestampada válida"' in block
+    assert "const semanticAccuracyVerified = safeBooleanFlag(" in block
+    assert 'const semanticLabel = semanticAccuracyVerified ? "semântica validada" : "semântica não validada";' in block
+    assert "Estrutura timestampada:" in block
+    assert "Qualidade: ${quality}" not in block
+
+
 def test_transcript_status_uses_normalized_source_identity_for_success():
     source = APP_JS.read_text(encoding="utf-8")
     start = source.find("function hydrateTranscriptEditor")
