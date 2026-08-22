@@ -1327,3 +1327,11 @@ def test_cut_payload_propagates_scene_boundary_adjustment():
     text = source.read_text(encoding="utf-8")
 
     assert '"scene_boundary_adjustment": clip_info.get("scene_boundary_adjustment")' in text
+
+
+def test_backend_dedupe_context_reads_nested_review_flags():
+    source = Path(__file__).resolve().parents[1] / "app.py"
+    text = source.read_text(encoding="utf-8")
+
+    assert 'review_flags = clip.get("review_flags") if isinstance(clip.get("review_flags"), dict) else {}' in text
+    assert 'value = review_flags.get(key)' in text

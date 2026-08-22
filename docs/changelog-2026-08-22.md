@@ -330,3 +330,9 @@ Foi adicionada regressão para o fallback palavra → segmento. Validação: **6
 Os payloads de Corte inteligente e Processo completo agora carregam `scene_boundary_adjustment` até a bancada de revisão. Quando uma cena expandiu o intervalo, o card mostra discretamente os limites originais e ajustados e informa que a fala foi preservada. Clips sem expansão continuam sem aviso, evitando ruído na fila.
 
 Foram adicionados contratos estáticos para o payload e a mensagem visível. Validação: **690 testes aprovados**, `node --check`, `py_compile`, `git diff --check` e auditoria de segredos sem achados. Campaign Hub permaneceu somente leitura.
+
+## Dedupe contextual — leitura completa do scorecard
+
+O contexto persistido usado na deduplicação agora recupera também sinais que o ranker mantém dentro de `review_flags`, especialmente `qa_bridge`. Isso evita que a distinção entre uma janela repetida e uma nova versão pergunta–resposta seja perdida ao reabrir o clip a partir do SQLite. A mudança continua limitada a flags editoriais pequenos e não textuais; não altera pesos, score, gates ou dados do Campaign Hub.
+
+Foi adicionado contrato estático para o fallback aninhado. Validação: **691 testes aprovados**, `node --check`, `py_compile`, `git diff --check` e auditoria de segredos sem achados. Campaign Hub permaneceu somente leitura.

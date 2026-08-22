@@ -735,6 +735,7 @@ def _score_factors_with_dedup_context(clip):
     if not isinstance(clip, dict):
         return factors
     dedup_context = {}
+    review_flags = clip.get("review_flags") if isinstance(clip.get("review_flags"), dict) else {}
     for key in (
         "question_answer_complete",
         "payoff_complete",
@@ -743,8 +744,11 @@ def _score_factors_with_dedup_context(clip):
         "political_editorial_type",
         "chapter_primary_id",
     ):
-        if key in clip and clip.get(key) not in (None, ""):
-            dedup_context[key] = clip.get(key)
+        value = clip.get(key)
+        if value in (None, ""):
+            value = review_flags.get(key)
+        if value not in (None, ""):
+            dedup_context[key] = value
     if dedup_context:
         factors["_dedup_context"] = dedup_context
     return factors
