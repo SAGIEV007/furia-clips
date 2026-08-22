@@ -897,6 +897,18 @@ def test_orphan_source_import_events_are_ignored_without_active_job():
     assert "if (sourceEvent && state.sourceImportJobId && sourceEventJobId" in block
 
 
+def test_downloads_button_opens_source_download_directory_not_output_directory():
+    source = APP_JS.read_text(encoding="utf-8")
+    start = source.find("async function openConfiguredDownloadsFolder")
+    end = source.find('document.getElementById("btnOpenDownloadsDir")', start)
+    block = source[start:end]
+
+    assert "const configuredSourceDir = String(state.sourceDownloadDir || \"\").trim();" in block
+    assert "const folderPath = configuredSourceDir || await chooseSourceDirectory();" in block
+    assert 'body: JSON.stringify({ path: folderPath })' in block
+    assert "state.outputDir || \"\"" not in block
+
+
 def test_source_import_does_not_reactivate_hud_after_terminal_event_race():
     source = APP_JS.read_text(encoding="utf-8")
     import_start = source.find("async function importSource")

@@ -104,3 +104,10 @@ A validação integral desta rodada confirmou **612 testes aprovados**.
 O frontend agora descarta eventos de importação quando não existe job de fonte ativo ou aguardando resposta. Isso evita que um evento atrasado de um download antigo substitua silenciosamente a seleção atual ou reabra a HUD. A corrida legítima continua coberta: enquanto o importador está ativo, o evento pode chegar antes da resposta HTTP e o resultado é preservado.
 
 A validação integral desta rodada confirmou **613 testes aprovados**.
+
+
+## Botão de pasta de downloads
+
+Foi corrigido um erro funcional no botão “Abrir pasta de downloads”: ele estava enviando a pasta de saída dos clips (`outputDir`) ao sistema operacional. Agora abre a pasta configurada para salvar fontes baixadas (`sourceDownloadDir`) e, quando ela ainda não existe, solicita a escolha dessa pasta antes de abrir. A pasta de exports não é mais apresentada como se fosse a pasta de downloads.
+
+A validação integral desta rodada confirmou **614 testes aprovados**.

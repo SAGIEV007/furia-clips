@@ -2291,14 +2291,17 @@ function selectedVideoPathForRequest() {
 
 async function openConfiguredDownloadsFolder() {
     try {
+        const configuredSourceDir = String(state.sourceDownloadDir || "").trim();
+        const folderPath = configuredSourceDir || await chooseSourceDirectory();
+        if (!folderPath) return;
         const response = await fetch("/api/open_folder", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ path: state.outputDir || "" }),
+            body: JSON.stringify({ path: folderPath }),
         });
         const data = await parseJsonResponse(response, "Pasta de downloads");
         if (!response.ok || data.error) throw new Error(data.error || "Não foi possível abrir a pasta de downloads");
-        showToast("Pasta de downloads aberta.", "success");
+        showToast(`Pasta de downloads aberta: ${folderPath}`, "success");
     } catch (error) {
         showToast(error.message, "error");
     }
