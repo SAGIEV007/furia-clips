@@ -585,8 +585,6 @@ class ClipSelectionTests(unittest.TestCase):
         self.assertFalse(weak["payoff_complete"])
 
 
-if __name__ == "__main__":
-    unittest.main()
 
 
 def test_nlp_builder_propagates_speaker_review_from_editorial_qa_dossier():
@@ -613,3 +611,58 @@ def test_nlp_builder_propagates_speaker_review_from_editorial_qa_dossier():
     assert clips
     assert clips[0]["needs_speaker_review"] is True
     assert "diarização" in clips[0]["speaker_review_reason"]
+
+
+def test_word_timestamps_refine_edges_with_bounded_padding():
+    selector = ClipSelector(target_duration=8, max_clips=5, min_duration=5, max_duration=30)
+    start, end, metadata = selector._refine_clip_boundaries([
+        {
+            "start": 0.0,
+            "end": 12.0,
+            "word_spans": [
+                {"start": 1.1, "end": 2.0},
+                {"start": 8.6, "end": 10.0},
+            ],
+        }
+    ])
+    assert start == 0.8
+    assert end == 11.2
+    assert metadata["applied"] is True
+    assert metadata["trim_before"] == 0.8
+    assert metadata["trim_after"] == 0.8
+
+
+def test_word_timestamp_refinement_keeps_interval_without_safe_spans():
+    selector = ClipSelector(target_duration=8, max_clips=5, min_duration=5, max_duration=30)
+    start, end, metadata = selector._refine_clip_boundaries([
+        {"start": 0.0, "end": 8.0, "word_spans": [{"start": "nan", "end": 4.0}]}
+    ])
+    assert (start, end) == (0.0, 8.0)
+    assert metadata["applied"] is False
+    assert metadata["reason"] == "sem_timestamps_de_palavras"
+
+
+def test_sentence_builder_preserves_numeric_word_spans_only():
+    selector = ClipSelector()
+    sentences = selector._build_sentences([
+        {
+            "start": 0.0,
+            "end": 4.0,
+            "text": "Uma fala clara.",
+            "words": [
+                {"word": "Uma", "start": 0.4, "end": 0.8},
+                {"word": "fala", "start": 1.0, "end": 1.6},
+                {"word": "clara", "start": 2.0, "end": 2.5},
+                {"word": "ruim", "start": "nan", "end": 3.0},
+            ],
+        }
+    ])
+    assert sentences[0]["word_spans"] == [
+        {"start": 0.4, "end": 0.8},
+        {"start": 1.0, "end": 1.6},
+        {"start": 2.0, "end": 2.5},
+    ]
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -256,3 +256,11 @@ A interface recebeu um segundo passe estrutural orientado à rotina do editor. O
 As ações foram contidas em uma rail compacta com um único acento dominante, os gradientes multicoloridos dos ícones foram removidos e as ações primárias passaram a ser promovidas por etapa. O estado visual combina texto, ícone, borda e cor, preservando a distinção entre aprovado, rejeitado e revisão necessária. O passe mantém os IDs, rotas, contratos de API, ranking e integrações existentes.
 
 A auditoria heurística persistente registrou média observada de 3,1/5 antes deste passe e definiu os critérios de QA: localizar a ação primária em até dois segundos, identificar a fonte ativa, encontrar score/timecode na fila e operar por teclado. A validação desta rodada confirmou **673 testes aprovados**, `node --check`, `py_compile`, `git diff --check` e auditoria de segredos. Nenhum dado privado ou conteúdo do Campaign Hub foi incluído.
+
+## Qualidade — refinamento temporal por timestamps de palavras
+
+O selector passou a preservar spans numéricos de palavras quando a fonte de transcrição os fornece e a ancorar os limites do clip na primeira e na última palavra detectadas. A poda é conservadora: mantém margem de 120 ms, limita a remoção a 0,8 s por lado, preserva o intervalo original quando não há spans válidos e nunca reduz o trecho abaixo da duração mínima segura. O metadata `boundary_refinement` explica se a poda foi aplicada e quanto foi removido.
+
+A mesma regra foi aplicada aos caminhos NLP, Gemini e Ollama. O texto bruto das palavras não é armazenado nesse metadata; somente posições numéricas bounded são propagadas. Foram adicionados testes para poda aplicada, ausência de timestamps seguros, sanitização numérica e compatibilidade do parser de IA.
+
+Validação: **676 testes aprovados**, `node --check`, `py_compile`, `git diff --check` e auditoria de segredos sem achados. Campaign Hub permaneceu somente leitura.

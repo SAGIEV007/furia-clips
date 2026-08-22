@@ -375,16 +375,18 @@ class ClipSelector:
         current_start = None
         current_end = None
         current_segments = []
+        current_word_spans = []
         last_end = 0
         MAX_SENTENCE_DURATION = 30
 
         def flush():
-            nonlocal current_text, current_start, current_end, current_segments
+            nonlocal current_text, current_start, current_end, current_segments, current_word_spans
             if not current_text.strip() or current_start is None or current_end is None:
                 current_text = ""
                 current_start = None
                 current_end = None
                 current_segments = []
+                current_word_spans = []
                 return
             speakers = [
                 str(item.get("speaker") or "").strip()
@@ -424,12 +426,15 @@ class ClipSelector:
                     if item.get("timing_confidence") is not None
                 ) or any(_coerce_flag(item.get("overlap_suspected")) for item in current_segments),
                 "timing_confidence": min(timing_confidences) if timing_confidences else None,
+                # Keep only numeric spans; raw word text remains outside this metadata path.
+                "word_spans": list(current_word_spans),
                 "segment_ids": [item.get("id") for item in current_segments if item.get("id") is not None],
             })
             current_text = ""
             current_start = None
             current_end = None
             current_segments = []
+            current_word_spans = []
 
         for seg in segments:
             start = float(seg.get("start", 0.0))
@@ -447,6 +452,18 @@ class ClipSelector:
             current_text += " " + str(seg.get("text", ""))
             current_end = end
             current_segments.append(seg)
+            for word in seg.get("words") or []:
+                if not isinstance(word, dict):
+                    continue
+                try:
+                    word_start = float(word.get("start"))
+                    word_end = float(word.get("end"))
+                except (TypeError, ValueError):
+                    continue
+                if not math.isfinite(word_start) or not math.isfinite(word_end):
+                    continue
+                if start <= word_start < word_end <= end:
+                    current_word_spans.append({"start": word_start, "end": word_end})
             last_end = end
 
             current_duration = current_end - current_start
@@ -917,10 +934,14 @@ Retorne APENAS o JSON.
 
     def _make_editorial_block(self, index, start, end, block_text, sentences):
         speakers = []
+        word_spans = []
         for sentence in sentences:
             for speaker in sentence.get("speakers", []):
                 if speaker and speaker not in speakers:
                     speakers.append(speaker)
+            for span in sentence.get("word_spans") or []:
+                if isinstance(span, dict):
+                    word_spans.append(span)
         return {
             "index": index,
             "start": start,
@@ -928,6 +949,7 @@ Retorne APENAS o JSON.
             "duration": round(end - start, 1),
             "text": block_text.strip(),
             "sentences": sentences.copy(),
+            "word_spans": word_spans,
             "speaker": speakers[0] if len(speakers) == 1 else "",
             "speakers": speakers,
             "speaker_change_detected": len(speakers) > 1,
@@ -1058,8 +1080,7 @@ Retorne APENAS o JSON.
                         "gap_seconds": round(max(0.0, gap), 3),
                     }
 
-            clip_start = valid_blocks[0]["start"]
-            clip_end = valid_blocks[-1]["end"]
+            clip_start, clip_end, boundary_refinement = self._refine_clip_boundaries(valid_blocks)
             clip_duration = clip_end - clip_start
 
             # Validate duration. The technical ceiling prevents malformed
@@ -1112,6 +1133,7 @@ Retorne APENAS o JSON.
                 },
                 "source": source,
                 "context_recovery": context_recovery,
+                "boundary_refinement": boundary_refinement,
                 "duration_preference": self._duration_label(clip_duration, sel),
             })
 
@@ -1617,6 +1639,78 @@ Retorne APENAS o JSON.
 
         return clip_blocks, clip_end_idx
 
+    def _refine_clip_boundaries(self, clip_blocks):
+        """Tighten clip edges around the first and last timed words when safe.
+
+        Segment timestamps frequently include breathing room before speech and
+        after the last word. Word timings let us remove only that dead air. The
+        method is deliberately conservative: it applies a small pad, caps the
+        trim on each side, and leaves the original interval untouched when word
+        timing is missing, invalid, or would make the clip too short.
+        """
+        if not clip_blocks:
+            return 0.0, 0.0, {"applied": False, "reason": "sem_blocos"}
+        try:
+            original_start = float(clip_blocks[0].get("start", 0) or 0)
+            original_end = float(clip_blocks[-1].get("end", original_start) or original_start)
+        except (TypeError, ValueError):
+            return 0.0, 0.0, {"applied": False, "reason": "intervalo_invalido"}
+        if not math.isfinite(original_start) or not math.isfinite(original_end) or original_end <= original_start:
+            return original_start, original_end, {"applied": False, "reason": "intervalo_invalido"}
+
+        spans = []
+        for block in clip_blocks:
+            for span in block.get("word_spans") or []:
+                if not isinstance(span, dict):
+                    continue
+                try:
+                    word_start = float(span.get("start"))
+                    word_end = float(span.get("end"))
+                except (TypeError, ValueError):
+                    continue
+                if not math.isfinite(word_start) or not math.isfinite(word_end):
+                    continue
+                if original_start <= word_start < word_end <= original_end:
+                    spans.append((word_start, word_end))
+        if not spans:
+            return original_start, original_end, {"applied": False, "reason": "sem_timestamps_de_palavras"}
+
+        first_word_start = min(item[0] for item in spans)
+        last_word_end = max(item[1] for item in spans)
+        pad_before = 0.12
+        pad_after = 0.12
+        max_trim_each_side = 0.8
+        refined_start = max(original_start, first_word_start - pad_before)
+        refined_end = min(original_end, last_word_end + pad_after)
+        refined_start = max(refined_start, original_start)
+        refined_end = min(refined_end, original_end)
+        if original_start + max_trim_each_side < refined_start:
+            refined_start = original_start + max_trim_each_side
+        if original_end - max_trim_each_side > refined_end:
+            refined_end = original_end - max_trim_each_side
+
+        minimum_safe_duration = max(float(self.min_duration), 2.0)
+        if refined_end - refined_start < minimum_safe_duration:
+            return original_start, original_end, {"applied": False, "reason": "poda_reduziria_duracao", "minimum_safe_duration": minimum_safe_duration}
+        trim_before = max(0.0, refined_start - original_start)
+        trim_after = max(0.0, original_end - refined_end)
+        if trim_before < 0.05 and trim_after < 0.05:
+            return original_start, original_end, {"applied": False, "reason": "sem_silencio_significativo"}
+        return (
+            round(refined_start, 3),
+            round(refined_end, 3),
+            {
+                "applied": True,
+                "reason": "ancorado_nas_palavras_com_margem_conservadora",
+                "original_start": round(original_start, 3),
+                "original_end": round(original_end, 3),
+                "first_word_start": round(first_word_start, 3),
+                "last_word_end": round(last_word_end, 3),
+                "trim_before": round(trim_before, 3),
+                "trim_after": round(trim_after, 3),
+            },
+        )
+
     def _build_clips_from_scored_blocks(self, scored_blocks, context_data=None, editorial_context=None):
         """Build clips by joining only the blocks needed for context and payoff.
         Enforces the technical ceiling on all clips without imposing a fixed length.
@@ -1754,8 +1848,7 @@ Retorne APENAS o JSON.
                 used_indices.add(idx)
 
             clip_text = " ".join(b["text"] for b in clip_blocks)
-            clip_start = clip_blocks[0]["start"]
-            clip_end = clip_blocks[-1]["end"]
+            clip_start, clip_end, boundary_refinement = self._refine_clip_boundaries(clip_blocks)
             qa_speaker_review = any(
                 _coerce_flag(qa_candidate.get("needs_speaker_review"))
                 and clip_start <= float(qa_candidate.get("end", 0) or 0) + 2.5
@@ -1826,6 +1919,7 @@ Retorne APENAS o JSON.
                 "title": title,
                 "reason": reason,
                 "context_recovery": context_recovery or {"applied": False, "reason": "antecedente não precisou ser recuperado"},
+                "boundary_refinement": boundary_refinement,
                 "viral_score": viral_score,
                 "has_hook": hook_grade in ("A", "B"),
                 "breakdown": {
