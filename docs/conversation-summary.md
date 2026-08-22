@@ -218,3 +218,7 @@ A interface passou a mostrar primeiro o claim mais forte usado para fundamentar 
 ## 25. Redação fiscal final do Headline Studio
 
 Depois do probe com a legenda exportada do CapCut, a primeira alternativa passou a usar o contraste mais claro do próprio texto: “PAÍS POBRE COBRA IMPOSTO DE PAÍS RICO”. As demais destacam mais de 200 bilhões por ano em despesas e a necessidade de mexer nas despesas. A formulação genérica sobre “tributar o próprio futuro” foi removida desse caso.
+
+## 26. Atribuição de locutor nas headlines
+
+O Headline Studio deixou de inserir “RENAN” automaticamente em uma headline apenas porque o texto fala de cripto ou política. A atribuição só aparece quando o minic contexto identifica explicitamente Renan; caso contrário, o texto permanece ancorado no tema sem atribuir a fala à pessoa errada.

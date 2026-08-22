@@ -257,7 +257,11 @@ def _claim_candidates(text: str, topic: str, speaker_prefix: str = "") -> list[s
     if "reserva de valor" in folded and topic == "cripto":
         candidates.append("CRIPTOS SÃO O FUTURO DA RESERVA DE VALOR")
     if "tribut" in folded and topic == "cripto" and "cript" in folded:
-        candidates.append("RENAN CRITICA A TRIBUTAÇÃO DAS CRIPTOS")
+        candidates.append(
+            f"{speaker_prefix} CRITICA A TRIBUTAÇÃO DAS CRIPTOS".strip()
+            if speaker_prefix
+            else "A TRIBUTAÇÃO DAS CRIPTOS ENFRENTA O ESTADO"
+        )
     if "estado" in folded and "amig" in folded:
         candidates.append("O ESTADO VAI ACOLHER OU AFASTAR AS CRIPTOS?")
     if "liberdade" in folded:

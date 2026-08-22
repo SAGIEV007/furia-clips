@@ -443,3 +443,25 @@ def test_ai_refinement_receives_grounded_basis_and_only_selected_format():
     assert result["generation_source"] == "ai_refined"
     assert result["formats"][FORMAT_SQUARE]["suggestions"][0]["headline"] == "IMPOSTO E DESPESAS: A CONTA NÃO FECHA"
     assert result["formats"][FORMAT_VERTICAL]["suggestions"] == []
+
+
+
+def test_crypto_headline_does_not_attribute_renan_without_explicit_context():
+    transcript = "Renan? As criptos são uma nova lógica e a tributação não vai impedir as pessoas de transacionar."
+
+    generic = generate_artwork_copy(
+        transcript,
+        preferred_format=FORMAT_SQUARE,
+        ai_backend=None,
+    )
+    generic_text = " ".join(item["headline"] for item in generic["formats"][FORMAT_SQUARE]["suggestions"])
+    assert "RENAN" not in generic_text
+
+    attributed = generate_artwork_copy(
+        transcript,
+        mini_context="Fala identificada de Renan Santos sobre criptoativos.",
+        preferred_format=FORMAT_SQUARE,
+        ai_backend=None,
+    )
+    attributed_text = " ".join(item["headline"] for item in attributed["formats"][FORMAT_SQUARE]["suggestions"])
+    assert "RENAN" in attributed_text

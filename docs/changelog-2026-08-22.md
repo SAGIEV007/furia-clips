@@ -478,3 +478,6 @@ A leitura editorial do resultado agora destaca primeiro o claim mais forte extra
 
 ## Headline Studio: contraste fiscal mais natural — 2026-08-22
 As alternativas da legenda fornecida foram refinadas para priorizar o contraste que realmente aparece no trecho: “PAÍS POBRE COBRA IMPOSTO DE PAÍS RICO”, seguido por “MAIS DE 200 BILHÕES POR ANO EM DESPESAS” e “A CONTA EXIGE MEXER NAS DESPESAS”. O gerador continua sem inventar cripto ou outros temas e o teste fixa a primeira opção para evitar regressão. Validação focada: **23 testes aprovados**.
+
+## Headline Studio: atribuição de locutor mais segura — 2026-08-22
+O gerador não atribui mais automaticamente uma crítica a Renan quando a legenda não identifica explicitamente o locutor. Em textos de cripto sem identificação, a chamada permanece temática e neutra; quando o minic contexto confirma Renan, a atribuição pode ser usada. Validação integral: **738 testes aprovados**.
