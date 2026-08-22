@@ -4499,6 +4499,17 @@ async function importSource(autoTranscribe = false) {
         if (!res.ok || !data.success) throw new Error(data.error || "Não foi possível iniciar a importação");
         state.sourceUrl = url;
         state.sourceImportJobId = String(data.job_id || "");
+        const receivedJobId = state.sourceImportJobId;
+        const terminalStatus = ["source_import_complete", "cancelled", "error"]
+            .find(status => receivedJobId && state.terminalEventKeys[`${receivedJobId}:${status}`]);
+        if (terminalStatus) {
+            state.sourceImportJobId = "";
+            state.sourceImportInitialVideoPath = "";
+            setSourceImportBusy(false);
+            addConsoleLog(`[Fonte] O servidor concluiu a importação antes da resposta de inicialização (${terminalStatus}); o resultado já foi aplicado.`, "info");
+            return;
+        }
+        if (!receivedJobId) throw new Error("O servidor iniciou a importação sem informar um identificador de job.");
         const sourceMessage = confirmedTranscript
             ? "Download iniciado; a transcrição manual confirmada será anexada sem nova busca."
             : autoTranscribe

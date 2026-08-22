@@ -837,6 +837,20 @@ def test_cancel_requested_job_disables_repeat_cancel_action():
     assert "job.state === \"cancel_requested\"" in source
 
 
+def test_source_import_does_not_reactivate_hud_after_terminal_event_race():
+    source = APP_JS.read_text(encoding="utf-8")
+    import_start = source.find("async function importSource")
+    import_end = source.find("function normalizePublicUrlInput", import_start)
+    block = source[import_start:import_end]
+
+    assert 'state.sourceImportJobId = String(data.job_id || "");' in block
+    assert 'const receivedJobId = state.sourceImportJobId;' in block
+    assert 'const terminalStatus = ["source_import_complete", "cancelled", "error"]' in block
+    assert 'state.terminalEventKeys[`${receivedJobId}:${status}`]' in block
+    assert "O servidor concluiu a importação antes da resposta de inicialização" in block
+    assert 'if (!receivedJobId) throw new Error("O servidor iniciou a importação sem informar um identificador de job.");' in block
+
+
 def test_context_analysis_clears_job_id_on_terminal_states_and_ignores_late_events():
     source = APP_JS.read_text(encoding="utf-8")
     event_start = source.find('socket.on("editorial_context_complete"')

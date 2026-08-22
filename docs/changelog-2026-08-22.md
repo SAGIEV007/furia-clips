@@ -41,3 +41,10 @@ Veja também o [roadmap de evolução](roadmap.md) e o [plano de métricas long-
 ---
 
 **Estado de publicação desta rodada:** código e testes preparados para o repositório selecionado; dados persistentes e credenciais mantidos fora do Git.
+
+
+## Correção incremental após a publicação
+
+Foi corrigida uma condição de corrida no download por URL. Em uma conclusão muito rápida, o evento terminal podia chegar ao navegador antes da resposta HTTP que informava o job. O frontend agora reconhece esse job já concluído, não reativa a HUD, não exibe uma operação falsa como em andamento e preserva o resultado que já foi aplicado. Respostas de inicialização sem identificador de job também são rejeitadas de forma explícita.
+
+A regressão cobre conclusão, cancelamento e erro recebidos antes da resposta de inicialização. A validação desta correção confirmou **605 testes aprovados** e nenhuma credencial no diff.
