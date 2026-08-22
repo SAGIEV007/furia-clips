@@ -548,3 +548,9 @@ Regressão adicionada para berrante e cavalgada; testes específicos: **37 aprov
 
 ## Regressão de pergunta–resposta — 2026-08-22
 Foi adicionada uma regressão para o caso em que a legenda começa com uma pergunta e traz a resposta logo depois. O primeiro claim deve preferir a resposta concluída, mantendo a pergunta disponível como alternativa e sem criar uma conclusão externa.
+
+
+## Primeira pessoa condicionada também na IA — 2026-08-22
+O filtro de sugestões agora rejeita fake tweets em primeira pessoa quando o minic contexto não identifica explicitamente quem fala. Isso cobre frases com “eu”, “meu”, “nossa” e equivalentes; a exceção só é liberada quando o editor confirma o locutor, mantendo a regra já usada no fallback local.
+
+Regressão adicionada para uma resposta de IA com “Eu defendo...”; testes específicos: **39 aprovados**.

@@ -700,3 +700,24 @@ def test_extractive_ranking_prefers_answer_over_opening_question():
     first = result["formats"][FORMAT_SQUARE]["suggestions"][0]["headline"]
     assert first.startswith("A RESPOSTA É AMPLIAR")
     assert "COMO VAMOS RESOLVER" not in first
+
+
+
+def test_ai_first_person_is_rejected_without_explicit_speaker_context():
+    class FakeBackend:
+        def generate(self, prompt, system, emit_progress=None):
+            return json.dumps({
+                "formats": {
+                    FORMAT_TWEET: [
+                        {"post_text": "Eu defendo esta proposta porque ela melhora o atendimento básico."}
+                    ]
+                }
+            })
+
+    result = generate_artwork_copy(
+        "A proposta melhora o atendimento básico e precisa ser explicada ao público.",
+        preferred_format=FORMAT_TWEET,
+        ai_backend=FakeBackend(),
+    )
+    assert result["generation_source"] == "editorial_fallback"
+    assert result["formats"][FORMAT_TWEET]["suggestions"][0]["post_text"].startswith("A proposta melhora")

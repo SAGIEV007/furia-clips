@@ -290,3 +290,8 @@ O Headline Studio agora reconhece quando a legenda fala de berrante, cavalgada, 
 ## 41. Pergunta–resposta no ranking extractivo
 
 Quando o corte contém “Como resolver?” e depois apresenta a resposta, o sistema coloca a resposta como primeira opção de headline. A pergunta não é apagada; apenas deixa de vencer automaticamente por estar no início.
+
+
+## 42. Primeira pessoa também é filtrada na IA
+
+Não basta a IA escrever “eu”. Sem identificação explícita do locutor no minic contexto, o fake tweet é rejeitado e o sistema volta para uma formulação impessoal baseada na legenda.

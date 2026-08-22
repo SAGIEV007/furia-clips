@@ -107,6 +107,7 @@ CLAIM_TRAILING_STOPWORDS = {
     "a", "as", "o", "os", "um", "uma", "uns", "umas", "e", "ou", "de", "do", "da", "dos", "das",
     "em", "no", "na", "nos", "nas", "por", "para", "com", "sem", "que", "se",
 }
+FIRST_PERSON_TOKENS = {"eu", "meu", "minha", "meus", "minhas", "comigo", "nosso", "nossa", "nossos", "nossas"}
 
 
 def _compact(value: str, limit: int) -> str:
@@ -115,6 +116,10 @@ def _compact(value: str, limit: int) -> str:
         return text
     short = text[: limit + 1].rsplit(" ", 1)[0].strip()
     return short or text[:limit].strip()
+
+
+def _has_first_person(value: str) -> bool:
+    return bool(set(re.findall(r"[a-z0-9]+", normalize(value))) & FIRST_PERSON_TOKENS)
 
 
 def _compact_claim(value: str, limit: int = 64) -> str:
@@ -399,8 +404,15 @@ def _safe_fake_tweet(text: str, topic: str, mini_context: str) -> list[str]:
     elif "estado" in folded and "amig" in folded:
         lead = "A pergunta é simples: o Estado será amigável ou hostil à inovação?"
     else:
-        sentences = _extractive_sentences(text)
-        extractive = _compact_claim(sentences[0], 170) if sentences else "O corte precisa de revisão editorial antes da publicação"
+        sentences = [
+            sentence for sentence in _extractive_sentences(text)
+            if speaker_explicit or not _has_first_person(sentence)
+        ]
+        extractive = (
+            _compact_claim(sentences[0], 170)
+            if sentences
+            else "A fala está em primeira pessoa; confirme o locutor antes de usar"
+        )
         lead = (
             f"Eu digo com clareza: {extractive}."
             if speaker_explicit
@@ -542,7 +554,13 @@ def _extract_json(value: str) -> dict[str, Any] | None:
             return None
 
 
-def _suggestion_has_evidence(value: str, source_text: str, *, allow_renan: bool = False) -> bool:
+def _suggestion_has_evidence(
+    value: str,
+    source_text: str,
+    *,
+    allow_renan: bool = False,
+    allow_first_person: bool = False,
+) -> bool:
     """Require source anchors and explicit permission for Renan attribution."""
     normalized_source = normalize(source_text)
     normalized_value = normalize(value)
@@ -560,6 +578,8 @@ def _suggestion_has_evidence(value: str, source_text: str, *, allow_renan: bool 
     if suggestion_entities - source_entities:
         return False
     if "renan" in suggestion_entities and not allow_renan:
+        return False
+    if _has_first_person(normalized_value) and not allow_first_person:
         return False
     source_numbers = set(re.findall(r"\d+", normalized_source))
     for number in set(re.findall(r"\d+", normalized_value)):
@@ -595,7 +615,12 @@ def _merge_ai_suggestions(
             if len(headline.split()) < 2:
                 continue
             profile = FORMAT_PROFILES[format_id]
-            if source_text and not _suggestion_has_evidence(headline, source_text, allow_renan=allow_renan):
+            if source_text and not _suggestion_has_evidence(
+                headline,
+                source_text,
+                allow_renan=allow_renan,
+                allow_first_person=allow_renan,
+            ):
                 continue
             normalized_headline = headline.upper()
             accepted.append({
@@ -620,7 +645,15 @@ def _merge_ai_suggestions(
         accepted_tweets = []
         for item in tweets[:2]:
             text = _compact(str(item.get("post_text", "")), FORMAT_PROFILES[FORMAT_TWEET]["headline_limit"])
-            if len(text.split()) >= 4 and (not source_text or _suggestion_has_evidence(text, source_text, allow_renan=allow_renan)):
+            if len(text.split()) >= 4 and (
+                not source_text
+                or _suggestion_has_evidence(
+                    text,
+                    source_text,
+                    allow_renan=allow_renan,
+                    allow_first_person=allow_renan,
+                )
+            ):
                 accepted_tweets.append({
                     "post_text": text,
                     "character_count": len(text),
