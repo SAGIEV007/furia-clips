@@ -383,3 +383,10 @@ A rota de ajuste agora também consegue descobrir a duração da fonte via `ffpr
 Os seeds read-only do Acervo agora são ordenados de forma estável pelo maior `self_contained_rank` e, em seguida, pelo maior `density_rank` já disponível no snapshot. Isso evita que o limite de seeds consuma primeiro blocos menos completos apenas por ordem de chegada. Empates preservam a ordem original do snapshot. A mudança não altera os pesos do ranker principal, não mistura contas e continua subordinada à validação de mesma fonte e à revisão humana.
 
 Foi adicionada regressão para confirmar que, com limite de um seed, o bloco mais autossuficiente é escolhido mesmo quando aparece depois de um bloco menos completo. A validação integral deste ciclo confirmou **695 testes aprovados** e nenhuma credencial no diff.
+
+
+## Reidratação do clip ajustado após recarregar o projeto — 2026-08-22
+
+Foi corrigida uma lacuna da bancada: depois de re-renderizar um clip e reabrir o projeto, a API persistida devolvia `file_path`, `start_time` e `end_time`, enquanto a bancada ao vivo consumia `path`, `start` e `end`. A resposta de projeto agora normaliza esses campos e devolve também `clip_id`, permitindo que o player continue reproduzindo o MP4 corrigido após reconexão ou recarga.
+
+O pedido de re-renderização também reconhece o enquadramento aninhado persistido (`framing.mode`) e a indicação de composição original, evitando aplicar 9:16 por engano a um clip que deveria preservar 16:9. Foi adicionada regressão de recarga do projeto, além da cobertura do endpoint de re-renderização. A validação integral confirmou **696 testes aprovados**, JavaScript válido, Python compilado, `git diff --check` e auditoria de segredos sem ocorrência.

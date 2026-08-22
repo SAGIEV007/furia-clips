@@ -3635,7 +3635,7 @@ async function persistClipBoundary(index) {
                 title: clip.title || `ajuste-clip-${clip.clip_id}`,
                 text: clip.text || clip.transcript || "",
                 render_preset: state.settings?.render_preset || "shorts",
-                preserve_original_aspect: String(clip.framing_mode || "") === "original_16_9",
+                preserve_original_aspect: [clip.framing_mode, clip.framing?.mode, clip.preset].some((value) => ["original_16_9", "original_16:9", "original"].includes(String(value || ""))),
                 source_duration: clip.source_duration ?? clip.video_duration ?? null,
                 transcript_segments: clip.transcript_segments || clip.segments || [],
             }),

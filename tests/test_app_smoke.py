@@ -685,3 +685,29 @@ def test_adjust_render_endpoint_renders_and_persists_derived_file(monkeypatch, t
         assert persisted_clip["file_path"] == str(rendered_path)
         assert persisted_clip["start_time"] == 10.0
         assert persisted_clip["end_time"] == 52.0
+
+
+def test_project_reload_normalizes_persisted_clip_for_review_player(monkeypatch, tmp_path):
+    db_path = tmp_path / "project-reload.sqlite"
+    with patch.object(database, "DB_PATH", str(db_path)):
+        database.init_db()
+        project_id = database.create_project("Projeto recarregado", "uploads/source.mp4")
+        clip_id = database.save_clip(
+            project_id,
+            "exports/original.mp4",
+            10.0,
+            52.0,
+            42.0,
+            transcript="A fala completa.",
+        )
+        database.update_clip_rendered_file(clip_id, "exports/ajustado.mp4")
+
+        response = furia_app.app.test_client().get(f"/api/projects/{project_id}")
+
+    assert response.status_code == 200
+    clip = response.get_json()["clips"][0]
+    assert clip["clip_id"] == clip_id
+    assert clip["path"] == "exports/ajustado.mp4"
+    assert clip["start"] == 10.0
+    assert clip["end"] == 52.0
+    assert clip["duration"] == 42.0

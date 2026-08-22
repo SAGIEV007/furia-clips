@@ -2145,6 +2145,15 @@ def api_get_project(project_id):
     if not project:
         return jsonify({"error": "Projeto nao encontrado"}), 404
     project["clips"] = get_clips(project_id)
+    for clip in project["clips"]:
+        # Keep the persisted shape compatible with the live pipeline payload.
+        # The database uses file_path/start_time/end_time; the review UI consumes
+        # path/start/end and must remain able to play a re-rendered file after reload.
+        clip.setdefault("path", clip.get("file_path") or "")
+        clip.setdefault("start", clip.get("start_time", 0))
+        clip.setdefault("end", clip.get("end_time", 0))
+        clip.setdefault("duration", clip.get("duration", 0))
+        clip["clip_id"] = clip.get("id")
     project["transcription"] = get_transcription(project_id)
     return jsonify(project)
 
