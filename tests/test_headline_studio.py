@@ -612,3 +612,17 @@ def test_extractive_fallback_does_not_end_on_a_dangling_stopword():
     headline = result["formats"][FORMAT_VERTICAL]["suggestions"][0]["headline"]
     assert headline.split()[-1] not in {"A", "AS", "O", "OS", "DE", "DA", "DO", "E", "QUE"}
     assert "SITUAÇÃO MUDOU" in headline
+
+
+
+def test_generic_fake_tweet_stays_extractive_and_avoids_unheard_theme_claims():
+    result = generate_artwork_copy(
+        "Eu tentei fazer o café e consegui derrubar tudo na cozinha. Pelo menos o cachorro aprovou a operação.",
+        preferred_format=FORMAT_TWEET,
+        ai_backend=None,
+    )
+    post = result["formats"][FORMAT_TWEET]["suggestions"][0]["post_text"]
+    assert "café" in post.lower()
+    assert "derrubar tudo na cozinha" in post.lower()
+    assert "olhar para o futuro" not in post.lower()
+    assert not post.startswith("Eu digo com clareza:")

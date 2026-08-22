@@ -376,7 +376,20 @@ def _safe_fake_tweet(text: str, topic: str, mini_context: str) -> list[str]:
     elif "estado" in folded and "amig" in folded:
         lead = "A pergunta é simples: o Estado será amigável ou hostil à inovação?"
     else:
-        lead = f"O debate sobre {topic} precisa olhar para o futuro, não para o medo."
+        sentences = [
+            part.strip()
+            for part in re.split(r"(?<=[.!?])\s+|\n+", text.strip())
+            if len(part.split()) >= 4
+        ]
+        if not sentences:
+            words = re.findall(r"[a-z0-9À-ÿ-]+", text.strip())
+            sentences = [" ".join(words[:18])] if len(words) >= 4 else []
+        extractive = _compact_claim(sentences[0], 170) if sentences else "O corte precisa de revisão editorial antes da publicação"
+        lead = (
+            f"Eu digo com clareza: {extractive}."
+            if speaker_explicit
+            else extractive
+        )
     return [_compact(lead, 180)]
 
 

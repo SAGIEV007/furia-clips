@@ -255,3 +255,8 @@ O caso em que a IA transforma uma menção a Renan em autoria agora está proteg
 ## 34. Classificação temática e fallback extractivo
 
 O Headline Studio agora reconhece sinais claros de saúde, educação e humor. Quando não existe uma regra específica, ele usa uma frase real da legenda como base da headline, em vez de afirmar uma “verdade incômoda” que não foi dita. O texto é compactado sem terminar em artigo ou conectivo solto.
+
+
+## 35. Fake tweet extractivo
+
+Quando a legenda não ativa uma regra editorial específica, o fake tweet agora copia de forma compacta a primeira frase real do corte. Ele não adiciona “futuro”, “medo” ou outra tese que não tenha sido dita; primeira pessoa continua condicionada à identificação explícita do locutor.

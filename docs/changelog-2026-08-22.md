@@ -508,3 +508,9 @@ Foi adicionada uma regressão real: uma resposta de IA que escreve “RENAN CRIT
 O Headline Studio passou a reconhecer sinais claros de **saúde**, **educação** e **humor**, evitando classificar qualquer legenda como política por padrão. Quando não há uma regra editorial específica, o fallback agora usa frases reais da legenda, compactadas sem deixar artigos ou conectivos soltos no final; deixou de usar claims genéricos como “A VERDADE INCÔMODA SOBRE...”. O caso fiscal foi mantido e continua sem deriva para cripto.
 
 Regressões adicionadas: tema de saúde não cai em política e fallback extractivo não termina em palavra solta. Probe privado com temas variados validou o comportamento.
+
+
+## Fake tweet sem tese inventada — 2026-08-22
+O fallback de fake tweet deixou de preencher casos desconhecidos com a frase genérica “o debate sobre ... precisa olhar para o futuro”. Agora usa a primeira frase real da legenda, sem primeira pessoa quando o locutor não foi confirmado. Isso mantém o formato copiável fiel ao corte e evita importar intenção ou tema externo.
+
+Regressão adicionada: fake tweet neutro precisa preservar palavras da frase fornecida e não pode inserir a tese temática genérica.
