@@ -405,3 +405,39 @@ def test_editorial_context_sorts_external_segments_before_deriving_windows():
     assert context["qa_candidates"]
     assert context["qa_candidates"][0]["start"] == 0.0
     assert context["qa_candidates"][0]["end"] == 12.0
+
+
+
+def test_public_source_404_explains_that_the_url_or_video_is_missing():
+    from modules.source_ingest import _source_error
+
+    message = str(_source_error("Não foi possível baixar a fonte pública", RuntimeError("HTTP Error 404: Not Found")))
+    assert "HTTP 404" in message
+    assert "endereço está completo" in message
+    assert "continua público" in message
+
+
+def test_public_source_timeout_explains_retries_finished_without_looping():
+    from modules.source_ingest import _source_error
+
+    message = str(_source_error("Não foi possível baixar a fonte pública", TimeoutError("connection timed out")))
+    assert "demorou demais" in message
+    assert "tentativas automáticas terminaram" in message
+    assert "várias operações" in message
+
+
+def test_public_source_restriction_does_not_suggest_login_bypass():
+    from modules.source_ingest import _source_error
+
+    message = str(_source_error("Não foi possível ler a fonte pública", RuntimeError("Sign in required: private video")))
+    assert "exige login" in message
+    assert "URL pública sem login" in message
+    assert "não contorna restrições" in message
+
+
+def test_public_source_unsupported_platform_offers_local_import_fallback():
+    from modules.source_ingest import _source_error
+
+    message = str(_source_error("Não foi possível ler a fonte pública", RuntimeError("Unsupported URL")))
+    assert "não é suportado" in message
+    assert "importe o arquivo localmente" in message

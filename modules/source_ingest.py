@@ -150,7 +150,38 @@ def _source_error(prefix: str, exc: Exception) -> SourceIngestError:
             f"{prefix}: a plataforma limitou temporariamente as requisições (HTTP 429). "
             "Aguarde antes de tentar novamente; o programa não contorna rate limits."
         )
-    return SourceIngestError(f"{prefix}: {detail}")
+    if "404" in normalized or "not found" in normalized or "video unavailable" in normalized:
+        return SourceIngestError(
+            f"{prefix}: o vídeo ou a página não foi encontrado(a) (HTTP 404). "
+            "Confirme se o endereço está completo e se o conteúdo continua público."
+        )
+    if any(marker in normalized for marker in (
+        "timed out", "timeout", "connection reset", "connection refused",
+        "temporary failure", "temporarily unavailable", "network is unreachable",
+    )):
+        return SourceIngestError(
+            f"{prefix}: a rede ou a plataforma demorou demais para responder. "
+            "As tentativas automáticas terminaram; aguarde e tente novamente, sem iniciar várias operações ao mesmo tempo."
+        )
+    if any(marker in normalized for marker in (
+        "sign in", "login required", "members-only", "private video",
+        "age-restricted", "confirm your age", "requires authentication",
+    )):
+        return SourceIngestError(
+            f"{prefix}: o conteúdo exige login, confirmação de idade ou não é público. "
+            "Use uma URL pública sem login; o Furia Clips não contorna restrições."
+        )
+    if "not available in your country" in normalized or "geo" in normalized and "restrict" in normalized:
+        return SourceIngestError(
+            f"{prefix}: a plataforma restringiu este conteúdo por região. "
+            "Escolha outra fonte pública disponível para a sua região."
+        )
+    if any(marker in normalized for marker in ("unsupported url", "no suitable extractor", "unsupported site")):
+        return SourceIngestError(
+            f"{prefix}: esta plataforma ou formato ainda não é suportado pelo importador público. "
+            "Use uma URL pública compatível ou importe o arquivo localmente."
+        )
+    return SourceIngestError(f"{prefix}: {detail or 'erro técnico sem detalhe adicional'}")
 
 
 def download_public_subtitles(url: str, destination: str, progress=None, cancel_check=None) -> str | None:

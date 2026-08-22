@@ -430,3 +430,6 @@ A separação dos dois botões foi coberta explicitamente: **Baixar** envia `aut
 
 ## Trava durante a escolha da pasta de download — 2026-08-22
 O fluxo de fonte agora bloqueia imediatamente os dois botões de importação enquanto o explorador nativo está aberto. Isso elimina a janela em que dois cliques poderiam abrir seletores concorrentes antes de existir um `job_id`. A trava é distinta do estado de download em andamento, é liberada também quando o editor cancela a escolha e mantém as ações **Baixar** e **Baixar e transcrever** semanticamente separadas. Foram adicionados contratos frontend; a validação integral fechou com **711 testes aprovados**.
+
+## Diagnóstico de falhas de fontes públicas — 2026-08-22
+O importador público agora apresenta diagnósticos mais claros para vídeo/página inexistente (404), timeout ou rede temporária, conteúdo que exige login/idade, bloqueio regional e plataforma não suportada. As mensagens orientam uma ação segura — conferir o endereço, aguardar, escolher outra fonte pública ou importar arquivo local — sem sugerir contorno de autenticação, CAPTCHA, rate limit ou privacidade. Os retries continuam limitados e o fluxo não inicia operações concorrentes como tentativa de correção. Foram adicionadas regressões para cada categoria; validação integral: **715 testes aprovados**.
