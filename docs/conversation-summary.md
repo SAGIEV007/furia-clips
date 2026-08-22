@@ -260,3 +260,8 @@ O Headline Studio agora reconhece sinais claros de saúde, educação e humor. Q
 ## 35. Fake tweet extractivo
 
 Quando a legenda não ativa uma regra editorial específica, o fake tweet agora copia de forma compacta a primeira frase real do corte. Ele não adiciona “futuro”, “medo” ou outra tese que não tenha sido dita; primeira pessoa continua condicionada à identificação explícita do locutor.
+
+
+## 36. Atribuição por identificação de locutor
+
+O sistema agora diferencia “Renan é o tema do corte” de “Renan é quem fala”. Só a segunda situação, confirmada por um padrão explícito no minic contexto, permite primeira pessoa ou prefixo atribuído.

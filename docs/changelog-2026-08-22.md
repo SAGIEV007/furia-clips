@@ -514,3 +514,9 @@ Regressões adicionadas: tema de saúde não cai em política e fallback extract
 O fallback de fake tweet deixou de preencher casos desconhecidos com a frase genérica “o debate sobre ... precisa olhar para o futuro”. Agora usa a primeira frase real da legenda, sem primeira pessoa quando o locutor não foi confirmado. Isso mantém o formato copiável fiel ao corte e evita importar intenção ou tema externo.
 
 Regressão adicionada: fake tweet neutro precisa preservar palavras da frase fornecida e não pode inserir a tese temática genérica.
+
+
+## Atribuição por identificação de locutor — 2026-08-22
+O detector de Renan deixou de aceitar o nome isolado no minic contexto. Agora exige construções que identificam a pessoa como locutor, como “fala de Renan”, “voz de Renan”, “locutor: Renan” ou “Renan explica”. Comentários editoriais sobre Renan não liberam primeira pessoa nem o prefixo “RENAN:”.
+
+Regressão adicionada para o comentário editorial e validação específica com **33 testes aprovados**.

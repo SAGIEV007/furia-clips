@@ -266,9 +266,15 @@ def _attention_word(text: str, signals: dict[str, Any]) -> str:
 
 
 def _speaker_prefix(mini_context: str) -> str:
-    """Return a short, explicit attribution only when the editor supplied it."""
+    """Return attribution only when the editor identifies Renan as the speaker."""
     folded = normalize(mini_context)
-    if "renan santos" in folded or re.search(r"\brenan\b", folded):
+    speaker_patterns = (
+        r"\b(?:fala|voz)\s+(?:identificada\s+)?(?:de|do|da)\s+renan(?:\s+santos)?\b",
+        r"\b(?:locutor|apresentador|orador)\s*[:\-]?\s*renan(?:\s+santos)?\b",
+        r"\brenan(?:\s+santos)?\s+(?:fala|diz|afirma|explica|comenta|critica|falando|comentando)\b",
+        r"\bprimeira pessoa\b.*\brenan(?:\s+santos)?\b",
+    )
+    if any(re.search(pattern, folded) for pattern in speaker_patterns):
         return "RENAN:"
     return ""
 
