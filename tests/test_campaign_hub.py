@@ -644,3 +644,38 @@ def test_merge_acervo_seed_candidates_does_not_cross_source_or_duplicate_interva
     assert merged == existing
     merged_same = merge_acervo_seed_candidates(existing, snapshot, account="@renansantosmbl", source_id="AbCdEfGhI12")
     assert merged_same == existing
+
+
+def test_merge_acervo_seed_candidates_treats_missing_local_source_as_current_source():
+    snapshot = normalize_snapshot({
+        "default_account": "@renansantosmbl",
+        "accounts": {
+            "@renansantosmbl": {
+                "acervo_blocks": [{
+                    "id": "block-seed-local-payload",
+                    "contentClass": "fala",
+                    "renanSpeaking": True,
+                    "startS": 10,
+                    "endS": 34,
+                    "title": "Seed repetido",
+                    "summary": "Resumo do mesmo intervalo para revisão.",
+                    "video": {"youtubeId": "AbCdEfGhI12"},
+                }],
+            },
+        },
+    })
+    local_candidate = [{
+        "start": 10,
+        "end": 34,
+        "duration": 24,
+        "text": "Candidato local sem identidade explícita.",
+    }]
+
+    merged = merge_acervo_seed_candidates(
+        local_candidate,
+        snapshot,
+        account="@renansantosmbl",
+        source_id="AbCdEfGhI12",
+    )
+
+    assert merged == local_candidate

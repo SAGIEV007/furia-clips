@@ -781,7 +781,14 @@ def merge_acervo_seed_candidates(
         if not summary:
             continue
         if any(
-            _source_key(item.get("source_id") or item.get("source_video_id") or item.get("video_id")) == local_source
+            (
+                # Selector candidates are already scoped to the current source,
+                # but older/local payloads may omit source_id entirely. Treat a
+                # missing identity as current-source here; never infer across a
+                # non-empty, different identity.
+                not _source_key(item.get("source_id") or item.get("source_video_id") or item.get("video_id"))
+                or _source_key(item.get("source_id") or item.get("source_video_id") or item.get("video_id")) == local_source
+            )
             and _interval_overlap_ratio(_normalize_time(item.get("start")), _normalize_time(item.get("end")), start, end) >= 0.72
             for item in existing + seeds
             if _normalize_time(item.get("start")) is not None and _normalize_time(item.get("end")) is not None

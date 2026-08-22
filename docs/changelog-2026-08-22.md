@@ -354,3 +354,9 @@ Foi adicionada regressão no contrato de render, preservando os caminhos legados
 Os resultados de `VideoCutter.batch_cut` agora incluem `render_duration`, calculada a partir de `render_start` e `render_end` após padding legado, refinamento por palavras e limites da fonte. Isso evita que consumidores confundam a duração editorial do candidato com a duração real do arquivo gerado, especialmente em clips legados com padding ou próximos ao fim do vídeo.
 
 A regressão cobre tanto o caminho refinado sem padding quanto o caminho legado com padding. Validação: **692 testes aprovados**, `node --check`, `py_compile`, `git diff --check` e auditoria de segredos sem achados. Não houve alteração de pesos de ranking nem escrita no Campaign Hub.
+
+## Deduplicação Acervo — candidatos locais sem identidade explícita
+
+A entrada de seeds Acervo same-source agora trata um candidato local sem `source_id` como pertencente à fonte atualmente analisada, porque o selector já trabalha dentro de uma única fonte por execução. Seeds não são bloqueados quando o candidato traz um identificador não vazio de outra fonte. Isso evita que o mesmo intervalo apareça duas vezes após o ranker, sem inferir identidade entre vídeos diferentes e mantendo a separação de contas.
+
+Foi adicionada regressão para o formato real dos candidatos locais, que pode omitir a identidade explícita. Validação: **693 testes aprovados**, `node --check`, `py_compile`, `git diff --check` e auditoria de segredos sem achados. Campaign Hub permaneceu somente leitura.
