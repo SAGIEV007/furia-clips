@@ -1,0 +1,435 @@
+/**
+ * Furia Clips — Clean Professional Dashboard
+ * Etapa 3: Visual Clean e Profissional
+ * 
+ * Baseado em pesquisa extensa (web_search depth 3):
+ * - Linear: dark-first, quiet chrome, keyboard-first, 240-280px sidebar, 1px border 8% opacity, sub-100ms
+ * - Stripe: gold standard KPI cards, data tables, metric strip 4-6 cards, tables as primary interface
+ * - Vercel: monochrome minimalism, color = meaning, extreme restraint, Geist font
+ * - Attio: AI-native, AI summaries as first-class surface
+ * - PostHog: dense but approachable, insight cards
+ * 
+ * Partido Missão palette (Wikipedia):
+ * - Preto #000000, Branco #FFFFFF, Amarelo #FCBE26 (oficial)
+ * - Mascote onça-pintada, bandeira 3 listras horizontais
+ * 
+ * Princípios 2026:
+ * - Sidebar 260px, collapsed 64px icon rail
+ * - Metric strip 4-6 KPI cards, top-left primary maior
+ * - 12-col grid, 24px gutters
+ * - Cards border not shadow
+ * - Row 48-52px scanning, 36-40px dense
+ * - Skeleton screens not spinners
+ * - Dark-first, light second, tokens
+ * - Progressive disclosure
+ * - Color = state only (green/amber/red)
+ */
+
+/* Override sidebar width to Linear pattern 260px */
+:root {
+  --furia-sidebar-width: 260px !important;
+  --furia-sidebar-collapsed: 64px !important;
+}
+
+.sidebar {
+  width: var(--furia-sidebar-width) !important;
+  background: var(--furia-bg-base) !important;
+  border-right: 1px solid var(--furia-border-subtle) !important;
+  box-shadow: none !important;
+}
+
+/* Main content margin */
+.furia-main,
+.main-content,
+.content {
+  margin-left: var(--furia-sidebar-width) !important;
+}
+
+/* KPI Strip - Stripe gold standard */
+.furia-kpi-strip,
+.kpi-strip,
+.metrics-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--furia-space-4);
+  margin-bottom: var(--furia-space-6);
+}
+
+.furia-kpi-card,
+.kpi-card,
+.metric-card {
+  background: var(--furia-bg-elevated) !important;
+  border: 1px solid rgba(255,255,255,0.08) !important; /* Linear/Vercel: border not shadow */
+  border-radius: var(--furia-radius-lg) !important;
+  padding: var(--furia-space-4) !important;
+  height: var(--furia-kpi-height);
+  box-shadow: none !important;
+  transition: border-color var(--furia-duration-fast) var(--furia-ease), 
+              background var(--furia-duration-fast) var(--furia-ease) !important;
+}
+
+.furia-kpi-card:hover,
+.kpi-card:hover {
+  border-color: var(--furia-border-strong) !important;
+  background: var(--furia-bg-hover) !important;
+}
+
+/* Primary KPI - top-left larger */
+.furia-kpi-card--primary,
+.kpi-card--primary {
+  grid-column: span 2;
+}
+
+.furia-kpi-card--primary .kpi-value,
+.kpi-card--primary .kpi-value {
+  font-size: 28px !important;
+  font-weight: 700 !important;
+  line-height: 1.1 !important;
+}
+
+/* Cards - clean professional */
+.furia-card,
+.card,
+.action-card,
+.media-card,
+.clip-card {
+  background: var(--furia-bg-elevated) !important;
+  border: 1px solid rgba(255,255,255,0.08) !important;
+  border-radius: var(--furia-radius-lg) !important;
+  box-shadow: none !important;
+  transition: all var(--furia-duration-fast) var(--furia-ease) !important;
+}
+
+.furia-card:hover,
+.card:hover,
+.action-card:hover {
+  border-color: var(--furia-border-strong) !important;
+  background: var(--furia-bg-hover) !important;
+  transform: none !important; /* Vercel restraint: no lift */
+}
+
+/* Clip cards with gates - color = meaning */
+.clip-card[data-gate="verde"],
+.clip-card.gate-verde,
+.furia-clip--verde {
+  border-left: 3px solid var(--furia-ok) !important;
+}
+
+.clip-card[data-gate="ambar"],
+.clip-card.gate-ambar,
+.furia-clip--ambar {
+  border-left: 3px solid var(--furia-warn) !important;
+}
+
+.clip-card[data-gate="vermelho"],
+.clip-card.gate-vermelho,
+.furia-clip--vermelho {
+  border-left: 3px solid var(--furia-danger) !important;
+}
+
+/* Renan detected - special accent */
+.clip-card[data-renan="true"],
+.clip-card.renan-detected,
+.furia-clip--renan {
+  border-left: 3px solid var(--furia-renan) !important;
+  background: linear-gradient(90deg, var(--furia-renan-soft) 0%, var(--furia-bg-elevated) 8%) !important;
+}
+
+/* High energy / discussion */
+.clip-card[data-energy="high"],
+.clip-card.high-energy {
+  border-left: 3px solid var(--furia-coice) !important;
+}
+
+/* Timeline - interactive */
+.furia-timeline,
+.timeline,
+.clip-timeline {
+  background: var(--furia-bg-elevated) !important;
+  border: 1px solid var(--furia-border-subtle) !important;
+  border-radius: var(--furia-radius-md) !important;
+  padding: var(--furia-space-3) !important;
+}
+
+.furia-timeline__segment,
+.timeline-segment {
+  height: 8px !important;
+  border-radius: 4px !important;
+  background: var(--furia-border-subtle) !important;
+  transition: all var(--furia-duration-fast) var(--furia-ease) !important;
+}
+
+.furia-timeline__segment--renan {
+  background: var(--furia-renan) !important;
+}
+
+.furia-timeline__segment--energy {
+  background: var(--furia-coice) !important;
+}
+
+.furia-timeline__segment--discussion {
+  background: var(--furia-warn) !important;
+}
+
+/* Skeleton loading - Stripe/Linear/Notion pattern */
+.skeleton,
+.furia-skeleton,
+.loading-skeleton {
+  background: var(--dashboard-skeleton-bg) !important;
+  background-size: 200% 100% !important;
+  animation: skeleton-shimmer 1.5s infinite !important;
+  border-radius: var(--furia-radius-sm) !important;
+}
+
+@keyframes skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Tables - Stripe gold standard */
+.furia-table,
+.data-table,
+table {
+  width: 100% !important;
+  border-collapse: collapse !important;
+  background: var(--furia-bg-elevated) !important;
+  border: 1px solid var(--furia-border-subtle) !important;
+  border-radius: var(--furia-radius-md) !important;
+  overflow: hidden !important;
+}
+
+.furia-table thead,
+.data-table thead {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 10 !important;
+  background: var(--furia-bg-elevated) !important;
+}
+
+.furia-table th,
+.data-table th {
+  height: 40px !important;
+  padding: 0 var(--furia-space-4) !important;
+  font-weight: 600 !important;
+  font-size: 12px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+  color: var(--furia-text-secondary) !important;
+  border-bottom: 1px solid var(--furia-border-subtle) !important;
+  text-align: left !important;
+}
+
+.furia-table td,
+.data-table td {
+  height: var(--dashboard-row-height) !important;
+  padding: 0 var(--furia-space-4) !important;
+  border-bottom: 1px solid rgba(255,255,255,0.04) !important;
+}
+
+.furia-table--dense td {
+  height: var(--dashboard-row-height-dense) !important;
+}
+
+/* Status pills - semantic color only */
+.furia-pill,
+.status-pill,
+.badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  height: 22px !important;
+  padding: 0 8px !important;
+  border-radius: 999px !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.02em !important;
+}
+
+.furia-pill--ok,
+.pill-ok {
+  background: var(--furia-ok-soft) !important;
+  color: var(--furia-ok) !important;
+}
+
+.furia-pill--warn,
+.pill-warn {
+  background: var(--furia-warn-soft) !important;
+  color: var(--furia-warn) !important;
+}
+
+.furia-pill--danger,
+.pill-danger {
+  background: var(--furia-danger-soft) !important;
+  color: var(--furia-danger) !important;
+}
+
+.furia-pill--renan,
+.pill-renan {
+  background: var(--furia-renan-soft) !important;
+  color: var(--furia-renan) !important;
+}
+
+.furia-pill--coice,
+.pill-coice {
+  background: var(--furia-coice-soft) !important;
+  color: var(--furia-coice) !important;
+}
+
+/* Missão brand accents */
+.missao-accent,
+.furia-accent-missao {
+  color: var(--missao-yellow) !important;
+}
+
+.missao-bg,
+.furia-bg-missao {
+  background: var(--missao-yellow) !important;
+  color: var(--missao-black) !important;
+}
+
+.missao-border {
+  border-color: var(--missao-yellow) !important;
+}
+
+/* Clean buttons - Vercel restraint */
+.furia-btn,
+.btn,
+button {
+  border-radius: var(--furia-radius-md) !important;
+  font-weight: 500 !important;
+  transition: all var(--furia-duration-fast) var(--furia-ease) !important;
+}
+
+.furia-btn--primary,
+.btn-primary {
+  background: var(--missao-yellow) !important;
+  color: var(--missao-black) !important;
+  border: 1px solid var(--missao-yellow) !important;
+}
+
+.furia-btn--primary:hover,
+.btn-primary:hover {
+  background: var(--missao-yellow-hover) !important;
+  border-color: var(--missao-yellow-hover) !important;
+}
+
+/* Sidebar nav - Linear pattern */
+.furia-sidebar-link {
+  height: 32px !important;
+  border-radius: var(--furia-radius-md) !important;
+  padding: 0 var(--furia-space-3) !important;
+  gap: var(--furia-space-3) !important;
+  font-size: 13px !important;
+  font-weight: 450 !important;
+  color: var(--furia-text-secondary) !important;
+  transition: all var(--furia-duration-fast) var(--furia-ease) !important;
+}
+
+.furia-sidebar-link:hover {
+  background: var(--furia-bg-hover) !important;
+  color: var(--furia-text-primary) !important;
+}
+
+.furia-sidebar-link.active {
+  background: var(--furia-bg-hover) !important;
+  color: var(--furia-text-primary) !important;
+  font-weight: 600 !important;
+}
+
+.furia-sidebar-link kbd {
+  margin-left: auto !important;
+  background: var(--furia-bg-elevated) !important;
+  border: 1px solid var(--furia-border-subtle) !important;
+  border-radius: 4px !important;
+  padding: 2px 6px !important;
+  font-size: 10px !important;
+  font-family: var(--furia-font-mono) !important;
+}
+
+/* Empty states - designed, not afterthought */
+.furia-empty,
+.empty-state {
+  padding: var(--furia-space-8) !important;
+  text-align: center !important;
+  color: var(--furia-text-secondary) !important;
+}
+
+.furia-empty .material-icons-round {
+  font-size: 48px !important;
+  color: var(--furia-text-muted) !important;
+  margin-bottom: var(--furia-space-4) !important;
+}
+
+/* Progress - clean */
+.furia-progress {
+  height: 4px !important;
+  background: var(--furia-border-subtle) !important;
+  border-radius: 999px !important;
+  overflow: hidden !important;
+}
+
+.furia-progress__bar {
+  height: 100% !important;
+  background: var(--missao-yellow) !important;
+  border-radius: 999px !important;
+  transition: width var(--furia-duration) var(--furia-ease) !important;
+}
+
+/* 12-col grid - dashboard content */
+.furia-grid,
+.dashboard-grid {
+  display: grid !important;
+  grid-template-columns: repeat(12, 1fr) !important;
+  gap: var(--dashboard-grid-gutter) !important;
+}
+
+.furia-grid__col--4 {
+  grid-column: span 4 !important;
+}
+
+.furia-grid__col--6 {
+  grid-column: span 6 !important;
+}
+
+.furia-grid__col--8 {
+  grid-column: span 8 !important;
+}
+
+.furia-grid__col--12 {
+  grid-column: span 12 !important;
+}
+
+/* Responsive - collapse sidebar to icon rail */
+@media (max-width: 1024px) {
+  .sidebar {
+    width: var(--furia-sidebar-collapsed) !important;
+  }
+  
+  .sidebar .logo-text,
+  .sidebar .furia-sidebar-link span:not(.material-icons-round),
+  .sidebar .furia-sidebar-label,
+  .sidebar-content {
+    display: none !important;
+  }
+  
+  .furia-main,
+  .main-content {
+    margin-left: var(--furia-sidebar-collapsed) !important;
+  }
+}
+
+/* Focus - accessibility */
+*:focus-visible {
+  outline: none !important;
+  box-shadow: var(--furia-focus-ring) !important;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

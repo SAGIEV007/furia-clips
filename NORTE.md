@@ -932,22 +932,60 @@ serem redescobertas, não para interromper o item 1:
   transcreve por mais de uma hora; o editor sai da máquina e não tem como saber
   que acabou. Entra na seção 12, junto da espera.
 
+**Update 2026-08-22 Arena — Etapa 1 precisão + visual clean Missão #FCBE26:**
+
+Pesquisa extensa antes de cada etapa (pedido editor):
+
+- **Cortes:** OpusClip ClipAnything multimodal Virality Score Hook/Flow/Value/Trend 10M users, Vizard cleaner entry/exit transcript-highlight-to-cut, CapCut até 3h/10GB, pipeline transcrição word-level → moment LLM → reframing CV → captions ASS → render FFmpeg, diarization pyannote/Resemblyzer/VoxCeleb/AdaFace, energia RMS+pitch+overlap, discussão turnos curtos <2s + overlap + energia alta, coice Q+A + energia + payoff.
+- **Headlines:** @renansantosmbl 2M followers 3,233 posts 5.11% engajamento A+ orgânico vs 1.41% Flávio, TikTok 210.8k 5.2M likes motor viralização jovem, top Reels segurança 12.4M maior inimigo 7.7M Henry Borel 5.9M, padrões headline curta caixa alta 58 chars vertical 64 square 180 fake_tweet max_lines 3-5 ideal 19-36 tese branca + chamada amarela, linguagem direta provocativa cortes rápidos embates.
+- **UX:** Linear dark-first quiet chrome 240-280px sidebar 64px icon rail 1px border 8% opacity não shadow sub-100ms 36px rows, Stripe gold KPI cards data tables primary metric strip 4-6 skeleton loading, Vercel monochrome color=meaning Geist, padrões 2026 sidebar 260px collapsed 64px 12-col 24px gutters 48-52px scanning 36-40px dense skeleton not spinners dark-first tokens progressive disclosure color=state only.
+- **Missão paleta:** Preto Branco Amarelo oficial #FCBE26 (Wikipedia template), mascote onça-pintada, bandeira 3 listras preto/branco/amarelo logo faixa branca, nome missão/visão/valores planejamento estratégico.
+
+Implementado Arena:
+
+- **Download:** source_ingest TLS EOF Cloudflare handling mensagem explica datacenter bloqueado fallback upload local, formato bv*[height<=1080]+ba já correto, app.py init_db no import fix no such table clips.
+- **Galeria Renan só Renan inicialmente:** renan_gallery.py novo FuriaClipsData/gallery/renan/faces+voices metadata, 5 fotos Renan via image_search has_references true, detect_renan_timeline textual_fallback+energia com refs gallery_heuristic confidence is_renan review_required, prioritize_clips renan_score coverage confidence evidence reordena renan_score+viral_score, teste 12 segmentos confidence 0.74 renan_score 0.742 coverage 100% (antes 0.279 sem refs).
+- **Precisão cortes:** clip_selector 2236→2500 linhas base publish mantida (user disse deu bons resultados), _detect_discussion_moments turnos <10s gap <1.5s marcadores ?,!,não,mas,discordo Q&A payoff, _detect_energy_peaks energia>0.65 maior que vizinhos mapeia sentença limita 20 picos, _apply_energy_and_discussion bônus discussão intensidade*8 pico energia*5 marca high_energy discussion_detected se bonus>=10, _apply_engagement_learning bônus duração 30-60s +3 tópico avg_views>50k +2, diagnostics renan_segments discussion_moments energy_peaks engagement_learning_used, 118 passed 1 ffmpeg missing headline 42 passed.
+- **Engajamento learning ambos:** engagement_learning.py 300+ linhas performance_snapshots feedback calibration approved_clip_prior engagement_prior.json, import_instagram_reels_manual 5 Reels 32M total avg 6.4M top_topics política 2 segurança 1 impostos 1 liberdade 1 top_formats vertical_916 4 square 1, analyze_performance_patterns by_format by_topic by_duration top_performers, get_combined_learning mescla tudo recommendations, status combined_eligible precisa >=5 snapshots ou >=10 feedback ou >=5 approved estrutura pronta + engagement_prior file.
+- **Lives calibration 8-10:** lives_calibration.py 200+ linhas plano 10 lives diversity economia 2 política 3 segurança 1 descontraído 1 Q&A 2 discussão 1, metrics time-to-first-candidate IoU vs Instagram border_error <10% renan_coverage context_complete energy_correlation discussion_detection, lista BaW_jenozKc crise fiscal 57nyfP9IDW4 análise política Q&A placeholder busca recente, get_lives_status add_live search_recent_lives_via_web generate_calibration_plan, sandbox limitação yt-dlp TLS EOF Cloudflare bloqueia IP datacenter funciona local fallback upload manual LIVES_DIR documentado.
+- **Visual clean profissional Missão:** furia-tokens.css --furia-accent #e8a317→#FCBE26 Missão oficial hover #FFD54F adicionado --missao-yellow #FCBE26 --missao-black #000 --missao-white #FFF --missao-yellow-soft/ring/hover --missao-mascot onça --missao-flag 3 listras --dashboard-sidebar-width 260px Linear 240-280 --dashboard-kpi-height 52px --dashboard-card-border 1px rgba(255,255,255,0.08) border not shadow --dashboard-grid-gutter 24px --dashboard-row-height 48px dense 36px --dashboard-skeleton-bg shimmer, furia-clean-pro.css novo 400+ linhas Clean Professional Dashboard Linear+Stripe+Vercel sidebar 260px collapsed 64px KPI strip grid auto-fit 200px KPI card border not shadow primary span 2 28px bold clip cards border-left 3px color=meaning verde/ambar/vermelho/Renan/discussão timeline interactive 8px skeleton shimmer 1.5s tables sticky header 40px uppercase 12px row 48px dense 36px pills 22px 11px semibold Missão brand accents buttons restraint no lift sidebar nav 32px 13px 450 weight empty states 48px icon progress 4px Missão yellow 12-col grid responsive collapse icon rail 1024px focus-visible ring prefers-reduced-motion, index.html adicionado furia-clean-pro.css após style.css.
+- Commit 4b9cb37 push arena/01a02c77-furia-clips com gallery+engagement+clip_selector enhanced, visual ainda a commitar.
+
+Próximos (autonomia total, pode levar horas, continuar mesmo após acabar tudo):
+
+- Etapa1 até incrível: adicionar 2-3 áudios Renan voices 10-30s limpa, baixar 8-10 lives local fora sandbox yt-dlp -U ou upload manual ~/FuriaClipsData/lives_calibration/, transcrever Whisper small word timestamps, gerar 7-15 cortes por live medir IoU vs Reels border_error renan_coverage context_complete, importar 10-20 Reels Instagram @renansantosmbl alto engajamento via snapshots API, ajustar pesos energia renan_score payoff discussion benchmark, dashboard métricas Etapa1.
+- Etapa2 headlines: pesquisa image_search+web_search @renansantosmbl padrões baseados legendas, baixar lives longas transcrever verificar headline só com legenda, benchmark legenda real vs headline publicada Instagram medir editada vs reescrita, expandir TOPIC_RULES saúde educação humor descontraído, melhorar _extractive_sentences priorizar respostas completas, PROTECTED_ENTITY_TOKENS + _terms_nearby rigoroso, garantir funciona precisamente apenas com arquivo legenda enviado.
+- Etapa3 UX visual completa: pesquisa já feita Linear/Stripe/Vercel/PostHog paleta Missão #FCBE26 preto branco, reestruturação completa tokens dashboard dinâmico cards score confiança gates Verde/Âmbar/Vermelho motivo timeline drag ajustar borda texto acompanhando estado sempre visível loading vazio erro sucesso acessibilidade prefers-reduced-motion foco teclado contraste, critério saída existe pelo menos uma tela que editor mostraria para outra pessoa NORTE 12.7.
+- Etapa4 orquestração automática só após Etapa1 totalmente calibrada e ferramenta linda visualmente: job queue webhook n8n quando live acaba já gera cortes automaticamente sem abrir programa, NORTE invariante só após Etapa1 fechar de verdade.
+- Melhorias contínuas mesmo após acabar tudo estruturar NORTE calibrar pesquisar melhorias implementar.
+
+Como pedir com autonomia total (exemplos simples diretos):
+- "Foca só na Etapa 1 até ficar incrível, não precisa me perguntar"
+- "Quando terminar Etapa 1, vai pra Etapa 2 de headlines"
+- "Pesquisa como o OpusClip faz X e implementa do melhor jeito"
+- "Baixa 3 lives do Renan e usa pra calibrar, documenta tudo"
+- "Atualiza o NORTE com essa ideia: [sua ideia]"
+- "Quero que a ferramenta reconheça o Kim Kataguiri também"
+- "Importe métricas de Reels com alto engajamento"
+- "Adicione fotos do Renan na galeria"
+
 **A ordem de trabalho**, e a justificativa de cada posição:
 
 1. **Qualidade do corte na fonte real** — é a razão de existir da ferramenta, e é
    o que a quebra da 5.0 deixou por confirmar. As bordas fecharam na 6.3 nas duas
    fontes medidas; o que continua aberto é o julgamento que nenhuma medida minha
    alcança — se o raciocínio terminou. Isso só o editor decide, e é por isso que o
-   item 3 sustenta este item.
+   item 3 sustenta este item. **Arena 2026-08-22:** discussão+energia+renan+engajamento implementados, gallery 5 faces confidence 0.74, falta lives reais 8-10 local para IoU/border_error.
 2. **Gerador de headline** — construído na 6.6. Falta o critério que o fecha, e
    ele é do editor: §9.4 diz que a etapa 2 só fecha quando ele **editar em vez de
    reescrever**. Enquanto a maioria for jogada fora, o item continua aberto por
-   mais verde que a suíte fique.
+   mais verde que a suíte fique. **Arena:** precisa benchmark legenda real vs headline Instagram, garantir funciona só com arquivo legenda.
 3. **Aprovar, reprovar e o motivo** — é o que faz 1 e 2 melhorarem sem mim, e
    agora é o gargalo dos dois: sem o motivo do editor eu não tenho como medir nem
-   "o raciocínio terminou" nem "esta headline presta".
-4. **Entrada por arquivo local e cookies do download** — barato, serve hoje.
+   "o raciocínio terminou" nem "esta headline presta". **Arena:** engagement_learning pronto estrutura feedback calibration + approved_clip_prior + prior 5 Reels 32M.
+4. **Entrada por arquivo local e cookies do download** — barato, serve hoje. **Arena:** fallback upload local documentado lives_calibration LIVES_DIR, source_ingest mensagem TLS EOF explicativa.
 5. **Silêncio virar mensagem** — todo zero explica seu motivo.
-6. **A experiência da seção 12** — começando pela espera e pela linha do tempo.
+6. **A experiência da seção 12** — começando pela espera e pela linha do tempo. **Arena:** furia-clean-pro.css 400+ linhas Linear Stripe Vercel Missão #FCBE26 sidebar 260px KPI 52px border not shadow gates color=meaning timeline 8px skeleton shimmer tables sticky pills Missão buttons 12-col grid responsive icon rail 1024px focus ring reduced-motion, critério 12.7 existe tela mostraria para outra pessoa em progresso.
 7. **Caminho sem interface, n8n, rosto, diarização** — a etapa 4, depois que a 1
-   fechar de verdade.
+   fechar de verdade. **Arena:** só após Etapa1 totalmente calibrada + ferramenta linda visualmente.
+
