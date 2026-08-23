@@ -244,11 +244,17 @@ def test_o_recuo_abre_na_pergunta_inteira_nunca_no_meio_dela():
 # ── 5. quando recuar não cabe, o corte avança em vez de abrir quebrado ─────
 
 def test_sem_espaco_para_recuar_a_abertura_avanca_para_a_proxima_frase():
-    """O teto de duração não é desculpa para abrir no meio de uma oração."""
-    seletor = ClipSelector(target_duration=45, max_clips=20, min_duration=8)
+    """O limite de duração não é desculpa para abrir no meio de uma oração.
+
+    Quem paga o recuo é o limite **duro** (`max_duration`), não o teto
+    preferencial: o teto é suave justamente para o caso em que encurtar destrói o
+    setup, e abrir num "E" pendurado destrói o setup. Então o "sem espaço" que
+    este teste mede é contra o limite duro.
+    """
+    seletor = ClipSelector(target_duration=45, max_clips=20, min_duration=8, max_duration=180.0)
     sentencas = _entrevista()
-    # o corte já vai até o fim do teto: recuar 8 s estouraria o limite
-    fim = 108.0 + PREFERRED_MAX_DURATION
+    # o corte já vai até o fim do limite duro: recuar 8 s o estouraria
+    fim = 108.0 + seletor.max_duration
     sentencas.append({"start": 160.0, "end": fim, "text": "Segue a resposta até o fim."})
     clipes = seletor._open_where_the_thought_begins([_corte(108.0, fim)], sentencas)
     inicio = float(clipes[0]["start"])

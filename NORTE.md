@@ -1075,6 +1075,43 @@ editor. O MP4 original está no Drive dele. Enquanto não rodar lá, o que está
 escrito acima vale como "o defeito estrutural fechou", não como "o corte ficou
 bom" — a diferença que a §5 existe para manter.
 
+**Agora há régua, e ela vem de fora.** O Acervo do Campaign Hub tem 179 entrevistas
+rotuladas por pessoa, com o território de assunto de cada bloco, a pergunta que o
+disparou e quantos cortes cabem dentro (`possibleCuts`). Duas fontes viraram
+fixture em `tests/fixtures/acervo_*.json` e `scripts/medir_cortes.py` mede três
+coisas contra elas: cobertura de territórios, quantos cortes atravessam uma
+fronteira de assunto, e a duração do corte contra a duração implícita do humano
+(território ÷ possibleCuts). Um bloco do Acervo não é um corte — por isso IoU
+direto entre os dois não diz nada, e as três medidas acima dizem.
+
+A primeira coisa que a régua mostrou foi que **os dois formatos falhavam em
+direções opostas**: o podcast saía em fatias de 21s (0,29 do alvo humano) e a
+sabatina em pedaços de 175s (2,77 do alvo, 75% atravessando assunto). Se eu
+tivesse mexido na constante com a primeira fonte na mão, teria piorado a segunda —
+que é exatamente o erro da §15, evitado por pegar a segunda amostra antes de
+mexer.
+
+`PREFERRED_MAX_DURATION` era 180s por intuição. Medido, virou 60s: a sabatina foi
+para 0,95 do alvo humano e 22% de atravessamento, com os dez territórios ainda
+cobertos. Não escolhi pelo atravessamento, que é degenerado — quanto mais curto o
+corte menos fronteira ele cruza, e a curva nunca vira. Escolhi pela razão de
+duração chegar a 1,0. Confirmação de fora da régua: o corte de João Pessoa que o
+editor chamou de "o melhor dos 3" tinha 61 segundos.
+
+Junto veio uma regra que vale para as duas bordas: **o recuo de abertura e o
+alcance do fecho pagam contra o limite duro, não contra o teto preferencial.** O
+teto é suave exatamente para o caso em que encurtar destrói o setup ou a
+conclusão. Sem isso, o teto menor teria comprado corte curto ao preço de corte que
+abre no meio da frase e termina antes da resposta acabar — as duas queixas mais
+antigas do editor. O preço declarado: o atravessamento da sabatina sobe de 11%
+para 22%, porque deixar a resposta terminar às vezes entra no assunto seguinte.
+
+**Continua aberto, e é o próximo item:** o podcast não melhorou. Ele fica em 0,29
+do alvo porque seus blocos são fatias de cronômetro de 21s — o defeito é a
+montante do teto, em `_timed_transcript_blocks`, onde a cláusula "termina em
+pontuação e já tem 18s" dispara o tempo todo numa fonte bem pontuada. Mexer nela
+exige uma terceira fonte na régua antes.
+
 **Também continua aberto:** o clipe 1 de João Pessoa tinha 180s e não concluía o
 tema. Esse é o "termina antes da conclusão", que segue sem reprodução estrutural
 e provavelmente só cede com o item 3 (o motivo do editor) ou com a §16.

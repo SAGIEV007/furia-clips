@@ -20,7 +20,16 @@ def _sentences(rows):
 
 
 def _selector():
-    return ClipSelector(target_duration=45, max_clips=10, min_duration=20, max_duration=600)
+    # O teto vai explícito. Estes testes medem *onde* a peça fecha dentro da
+    # janela — na troca de locutor, na pausa —, não qual deve ser o tamanho da
+    # janela. Esse tamanho é medido por `scripts/medir_cortes.py` contra as
+    # fronteiras humanas do Acervo, e amarrar a fixture ao padrão faria estes
+    # testes quebrarem toda vez que a régua o movesse, sem que o mecanismo aqui
+    # tivesse mudado. A fixture tem a troca de locutor aos 160 s.
+    return ClipSelector(
+        target_duration=45, max_clips=10, min_duration=20,
+        max_duration=600, preferred_max_duration=180.0,
+    )
 
 
 # One long answer with a clear break in it: a two-second silence at 150s, and

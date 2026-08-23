@@ -24,7 +24,21 @@ from .interview_turns import (
     looks_like_an_interview,
 )
 
-PREFERRED_MAX_DURATION = 180.0
+# Teto preferencial, não limite absoluto: `max_duration` continua sendo o limite
+# duro, e um trecho excepcionalmente contextualizado ainda pode passar daqui.
+#
+# Eram 180s, e 180s vinha de intuição. Medido contra as fronteiras que um humano
+# marcou no Acervo (`scripts/medir_cortes.py`), 180 fazia a sabatina da Band sair
+# em pedaços de 175s — 2,8 vezes o tamanho que o próprio rotulador implica
+# (território ÷ possibleCuts = 63s) — e 75% deles atravessavam uma fronteira de
+# assunto. Em 60s a sabatina cai para 0,91 do alvo humano e 11% de
+# atravessamento, com a cobertura dos dez territórios intacta.
+#
+# Não escolhi pelo atravessamento, que é degenerado: quanto mais curto o corte,
+# menos fronteira ele cruza, e a curva nunca vira. Escolhi pela razão de duração
+# chegar a 1,0. E há confirmação de fora da régua: o corte de João Pessoa que o
+# editor chamou de "o melhor dos 3" tinha 61 segundos.
+PREFERRED_MAX_DURATION = 60.0
 TECHNICAL_MAX_DURATION = 600.0
 
 # Portuguese filler words to detect
@@ -1177,7 +1191,7 @@ REGRAS CRITICAS:
 5. DURACAO E SELECAO:
    - NAO existe uma duracao fixa: encontre o menor trecho que contenha hook, contexto e payoff completos.
    - Quanto mais curto, melhor, desde que o espectador entenda quem, o que e por que sem ter visto o video inteiro.
-   - Use 180 segundos como teto preferencial, nao como limite absoluto. Ultrapasse-o somente quando encurtar destruir a pergunta, a resposta, a prova, o argumento ou a conclusao.
+   - Use 60 segundos como teto preferencial, nao como limite absoluto. Ultrapasse-o somente quando encurtar destruir a pergunta, a resposta, a prova, o argumento ou a conclusao.
    - Nunca corte uma ideia apenas para caber em uma duracao. Um clip excepcionalmente contextualizado pode ser mais longo e deve ser marcado como excecao.
    - Selecione clips de PARTES DIFERENTES do video (diversidade temporal).
    - Prefira momentos com: opiniao forte, dado concreto, confronto, emocao, humor, reacao, historia, bastidor ou conversa descontraida.
@@ -1401,7 +1415,7 @@ REGRAS OBRIGATORIAS:
 2. COMPLETO: O falante DEVE terminar sua frase e seu raciocinio. NUNCA corte no meio.
 3. FALANTE: Se o usuario pediu clips de uma pessoa especifica, SOMENTE inclua momentos dessa pessoa falando.
 4. DIVERSIDADE: Selecione clips de partes DIFERENTES do video.
-5. DURACAO: Nao ha faixa fixa. Prefira o menor trecho autossuficiente; 180 segundos e apenas um teto preferencial. So ultrapasse esse teto se o contexto e o payoff exigirem.
+5. DURACAO: Nao ha faixa fixa. Prefira o menor trecho autossuficiente; 60 segundos e apenas um teto preferencial. So ultrapasse esse teto se o contexto e o payoff exigirem.
 6. NOTAS: A = excelente (raro), B = bom (normal), C = fraco. NAO de A para tudo, seja critico.
 
 FORMATO — retorne APENAS JSON valido:
@@ -2509,7 +2523,16 @@ Retorne APENAS o JSON.
                 if self._opens_a_thought(ordered[index].get("text"), cased):
                     continue
 
-            floor = max(start - self.MAX_OPENING_REWIND_S, end - self.preferred_max_duration)
+            # O recuo mede contra o limite duro, não contra o teto preferencial.
+            # O teto é suave exatamente para este caso: o NORTE autoriza passar
+            # dele "quando encurtar destruir a pergunta, a resposta, a prova, o
+            # argumento ou a conclusão", e abrir num "E" pendurado é destruir o
+            # setup. Quando o teto caiu de 180s para 60s — medido, não achado —,
+            # amarrar o recuo ao preferencial teria comprado corte curto ao preço
+            # de corte que abre no meio da frase, que é a queixa mais antiga do
+            # editor. O `MAX_OPENING_REWIND_S` continua limitando quanto se
+            # recua; o que muda é só quem paga a conta.
+            floor = max(start - self.MAX_OPENING_REWIND_S, end - self.max_duration)
             target = index
             while starts[target] >= floor:
                 item = ordered[target]
@@ -2718,8 +2741,15 @@ Retorne APENAS o JSON.
         and lose most of the answer. Moving forward is what completes an argument
         that was stopping one sentence early.
         """
-        usable = min(self.preferred_max_duration, self.max_duration)
-        reachable = [seam for seam in seams if start + self.min_duration <= seam <= start + usable]
+        # Simétrico ao recuo de abertura: quem paga o alcance é o limite duro, não
+        # o teto preferencial. Parar antes da resposta terminar para caber num
+        # teto *suave* é o "termina antes da conclusão" — a queixa mais antiga do
+        # editor, junto com a da abertura. O NORTE autoriza passar do teto
+        # exatamente quando encurtar destrói a conclusão, e é este o caso.
+        reachable = [
+            seam for seam in seams
+            if start + self.min_duration <= seam <= start + self.max_duration
+        ]
         if not reachable:
             return end
         return min(reachable, key=lambda seam: abs(seam - end))

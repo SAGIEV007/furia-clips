@@ -107,7 +107,14 @@ def test_corte_que_bate_no_teto_fecha_na_pausa_e_nao_no_cronometro():
     fechar. Aqui existe um silêncio de quatro segundos aos 140 s, e é ele que
     tem de ganhar.
     """
-    seletor = ClipSelector(target_duration=45, max_clips=20, min_duration=8)
+    # O teto vai explícito: este teste mede *onde* o corte fecha dentro da
+    # janela, não qual deve ser o tamanho da janela. Esse valor é medido por
+    # `scripts/medir_cortes.py` contra as fronteiras humanas do Acervo, e
+    # amarrar a fixture ao padrão faria este teste quebrar toda vez que a régua
+    # mover o teto — sem que o mecanismo aqui tivesse mudado.
+    seletor = ClipSelector(
+        target_duration=45, max_clips=20, min_duration=8, preferred_max_duration=180.0
+    )
     fala = "e aí a gente continua falando sem concluir o raciocínio e"
 
     # Blocos de 20 s: granularidade fina o bastante para o fim do corte poder

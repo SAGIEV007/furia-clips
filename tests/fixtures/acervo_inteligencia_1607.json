@@ -1,0 +1,4082 @@
+{
+ "fonte": {
+  "videoId": "fZpyzDpnA2o",
+  "url": "https://www.youtube.com/watch?v=fZpyzDpnA2o",
+  "titulo": "BOLSONARO PRESO E TARIFAÇO DO TRUMP: RENAN SANTOS E CHARLES - Inteligência Ltda. Podcast #1607",
+  "duracao_total_s": 10466,
+  "canal": "UCWZoPPW7u2I4gZfhJBZ6NqQ",
+  "trust": "third_party"
+ },
+ "janela": {
+  "de_s": 5900.0,
+  "ate_s": 7600.0
+ },
+ "proveniencia": {
+  "transcriptSource": "youtube_auto:a79e0d5b6b80b125f255352afc21d8dd08d20022651986037f2ba2fd091e2687",
+  "tokenizerVersion": "sent-pt-v2",
+  "qualityTier": "automatic",
+  "isQuotation": false,
+  "audioVerificationRequired": true,
+  "note": "Texto de legenda do YouTube: é evidência automática para análise e navegação, nunca uma citação. Confira palavras, nomes e números no áudio; audioCheckRanges marca os tokens de maior risco."
+ },
+ "blocos_de_referencia": [
+  {
+   "start": 5934.04,
+   "end": 6405.4,
+   "dur": 471.36,
+   "renan": false,
+   "q": "Como o MBL se posiciona à direita sem se submeter ao bolsonarismo?",
+   "cortes": 5,
+   "titulo": "MBL se afirma como direita de ruptura e aceita perder votos para corrigir o Brasil"
+  },
+  {
+   "start": 6405.4,
+   "end": 6674.96,
+   "dur": 269.56,
+   "renan": false,
+   "q": "Por que o presidente não consegue governar sem o centrão?",
+   "cortes": 4,
+   "titulo": "Como o centrão trava o governo e por que é preciso chegar com um plano claro"
+  },
+  {
+   "start": 6674.96,
+   "end": 7007.76,
+   "dur": 332.8,
+   "renan": false,
+   "q": "Como a compra de votos e o clientelismo moldam a democracia brasileira?",
+   "cortes": 3,
+   "titulo": "Compra de votos e clientelismo sustentam uma democracia oligárquica no Brasil"
+  },
+  {
+   "start": 7030.08,
+   "end": 7495.2,
+   "dur": 465.12,
+   "renan": false,
+   "q": "Como o partido Missão coletou e validou assinaturas e lidou com denúncias de fraude?",
+   "cortes": 3,
+   "titulo": "Como o Missão coletou assinaturas e reagiu a fraudes"
+  },
+  {
+   "start": 7495.2,
+   "end": 7551.32,
+   "dur": 56.12,
+   "renan": false,
+   "q": "Por que a criação de novos partidos pode ficar mais difícil?",
+   "cortes": 1,
+   "titulo": "Novas regras podem fechar o sistema partidário e barrar novos partidos"
+  }
+ ],
+ "sentencas": [
+  {
+   "start": 5898.92,
+   "end": 5901.8,
+   "text": "uma família e dizer que ela não é dona daquela",
+   "turn": 202,
+   "speaker_change": false
+  },
+  {
+   "start": 5901.8,
+   "end": 5904.2,
+   "text": "casa que é fruto de uma invasão, ele faz.",
+   "turn": 202,
+   "speaker_change": false
+  },
+  {
+   "start": 5904.2,
+   "end": 5905.56,
+   "text": "Eles são autoridade.",
+   "turn": 202,
+   "speaker_change": false
+  },
+  {
+   "start": 5905.56,
+   "end": 5910.6,
+   "text": "Então, sabe, você não consegue levar cidadania para essas pessoas, o básico do básico do básico.",
+   "turn": 202,
+   "speaker_change": false
+  },
+  {
+   "start": 5910.6,
+   "end": 5913.76,
+   "text": "E do jeito que nós estamos atuando como governo e tal,",
+   "turn": 202,
+   "speaker_change": false
+  },
+  {
+   "start": 5913.76,
+   "end": 5914.52,
+   "text": "não vai rolar.",
+   "turn": 202,
+   "speaker_change": false
+  },
+  {
+   "start": 5914.52,
+   "end": 5916.48,
+   "text": "A gente tá perdendo e os caras estão avançando.",
+   "turn": 202,
+   "speaker_change": false
+  },
+  {
+   "start": 5916.48,
+   "end": 5919.6,
+   "text": "Então, e é essa é uma guerra que tem que começar.",
+   "turn": 202,
+   "speaker_change": false
+  },
+  {
+   "start": 5919.6,
+   "end": 5921.84,
+   "text": "Algum falar: \"Ah, isso é uma bukelização\".",
+   "turn": 202,
+   "speaker_change": false
+  },
+  {
+   "start": 5921.84,
+   "end": 5924.88,
+   "text": "as pessoas vão vão criar as analogias que elas quiserem sobre isso.",
+   "turn": 202,
+   "speaker_change": false
+  },
+  {
+   "start": 5924.88,
+   "end": 5931.52,
+   "text": "Para mim, o tema central é aplicação do direito penal do inimigo e uma declaração de guerra esses caras para resolver rápido o problema.",
+   "turn": 202,
+   "speaker_change": false
+  },
+  {
+   "start": 5931.52,
+   "end": 5934.04,
+   "text": "A gente tá arrastando por muito tempo esse problema.",
+   "turn": 202,
+   "speaker_change": false
+  },
+  {
+   "start": 5934.04,
+   "end": 5939.16,
+   "text": "Você tava falando do, eu acho que quando eu fui ao banheiro perguntaram sobre",
+   "turn": 203,
+   "speaker_change": true
+  },
+  {
+   "start": 5939.16,
+   "end": 5940.92,
+   "text": "Deus, pátria e família.",
+   "turn": 203,
+   "speaker_change": false
+  },
+  {
+   "start": 5940.92,
+   "end": 5946.48,
+   "text": "Eu vejo a análise do do MBL de fora, eh, colocando vocês ora pra esquerda",
+   "turn": 203,
+   "speaker_change": false
+  },
+  {
+   "start": 5946.48,
+   "end": 5949.48,
+   "text": "hora pra direita.",
+   "turn": 203,
+   "speaker_change": false
+  },
+  {
+   "start": 5949.48,
+   "end": 5954.8,
+   "text": "Pessoal de esquerda colocam vocês como extrema direita e o pessoal de direita, principalmente bolsonarismo,",
+   "turn": 203,
+   "speaker_change": false
+  },
+  {
+   "start": 5954.8,
+   "end": 5957.2,
+   "text": "colocam vocês como a nova esquerda.",
+   "turn": 203,
+   "speaker_change": false
+  },
+  {
+   "start": 5957.2,
+   "end": 5957.64,
+   "text": "É",
+   "turn": 204,
+   "speaker_change": true
+  },
+  {
+   "start": 5957.64,
+   "end": 5964.92,
+   "text": "como você analisa esse esse essa visão do pessoal e e como vocês se se colocam",
+   "turn": 205,
+   "speaker_change": true
+  },
+  {
+   "start": 5964.92,
+   "end": 5965.84,
+   "text": "no espectro político?",
+   "turn": 205,
+   "speaker_change": false
+  },
+  {
+   "start": 5965.84,
+   "end": 5968.16,
+   "text": "Assim, e faz parte do jogo, né?",
+   "turn": 206,
+   "speaker_change": true
+  },
+  {
+   "start": 5968.16,
+   "end": 5972.4,
+   "text": "Para um esquerdista, naturalmente, eles vão chamar a gente de extremista, porque para um esquerdista,",
+   "turn": 206,
+   "speaker_change": false
+  },
+  {
+   "start": 5972.4,
+   "end": 5975.76,
+   "text": "especialmente um um esquerdista bem militante,",
+   "turn": 206,
+   "speaker_change": false
+  },
+  {
+   "start": 5975.76,
+   "end": 5980.04,
+   "text": "ã, a função social dele é tratar todo mundo que não pensa igual a ele como um fascista.",
+   "turn": 206,
+   "speaker_change": false
+  },
+  {
+   "start": 5980.04,
+   "end": 5980.92,
+   "text": "Então é natural isso.",
+   "turn": 206,
+   "speaker_change": false
+  },
+  {
+   "start": 5980.92,
+   "end": 5987.44,
+   "text": "É, inclusive e em outras entrevistas, o pessoal falando: \"Pô, os caras estão recebendo fascista e tal a tua presença\".",
+   "turn": 207,
+   "speaker_change": true
+  },
+  {
+   "start": 5987.44,
+   "end": 5988.2,
+   "text": "Por quê?",
+   "turn": 207,
+   "speaker_change": false
+  },
+  {
+   "start": 5988.2,
+   "end": 5989.36,
+   "text": "E eu não tinha visto isso antes.",
+   "turn": 208,
+   "speaker_change": true
+  },
+  {
+   "start": 5989.36,
+   "end": 5992.8,
+   "text": "Parece que escalou um pouco, né, essa esse ataque.",
+   "turn": 208,
+   "speaker_change": false
+  },
+  {
+   "start": 5992.8,
+   "end": 5994.12,
+   "text": "Por qu por que nesse momento?",
+   "turn": 208,
+   "speaker_change": false
+  },
+  {
+   "start": 5994.12,
+   "end": 5994.4,
+   "text": "Sim.",
+   "turn": 209,
+   "speaker_change": true
+  },
+  {
+   "start": 5994.4,
+   "end": 5997.32,
+   "text": "Ah, porque a gente tá montando o partido e aí",
+   "turn": 209,
+   "speaker_change": false
+  },
+  {
+   "start": 5997.32,
+   "end": 6000.44,
+   "text": "e eles enxergarem o fato da gente est se institucionalizando",
+   "turn": 209,
+   "speaker_change": false
+  },
+  {
+   "start": 6000.44,
+   "end": 6002.56,
+   "text": "significa que a gente não vai morrer.",
+   "turn": 209,
+   "speaker_change": false
+  },
+  {
+   "start": 6002.56,
+   "end": 6005.04,
+   "text": "Muita gente queria que o MBL tivesse desaparecido.",
+   "turn": 209,
+   "speaker_change": false
+  },
+  {
+   "start": 6005.04,
+   "end": 6010.64,
+   "text": "Então, a partir do momento que a gente montou um partido, todo mundo que achava, não, esses caras acabaram, o Artur mandou aquele áudio, foi cancelado,",
+   "turn": 209,
+   "speaker_change": false
+  },
+  {
+   "start": 6010.64,
+   "end": 6012.32,
+   "text": "vai acabar, acabou, acabou.",
+   "turn": 209,
+   "speaker_change": false
+  },
+  {
+   "start": 6012.32,
+   "end": 6015.28,
+   "text": "Eles não, putz, não só não acabou como os caras estão crescendo",
+   "turn": 209,
+   "speaker_change": false
+  },
+  {
+   "start": 6015.28,
+   "end": 6018.24,
+   "text": "e sendo o partido, eles vão poder participar de eleições,",
+   "turn": 209,
+   "speaker_change": false
+  },
+  {
+   "start": 6018.24,
+   "end": 6022.64,
+   "text": "não vão depender da aprovação de ninguém, nenhum político para poder disputar o jogo.",
+   "turn": 209,
+   "speaker_change": false
+  },
+  {
+   "start": 6022.64,
+   "end": 6025.88,
+   "text": "E aí vem esse discurso, vem uma preocupação em tentar nos cancelar.",
+   "turn": 209,
+   "speaker_change": false
+  },
+  {
+   "start": 6025.88,
+   "end": 6029.44,
+   "text": "Então isso aumentou agora porque eles perceberam que",
+   "turn": 209,
+   "speaker_change": false
+  },
+  {
+   "start": 6029.44,
+   "end": 6032.36,
+   "text": "é inevitável que a gente vá crescer e vai ocupar postos de poder.",
+   "turn": 209,
+   "speaker_change": false
+  },
+  {
+   "start": 6032.36,
+   "end": 6033.32,
+   "text": "Isso é natural.",
+   "turn": 209,
+   "speaker_change": false
+  },
+  {
+   "start": 6033.32,
+   "end": 6036.52,
+   "text": "da direita, a mesma coisa, porque a direita bolsonarista",
+   "turn": 209,
+   "speaker_change": false
+  },
+  {
+   "start": 6036.52,
+   "end": 6040.6,
+   "text": "pensa da seguinte maneira e assim sendo maquiavélico,",
+   "turn": 209,
+   "speaker_change": false
+  },
+  {
+   "start": 6040.6,
+   "end": 6044.08,
+   "text": "eh, em termos puramente maquiavelos, eles estão certos.",
+   "turn": 209,
+   "speaker_change": false
+  },
+  {
+   "start": 6044.08,
+   "end": 6047.2,
+   "text": "Eles falam o seguinte: \"Para você ser de direita, você tem que apoiar o Bolsonaro.",
+   "turn": 209,
+   "speaker_change": false
+  },
+  {
+   "start": 6047.2,
+   "end": 6049.56,
+   "text": "Se você não apoia o Bolsonaro, você é de esquerda\".",
+   "turn": 209,
+   "speaker_change": false
+  },
+  {
+   "start": 6049.56,
+   "end": 6053.4,
+   "text": "Portanto, eles fazem algo que falando aqui em termos maquiavélicos,",
+   "turn": 209,
+   "speaker_change": false
+  },
+  {
+   "start": 6053.4,
+   "end": 6055.96,
+   "text": "é inteligente, que é fala assim,",
+   "turn": 209,
+   "speaker_change": false
+  },
+  {
+   "start": 6055.96,
+   "end": 6057.2,
+   "text": "é uma redução.",
+   "turn": 210,
+   "speaker_change": true
+  },
+  {
+   "start": 6057.2,
+   "end": 6062.8,
+   "text": "Todo mundo que apoia Bolsonaro é de direita e todo mundo que não apoia o Bolsonaro é de esquerda.",
+   "turn": 211,
+   "speaker_change": true
+  },
+  {
+   "start": 6062.8,
+   "end": 6063.76,
+   "text": "Isso é falacioso?",
+   "turn": 211,
+   "speaker_change": false
+  },
+  {
+   "start": 6063.76,
+   "end": 6069.04,
+   "text": "Naturalmente é falacioso porque não é o apoio ao Bolsonaro que determina suas posições",
+   "turn": 211,
+   "speaker_change": false
+  },
+  {
+   "start": 6069.04,
+   "end": 6072.56,
+   "text": "políticas, mas eles fizeram isso numa de maneira bem simples,",
+   "turn": 211,
+   "speaker_change": false
+  },
+  {
+   "start": 6072.56,
+   "end": 6075.76,
+   "text": "colaram isso na cabeça do eleitor de direita e",
+   "turn": 211,
+   "speaker_change": false
+  },
+  {
+   "start": 6075.76,
+   "end": 6078.16,
+   "text": "funciona, mas funciona em parte.",
+   "turn": 211,
+   "speaker_change": false
+  },
+  {
+   "start": 6078.16,
+   "end": 6082.64,
+   "text": "As pessoas mais jovens, a gente tem um corte irracional bem claro, não caem mais nessa esparrela,",
+   "turn": 211,
+   "speaker_change": false
+  },
+  {
+   "start": 6082.64,
+   "end": 6085.48,
+   "text": "especialmente geração Z, onde o bolsonarismo é bem queimado,",
+   "turn": 211,
+   "speaker_change": false
+  },
+  {
+   "start": 6085.48,
+   "end": 6088.56,
+   "text": "uma parte da geração milenial, eles já entenderam que assim, ah, entendi,",
+   "turn": 211,
+   "speaker_change": false
+  },
+  {
+   "start": 6088.56,
+   "end": 6091.52,
+   "text": "é tudo sobre o Bolsonaro, então eu tenho que pagar,",
+   "turn": 211,
+   "speaker_change": false
+  },
+  {
+   "start": 6091.52,
+   "end": 6092.16,
+   "text": "né?",
+   "turn": 211,
+   "speaker_change": false
+  },
+  {
+   "start": 6092.16,
+   "end": 6094.68,
+   "text": "Para para exportar tem que pagar pedal pro Bolsonaro para tudo.",
+   "turn": 211,
+   "speaker_change": false
+  },
+  {
+   "start": 6094.68,
+   "end": 6095.48,
+   "text": "Ninguém mais aguenta isso.",
+   "turn": 211,
+   "speaker_change": false
+  },
+  {
+   "start": 6095.48,
+   "end": 6096.6,
+   "text": "E sabe quem não aguenta isso?",
+   "turn": 211,
+   "speaker_change": false
+  },
+  {
+   "start": 6096.6,
+   "end": 6097.96,
+   "text": "Os próprios bolsonaristas.",
+   "turn": 211,
+   "speaker_change": false
+  },
+  {
+   "start": 6097.96,
+   "end": 6104.68,
+   "text": "Tanto que no fundo o Nicolas tá torcendo pro Bolsonaro sumir logo pro Nicolas levar o voto do Bolsonaro sem levar o ônibus.",
+   "turn": 211,
+   "speaker_change": false
+  },
+  {
+   "start": 6104.68,
+   "end": 6112.92,
+   "text": "Todos na verdade cara, se eu você se os bolsonaristas, se o eleitor do Bolsonaro, se os influencers soubessem a quantidade de deputados bolsonistas que me mandam mensagem,",
+   "turn": 211,
+   "speaker_change": false
+  },
+  {
+   "start": 6112.92,
+   "end": 6115.44,
+   "text": "mandou bem nesse vídeo, não aguento mais.",
+   "turn": 211,
+   "speaker_change": false
+  },
+  {
+   "start": 6115.44,
+   "end": 6117.88,
+   "text": "E são assim, é uma paulada.",
+   "turn": 211,
+   "speaker_change": false
+  },
+  {
+   "start": 6117.88,
+   "end": 6118.6,
+   "text": "Por quê?",
+   "turn": 211,
+   "speaker_change": false
+  },
+  {
+   "start": 6118.6,
+   "end": 6122.12,
+   "text": "Porque na prática eh eh eles têm uma relação de refém",
+   "turn": 211,
+   "speaker_change": false
+  },
+  {
+   "start": 6122.12,
+   "end": 6126,
+   "text": "em que ele tem que puxar o salco do Bolsonaro, senão ele toma porrada e de",
+   "turn": 211,
+   "speaker_change": false
+  },
+  {
+   "start": 6126,
+   "end": 6129.24,
+   "text": "parasita, que ele ele engana o eleitor do Bolsonaro.",
+   "turn": 211,
+   "speaker_change": false
+  },
+  {
+   "start": 6129.24,
+   "end": 6131.28,
+   "text": "Ah, eu amo o capitão, vivo o mito.",
+   "turn": 211,
+   "speaker_change": false
+  },
+  {
+   "start": 6131.28,
+   "end": 6132.44,
+   "text": "Mas ele não acredita em nada disso.",
+   "turn": 211,
+   "speaker_change": false
+  },
+  {
+   "start": 6132.44,
+   "end": 6137,
+   "text": "Eles assim os eles odeiam o comportamento do Carlos que a do nada pode te atacar.",
+   "turn": 211,
+   "speaker_change": false
+  },
+  {
+   "start": 6137,
+   "end": 6140.92,
+   "text": "Se você é um bolsonista do nada o Carlos, sei lá, dormiu mal",
+   "turn": 211,
+   "speaker_change": false
+  },
+  {
+   "start": 6140.92,
+   "end": 6142.72,
+   "text": "e aí ele acorda e te xinga.",
+   "turn": 211,
+   "speaker_change": false
+  },
+  {
+   "start": 6142.72,
+   "end": 6145.8,
+   "text": "Eh, ou o Bolsonaro não cumpre um acordo político com você.",
+   "turn": 211,
+   "speaker_change": false
+  },
+  {
+   "start": 6145.8,
+   "end": 6146.64,
+   "text": "Eles não aguentam isso.",
+   "turn": 211,
+   "speaker_change": false
+  },
+  {
+   "start": 6146.64,
+   "end": 6147.84,
+   "text": "É muita instabilidade.",
+   "turn": 211,
+   "speaker_change": false
+  },
+  {
+   "start": 6147.84,
+   "end": 6150.44,
+   "text": "Por isso que eles preferem inclusive o Valdemar no PL,",
+   "turn": 211,
+   "speaker_change": false
+  },
+  {
+   "start": 6150.44,
+   "end": 6153.76,
+   "text": "né, que é mais estável nas relações do que o Bolsonaro.",
+   "turn": 211,
+   "speaker_change": false
+  },
+  {
+   "start": 6153.76,
+   "end": 6158.48,
+   "text": "Então, eh, eles não acreditam em nada disso, mas eles vão fingir porque é do é da vida.",
+   "turn": 211,
+   "speaker_change": false
+  },
+  {
+   "start": 6158.48,
+   "end": 6162.2,
+   "text": "Na a vida é é uma guerra política, uma disputa.",
+   "turn": 211,
+   "speaker_change": false
+  },
+  {
+   "start": 6162.2,
+   "end": 6165.16,
+   "text": "E eles têm essas são as armas que eles dispõem, eles vão usar.",
+   "turn": 211,
+   "speaker_change": false
+  },
+  {
+   "start": 6165.16,
+   "end": 6166.68,
+   "text": "Direita ou esquerda?",
+   "turn": 212,
+   "speaker_change": true
+  },
+  {
+   "start": 6166.68,
+   "end": 6169.12,
+   "text": "A gente a gente vai ser enquadrado muito mais como um grupo de direita.",
+   "turn": 213,
+   "speaker_change": true
+  },
+  {
+   "start": 6169.12,
+   "end": 6171.64,
+   "text": "Só que eu não coloco, eu não quero tratar as coisas nesses termos.",
+   "turn": 213,
+   "speaker_change": false
+  },
+  {
+   "start": 6171.64,
+   "end": 6175.64,
+   "text": "Não porque eu quero fugir dessa discussão, mas sim porque humos",
+   "turn": 213,
+   "speaker_change": false
+  },
+  {
+   "start": 6175.64,
+   "end": 6180.24,
+   "text": "e que é o que eu percebi com o tempo, inclusive com com com a equipe participou da coleta e com o nosso discurso,",
+   "turn": 213,
+   "speaker_change": false
+  },
+  {
+   "start": 6180.24,
+   "end": 6183,
+   "text": "nós somos uma ruptura de geração.",
+   "turn": 213,
+   "speaker_change": false
+  },
+  {
+   "start": 6183,
+   "end": 6185.4,
+   "text": "A nossa geração, se for pegar a geração que montou",
+   "turn": 213,
+   "speaker_change": false
+  },
+  {
+   "start": 6185.4,
+   "end": 6187.92,
+   "text": "o partido e tá trabalhando com a gente, é Millenial.",
+   "turn": 213,
+   "speaker_change": false
+  },
+  {
+   "start": 6187.92,
+   "end": 6191.96,
+   "text": "Essa geração vai que hoje tem chega até seus 44,",
+   "turn": 213,
+   "speaker_change": false
+  },
+  {
+   "start": 6191.96,
+   "end": 6201.56,
+   "text": "45 anos, até a geração Z. é uma geração que vai pagar conta, que foi prometido um mundo incrível para ela, só que só sobrou dívida, aumento de imposto,",
+   "turn": 213,
+   "speaker_change": false
+  },
+  {
+   "start": 6201.56,
+   "end": 6205.64,
+   "text": "emprego ruim, um país quebrado, vai ter que pagar a previdência dos mais velhos",
+   "turn": 213,
+   "speaker_change": false
+  },
+  {
+   "start": 6205.64,
+   "end": 6207.68,
+   "text": "e não tem lugar para sentar à mesa.",
+   "turn": 213,
+   "speaker_change": false
+  },
+  {
+   "start": 6207.68,
+   "end": 6211.48,
+   "text": "Hoje a política no Brasil é feita só por gente de 70, 80, 90 anos.",
+   "turn": 213,
+   "speaker_change": false
+  },
+  {
+   "start": 6211.48,
+   "end": 6212.32,
+   "text": "Eu não tô brincando 90.",
+   "turn": 213,
+   "speaker_change": false
+  },
+  {
+   "start": 6212.32,
+   "end": 6216.36,
+   "text": "O o Sarnei fez um discurso com 95 anos em nome da soberania.",
+   "turn": 213,
+   "speaker_change": false
+  },
+  {
+   "start": 6216.36,
+   "end": 6218.48,
+   "text": "Cara, o Sarnei tinha que est dando milho para pombo.",
+   "turn": 213,
+   "speaker_change": false
+  },
+  {
+   "start": 6218.48,
+   "end": 6219.8,
+   "text": "Quem é o Sarnei na filha do pombo?",
+   "turn": 213,
+   "speaker_change": false
+  },
+  {
+   "start": 6219.8,
+   "end": 6220.28,
+   "text": "Só que não.",
+   "turn": 213,
+   "speaker_change": false
+  },
+  {
+   "start": 6220.28,
+   "end": 6224.04,
+   "text": "Vamos ouvir o Sarnei, vamos ouvir o Temer, vamos ouvir o Lula.",
+   "turn": 213,
+   "speaker_change": false
+  },
+  {
+   "start": 6224.04,
+   "end": 6227.6,
+   "text": "É só a galera mais velha que, desculpa essa galera mais velha,",
+   "turn": 213,
+   "speaker_change": false
+  },
+  {
+   "start": 6227.6,
+   "end": 6230.72,
+   "text": "só fizeram bosta a vida inteira num largo osso.",
+   "turn": 213,
+   "speaker_change": false
+  },
+  {
+   "start": 6230.72,
+   "end": 6233.08,
+   "text": "Fizeram uma constituição bosta pra gente.",
+   "turn": 213,
+   "speaker_change": false
+  },
+  {
+   "start": 6233.08,
+   "end": 6234.6,
+   "text": "Tomaram decisões políticas.",
+   "turn": 213,
+   "speaker_change": false
+  },
+  {
+   "start": 6234.6,
+   "end": 6235.36,
+   "text": "Eu tô falando muito palavrão.",
+   "turn": 213,
+   "speaker_change": false
+  },
+  {
+   "start": 6235.36,
+   "end": 6235.92,
+   "text": "Quer que eu pare?",
+   "turn": 213,
+   "speaker_change": false
+  },
+  {
+   "start": 6235.92,
+   "end": 6236.6,
+   "text": "Relaxa.",
+   "turn": 214,
+   "speaker_change": true
+  },
+  {
+   "start": 6236.6,
+   "end": 6237.28,
+   "text": "É aqui.",
+   "turn": 215,
+   "speaker_change": true
+  },
+  {
+   "start": 6237.28,
+   "end": 6237.64,
+   "text": "Pode.",
+   "turn": 215,
+   "speaker_change": false
+  },
+  {
+   "start": 6237.64,
+   "end": 6239.48,
+   "text": "Tomaram um monte de decisão horrorosa,",
+   "turn": 216,
+   "speaker_change": true
+  },
+  {
+   "start": 6239.48,
+   "end": 6241.8,
+   "text": "né, né?",
+   "turn": 217,
+   "speaker_change": true
+  },
+  {
+   "start": 6241.8,
+   "end": 6242.56,
+   "text": "hein?",
+   "turn": 217,
+   "speaker_change": false
+  },
+  {
+   "start": 6242.56,
+   "end": 6243.96,
+   "text": "Tomar no cu, né?",
+   "turn": 217,
+   "speaker_change": false
+  },
+  {
+   "start": 6243.96,
+   "end": 6244.56,
+   "text": "hein?",
+   "turn": 217,
+   "speaker_change": false
+  },
+  {
+   "start": 6244.56,
+   "end": 6245,
+   "text": "Vai,",
+   "turn": 217,
+   "speaker_change": false
+  },
+  {
+   "start": 6245,
+   "end": 6245.68,
+   "text": "que bom.",
+   "turn": 218,
+   "speaker_change": true
+  },
+  {
+   "start": 6245.68,
+   "end": 6246.36,
+   "text": "Tranquilo.",
+   "turn": 218,
+   "speaker_change": false
+  },
+  {
+   "start": 6246.36,
+   "end": 6250.48,
+   "text": "Tomaram uma decisão bosta ao longo dos anos, jogaram a conta pra geração mais nova",
+   "turn": 219,
+   "speaker_change": true
+  },
+  {
+   "start": 6250.48,
+   "end": 6252.48,
+   "text": "e agora querem continuar opinando.",
+   "turn": 219,
+   "speaker_change": false
+  },
+  {
+   "start": 6252.48,
+   "end": 6256.12,
+   "text": "Tipo assim, desculpa, Sanei, vai se sabe?",
+   "turn": 219,
+   "speaker_change": false
+  },
+  {
+   "start": 6256.12,
+   "end": 6260.2,
+   "text": "O Temer já foi tua vida, Dane-se você, mas eles não vão largar o osso.",
+   "turn": 219,
+   "speaker_change": false
+  },
+  {
+   "start": 6260.2,
+   "end": 6262.84,
+   "text": "Então as gerações mais novas tem que entender assim que",
+   "turn": 219,
+   "speaker_change": false
+  },
+  {
+   "start": 6262.84,
+   "end": 6265.84,
+   "text": "tem que ter uma agenda de corrigir o Brasil para que eles possam",
+   "turn": 219,
+   "speaker_change": false
+  },
+  {
+   "start": 6265.84,
+   "end": 6268.28,
+   "text": "ainda fazer ver sentido em ficar aqui.",
+   "turn": 219,
+   "speaker_change": false
+  },
+  {
+   "start": 6268.28,
+   "end": 6270.04,
+   "text": "O Brasil tá exportando mão de obra.",
+   "turn": 219,
+   "speaker_change": false
+  },
+  {
+   "start": 6270.04,
+   "end": 6272.68,
+   "text": "Os mais jovens, todo mundo fala: \"Cara, eu quero meter o pé\".",
+   "turn": 219,
+   "speaker_change": false
+  },
+  {
+   "start": 6272.68,
+   "end": 6275.4,
+   "text": "Todo mundo, cara, todo mundo tem algum amigo, po,",
+   "turn": 219,
+   "speaker_change": false
+  },
+  {
+   "start": 6275.4,
+   "end": 6277.76,
+   "text": "mete o pé, vai meter o pé.",
+   "turn": 220,
+   "speaker_change": true
+  },
+  {
+   "start": 6277.76,
+   "end": 6281.84,
+   "text": "E agora o mundo que tá indo para uma crise eh",
+   "turn": 220,
+   "speaker_change": false
+  },
+  {
+   "start": 6281.84,
+   "end": 6285.32,
+   "text": "global, no sentido de Estados Unidos versus China,",
+   "turn": 220,
+   "speaker_change": false
+  },
+  {
+   "start": 6285.32,
+   "end": 6290.08,
+   "text": "interrupção de fluxo migratório, não vai ser essa boiada aí pros Estados Unidos, como muita gente ia.",
+   "turn": 220,
+   "speaker_change": false
+  },
+  {
+   "start": 6290.08,
+   "end": 6292.08,
+   "text": "Já já a Austrália vai começar a dificultar mais.",
+   "turn": 220,
+   "speaker_change": false
+  },
+  {
+   "start": 6292.08,
+   "end": 6296.28,
+   "text": "A própria Europa, se os partidos de direita entrarem no poder, vão dificultar.",
+   "turn": 220,
+   "speaker_change": false
+  },
+  {
+   "start": 6296.28,
+   "end": 6298.88,
+   "text": "Então assim, cara, o cara mais novo, você não vai conseguir embora daqui.",
+   "turn": 220,
+   "speaker_change": false
+  },
+  {
+   "start": 6298.88,
+   "end": 6302.36,
+   "text": "Então ou você resolve essa bagaça ou você resolve essa bagaça.",
+   "turn": 220,
+   "speaker_change": false
+  },
+  {
+   "start": 6302.36,
+   "end": 6306.08,
+   "text": "Então o que a gente tá propondo é: \"Nós somos o partido para tratar desse problema.",
+   "turn": 220,
+   "speaker_change": false
+  },
+  {
+   "start": 6306.08,
+   "end": 6311,
+   "text": "E se for para não ter voto de um cara de 60 anos que foi lá, viva o mito",
+   "turn": 220,
+   "speaker_change": false
+  },
+  {
+   "start": 6311,
+   "end": 6316.04,
+   "text": "para salvar o Brasil, eh, sei lá, é só ficar muito com o capitão,",
+   "turn": 220,
+   "speaker_change": false
+  },
+  {
+   "start": 6316.04,
+   "end": 6319.16,
+   "text": "eh, Deus, pátria, família, obrigado, não quero seu voto.",
+   "turn": 220,
+   "speaker_change": false
+  },
+  {
+   "start": 6319.16,
+   "end": 6320.16,
+   "text": "Intervenção militar,",
+   "turn": 221,
+   "speaker_change": true
+  },
+  {
+   "start": 6320.16,
+   "end": 6323.08,
+   "text": "é, não quer, não quero seu voto, na boa, não quero voto.",
+   "turn": 222,
+   "speaker_change": true
+  },
+  {
+   "start": 6323.08,
+   "end": 6324.56,
+   "text": "A gente não tem que querer esse voto.",
+   "turn": 222,
+   "speaker_change": false
+  },
+  {
+   "start": 6324.56,
+   "end": 6328.48,
+   "text": "A, tem uma coisa que assim na, o Brasil é muito, brasileiro não sabe falar não, Vilela.",
+   "turn": 222,
+   "speaker_change": false
+  },
+  {
+   "start": 6328.48,
+   "end": 6332.12,
+   "text": "Então, você sabe aquela coisa do carioca, o cara, ô, vem, ô, dia passa lá em casa.",
+   "turn": 222,
+   "speaker_change": false
+  },
+  {
+   "start": 6332.12,
+   "end": 6332.88,
+   "text": "Não, eu passo.",
+   "turn": 222,
+   "speaker_change": false
+  },
+  {
+   "start": 6332.88,
+   "end": 6334.4,
+   "text": "Fala, ô, eu não posso passar na sua casa.",
+   "turn": 222,
+   "speaker_change": false
+  },
+  {
+   "start": 6334.4,
+   "end": 6335.48,
+   "text": "É, eu não vou, não quero,",
+   "turn": 222,
+   "speaker_change": false
+  },
+  {
+   "start": 6335.48,
+   "end": 6336.12,
+   "text": "não vou.",
+   "turn": 223,
+   "speaker_change": true
+  },
+  {
+   "start": 6336.12,
+   "end": 6337.4,
+   "text": "A gente nunca faz isso, né?",
+   "turn": 223,
+   "speaker_change": false
+  },
+  {
+   "start": 6337.4,
+   "end": 6338.2,
+   "text": "A gente nunca fala não.",
+   "turn": 223,
+   "speaker_change": false
+  },
+  {
+   "start": 6338.2,
+   "end": 6339.8,
+   "text": "Então o brasileiro não fala não.",
+   "turn": 223,
+   "speaker_change": false
+  },
+  {
+   "start": 6339.8,
+   "end": 6344.52,
+   "text": "Então assim, ah, se eu for para uma eleição e o nosso candidato à presidência",
+   "turn": 223,
+   "speaker_change": false
+  },
+  {
+   "start": 6344.52,
+   "end": 6351.12,
+   "text": "precisar na eleição falar: \"Olha, chega para uma mulher, olha, eu ganho bolsa à família, não tô trabalhando e eu quero mais auxílio e eu quero mais coisas\".",
+   "turn": 223,
+   "speaker_change": false
+  },
+  {
+   "start": 6351.12,
+   "end": 6353.4,
+   "text": "Tem que ter um candidato que vai falar: \"Não vou dar,",
+   "turn": 223,
+   "speaker_change": false
+  },
+  {
+   "start": 6353.4,
+   "end": 6355.6,
+   "text": "eu não vou dar mais auxílio para você, acabou\".",
+   "turn": 223,
+   "speaker_change": false
+  },
+  {
+   "start": 6355.6,
+   "end": 6359.44,
+   "text": "\"Ah, não, eu sou da associação do dos promotores",
+   "turn": 223,
+   "speaker_change": false
+  },
+  {
+   "start": 6359.44,
+   "end": 6362.2,
+   "text": "aqui do de do Rio Grande do Sul.",
+   "turn": 223,
+   "speaker_change": false
+  },
+  {
+   "start": 6362.2,
+   "end": 6364.12,
+   "text": "Preciso de um aumento.\" Não vou dar.",
+   "turn": 223,
+   "speaker_change": false
+  },
+  {
+   "start": 6364.12,
+   "end": 6365.72,
+   "text": "Tem que ter alguém que fale isso.",
+   "turn": 223,
+   "speaker_change": false
+  },
+  {
+   "start": 6365.72,
+   "end": 6366.68,
+   "text": "Ah, mas vai perder.",
+   "turn": 223,
+   "speaker_change": false
+  },
+  {
+   "start": 6366.68,
+   "end": 6368.96,
+   "text": "Que perca, que perca a droga da eleição.",
+   "turn": 223,
+   "speaker_change": false
+  },
+  {
+   "start": 6368.96,
+   "end": 6373.68,
+   "text": "Mas alguém tem que fazer a risca de giz, porque todo políticoismo não fala não, não.",
+   "turn": 223,
+   "speaker_change": false
+  },
+  {
+   "start": 6373.68,
+   "end": 6376.48,
+   "text": "Nós vamos juntar e vamos unir o Cala a boca.",
+   "turn": 223,
+   "speaker_change": false
+  },
+  {
+   "start": 6376.48,
+   "end": 6377.68,
+   "text": "Isso é mentira.",
+   "turn": 223,
+   "speaker_change": false
+  },
+  {
+   "start": 6377.68,
+   "end": 6378.28,
+   "text": "É mentira.",
+   "turn": 223,
+   "speaker_change": false
+  },
+  {
+   "start": 6378.28,
+   "end": 6379.96,
+   "text": "Não vai dar para fazer nada disso.",
+   "turn": 223,
+   "speaker_change": false
+  },
+  {
+   "start": 6379.96,
+   "end": 6381.88,
+   "text": "Isso é é pura mentira.",
+   "turn": 223,
+   "speaker_change": false
+  },
+  {
+   "start": 6381.88,
+   "end": 6384.2,
+   "text": "e tem que parar com essa escolha ambação.",
+   "turn": 223,
+   "speaker_change": false
+  },
+  {
+   "start": 6384.2,
+   "end": 6391.16,
+   "text": "Eh, ou a gente começa a montar, e esse é o que a gente tá propondo com com o partido, um partido que aprenda a falar, não,",
+   "turn": 223,
+   "speaker_change": false
+  },
+  {
+   "start": 6391.16,
+   "end": 6394.6,
+   "text": "ó, eu vou concorrer, vou acabar com as emendas, tá?",
+   "turn": 223,
+   "speaker_change": false
+  },
+  {
+   "start": 6394.6,
+   "end": 6399.08,
+   "text": "O candidato a presidente tem que falar, vou concorrer, vou acabar com a emenda parlamentar, mas vocês vão se queimar",
+   "turn": 223,
+   "speaker_change": false
+  },
+  {
+   "start": 6399.08,
+   "end": 6401.08,
+   "text": "com todo mundo cara.",
+   "turn": 223,
+   "speaker_change": false
+  },
+  {
+   "start": 6401.08,
+   "end": 6405.4,
+   "text": "Alguém tem que começar a apontar o problema ou cara, a gente vai ser mais do mesmo.",
+   "turn": 223,
+   "speaker_change": false
+  },
+  {
+   "start": 6405.4,
+   "end": 6408.44,
+   "text": "Mas e o papo do não dá para governar sem o centrão?",
+   "turn": 224,
+   "speaker_change": true
+  },
+  {
+   "start": 6408.44,
+   "end": 6410.44,
+   "text": "Todo mundo acaba cedendo o centrão.",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6410.44,
+   "end": 6411.48,
+   "text": "É verdade isso?",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6411.48,
+   "end": 6412.36,
+   "text": "É verdade.",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6412.36,
+   "end": 6412.96,
+   "text": "É verdade.",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6412.96,
+   "end": 6418.56,
+   "text": "Hoje você não consegue, na lógica atual, chegar à presidência da República,",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6418.56,
+   "end": 6424.12,
+   "text": "ã, e aplicar um projeto como tem que ser por a principal razão.",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6424.12,
+   "end": 6426.48,
+   "text": "O modelo político brasileiro é um modelo de compra de voto.",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6426.48,
+   "end": 6428.44,
+   "text": "Ou seja, o centrão existe pro central compra voto.",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6428.44,
+   "end": 6431.48,
+   "text": "E a gente não pode se iludir assim: \"Ah, mas compra voto é o quê?",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6431.48,
+   "end": 6432.92,
+   "text": "É, é, é o bolsa fam.",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6432.92,
+   "end": 6434.08,
+   "text": "Não, não, não.",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6434.08,
+   "end": 6439.56,
+   "text": "O compra de voto é o que você imagina, é uma pessoa dando dinheiro para uma família inteira votar ou mandar um saco de cimento.",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6439.56,
+   "end": 6441.84,
+   "text": "Isso acontece especialmente nas eleições municipais.",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6441.84,
+   "end": 6445.68,
+   "text": "A compra de voto é porque é muito vereador, é muito candidato, é muito líder comunitário,",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6445.68,
+   "end": 6448.36,
+   "text": "mas acontece também nas eleições de deputado,",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6448.36,
+   "end": 6453.36,
+   "text": "especialmente as as deputado em como vai acontecer agora em 26.",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6453.36,
+   "end": 6455.2,
+   "text": "E o centrão ganha nesse cenário.",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6455.2,
+   "end": 6462.32,
+   "text": "O centrão precisa de lugares muito pobres, em que eles fazem a compra de vota, eles desviam dinheiro de emenda, desviam dinheiro de obra, pegam esse dinheiro,",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6462.32,
+   "end": 6465.76,
+   "text": "sacam e vão dando pros líderes deles comprarem as pessoas",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6465.76,
+   "end": 6470.92,
+   "text": "e financiam o trabalho carreatas e essas coisas e ganham a eleição.",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6470.92,
+   "end": 6472.72,
+   "text": "Este modelo precisa ser destruído.",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6472.72,
+   "end": 6478.6,
+   "text": "E para você conseguir tratar do problema, você tem que eleger um presidente que já avisa: \"Este vai ser o meu tema.",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6478.6,
+   "end": 6480.84,
+   "text": "Esse vai ser meu tema e cara, eu vou pras cabeças.",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6480.84,
+   "end": 6488.28,
+   "text": "Se eu chegar no poder e e encontrar uma dificuldade nisso, então que peça o meu impeachman,",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6488.28,
+   "end": 6493.52,
+   "text": "que peça uma impeachman, porque não dá para chegar no poder e aí se tornar aquilo que os caras,",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6493.52,
+   "end": 6497.68,
+   "text": "enfim, sempre culpam, que é e ah, chegou, ele muda de ideia, porque é isso.",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6497.68,
+   "end": 6500.36,
+   "text": "E a segunda coisa que a gente tem que é muito problemática,",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6500.36,
+   "end": 6505.48,
+   "text": "a gente foi desenhado, talvez para ser um, não, talvez a gente foi desenhado para ser um regime parlamentarista",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6505.48,
+   "end": 6507.64,
+   "text": "e aí puxaram para um regime presidencialista.",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6507.64,
+   "end": 6509.44,
+   "text": "Então, a gente não é nem uma coisa nem outra.",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6509.44,
+   "end": 6514.6,
+   "text": "num país parlamentarista, o chefe do, vamos dizer, o líder, o cara que governa ali,",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6514.6,
+   "end": 6519.72,
+   "text": "o chefe de governo, ele é um cara do legislativo, de um partido que concorre no legislativo",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6519.72,
+   "end": 6524.72,
+   "text": "e aí depois sai o resultado das eleições, esses partidos se compõem forma maioria e esse cara vira o primeiro ministro.",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6524.72,
+   "end": 6525.32,
+   "text": "Beleza?",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6525.32,
+   "end": 6528.12,
+   "text": "Ele só é primeiro ministro se ele tiver maioria no no parlamento.",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6528.12,
+   "end": 6530.88,
+   "text": "Aqui no Brasil o cara ganha eleição para presidente",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6530.88,
+   "end": 6535.84,
+   "text": "e aí tem uma outra eleição pro parlamento que como tem a compra de voto lá ganha os caras do centrão.",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6535.84,
+   "end": 6538.24,
+   "text": "E aí os caras do centrão eles não tão aliados com o cara.",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6538.24,
+   "end": 6541.56,
+   "text": "Ele fez maioria aqui, mas aqui foi outra coisa que surgiu.",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6541.56,
+   "end": 6543.4,
+   "text": "A maior parte dos caras são do centrão.",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6543.4,
+   "end": 6549.56,
+   "text": "Aí esses caras se juntam para ganhar posições no governo desse e obrigam esse cara a basicamente ter uma agenda",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6549.56,
+   "end": 6552.92,
+   "text": "e eh de manutenção do estado de coisas, das coisas como elas são.",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6552.92,
+   "end": 6555.32,
+   "text": "Então você nunca consegue fazer que o presidente ande.",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6555.32,
+   "end": 6556.84,
+   "text": "E aí aconteceu uma coisa mais grave.",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6556.84,
+   "end": 6560.56,
+   "text": "No governo Bolsonaro avançou o lance da do orçamento secreto.",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6560.56,
+   "end": 6565.36,
+   "text": "Então antes o governo, o poder executivo comprava o legislativo, que é corrupção por e simples.",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6565.36,
+   "end": 6568.12,
+   "text": "Usava muita emenda, usava obras e tal.",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6568.12,
+   "end": 6570.76,
+   "text": "Hoje eles falam: \"Não, não, vamos a gente ficar com a roubaleira disso.",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6570.76,
+   "end": 6572.4,
+   "text": "A gente não precisa pedir pro executivo.",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6572.4,
+   "end": 6575.64,
+   "text": "Fica o orçamento aqui, então a gente faz o que a gente quer.",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6575.64,
+   "end": 6578.48,
+   "text": "Não somos mais comprados não, porque a roubaleira a gente administra,",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6578.48,
+   "end": 6580,
+   "text": "que é o orçamento secreto.",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6580,
+   "end": 6584,
+   "text": "Por isso que o legislativo hoje tá cagando pro governo federal,",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6584,
+   "end": 6584.52,
+   "text": "cagando.",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6584.52,
+   "end": 6586.4,
+   "text": "Por isso que eh eh pro bem e pro mal.",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6586.4,
+   "end": 6591.04,
+   "text": "Então eles vão lá, o governo queria aumentar o imposto com o IOF, aí o legislativo não, não vai passar.",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6591.04,
+   "end": 6593.32,
+   "text": "Mas se o legislativo quiser tocar uma agenda",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6593.32,
+   "end": 6598.08,
+   "text": "que, vamos dizer, pró corrupção, como já fizeram isso no governo Bolsonaro ali quando tinha PEC,",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6598.08,
+   "end": 6602.64,
+   "text": "a PEC da impunidade, ele vai tocar, porque o que interessa para ele é a manutenção do game dele.",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6602.64,
+   "end": 6605.96,
+   "text": "Então eles nunca tiveram tão poderosos para ser essa porcaria,",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6605.96,
+   "end": 6611.04,
+   "text": "mas como eles são corruptos e frágeis no sentido jurídico, eles não têm força para enfrentar o STF.",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6611.04,
+   "end": 6615.36,
+   "text": "E a gente tem uma piada que a gente chama de democracia, que não é democracia,",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6615.36,
+   "end": 6616.88,
+   "text": "que é um regime completamente confuso.",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6616.88,
+   "end": 6620.56,
+   "text": "Aí voltando, o presidente da República nosso, se for eleito,",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6620.56,
+   "end": 6623.36,
+   "text": "vai ter que ser eleito com um discurso de enfrentamento também ao centrão",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6623.36,
+   "end": 6626.72,
+   "text": "e vai ter que ter, vamos dizer, algumas ações geradoras de legitimidade",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6626.72,
+   "end": 6628.88,
+   "text": "e popularidade, tá?",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6628.88,
+   "end": 6631.08,
+   "text": "Especialmente ações ligadas ao combate ao crime,",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6631.08,
+   "end": 6635.32,
+   "text": "para mostrar, olha, vocês precisam ceder um pouco, tá?",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6635.32,
+   "end": 6641.24,
+   "text": "ceder na forma da gente governar o Brasil, porque se vocês não cederem, o Brasil quebra, que é a quebra que eu falei em 28.",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6641.24,
+   "end": 6644.52,
+   "text": "E aquela coisa, se eles não cederem, vai ser, né?",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6644.52,
+   "end": 6646.16,
+   "text": "Vai ficar todo mundo no impasse.",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6646.16,
+   "end": 6649.56,
+   "text": "E aí, cara, o impasse se resolve de alguma maneira, vai ter que se resolver de alguma maneira.",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6649.56,
+   "end": 6652.12,
+   "text": "O que não dá, eu volto a colocar, é fingir que não tem um problema.",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6652.12,
+   "end": 6655.8,
+   "text": "Então a gente prefere chegar ao poder e gerar um impaste,",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6655.8,
+   "end": 6660.36,
+   "text": "mas sem sem ceder pros caras ou a sessão muito similar do Milei,",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6660.36,
+   "end": 6664.48,
+   "text": "ele cede um pouco aqui ou ali, mas ele propõe reformas muito agudas",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6664.48,
+   "end": 6667.4,
+   "text": "do que chegar como o Lula chegou ou como o Bolsonaro chegou.",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6667.4,
+   "end": 6669.08,
+   "text": "Já desculpa o termo de perna aberta.",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6669.08,
+   "end": 6672.72,
+   "text": "Eles já chegaram de perna aberta sem ter para onde ir, porque eles não tinham sequer um plano",
+   "turn": 224,
+   "speaker_change": false
+  },
+  {
+   "start": 6672.72,
+   "end": 6673.16,
+   "text": "para tocar.",
+   "turn": 225,
+   "speaker_change": true
+  },
+  {
+   "start": 6673.16,
+   "end": 6674.96,
+   "text": "A gente tem que chegar com um plano claro.",
+   "turn": 225,
+   "speaker_change": false
+  },
+  {
+   "start": 6674.96,
+   "end": 6677.8,
+   "text": "Você falou que a gente isso não é uma democracia.",
+   "turn": 226,
+   "speaker_change": true
+  },
+  {
+   "start": 6677.8,
+   "end": 6679.72,
+   "text": "Que tipo de democracia que a gente tá?",
+   "turn": 226,
+   "speaker_change": false
+  },
+  {
+   "start": 6679.72,
+   "end": 6682.48,
+   "text": "ou estamos numa ditadura, como muitos bolsonaristas",
+   "turn": 226,
+   "speaker_change": false
+  },
+  {
+   "start": 6682.48,
+   "end": 6684.2,
+   "text": "estão cantando aí.",
+   "turn": 226,
+   "speaker_change": false
+  },
+  {
+   "start": 6684.2,
+   "end": 6689.8,
+   "text": "Ah, o assim, se os bolsonaristas achavam que antes do Alexandre de Moraes a gente tinha uma ditadura plena, eles estavam mentindo.",
+   "turn": 227,
+   "speaker_change": true
+  },
+  {
+   "start": 6689.8,
+   "end": 6693.48,
+   "text": "Nunca teve ditadura, nunca teve uma, desculpa, uma democracia plena.",
+   "turn": 227,
+   "speaker_change": false
+  },
+  {
+   "start": 6693.48,
+   "end": 6696.28,
+   "text": "A base da democracia brasileira é a compra de voto.",
+   "turn": 227,
+   "speaker_change": false
+  },
+  {
+   "start": 6696.28,
+   "end": 6697.28,
+   "text": "Eu tô falando isso em todos,",
+   "turn": 227,
+   "speaker_change": false
+  },
+  {
+   "start": 6697.28,
+   "end": 6698.24,
+   "text": "isso desde",
+   "turn": 228,
+   "speaker_change": true
+  },
+  {
+   "start": 6698.24,
+   "end": 6701.28,
+   "text": "desde sempre, porque não existe cultura democrática no Brasil.",
+   "turn": 229,
+   "speaker_change": true
+  },
+  {
+   "start": 6701.28,
+   "end": 6702.8,
+   "text": "Nunca teve cultura democrática.",
+   "turn": 229,
+   "speaker_change": false
+  },
+  {
+   "start": 6702.8,
+   "end": 6707.04,
+   "text": "A compra de voto é uma consequência do voto de cabresto que a gente tinha desde a República Velha.",
+   "turn": 229,
+   "speaker_change": false
+  },
+  {
+   "start": 6707.04,
+   "end": 6707.36,
+   "text": "Pois é,",
+   "turn": 229,
+   "speaker_change": false
+  },
+  {
+   "start": 6707.36,
+   "end": 6710.88,
+   "text": "o voto de cabeçelha, que é o voto do coronel,",
+   "turn": 230,
+   "speaker_change": true
+  },
+  {
+   "start": 6710.88,
+   "end": 6713.68,
+   "text": "que assim pegava o cara da cidade pequena do vilarej",
+   "turn": 230,
+   "speaker_change": false
+  },
+  {
+   "start": 6713.68,
+   "end": 6716.48,
+   "text": "tocava no no monte de caminhão e levava para para voltar para ele.",
+   "turn": 231,
+   "speaker_change": true
+  },
+  {
+   "start": 6716.48,
+   "end": 6717.8,
+   "text": "E ai se não votar?",
+   "turn": 232,
+   "speaker_change": true
+  },
+  {
+   "start": 6717.8,
+   "end": 6719.48,
+   "text": "E a se não votar",
+   "turn": 233,
+   "speaker_change": true
+  },
+  {
+   "start": 6719.48,
+   "end": 6722.36,
+   "text": "o tal de dar um par do sapato e o outro só quando vota.",
+   "turn": 234,
+   "speaker_change": true
+  },
+  {
+   "start": 6722.36,
+   "end": 6723.44,
+   "text": "Exatamente.",
+   "turn": 235,
+   "speaker_change": true
+  },
+  {
+   "start": 6723.44,
+   "end": 6725.84,
+   "text": "Então isso continuou o tempo.",
+   "turn": 235,
+   "speaker_change": false
+  },
+  {
+   "start": 6725.84,
+   "end": 6728.72,
+   "text": "Isto é a assim para que que por que que um político quer uma emenda?",
+   "turn": 235,
+   "speaker_change": false
+  },
+  {
+   "start": 6728.72,
+   "end": 6730.28,
+   "text": "É porque ele quer inaugurar uma praça.",
+   "turn": 235,
+   "speaker_change": false
+  },
+  {
+   "start": 6730.28,
+   "end": 6733.28,
+   "text": "A praça até ajuda ele na popularidade dele na cidade.",
+   "turn": 235,
+   "speaker_change": false
+  },
+  {
+   "start": 6733.28,
+   "end": 6741.12,
+   "text": "Olha, inaugurei uma praça, mas no fundo aquela praça vai ser feita por uma construtora que é ligada em geral ao parente dele ou ao prefeito da cidade que ele tem conexão.",
+   "turn": 235,
+   "speaker_change": false
+  },
+  {
+   "start": 6741.12,
+   "end": 6743.28,
+   "text": "Essa construtora vai fazer essa obra superfaturada,",
+   "turn": 235,
+   "speaker_change": false
+  },
+  {
+   "start": 6743.28,
+   "end": 6747.72,
+   "text": "vai roubar ali no no material, vai usar um material de baixa qualidade",
+   "turn": 235,
+   "speaker_change": false
+  },
+  {
+   "start": 6747.72,
+   "end": 6751.24,
+   "text": "e vai ou faz o valor superafaturado, um pedaço do dinheiro",
+   "turn": 235,
+   "speaker_change": false
+  },
+  {
+   "start": 6751.24,
+   "end": 6754.4,
+   "text": "ela pega, transforma em dinheiro vivo.",
+   "turn": 235,
+   "speaker_change": false
+  },
+  {
+   "start": 6754.4,
+   "end": 6756.6,
+   "text": "Esse dinheiro é usado para pr as campanhas.",
+   "turn": 235,
+   "speaker_change": false
+  },
+  {
+   "start": 6756.6,
+   "end": 6761.4,
+   "text": "Todo mundo sabe, mas assim, todo, juro para você virar, todo o sistema político brasileiro sabe que é assim,",
+   "turn": 235,
+   "speaker_change": false
+  },
+  {
+   "start": 6761.4,
+   "end": 6764.44,
+   "text": "todo mundo sabe assim, ah, por exemplo, alguém vem falar conosco,",
+   "turn": 235,
+   "speaker_change": false
+  },
+  {
+   "start": 6764.44,
+   "end": 6766.76,
+   "text": "ô Renan, vocês vão ter o partido agora.",
+   "turn": 235,
+   "speaker_change": false
+  },
+  {
+   "start": 6766.76,
+   "end": 6769.16,
+   "text": "Que que vocês têm aí de estrutura pra gente?",
+   "turn": 235,
+   "speaker_change": false
+  },
+  {
+   "start": 6769.16,
+   "end": 6772.04,
+   "text": "Quando o cara fala estrutura, ele não tá falando só: \"Ah, o partido dispõe\".",
+   "turn": 235,
+   "speaker_change": false
+  },
+  {
+   "start": 6772.04,
+   "end": 6777.4,
+   "text": "Não, estrutura é qual é a rede e a capilaridade que vocês têm para tá ter dinheiro",
+   "turn": 235,
+   "speaker_change": false
+  },
+  {
+   "start": 6777.4,
+   "end": 6781.04,
+   "text": "para eu facilitar o meu apoio.",
+   "turn": 235,
+   "speaker_change": false
+  },
+  {
+   "start": 6781.04,
+   "end": 6785.56,
+   "text": "E isto acontece em todo o Brasil, especialmente lugares mais pobres.",
+   "turn": 235,
+   "speaker_change": false
+  },
+  {
+   "start": 6785.56,
+   "end": 6789.48,
+   "text": "Então, onde é mais pobre, você tem maior incidência de compra de voto.",
+   "turn": 235,
+   "speaker_change": false
+  },
+  {
+   "start": 6789.48,
+   "end": 6792.48,
+   "text": "E isto é a base da democracia brasileira.",
+   "turn": 235,
+   "speaker_change": false
+  },
+  {
+   "start": 6792.48,
+   "end": 6794.16,
+   "text": "A base da democracia brasileiro, é a compra de votos.",
+   "turn": 235,
+   "speaker_change": false
+  },
+  {
+   "start": 6794.16,
+   "end": 6797.68,
+   "text": "Portanto, a a democracia brasileira já é doente, ela não funciona.",
+   "turn": 235,
+   "speaker_change": false
+  },
+  {
+   "start": 6797.68,
+   "end": 6799.2,
+   "text": "Porque repara uma coisa, Vilara.",
+   "turn": 235,
+   "speaker_change": false
+  },
+  {
+   "start": 6799.2,
+   "end": 6804.24,
+   "text": "Faz sentido em cidades muito pobres que a vida não melhora, as pessoas continuarem votando nas mesmas pessoas sempre?",
+   "turn": 235,
+   "speaker_change": false
+  },
+  {
+   "start": 6804.24,
+   "end": 6805.12,
+   "text": "Não faz sentido.",
+   "turn": 236,
+   "speaker_change": true
+  },
+  {
+   "start": 6805.12,
+   "end": 6808.64,
+   "text": "Mas elas votam porque elas elas acham que levaram vantagem.",
+   "turn": 237,
+   "speaker_change": true
+  },
+  {
+   "start": 6808.64,
+   "end": 6812.32,
+   "text": "O cara que ela votou, que é um péssimo administrador público,",
+   "turn": 237,
+   "speaker_change": false
+  },
+  {
+   "start": 6812.32,
+   "end": 6816.6,
+   "text": "ele dá um saco de cimento ali na época da eleição ou ele a ó, vou reformar teu telhado,",
+   "turn": 237,
+   "speaker_change": false
+  },
+  {
+   "start": 6816.6,
+   "end": 6819.56,
+   "text": "ó, eu pô, arrumei a combi da tua tia.",
+   "turn": 237,
+   "speaker_change": false
+  },
+  {
+   "start": 6819.56,
+   "end": 6822.56,
+   "text": "São esse tipo de Eí, o cara que vende o voto,",
+   "turn": 237,
+   "speaker_change": false
+  },
+  {
+   "start": 6822.56,
+   "end": 6825.32,
+   "text": "ele se acha parceiro do político que ele votou",
+   "turn": 237,
+   "speaker_change": false
+  },
+  {
+   "start": 6825.32,
+   "end": 6826.4,
+   "text": "e a vida vai seguir.",
+   "turn": 237,
+   "speaker_change": false
+  },
+  {
+   "start": 6826.4,
+   "end": 6827.56,
+   "text": "Ele tem uma relação próxima.",
+   "turn": 237,
+   "speaker_change": false
+  },
+  {
+   "start": 6827.56,
+   "end": 6829,
+   "text": "Ah, eu tô ajudando o cara aqui.",
+   "turn": 237,
+   "speaker_change": false
+  },
+  {
+   "start": 6829,
+   "end": 6835.96,
+   "text": "O cara que vende o voto, ele acha que ele tá ajudando o político e o político tá devendo um favor para ele e eles ficam trocando",
+   "turn": 237,
+   "speaker_change": false
+  },
+  {
+   "start": 6835.96,
+   "end": 6836.92,
+   "text": "esses favores.",
+   "turn": 237,
+   "speaker_change": false
+  },
+  {
+   "start": 6836.92,
+   "end": 6842.84,
+   "text": "Um vereador de cidade pequena, o trabalho do vereador de cidade pequena no Brasil, em todas as cidades, até de DH alto,",
+   "turn": 237,
+   "speaker_change": false
+  },
+  {
+   "start": 6842.84,
+   "end": 6849.28,
+   "text": "é ficar recebendo eleitor dele, ó, eh, quebrou a minha máquina de lavar,",
+   "turn": 237,
+   "speaker_change": false
+  },
+  {
+   "start": 6849.28,
+   "end": 6857.2,
+   "text": "ó, furou o pneu do meu carro, ó, tal, a maior parte do trabalho todo mundo sabe e o político, ele tem que aprender a se virar para atender o interesse desse cara.",
+   "turn": 237,
+   "speaker_change": false
+  },
+  {
+   "start": 6857.2,
+   "end": 6857.96,
+   "text": "O que que é se virar?",
+   "turn": 237,
+   "speaker_change": false
+  },
+  {
+   "start": 6857.96,
+   "end": 6858.68,
+   "text": "Ele vai precisar de grana.",
+   "turn": 237,
+   "speaker_change": false
+  },
+  {
+   "start": 6858.68,
+   "end": 6860.56,
+   "text": "Onde vai vir esse dinheiro?",
+   "turn": 237,
+   "speaker_change": false
+  },
+  {
+   "start": 6860.56,
+   "end": 6863.32,
+   "text": "Esse dinheiro ele vai precisar criar um mecanismo para para ter esse dinheiro.",
+   "turn": 237,
+   "speaker_change": false
+  },
+  {
+   "start": 6863.32,
+   "end": 6864.56,
+   "text": "E é isso que os caras fazem.",
+   "turn": 237,
+   "speaker_change": false
+  },
+  {
+   "start": 6864.56,
+   "end": 6868.72,
+   "text": "E aí as pessoas continuam votando neles e as cidades continuam uma merda.",
+   "turn": 237,
+   "speaker_change": false
+  },
+  {
+   "start": 6868.72,
+   "end": 6872.08,
+   "text": "Isso precisa acabar desesperadamente.",
+   "turn": 237,
+   "speaker_change": false
+  },
+  {
+   "start": 6872.08,
+   "end": 6874.2,
+   "text": "Para terminar de agregar, por que que o Brasil não é uma democracia?",
+   "turn": 237,
+   "speaker_change": false
+  },
+  {
+   "start": 6874.2,
+   "end": 6880.32,
+   "text": "você tem um regime que eh você só pode ser candidato saindo para um número determinado de partidos,",
+   "turn": 237,
+   "speaker_change": false
+  },
+  {
+   "start": 6880.32,
+   "end": 6883.72,
+   "text": "ou seja, você não é livre para ter uma candidatura independente ou para criar um partido municipal,",
+   "turn": 237,
+   "speaker_change": false
+  },
+  {
+   "start": 6883.72,
+   "end": 6887.92,
+   "text": "um partido estadual, como acontece em várias democracias no mundo todo.",
+   "turn": 237,
+   "speaker_change": false
+  },
+  {
+   "start": 6887.92,
+   "end": 6890.56,
+   "text": "E esses partidos eles são controlados por coronéis.",
+   "turn": 237,
+   "speaker_change": false
+  },
+  {
+   "start": 6890.56,
+   "end": 6894.08,
+   "text": "Então é um jogo meio que de carta marcada.",
+   "turn": 237,
+   "speaker_change": false
+  },
+  {
+   "start": 6894.08,
+   "end": 6900.28,
+   "text": "Eh, então se o voto, se para ser candidato é quase impossível se você não tiver um contato for muito grande",
+   "turn": 237,
+   "speaker_change": false
+  },
+  {
+   "start": 6900.28,
+   "end": 6905.24,
+   "text": "e se o voto, especialmente nas classes mais populares, é comprado,",
+   "turn": 237,
+   "speaker_change": false
+  },
+  {
+   "start": 6905.24,
+   "end": 6906.12,
+   "text": "isso não é democracia.",
+   "turn": 237,
+   "speaker_change": false
+  },
+  {
+   "start": 6906.12,
+   "end": 6910.12,
+   "text": "Então, antes de chegar no tema do Xandão, né, muito antes de Xandão aparecer,",
+   "turn": 237,
+   "speaker_change": false
+  },
+  {
+   "start": 6910.12,
+   "end": 6913.88,
+   "text": "a gente só era um um troço aí que acontece que",
+   "turn": 237,
+   "speaker_change": false
+  },
+  {
+   "start": 6913.88,
+   "end": 6918.72,
+   "text": "tem uma eleição que valida, mas que na prática democracia democracia não é.",
+   "turn": 237,
+   "speaker_change": false
+  },
+  {
+   "start": 6918.72,
+   "end": 6920.08,
+   "text": "E é o quê?",
+   "turn": 238,
+   "speaker_change": true
+  },
+  {
+   "start": 6920.08,
+   "end": 6924.72,
+   "text": "é um regime oligárquico, corrupto, populista,",
+   "turn": 238,
+   "speaker_change": false
+  },
+  {
+   "start": 6924.72,
+   "end": 6929.32,
+   "text": "eh, com, vamos dizer, um cheiro forte de século XIX,",
+   "turn": 238,
+   "speaker_change": false
+  },
+  {
+   "start": 6929.32,
+   "end": 6930.72,
+   "text": "parecido com qual outra",
+   "turn": 239,
+   "speaker_change": true
+  },
+  {
+   "start": 6930.72,
+   "end": 6933.92,
+   "text": "com outros regimes da América Latina em que isso acontece",
+   "turn": 240,
+   "speaker_change": true
+  },
+  {
+   "start": 6933.92,
+   "end": 6936.68,
+   "text": "em maior e menor grau, por exemplo, o Chile.",
+   "turn": 240,
+   "speaker_change": false
+  },
+  {
+   "start": 6936.68,
+   "end": 6938.64,
+   "text": "Talvez isso não aconteça mais no Chile.",
+   "turn": 241,
+   "speaker_change": true
+  },
+  {
+   "start": 6938.64,
+   "end": 6941.8,
+   "text": "Uruguai, eu tive lá, até perguntei pra galera que trabalha com política,",
+   "turn": 241,
+   "speaker_change": false
+  },
+  {
+   "start": 6941.8,
+   "end": 6943.68,
+   "text": "acontece um pouco, mais menos.",
+   "turn": 241,
+   "speaker_change": false
+  },
+  {
+   "start": 6943.68,
+   "end": 6945.56,
+   "text": "Argentina acontecia bastante.",
+   "turn": 241,
+   "speaker_change": false
+  },
+  {
+   "start": 6945.56,
+   "end": 6949.36,
+   "text": "Hã, aí você for para Colômbia, Venezuela, esses países sempre aconteceu e aconteceu muito.",
+   "turn": 241,
+   "speaker_change": false
+  },
+  {
+   "start": 6949.36,
+   "end": 6951.2,
+   "text": "América Central, mesma coisa.",
+   "turn": 241,
+   "speaker_change": false
+  },
+  {
+   "start": 6951.2,
+   "end": 6957.8,
+   "text": "Eh, países na África e países na no Oriente Médio, mundo árabe como um todo, tem muito esse modelo.",
+   "turn": 241,
+   "speaker_change": false
+  },
+  {
+   "start": 6957.8,
+   "end": 6959.12,
+   "text": "Eh, o modelo do clientelismo acontece.",
+   "turn": 241,
+   "speaker_change": false
+  },
+  {
+   "start": 6959.12,
+   "end": 6961.44,
+   "text": "E inclusive os Estados Unidos na virada do século",
+   "turn": 241,
+   "speaker_change": false
+  },
+  {
+   "start": 6961.44,
+   "end": 6965.48,
+   "text": "XIX tinha também compra de voto, tinha esse tipo de coisa acontecia.",
+   "turn": 241,
+   "speaker_change": false
+  },
+  {
+   "start": 6965.48,
+   "end": 6968.6,
+   "text": "Eles que foram saneando, especialmente no começo do século XX",
+   "turn": 241,
+   "speaker_change": false
+  },
+  {
+   "start": 6968.6,
+   "end": 6970.88,
+   "text": "em diante, os Estados Unidos foram saneando isso.",
+   "turn": 241,
+   "speaker_change": false
+  },
+  {
+   "start": 6970.88,
+   "end": 6974.12,
+   "text": "Mas, ah, o nosso modelo é um modelo típico de uma",
+   "turn": 241,
+   "speaker_change": false
+  },
+  {
+   "start": 6974.12,
+   "end": 6977.4,
+   "text": "de países subdesenvolvidos de terceiro mundo.",
+   "turn": 241,
+   "speaker_change": false
+  },
+  {
+   "start": 6977.4,
+   "end": 6981.04,
+   "text": "É um problema típico, problema e é agravado pelas características culturais nossas.",
+   "turn": 241,
+   "speaker_change": false
+  },
+  {
+   "start": 6981.04,
+   "end": 6986.12,
+   "text": "Aí é acho que a discussão fica bem grande, mas a gente é um país patrimonialista,",
+   "turn": 241,
+   "speaker_change": false
+  },
+  {
+   "start": 6986.12,
+   "end": 6989.4,
+   "text": "pré-moderno em muita coisa, arcaico, muita coisa.",
+   "turn": 241,
+   "speaker_change": false
+  },
+  {
+   "start": 6989.4,
+   "end": 6993.8,
+   "text": "E isso faz com que, por exemplo, aquela ideia de um funcionário público impessoal",
+   "turn": 241,
+   "speaker_change": false
+  },
+  {
+   "start": 6993.8,
+   "end": 6997.84,
+   "text": "que sabe o o que que é um funcionário público impessoal, o cara do posto de saúde,",
+   "turn": 241,
+   "speaker_change": false
+  },
+  {
+   "start": 6997.84,
+   "end": 7001.12,
+   "text": "ele vai atender você igual vai atender ele igual vai me atender.",
+   "turn": 241,
+   "speaker_change": false
+  },
+  {
+   "start": 7001.12,
+   "end": 7007.76,
+   "text": "Aqui no Brasil é se você é amigo do cara ou se um político indicou, eu furo a fila de você no hospital.",
+   "turn": 242,
+   "speaker_change": true
+  },
+  {
+   "start": 7007.76,
+   "end": 7011.92,
+   "text": "Aqui essa essa a ideia da impessoalidade que num país sério, no Japão,",
+   "turn": 242,
+   "speaker_change": false
+  },
+  {
+   "start": 7011.92,
+   "end": 7014.12,
+   "text": "e é um absurdo você imaginar umas coisas dessas",
+   "turn": 242,
+   "speaker_change": false
+  },
+  {
+   "start": 7014.12,
+   "end": 7014.52,
+   "text": "aqui.",
+   "turn": 242,
+   "speaker_change": false
+  },
+  {
+   "start": 7014.52,
+   "end": 7015.92,
+   "text": "Isso é a regra.",
+   "turn": 242,
+   "speaker_change": false
+  },
+  {
+   "start": 7015.92,
+   "end": 7020.92,
+   "text": "Então o o funcionário público não é impessoal, o serviço público, portanto, é atrelado a interesses.",
+   "turn": 242,
+   "speaker_change": false
+  },
+  {
+   "start": 7020.92,
+   "end": 7024.92,
+   "text": "Então é muito difícil você administrar as coisas públicas",
+   "turn": 242,
+   "speaker_change": false
+  },
+  {
+   "start": 7024.92,
+   "end": 7030.08,
+   "text": "de maneira séria e isso sempre atraves",
+   "turn": 242,
+   "speaker_change": false
+  },
+  {
+   "start": 7030.08,
+   "end": 7034,
+   "text": "falar então sobre o partido missão.",
+   "turn": 243,
+   "speaker_change": true
+  },
+  {
+   "start": 7034,
+   "end": 7037,
+   "text": "Ah, como que se faz um partido no Brasil?",
+   "turn": 243,
+   "speaker_change": false
+  },
+  {
+   "start": 7037,
+   "end": 7039.16,
+   "text": "Como foi a coleta de assinaturas?",
+   "turn": 243,
+   "speaker_change": false
+  },
+  {
+   "start": 7039.16,
+   "end": 7044.6,
+   "text": "E as e o pessoal denunciando de que foi foram compradas algumas assinaturas.",
+   "turn": 243,
+   "speaker_change": false
+  },
+  {
+   "start": 7044.6,
+   "end": 7045.96,
+   "text": "Como que tá tudo isso?",
+   "turn": 243,
+   "speaker_change": false
+  },
+  {
+   "start": 7045.96,
+   "end": 7048.08,
+   "text": "Ã, começando pelo final, né?",
+   "turn": 243,
+   "speaker_change": false
+  },
+  {
+   "start": 7048.08,
+   "end": 7052.56,
+   "text": "A parte sim, essas denúncias de que a gente ou mentiu falando que, ah, vocês não",
+   "turn": 243,
+   "speaker_change": false
+  },
+  {
+   "start": 7052.56,
+   "end": 7054.6,
+   "text": "eh não eram um partido, vocês falaram que vocês",
+   "turn": 243,
+   "speaker_change": false
+  },
+  {
+   "start": 7054.6,
+   "end": 7055.72,
+   "text": "esconderam MBL.",
+   "turn": 243,
+   "speaker_change": false
+  },
+  {
+   "start": 7055.72,
+   "end": 7058.04,
+   "text": "Eu vi todas essas acusações.",
+   "turn": 243,
+   "speaker_change": false
+  },
+  {
+   "start": 7058.04,
+   "end": 7062.76,
+   "text": "Isso simplesmente é um não problema, porque eh nenhuma dessas acusações é",
+   "turn": 244,
+   "speaker_change": true
+  },
+  {
+   "start": 7062.76,
+   "end": 7063.52,
+   "text": "séria.",
+   "turn": 244,
+   "speaker_change": false
+  },
+  {
+   "start": 7063.52,
+   "end": 7066.8,
+   "text": "Nenhuma da nenhuma ação nossa foi contra a legislação.",
+   "turn": 244,
+   "speaker_change": false
+  },
+  {
+   "start": 7066.8,
+   "end": 7071.6,
+   "text": "E é virtualmente impossível você fazer uma pessoa assinar uma ficha",
+   "turn": 244,
+   "speaker_change": false
+  },
+  {
+   "start": 7071.6,
+   "end": 7080.32,
+   "text": "que ela tem que entregar todos os dados dela e colocar o nome dela e assinar um campo em que tá escrito: \"Você está assinando pra formação de um partido político chamado missão\".",
+   "turn": 244,
+   "speaker_change": false
+  },
+  {
+   "start": 7080.32,
+   "end": 7084.52,
+   "text": "E a pessoa tá com cracha, tá com tá totalmente identificada.",
+   "turn": 244,
+   "speaker_change": false
+  },
+  {
+   "start": 7084.52,
+   "end": 7088.84,
+   "text": "A pessoa tem que assim, antes dela assinar o papel, ela tem que ceder os números, ela tem que ceder o CPF.",
+   "turn": 244,
+   "speaker_change": false
+  },
+  {
+   "start": 7088.84,
+   "end": 7090.84,
+   "text": "Então você pede o CPF, você pede os dados da pessoa.",
+   "turn": 244,
+   "speaker_change": false
+  },
+  {
+   "start": 7090.84,
+   "end": 7094.56,
+   "text": "Então a pessoa, a não ser que assim, né, eh, seja uma coisa",
+   "turn": 244,
+   "speaker_change": false
+  },
+  {
+   "start": 7094.56,
+   "end": 7098.32,
+   "text": "muito insana e impossibilitaria você ter contratos no Brasil,",
+   "turn": 244,
+   "speaker_change": false
+  },
+  {
+   "start": 7098.32,
+   "end": 7103.52,
+   "text": "né, em que a pessoa anda na rua e ela sai entregando os dados pros outros e assinando documento sem saber,",
+   "turn": 244,
+   "speaker_change": false
+  },
+  {
+   "start": 7103.52,
+   "end": 7104.16,
+   "text": "né?",
+   "turn": 244,
+   "speaker_change": false
+  },
+  {
+   "start": 7104.16,
+   "end": 7108.4,
+   "text": "É, é, é impossível a gente ter montado partido enganando os outros.",
+   "turn": 244,
+   "speaker_change": false
+  },
+  {
+   "start": 7108.4,
+   "end": 7111.8,
+   "text": "Isso quem fez foi o Intercept, começou a divulgar.",
+   "turn": 244,
+   "speaker_change": false
+  },
+  {
+   "start": 7111.8,
+   "end": 7117.16,
+   "text": "Então eles começaram a divulgar isso, especialmente quando eles perceberam que era meio que inevitável que a gente ia montar o partido.",
+   "turn": 244,
+   "speaker_change": false
+  },
+  {
+   "start": 7117.16,
+   "end": 7120.04,
+   "text": "Mas eles tem alguma prova, tem algum vídeo, alguma",
+   "turn": 245,
+   "speaker_change": true
+  },
+  {
+   "start": 7120.04,
+   "end": 7122.08,
+   "text": "alguma prova cabal disso?",
+   "turn": 245,
+   "speaker_change": false
+  },
+  {
+   "start": 7122.08,
+   "end": 7125.08,
+   "text": "Não, eles começaram a falar, eles começaram a falar o seguinte:",
+   "turn": 245,
+   "speaker_change": false
+  },
+  {
+   "start": 7125.08,
+   "end": 7128.44,
+   "text": "Pessoas que assinaram pela montagem do partido alegaram que",
+   "turn": 245,
+   "speaker_change": false
+  },
+  {
+   "start": 7128.44,
+   "end": 7129.96,
+   "text": "eh não era um partido.",
+   "turn": 245,
+   "speaker_change": false
+  },
+  {
+   "start": 7129.96,
+   "end": 7132.64,
+   "text": "Em geral, essas pessoas eram pessoas de esquerda",
+   "turn": 245,
+   "speaker_change": false
+  },
+  {
+   "start": 7132.64,
+   "end": 7134.2,
+   "text": "que foram entraram em contato com o Intercept.",
+   "turn": 245,
+   "speaker_change": false
+  },
+  {
+   "start": 7134.2,
+   "end": 7137.36,
+   "text": "Eu acho muito engraçado uma pessoa que foi alvo, entre aspas,",
+   "turn": 245,
+   "speaker_change": false
+  },
+  {
+   "start": 7137.36,
+   "end": 7142.92,
+   "text": "de uma enganação, eh, ela não ir, sei lá, numa delegacia, ela vai num site do Intercept",
+   "turn": 245,
+   "speaker_change": false
+  },
+  {
+   "start": 7142.92,
+   "end": 7143.44,
+   "text": "reclamar.",
+   "turn": 245,
+   "speaker_change": false
+  },
+  {
+   "start": 7143.44,
+   "end": 7144.72,
+   "text": "Então, ó, meu Deus, fui enganado.",
+   "turn": 245,
+   "speaker_change": false
+  },
+  {
+   "start": 7144.72,
+   "end": 7148.8,
+   "text": "Acho que eu vou no site de extrema esquerda que eu dei o MBL para falar que eu fui enganado.",
+   "turn": 245,
+   "speaker_change": false
+  },
+  {
+   "start": 7148.8,
+   "end": 7153.16,
+   "text": "E aí, eh, essas isso, alguns casos foram parar na justiça.",
+   "turn": 245,
+   "speaker_change": false
+  },
+  {
+   "start": 7153.16,
+   "end": 7160.88,
+   "text": "Eu fui depor inclusive, eh, e era muito engraçado, não vou citar o nome da da da delegada e uns car, teve uma delegada que ficou muito engraçado,",
+   "turn": 245,
+   "speaker_change": false
+  },
+  {
+   "start": 7160.88,
+   "end": 7164.24,
+   "text": "que eu mostrei, ela falou: \"Mas então a pessoa tá alegando que não era um partido\".",
+   "turn": 245,
+   "speaker_change": false
+  },
+  {
+   "start": 7164.24,
+   "end": 7165.12,
+   "text": "Falei: \"Tá aqui a ficha\".",
+   "turn": 245,
+   "speaker_change": false
+  },
+  {
+   "start": 7165.12,
+   "end": 7166.88,
+   "text": "Aí a delegada olhou a ficha.",
+   "turn": 245,
+   "speaker_change": false
+  },
+  {
+   "start": 7166.88,
+   "end": 7167.76,
+   "text": "Ah, mas",
+   "turn": 245,
+   "speaker_change": false
+  },
+  {
+   "start": 7167.76,
+   "end": 7168.4,
+   "text": "tava claro que",
+   "turn": 246,
+   "speaker_change": true
+  },
+  {
+   "start": 7168.4,
+   "end": 7169.32,
+   "text": "tá muito claro, né?",
+   "turn": 247,
+   "speaker_change": true
+  },
+  {
+   "start": 7169.32,
+   "end": 7171.68,
+   "text": "Não tem assim, é, é, é ridículo, né?",
+   "turn": 247,
+   "speaker_change": false
+  },
+  {
+   "start": 7171.68,
+   "end": 7174.16,
+   "text": "Então, e outra coisa, a alegação da pessoa é uma alegação",
+   "turn": 247,
+   "speaker_change": false
+  },
+  {
+   "start": 7174.16,
+   "end": 7180.56,
+   "text": "anedótica ali assim, ah, não, ele falou, eu não ficou claro para mim que era um partido, como tava escrito, partido missão.",
+   "turn": 247,
+   "speaker_change": false
+  },
+  {
+   "start": 7180.56,
+   "end": 7184.16,
+   "text": "A a segunda coisa, alegar assim: \"Ah, não, mas vocês estavam",
+   "turn": 247,
+   "speaker_change": false
+  },
+  {
+   "start": 7184.16,
+   "end": 7188.32,
+   "text": "eh falando que o partido apoiaria causas como meio ambiente",
+   "turn": 247,
+   "speaker_change": false
+  },
+  {
+   "start": 7188.32,
+   "end": 7193.6,
+   "text": "e o MBL é fascista, ele não apoia essas coisas.\" Ora, o partido político, ele vai tratar de todos os temas importantes pro Brasil.",
+   "turn": 247,
+   "speaker_change": false
+  },
+  {
+   "start": 7193.6,
+   "end": 7197.2,
+   "text": "Então, a gente vai ter uma opinião sobre o meio ambiente, sobre assistência social, sobre",
+   "turn": 247,
+   "speaker_change": false
+  },
+  {
+   "start": 7197.2,
+   "end": 7203.48,
+   "text": "eh saúde, educação, etc. Então isso é natural e nada nos proíbe de defender ideias na hora de montar o partido.",
+   "turn": 247,
+   "speaker_change": false
+  },
+  {
+   "start": 7203.48,
+   "end": 7204.68,
+   "text": "Na verdade é a maneira mais correta.",
+   "turn": 247,
+   "speaker_change": false
+  },
+  {
+   "start": 7204.68,
+   "end": 7205.4,
+   "text": "Claro.",
+   "turn": 248,
+   "speaker_change": true
+  },
+  {
+   "start": 7205.4,
+   "end": 7208.32,
+   "text": "Então os caras só ficaram basicamente tentando jogar tomate.",
+   "turn": 249,
+   "speaker_change": true
+  },
+  {
+   "start": 7208.32,
+   "end": 7209.56,
+   "text": "E grana, que que eles estão falando?",
+   "turn": 250,
+   "speaker_change": true
+  },
+  {
+   "start": 7209.56,
+   "end": 7211.96,
+   "text": "E grana assim, eu vi o Nando Moura falar um negócio de grana.",
+   "turn": 251,
+   "speaker_change": true
+  },
+  {
+   "start": 7211.96,
+   "end": 7214.56,
+   "text": "Ele fica tentando dar a entender que a gente eh",
+   "turn": 251,
+   "speaker_change": false
+  },
+  {
+   "start": 7214.56,
+   "end": 7218.32,
+   "text": "comprava a pessoa que ia dar o negócio, porque a gente",
+   "turn": 251,
+   "speaker_change": false
+  },
+  {
+   "start": 7218.32,
+   "end": 7221.32,
+   "text": "nunca negou que a gente fazia é nós remuneramos",
+   "turn": 251,
+   "speaker_change": false
+  },
+  {
+   "start": 7221.32,
+   "end": 7222.36,
+   "text": "os coletores.",
+   "turn": 251,
+   "speaker_change": false
+  },
+  {
+   "start": 7222.36,
+   "end": 7224.52,
+   "text": "É permitido por lei todos, não só permitido.",
+   "turn": 251,
+   "speaker_change": false
+  },
+  {
+   "start": 7224.52,
+   "end": 7226.52,
+   "text": "Todos os que foram montados usaram isso.",
+   "turn": 251,
+   "speaker_change": false
+  },
+  {
+   "start": 7226.52,
+   "end": 7229.48,
+   "text": "Então é permitido que o seu coletor seja remunerado.",
+   "turn": 252,
+   "speaker_change": true
+  },
+  {
+   "start": 7229.48,
+   "end": 7232.48,
+   "text": "Então nós remuneramos os nossos coletores.",
+   "turn": 252,
+   "speaker_change": false
+  },
+  {
+   "start": 7232.48,
+   "end": 7238.08,
+   "text": "Então se o cara ele atinge a meta dele de assinatura válida, ficou o dia inteiro coletando na rua, nós vamos pagar ele.",
+   "turn": 252,
+   "speaker_change": false
+  },
+  {
+   "start": 7238.08,
+   "end": 7241.68,
+   "text": "Então o nosso trabalho foi arrumar dinheiro para que a gente colocasse militantes na rua.",
+   "turn": 252,
+   "speaker_change": false
+  },
+  {
+   "start": 7241.68,
+   "end": 7244.56,
+   "text": "E esses militantes, ao invés de, por exemplo, tá empregado",
+   "turn": 252,
+   "speaker_change": false
+  },
+  {
+   "start": 7244.56,
+   "end": 7248.48,
+   "text": "num trabalho normal, ele tá gastando a vida dele ou as",
+   "turn": 252,
+   "speaker_change": false
+  },
+  {
+   "start": 7248.48,
+   "end": 7249.92,
+   "text": "para trabalhar conosco.",
+   "turn": 253,
+   "speaker_change": true
+  },
+  {
+   "start": 7249.92,
+   "end": 7254.4,
+   "text": "Então a gente arrumou um assim, como eu vou fazer com que esse cara esteja economicamente",
+   "turn": 253,
+   "speaker_change": false
+  },
+  {
+   "start": 7254.4,
+   "end": 7257.08,
+   "text": "sustentado para ficar na rua várias horas.",
+   "turn": 253,
+   "speaker_change": false
+  },
+  {
+   "start": 7257.08,
+   "end": 7265.88,
+   "text": "Então a gente remunerou eles e aí quem entender, ah, mas não, não tem absolutamente nada de errado, foi tudo feito de acordo com a legislação do do Tribunal Superior Eleitoral",
+   "turn": 253,
+   "speaker_change": false
+  },
+  {
+   "start": 7265.88,
+   "end": 7268,
+   "text": "que regulamenta a lei dos partidos.",
+   "turn": 253,
+   "speaker_change": false
+  },
+  {
+   "start": 7268,
+   "end": 7270.52,
+   "text": "Eh, e tanto que essas discussões não prosperaram,",
+   "turn": 253,
+   "speaker_change": false
+  },
+  {
+   "start": 7270.52,
+   "end": 7272.68,
+   "text": "eh, e na prática o que aconteceu?",
+   "turn": 253,
+   "speaker_change": false
+  },
+  {
+   "start": 7272.68,
+   "end": 7276,
+   "text": "Todas as nossas fichas já foram validadas em cartório.",
+   "turn": 253,
+   "speaker_change": false
+  },
+  {
+   "start": 7276,
+   "end": 7278.32,
+   "text": "Até o momento de discutir essas coisas era no cartório.",
+   "turn": 253,
+   "speaker_change": false
+  },
+  {
+   "start": 7278.32,
+   "end": 7283.8,
+   "text": "E aí toda vez que vinha essas acusações, a quem acusou, a fulana de tal acusou lá no Rio de Janeiro, tá?",
+   "turn": 253,
+   "speaker_change": false
+  },
+  {
+   "start": 7283.8,
+   "end": 7284.72,
+   "text": "Cancela a assinatura dela.",
+   "turn": 253,
+   "speaker_change": false
+  },
+  {
+   "start": 7284.72,
+   "end": 7286.04,
+   "text": "A gente não quer assinatura dela.",
+   "turn": 253,
+   "speaker_change": false
+  },
+  {
+   "start": 7286.04,
+   "end": 7288.88,
+   "text": "Então, a gente nem quis discutir essas assinaturas dessas pessoas.",
+   "turn": 253,
+   "speaker_change": false
+  },
+  {
+   "start": 7288.88,
+   "end": 7290.8,
+   "text": "Simplesmente a gente não precisa dessas assaturas.",
+   "turn": 253,
+   "speaker_change": false
+  },
+  {
+   "start": 7290.8,
+   "end": 7292.52,
+   "text": "E pronto, a já foram validados.",
+   "turn": 253,
+   "speaker_change": false
+  },
+  {
+   "start": 7292.52,
+   "end": 7296.68,
+   "text": "Os cartórios validaram, os tribunais eleitorais nos estados já deram OK.",
+   "turn": 253,
+   "speaker_change": false
+  },
+  {
+   "start": 7296.68,
+   "end": 7299.16,
+   "text": "E agora isso vai pro TSE.",
+   "turn": 253,
+   "speaker_change": false
+  },
+  {
+   "start": 7299.16,
+   "end": 7301.72,
+   "text": "O que eu posso falar que é o maior exemplo de lisura.",
+   "turn": 253,
+   "speaker_change": false
+  },
+  {
+   "start": 7301.72,
+   "end": 7305.12,
+   "text": "A gente tem pouquíssimos processos contra a gente envolvendo isso.",
+   "turn": 253,
+   "speaker_change": false
+  },
+  {
+   "start": 7305.12,
+   "end": 7308.56,
+   "text": "Todos os outros partidos tiveram processos muito sérios envolvendo falsificações",
+   "turn": 253,
+   "speaker_change": false
+  },
+  {
+   "start": 7308.56,
+   "end": 7310.16,
+   "text": "e tal.",
+   "turn": 253,
+   "speaker_change": false
+  },
+  {
+   "start": 7310.16,
+   "end": 7314.44,
+   "text": "A gente foi o partido que validou fichas com em prazo recorde na história do Brasil.",
+   "turn": 253,
+   "speaker_change": false
+  },
+  {
+   "start": 7314.44,
+   "end": 7315.52,
+   "text": "Quanto tempo?",
+   "turn": 254,
+   "speaker_change": true
+  },
+  {
+   "start": 7315.52,
+   "end": 7319.48,
+   "text": "Um ano e um ano e 7 meses, né?",
+   "turn": 255,
+   "speaker_change": true
+  },
+  {
+   "start": 7319.48,
+   "end": 7322.44,
+   "text": "foi recorde, porque não foi só coleta, mas foi coleta e validação.",
+   "turn": 255,
+   "speaker_change": false
+  },
+  {
+   "start": 7322.44,
+   "end": 7326.72,
+   "text": "A gente foi o partido que mais validou fichas também na história do Brasil, no processo de formação.",
+   "turn": 255,
+   "speaker_change": false
+  },
+  {
+   "start": 7326.72,
+   "end": 7330.16,
+   "text": "E a gente foi o partido que validou fichas em no",
+   "turn": 255,
+   "speaker_change": false
+  },
+  {
+   "start": 7330.16,
+   "end": 7336.04,
+   "text": "estados, ou seja, a gente bateu um mínimo exigido por lei em todos os estados da federação, nos 27.",
+   "turn": 255,
+   "speaker_change": false
+  },
+  {
+   "start": 7336.04,
+   "end": 7337.2,
+   "text": "Nenhum outro fez isso.",
+   "turn": 255,
+   "speaker_change": false
+  },
+  {
+   "start": 7337.2,
+   "end": 7338.76,
+   "text": "Então, a gente bateu todos os recordes.",
+   "turn": 255,
+   "speaker_change": false
+  },
+  {
+   "start": 7338.76,
+   "end": 7339.88,
+   "text": "A gente tem o menor número de processos.",
+   "turn": 255,
+   "speaker_change": false
+  },
+  {
+   "start": 7339.88,
+   "end": 7342.68,
+   "text": "A gente teve o processo mais liso, com a legislação mais difícil,",
+   "turn": 255,
+   "speaker_change": false
+  },
+  {
+   "start": 7342.68,
+   "end": 7344.28,
+   "text": "no tempo mais curto.",
+   "turn": 255,
+   "speaker_change": false
+  },
+  {
+   "start": 7344.28,
+   "end": 7346,
+   "text": "E eu acho que isso irrita os haters.",
+   "turn": 255,
+   "speaker_change": false
+  },
+  {
+   "start": 7346,
+   "end": 7348.72,
+   "text": "Isso irrita porque todo mundo falou que a gente tinha acabado.",
+   "turn": 255,
+   "speaker_change": false
+  },
+  {
+   "start": 7348.72,
+   "end": 7353.68,
+   "text": "E aí os caras ficam: \"Ah, como é que não é possível que o MBL tenha conseguido fazer isso?\"",
+   "turn": 255,
+   "speaker_change": false
+  },
+  {
+   "start": 7353.68,
+   "end": 7354.44,
+   "text": "Tipo, é possível.",
+   "turn": 255,
+   "speaker_change": false
+  },
+  {
+   "start": 7354.44,
+   "end": 7357.12,
+   "text": "A gente fez, na verdade, com essa mesma legislação,",
+   "turn": 255,
+   "speaker_change": false
+  },
+  {
+   "start": 7357.12,
+   "end": 7360.96,
+   "text": "um grupo de esquerda fez também, que é o OP.",
+   "turn": 255,
+   "speaker_change": false
+  },
+  {
+   "start": 7360.96,
+   "end": 7364.24,
+   "text": "Com essa mesma legislação eles fizeram num prazo muito maior, né?",
+   "turn": 255,
+   "speaker_change": false
+  },
+  {
+   "start": 7364.24,
+   "end": 7366.56,
+   "text": "Eles demoraram bem mais tempo para fazer, mas eles fizeram.",
+   "turn": 255,
+   "speaker_change": false
+  },
+  {
+   "start": 7366.56,
+   "end": 7371.64,
+   "text": "E em geral, quem nos xinga, né, tem um Intercept e tem um bolsonarista.",
+   "turn": 255,
+   "speaker_change": false
+  },
+  {
+   "start": 7371.64,
+   "end": 7374,
+   "text": "É porque não conseguiram fazer.",
+   "turn": 255,
+   "speaker_change": false
+  },
+  {
+   "start": 7374,
+   "end": 7376.32,
+   "text": "E eles não entenderam como é que é o processo de montar o partido.",
+   "turn": 255,
+   "speaker_change": false
+  },
+  {
+   "start": 7376.32,
+   "end": 7379.52,
+   "text": "Os caras estavam viajando na maionese quando o Bolsaro tentou montar",
+   "turn": 255,
+   "speaker_change": false
+  },
+  {
+   "start": 7379.52,
+   "end": 7380.84,
+   "text": "e deu tudo errado.",
+   "turn": 255,
+   "speaker_change": false
+  },
+  {
+   "start": 7380.84,
+   "end": 7386.48,
+   "text": "E agora eles viram que assim, ah, o cara do MBL, né, esses caras aí que são esquerdistas,",
+   "turn": 255,
+   "speaker_change": false
+  },
+  {
+   "start": 7386.48,
+   "end": 7387.96,
+   "text": "esses caras conseguiram.",
+   "turn": 255,
+   "speaker_change": false
+  },
+  {
+   "start": 7387.96,
+   "end": 7389.04,
+   "text": "Para eles é uma vergonha.",
+   "turn": 255,
+   "speaker_change": false
+  },
+  {
+   "start": 7389.04,
+   "end": 7395.76,
+   "text": "Se você é um bolsonarista que promete que você é bom, faz e acontece e você não conseguir entregar um negócio de MBL, conseguir entregar",
+   "turn": 255,
+   "speaker_change": false
+  },
+  {
+   "start": 7395.76,
+   "end": 7398.2,
+   "text": "muito mais rápido, muito melhor, é uma vergonha",
+   "turn": 255,
+   "speaker_change": false
+  },
+  {
+   "start": 7398.2,
+   "end": 7398.52,
+   "text": "para eles.",
+   "turn": 255,
+   "speaker_change": false
+  },
+  {
+   "start": 7398.52,
+   "end": 7398.96,
+   "text": "É uma vergonha.",
+   "turn": 255,
+   "speaker_change": false
+  },
+  {
+   "start": 7398.96,
+   "end": 7400.52,
+   "text": "Eu sei que eles ficam envergonhados.",
+   "turn": 255,
+   "speaker_change": false
+  },
+  {
+   "start": 7400.52,
+   "end": 7404.28,
+   "text": "Então é da vida, eles que durmam com a vergonha deles.",
+   "turn": 255,
+   "speaker_change": false
+  },
+  {
+   "start": 7404.28,
+   "end": 7406,
+   "text": "Vamos a mais uma pergunta.",
+   "turn": 256,
+   "speaker_change": true
+  },
+  {
+   "start": 7406,
+   "end": 7409.84,
+   "text": "Muita ô tão tá levantando a mão lá para você, ó.",
+   "turn": 256,
+   "speaker_change": false
+  },
+  {
+   "start": 7409.84,
+   "end": 7412.12,
+   "text": "a gente denunciou as fraudes.",
+   "turn": 256,
+   "speaker_change": false
+  },
+  {
+   "start": 7412.12,
+   "end": 7413.28,
+   "text": "Ah, é, é isso.",
+   "turn": 256,
+   "speaker_change": false
+  },
+  {
+   "start": 7413.28,
+   "end": 7417.48,
+   "text": "Uma coisa legal que o que inclusive foi no estado dele do do Will",
+   "turn": 256,
+   "speaker_change": false
+  },
+  {
+   "start": 7417.48,
+   "end": 7421.4,
+   "text": "quando teve a fraude, porque teve assinaturas que foram falsificadas.",
+   "turn": 256,
+   "speaker_change": false
+  },
+  {
+   "start": 7421.4,
+   "end": 7422.96,
+   "text": "Quem falsificou as assinaturas?",
+   "turn": 256,
+   "speaker_change": false
+  },
+  {
+   "start": 7422.96,
+   "end": 7427.16,
+   "text": "Um grupo de coletores montaram tipo uma uma quadrilhazinha",
+   "turn": 256,
+   "speaker_change": false
+  },
+  {
+   "start": 7427.16,
+   "end": 7428.8,
+   "text": "para para roubar o nosso dinheiro.",
+   "turn": 256,
+   "speaker_change": false
+  },
+  {
+   "start": 7428.8,
+   "end": 7431.48,
+   "text": "Eles começaram a falsificar a assinatura dos outros.",
+   "turn": 256,
+   "speaker_change": false
+  },
+  {
+   "start": 7431.48,
+   "end": 7432.88,
+   "text": "Aí eles começaram a falsificar.",
+   "turn": 256,
+   "speaker_change": false
+  },
+  {
+   "start": 7432.88,
+   "end": 7435.2,
+   "text": "Aí quando a gente mandou pro cartório, a gente falou: \"Ué, tá estranho,",
+   "turn": 256,
+   "speaker_change": false
+  },
+  {
+   "start": 7435.2,
+   "end": 7437.76,
+   "text": "tá tendo uma perda super alta no cartório\".",
+   "turn": 256,
+   "speaker_change": false
+  },
+  {
+   "start": 7437.76,
+   "end": 7439.24,
+   "text": "Aí a gente viu que tinha fraude.",
+   "turn": 256,
+   "speaker_change": false
+  },
+  {
+   "start": 7439.24,
+   "end": 7443.92,
+   "text": "Em geral, quando os partidos recebem uma denúncia, ah, tá tendo fraude de assinatura,",
+   "turn": 256,
+   "speaker_change": false
+  },
+  {
+   "start": 7443.92,
+   "end": 7446.6,
+   "text": "os partidos correm para tentar manter as assinaturas.",
+   "turn": 256,
+   "speaker_change": false
+  },
+  {
+   "start": 7446.6,
+   "end": 7447.44,
+   "text": "O que que a gente fez?",
+   "turn": 257,
+   "speaker_change": true
+  },
+  {
+   "start": 7447.44,
+   "end": 7450.24,
+   "text": "A gente denunciou os caras e a gente falou: \"Não queremos",
+   "turn": 257,
+   "speaker_change": false
+  },
+  {
+   "start": 7450.24,
+   "end": 7452.84,
+   "text": "nem as assinaturas que foram validadas desses coletores\".",
+   "turn": 257,
+   "speaker_change": false
+  },
+  {
+   "start": 7452.84,
+   "end": 7456.92,
+   "text": "Ou seja, o coletor que fraudou a gente, algumas assinaturas eram verdadeiras.",
+   "turn": 257,
+   "speaker_change": false
+  },
+  {
+   "start": 7456.92,
+   "end": 7458.4,
+   "text": "A gente não quis nem as verdadeiras deles.",
+   "turn": 257,
+   "speaker_change": false
+  },
+  {
+   "start": 7458.4,
+   "end": 7461.28,
+   "text": "A gente simplesmente falou: \"Cara, vamos atuar junto com a polícia,",
+   "turn": 257,
+   "speaker_change": false
+  },
+  {
+   "start": 7461.28,
+   "end": 7464.96,
+   "text": "vamos prender esses caras, até porque eles roubaram a gente e nem as assinaturas",
+   "turn": 257,
+   "speaker_change": false
+  },
+  {
+   "start": 7464.96,
+   "end": 7467.64,
+   "text": "corretas que eles coletaram, a gente a gente validou\".",
+   "turn": 257,
+   "speaker_change": false
+  },
+  {
+   "start": 7467.64,
+   "end": 7470.84,
+   "text": "Isso assim espantou muito até o próprio pessoal, vamos dizer,",
+   "turn": 257,
+   "speaker_change": false
+  },
+  {
+   "start": 7470.84,
+   "end": 7471.6,
+   "text": "eh, do judiciário.",
+   "turn": 257,
+   "speaker_change": false
+  },
+  {
+   "start": 7471.6,
+   "end": 7477.12,
+   "text": "Falou: \"Pô, mas os caras tão, eles são vítima e tão eles mesmo falando porque não querem as assinaturas\".",
+   "turn": 257,
+   "speaker_change": false
+  },
+  {
+   "start": 7477.12,
+   "end": 7477.48,
+   "text": "E é isso.",
+   "turn": 257,
+   "speaker_change": false
+  },
+  {
+   "start": 7477.48,
+   "end": 7482.88,
+   "text": "Então, tá nos processos, quem quiser é só procurar que tem processo no Paraná, tem processo no Ceará.",
+   "turn": 257,
+   "speaker_change": false
+  },
+  {
+   "start": 7482.88,
+   "end": 7486.04,
+   "text": "A gente pedia para retirar essas assaturas de coletor fraudulento,",
+   "turn": 257,
+   "speaker_change": false
+  },
+  {
+   "start": 7486.04,
+   "end": 7490.76,
+   "text": "que é uma coisa meio assim, se os caras querem atacar a gente, é é uma demonstração de lisura.",
+   "turn": 257,
+   "speaker_change": false
+  },
+  {
+   "start": 7490.76,
+   "end": 7493.36,
+   "text": "Novamente isso é tudo é público, os processos estão",
+   "turn": 257,
+   "speaker_change": false
+  },
+  {
+   "start": 7493.36,
+   "end": 7495.2,
+   "text": "estão disponíveis.",
+   "turn": 257,
+   "speaker_change": false
+  },
+  {
+   "start": 7495.2,
+   "end": 7499.8,
+   "text": "E em relação eu eu vi você falando que talvez seja o último partido a ser criado.",
+   "turn": 258,
+   "speaker_change": true
+  },
+  {
+   "start": 7499.8,
+   "end": 7502,
+   "text": "Você acha que vai ser difícil ter outro partido",
+   "turn": 258,
+   "speaker_change": false
+  },
+  {
+   "start": 7502,
+   "end": 7502.32,
+   "text": "pra frente?",
+   "turn": 258,
+   "speaker_change": false
+  },
+  {
+   "start": 7502.32,
+   "end": 7502.52,
+   "text": "Por quê?",
+   "turn": 258,
+   "speaker_change": false
+  },
+  {
+   "start": 7502.52,
+   "end": 7503.52,
+   "text": "Eu acho eu acho.",
+   "turn": 259,
+   "speaker_change": true
+  },
+  {
+   "start": 7503.52,
+   "end": 7506.64,
+   "text": "Ah, primeiro que assim, não existe outro grupo,",
+   "turn": 259,
+   "speaker_change": false
+  },
+  {
+   "start": 7506.64,
+   "end": 7512,
+   "text": "ã, como a gente para com a legislação atual fazer isso, né?",
+   "turn": 259,
+   "speaker_change": false
+  },
+  {
+   "start": 7512,
+   "end": 7516.44,
+   "text": "Então, ah, um grupo que tenha militância e que tenha tecnologia",
+   "turn": 259,
+   "speaker_change": false
+  },
+  {
+   "start": 7516.44,
+   "end": 7517.08,
+   "text": "para isso.",
+   "turn": 259,
+   "speaker_change": false
+  },
+  {
+   "start": 7517.08,
+   "end": 7519.96,
+   "text": "A gente conseguiu montar num período muito rápido, porque tem militância e tecnologia.",
+   "turn": 259,
+   "speaker_change": false
+  },
+  {
+   "start": 7519.96,
+   "end": 7521.16,
+   "text": "Essa é a primeira coisa.",
+   "turn": 259,
+   "speaker_change": false
+  },
+  {
+   "start": 7521.16,
+   "end": 7526.76,
+   "text": "Segundo, que tem um projeto que tá no Senado que altera a lei de formação de partido, que acho que vai aumentar as assinaturas,",
+   "turn": 259,
+   "speaker_change": false
+  },
+  {
+   "start": 7526.76,
+   "end": 7530.24,
+   "text": "a necessidade de não de 547.000, iria para 15 milhão",
+   "turn": 259,
+   "speaker_change": false
+  },
+  {
+   "start": 7530.24,
+   "end": 7531.88,
+   "text": "de assinaturas válidas.",
+   "turn": 259,
+   "speaker_change": false
+  },
+  {
+   "start": 7531.88,
+   "end": 7534.8,
+   "text": "Então, vai ficar muito difícil.",
+   "turn": 259,
+   "speaker_change": false
+  },
+  {
+   "start": 7534.8,
+   "end": 7537.48,
+   "text": "E o sistema tá fechando para não ter partido.",
+   "turn": 259,
+   "speaker_change": false
+  },
+  {
+   "start": 7537.48,
+   "end": 7541.52,
+   "text": "Então eu acho que agora que o a galera mesmo viu, a galera dos partidos viu,",
+   "turn": 259,
+   "speaker_change": false
+  },
+  {
+   "start": 7541.52,
+   "end": 7544.56,
+   "text": "os caras montaram, era não era para ninguém montar.",
+   "turn": 259,
+   "speaker_change": false
+  },
+  {
+   "start": 7544.56,
+   "end": 7547.92,
+   "text": "Eles vão acelerar esse projeto que essa reforma eleitoral que tá no Senado,",
+   "turn": 259,
+   "speaker_change": false
+  },
+  {
+   "start": 7547.92,
+   "end": 7550.52,
+   "text": "justamente para fechar o para fechar o clubinho.",
+   "turn": 259,
+   "speaker_change": false
+  },
+  {
+   "start": 7550.52,
+   "end": 7551.32,
+   "text": "Clubinho.",
+   "turn": 260,
+   "speaker_change": true
+  },
+  {
+   "start": 7551.32,
+   "end": 7551.76,
+   "text": "Manda aí.",
+   "turn": 260,
+   "speaker_change": false
+  },
+  {
+   "start": 7551.76,
+   "end": 7552.72,
+   "text": "Tem perguntas do fundão.",
+   "turn": 260,
+   "speaker_change": false
+  },
+  {
+   "start": 7552.72,
+   "end": 7554.88,
+   "text": "Tenho certeza que o pessoal quer saber do fundão.",
+   "turn": 260,
+   "speaker_change": false
+  },
+  {
+   "start": 7554.88,
+   "end": 7556.72,
+   "text": "Mas espere voltar que eu vou de novo ao banheiro.",
+   "turn": 260,
+   "speaker_change": false
+  },
+  {
+   "start": 7556.72,
+   "end": 7557.2,
+   "text": "Outra pergunta.",
+   "turn": 260,
+   "speaker_change": false
+  },
+  {
+   "start": 7557.2,
+   "end": 7557.64,
+   "text": "Não, vamos lá.",
+   "turn": 261,
+   "speaker_change": true
+  },
+  {
+   "start": 7557.64,
+   "end": 7561.28,
+   "text": "Tem duas aqui do Kim que ele perguntou assim, ó: \"Renid",
+   "turn": 261,
+   "speaker_change": false
+  },
+  {
+   "start": 7561.28,
+   "end": 7566.76,
+   "text": "me indicar o STF?\" E aí depois ele mandou uma outra, Renan, um amigo meu perguntou se possível",
+   "turn": 261,
+   "speaker_change": false
+  },
+  {
+   "start": 7566.76,
+   "end": 7571.16,
+   "text": "no governo, se você for presidente, inclui o aumento de pênis no SUS.",
+   "turn": 261,
+   "speaker_change": false
+  },
+  {
+   "start": 7571.16,
+   "end": 7572.2,
+   "text": "É o Kim Cataguiri mesmo.",
+   "turn": 262,
+   "speaker_change": true
+  },
+  {
+   "start": 7572.2,
+   "end": 7573.68,
+   "text": "É o Kim mesmo.",
+   "turn": 263,
+   "speaker_change": true
+  },
+  {
+   "start": 7573.68,
+   "end": 7579.12,
+   "text": "Gostei dessa parte do aumento de pênis nos subos, porque não apenas ele, mas uma parte da comunidade qual ele faz parte,",
+   "turn": 264,
+   "speaker_change": true
+  },
+  {
+   "start": 7579.12,
+   "end": 7583.6,
+   "text": "comunidade de gamers, eh, tava tava precisando, estava exigindo isso, tá?",
+   "turn": 264,
+   "speaker_change": false
+  },
+  {
+   "start": 7583.6,
+   "end": 7585.12,
+   "text": "Não serei cancelado por isso.",
+   "turn": 264,
+   "speaker_change": false
+  },
+  {
+   "start": 7585.12,
+   "end": 7586.16,
+   "text": "Fique claro.",
+   "turn": 264,
+   "speaker_change": false
+  },
+  {
+   "start": 7586.16,
+   "end": 7590.12,
+   "text": "O Yukin, ele merece isso, até porque ele ele foi num podcast",
+   "turn": 264,
+   "speaker_change": false
+  },
+  {
+   "start": 7590.12,
+   "end": 7594.56,
+   "text": "anteontem, ele veio falar que a minha banda deveria desaparecer e ele seria a favor de um projeto de lei pra minha banda acabar.",
+   "turn": 264,
+   "speaker_change": false
+  },
+  {
+   "start": 7594.56,
+   "end": 7601.96,
+   "text": "Então eu digo que Cataguiri, eh, não vou colocar no SUS o projeto que vai te beneficiar aí a você ter uma vida sexual mais",
+   "turn": 264,
+   "speaker_change": false
+  }
+ ]
+}

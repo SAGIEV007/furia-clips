@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch
 
-from modules.clip_selector import ClipSelector
+from modules.clip_selector import PREFERRED_MAX_DURATION, ClipSelector
 
 
 class ClipSelectionTests(unittest.TestCase):
@@ -47,7 +47,9 @@ class ClipSelectionTests(unittest.TestCase):
     def test_default_duration_policy_is_short_first_with_soft_ceiling(self):
         selector = ClipSelector()
         self.assertEqual(selector.min_duration, 8)
-        self.assertEqual(selector.preferred_max_duration, 180.0)
+        # O valor sai da régua (scripts/medir_cortes.py), não de intuição; o que
+        # este teste guarda é que o teto é preferencial e não uma faixa fixa.
+        self.assertEqual(selector.preferred_max_duration, PREFERRED_MAX_DURATION)
         self.assertGreater(selector.max_duration, selector.preferred_max_duration)
         self.assertGreater(selector._duration_score(25), selector._duration_score(210))
 
@@ -55,14 +57,14 @@ class ClipSelectionTests(unittest.TestCase):
         selector = ClipSelector()
         prompt = selector._get_gemini_system_prompt()
         self.assertIn("menor trecho", prompt)
-        self.assertIn("180 segundos como teto preferencial", prompt)
+        self.assertIn(f"{PREFERRED_MAX_DURATION:.0f} segundos como teto preferencial", prompt)
         self.assertNotIn("30 a 180 segundos", prompt)
 
     def test_ollama_prompt_does_not_impose_fixed_duration_range(self):
         selector = ClipSelector()
         prompt = selector._get_system_prompt()
         self.assertIn("menor trecho autossuficiente", prompt)
-        self.assertIn("180 segundos", prompt)
+        self.assertIn(f"{PREFERRED_MAX_DURATION:.0f} segundos", prompt)
         self.assertNotIn("30 a 180 segundos por clip", prompt)
 
     def test_payoff_gate_rejects_linguistically_open_ending(self):

@@ -1,0 +1,2780 @@
+{
+ "fonte": {
+  "videoId": "K6mQqjqqJqo",
+  "url": "https://www.youtube.com/watch?v=K6mQqjqqJqo",
+  "titulo": "MELHORES MOMENTOS DA SABATINA NA BAND",
+  "duracao_total_s": 1923,
+  "canal": "UCMLluq-qSne85Un73ToYI2w",
+  "trust": "owner"
+ },
+ "janela": {
+  "de_s": 0.0,
+  "ate_s": 1923.0
+ },
+ "proveniencia": {
+  "transcriptSource": "youtube_auto:878a59babd8b75f1879a25a9f3f79f554a2786d4948948852a388d03f3a83a07",
+  "tokenizerVersion": "sent-pt-v1",
+  "qualityTier": "automatic",
+  "isQuotation": false,
+  "audioVerificationRequired": true,
+  "note": "Texto de legenda do YouTube: é evidência automática para análise e navegação, nunca uma citação. Confira palavras, nomes e números no áudio; audioCheckRanges marca os tokens de maior risco."
+ },
+ "blocos_de_referencia": [
+  {
+   "start": 31.6,
+   "end": 168.48,
+   "dur": 136.88,
+   "cortes": 2,
+   "titulo": "Renan Santos apresenta o Missão e o projeto de um Brasil entre as cinco maiores potências",
+   "q": "Quem é Renan Santos e quais prioridades ele propõe para transformar o Brasil?"
+  },
+  {
+   "start": 168.48,
+   "end": 353.4,
+   "dur": 184.92,
+   "cortes": 4,
+   "titulo": "Renan Santos busca crescer além do bolsonarismo com problemas concretos",
+   "q": "Como Renan Santos pretende crescer sem depender do eleitorado bolsonarista?"
+  },
+  {
+   "start": 353.4,
+   "end": 583.64,
+   "dur": 230.24,
+   "cortes": 4,
+   "titulo": "Coordenação federal e estado de defesa contra territórios dominados por facções",
+   "q": "Como enfrentar o crime organizado quando os estados não cooperam?"
+  },
+  {
+   "start": 584.84,
+   "end": 618.44,
+   "dur": 33.6,
+   "cortes": 3,
+   "titulo": "Mina de Santa Quitéria aguarda licenciamento há 30 anos",
+   "q": "Por que a mina de urânio e fosfato de Santa Quitéria continua parada?"
+  },
+  {
+   "start": 618.44,
+   "end": 894.32,
+   "dur": 275.88,
+   "cortes": 3,
+   "titulo": "Brasil vulnerável precisa trocar terras raras por tecnologia de defesa",
+   "q": "Como o Brasil pode fortalecer sua defesa diante do novo cenário internacional?"
+  },
+  {
+   "start": 894.32,
+   "end": 1116,
+   "dur": 221.68,
+   "cortes": 3,
+   "titulo": "Renan critica a redução da jornada e defende relações de trabalho flexíveis",
+   "q": "A redução da jornada de trabalho aumenta a renda e o emprego formal?"
+  },
+  {
+   "start": 1116,
+   "end": 1483.96,
+   "dur": 367.96,
+   "cortes": 4,
+   "titulo": "Renan defende limitar decisões do STF e recolocar a Corte em seu papel constitucional",
+   "q": "Como Renan Santos propõe recolocar o STF em suas funções constitucionais?"
+  },
+  {
+   "start": 1483.96,
+   "end": 1765.16,
+   "dur": 281.2,
+   "cortes": 3,
+   "titulo": "Desempenho de prefeitos deve definir reeleição e recursos partidários",
+   "q": "Como reformar a representação política além de mudar o sistema eleitoral?"
+  },
+  {
+   "start": 1765.16,
+   "end": 1871.2,
+   "dur": 106.04,
+   "cortes": 2,
+   "titulo": "Privatizações caso a caso e Estado parceiro da inovação tecnológica",
+   "q": "Qual deve ser o papel do Estado diante das privatizações e da inteligência artificial?"
+  },
+  {
+   "start": 1871.2,
+   "end": 1923,
+   "dur": 51.8,
+   "cortes": 4,
+   "titulo": "Um Brasil seguro, próspero e entre as cinco maiores nações do mundo",
+   "q": "Que futuro Renan Santos projeta para o Brasil?"
+  }
+ ],
+ "sentencas": [
+  {
+   "start": 0.08,
+   "end": 3.72,
+   "text": "E a gente convidou mais dois pretendentes ao Palácio do Planalto.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 3.72,
+   "end": 10.36,
+   "text": "Estão aqui com a gente o ex-deputado federal e ex-ministro que concorre pelo Democracia Cristã, Aldo Rebelo.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 10.36,
+   "end": 13.2,
+   "text": "Obrigado, Aldo, por estar conosco aqui essa noite.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 13.2,
+   "end": 17.76,
+   "text": "E também o fundador do MBL e pré-candidato pelo missão, Renan Santos.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 17.76,
+   "end": 21.52,
+   "text": "Também agradeço, Renan, por aceitar o nosso convite e tá aqui com a gente no programa.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 21.52,
+   "end": 25.84,
+   "text": "Me acompanhando nessa entrevista, jornalistas Fernando Mitre e Thaís Freitas.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 25.84,
+   "end": 28.4,
+   "text": "Antes do Mitre da Thaís, Renan, deixa eu também fazer uma pergunta.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 28.4,
+   "end": 29.4,
+   "text": "É sua primeira vez aqui?",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 29.4,
+   "end": 31.6,
+   "text": "O Aldo já teve em outros programas com a gente.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 31.6,
+   "end": 45,
+   "text": "Queria que você falasse quem é Renan Santos, se apresentasse também para o público que ainda não te conhece, que ainda não te conhece, mas também de certa forma que propostas também, duas, três prioritárias que eh colocaria a mesa.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 45,
+   "end": 47.6,
+   "text": "Bom, de fato é minha primeira vez aqui.",
+   "turn": 2,
+   "speaker_change": true
+  },
+  {
+   "start": 47.6,
+   "end": 50.84,
+   "text": "Queria agradecer a Band, agradecer todo o time presente, agradecer ao Aldo.",
+   "turn": 2,
+   "speaker_change": false
+  },
+  {
+   "start": 50.84,
+   "end": 61.16,
+   "text": "Bom, meu nome é Hernan Santos, tenho 42 anos, nasci em São Paulo, sou de uma família de classe média, sou um dos fundadores do movimento Brasil Livre, participei das manifestações que redundaram na queda da Dilma Roussef.",
+   "turn": 2,
+   "speaker_change": false
+  },
+  {
+   "start": 61.16,
+   "end": 81.68,
+   "text": "H, lutei a época pelo apoio à operação Lava-Jato, que depois foi demonstrada, vamos dizer, como operação útil no combate à corrupção, mas que foi desmontada posterior pelo senhor Jair Bolsonaro, sua família e o STF, ã, com base na luta que nós tivemos, não só contra a corrupção, mas na luta por um Brasil mais livre, um Brasil em que trabalhar e produzir,",
+   "turn": 2,
+   "speaker_change": false
+  },
+  {
+   "start": 81.68,
+   "end": 85.88,
+   "text": "em que andar na rua livre do crime organizado é uma deveria ser uma premissa.",
+   "turn": 2,
+   "speaker_change": false
+  },
+  {
+   "start": 85.88,
+   "end": 90.12,
+   "text": "Hã, eu entendi que nós não deveríamos ser apenas um movimento, mas sermos também um partido político.",
+   "turn": 2,
+   "speaker_change": false
+  },
+  {
+   "start": 90.12,
+   "end": 95.16,
+   "text": "Com base nisso, fundamos um partido missão, o último e mais jovem partido fundado agora no final do ano passado.",
+   "turn": 2,
+   "speaker_change": false
+  },
+  {
+   "start": 95.16,
+   "end": 100.6,
+   "text": "E o que nós defendemos, né, começando até com um diagnóstico, acho que é uma um problema de falta de imaginação no Brasil.",
+   "turn": 2,
+   "speaker_change": false
+  },
+  {
+   "start": 100.6,
+   "end": 108.24,
+   "text": "O brasileiro ele perdeu tanto a esperança em si próprio que a gente sequer consegue se imaginar como o que nós deveríamos ser, que é uma das cinco maiores nações do mundo.",
+   "turn": 2,
+   "speaker_change": false
+  },
+  {
+   "start": 108.24,
+   "end": 110.32,
+   "text": "O Brasil nasceu para ser uma das cinco maiores mais nações do mundo.",
+   "turn": 2,
+   "speaker_change": false
+  },
+  {
+   "start": 110.32,
+   "end": 118.6,
+   "text": "E o objetivo nosso, até por isso, o nome do nosso partido da Emissão, é em 30 anos, colocar o Brasil na mesa com China, Rússia, Estados Unidos e Índia, determinando o que é importante no mundo.",
+   "turn": 2,
+   "speaker_change": false
+  },
+  {
+   "start": 118.6,
+   "end": 124.56,
+   "text": "Nós temos território, nós temos população, nós temos recursos e o que nos falta na prática é imaginação.",
+   "turn": 2,
+   "speaker_change": false
+  },
+  {
+   "start": 124.56,
+   "end": 138.96,
+   "text": "E aí as propostas dentro dessa imaginação, devolver o território dos brasileiros brasileiros, retirar o crime organizado das áreas que ele hoje ocupa, fazer uma reforma fiscal acompanhada de uma reforma de competitividade para permitir que a empresa se instalem no Brasil e que o brasileiro tenha a possibilidade de ganhar dinheiro,",
+   "turn": 2,
+   "speaker_change": false
+  },
+  {
+   "start": 138.96,
+   "end": 140.96,
+   "text": "gerar empregos de maneira livre.",
+   "turn": 2,
+   "speaker_change": false
+  },
+  {
+   "start": 140.96,
+   "end": 152.88,
+   "text": "Ah, fazer uma reforma que eu chamo de lei de responsabilidade gerencial que torne os prefeitos de fato amigos de políticas públicas que funcionem e não como meros administradores de emenda, como acontece em todo o Brasil e mantém regiões inteiras do Brasil.",
+   "turn": 2,
+   "speaker_change": false
+  },
+  {
+   "start": 152.88,
+   "end": 161.8,
+   "text": "Eu visitei o Maranhão para ver isso como como um lugar que trata o povo como animal, administra emenda apenas para fazer desvio, mantendo um IDH baixíssimo.",
+   "turn": 2,
+   "speaker_change": false
+  },
+  {
+   "start": 161.8,
+   "end": 168.48,
+   "text": "Então, esses desafios, esses três que eu elenquei, são os desafios que um mando, mandato nosso, caso aconteça, ã, vai mudar o destino do Brasil.",
+   "turn": 2,
+   "speaker_change": false
+  },
+  {
+   "start": 168.48,
+   "end": 174.28,
+   "text": "Queria fazer uma pergunta política pros dois pré-candidatos que estão aqui eh sobre estratégia de crescimento.",
+   "turn": 2,
+   "speaker_change": false
+  },
+  {
+   "start": 174.28,
+   "end": 181.48,
+   "text": "Hoje, pelas pesquisas, nós temos dois candidatos que dominam a intenção de voto, Lula e Flávio Bolsonaro.",
+   "turn": 2,
+   "speaker_change": false
+  },
+  {
+   "start": 181.48,
+   "end": 197.56,
+   "text": "Então, queria ouvir de vocês qual é a estratégia que vocês têm de crescimento e aí você é mais específica, perguntar pro Renan como você espera roubar votos mais à direita de Flávio Bolsonaro, já que me parece que pro eleitor do PT é um pouco mais difícil entrar.",
+   "turn": 2,
+   "speaker_change": false
+  },
+  {
+   "start": 197.56,
+   "end": 206.2,
+   "text": "Começando a responder tua pergunta, eu não vou partir, e não estamos fazendo isso, eh, da premissa que eu preciso, ã, ficar preso a buscar eleitores da família Bolsonaro.",
+   "turn": 2,
+   "speaker_change": false
+  },
+  {
+   "start": 206.2,
+   "end": 211.44,
+   "text": "Essa estratégia eu deixo pro Zema, eu deixo pro Caiado, que estão fazendo demonstrações públicas de que eles gostam muito do Bolsonaro, né?",
+   "turn": 2,
+   "speaker_change": false
+  },
+  {
+   "start": 211.44,
+   "end": 217.92,
+   "text": "O Caiado disse, inclusive, que a primeira coisa que ele vai fazer com o presidente é beneficiar os Bolsonaros e basicamente parte da campanha deles.",
+   "turn": 2,
+   "speaker_change": false
+  },
+  {
+   "start": 217.92,
+   "end": 219,
+   "text": "Você diz a anistia,",
+   "turn": 3,
+   "speaker_change": true
+  },
+  {
+   "start": 219,
+   "end": 219.6,
+   "text": "anistia não.",
+   "turn": 4,
+   "speaker_change": true
+  },
+  {
+   "start": 219.6,
+   "end": 221.8,
+   "text": "Primeira coisa que eu vou fazer com o presidente anistia ser eleito,",
+   "turn": 4,
+   "speaker_change": false
+  },
+  {
+   "start": 221.8,
+   "end": 223.24,
+   "text": "dosimetria, não anistia.",
+   "turn": 5,
+   "speaker_change": true
+  },
+  {
+   "start": 223.24,
+   "end": 223.88,
+   "text": "Tá,",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 223.88,
+   "end": 228.08,
+   "text": "que é o que nós votamos favoravelmente no Congresso, mas não anistia.",
+   "turn": 6,
+   "speaker_change": true
+  },
+  {
+   "start": 228.08,
+   "end": 230.56,
+   "text": "Eh, aquelas pessoas, inclusive, o Bolsonaro, cometeram crimes.",
+   "turn": 6,
+   "speaker_change": false
+  },
+  {
+   "start": 230.56,
+   "end": 234,
+   "text": "A gente pode discutir os vícios formais envolvidos ali, mas houve cometimento de crime.",
+   "turn": 6,
+   "speaker_change": false
+  },
+  {
+   "start": 234,
+   "end": 238.64,
+   "text": "E eu sempre digo paraos bolsonistas, se fosse o MST a invadir os prédios públicos, o que que eles diriam?",
+   "turn": 6,
+   "speaker_change": false
+  },
+  {
+   "start": 238.64,
+   "end": 240.44,
+   "text": "Eles pediriam anistia para aquelas pessoas?",
+   "turn": 6,
+   "speaker_change": false
+  },
+  {
+   "start": 240.44,
+   "end": 241.04,
+   "text": "Crime é crime.",
+   "turn": 6,
+   "speaker_change": false
+  },
+  {
+   "start": 241.04,
+   "end": 243.04,
+   "text": "Não importa se tá de vermelho ou você tá de amarelo.",
+   "turn": 6,
+   "speaker_change": false
+  },
+  {
+   "start": 243.04,
+   "end": 251.76,
+   "text": "Tá dito isso, eu estou rodando o Brasil e eu estou falando de problemas concretos das pessoas e trazendo soluções concretas justamente no coração do eleitorado de cada um.",
+   "turn": 6,
+   "speaker_change": false
+  },
+  {
+   "start": 251.76,
+   "end": 261.2,
+   "text": "Eu fui tão bem recebido no Maranhão, que supostamente é estoque eleitoral do lulismo, quanto eu fui em Santa Catarina agora, que é estoque eleitoral do bolsonarismo.",
+   "turn": 6,
+   "speaker_change": false
+  },
+  {
+   "start": 261.2,
+   "end": 264.08,
+   "text": "E tratei de problemas locais e cresci em ambos lugares.",
+   "turn": 6,
+   "speaker_change": false
+  },
+  {
+   "start": 264.08,
+   "end": 269.24,
+   "text": "Eu fui de acordo com o Google Trends, a pessoa mais pesquisada no Maranhão na semana retrasada.",
+   "turn": 6,
+   "speaker_change": false
+  },
+  {
+   "start": 269.24,
+   "end": 273.16,
+   "text": "Então, há uma há uma resposta que nós podemos dar.",
+   "turn": 6,
+   "speaker_change": false
+  },
+  {
+   "start": 273.16,
+   "end": 287.48,
+   "text": "Há um cansaço com a polarização e as pesquisas traem pra gente um recall, ou seja, o top of mind mais o nome que vem na cabeça das pessoas quando elas imaginam eleições ainda é o sobrenome Bolsonaro, agora com o Flávio e o nome Lula com o atual presidente da República.",
+   "turn": 6,
+   "speaker_change": false
+  },
+  {
+   "start": 287.48,
+   "end": 291.68,
+   "text": "Mas as os mais jovens que já estão alheios a isso, eles estão procurando outras alternativas.",
+   "turn": 6,
+   "speaker_change": false
+  },
+  {
+   "start": 291.68,
+   "end": 295.88,
+   "text": "Eu se quando você coloca entre os mais jovens, eu tô com mais de 20% de acordo com a pesquisa Atlas.",
+   "turn": 6,
+   "speaker_change": false
+  },
+  {
+   "start": 295.88,
+   "end": 299.56,
+   "text": "E quando a gente separa os homens jovens, eu tô com mais de 30%.",
+   "turn": 6,
+   "speaker_change": false
+  },
+  {
+   "start": 299.56,
+   "end": 308.56,
+   "text": "O partido que eu montei, o partido missão, ele tem 5.8% ã de predileção entre os brasileiros e quando puxa entre os mais jovens chega a quase 30%.",
+   "turn": 6,
+   "speaker_change": false
+  },
+  {
+   "start": 308.56,
+   "end": 309.96,
+   "text": "Qual é o recado disso?",
+   "turn": 6,
+   "speaker_change": false
+  },
+  {
+   "start": 309.96,
+   "end": 324.56,
+   "text": "As pessoas que não estão, vamos dizer eh presas num debate público, que está há se anos só falando de Bolsonaro, Lula e STF, elas querem soluções para segurança pública, ausência de emprego, ausência de expectativas, falta total e completa de infraestrutura urbana.",
+   "turn": 6,
+   "speaker_change": false
+  },
+  {
+   "start": 324.56,
+   "end": 328.48,
+   "text": "E essas pessoas não vão falar: \"Ah, qual o problema disso?\" \"Ah, o problema é o Lula\".",
+   "turn": 6,
+   "speaker_change": false
+  },
+  {
+   "start": 328.48,
+   "end": 329.92,
+   "text": "Não, pro meu Bolsonaro.",
+   "turn": 6,
+   "speaker_change": false
+  },
+  {
+   "start": 329.92,
+   "end": 338.52,
+   "text": "Então, quando eu tava no Maranhão pegando estadas buracadas e vendo as pessoas dividindo comida com urubu, como eu vi em Pinheiro, terra lá do do Sarnei, as pessoas não estavam ali, sabe?",
+   "turn": 6,
+   "speaker_change": false
+  },
+  {
+   "start": 338.52,
+   "end": 342.68,
+   "text": "Ah, isso é culpa do Lula, do Bolsonaro, as pessoas, como é que você vai resolver o urubu que tá no lado da minha casa?",
+   "turn": 6,
+   "speaker_change": false
+  },
+  {
+   "start": 342.68,
+   "end": 347.32,
+   "text": "E ao tratar desses temas aí, sim, a questão de comunicação de maneira inteligente, a gente cresce.",
+   "turn": 6,
+   "speaker_change": false
+  },
+  {
+   "start": 347.32,
+   "end": 348.76,
+   "text": "Então, o meu objetivo é fazer isso.",
+   "turn": 6,
+   "speaker_change": false
+  },
+  {
+   "start": 348.76,
+   "end": 353.4,
+   "text": "Eu vou entrar no coração do bolsonarista e no coração doista falando de problemas concretos para eles.",
+   "turn": 6,
+   "speaker_change": false
+  },
+  {
+   "start": 353.4,
+   "end": 366.84,
+   "text": "É preciso que haja um combate organizado e integrado eh contra o crime organizado, que está mais do que integrado, organizado, etc. O as forças legais não estão, estão fragmentadas.",
+   "turn": 7,
+   "speaker_change": true
+  },
+  {
+   "start": 366.84,
+   "end": 375.56,
+   "text": "Tem aí um projeto aí que não uniu o país, não uniu as lideranças políticas e muito menos os os governos.",
+   "turn": 7,
+   "speaker_change": false
+  },
+  {
+   "start": 375.56,
+   "end": 380.92,
+   "text": "E sem essa integração, esse combate não terá resultado positivo.",
+   "turn": 7,
+   "speaker_change": false
+  },
+  {
+   "start": 380.92,
+   "end": 382.76,
+   "text": "Como é que você vê a dificuldade política?",
+   "turn": 7,
+   "speaker_change": false
+  },
+  {
+   "start": 382.76,
+   "end": 384.04,
+   "text": "Pergunto para os dois.",
+   "turn": 7,
+   "speaker_change": false
+  },
+  {
+   "start": 384.04,
+   "end": 389.4,
+   "text": "Para juntar as forças todas do país, os governadores e a união.",
+   "turn": 7,
+   "speaker_change": false
+  },
+  {
+   "start": 389.4,
+   "end": 391.4,
+   "text": "É evidente que alguém tem que coordenar isso.",
+   "turn": 7,
+   "speaker_change": false
+  },
+  {
+   "start": 391.4,
+   "end": 392.84,
+   "text": "Tem que ser a união, né?",
+   "turn": 7,
+   "speaker_change": false
+  },
+  {
+   "start": 392.84,
+   "end": 399.56,
+   "text": "O governo federal deve coordenar a o grande combate ao crime organizado no Brasil com o apoio dos estados.",
+   "turn": 7,
+   "speaker_change": false
+  },
+  {
+   "start": 399.56,
+   "end": 404.72,
+   "text": "Eu estou falando da da estrutura que que o país tem.",
+   "turn": 7,
+   "speaker_change": false
+  },
+  {
+   "start": 404.72,
+   "end": 409.76,
+   "text": "Sem essa estrutura, na sua plenitude, vai ser difícil ganhar essa guerra.",
+   "turn": 7,
+   "speaker_change": false
+  },
+  {
+   "start": 409.76,
+   "end": 416.84,
+   "text": "Eu queria perguntar como é que você vê as questões políticas impedindo a união das forças contra o crime organizado.",
+   "turn": 7,
+   "speaker_change": false
+  },
+  {
+   "start": 416.84,
+   "end": 423.28,
+   "text": "Um pouco do que o Mitri falou, dessa integração também entre as forças e às vezes falta de vontade até política entre esses entes, né?",
+   "turn": 8,
+   "speaker_change": true
+  },
+  {
+   "start": 423.28,
+   "end": 424.88,
+   "text": "Mas esse é o problema principal.",
+   "turn": 9,
+   "speaker_change": true
+  },
+  {
+   "start": 424.88,
+   "end": 428.48,
+   "text": "A real é que as forças de segurança nos estados,",
+   "turn": 9,
+   "speaker_change": false
+  },
+  {
+   "start": 428.48,
+   "end": 429.56,
+   "text": "elas sabem o que fazer.",
+   "turn": 10,
+   "speaker_change": true
+  },
+  {
+   "start": 429.56,
+   "end": 433.52,
+   "text": "Eu tive no Ceará e nós temos cidades inteiras tomadas pelo crime organizado.",
+   "turn": 10,
+   "speaker_change": false
+  },
+  {
+   "start": 433.52,
+   "end": 437.44,
+   "text": "Não há, eu repito aqui, já até fui processado duas vezes pelo governador do Ceará.",
+   "turn": 10,
+   "speaker_change": false
+  },
+  {
+   "start": 437.44,
+   "end": 439.48,
+   "text": "Não há vontade política em resolver isso.",
+   "turn": 10,
+   "speaker_change": false
+  },
+  {
+   "start": 439.48,
+   "end": 440.68,
+   "text": "Não há vontade nenhuma.",
+   "turn": 10,
+   "speaker_change": false
+  },
+  {
+   "start": 440.68,
+   "end": 446.48,
+   "text": "E eu suspeito e posso tomar um terceiro processo, que o governo do Ceará é especialmente leniente com o avanço do Comando Vermelho.",
+   "turn": 10,
+   "speaker_change": false
+  },
+  {
+   "start": 446.48,
+   "end": 449.52,
+   "text": "Há governadores que não têm vontade política resolver isso.",
+   "turn": 10,
+   "speaker_change": false
+  },
+  {
+   "start": 449.52,
+   "end": 451.92,
+   "text": "Na Bahia tá acontecendo a mesma coisa com o Jerônimo.",
+   "turn": 10,
+   "speaker_change": false
+  },
+  {
+   "start": 451.92,
+   "end": 455.16,
+   "text": "As forças policiais lá elas reclamam: \"Olha, eu quero fazer\".",
+   "turn": 10,
+   "speaker_change": false
+  },
+  {
+   "start": 455.16,
+   "end": 457.76,
+   "text": "Nós sabemos onde é a área tomada pelo crime organizado.",
+   "turn": 10,
+   "speaker_change": false
+  },
+  {
+   "start": 457.76,
+   "end": 459.8,
+   "text": "Nós sabemos, nós dispomos de forças.",
+   "turn": 10,
+   "speaker_change": false
+  },
+  {
+   "start": 459.8,
+   "end": 464.6,
+   "text": "Não é difícil trocar o tiro resolver, não é difícil recuperar aquela área, mas nós não podemos fazer nada.",
+   "turn": 10,
+   "speaker_change": false
+  },
+  {
+   "start": 464.6,
+   "end": 466.04,
+   "text": "Não há o comando, não há vontade.",
+   "turn": 10,
+   "speaker_change": false
+  },
+  {
+   "start": 466.04,
+   "end": 479.68,
+   "text": "Uma das coisas mais absurdas que eu vi no Ceará foi durante a tomada de uma cidade, Santa Quitéria, estavam discutindo o programa Pena Justa, que ia soltar mais bandidos, porque as cadeias não estavam supostamente em condições desejáveis para aqueles bandidos.",
+   "turn": 10,
+   "speaker_change": false
+  },
+  {
+   "start": 479.68,
+   "end": 487.84,
+   "text": "Então o que o presidente da República tem que fazer é, se eu eleito com o presidente de maneira bem clara, o tema que me elegeu foi a destruição do crime organizado.",
+   "turn": 10,
+   "speaker_change": false
+  },
+  {
+   "start": 487.84,
+   "end": 489.12,
+   "text": "Estou há dois anos falando isso.",
+   "turn": 10,
+   "speaker_change": false
+  },
+  {
+   "start": 489.12,
+   "end": 490.64,
+   "text": "Vai ser uma eleição plebiscitária.",
+   "turn": 10,
+   "speaker_change": false
+  },
+  {
+   "start": 490.64,
+   "end": 494.08,
+   "text": "O cara que resolveu eleger Renan Santos, ele resolveu me eleger também.",
+   "turn": 10,
+   "speaker_change": false
+  },
+  {
+   "start": 494.08,
+   "end": 495.8,
+   "text": "e muito por conta disso.",
+   "turn": 10,
+   "speaker_change": false
+  },
+  {
+   "start": 495.8,
+   "end": 506.32,
+   "text": "Então, chegando lá, os estados que não decidirem cooperar, dado que estamos falando na tomada de espaços do território brasileiro, nós vamos fazer um estado de defesa específico nesses estados e municípios.",
+   "turn": 10,
+   "speaker_change": false
+  },
+  {
+   "start": 506.32,
+   "end": 513.04,
+   "text": "A cooperação precisa acontecer e eu já vi alguns estados, Ceará precisa, quer outro estado, Bahia precisa.",
+   "turn": 10,
+   "speaker_change": false
+  },
+  {
+   "start": 513.04,
+   "end": 517.84,
+   "text": "As pessoas falam muito do Rio de Janeiro, mas o estado do Ceará tem uma situação muito pior do que a carioca.",
+   "turn": 10,
+   "speaker_change": false
+  },
+  {
+   "start": 517.84,
+   "end": 521.84,
+   "text": "O Rio de Janeiro é um exemplo bizarro em muitos termos, mas às vezes ele fica anedótico.",
+   "turn": 10,
+   "speaker_change": false
+  },
+  {
+   "start": 521.84,
+   "end": 524.32,
+   "text": "A situação, o número de mortes para cada 100.000 1 habitantes no Ceará.",
+   "turn": 10,
+   "speaker_change": false
+  },
+  {
+   "start": 524.32,
+   "end": 526.16,
+   "text": "É, os índices são piores, né?",
+   "turn": 11,
+   "speaker_change": true
+  },
+  {
+   "start": 526.16,
+   "end": 536.12,
+   "text": "Talvez o número de áreas de domínio eh seja esse número maior no mais frag o o Rio de Janeiro é mais balcanizado, é uma facção aqui, outra tirando ali do do prédio um no outro.",
+   "turn": 12,
+   "speaker_change": true
+  },
+  {
+   "start": 536.12,
+   "end": 541.76,
+   "text": "Mas o caso no Ceará, você tá falando de tomadas monopolistas por conta do comando vermelho e facções auxiliares.",
+   "turn": 12,
+   "speaker_change": false
+  },
+  {
+   "start": 541.76,
+   "end": 555.84,
+   "text": "Se o governo tá parado, or substituído, aí as pessoas vão votar em outro governo, ou quando nós chegamos ao poder, se eles decidirem não cooperar, vamos fazer um estado de defesa específico, por um tempo específico para que nós retomemos esses territórios.",
+   "turn": 12,
+   "speaker_change": false
+  },
+  {
+   "start": 555.84,
+   "end": 559.92,
+   "text": "E só nas áreas específicas, tem até aquelas pessoas falar: \"Ai, mas e a democracia?",
+   "turn": 12,
+   "speaker_change": false
+  },
+  {
+   "start": 559.92,
+   "end": 562.12,
+   "text": "Não existe democracia em Santa Quitéria no Ceará.",
+   "turn": 12,
+   "speaker_change": false
+  },
+  {
+   "start": 562.12,
+   "end": 570.48,
+   "text": "Eu vou fazer um estado de defesa e vou utilizar as forças policiais e, se necessário, as forças de segurança nacionais, as forças armadas para fazer essas operações.",
+   "turn": 12,
+   "speaker_change": false
+  },
+  {
+   "start": 570.48,
+   "end": 570.92,
+   "text": "Ponto.",
+   "turn": 12,
+   "speaker_change": false
+  },
+  {
+   "start": 570.92,
+   "end": 576.88,
+   "text": "Vamos recuperar esses territórios e aí entregar direitos humanos para as pessoas que precisam da maneira como tá.",
+   "turn": 12,
+   "speaker_change": false
+  },
+  {
+   "start": 576.88,
+   "end": 582.64,
+   "text": "Eu volto a colocar, existem governadores que estão cooperando direta ou indiretamente com o avanço do crime.",
+   "turn": 12,
+   "speaker_change": false
+  },
+  {
+   "start": 582.64,
+   "end": 583.64,
+   "text": "Isso precisa acabar.",
+   "turn": 12,
+   "speaker_change": false
+  },
+  {
+   "start": 583.64,
+   "end": 584.84,
+   "text": "Deixa eu só pegar o gancho",
+   "turn": 12,
+   "speaker_change": false
+  },
+  {
+   "start": 584.84,
+   "end": 590.08,
+   "text": "fal fala lá em Santa Quitéria que ele tá aqui citando, que é o caso do Ceará, existe",
+   "turn": 13,
+   "speaker_change": true
+  },
+  {
+   "start": 590.08,
+   "end": 590.44,
+   "text": "urânio,",
+   "turn": 14,
+   "speaker_change": true
+  },
+  {
+   "start": 590.44,
+   "end": 595.2,
+   "text": "uma mina de urânio e fosfato há 30 anos esperando licenciamento.",
+   "turn": 15,
+   "speaker_change": true
+  },
+  {
+   "start": 595.2,
+   "end": 596.32,
+   "text": "É urânio e fosfato.",
+   "turn": 15,
+   "speaker_change": false
+  },
+  {
+   "start": 596.32,
+   "end": 601.48,
+   "text": "O país importa fosfato, tem fosfato lá em Santa Quitéria esperando o licenciamento.",
+   "turn": 15,
+   "speaker_change": false
+  },
+  {
+   "start": 601.48,
+   "end": 607.04,
+   "text": "Ibama, não sei se FUNAI da metida, Ministério Público, estão interditando Santa Quitéria.",
+   "turn": 15,
+   "speaker_change": false
+  },
+  {
+   "start": 607.04,
+   "end": 609.96,
+   "text": "Isso aí poderia gerar riqueza pra cidade, pro estado e pro Brasil.",
+   "turn": 15,
+   "speaker_change": false
+  },
+  {
+   "start": 609.96,
+   "end": 610.48,
+   "text": "Tá lá parado.",
+   "turn": 15,
+   "speaker_change": false
+  },
+  {
+   "start": 610.48,
+   "end": 610.88,
+   "text": "Ex. Exato.",
+   "turn": 16,
+   "speaker_change": true
+  },
+  {
+   "start": 610.88,
+   "end": 613.28,
+   "text": "É mais fácil o comando ver fazer uma bomba suja.",
+   "turn": 16,
+   "speaker_change": false
+  },
+  {
+   "start": 613.28,
+   "end": 616.44,
+   "text": "com urânio do que a gente produzir fertilizante para nossa agricultura.",
+   "turn": 16,
+   "speaker_change": false
+  },
+  {
+   "start": 616.44,
+   "end": 618.44,
+   "text": "Essa é a piada nacional que a gente tá vivendo.",
+   "turn": 16,
+   "speaker_change": false
+  },
+  {
+   "start": 618.44,
+   "end": 621.36,
+   "text": "Hoje as forças armadas reclamam muito de falta de recursos.",
+   "turn": 17,
+   "speaker_change": true
+  },
+  {
+   "start": 621.36,
+   "end": 635.8,
+   "text": "O mundo há 20 anos, quando você tinha uma ordem global com ONU e etc, se imaginava que olha, tudo bem, vai ser difícil alguém entrar aqui, invadir, Terrajaras estão em discussão, Brasil é a segunda maior reserva do mundo, temos Amazônia Azul.",
+   "turn": 17,
+   "speaker_change": false
+  },
+  {
+   "start": 635.8,
+   "end": 652.76,
+   "text": "Então essa discussão não tava tão latente diante de um presidente agora, Donald Trump, que entrou para aprender Maduro, que agora tá fazendo o que tá fazendo eh naquela região do Oriente Médio e tudo mais, eh a gente se depara, por exemplo, com a informação de que o Brasil não tem defesa aérea.",
+   "turn": 17,
+   "speaker_change": false
+  },
+  {
+   "start": 652.76,
+   "end": 654,
+   "text": "O Brasil não tem defesa aérea.",
+   "turn": 17,
+   "speaker_change": false
+  },
+  {
+   "start": 654,
+   "end": 657.92,
+   "text": "Se ele quiser fazer o que ele fez, o Trump com Maduro, entra aqui adoidado.",
+   "turn": 17,
+   "speaker_change": false
+  },
+  {
+   "start": 657.92,
+   "end": 666.32,
+   "text": "Inclusive, o Lula teria chamado uma reunião com os eh com o ministro da defesa também, com Múcio e com o chefe das Forzas Armadas para falar sobre esse assunto.",
+   "turn": 17,
+   "speaker_change": false
+  },
+  {
+   "start": 666.32,
+   "end": 671.32,
+   "text": "Qual a sua visão sobre um projeto de defesa para o Brasil diante desse mundo que a gente tá vivendo?",
+   "turn": 17,
+   "speaker_change": false
+  },
+  {
+   "start": 671.32,
+   "end": 672.28,
+   "text": "Renan, por favor,",
+   "turn": 18,
+   "speaker_change": true
+  },
+  {
+   "start": 672.28,
+   "end": 683.32,
+   "text": "de maneira cara, eu me sinto dadas as devidas proporções, como o Church Pré Segunda Guerra, avisando: \"Olha, vai dar ruim, aquele cara do bigodinho tá avançando aqui, avançou nos sudetos, vai dar ruim.",
+   "turn": 19,
+   "speaker_change": true
+  },
+  {
+   "start": 683.32,
+   "end": 687.72,
+   "text": "O mundo está indo para um clima de guerra fria e que tá cada vez mais quente.",
+   "turn": 19,
+   "speaker_change": false
+  },
+  {
+   "start": 687.72,
+   "end": 692.2,
+   "text": "E as principais nações dispõe de tecnologias que a gente nem tem ideia na área militar.",
+   "turn": 19,
+   "speaker_change": false
+  },
+  {
+   "start": 692.2,
+   "end": 700.4,
+   "text": "Não, pouca gente acompanhou e pouca gente cobriu no Brasil o que foi o manifesto da Palantir, que é a principal empresa de tecnologia militar hoje dos Estados Unidos.",
+   "turn": 19,
+   "speaker_change": false
+  },
+  {
+   "start": 700.4,
+   "end": 709.96,
+   "text": "são técnicas de guerra, técnicas de eh cybermilitares, drones, estratégias das mais diversas que o Brasil nem sequer possui ferramentas para fazer esse para iniciar esse enfrentamento.",
+   "turn": 19,
+   "speaker_change": false
+  },
+  {
+   "start": 709.96,
+   "end": 713.96,
+   "text": "Alguns dizem que até teriam usado isso na invasão lá para pegar uma dúvida.",
+   "turn": 20,
+   "speaker_change": true
+  },
+  {
+   "start": 713.96,
+   "end": 714.52,
+   "text": "Sim.",
+   "turn": 21,
+   "speaker_change": true
+  },
+  {
+   "start": 714.52,
+   "end": 718.04,
+   "text": "Não, aliás, os relatos dos militares venezuelanos são assustadores.",
+   "turn": 21,
+   "speaker_change": false
+  },
+  {
+   "start": 718.04,
+   "end": 720.64,
+   "text": "Olha, eu nunca vi o tipo de técnica que foi utilizada aqui.",
+   "turn": 21,
+   "speaker_change": false
+  },
+  {
+   "start": 720.64,
+   "end": 725.2,
+   "text": "Nós não temos hoje condições de defender o nosso próprio território num conflito.",
+   "turn": 21,
+   "speaker_change": false
+  },
+  {
+   "start": 725.2,
+   "end": 727.2,
+   "text": "Só que o nosso território é cobiçado.",
+   "turn": 21,
+   "speaker_change": false
+  },
+  {
+   "start": 727.2,
+   "end": 735.64,
+   "text": "Como você colocou na sua pergunta inicial, nós dispomos das terras raras, de recursos naturais, água, território, solo fértil e nós somos um terreno em disputa.",
+   "turn": 21,
+   "speaker_change": false
+  },
+  {
+   "start": 735.64,
+   "end": 741.84,
+   "text": "A China estava tentando fazer sua ocupação geopolítica aqui nas na América Latina e os Estados Unidos nos vêm como reserva estratégica.",
+   "turn": 21,
+   "speaker_change": false
+  },
+  {
+   "start": 741.84,
+   "end": 758.52,
+   "text": "Então nós estaremos no meio desse conflito e é um conflito que vai chegar paraas Américas e nós temos por necessidade, se quisermos manter o nosso território de dimensões imperiais, continentais, temos como necessidade nacionalista manter o nosso país íntegro, se defendendo, usando o que há de melhor em técnica.",
+   "turn": 21,
+   "speaker_change": false
+  },
+  {
+   "start": 758.52,
+   "end": 763.12,
+   "text": "E nós temos uma oportunidade que assim foi nos dada por Deus, que foram as terras raras.",
+   "turn": 21,
+   "speaker_change": false
+  },
+  {
+   "start": 763.12,
+   "end": 772.24,
+   "text": "boa parte os equipamentos militares de última geração, os a indústria de semicondutores, os os drones, esses equipamentos necessitam das terras raras.",
+   "turn": 21,
+   "speaker_change": false
+  },
+  {
+   "start": 772.24,
+   "end": 775.76,
+   "text": "E nós estamos discutindo agora para quem a gente vai vender a terra rara.",
+   "turn": 21,
+   "speaker_change": false
+  },
+  {
+   "start": 775.76,
+   "end": 783.32,
+   "text": "Nós temos que ter uma agenda de competitividade, ter, como ela trouxe, uma espaço fiscal, por isso que eu falo muito de reforma fiscal na área da despesa.",
+   "turn": 21,
+   "speaker_change": false
+  },
+  {
+   "start": 783.32,
+   "end": 792.52,
+   "text": "Tem que ter uma reforma fiscal na área da despesa para sobrar dinheiro, pra gente fazer os investimentos corretos e com base nisso trazer negociar com os Estados Unidos ou com a China ou quem for.",
+   "turn": 21,
+   "speaker_change": false
+  },
+  {
+   "start": 792.52,
+   "end": 807.68,
+   "text": "não só a produção das terras raras e a exportação delas, mas trazer a indústria de semicondutores, trazer a indústria bélica, fazer acordos de transferência de tecnologia e aí a gente começar a construir uma uma indústria de defesa de alta capacidade para que o Brasil possa se preparar para mundo novo que vem aí.",
+   "turn": 21,
+   "speaker_change": false
+  },
+  {
+   "start": 807.68,
+   "end": 811.2,
+   "text": "Esse mundo novo que vem aí não vai ter o Brasil só como um espectador.",
+   "turn": 21,
+   "speaker_change": false
+  },
+  {
+   "start": 811.2,
+   "end": 814.12,
+   "text": "A nossa estratégia de sobrevivência nesse mundo é diferente.",
+   "turn": 21,
+   "speaker_change": false
+  },
+  {
+   "start": 814.12,
+   "end": 822.44,
+   "text": "O pacto, como você colocou, pacto pós- Segunda Guerra Mundial, o multilateralismo, os organismos internacionais, tudo isso estão sendo relativizados.",
+   "turn": 21,
+   "speaker_change": false
+  },
+  {
+   "start": 822.44,
+   "end": 828.52,
+   "text": "A gente tá vendo isso na Ucrânia, viu na Venezuela, vai ver provavelmente em Taiwan, e nós temos que agora estar pronto para esse mundo.",
+   "turn": 21,
+   "speaker_change": false
+  },
+  {
+   "start": 828.52,
+   "end": 830.76,
+   "text": "Esse mundo é um mundo que pode ser muito cruel com o Brasil.",
+   "turn": 21,
+   "speaker_change": false
+  },
+  {
+   "start": 830.76,
+   "end": 834.28,
+   "text": "Renan, eu preciso chamar aqui o nosso intervalo, mas só para complementar uma questão.",
+   "turn": 21,
+   "speaker_change": false
+  },
+  {
+   "start": 834.28,
+   "end": 837.52,
+   "text": "A Thaís perguntou sobre como também subsidiar isso, né?",
+   "turn": 21,
+   "speaker_change": false
+  },
+  {
+   "start": 837.52,
+   "end": 839.92,
+   "text": "Esse aumento de investimento em defesa.",
+   "turn": 21,
+   "speaker_change": false
+  },
+  {
+   "start": 839.92,
+   "end": 849.88,
+   "text": "Eh, o senhor acha que às vezes, por exemplo, a exploração que ainda não aconteceu, regulamentar e explorar mais terras raras, você pode pegar uma parte desse dinheiro e direcionar para investimento de defesa?",
+   "turn": 21,
+   "speaker_change": false
+  },
+  {
+   "start": 849.88,
+   "end": 853.64,
+   "text": "Da onde você acha que pode vir esse recurso que realmente não é pouco para o investimento nessa área?",
+   "turn": 21,
+   "speaker_change": false
+  },
+  {
+   "start": 853.64,
+   "end": 855.12,
+   "text": "Eu vou, eu vou mais longe do que isso.",
+   "turn": 21,
+   "speaker_change": false
+  },
+  {
+   "start": 855.12,
+   "end": 859.84,
+   "text": "Não é apenas, por exemplo, pegar um pedaço dos royalties e direcionar pra área de defesa.",
+   "turn": 21,
+   "speaker_change": false
+  },
+  {
+   "start": 859.84,
+   "end": 865.96,
+   "text": "Eu tô falando em montar uma cadeia de indústria bélica no Brasil com transferência de tecnologia.",
+   "turn": 21,
+   "speaker_change": false
+  },
+  {
+   "start": 865.96,
+   "end": 871.04,
+   "text": "Eu volto, o Brasil é o segundo lugar, o lugar no mundo com mais reservas de terras aras.",
+   "turn": 21,
+   "speaker_change": false
+  },
+  {
+   "start": 871.04,
+   "end": 879.08,
+   "text": "Portanto, usemos isso como barganha, tal qual o Vargas soube utilizar durante a Segunda Guerra Mundial, a barganha do peso do Brasil para instalação de indústria ciderúrgica aqui.",
+   "turn": 21,
+   "speaker_change": false
+  },
+  {
+   "start": 879.08,
+   "end": 880.28,
+   "text": "CSN lá em Volta Redonda.",
+   "turn": 21,
+   "speaker_change": false
+  },
+  {
+   "start": 880.28,
+   "end": 880.6,
+   "text": "Exato.",
+   "turn": 22,
+   "speaker_change": true
+  },
+  {
+   "start": 880.6,
+   "end": 883.44,
+   "text": "Precisamos utilizar isso como barganha para nos posicionarmos.",
+   "turn": 22,
+   "speaker_change": false
+  },
+  {
+   "start": 883.44,
+   "end": 884.4,
+   "text": "E é urgente.",
+   "turn": 22,
+   "speaker_change": false
+  },
+  {
+   "start": 884.4,
+   "end": 887.84,
+   "text": "O problema é que no debate público no Brasil os dois principais candidatos não falam disso.",
+   "turn": 22,
+   "speaker_change": false
+  },
+  {
+   "start": 887.84,
+   "end": 890.2,
+   "text": "Um só fala em soltar o pai e outro fala em pé de meia.",
+   "turn": 22,
+   "speaker_change": false
+  },
+  {
+   "start": 890.2,
+   "end": 894.32,
+   "text": "Enquanto isso, daqui 30 anos talvez não tenha país para soltar ninguém, nem para botar pé de meia.",
+   "turn": 22,
+   "speaker_change": false
+  },
+  {
+   "start": 894.32,
+   "end": 900.96,
+   "text": "É, o Brasil hoje tá discutindo aí algumas matérias, já estão fazendo parte do dia a dia do Congresso, né?",
+   "turn": 23,
+   "speaker_change": true
+  },
+  {
+   "start": 900.96,
+   "end": 911.32,
+   "text": "Uma delas é essa redução do das horas de trabalho, esse projeto que tá aí, um projeto que eu até o primeiro projeto eu chamo de absurdo, que é o 4x3.",
+   "turn": 23,
+   "speaker_change": false
+  },
+  {
+   "start": 911.32,
+   "end": 917.2,
+   "text": "você trabalha quatro dias e folga três, até que seria bom, mas é inteiramente fora da realidade.",
+   "turn": 23,
+   "speaker_change": false
+  },
+  {
+   "start": 917.2,
+   "end": 926.48,
+   "text": "Mas o governo tem um outro que a que vai além disso e de maneira um pouco mais eh digamos amadurecida.",
+   "turn": 23,
+   "speaker_change": false
+  },
+  {
+   "start": 926.48,
+   "end": 929.24,
+   "text": "A oposição tem sua posição 5 por do, né?",
+   "turn": 23,
+   "speaker_change": false
+  },
+  {
+   "start": 929.24,
+   "end": 938.68,
+   "text": "O se por um vai por 6 por do com possibilidade de negociar casos específicos, bem diferente do do 4x3, que é inteiramente absurdo, né?",
+   "turn": 23,
+   "speaker_change": false
+  },
+  {
+   "start": 938.68,
+   "end": 946.2,
+   "text": "Mas enfim, esse assunto veio para ficar, vai ser discutido e vai acabar sendo eh indo à votação no Congresso.",
+   "turn": 23,
+   "speaker_change": false
+  },
+  {
+   "start": 946.2,
+   "end": 946.64,
+   "text": "Ana,",
+   "turn": 23,
+   "speaker_change": false
+  },
+  {
+   "start": 946.64,
+   "end": 952.2,
+   "text": "eh eu não sei exatamente se a votação vai acompanhar o que aconteceu na CCJ.",
+   "turn": 24,
+   "speaker_change": true
+  },
+  {
+   "start": 952.2,
+   "end": 954.8,
+   "text": "Para mim, há um há um vício de origem nessa história.",
+   "turn": 24,
+   "speaker_change": false
+  },
+  {
+   "start": 954.8,
+   "end": 955.88,
+   "text": "E qual o vício de origem?",
+   "turn": 24,
+   "speaker_change": false
+  },
+  {
+   "start": 955.88,
+   "end": 956.96,
+   "text": "O fato de ser uma PEC.",
+   "turn": 24,
+   "speaker_change": false
+  },
+  {
+   "start": 956.96,
+   "end": 958.32,
+   "text": "Não precisava ser uma PEC.",
+   "turn": 24,
+   "speaker_change": false
+  },
+  {
+   "start": 958.32,
+   "end": 959.32,
+   "text": "O governo é projeto.",
+   "turn": 25,
+   "speaker_change": true
+  },
+  {
+   "start": 959.32,
+   "end": 961.44,
+   "text": "Poderia ser um É que o que passou na CCJ é a PEC.",
+   "turn": 26,
+   "speaker_change": true
+  },
+  {
+   "start": 961.44,
+   "end": 963.56,
+   "text": "Foi a PEC, mas o governo vai apresentar um projeto.",
+   "turn": 27,
+   "speaker_change": true
+  },
+  {
+   "start": 963.56,
+   "end": 967.88,
+   "text": "É. É que o que está como o a PEC tá andando, o showzinho está rodando na PEC.",
+   "turn": 27,
+   "speaker_change": false
+  },
+  {
+   "start": 967.88,
+   "end": 975.32,
+   "text": "E me parece que há uma vontade dos parlamentares à esquerda em se promoverem discutindo isso, e os parlamentares de direita em não regerar rejeição.",
+   "turn": 27,
+   "speaker_change": false
+  },
+  {
+   "start": 975.32,
+   "end": 980.12,
+   "text": "Já é a segunda vez que uma pauta que é cara pra esquerda conta com a capitulação da direita.",
+   "turn": 27,
+   "speaker_change": false
+  },
+  {
+   "start": 980.12,
+   "end": 987.56,
+   "text": "O bolsonarismo lá no PL da Misoginia votou junto com a esquerda e depois fica apontando o dedo para todo mundo, chama todo mundo de comunista se você não apoia cegamente o Bolsonaro.",
+   "turn": 27,
+   "speaker_change": false
+  },
+  {
+   "start": 987.56,
+   "end": 989.44,
+   "text": "O que é uma covardia, uma capitulação.",
+   "turn": 27,
+   "speaker_change": false
+  },
+  {
+   "start": 989.44,
+   "end": 998.36,
+   "text": "Inclusive combina muito com o Flávio Bolsonaro que não gosta de ir em programas como esse aqui e que disse publicamente que não pretende mostrar suas propostas porque isso pode tirar voto dele.",
+   "turn": 27,
+   "speaker_change": false
+  },
+  {
+   "start": 998.36,
+   "end": 1000.24,
+   "text": "Eu tenho que falar o que é impopular.",
+   "turn": 27,
+   "speaker_change": false
+  },
+  {
+   "start": 1000.24,
+   "end": 1002.8,
+   "text": "Este projeto ele é picaretagem.",
+   "turn": 27,
+   "speaker_change": false
+  },
+  {
+   "start": 1002.8,
+   "end": 1014.48,
+   "text": "E é picaretagem para pegar especialmente trabalhadores urbanos que gastam boa parte do seu dia no trânsito e é uma pessoa que sai de uma periferia e vai trabalhar no centro aqui em São Paulo, demora 2 horas, perde 2 horas para ir, 2 horas para voltar.",
+   "turn": 27,
+   "speaker_change": false
+  },
+  {
+   "start": 1014.48,
+   "end": 1017.56,
+   "text": "Quando você vê, ela perde mais de 20 horas, uma semana, só em trânsito.",
+   "turn": 27,
+   "speaker_change": false
+  },
+  {
+   "start": 1017.56,
+   "end": 1023.16,
+   "text": "Perde tempo de ficar com a família, tempo de ficar com os amigos, tempo de se qualificar, tempo de fazer um curso, um treinamento.",
+   "turn": 27,
+   "speaker_change": false
+  },
+  {
+   "start": 1023.16,
+   "end": 1024.6,
+   "text": "Essa pessoa na prática sofre isso.",
+   "turn": 27,
+   "speaker_change": false
+  },
+  {
+   "start": 1024.6,
+   "end": 1034.64,
+   "text": "Aí eles pegaram essa dor e estão tentando voltar a ter um tipo de conexão com o trabalhador comum, conexão que eles perderam porque passaram os últimos anos só falando de, ah, sou trans, sou mulher ou não sou.",
+   "turn": 27,
+   "speaker_change": false
+  },
+  {
+   "start": 1034.64,
+   "end": 1041.68,
+   "text": "umas discussões bizantinas que não t utilidade prática nenhuma pro trabalhador e eles em pesquisa, o PT já encomendou pesquisa, viram que eles estão perdendo esse trabalhador.",
+   "turn": 27,
+   "speaker_change": false
+  },
+  {
+   "start": 1041.68,
+   "end": 1047,
+   "text": "Então eles puxaram essa pauta simplesmente para poder voltar a crescer em termos eleitorais com essa população.",
+   "turn": 27,
+   "speaker_change": false
+  },
+  {
+   "start": 1047,
+   "end": 1053.72,
+   "text": "Eu concordo com o Aldo no aspecto de que nós temos que acompanhar as legislações internacionais que estão funcionando e não só dos Estados Unidos, da China.",
+   "turn": 27,
+   "speaker_change": false
+  },
+  {
+   "start": 1053.72,
+   "end": 1062.2,
+   "text": "a gente tá perdendo h nas cadeias globais de produção espaço pro Vietnã, pro Índia e a Índia está num acelerado processo de industrialização.",
+   "turn": 27,
+   "speaker_change": false
+  },
+  {
+   "start": 1062.2,
+   "end": 1066.52,
+   "text": "E quando acompanha as leis trabalhistas em todos esses lugares, elas são muito mais flexíveis.",
+   "turn": 27,
+   "speaker_change": false
+  },
+  {
+   "start": 1066.52,
+   "end": 1076.24,
+   "text": "O que eu preciso avisar pro trabalhador brasileiro é: você precisa de flexibilidade para fazer seus contratos e o seu trabalho, como acontece nessas outras nações em que a renda do trabalhador aumenta e o trabalho formal aumenta.",
+   "turn": 27,
+   "speaker_change": false
+  },
+  {
+   "start": 1076.24,
+   "end": 1080.24,
+   "text": "Aqui o trabalho formal diminui e a renda do trabalhador tá apertada.",
+   "turn": 27,
+   "speaker_change": false
+  },
+  {
+   "start": 1080.24,
+   "end": 1089.16,
+   "text": "E aí me soa e e isso que eu vi em alguns estados do Nordeste que parece que o governo quer mais que a pessoa caia na informalidade e depois receba uma bolsa ali e fique dependente do do estado.",
+   "turn": 27,
+   "speaker_change": false
+  },
+  {
+   "start": 1089.16,
+   "end": 1090.24,
+   "text": "Eu não acredito nisso.",
+   "turn": 27,
+   "speaker_change": false
+  },
+  {
+   "start": 1090.24,
+   "end": 1098.8,
+   "text": "Eu defendo o trabalho fornal e regimes e do ponto de vista do da relação trabalho trabalhadora empresa, regimes mais flexíveis.",
+   "turn": 27,
+   "speaker_change": false
+  },
+  {
+   "start": 1098.8,
+   "end": 1104.88,
+   "text": "Contratar uma pessoa, demitir uma pessoa, não tem que ser esse drama todo, como não é nas nações desenvolvidas em desenvolvimento.",
+   "turn": 27,
+   "speaker_change": false
+  },
+  {
+   "start": 1104.88,
+   "end": 1106.36,
+   "text": "Mas no Brasil é sempre esse drama.",
+   "turn": 27,
+   "speaker_change": false
+  },
+  {
+   "start": 1106.36,
+   "end": 1111.28,
+   "text": "E aí sempre quando você tem um drama aparece um populista no meio tentando tirar voto em cima do sofrimento das pessoas.",
+   "turn": 27,
+   "speaker_change": false
+  },
+  {
+   "start": 1111.28,
+   "end": 1111.92,
+   "text": "Não acredito.",
+   "turn": 27,
+   "speaker_change": false
+  },
+  {
+   "start": 1111.92,
+   "end": 1116,
+   "text": "E diferente da direita bolsonista, nós vamos nos opor publicamente ao projeto.",
+   "turn": 27,
+   "speaker_change": false
+  },
+  {
+   "start": 1116,
+   "end": 1119.4,
+   "text": "Deixa eu colocar um outro assunto aqui na roda que tá todo dia no noticiário.",
+   "turn": 28,
+   "speaker_change": true
+  },
+  {
+   "start": 1119.4,
+   "end": 1120.8,
+   "text": "Aliás, a gente brinca, né?",
+   "turn": 28,
+   "speaker_change": false
+  },
+  {
+   "start": 1120.8,
+   "end": 1132.28,
+   "text": "Eu participo do jornal Gente na Rádio Bandeirantes na Band News TV, que há uns alguns anos não houve edição do jornal em que a sigla STF não tenha sido pronunciada.",
+   "turn": 28,
+   "speaker_change": false
+  },
+  {
+   "start": 1132.28,
+   "end": 1136.88,
+   "text": "Mas se eu olhar para trás há 20, 30 anos, que que você falava do Supremo?",
+   "turn": 28,
+   "speaker_change": false
+  },
+  {
+   "start": 1136.88,
+   "end": 1137.8,
+   "text": "Nada, nada.",
+   "turn": 28,
+   "speaker_change": false
+  },
+  {
+   "start": 1137.8,
+   "end": 1139.92,
+   "text": "Ninguém sabia às vezes nem falar do ministro, né?",
+   "turn": 29,
+   "speaker_change": true
+  },
+  {
+   "start": 1139.92,
+   "end": 1140.2,
+   "text": "Isso.",
+   "turn": 29,
+   "speaker_change": false
+  },
+  {
+   "start": 1140.2,
+   "end": 1140.8,
+   "text": "Nada.",
+   "turn": 29,
+   "speaker_change": false
+  },
+  {
+   "start": 1140.8,
+   "end": 1141.84,
+   "text": "Quem compõe?",
+   "turn": 29,
+   "speaker_change": false
+  },
+  {
+   "start": 1141.84,
+   "end": 1144.76,
+   "text": "Quem que gosta do azul, do amarelo?",
+   "turn": 29,
+   "speaker_change": false
+  },
+  {
+   "start": 1144.76,
+   "end": 1146.24,
+   "text": "Hoje a gente sabe tudo.",
+   "turn": 29,
+   "speaker_change": false
+  },
+  {
+   "start": 1146.24,
+   "end": 1150.04,
+   "text": "Queria ouvir então os dois pré-candidatos aqui no canal Livre sobre isso.",
+   "turn": 30,
+   "speaker_change": true
+  },
+  {
+   "start": 1150.04,
+   "end": 1156.12,
+   "text": "Papel do Supremo, se vocês acham que há hoje algum tipo de disfunção no equilíbrio entre os três poderes.",
+   "turn": 30,
+   "speaker_change": false
+  },
+  {
+   "start": 1156.12,
+   "end": 1161.96,
+   "text": "E caso vocês cheguem à presidência da República, o que é que tá na mão do poder executivo?",
+   "turn": 30,
+   "speaker_change": false
+  },
+  {
+   "start": 1161.96,
+   "end": 1167.36,
+   "text": "para eh resolver um problema, se ele existir, no entender de vocês.",
+   "turn": 30,
+   "speaker_change": false
+  },
+  {
+   "start": 1167.36,
+   "end": 1169.12,
+   "text": "Deixa eu começar com o Renan.",
+   "turn": 30,
+   "speaker_change": false
+  },
+  {
+   "start": 1169.12,
+   "end": 1182.48,
+   "text": "Bom, ah, a partir de 2012, quando a gente tá discutindo embargos infringentes ali, a discussão sobre menção, a gente começa a ouvir falar do STF e hoje, né, estamos em 2026, ano de Copa, a gente sabe os 11 do STF, mas não sabe os 11 que vão estar na seleção brasileira, né?",
+   "turn": 31,
+   "speaker_change": true
+  },
+  {
+   "start": 1182.48,
+   "end": 1189.8,
+   "text": "E na verdade o Xandão e o Neymar são os objetos de polêmica nacional, mas a real o Supremo tem que voltar pra sua caixinha.",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 1189.8,
+   "end": 1198.12,
+   "text": "E a caixinha é uma caixinha que ele trata de temas abstratos, ligado a discussões sobre constitucionalidade de temas nações e não como última instância de processos.",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 1198.12,
+   "end": 1203.2,
+   "text": "O Supremo brasileiro recebe coisa de 8.000 processos, a Suprema Corte americana 50.",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 1203.2,
+   "end": 1208.4,
+   "text": "E eu nem concordo com o modelo da Suprema Corte americana que trabalha às vezes como, vamos dizer, última instância.",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 1208.4,
+   "end": 1216.44,
+   "text": "Eu acho que o nosso modelo tem que ser de discussões que envolvam, olha, isso aqui é um direito fundamental, não, essa lei que passou, esse direito, é só isso.",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 1216.44,
+   "end": 1225.64,
+   "text": "Atualmente é uma banca de negócios, atualmente é uma entidade que cruza todas as linhas possíveis, seja junto ao legislativo, seja junto ao poder executivo.",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 1225.64,
+   "end": 1231.2,
+   "text": "Atualmente é um instrumento autoritário dos seus pares e ele precisa ser combatido.",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 1231.2,
+   "end": 1239.48,
+   "text": "Essa semana a gente viu um show de horrores do ministro Gilmar Mendes e olha, ele é reputado como o ministro mais inteligente ali, estudar, estudou na Alemanha, falem decano, decan",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 1239.48,
+   "end": 1241.72,
+   "text": "decano tá passando vergonha",
+   "turn": 32,
+   "speaker_change": true
+  },
+  {
+   "start": 1241.72,
+   "end": 1245.28,
+   "text": "agora deu um presente para Romeu Zema, adversário de vocês.",
+   "turn": 33,
+   "speaker_change": true
+  },
+  {
+   "start": 1245.28,
+   "end": 1249,
+   "text": "O Zema fez um videozinho lá de de e ele pirou com o vídeo.",
+   "turn": 33,
+   "speaker_change": false
+  },
+  {
+   "start": 1249,
+   "end": 1250.24,
+   "text": "Isso é isso é de uma insanidade.",
+   "turn": 33,
+   "speaker_change": false
+  },
+  {
+   "start": 1250.24,
+   "end": 1253.56,
+   "text": "O que ele fez com o senador Alessandro Vieira, isso não é normal.",
+   "turn": 33,
+   "speaker_change": false
+  },
+  {
+   "start": 1253.56,
+   "end": 1255.16,
+   "text": "Mesma coisa com o Alexandre de Moraes.",
+   "turn": 33,
+   "speaker_change": false
+  },
+  {
+   "start": 1255.16,
+   "end": 1260.88,
+   "text": "E aí quando pegam as coisas indecorosas, as participações no escândalo do Banco Master, eles ficam fingindo de louco.",
+   "turn": 33,
+   "speaker_change": false
+  },
+  {
+   "start": 1260.88,
+   "end": 1264.96,
+   "text": "O Alexandre de Mores, mentira, aquele contrato com a minha esposa não existiu, como não existiu?",
+   "turn": 33,
+   "speaker_change": false
+  },
+  {
+   "start": 1264.96,
+   "end": 1266.56,
+   "text": "Aí depois o COAF pega, não, não.",
+   "turn": 33,
+   "speaker_change": false
+  },
+  {
+   "start": 1266.56,
+   "end": 1268.76,
+   "text": "Teve 80 milhões ali que foram depositados.",
+   "turn": 33,
+   "speaker_change": false
+  },
+  {
+   "start": 1268.76,
+   "end": 1270,
+   "text": "Ah, então existiu.",
+   "turn": 33,
+   "speaker_change": false
+  },
+  {
+   "start": 1270,
+   "end": 1270.92,
+   "text": "Ah, não, eu nunca vi ele.",
+   "turn": 33,
+   "speaker_change": false
+  },
+  {
+   "start": 1270.92,
+   "end": 1271.6,
+   "text": "Aí depois pegaram.",
+   "turn": 33,
+   "speaker_change": false
+  },
+  {
+   "start": 1271.6,
+   "end": 1273.52,
+   "text": "Não, ele teve em Trancoso.",
+   "turn": 33,
+   "speaker_change": false
+  },
+  {
+   "start": 1273.52,
+   "end": 1277.44,
+   "text": "Perigosíssimo estar em Trancoso com um vorcuro numa numa festa, né?",
+   "turn": 33,
+   "speaker_change": false
+  },
+  {
+   "start": 1277.44,
+   "end": 1279,
+   "text": "Mas ele teve em trancoso.",
+   "turn": 33,
+   "speaker_change": false
+  },
+  {
+   "start": 1279,
+   "end": 1280.36,
+   "text": "O que que tem que acontecer com essas pessoas?",
+   "turn": 33,
+   "speaker_change": false
+  },
+  {
+   "start": 1280.36,
+   "end": 1298.68,
+   "text": "Primeiro tem que chegar um presidente da república que não tenha rabo preso, como foi o caso do Bolsonaro, como é o caso do Lula, e chegar lá e endereçar o tema do impeachment de ministro do STF e uma reforma que acabe com as decisões monocráticas, como acontece no Brasil, 83% das matérias que chegam lá são resolvidas como decisões monocráticas.",
+   "turn": 33,
+   "speaker_change": false
+  },
+  {
+   "start": 1298.68,
+   "end": 1304.36,
+   "text": "Estabelecer um prazo máximo pras pros pedidos de vista que acontecem ali, proibir de maneira perentória.",
+   "turn": 33,
+   "speaker_change": false
+  },
+  {
+   "start": 1304.36,
+   "end": 1306.56,
+   "text": "Já esse prazo já tem, são 80 dias agora.",
+   "turn": 34,
+   "speaker_change": true
+  },
+  {
+   "start": 1306.56,
+   "end": 1314.4,
+   "text": "Mas mas assim, é, mas é o problema é que não são cumpridos e quem deveria fiscalizar eles não fiscaliza, que são eles próprios, que essas loucuras que acontecem.",
+   "turn": 34,
+   "speaker_change": false
+  },
+  {
+   "start": 1314.4,
+   "end": 1321.2,
+   "text": "Outra coisa, os os escritórios de advocacia ligados aparentes, outra coisa, ou o tal do for privilegiado,",
+   "turn": 34,
+   "speaker_change": false
+  },
+  {
+   "start": 1321.2,
+   "end": 1322,
+   "text": "código conduta,",
+   "turn": 35,
+   "speaker_change": true
+  },
+  {
+   "start": 1322,
+   "end": 1329.32,
+   "text": "o código é que é uma discussão que tá rolando ali, eu acho essencial o código de conduta e isso inclui também a impossibilidade de escritórios de advocacia ligados a familiares.",
+   "turn": 36,
+   "speaker_change": true
+  },
+  {
+   "start": 1329.32,
+   "end": 1334.76,
+   "text": "O outro ponto que eu acho que também é importante, a ela não ser a corte que cuida do tal foro privilegiado.",
+   "turn": 36,
+   "speaker_change": false
+  },
+  {
+   "start": 1334.76,
+   "end": 1348.12,
+   "text": "Hoje, sejamos honestos, deputados e senadores não falam sobre o assunto e não vão tocar impeachment do Mils do STF, como aliás o Flávio Bolsaro não vai tocar porque ele tem rabo preso com o Gilmar Mendes e o Diastofle deve favor para eles porque tá todo mundo na mão dos caras.",
+   "turn": 36,
+   "speaker_change": false
+  },
+  {
+   "start": 1348.12,
+   "end": 1351.64,
+   "text": "Precisamos criar uma corte específica que vai cuidar especificamente desses casos.",
+   "turn": 36,
+   "speaker_change": false
+  },
+  {
+   "start": 1351.64,
+   "end": 1362.68,
+   "text": "E ainda tem um outro tema que é caro também pro pro ministro Aldo, que é o caso das ONGs que fazem lobby junto, vamos falar os nomes, com rede de sustentabilidade, com PSOL, que chegam lá e ficam brecando obras, parando projetos que passam.",
+   "turn": 36,
+   "speaker_change": false
+  },
+  {
+   "start": 1362.68,
+   "end": 1368.16,
+   "text": "Vocês vão ver, podem aguardar a tentativa de sabotagem ao licenciamento ambiental que a gente vai ver nos próximos meses.",
+   "turn": 36,
+   "speaker_change": false
+  },
+  {
+   "start": 1368.16,
+   "end": 1379.92,
+   "text": "Vão tentar sabotar o licenciamento ambiental que vai botar um monte de obra para andar no Brasil simplesmente porque sim, porque tem uma agenda internacional financiada com ONGs tocadas e financiadas poros nossos concorrentes internacionais que vão tentar usar o STF para sabotar o país.",
+   "turn": 36,
+   "speaker_change": false
+  },
+  {
+   "start": 1379.92,
+   "end": 1380.96,
+   "text": "Não podemos deixar.",
+   "turn": 36,
+   "speaker_change": false
+  },
+  {
+   "start": 1380.96,
+   "end": 1383,
+   "text": "Eu, como presidente da República, não deixarei.",
+   "turn": 36,
+   "speaker_change": false
+  },
+  {
+   "start": 1383,
+   "end": 1391.72,
+   "text": "E nós temos que ter ter, vamos dizer, uma política que empodere agora o executivo, porque as pessoas votam no presidente da República e que recoloque o STF nas suas funções naturais.",
+   "turn": 36,
+   "speaker_change": false
+  },
+  {
+   "start": 1391.72,
+   "end": 1392.88,
+   "text": "O legislativo também.",
+   "turn": 36,
+   "speaker_change": false
+  },
+  {
+   "start": 1392.88,
+   "end": 1395.64,
+   "text": "E aí peço para as pessoas votarem direito esse ano, né?",
+   "turn": 36,
+   "speaker_change": false
+  },
+  {
+   "start": 1395.64,
+   "end": 1404.52,
+   "text": "Não tem que ter palhaços, tem que ter pessoas corajosas e probas para tocar esse assunto de maneira inteligente, que esse termo do STF é muito importante, não dá pra gente, infelizmente ele cobre muito espaço.",
+   "turn": 36,
+   "speaker_change": false
+  },
+  {
+   "start": 1404.52,
+   "end": 1410.64,
+   "text": "Caso claro, eu tô falando muito, dia 5 de janeiro, algumas áreas do Brasil que estão sob comando do crime, eu vou colocar em estado de defesa.",
+   "turn": 36,
+   "speaker_change": false
+  },
+  {
+   "start": 1410.64,
+   "end": 1412.92,
+   "text": "Eu tenho certeza absoluta que vai vir uma ação do PSOL.",
+   "turn": 36,
+   "speaker_change": false
+  },
+  {
+   "start": 1412.92,
+   "end": 1416.12,
+   "text": "o pessoal vai botar uma ação e vai ver um ministro, vai dar uma decisão demorocrática barrando.",
+   "turn": 36,
+   "speaker_change": false
+  },
+  {
+   "start": 1416.12,
+   "end": 1425.08,
+   "text": "Só que se a o pedido do estado de defesa passa pelo processo legislativo certinho, obtive a maioria, conseguir, aí a decisão ilegal não se cumpre.",
+   "turn": 36,
+   "speaker_change": false
+  },
+  {
+   "start": 1425.08,
+   "end": 1431.32,
+   "text": "E nós temos que estar presente eh prontos para ter um presidente da República que não obedeça uma decisão ilegal que venha do STF.",
+   "turn": 36,
+   "speaker_change": false
+  },
+  {
+   "start": 1431.32,
+   "end": 1433.32,
+   "text": "Decisão ilegal não se cumpre.",
+   "turn": 36,
+   "speaker_change": false
+  },
+  {
+   "start": 1433.32,
+   "end": 1434.52,
+   "text": "Inclusive já não se cumpriu antes.",
+   "turn": 36,
+   "speaker_change": false
+  },
+  {
+   "start": 1434.52,
+   "end": 1438.24,
+   "text": "Uma vez houve uma decisão do Marco Aurélio mandando afastar o Renan Caleiros.",
+   "turn": 36,
+   "speaker_change": false
+  },
+  {
+   "start": 1438.24,
+   "end": 1445.12,
+   "text": "Renan Caleheiros com nenhuma qualidade moral, vamos deixar claro, falou: \"Não, rolou em passe e derrubaram\".",
+   "turn": 36,
+   "speaker_change": false
+  },
+  {
+   "start": 1445.12,
+   "end": 1446.52,
+   "text": "Que eu acho que tá na hora de fazer isso.",
+   "turn": 36,
+   "speaker_change": false
+  },
+  {
+   "start": 1446.52,
+   "end": 1452.76,
+   "text": "O Bolsonaro ficava comprando, a gente comprou muitos conflitos do período do Bolsonaro em que ele ficava gritando: \"Ah, não gosto do Xandão\".",
+   "turn": 36,
+   "speaker_change": false
+  },
+  {
+   "start": 1452.76,
+   "end": 1456.56,
+   "text": "Aí depois chorava no telefone com o Xandão, como foi relatado, pediu ajuda pro Michel Temer.",
+   "turn": 36,
+   "speaker_change": false
+  },
+  {
+   "start": 1456.56,
+   "end": 1457.8,
+   "text": "Não é assim que se resolve.",
+   "turn": 36,
+   "speaker_change": false
+  },
+  {
+   "start": 1457.8,
+   "end": 1460.64,
+   "text": "Institucionalmente você vai ter que dar um break porque o Supremo vai fazer o quê?",
+   "turn": 36,
+   "speaker_change": false
+  },
+  {
+   "start": 1460.64,
+   "end": 1462.28,
+   "text": "vai te dar um golpe de estado.",
+   "turn": 36,
+   "speaker_change": false
+  },
+  {
+   "start": 1462.28,
+   "end": 1468.4,
+   "text": "Nós precisamos falar se o processo legislativo foi tocado através dos seus agentes devidamente constituídos.",
+   "turn": 36,
+   "speaker_change": false
+  },
+  {
+   "start": 1468.4,
+   "end": 1477.88,
+   "text": "E se o presidente devidamente constituído entrou, vamos dizer, no cumprimento das suas atribuições como um projeto, isso tem que ser respeitado pelo STF, não é? Porque eles querem discutir direitos humanos em Harvard, que vai ser derrubado.",
+   "turn": 36,
+   "speaker_change": false
+  },
+  {
+   "start": 1477.88,
+   "end": 1478.64,
+   "text": "Isso tem que ficar claro.",
+   "turn": 36,
+   "speaker_change": false
+  },
+  {
+   "start": 1478.64,
+   "end": 1483.96,
+   "text": "O próximo presidente da República vai ter que lidar com esse problema e a gente não vai poder fugir desse assunto.",
+   "turn": 36,
+   "speaker_change": false
+  },
+  {
+   "start": 1483.96,
+   "end": 1487.52,
+   "text": "A nossa representação política no Brasil é inteiramente equivocada.",
+   "turn": 37,
+   "speaker_change": true
+  },
+  {
+   "start": 1487.52,
+   "end": 1490.68,
+   "text": "Ela não representa o que deveria representar.",
+   "turn": 37,
+   "speaker_change": false
+  },
+  {
+   "start": 1490.68,
+   "end": 1500.44,
+   "text": "Eh, há alguns projetos muito bons que estão perdidos por lá, propondo o voto distrital, sistema misto, como na Alemanha, propondo o voto em lista.",
+   "turn": 37,
+   "speaker_change": false
+  },
+  {
+   "start": 1500.44,
+   "end": 1502.52,
+   "text": "Isso deve voltar agora.",
+   "turn": 37,
+   "speaker_change": false
+  },
+  {
+   "start": 1502.52,
+   "end": 1504.48,
+   "text": "Eu queria saber a opinião de vocês.",
+   "turn": 37,
+   "speaker_change": false
+  },
+  {
+   "start": 1504.48,
+   "end": 1507.08,
+   "text": "O voto distrital vai, não vai?",
+   "turn": 37,
+   "speaker_change": false
+  },
+  {
+   "start": 1507.08,
+   "end": 1509.08,
+   "text": "O voto atual ele funciona?",
+   "turn": 37,
+   "speaker_change": false
+  },
+  {
+   "start": 1509.08,
+   "end": 1510.2,
+   "text": "Claro que não funciona.",
+   "turn": 37,
+   "speaker_change": false
+  },
+  {
+   "start": 1510.2,
+   "end": 1511.32,
+   "text": "Vocês concordam com isso?",
+   "turn": 37,
+   "speaker_change": false
+  },
+  {
+   "start": 1511.32,
+   "end": 1516.6,
+   "text": "Eu não acredito no voto distrital puro, porque o voto distrital puro no Brasil é apenas empoderamento do centrão.",
+   "turn": 37,
+   "speaker_change": false
+  },
+  {
+   "start": 1516.6,
+   "end": 1521.4,
+   "text": "E a gente tem um modelo político através de emendas e coptação que é um desastre.",
+   "turn": 37,
+   "speaker_change": false
+  },
+  {
+   "start": 1521.4,
+   "end": 1532.8,
+   "text": "E a gente, quanto mais roda o Brasil, mas a gente vê que existe uma versão do voto distrital, que são os políticos que cooptam, vamos dizer, a a as prefeituras locais, distribuem emendas, compram o voto e se mantém com suas famílias por muito tempo.",
+   "turn": 37,
+   "speaker_change": false
+  },
+  {
+   "start": 1532.8,
+   "end": 1536.88,
+   "text": "A reforma que eu quero, tô chamando de lei de responsabilidade gerencial.",
+   "turn": 37,
+   "speaker_change": false
+  },
+  {
+   "start": 1536.88,
+   "end": 1544.24,
+   "text": "é uma norma que altera a seguinte coisa, o sistema de incentivos para o funcionamento das prefeituras e o foco tem que ser no prefeito.",
+   "turn": 37,
+   "speaker_change": false
+  },
+  {
+   "start": 1544.24,
+   "end": 1551.44,
+   "text": "Um prefeito hoje ele ganha uma eleição fazendo um show do Wesley Safadão com a emenda do deputado aliado e aí compra de voto puro e simples.",
+   "turn": 37,
+   "speaker_change": false
+  },
+  {
+   "start": 1551.44,
+   "end": 1551.6,
+   "text": "Isso.",
+   "turn": 37,
+   "speaker_change": false
+  },
+  {
+   "start": 1551.6,
+   "end": 1555.48,
+   "text": "Os municípios pequenos do Brasil funcionam assim e a gente não pode fugir disso.",
+   "turn": 37,
+   "speaker_change": false
+  },
+  {
+   "start": 1555.48,
+   "end": 1558.72,
+   "text": "Até porque não existe democracia na prática no Brasil.",
+   "turn": 37,
+   "speaker_change": false
+  },
+  {
+   "start": 1558.72,
+   "end": 1561.52,
+   "text": "Um país em que tem compra de voto, a gente tem uma democracia nominal.",
+   "turn": 37,
+   "speaker_change": false
+  },
+  {
+   "start": 1561.52,
+   "end": 1569.12,
+   "text": "As pessoas são coptadas no período eleitoral, seja pela máquina pública, seja pela compra de votos, seja pelo caixa dois, votam ali no grupo familiar e o jogo segue.",
+   "turn": 37,
+   "speaker_change": false
+  },
+  {
+   "start": 1569.12,
+   "end": 1578.68,
+   "text": "Nós precisamos então fundir municípios, estabelecer critérios objetivos de avaliação dos prefeitos de modo a um prefeito, se quiser participar de uma reeleição, ele vai ter que cumprir no mínimo.",
+   "turn": 37,
+   "speaker_change": false
+  },
+  {
+   "start": 1578.68,
+   "end": 1592.88,
+   "text": "Se ele tem 10% de cobertura de esgoto naquele município, entrega, vamos supor, 20, o IBGE, o IP, órgãos podem trabalhar nisso, estabelece esses critérios, melhora no ranking do Ceb, melhora cobertura de esgoto, melhora índices ã ligados ao atendimento nas UBSs, nos municípios.",
+   "turn": 37,
+   "speaker_change": false
+  },
+  {
+   "start": 1592.88,
+   "end": 1597.24,
+   "text": "obteve esses índices, participa da reeleição normalmente, pode até fazer seu show do Wesley Safadão.",
+   "turn": 37,
+   "speaker_change": false
+  },
+  {
+   "start": 1597.24,
+   "end": 1600,
+   "text": "Não obteve esses índices, o prefeito tem que ter uma sanção.",
+   "turn": 37,
+   "speaker_change": false
+  },
+  {
+   "start": 1600,
+   "end": 1613.24,
+   "text": "E a segunda coisa que é super simples de resolver, o fundo partidário eleitoral no Brasil, que já é altíssimo, ele não tem que ser condicionado pelo número de Tiriricas ou Nicolas Ferreiras ou Ericas Hilton que você elege no seu partido.",
+   "turn": 37,
+   "speaker_change": false
+  },
+  {
+   "start": 1613.24,
+   "end": 1617.48,
+   "text": "Ele tem que ser condicionado a esses critérios de desempenho objetivo dos seus prefeitos.",
+   "turn": 37,
+   "speaker_change": false
+  },
+  {
+   "start": 1617.48,
+   "end": 1631.2,
+   "text": "Então, um partido tem os prefeitos, os prefeitos obtém bons índices de desempenho metrificados de maneira objetiva, portanto, atendem ao interesse da população local, mesmo quando a população local não saiba avaliar, população local no Brasil não sabe avaliar, por exemplo, a importância do saneamento básico.",
+   "turn": 37,
+   "speaker_change": false
+  },
+  {
+   "start": 1631.2,
+   "end": 1632.56,
+   "text": "Não cobra, eu quero o meu saneamento.",
+   "turn": 37,
+   "speaker_change": false
+  },
+  {
+   "start": 1632.56,
+   "end": 1635,
+   "text": "Ninguém cobra, até porque a obra tá acontecendo debaixo da terra.",
+   "turn": 37,
+   "speaker_change": false
+  },
+  {
+   "start": 1635,
+   "end": 1638,
+   "text": "E aí ninguém liga mesmo com o marco do saneamento tem no passado.",
+   "turn": 37,
+   "speaker_change": false
+  },
+  {
+   "start": 1638,
+   "end": 1650.72,
+   "text": "Então fazer isso obriga os partidos a, opa, eu quero colocar bons prefeitos que vão obter bons índices de desempenho e assim eu tenho mais dinheiro para reinvestir em mais bons prefeitos e administradores públicos de qualidade.",
+   "turn": 37,
+   "speaker_change": false
+  },
+  {
+   "start": 1650.72,
+   "end": 1659.68,
+   "text": "Com esse sistema de incentivo de um lado, e com a punição para o líder político local e para o partido não poder concorrer à eleição, inclusive ficar ineligível por 8 anos naquele município.",
+   "turn": 37,
+   "speaker_change": false
+  },
+  {
+   "start": 1659.68,
+   "end": 1669.72,
+   "text": "Aí a gente começa a balancear, a gente estabelece critérios objetivos de avaliação e isso a gente começa a dimensionar a necessidade das emendas, a função dos deputados federais e a função dos partidos políticos.",
+   "turn": 37,
+   "speaker_change": false
+  },
+  {
+   "start": 1669.72,
+   "end": 1673.56,
+   "text": "Porque hoje o partido político é só uma um nome.",
+   "turn": 37,
+   "speaker_change": false
+  },
+  {
+   "start": 1673.56,
+   "end": 1676.92,
+   "text": "Qual a diferença do PSD pro PP, pro União Brasil, pro NDB?",
+   "turn": 37,
+   "speaker_change": false
+  },
+  {
+   "start": 1676.92,
+   "end": 1678,
+   "text": "Praticamente não serve para nada.",
+   "turn": 37,
+   "speaker_change": false
+  },
+  {
+   "start": 1678,
+   "end": 1682.56,
+   "text": "A representação, a representação popular do jeito que está se manteria.",
+   "turn": 38,
+   "speaker_change": true
+  },
+  {
+   "start": 1682.56,
+   "end": 1684.28,
+   "text": "Lógico, você volta na eleição.",
+   "turn": 38,
+   "speaker_change": false
+  },
+  {
+   "start": 1684.28,
+   "end": 1694.44,
+   "text": "Acontece que o prefeito fica 4 anos mitico, pega aquele município com 2% de esgoto e aí termina com 2% de esgoto ou água potável e a população relege.",
+   "turn": 38,
+   "speaker_change": false
+  },
+  {
+   "start": 1694.44,
+   "end": 1699.6,
+   "text": "Me a pessoa, a população relege ele porque a população tá num nível de pobreza que ela naturalizou o absurdo.",
+   "turn": 38,
+   "speaker_change": false
+  },
+  {
+   "start": 1699.6,
+   "end": 1704.08,
+   "text": "E aí esse prefeito não tem nenhuma obrigação em aumentar a atividade econômica naquele município, nenhuma.",
+   "turn": 38,
+   "speaker_change": false
+  },
+  {
+   "start": 1704.08,
+   "end": 1707.16,
+   "text": "Continua com o Piles na mão pedindo dinheiro do fundo de participação dos municípios.",
+   "turn": 38,
+   "speaker_change": false
+  },
+  {
+   "start": 1707.16,
+   "end": 1720.32,
+   "text": "O dinheiro chega, ele não faz nada de útil, faz o famoso show do Wesley Safadão, do Natanzinho no município, coloca a turma na prefeitura, coopta, a galera faz caixa dois com o dinheiro desviado das emendas que estão na casa dos mais de 60 milhões e o jogo segue.",
+   "turn": 38,
+   "speaker_change": false
+  },
+  {
+   "start": 1720.32,
+   "end": 1721.48,
+   "text": "E ele é reeleito.",
+   "turn": 38,
+   "speaker_change": false
+  },
+  {
+   "start": 1721.48,
+   "end": 1725.16,
+   "text": "Quando a gente vai nas pequenas prefeituras dos lugares mais pobres do Brasil, a gente vê isso.",
+   "turn": 38,
+   "speaker_change": false
+  },
+  {
+   "start": 1725.16,
+   "end": 1728.4,
+   "text": "Por que que é reeleito o prefeito que não melhora nenhum indicador básico?",
+   "turn": 38,
+   "speaker_change": false
+  },
+  {
+   "start": 1728.4,
+   "end": 1735.2,
+   "text": "O prefeito, portanto, não está cumprindo o seu papel constitucional de atender as demandas da população e a população não sabe avaliar.",
+   "turn": 38,
+   "speaker_change": false
+  },
+  {
+   "start": 1735.2,
+   "end": 1742.28,
+   "text": "a gente vai precisar ajudar a população a avaliar de alguma maneira e esses critérios objetivos têm que estar presentes nisso, a não ser que a gente aceite as coisas como elas estão.",
+   "turn": 38,
+   "speaker_change": false
+  },
+  {
+   "start": 1742.28,
+   "end": 1748.08,
+   "text": "Tudo bem, eu vou ver o Maranhão para sempre, sem rua, com eh sem esgoto e com atividade econômica baixíssima.",
+   "turn": 38,
+   "speaker_change": false
+  },
+  {
+   "start": 1748.08,
+   "end": 1750.2,
+   "text": "É isso que a gente quer, a gente chama isso de democracia.",
+   "turn": 38,
+   "speaker_change": false
+  },
+  {
+   "start": 1750.2,
+   "end": 1751.2,
+   "text": "Eu não consigo concordar.",
+   "turn": 38,
+   "speaker_change": false
+  },
+  {
+   "start": 1751.2,
+   "end": 1765.16,
+   "text": "Então uma reforma tem que passar por isso, porque se não alterar isso, ai é distrital misto, é distrital puro, é o modelo alemão, é o modelo português com a lista fechada, meio que não vai fazer diferença, porque o sistema de incentivos vai ser o mesmo.",
+   "turn": 38,
+   "speaker_change": false
+  },
+  {
+   "start": 1765.16,
+   "end": 1767.16,
+   "text": "Eh, qual a sua posição sobre as privatizações?",
+   "turn": 39,
+   "speaker_change": true
+  },
+  {
+   "start": 1767.16,
+   "end": 1773.44,
+   "text": "A gente tá vendo, por exemplo, algumas estatais como Correios, né, apresentando um déficit gigantesco nesses últimos anos.",
+   "turn": 39,
+   "speaker_change": false
+  },
+  {
+   "start": 1773.44,
+   "end": 1778.96,
+   "text": "O senhor, caso presidente, manteria essas empresas estatais ou o senhor pensa em privatizações?",
+   "turn": 39,
+   "speaker_change": false
+  },
+  {
+   "start": 1778.96,
+   "end": 1780.8,
+   "text": "Sou favorável, dependendo do caso.",
+   "turn": 39,
+   "speaker_change": false
+  },
+  {
+   "start": 1780.8,
+   "end": 1790.68,
+   "text": "Agora, num modelo mais amplo, a gente tem que entender que com a chegada da inteligência artificial, machine learning, a gente vai poder utilizar a centralidade do estado de maneira eficiente, como nunca antes na história do Brasil.",
+   "turn": 39,
+   "speaker_change": false
+  },
+  {
+   "start": 1790.68,
+   "end": 1791.92,
+   "text": "Eu tô muito otimista.",
+   "turn": 39,
+   "speaker_change": false
+  },
+  {
+   "start": 1791.92,
+   "end": 1802.04,
+   "text": "A Petrobras ser pública ou ela ser privada é pequeno perto do que a Petrobras e o setor tudo vai poder fazer num mundo em que a o conhecimento ele vai ser compartilhado.",
+   "turn": 39,
+   "speaker_change": false
+  },
+  {
+   "start": 1802.04,
+   "end": 1803.92,
+   "text": "É, é uma novidade muito grande nisso.",
+   "turn": 39,
+   "speaker_change": false
+  },
+  {
+   "start": 1803.92,
+   "end": 1816.2,
+   "text": "Um exemplo, mais que não seja uma empresa pública, o SUS com o uso da inteligência artificial, do machine learning, do prontuário único, do de aplicativos que vão fazer com que você possa se consultar com o médico na hora, ele vai passar por uma revolução nos próximos anos.",
+   "turn": 39,
+   "speaker_change": false
+  },
+  {
+   "start": 1816.2,
+   "end": 1822.4,
+   "text": "Eu era como liberal meio não gosto do SUS, tudo que é meio tem único no nome, eu sou meio contrário.",
+   "turn": 39,
+   "speaker_change": false
+  },
+  {
+   "start": 1822.4,
+   "end": 1827.8,
+   "text": "Hoje eu já olho o modelo centralizado SUS junto com a tecnologia, com machine learning, como uma dádiva.",
+   "turn": 39,
+   "speaker_change": false
+  },
+  {
+   "start": 1827.8,
+   "end": 1838.08,
+   "text": "A gente vai poder fazer uma revolução na área da saúde como a os Estados Unidos hoje não podem fazer, como a Inglaterra tá pensando em fazer, como é o Salvador, a gente citou o Buquell agora h pouco, tá fazendo e o modelo deles é sensacional.",
+   "turn": 39,
+   "speaker_change": false
+  },
+  {
+   "start": 1838.08,
+   "end": 1841.28,
+   "text": "A gente fala muito de segurança, mas a área da saúde é uma revolução.",
+   "turn": 39,
+   "speaker_change": false
+  },
+  {
+   "start": 1841.28,
+   "end": 1855.2,
+   "text": "E aí a centralidade do do estado, o papel eh articulador de forças, agora surgindo também como um papel articulador de inteligência, pode tornar o Brasil um país muito, não só eficiente em entregar seus serviços, mas muito poderoso.",
+   "turn": 39,
+   "speaker_change": false
+  },
+  {
+   "start": 1855.2,
+   "end": 1869.32,
+   "text": "a gente poder usar as terras raras utilizando o estado, como por exemplo um fomentador dessas empresas de tecnologia que vão fazer transparência de tecnologia com empresas americanas explorando esses recursos, o estado não passa a ser um inimigo, ele passa a ser um parceiro nessa construção.",
+   "turn": 39,
+   "speaker_change": false
+  },
+  {
+   "start": 1869.32,
+   "end": 1871.2,
+   "text": "E eu acho que esse futuro vai ser próximo.",
+   "turn": 39,
+   "speaker_change": false
+  },
+  {
+   "start": 1871.2,
+   "end": 1876.24,
+   "text": "A gente precisa finalizar um minuto, se puder também, Renan, na sequência, considerações finais.",
+   "turn": 40,
+   "speaker_change": true
+  },
+  {
+   "start": 1876.24,
+   "end": 1891.16,
+   "text": "De maneira clara pro nosso espectador, disseram para você que o seu futuro é viver numa casa com muro, com medo de sair na rua, porque pode ser ter seu celular tomado, tendo um emprego porcaria e assistindo as grandes coisas do mundo acontecerem em outros países, Estados Unidos, Japão, China, Coreia.",
+   "turn": 40,
+   "speaker_change": false
+  },
+  {
+   "start": 1891.16,
+   "end": 1895.68,
+   "text": "Você aqui no Brasil é um espectador e no máximo torce para um time de futebol que hoje nem é tão competitivo.",
+   "turn": 40,
+   "speaker_change": false
+  },
+  {
+   "start": 1895.68,
+   "end": 1901.92,
+   "text": "Pois bem, o Brasil pode ser glorioso, você pode viver num país em que o bandido vai ser muito preso ou morto quando precisa.",
+   "turn": 40,
+   "speaker_change": false
+  },
+  {
+   "start": 1901.92,
+   "end": 1905.6,
+   "text": "Você pode viver num país em que ganhar dinheiro não será um privilégio, mas será a regra.",
+   "turn": 40,
+   "speaker_change": false
+  },
+  {
+   "start": 1905.6,
+   "end": 1909.6,
+   "text": "Você pode viver num país que será uma das cinco nações mais importantes do mundo.",
+   "turn": 40,
+   "speaker_change": false
+  },
+  {
+   "start": 1909.6,
+   "end": 1913.56,
+   "text": "Você precisa ter imaginação, sonho e acreditar nas pessoas certas na hora certa.",
+   "turn": 40,
+   "speaker_change": false
+  },
+  {
+   "start": 1913.56,
+   "end": 1915.44,
+   "text": "Não fica nessa história de Luli Bolsonaro.",
+   "turn": 40,
+   "speaker_change": false
+  },
+  {
+   "start": 1915.44,
+   "end": 1916.8,
+   "text": "Isso é o passado.",
+   "turn": 40,
+   "speaker_change": false
+  },
+  {
+   "start": 1916.8,
+   "end": 1918.68,
+   "text": "O futuro e o presente já estão chegando.",
+   "turn": 40,
+   "speaker_change": false
+  },
+  {
+   "start": 1918.68,
+   "end": 1920.88,
+   "text": "E o futuro, meu amigo, é glorioso.",
+   "turn": 40,
+   "speaker_change": false
+  },
+  {
+   "start": 1920.88,
+   "end": 1922.4,
+   "text": "Aguardo você nessa aventura.",
+   "turn": 40,
+   "speaker_change": false
+  },
+  {
+   "start": 1922.4,
+   "end": 1923,
+   "text": "He.",
+   "turn": 40,
+   "speaker_change": false
+  }
+ ]
+}
