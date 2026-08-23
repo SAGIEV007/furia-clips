@@ -1106,11 +1106,33 @@ abre no meio da frase e termina antes da resposta acabar — as duas queixas mai
 antigas do editor. O preço declarado: o atravessamento da sabatina sobe de 11%
 para 22%, porque deixar a resposta terminar às vezes entra no assunto seguinte.
 
-**Continua aberto, e é o próximo item:** o podcast não melhorou. Ele fica em 0,29
-do alvo porque seus blocos são fatias de cronômetro de 21s — o defeito é a
-montante do teto, em `_timed_transcript_blocks`, onde a cláusula "termina em
-pontuação e já tem 18s" dispara o tempo todo numa fonte bem pontuada. Mexer nela
-exige uma terceira fonte na régua antes.
+**A terceira fonte entrou e confirmou o teto.** A live IRL do Ceará bate **14
+cortes onde o rotulador vê 14**, razão 1,09 e nenhum atravessamento. Agregado nas
+três: razão 0,95, atravessamento 4%.
+
+Com ela na régua, o defeito a montante do podcast pôde ser mexido. Os limiares de
+`_timed_transcript_blocks` eram 18s e 30s, absolutos, escolhidos quando o teto era
+180s — nessa conta o bloco valia um décimo do corte e servia como peça para o
+modelo juntar. Agora saem do teto (40% e 80% dele), para os dois caminhos não
+discordarem quando a régua o mover. O podcast vai de 0,29 para 0,41 do alvo e o
+atravessamento de 9% para 4%; a live e a sabatina não se movem, porque têm costura
+e nem passam por ali.
+
+Isso expôs um invariante que faltava: **o teto preferencial não podia passar do
+limite duro**, e nada os reconciliava. Enquanto os limiares de bloco eram
+absolutos ninguém via; quando passaram a sair do teto, um seletor pedido com
+`max_duration=30` montava blocos de 48s.
+
+**Continua aberto:** o podcast fica em 0,41 e não em 1,0. O motivo está entendido
+e não é o teto: ali o corte é *um bloco*, e o alvo dele é 94s. Fechar essa
+distância pede **juntar blocos** — o que o comentário do módulo promete desde
+sempre ("the selector may still join blocks when the context requires it") e que
+nunca aconteceu no caminho local. É o próximo item, e agora tem régua para medir.
+
+**A tela de render deixou de ser pulada.** `tests/test_tela_do_estudio.py` pulava
+por falta do Playwright do node — a guarda contra a tela em branco existia e não
+rodava. Com `npm install playwright` na máquina, os três passam. Vale instalar
+onde o Furia for desenvolvido; sem isso a guarda mais cara do projeto fica muda.
 
 **Também continua aberto:** o clipe 1 de João Pessoa tinha 180s e não concluía o
 tema. Esse é o "termina antes da conclusão", que segue sem reprodução estrutural

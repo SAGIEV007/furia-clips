@@ -1,0 +1,2964 @@
+{
+ "fonte": {
+  "videoId": "MVfzAj_YXBo",
+  "url": "https://www.youtube.com/watch?v=MVfzAj_YXBo",
+  "titulo": "RENAN SANTOS E ARTHUR DO VAL NO CEARÁ - LIVE IRL",
+  "duracao_total_s": 14020,
+  "canal": "UCMLluq-qSne85Un73ToYI2w",
+  "trust": "owner"
+ },
+ "janela": {
+  "de_s": 8600.0,
+  "ate_s": 10450.0
+ },
+ "proveniencia": {
+  "transcriptSource": "youtube_auto:d132bb120516f8e5661e3376cd2abbb1095b29995c0a79cb5e88360e16ffb47f",
+  "tokenizerVersion": "sent-pt-v1",
+  "qualityTier": "automatic",
+  "isQuotation": false,
+  "audioVerificationRequired": true,
+  "note": "Texto de legenda do YouTube: é evidência automática para análise e navegação, nunca uma citação. Confira palavras, nomes e números no áudio; audioCheckRanges marca os tokens de maior risco."
+ },
+ "blocos_de_referencia": [
+  {
+   "start": 8684.2,
+   "end": 8767.96,
+   "dur": 83.76,
+   "cortes": 2,
+   "titulo": "Uniformes escolares mudam de cor conforme o partido no poder",
+   "q": "Por que a troca de governo muda a cor dos uniformes escolares em Fortaleza?"
+  },
+  {
+   "start": 8767.96,
+   "end": 9014.92,
+   "dur": 246.96,
+   "cortes": 3,
+   "titulo": "BOP e BEP: diferenças de atuação, treinamento e experiência no sertão",
+   "q": "Como BOP e BEP se diferenciam em atuação, treinamento e experiência no sertão?"
+  },
+  {
+   "start": 9372.2,
+   "end": 9838.68,
+   "dur": 466.48,
+   "cortes": 5,
+   "titulo": "Guerra de facções deixa bairros de Fortaleza sob domínio do crime",
+   "q": "Como a guerra entre facções afeta os moradores de Fortaleza e qual resposta Renan defende?"
+  },
+  {
+   "start": 10082.96,
+   "end": 10191.84,
+   "dur": 108.88,
+   "cortes": 2,
+   "titulo": "Promessa de retomar territórios e derrotar o crime organizado",
+   "q": "Como retomar territórios dominados pelo crime organizado e devolver paz aos moradores?"
+  },
+  {
+   "start": 10281.92,
+   "end": 10385.04,
+   "dur": 103.12,
+   "cortes": 2,
+   "titulo": "Crime organizado é mais forte em Fortaleza por causa dos conflitos habitacionais",
+   "q": "Por que a influência das facções é maior em Fortaleza?"
+  }
+ ],
+ "sentencas": [
+  {
+   "start": 8588.08,
+   "end": 8662,
+   "text": "OK.",
+   "turn": 1200,
+   "speaker_change": false
+  },
+  {
+   "start": 8662,
+   "end": 8664.36,
+   "text": "Se gostam de azul aqui, né meu?",
+   "turn": 1200,
+   "speaker_change": false
+  },
+  {
+   "start": 8664.36,
+   "end": 8667,
+   "text": "Tudo de azul, velho.",
+   "turn": 1200,
+   "speaker_change": false
+  },
+  {
+   "start": 8667,
+   "end": 8677.08,
+   "text": "Nossa, tudo um monte de empresa tudo é azul.",
+   "turn": 1200,
+   "speaker_change": false
+  },
+  {
+   "start": 8677.08,
+   "end": 8683.92,
+   "text": "Você que fortalece uma tradição no nas fardas escolares todo, quando muda o governo tiver PDT, aí a farda fica amarela.",
+   "turn": 1200,
+   "speaker_change": false
+  },
+  {
+   "start": 8683.92,
+   "end": 8684.2,
+   "text": "Ah, é?",
+   "turn": 1201,
+   "speaker_change": true
+  },
+  {
+   "start": 8684.2,
+   "end": 8686.64,
+   "text": "Aí quando é PT, aí a farda fica vermelha.",
+   "turn": 1202,
+   "speaker_change": true
+  },
+  {
+   "start": 8686.64,
+   "end": 8687.52,
+   "text": "Nossa, que ridículo.",
+   "turn": 1202,
+   "speaker_change": false
+  },
+  {
+   "start": 8687.52,
+   "end": 8687.72,
+   "text": "É",
+   "turn": 1203,
+   "speaker_change": true
+  },
+  {
+   "start": 8687.72,
+   "end": 8688.16,
+   "text": "o quê?",
+   "turn": 1204,
+   "speaker_change": true
+  },
+  {
+   "start": 8688.16,
+   "end": 8688.56,
+   "text": "A a",
+   "turn": 1204,
+   "speaker_change": false
+  },
+  {
+   "start": 8688.56,
+   "end": 8689.36,
+   "text": "a f escolar,",
+   "turn": 1205,
+   "speaker_change": true
+  },
+  {
+   "start": 8689.36,
+   "end": 8690.28,
+   "text": "pô, agora tá laranja.",
+   "turn": 1206,
+   "speaker_change": true
+  },
+  {
+   "start": 8690.28,
+   "end": 8691.12,
+   "text": "Laranja verde.",
+   "turn": 1206,
+   "speaker_change": false
+  },
+  {
+   "start": 8691.12,
+   "end": 8691.52,
+   "text": "Não, não.",
+   "turn": 1207,
+   "speaker_change": true
+  },
+  {
+   "start": 8691.52,
+   "end": 8692.64,
+   "text": "Aquela ali é estadual.",
+   "turn": 1207,
+   "speaker_change": false
+  },
+  {
+   "start": 8692.64,
+   "end": 8693,
+   "text": "Ah, estadual.",
+   "turn": 1208,
+   "speaker_change": true
+  },
+  {
+   "start": 8693,
+   "end": 8694.44,
+   "text": "Agora quando você, eu tô falando municipal,",
+   "turn": 1209,
+   "speaker_change": true
+  },
+  {
+   "start": 8694.44,
+   "end": 8694.76,
+   "text": "Municipal.",
+   "turn": 1210,
+   "speaker_change": true
+  },
+  {
+   "start": 8694.76,
+   "end": 8700.2,
+   "text": "Então, por exemplo, você vai chegar agora lá em Fortaleza, você vai ver a a fada vermelha, porque é o Evand PT.",
+   "turn": 1211,
+   "speaker_change": true
+  },
+  {
+   "start": 8700.2,
+   "end": 8702.32,
+   "text": "A, só que antes era o sarto, aí ela era amarela.",
+   "turn": 1211,
+   "speaker_change": false
+  },
+  {
+   "start": 8702.32,
+   "end": 8704.72,
+   "text": "Ah,",
+   "turn": 1211,
+   "speaker_change": false
+  },
+  {
+   "start": 8704.72,
+   "end": 8707.56,
+   "text": "era PS, né?",
+   "turn": 1212,
+   "speaker_change": true
+  },
+  {
+   "start": 8707.56,
+   "end": 8709.24,
+   "text": "Isso é ridículo, cara.",
+   "turn": 1213,
+   "speaker_change": true
+  },
+  {
+   "start": 8709.24,
+   "end": 8711.88,
+   "text": "A pessoa perde uniforme de um ano pro outro.",
+   "turn": 1213,
+   "speaker_change": false
+  },
+  {
+   "start": 8711.88,
+   "end": 8712.96,
+   "text": "É ridículo.",
+   "turn": 1213,
+   "speaker_change": false
+  },
+  {
+   "start": 8712.96,
+   "end": 8714.48,
+   "text": "Para gerar licitação.",
+   "turn": 1214,
+   "speaker_change": true
+  },
+  {
+   "start": 8714.48,
+   "end": 8714.96,
+   "text": "É.",
+   "turn": 1215,
+   "speaker_change": true
+  },
+  {
+   "start": 8714.96,
+   "end": 8716.52,
+   "text": "E compra de fada.",
+   "turn": 1216,
+   "speaker_change": true
+  },
+  {
+   "start": 8716.52,
+   "end": 8721.72,
+   "text": "É, se chama um fardo que a gente chama de uniforme lá.",
+   "turn": 1216,
+   "speaker_change": false
+  },
+  {
+   "start": 8721.72,
+   "end": 8726.24,
+   "text": "Farda uniforme pessoa fala mais farda.",
+   "turn": 1217,
+   "speaker_change": true
+  },
+  {
+   "start": 8726.24,
+   "end": 8750.72,
+   "text": "Não existe uma regulamentação meio orgânica, né, para patronizar.",
+   "turn": 1217,
+   "speaker_change": false
+  },
+  {
+   "start": 8750.72,
+   "end": 8767.96,
+   "text": "M. Faixa tá livres.",
+   "turn": 1217,
+   "speaker_change": false
+  },
+  {
+   "start": 8767.96,
+   "end": 8769.04,
+   "text": "Esses cara fazendo operação.",
+   "turn": 1218,
+   "speaker_change": true
+  },
+  {
+   "start": 8769.04,
+   "end": 8770.68,
+   "text": "Já viu os vídeos desses",
+   "turn": 1218,
+   "speaker_change": false
+  },
+  {
+   "start": 8770.68,
+   "end": 8772.28,
+   "text": "BP?",
+   "turn": 1219,
+   "speaker_change": true
+  },
+  {
+   "start": 8772.28,
+   "end": 8775.4,
+   "text": "Eles vão com a farda da cor da catinga.",
+   "turn": 1220,
+   "speaker_change": true
+  },
+  {
+   "start": 8775.4,
+   "end": 8775.76,
+   "text": "Ah, é?",
+   "turn": 1221,
+   "speaker_change": true
+  },
+  {
+   "start": 8775.76,
+   "end": 8804.8,
+   "text": "É. Apolo, o BB pode ser comparado ao BOP?",
+   "turn": 1222,
+   "speaker_change": true
+  },
+  {
+   "start": 8804.8,
+   "end": 8805.36,
+   "text": "Não entendi.",
+   "turn": 1222,
+   "speaker_change": false
+  },
+  {
+   "start": 8805.36,
+   "end": 8807.8,
+   "text": "O BEP pode ser comparado ao BOP.",
+   "turn": 1223,
+   "speaker_change": true
+  },
+  {
+   "start": 8807.8,
+   "end": 8808.52,
+   "text": "O Pep",
+   "turn": 1223,
+   "speaker_change": false
+  },
+  {
+   "start": 8808.52,
+   "end": 8810.76,
+   "text": "é, pode ser comparado ao BOP do Nordeste",
+   "turn": 1224,
+   "speaker_change": true
+  },
+  {
+   "start": 8810.76,
+   "end": 8814.88,
+   "text": "e não, do Nordeste não.",
+   "turn": 1225,
+   "speaker_change": true
+  },
+  {
+   "start": 8814.88,
+   "end": 8820.04,
+   "text": "O Pep é mais uma força é especializada do estado, tá?",
+   "turn": 1225,
+   "speaker_change": false
+  },
+  {
+   "start": 8820.04,
+   "end": 8823.88,
+   "text": "Mas para se comparar ao Bob não, tá?",
+   "turn": 1225,
+   "speaker_change": false
+  },
+  {
+   "start": 8823.88,
+   "end": 8827.2,
+   "text": "Ele ainda tem alguns degraus até chegar a",
+   "turn": 1225,
+   "speaker_change": false
+  },
+  {
+   "start": 8827.2,
+   "end": 8829.04,
+   "text": "o B.",
+   "turn": 1226,
+   "speaker_change": true
+  },
+  {
+   "start": 8829.04,
+   "end": 8831.16,
+   "text": "O BOP é a maior força policial que tem.",
+   "turn": 1227,
+   "speaker_change": true
+  },
+  {
+   "start": 8831.16,
+   "end": 8833.64,
+   "text": "É, é o último estágio, tá?",
+   "turn": 1228,
+   "speaker_change": true
+  },
+  {
+   "start": 8833.64,
+   "end": 8838.68,
+   "text": "na parte especializada de conhecimento técnico policial militar.",
+   "turn": 1228,
+   "speaker_change": false
+  },
+  {
+   "start": 8838.68,
+   "end": 8839.68,
+   "text": "Acho que sim é Z.",
+   "turn": 1229,
+   "speaker_change": true
+  },
+  {
+   "start": 8839.68,
+   "end": 8845.48,
+   "text": "É, mas acima deles aí não existe outra força.",
+   "turn": 1230,
+   "speaker_change": true
+  },
+  {
+   "start": 8845.48,
+   "end": 8845.64,
+   "text": "Vou",
+   "turn": 1230,
+   "speaker_change": false
+  },
+  {
+   "start": 8845.64,
+   "end": 8851,
+   "text": "rotar entend quem tá abaixo do B.",
+   "turn": 1231,
+   "speaker_change": true
+  },
+  {
+   "start": 8851,
+   "end": 8852.56,
+   "text": "Todos.",
+   "turn": 1232,
+   "speaker_change": true
+  },
+  {
+   "start": 8852.56,
+   "end": 8854.6,
+   "text": "O Bob é o é o BOP é o topo.",
+   "turn": 1232,
+   "speaker_change": false
+  },
+  {
+   "start": 8854.6,
+   "end": 8855.68,
+   "text": "É o rei.",
+   "turn": 1233,
+   "speaker_change": true
+  },
+  {
+   "start": 8855.68,
+   "end": 8856.12,
+   "text": "Tem tem",
+   "turn": 1233,
+   "speaker_change": false
+  },
+  {
+   "start": 8856.12,
+   "end": 8858,
+   "text": "Mas tem uns que eu já eu já o Core",
+   "turn": 1234,
+   "speaker_change": true
+  },
+  {
+   "start": 8858,
+   "end": 8858.28,
+   "text": "não.",
+   "turn": 1235,
+   "speaker_change": true
+  },
+  {
+   "start": 8858.28,
+   "end": 8860.96,
+   "text": "Aí o COR é civil.",
+   "turn": 1235,
+   "speaker_change": false
+  },
+  {
+   "start": 8860.96,
+   "end": 8861.48,
+   "text": "Não,",
+   "turn": 1235,
+   "speaker_change": false
+  },
+  {
+   "start": 8861.48,
+   "end": 8864.68,
+   "text": "então a cor seria o rei da civil,",
+   "turn": 1236,
+   "speaker_change": true
+  },
+  {
+   "start": 8864.68,
+   "end": 8865.64,
+   "text": "tá?",
+   "turn": 1237,
+   "speaker_change": true
+  },
+  {
+   "start": 8865.64,
+   "end": 8868.08,
+   "text": "E o tem o Garra",
+   "turn": 1237,
+   "speaker_change": false
+  },
+  {
+   "start": 8868.08,
+   "end": 8876.64,
+   "text": "aí o o Garra aí, por exemplo, o Garra, se não me engano, é Santa Catarina ou Paraná Garra está se mexendo.",
+   "turn": 1238,
+   "speaker_change": true
+  },
+  {
+   "start": 8876.64,
+   "end": 8880.84,
+   "text": "Então tem alguns estádios que não tem cor.",
+   "turn": 1239,
+   "speaker_change": true
+  },
+  {
+   "start": 8880.84,
+   "end": 8890.96,
+   "text": "Aí eu já percebi que a unidade especializada dele é o Garra, então vai ser o Garra.",
+   "turn": 1240,
+   "speaker_change": true
+  },
+  {
+   "start": 8890.96,
+   "end": 8894.88,
+   "text": "O BOP é especializado em incursão em favela, basicamente, né?",
+   "turn": 1240,
+   "speaker_change": false
+  },
+  {
+   "start": 8894.88,
+   "end": 8895.16,
+   "text": "Em",
+   "turn": 1240,
+   "speaker_change": false
+  },
+  {
+   "start": 8895.16,
+   "end": 8896.68,
+   "text": "todas as missões.",
+   "turn": 1241,
+   "speaker_change": true
+  },
+  {
+   "start": 8896.68,
+   "end": 8897.88,
+   "text": "Ah, e faz qualquer coisa.",
+   "turn": 1242,
+   "speaker_change": true
+  },
+  {
+   "start": 8897.88,
+   "end": 8902.76,
+   "text": "É, ele ele pode englobar em todas as missões, tá?",
+   "turn": 1243,
+   "speaker_change": true
+  },
+  {
+   "start": 8902.76,
+   "end": 8903.92,
+   "text": "O BEP é catinga.",
+   "turn": 1244,
+   "speaker_change": true
+  },
+  {
+   "start": 8903.92,
+   "end": 8905.92,
+   "text": "Aí já o BEP já é direcionado, tá?",
+   "turn": 1245,
+   "speaker_change": true
+  },
+  {
+   "start": 8905.92,
+   "end": 8911.64,
+   "text": "É como fosse os operações especiais, só voltado pra área de de sertão,",
+   "turn": 1245,
+   "speaker_change": false
+  },
+  {
+   "start": 8911.64,
+   "end": 8912.28,
+   "text": "tá?",
+   "turn": 1246,
+   "speaker_change": true
+  },
+  {
+   "start": 8912.28,
+   "end": 8914.88,
+   "text": "Então num sertão, um como é que chama?",
+   "turn": 1246,
+   "speaker_change": false
+  },
+  {
+   "start": 8914.88,
+   "end": 8917.88,
+   "text": "Um um BEP ou um BOP?",
+   "turn": 1246,
+   "speaker_change": false
+  },
+  {
+   "start": 8917.88,
+   "end": 8918.8,
+   "text": "Os dois.",
+   "turn": 1247,
+   "speaker_change": true
+  },
+  {
+   "start": 8918.8,
+   "end": 8921.2,
+   "text": "Ah, você confere você confere o BOP em qualquer área.",
+   "turn": 1248,
+   "speaker_change": true
+  },
+  {
+   "start": 8921.2,
+   "end": 8923.72,
+   "text": "É qualquer cidade, entendeu?",
+   "turn": 1249,
+   "speaker_change": true
+  },
+  {
+   "start": 8923.72,
+   "end": 8926.32,
+   "text": "Ele tem um treinamento também na área de sertão.",
+   "turn": 1250,
+   "speaker_change": true
+  },
+  {
+   "start": 8926.32,
+   "end": 8928.36,
+   "text": "Na caixinha",
+   "turn": 1251,
+   "speaker_change": true
+  },
+  {
+   "start": 8928.36,
+   "end": 8932.08,
+   "text": "eles, ô os uniformes, os uniformes do BEP de Catinga é cruel assim.",
+   "turn": 1252,
+   "speaker_change": true
+  },
+  {
+   "start": 8932.08,
+   "end": 8934.4,
+   "text": "Você olha, caramba.",
+   "turn": 1252,
+   "speaker_change": false
+  },
+  {
+   "start": 8934.4,
+   "end": 8942.4,
+   "text": "Agora, se for a se a gente assim for comparar tecnicamente o dia a dia e experiência,",
+   "turn": 1252,
+   "speaker_change": false
+  },
+  {
+   "start": 8942.4,
+   "end": 8946.76,
+   "text": "aí quem tá na na área atuando 24 horas por dia é o BEP.",
+   "turn": 1253,
+   "speaker_change": true
+  },
+  {
+   "start": 8946.76,
+   "end": 8950.52,
+   "text": "Aí logicamente ele vai absorver mais técnica, né?",
+   "turn": 1253,
+   "speaker_change": false
+  },
+  {
+   "start": 8950.52,
+   "end": 8950.8,
+   "text": "Uhum.",
+   "turn": 1254,
+   "speaker_change": true
+  },
+  {
+   "start": 8950.8,
+   "end": 8951.36,
+   "text": "Do que o COP.",
+   "turn": 1255,
+   "speaker_change": true
+  },
+  {
+   "start": 8951.36,
+   "end": 8954.64,
+   "text": "Isso eu tô falando na na atuação dia a dia, tá?",
+   "turn": 1255,
+   "speaker_change": false
+  },
+  {
+   "start": 8954.64,
+   "end": 8965.44,
+   "text": "Sempre.",
+   "turn": 1255,
+   "speaker_change": false
+  },
+  {
+   "start": 8965.44,
+   "end": 8975.68,
+   "text": "O golpe é o último recurso do estado frente ao crime.",
+   "turn": 1255,
+   "speaker_change": false
+  },
+  {
+   "start": 8975.68,
+   "end": 8983.28,
+   "text": "É o que o BEP deve mais fazer é buscar pessoas com mandato em aberto que fugiram para pro meio do sertão, né?",
+   "turn": 1256,
+   "speaker_change": true
+  },
+  {
+   "start": 8983.28,
+   "end": 8984.12,
+   "text": "Mandador.",
+   "turn": 1257,
+   "speaker_change": true
+  },
+  {
+   "start": 8984.12,
+   "end": 8984.88,
+   "text": "Mandado aberto.",
+   "turn": 1258,
+   "speaker_change": true
+  },
+  {
+   "start": 8984.88,
+   "end": 8985.32,
+   "text": "É,",
+   "turn": 1258,
+   "speaker_change": false
+  },
+  {
+   "start": 8985.32,
+   "end": 8985.92,
+   "text": "é isso aí.",
+   "turn": 1259,
+   "speaker_change": true
+  },
+  {
+   "start": 8985.92,
+   "end": 8989.4,
+   "text": "Vai ter de acordo com a missão que é repassado para eles, entendeu?",
+   "turn": 1259,
+   "speaker_change": false
+  },
+  {
+   "start": 8989.4,
+   "end": 8990.68,
+   "text": "resolve problemas.",
+   "turn": 1259,
+   "speaker_change": false
+  },
+  {
+   "start": 8990.68,
+   "end": 8991.64,
+   "text": "É,",
+   "turn": 1260,
+   "speaker_change": true
+  },
+  {
+   "start": 8991.64,
+   "end": 8992.96,
+   "text": "definitivamente resolve.",
+   "turn": 1261,
+   "speaker_change": true
+  },
+  {
+   "start": 8992.96,
+   "end": 8996.84,
+   "text": "Não volta a se resolver.",
+   "turn": 1261,
+   "speaker_change": false
+  },
+  {
+   "start": 8996.84,
+   "end": 9014.92,
+   "text": "P também se mandar vai resolver do mesmo jeito, onde quer que seja.",
+   "turn": 1261,
+   "speaker_change": false
+  },
+  {
+   "start": 9014.92,
+   "end": 9017.12,
+   "text": "Sentinela de Got.",
+   "turn": 1261,
+   "speaker_change": false
+  },
+  {
+   "start": 9017.12,
+   "end": 9017.72,
+   "text": "Manda para mim.",
+   "turn": 1261,
+   "speaker_change": false
+  },
+  {
+   "start": 9017.72,
+   "end": 9023.28,
+   "text": "Me manda no no meu direct no Instagram, não sei se você printou isso aí, aí se você tiver printado, me manda",
+   "turn": 1261,
+   "speaker_change": false
+  },
+  {
+   "start": 9023.28,
+   "end": 9024.48,
+   "text": "quê",
+   "turn": 1262,
+   "speaker_change": true
+  },
+  {
+   "start": 9024.48,
+   "end": 9036.28,
+   "text": "que mais uma ameaçazinha aqui no chat pra gente.",
+   "turn": 1263,
+   "speaker_change": true
+  },
+  {
+   "start": 9036.28,
+   "end": 9037.88,
+   "text": "Ó, 4 minutos,",
+   "turn": 1264,
+   "speaker_change": true
+  },
+  {
+   "start": 9037.88,
+   "end": 9038.12,
+   "text": "tá?",
+   "turn": 1265,
+   "speaker_change": true
+  },
+  {
+   "start": 9038.12,
+   "end": 9040.12,
+   "text": "Deixa eu bloquear aqui rapidão.",
+   "turn": 1265,
+   "speaker_change": false
+  },
+  {
+   "start": 9040.12,
+   "end": 9042.52,
+   "text": "Como é que faz isso aqui, né?",
+   "turn": 1265,
+   "speaker_change": false
+  },
+  {
+   "start": 9042.52,
+   "end": 9343.28,
+   "text": "Como é que eu faço essa?",
+   "turn": 1265,
+   "speaker_change": false
+  },
+  {
+   "start": 9343.28,
+   "end": 9371.4,
+   "text": "Eu abri o áudio aqui.",
+   "turn": 1265,
+   "speaker_change": false
+  },
+  {
+   "start": 9371.4,
+   "end": 9372.2,
+   "text": "Caramba, cara.",
+   "turn": 1266,
+   "speaker_change": true
+  },
+  {
+   "start": 9372.2,
+   "end": 9373.04,
+   "text": "Qual o nome da cidade?",
+   "turn": 1266,
+   "speaker_change": false
+  },
+  {
+   "start": 9373.04,
+   "end": 9373.52,
+   "text": "Aqui mesmo.",
+   "turn": 1266,
+   "speaker_change": false
+  },
+  {
+   "start": 9373.52,
+   "end": 9373.92,
+   "text": "Ca",
+   "turn": 1266,
+   "speaker_change": false
+  },
+  {
+   "start": 9373.92,
+   "end": 9375.12,
+   "text": "aqui",
+   "turn": 1267,
+   "speaker_change": true
+  },
+  {
+   "start": 9375.12,
+   "end": 9375.96,
+   "text": "não é calc.",
+   "turn": 1268,
+   "speaker_change": true
+  },
+  {
+   "start": 9375.96,
+   "end": 9377.16,
+   "text": "Aqui é Fortaleza.",
+   "turn": 1269,
+   "speaker_change": true
+  },
+  {
+   "start": 9377.16,
+   "end": 9379.12,
+   "text": "Aqui é Fortaleza.",
+   "turn": 1269,
+   "speaker_change": false
+  },
+  {
+   "start": 9379.12,
+   "end": 9381.44,
+   "text": "Você chega em Fortaleza, o negócio fica assim.",
+   "turn": 1270,
+   "speaker_change": true
+  },
+  {
+   "start": 9381.44,
+   "end": 9382.4,
+   "text": "Pode parar aí.",
+   "turn": 1271,
+   "speaker_change": true
+  },
+  {
+   "start": 9382.4,
+   "end": 9387.04,
+   "text": "Par",
+   "turn": 1271,
+   "speaker_change": false
+  },
+  {
+   "start": 9387.04,
+   "end": 9388.04,
+   "text": "ali também frita.",
+   "turn": 1272,
+   "speaker_change": true
+  },
+  {
+   "start": 9388.04,
+   "end": 9388.64,
+   "text": "Não tem agora.",
+   "turn": 1273,
+   "speaker_change": true
+  },
+  {
+   "start": 9388.64,
+   "end": 9389.36,
+   "text": "Tem para todo canto.",
+   "turn": 1273,
+   "speaker_change": false
+  },
+  {
+   "start": 9389.36,
+   "end": 9392.24,
+   "text": "Aqui é uma região que tá tá em guerra",
+   "turn": 1273,
+   "speaker_change": false
+  },
+  {
+   "start": 9392.24,
+   "end": 9393.2,
+   "text": "e ali tá muito explícito.",
+   "turn": 1274,
+   "speaker_change": true
+  },
+  {
+   "start": 9393.2,
+   "end": 9395.84,
+   "text": "E o leitão deixa is gigante.",
+   "turn": 1275,
+   "speaker_change": true
+  },
+  {
+   "start": 9395.84,
+   "end": 9396.84,
+   "text": "É um gigante.",
+   "turn": 1275,
+   "speaker_change": false
+  },
+  {
+   "start": 9396.84,
+   "end": 9397.4,
+   "text": "Tem muitas.",
+   "turn": 1275,
+   "speaker_change": false
+  },
+  {
+   "start": 9397.4,
+   "end": 9397.68,
+   "text": "Vamos aqui.",
+   "turn": 1276,
+   "speaker_change": true
+  },
+  {
+   "start": 9397.68,
+   "end": 9399.72,
+   "text": "Depois a gente vai lá.",
+   "turn": 1276,
+   "speaker_change": false
+  },
+  {
+   "start": 9399.72,
+   "end": 9401.8,
+   "text": "Aqui aqui eu preciso de alguém para segurar, viu?",
+   "turn": 1277,
+   "speaker_change": true
+  },
+  {
+   "start": 9401.8,
+   "end": 9403.28,
+   "text": "Um negocito aqui.",
+   "turn": 1277,
+   "speaker_change": false
+  },
+  {
+   "start": 9403.28,
+   "end": 9404.72,
+   "text": "Ah, tá fácil.",
+   "turn": 1278,
+   "speaker_change": true
+  },
+  {
+   "start": 9404.72,
+   "end": 9406.16,
+   "text": "O carro",
+   "turn": 1279,
+   "speaker_change": true
+  },
+  {
+   "start": 9406.16,
+   "end": 9420.24,
+   "text": "é",
+   "turn": 1280,
+   "speaker_change": true
+  },
+  {
+   "start": 9420.24,
+   "end": 9424.4,
+   "text": "aqui é conjunto de esperança.",
+   "turn": 1281,
+   "speaker_change": true
+  },
+  {
+   "start": 9424.4,
+   "end": 9430.4,
+   "text": "Cadê o Mick?",
+   "turn": 1282,
+   "speaker_change": true
+  },
+  {
+   "start": 9430.4,
+   "end": 9435.16,
+   "text": "Até pro pessoal entender aqui, ó. Depois, põe na mão, põe na mão, põe na mão.",
+   "turn": 1282,
+   "speaker_change": false
+  },
+  {
+   "start": 9435.16,
+   "end": 9436.96,
+   "text": "Melhor, põe na mão aí para não buscar o vento.",
+   "turn": 1282,
+   "speaker_change": false
+  },
+  {
+   "start": 9436.96,
+   "end": 9440,
+   "text": "Como é que foi a guerra aqui, ó? Aqui tinha um TCP, aí perdeu.",
+   "turn": 1283,
+   "speaker_change": true
+  },
+  {
+   "start": 9440,
+   "end": 9441.4,
+   "text": "Aí foi virou o CV,",
+   "turn": 1283,
+   "speaker_change": false
+  },
+  {
+   "start": 9441.4,
+   "end": 9443.12,
+   "text": "aí entrou CV, aí perderam.",
+   "turn": 1284,
+   "speaker_change": true
+  },
+  {
+   "start": 9443.12,
+   "end": 9444.96,
+   "text": "Aí entrou GDF, aí perderam.",
+   "turn": 1284,
+   "speaker_change": false
+  },
+  {
+   "start": 9444.96,
+   "end": 9456.6,
+   "text": "Isso eles estão riscando m estado do Ceará, eu mando, seu fraco.",
+   "turn": 1284,
+   "speaker_change": false
+  },
+  {
+   "start": 9456.6,
+   "end": 9461.56,
+   "text": "Quando você me processou, você queria me calar porque eu falei que você era leniente com crime organizado.",
+   "turn": 1284,
+   "speaker_change": false
+  },
+  {
+   "start": 9461.56,
+   "end": 9465.76,
+   "text": "Eu vou dar demonstração mais clara e simples do quão absurdo é o seu governo.",
+   "turn": 1284,
+   "speaker_change": false
+  },
+  {
+   "start": 9465.76,
+   "end": 9469.8,
+   "text": "Aqui na fichação do TCP.",
+   "turn": 1284,
+   "speaker_change": false
+  },
+  {
+   "start": 9469.8,
+   "end": 9472.56,
+   "text": "O TCP foi derrotado e entrou quem?",
+   "turn": 1284,
+   "speaker_change": false
+  },
+  {
+   "start": 9472.56,
+   "end": 9474.92,
+   "text": "com comando vermelho.",
+   "turn": 1284,
+   "speaker_change": false
+  },
+  {
+   "start": 9474.92,
+   "end": 9478.8,
+   "text": "Aí eles clicam, vão dcer e eles perdem.",
+   "turn": 1284,
+   "speaker_change": false
+  },
+  {
+   "start": 9478.8,
+   "end": 9483.36,
+   "text": "E aí quem entra é o GDE dos guardiões estado.",
+   "turn": 1284,
+   "speaker_change": false
+  },
+  {
+   "start": 9483.36,
+   "end": 9488.6,
+   "text": "O GDE sigu 745 da o comando vermelho ficha e coloca o nome dele por cima.",
+   "turn": 1284,
+   "speaker_change": false
+  },
+  {
+   "start": 9488.6,
+   "end": 9506.48,
+   "text": "Você tem três facções em disputa, três facções que categorizam curadores, três facções que tomam conta do território, três facções que invadem, tiram a liberdade E aí eu pergunto para você, humano, sou eu que vou ter que desocupar?",
+   "turn": 1284,
+   "speaker_change": false
+  },
+  {
+   "start": 9506.48,
+   "end": 9510.16,
+   "text": "Eu já falei para vocês, o estado do Ceará é o estado mais perigoso do Brasil.",
+   "turn": 1284,
+   "speaker_change": false
+  },
+  {
+   "start": 9510.16,
+   "end": 9514.08,
+   "text": "Bom, eu já falei para vocês, o estado do Ceará é o estado mais perigoso do Brasil.",
+   "turn": 1284,
+   "speaker_change": false
+  },
+  {
+   "start": 9514.08,
+   "end": 9518.72,
+   "text": "A média de assassinado isso aqui é coisa de 32 homicídios para cada 100.000 habitantes.",
+   "turn": 1284,
+   "speaker_change": false
+  },
+  {
+   "start": 9518.72,
+   "end": 9523.44,
+   "text": "A média de assassinatos aqui é de 32 homicídios a cada 100.000 habitantes.",
+   "turn": 1284,
+   "speaker_change": false
+  },
+  {
+   "start": 9523.44,
+   "end": 9527.6,
+   "text": "É a maior média do Brasil.",
+   "turn": 1284,
+   "speaker_change": false
+  },
+  {
+   "start": 9527.6,
+   "end": 9535.36,
+   "text": "Isso faz com que o Rio de Janeiro pareça uma Isso faz com que o Rio de Janeiro pareça um passeio no Isso faz com que o Rio de Janeiro passe era aqui.",
+   "turn": 1284,
+   "speaker_change": false
+  },
+  {
+   "start": 9535.36,
+   "end": 9541.44,
+   "text": "Aqui Isso faz com que o Rio de Janeiro parecesse Isso faz com que o Rio de Janeiro pareça.",
+   "turn": 1284,
+   "speaker_change": false
+  },
+  {
+   "start": 9541.44,
+   "end": 9548.2,
+   "text": "Isso faz com que o Rio de Janeiro pareça um passeio no parque, uma noite de verão no meio desse inferno que estou nesse estado.",
+   "turn": 1284,
+   "speaker_change": false
+  },
+  {
+   "start": 9548.2,
+   "end": 9550.48,
+   "text": "E aí eu lhe pergunto novamente, é comigo?",
+   "turn": 1284,
+   "speaker_change": false
+  },
+  {
+   "start": 9550.48,
+   "end": 9556.56,
+   "text": "Você vai parar?",
+   "turn": 1284,
+   "speaker_change": false
+  },
+  {
+   "start": 9556.56,
+   "end": 9560,
+   "text": "Nós temos que gravar esse vídeo rápido porque os olheiros já começam a aparecer.",
+   "turn": 1284,
+   "speaker_change": false
+  },
+  {
+   "start": 9560,
+   "end": 9561.28,
+   "text": "Eis o Stanra.",
+   "turn": 1284,
+   "speaker_change": false
+  },
+  {
+   "start": 9561.28,
+   "end": 9564.4,
+   "text": "Nós temos que gravar esse vídeo rápido porque os olheiros começam a aparecer.",
+   "turn": 1284,
+   "speaker_change": false
+  },
+  {
+   "start": 9564.4,
+   "end": 9566.64,
+   "text": "E aqui eu questiono a todos que estão nos assistindo.",
+   "turn": 1284,
+   "speaker_change": false
+  },
+  {
+   "start": 9566.64,
+   "end": 9570.2,
+   "text": "O Brasil precisa ou não precisa de uma guerra?",
+   "turn": 1284,
+   "speaker_change": false
+  },
+  {
+   "start": 9570.2,
+   "end": 9576.68,
+   "text": "Você acha que a guerra que nós temos que ter não é entre essas facções de vagabundo, mas sim entre o Estado brasileiro e as polícias contra o crime?",
+   "turn": 1284,
+   "speaker_change": false
+  },
+  {
+   "start": 9576.68,
+   "end": 9577.92,
+   "text": "Conheço meu trabalho.",
+   "turn": 1284,
+   "speaker_change": false
+  },
+  {
+   "start": 9577.92,
+   "end": 9583.72,
+   "text": "Meu nome é Renan Santos e eu sou pré-candidato à presidência da República.",
+   "turn": 1284,
+   "speaker_change": false
+  },
+  {
+   "start": 9583.72,
+   "end": 9584.36,
+   "text": "Que bagulho!",
+   "turn": 1284,
+   "speaker_change": false
+  },
+  {
+   "start": 9584.36,
+   "end": 9585.24,
+   "text": "Bizarro.",
+   "turn": 1284,
+   "speaker_change": false
+  },
+  {
+   "start": 9585.24,
+   "end": 9586.76,
+   "text": "Que bagulho bizarro.",
+   "turn": 1284,
+   "speaker_change": false
+  },
+  {
+   "start": 9586.76,
+   "end": 9587.68,
+   "text": "Vou rodar já ali.",
+   "turn": 1284,
+   "speaker_change": false
+  },
+  {
+   "start": 9587.68,
+   "end": 9588.08,
+   "text": "Vamos lá.",
+   "turn": 1285,
+   "speaker_change": true
+  },
+  {
+   "start": 9588.08,
+   "end": 9588.48,
+   "text": "Vamos lá.",
+   "turn": 1285,
+   "speaker_change": false
+  },
+  {
+   "start": 9588.48,
+   "end": 9596.44,
+   "text": "Deixa eu mostrar como que tá funcionando tudo aí.",
+   "turn": 1286,
+   "speaker_change": true
+  },
+  {
+   "start": 9596.44,
+   "end": 9598.6,
+   "text": "É um pessoal tá de olho na gente.",
+   "turn": 1286,
+   "speaker_change": false
+  },
+  {
+   "start": 9598.6,
+   "end": 9601.12,
+   "text": "Não, eu já vi um cara de vermelho começou a andar para lá e para cá.",
+   "turn": 1287,
+   "speaker_change": true
+  },
+  {
+   "start": 9601.12,
+   "end": 9603.32,
+   "text": "Pois é. A questão aqui é a seguinte.",
+   "turn": 1288,
+   "speaker_change": true
+  },
+  {
+   "start": 9603.32,
+   "end": 9606.56,
+   "text": "Esse bairro tem IDH de África sub-saariana.",
+   "turn": 1288,
+   "speaker_change": false
+  },
+  {
+   "start": 9606.56,
+   "end": 9609.88,
+   "text": "O bairro aqui é um bairro horrível.",
+   "turn": 1288,
+   "speaker_change": false
+  },
+  {
+   "start": 9609.88,
+   "end": 9612.64,
+   "text": "E não parece que não é uma favela, é um bairro tomado, né?",
+   "turn": 1288,
+   "speaker_change": false
+  },
+  {
+   "start": 9612.64,
+   "end": 9616.36,
+   "text": "É um bairro tomado pelo crime organizado hoje pelo comando vermelho.",
+   "turn": 1288,
+   "speaker_change": false
+  },
+  {
+   "start": 9616.36,
+   "end": 9618.76,
+   "text": "Hoje aqui é um bairro do Comando Vermelho já.",
+   "turn": 1288,
+   "speaker_change": false
+  },
+  {
+   "start": 9618.76,
+   "end": 9621.6,
+   "text": "Tanto que todas as presas aqui estão pichadas.",
+   "turn": 1288,
+   "speaker_change": false
+  },
+  {
+   "start": 9621.6,
+   "end": 9625.76,
+   "text": "Eles usam isso aí para marcar território, para mostrar quem manda no local.",
+   "turn": 1288,
+   "speaker_change": false
+  },
+  {
+   "start": 9625.76,
+   "end": 9629.56,
+   "text": "E o que eu acho engraçado é que aqui não passa viatura.",
+   "turn": 1288,
+   "speaker_change": false
+  },
+  {
+   "start": 9629.56,
+   "end": 9632.2,
+   "text": "As pessoas aqui estão sofrendo com isso, estão sofrendo com essa guerra.",
+   "turn": 1288,
+   "speaker_change": false
+  },
+  {
+   "start": 9632.2,
+   "end": 9634,
+   "text": "Ó aqui, ó o tamanho disso aqui.",
+   "turn": 1288,
+   "speaker_change": false
+  },
+  {
+   "start": 9634,
+   "end": 9635.84,
+   "text": "E o bairro é todo pichadado.",
+   "turn": 1288,
+   "speaker_change": false
+  },
+  {
+   "start": 9635.84,
+   "end": 9638.8,
+   "text": "Isso é um bairro grande da cidade de Fortaleza.",
+   "turn": 1288,
+   "speaker_change": false
+  },
+  {
+   "start": 9638.8,
+   "end": 9639.92,
+   "text": "E tá nessa situação.",
+   "turn": 1288,
+   "speaker_change": false
+  },
+  {
+   "start": 9639.92,
+   "end": 9647.64,
+   "text": "Entendam os moradores de comunidade, aquele muro representou muito bem, eles têm que viver com isso diariamente, com essa guerra diariamente.",
+   "turn": 1288,
+   "speaker_change": false
+  },
+  {
+   "start": 9647.64,
+   "end": 9652.12,
+   "text": "Então são crianças que deixam de ir pro colégio, que o colégio tem que fechar porque tem medo de tiroteio.",
+   "turn": 1288,
+   "speaker_change": false
+  },
+  {
+   "start": 9652.12,
+   "end": 9657.4,
+   "text": "São pessoas que não podem ir trabalhar, são pessoas que saem das suas casas e não sabem se vão voltar com vida.",
+   "turn": 1288,
+   "speaker_change": false
+  },
+  {
+   "start": 9657.4,
+   "end": 9667.36,
+   "text": "E os moradores de comunidade que na maior parte deles, com certeza, a grande maioria são moradores honestos, são trabalhadores, tem que conviver com esse cenário de guerra enquanto o estado não faz nada, nem se presta.",
+   "turn": 1288,
+   "speaker_change": false
+  },
+  {
+   "start": 9667.36,
+   "end": 9669.28,
+   "text": "Na verdade, sabe o que o Leitão fez esses dias?",
+   "turn": 1288,
+   "speaker_change": false
+  },
+  {
+   "start": 9669.28,
+   "end": 9672.76,
+   "text": "Ele diz que não queria combater o crime com violência porque não é a vertente dele.",
+   "turn": 1288,
+   "speaker_change": false
+  },
+  {
+   "start": 9672.76,
+   "end": 9674.52,
+   "text": "Ah, com educação, com livros.",
+   "turn": 1289,
+   "speaker_change": true
+  },
+  {
+   "start": 9674.52,
+   "end": 9679.12,
+   "text": "Ele vai trazer uns livros, ele vai empilhar uma um monte de livro aqui e falar: \"Ufa, resolveu.",
+   "turn": 1290,
+   "speaker_change": true
+  },
+  {
+   "start": 9679.12,
+   "end": 9679.84,
+   "text": "O crime sumiu\".",
+   "turn": 1290,
+   "speaker_change": false
+  },
+  {
+   "start": 9679.84,
+   "end": 9684.32,
+   "text": "Ontem mataram duas mulheres que estavam passando numa rua com vidro fechado.",
+   "turn": 1291,
+   "speaker_change": true
+  },
+  {
+   "start": 9684.32,
+   "end": 9686.48,
+   "text": "Mataram, assassinaram elas aqui em Fortaleza.",
+   "turn": 1291,
+   "speaker_change": false
+  },
+  {
+   "start": 9686.48,
+   "end": 9690.8,
+   "text": "Como é que você vai chegar para uma mulher dessa com pro para esse criminoso com sem com violência?",
+   "turn": 1291,
+   "speaker_change": false
+  },
+  {
+   "start": 9690.8,
+   "end": 9691.32,
+   "text": "Sabe",
+   "turn": 1291,
+   "speaker_change": false
+  },
+  {
+   "start": 9691.32,
+   "end": 9692.72,
+   "text": "quem?",
+   "turn": 1292,
+   "speaker_change": true
+  },
+  {
+   "start": 9692.72,
+   "end": 9693.24,
+   "text": "Não era para",
+   "turn": 1292,
+   "speaker_change": false
+  },
+  {
+   "start": 9693.24,
+   "end": 9694.36,
+   "text": "o prefeito aqui de Fortaleza.",
+   "turn": 1293,
+   "speaker_change": true
+  },
+  {
+   "start": 9694.36,
+   "end": 9695,
+   "text": "Leitão.",
+   "turn": 1293,
+   "speaker_change": false
+  },
+  {
+   "start": 9695,
+   "end": 9695.28,
+   "text": "Evando.",
+   "turn": 1293,
+   "speaker_change": false
+  },
+  {
+   "start": 9695.28,
+   "end": 9695.92,
+   "text": "Leitão.",
+   "turn": 1293,
+   "speaker_change": false
+  },
+  {
+   "start": 9695.92,
+   "end": 9698.32,
+   "text": "É. E e é isso, né?",
+   "turn": 1293,
+   "speaker_change": false
+  },
+  {
+   "start": 9698.32,
+   "end": 9699.8,
+   "text": "Infelizmente essa é a realidade de Fortaleza.",
+   "turn": 1293,
+   "speaker_change": false
+  },
+  {
+   "start": 9699.8,
+   "end": 9706,
+   "text": "Hoje os criminosos aqui são criminosos que andam fortemente armados, são com fuzil, inclusive eles têm drones com granadas.",
+   "turn": 1293,
+   "speaker_change": false
+  },
+  {
+   "start": 9706,
+   "end": 9708.24,
+   "text": "Eh, e a cidade tá toda tomada por todo canto.",
+   "turn": 1293,
+   "speaker_change": false
+  },
+  {
+   "start": 9708.24,
+   "end": 9710.72,
+   "text": "Você anda de Fortaleza, você tem pichação, você tem território tomado.",
+   "turn": 1293,
+   "speaker_change": false
+  },
+  {
+   "start": 9710.72,
+   "end": 9717.52,
+   "text": "Tanto que eles comemoraram eh que tomaram Fortaleza por completo com a chuva de fogos, uma festa desgraçada aí nesses últimos dias.",
+   "turn": 1293,
+   "speaker_change": false
+  },
+  {
+   "start": 9717.52,
+   "end": 9729.08,
+   "text": "É. E aí, lembrando aqui, pessoal, essa lógica, ela é completamente esquizofrênica, porque o mesmo governo que é leniente com o crime organizado, ele diz que investe mais e supostamente investe mais em segurança pública.",
+   "turn": 1294,
+   "speaker_change": true
+  },
+  {
+   "start": 9729.08,
+   "end": 9734.64,
+   "text": "Então é como se ele tivesse dado uma resposta pras pessoas na forma do investimento, mas na hora de ir pro palco os caras, ele não vai.",
+   "turn": 1294,
+   "speaker_change": false
+  },
+  {
+   "start": 9734.64,
+   "end": 9740.6,
+   "text": "E eu tenho uma outra coisa que essa é a parte mais grave que eu não vou transformar em acusação porque é ano eleitoral e o processo come, né?",
+   "turn": 1294,
+   "speaker_change": false
+  },
+  {
+   "start": 9740.6,
+   "end": 9743.08,
+   "text": "Mas vou ser bem claro e vou ser bem direto.",
+   "turn": 1294,
+   "speaker_change": false
+  },
+  {
+   "start": 9743.08,
+   "end": 9750.92,
+   "text": "O crime organizado tem suas guerras internas, como a gente mostrou aqui, ó, TCP, Comando Vermelho e tal, OK?",
+   "turn": 1294,
+   "speaker_change": false
+  },
+  {
+   "start": 9750.92,
+   "end": 9755.48,
+   "text": "Às vezes o Estado age de modo a atacar uma facção e beneficiar outra.",
+   "turn": 1294,
+   "speaker_change": false
+  },
+  {
+   "start": 9755.48,
+   "end": 9762.56,
+   "text": "E aparentemente, né, não tô falando que o governador tá fazendo isso, o Comando Vermelho vem tendo muita sorte, tá?",
+   "turn": 1294,
+   "speaker_change": false
+  },
+  {
+   "start": 9762.56,
+   "end": 9766.4,
+   "text": "Comando Vem tendo muita sorte em incursões e operações e ele vem avançando.",
+   "turn": 1294,
+   "speaker_change": false
+  },
+  {
+   "start": 9766.4,
+   "end": 9768.48,
+   "text": "Isso não acontece só aqui no Rio de Janeiro.",
+   "turn": 1294,
+   "speaker_change": false
+  },
+  {
+   "start": 9768.48,
+   "end": 9770.68,
+   "text": "Essa estranha coincidência costuma se repetir.",
+   "turn": 1294,
+   "speaker_change": false
+  },
+  {
+   "start": 9770.68,
+   "end": 9773.72,
+   "text": "Eu acho legal a gente ter isso em perspectiva sempre.",
+   "turn": 1294,
+   "speaker_change": false
+  },
+  {
+   "start": 9773.72,
+   "end": 9779,
+   "text": "Vamos, vamos fazer um gesto simbólico na pichação dos caras ali.",
+   "turn": 1294,
+   "speaker_change": false
+  },
+  {
+   "start": 9779,
+   "end": 9792.68,
+   "text": "Vamos lá.",
+   "turn": 1295,
+   "speaker_change": true
+  },
+  {
+   "start": 9792.68,
+   "end": 9810.12,
+   "text": "Cara, olhando para",
+   "turn": 1295,
+   "speaker_change": false
+  },
+  {
+   "start": 9810.12,
+   "end": 9823.76,
+   "text": "Oi, eu sei, eu tô só aguardando o pessoal chegar.",
+   "turn": 1296,
+   "speaker_change": true
+  },
+  {
+   "start": 9823.76,
+   "end": 9825.28,
+   "text": "ali.",
+   "turn": 1296,
+   "speaker_change": false
+  },
+  {
+   "start": 9825.28,
+   "end": 9825.92,
+   "text": "Hã,",
+   "turn": 1297,
+   "speaker_change": true
+  },
+  {
+   "start": 9825.92,
+   "end": 9828.48,
+   "text": "morador apoiando a gente.",
+   "turn": 1298,
+   "speaker_change": true
+  },
+  {
+   "start": 9828.48,
+   "end": 9832.24,
+   "text": "É isso, porque os moradores aqui da comunidade, eles apoiam a gente.",
+   "turn": 1298,
+   "speaker_change": false
+  },
+  {
+   "start": 9832.24,
+   "end": 9832.96,
+   "text": "Não fui o morador.",
+   "turn": 1299,
+   "speaker_change": true
+  },
+  {
+   "start": 9832.96,
+   "end": 9838.68,
+   "text": "Não fi o morador, mas o morador apoiando aqui, mostrando porque ele vive constantemente nessa situação.",
+   "turn": 1299,
+   "speaker_change": false
+  },
+  {
+   "start": 9838.68,
+   "end": 9844.04,
+   "text": "Tem aí o rolo.",
+   "turn": 1299,
+   "speaker_change": false
+  },
+  {
+   "start": 9844.04,
+   "end": 9849.36,
+   "text": "Alguém me me ajudem aqui a abrir que eu não tô conseguindo.",
+   "turn": 1300,
+   "speaker_change": true
+  },
+  {
+   "start": 9849.36,
+   "end": 9853.6,
+   "text": "Consegue alguém puxar aí?",
+   "turn": 1301,
+   "speaker_change": true
+  },
+  {
+   "start": 9853.6,
+   "end": 9876.6,
+   "text": "Hora de rosquear.",
+   "turn": 1301,
+   "speaker_change": false
+  },
+  {
+   "start": 9876.6,
+   "end": 9884.76,
+   "text": "Bora, bora.",
+   "turn": 1301,
+   "speaker_change": false
+  },
+  {
+   "start": 9884.76,
+   "end": 9886.04,
+   "text": "Um negócio",
+   "turn": 1301,
+   "speaker_change": false
+  },
+  {
+   "start": 9886.04,
+   "end": 9891.44,
+   "text": "robusto, né?",
+   "turn": 1302,
+   "speaker_change": true
+  },
+  {
+   "start": 9891.44,
+   "end": 9892.52,
+   "text": "Quer que eu seguro?",
+   "turn": 1302,
+   "speaker_change": false
+  },
+  {
+   "start": 9892.52,
+   "end": 9898.92,
+   "text": "Foi, foi, foi.",
+   "turn": 1302,
+   "speaker_change": false
+  },
+  {
+   "start": 9898.92,
+   "end": 9903.36,
+   "text": "Inaugura, Pedrinho, que tá o guerreiro e a gente continua.",
+   "turn": 1302,
+   "speaker_change": false
+  },
+  {
+   "start": 9903.36,
+   "end": 9905.8,
+   "text": "Não tem pr você jogar aqui não, né?",
+   "turn": 1303,
+   "speaker_change": true
+  },
+  {
+   "start": 9905.8,
+   "end": 9909.52,
+   "text": "Só pinga no Só pinga no Deixa pingar aí dentro.",
+   "turn": 1304,
+   "speaker_change": true
+  },
+  {
+   "start": 9909.52,
+   "end": 9910.28,
+   "text": "Vira o rolinho.",
+   "turn": 1304,
+   "speaker_change": false
+  },
+  {
+   "start": 9910.28,
+   "end": 9910.64,
+   "text": "Rolinho.",
+   "turn": 1304,
+   "speaker_change": false
+  },
+  {
+   "start": 9910.64,
+   "end": 9913.56,
+   "text": "Vira o rolinho.",
+   "turn": 1304,
+   "speaker_change": false
+  },
+  {
+   "start": 9913.56,
+   "end": 9948.04,
+   "text": "Esses cara aqui, ó. Vamos, vamos, vamos apagar essa aí toda.",
+   "turn": 1304,
+   "speaker_change": false
+  },
+  {
+   "start": 9948.04,
+   "end": 9959.84,
+   "text": "Vai, vai, vai.",
+   "turn": 1304,
+   "speaker_change": false
+  },
+  {
+   "start": 9959.84,
+   "end": 9961.04,
+   "text": "Passar essa aí.",
+   "turn": 1304,
+   "speaker_change": false
+  },
+  {
+   "start": 9961.04,
+   "end": 9966.6,
+   "text": "Vai, trembala do Vai se essa merda.",
+   "turn": 1304,
+   "speaker_change": false
+  },
+  {
+   "start": 9966.6,
+   "end": 9968.92,
+   "text": "Parece nome de banda de forró, né?",
+   "turn": 1304,
+   "speaker_change": false
+  },
+  {
+   "start": 9968.92,
+   "end": 9973.04,
+   "text": "Os trem, os trem balas de fortaleza vem chegando aí.",
+   "turn": 1304,
+   "speaker_change": false
+  },
+  {
+   "start": 9973.04,
+   "end": 9974.76,
+   "text": "Caramba, mano.",
+   "turn": 1305,
+   "speaker_change": true
+  },
+  {
+   "start": 9974.76,
+   "end": 9975.6,
+   "text": "Foi.",
+   "turn": 1306,
+   "speaker_change": true
+  },
+  {
+   "start": 9975.6,
+   "end": 9978.12,
+   "text": "Segura aí, segura aí, segura aí.",
+   "turn": 1307,
+   "speaker_change": true
+  },
+  {
+   "start": 9978.12,
+   "end": 9984.56,
+   "text": "Tá vendo ali, ó? Segura, segura.",
+   "turn": 1307,
+   "speaker_change": false
+  },
+  {
+   "start": 9984.56,
+   "end": 9986.2,
+   "text": "Pu também vou te falar",
+   "turn": 1307,
+   "speaker_change": false
+  },
+  {
+   "start": 9986.2,
+   "end": 9987.08,
+   "text": "que foi.",
+   "turn": 1308,
+   "speaker_change": true
+  },
+  {
+   "start": 9987.08,
+   "end": 9988.08,
+   "text": "Olha como tá pintando.",
+   "turn": 1309,
+   "speaker_change": true
+  },
+  {
+   "start": 9988.08,
+   "end": 9998.8,
+   "text": "Tô gastando a tinta.",
+   "turn": 1310,
+   "speaker_change": true
+  },
+  {
+   "start": 9998.8,
+   "end": 9999.96,
+   "text": "Deixa eu pintar duas letras aí.",
+   "turn": 1311,
+   "speaker_change": true
+  },
+  {
+   "start": 9999.96,
+   "end": 10000.32,
+   "text": "Vai,",
+   "turn": 1311,
+   "speaker_change": false
+  },
+  {
+   "start": 10000.32,
+   "end": 10000.52,
+   "text": "vai.",
+   "turn": 1312,
+   "speaker_change": true
+  },
+  {
+   "start": 10000.52,
+   "end": 10001.32,
+   "text": "Faz a finaleira.",
+   "turn": 1312,
+   "speaker_change": false
+  },
+  {
+   "start": 10001.32,
+   "end": 10006.32,
+   "text": "Faz a finaleira.",
+   "turn": 1312,
+   "speaker_change": false
+  },
+  {
+   "start": 10006.32,
+   "end": 10070.36,
+   "text": "Ah.",
+   "turn": 1312,
+   "speaker_change": false
+  },
+  {
+   "start": 10070.36,
+   "end": 10072.24,
+   "text": "fazer.",
+   "turn": 1312,
+   "speaker_change": false
+  },
+  {
+   "start": 10072.24,
+   "end": 10072.68,
+   "text": "Hum.",
+   "turn": 1313,
+   "speaker_change": true
+  },
+  {
+   "start": 10072.68,
+   "end": 10073.56,
+   "text": "Quer fazer encerramento.",
+   "turn": 1314,
+   "speaker_change": true
+  },
+  {
+   "start": 10073.56,
+   "end": 10074.44,
+   "text": "Vamos lá.",
+   "turn": 1315,
+   "speaker_change": true
+  },
+  {
+   "start": 10074.44,
+   "end": 10076.64,
+   "text": "Mas se bem que aquele vídeo,",
+   "turn": 1315,
+   "speaker_change": false
+  },
+  {
+   "start": 10076.64,
+   "end": 10081.36,
+   "text": "bom, o nosso Artur tá finalizando, não mostra o rosto do senhor, mas",
+   "turn": 1316,
+   "speaker_change": true
+  },
+  {
+   "start": 10081.36,
+   "end": 10082.96,
+   "text": "mas é isso.",
+   "turn": 1317,
+   "speaker_change": true
+  },
+  {
+   "start": 10082.96,
+   "end": 10089.24,
+   "text": "Estamos, querendo ou não, essas respostas que a gente dá mostram que assim, esses caras não são invulneráveis, esses caras não vão mandar para sempre.",
+   "turn": 1318,
+   "speaker_change": true
+  },
+  {
+   "start": 10089.24,
+   "end": 10092.24,
+   "text": "Basta dar um pouquinho de poder pra gente que a gente acaba com crime organizado.",
+   "turn": 1318,
+   "speaker_change": false
+  },
+  {
+   "start": 10092.24,
+   "end": 10096.64,
+   "text": "É isso, é guerra.",
+   "turn": 1318,
+   "speaker_change": false
+  },
+  {
+   "start": 10096.64,
+   "end": 10096.96,
+   "text": "Vamos.",
+   "turn": 1319,
+   "speaker_change": true
+  },
+  {
+   "start": 10096.96,
+   "end": 10099.32,
+   "text": "Isso aqui é um g simbólico, né?",
+   "turn": 1320,
+   "speaker_change": true
+  },
+  {
+   "start": 10099.32,
+   "end": 10105.12,
+   "text": "Isso aqui vai deixar bem claro e não vai conseguir apagar a paiação desse bairro inteiro, até porque tem muitos e vocês vão ver ainda mais pra frente que tem mais coisa para mostrar.",
+   "turn": 1320,
+   "speaker_change": false
+  },
+  {
+   "start": 10105.12,
+   "end": 10112.8,
+   "text": "A questão é a seguinte, isso aqui é um gesto simbólico pr para que você já sintam um gostinho, pessoal do trem bala, pessoal do CV, pessoal do TCP.",
+   "turn": 1320,
+   "speaker_change": false
+  },
+  {
+   "start": 10112.8,
+   "end": 10120.72,
+   "text": "Quando a gente chegar no governo, não vai ser só pxação que a gente vai, não é só a simbologia de vocês que a gente vai destruir, a gente vai exterminar vocês.",
+   "turn": 1320,
+   "speaker_change": false
+  },
+  {
+   "start": 10120.72,
+   "end": 10127.36,
+   "text": "E além de exterminar vocês, nós vamos retomar o território que hoje que é de vocês, como esse bairro aqui.",
+   "turn": 1320,
+   "speaker_change": false
+  },
+  {
+   "start": 10127.36,
+   "end": 10132.72,
+   "text": "Esse bairro aqui não vai ser mais de vocês, porque sobre a gestão do PT, esses territórios são do crime organizado.",
+   "turn": 1320,
+   "speaker_change": false
+  },
+  {
+   "start": 10132.72,
+   "end": 10136.16,
+   "text": "Sobre a gestão da missão, nenhum território vai ser do crime organizado.",
+   "turn": 1320,
+   "speaker_change": false
+  },
+  {
+   "start": 10136.16,
+   "end": 10138.68,
+   "text": "Os territórios vão ser da do Brasil.",
+   "turn": 1320,
+   "speaker_change": false
+  },
+  {
+   "start": 10138.68,
+   "end": 10149.2,
+   "text": "A gente vai exterminar vocês, vai aprender em matar, vamos prender líder e organizações criminosas, vamos ir para cima de político, de engravatado que tem relação com o crime organizado, como acontece aqui em Fortaleza.",
+   "turn": 1320,
+   "speaker_change": false
+  },
+  {
+   "start": 10149.2,
+   "end": 10152.72,
+   "text": "Porque toda eleição, Renan, além dessas pichações assim, tem pichação.",
+   "turn": 1320,
+   "speaker_change": false
+  },
+  {
+   "start": 10152.72,
+   "end": 10155.04,
+   "text": "CV Apoia Evandro aparece isso.",
+   "turn": 1320,
+   "speaker_change": false
+  },
+  {
+   "start": 10155.04,
+   "end": 10156,
+   "text": "Eu tenho prints e imagens.",
+   "turn": 1320,
+   "speaker_change": false
+  },
+  {
+   "start": 10156,
+   "end": 10158.56,
+   "text": "Então a gente vai para cima de vocês políticos com relação ao crime organizado.",
+   "turn": 1320,
+   "speaker_change": false
+  },
+  {
+   "start": 10158.56,
+   "end": 10166.52,
+   "text": "Vamos retomar o nosso território para permitir com que os moradores, enfim, tenham paz porque o CV diz que ah paz nãoou na comunidade nenhuma.",
+   "turn": 1320,
+   "speaker_change": false
+  },
+  {
+   "start": 10166.52,
+   "end": 10168.44,
+   "text": "A comunidade toda hora fica em guerra.",
+   "turn": 1320,
+   "speaker_change": false
+  },
+  {
+   "start": 10168.44,
+   "end": 10170,
+   "text": "Pessoas têm medo de sair de suas casas.",
+   "turn": 1320,
+   "speaker_change": false
+  },
+  {
+   "start": 10170,
+   "end": 10172,
+   "text": "O crime decide quem vai viver, quem não vai viver.",
+   "turn": 1320,
+   "speaker_change": false
+  },
+  {
+   "start": 10172,
+   "end": 10174.64,
+   "text": "Então a gente vai sim trazer paz retomando os nossos territórios.",
+   "turn": 1320,
+   "speaker_change": false
+  },
+  {
+   "start": 10174.64,
+   "end": 10176.28,
+   "text": "E a minha esperança é você, né?",
+   "turn": 1320,
+   "speaker_change": false
+  },
+  {
+   "start": 10176.28,
+   "end": 10177,
+   "text": "Essa é verdade.",
+   "turn": 1320,
+   "speaker_change": false
+  },
+  {
+   "start": 10177,
+   "end": 10178.04,
+   "text": "Eu te agradeço, Pedrinho.",
+   "turn": 1321,
+   "speaker_change": true
+  },
+  {
+   "start": 10178.04,
+   "end": 10179.28,
+   "text": "E você é a nossa esperança no futuro.",
+   "turn": 1321,
+   "speaker_change": false
+  },
+  {
+   "start": 10179.28,
+   "end": 10180.88,
+   "text": "E eu volto a colocar aqui.",
+   "turn": 1321,
+   "speaker_change": false
+  },
+  {
+   "start": 10180.88,
+   "end": 10181.88,
+   "text": "É guerra.",
+   "turn": 1321,
+   "speaker_change": false
+  },
+  {
+   "start": 10181.88,
+   "end": 10182.28,
+   "text": "É guerra.",
+   "turn": 1321,
+   "speaker_change": false
+  },
+  {
+   "start": 10182.28,
+   "end": 10186.08,
+   "text": "Isso aqui é um ato simbólico que representa a nossa vontade e o nosso caminho que é único.",
+   "turn": 1321,
+   "speaker_change": false
+  },
+  {
+   "start": 10186.08,
+   "end": 10187.56,
+   "text": "Nossa palavra não faz curva.",
+   "turn": 1321,
+   "speaker_change": false
+  },
+  {
+   "start": 10187.56,
+   "end": 10190.24,
+   "text": "Chegando lá não haverá mais nenhuma facção.",
+   "turn": 1321,
+   "speaker_change": false
+  },
+  {
+   "start": 10190.24,
+   "end": 10191.84,
+   "text": "Nos aguardem.",
+   "turn": 1321,
+   "speaker_change": false
+  },
+  {
+   "start": 10191.84,
+   "end": 10192.84,
+   "text": "Bom,",
+   "turn": 1321,
+   "speaker_change": false
+  },
+  {
+   "start": 10192.84,
+   "end": 10194.88,
+   "text": "vamos deixar isso onde?",
+   "turn": 1322,
+   "speaker_change": true
+  },
+  {
+   "start": 10194.88,
+   "end": 10195.36,
+   "text": "Aqui.",
+   "turn": 1322,
+   "speaker_change": false
+  },
+  {
+   "start": 10195.36,
+   "end": 10195.92,
+   "text": "Bota aí.",
+   "turn": 1323,
+   "speaker_change": true
+  },
+  {
+   "start": 10195.92,
+   "end": 10210.32,
+   "text": "Sim.",
+   "turn": 1323,
+   "speaker_change": false
+  },
+  {
+   "start": 10210.32,
+   "end": 10225.6,
+   "text": "Solta subor todinho comem ele",
+   "turn": 1323,
+   "speaker_change": false
+  },
+  {
+   "start": 10225.6,
+   "end": 10232,
+   "text": "tem um cara",
+   "turn": 1324,
+   "speaker_change": true
+  },
+  {
+   "start": 10232,
+   "end": 10232.84,
+   "text": "lá no meio mesmo.",
+   "turn": 1325,
+   "speaker_change": true
+  },
+  {
+   "start": 10232.84,
+   "end": 10233.44,
+   "text": "Vai, vai, vai, vai.",
+   "turn": 1325,
+   "speaker_change": false
+  },
+  {
+   "start": 10233.44,
+   "end": 10234.68,
+   "text": "Passa per lá.",
+   "turn": 1325,
+   "speaker_change": false
+  },
+  {
+   "start": 10234.68,
+   "end": 10234.96,
+   "text": "Passa.",
+   "turn": 1326,
+   "speaker_change": true
+  },
+  {
+   "start": 10234.96,
+   "end": 10235.56,
+   "text": "Não, não, não.",
+   "turn": 1326,
+   "speaker_change": false
+  },
+  {
+   "start": 10235.56,
+   "end": 10237.64,
+   "text": "Passa por cima da mochila.",
+   "turn": 1326,
+   "speaker_change": false
+  },
+  {
+   "start": 10237.64,
+   "end": 10238.96,
+   "text": "Você viu o cara batendo palma ali?",
+   "turn": 1327,
+   "speaker_change": true
+  },
+  {
+   "start": 10238.96,
+   "end": 10239.56,
+   "text": "Vi, vi, vi.",
+   "turn": 1328,
+   "speaker_change": true
+  },
+  {
+   "start": 10239.56,
+   "end": 10240.32,
+   "text": "Não, sensacional.",
+   "turn": 1328,
+   "speaker_change": false
+  },
+  {
+   "start": 10240.32,
+   "end": 10240.96,
+   "text": "Não,",
+   "turn": 1328,
+   "speaker_change": false
+  },
+  {
+   "start": 10240.96,
+   "end": 10241.36,
+   "text": "não.",
+   "turn": 1329,
+   "speaker_change": true
+  },
+  {
+   "start": 10241.36,
+   "end": 10244.52,
+   "text": "Põe, põe o a perna pelo outro lado da mochila.",
+   "turn": 1330,
+   "speaker_change": true
+  },
+  {
+   "start": 10244.52,
+   "end": 10245.28,
+   "text": "A mochila fica no meio.",
+   "turn": 1330,
+   "speaker_change": false
+  },
+  {
+   "start": 10245.28,
+   "end": 10246,
+   "text": "Deixa as pernas.",
+   "turn": 1330,
+   "speaker_change": false
+  },
+  {
+   "start": 10246,
+   "end": 10248.32,
+   "text": "Eu sei, mas se eu levantar vai melar,",
+   "turn": 1331,
+   "speaker_change": true
+  },
+  {
+   "start": 10248.32,
+   "end": 10249.72,
+   "text": "Deixa a perna a mochila.",
+   "turn": 1332,
+   "speaker_change": true
+  },
+  {
+   "start": 10249.72,
+   "end": 10250.92,
+   "text": "Tem mais canto para aí, viu?",
+   "turn": 1333,
+   "speaker_change": true
+  },
+  {
+   "start": 10250.92,
+   "end": 10251.44,
+   "text": "Tá ótimo.",
+   "turn": 1334,
+   "speaker_change": true
+  },
+  {
+   "start": 10251.44,
+   "end": 10253.28,
+   "text": "Pronto.",
+   "turn": 1334,
+   "speaker_change": false
+  },
+  {
+   "start": 10253.28,
+   "end": 10253.8,
+   "text": "Vai reto aqui.",
+   "turn": 1335,
+   "speaker_change": true
+  },
+  {
+   "start": 10253.8,
+   "end": 10254.56,
+   "text": "Tem mais canto para ir.",
+   "turn": 1335,
+   "speaker_change": false
+  },
+  {
+   "start": 10254.56,
+   "end": 10258.12,
+   "text": "A gente vai salvar as coisas do carro e a gente vai parar lá num cantinho ali, tá?",
+   "turn": 1335,
+   "speaker_change": false
+  },
+  {
+   "start": 10258.12,
+   "end": 10260.12,
+   "text": "Só então, né?",
+   "turn": 1335,
+   "speaker_change": false
+  },
+  {
+   "start": 10260.12,
+   "end": 10264.52,
+   "text": "Tá com a aqui, tá?",
+   "turn": 1336,
+   "speaker_change": true
+  },
+  {
+   "start": 10264.52,
+   "end": 10270.84,
+   "text": "Vai reto ali só para que a gente mostrar aquele portão do lado.",
+   "turn": 1336,
+   "speaker_change": false
+  },
+  {
+   "start": 10270.84,
+   "end": 10273.24,
+   "text": "Pedrinho conhece tudo.",
+   "turn": 1336,
+   "speaker_change": false
+  },
+  {
+   "start": 10273.24,
+   "end": 10274.92,
+   "text": "Cadê o microfone?",
+   "turn": 1336,
+   "speaker_change": false
+  },
+  {
+   "start": 10274.92,
+   "end": 10277.44,
+   "text": "Senhor rençando isso aqui, ó.",
+   "turn": 1336,
+   "speaker_change": false
+  },
+  {
+   "start": 10277.44,
+   "end": 10277.6,
+   "text": "Aqui.",
+   "turn": 1337,
+   "speaker_change": true
+  },
+  {
+   "start": 10277.6,
+   "end": 10278.32,
+   "text": "Dá aqui o microfone.",
+   "turn": 1337,
+   "speaker_change": false
+  },
+  {
+   "start": 10278.32,
+   "end": 10281.92,
+   "text": "Dá aqui o microfone.",
+   "turn": 1337,
+   "speaker_change": false
+  },
+  {
+   "start": 10281.92,
+   "end": 10287.16,
+   "text": "E uma coisa vocês percebem, por exemplo, no interior a gente tem a influência do crime organizado, que quando você chega em Fortaleza é muito maior.",
+   "turn": 1338,
+   "speaker_change": true
+  },
+  {
+   "start": 10287.16,
+   "end": 10288.32,
+   "text": "É absurdamente maior.",
+   "turn": 1338,
+   "speaker_change": false
+  },
+  {
+   "start": 10288.32,
+   "end": 10297.64,
+   "text": "O lance de tomar é a básica lá dos caras.",
+   "turn": 1339,
+   "speaker_change": true
+  },
+  {
+   "start": 10297.64,
+   "end": 10299.72,
+   "text": "Mostra aquilo ali.",
+   "turn": 1339,
+   "speaker_change": false
+  },
+  {
+   "start": 10299.72,
+   "end": 10301.4,
+   "text": "Aí dali você pega a direita, viu?",
+   "turn": 1340,
+   "speaker_change": true
+  },
+  {
+   "start": 10301.4,
+   "end": 10302.56,
+   "text": "Nós vamos filmar ali.",
+   "turn": 1341,
+   "speaker_change": true
+  },
+  {
+   "start": 10302.56,
+   "end": 10309.44,
+   "text": "Pode a gente pode descer e gravar.",
+   "turn": 1342,
+   "speaker_change": true
+  },
+  {
+   "start": 10309.44,
+   "end": 10312.12,
+   "text": "Quer que eu par aqui acho que tem?",
+   "turn": 1342,
+   "speaker_change": false
+  },
+  {
+   "start": 10312.12,
+   "end": 10323.24,
+   "text": "Ó uma banda limão rosa ali.",
+   "turn": 1342,
+   "speaker_change": false
+  },
+  {
+   "start": 10323.24,
+   "end": 10323.88,
+   "text": "Para aqui,",
+   "turn": 1343,
+   "speaker_change": true
+  },
+  {
+   "start": 10323.88,
+   "end": 10326.16,
+   "text": "mas acho que não pode ir se quiser não pode.",
+   "turn": 1344,
+   "speaker_change": true
+  },
+  {
+   "start": 10326.16,
+   "end": 10326.56,
+   "text": "Pode ir.",
+   "turn": 1344,
+   "speaker_change": false
+  },
+  {
+   "start": 10326.56,
+   "end": 10327.36,
+   "text": "É só mostrar.",
+   "turn": 1345,
+   "speaker_change": true
+  },
+  {
+   "start": 10327.36,
+   "end": 10329.48,
+   "text": "Não tem muito mostrando.",
+   "turn": 1345,
+   "speaker_change": false
+  },
+  {
+   "start": 10329.48,
+   "end": 10334.16,
+   "text": "É. Ô Mor, bota aí vê se você consegue achar um endereço do colégio.",
+   "turn": 1346,
+   "speaker_change": true
+  },
+  {
+   "start": 10334.16,
+   "end": 10336.08,
+   "text": "Vários.",
+   "turn": 1346,
+   "speaker_change": false
+  },
+  {
+   "start": 10336.08,
+   "end": 10339.92,
+   "text": "O colégio fica aqui dentro.",
+   "turn": 1347,
+   "speaker_change": true
+  },
+  {
+   "start": 10339.92,
+   "end": 10342.68,
+   "text": "Vend.",
+   "turn": 1347,
+   "speaker_change": false
+  },
+  {
+   "start": 10342.68,
+   "end": 10349.4,
+   "text": "Vê, vê, vê o que aparece.",
+   "turn": 1347,
+   "speaker_change": false
+  },
+  {
+   "start": 10349.4,
+   "end": 10353.08,
+   "text": "O o ar ele morreu.",
+   "turn": 1348,
+   "speaker_change": true
+  },
+  {
+   "start": 10353.08,
+   "end": 10356.24,
+   "text": "É, se não anda, se não anda, se não anda.",
+   "turn": 1349,
+   "speaker_change": true
+  },
+  {
+   "start": 10356.24,
+   "end": 10357.24,
+   "text": "Procura aí, meu.",
+   "turn": 1350,
+   "speaker_change": true
+  },
+  {
+   "start": 10357.24,
+   "end": 10358.4,
+   "text": "Procura aí, Pedro.",
+   "turn": 1350,
+   "speaker_change": false
+  },
+  {
+   "start": 10358.4,
+   "end": 10359.8,
+   "text": "Da praça principal.",
+   "turn": 1351,
+   "speaker_change": true
+  },
+  {
+   "start": 10359.8,
+   "end": 10360.36,
+   "text": "Hã?",
+   "turn": 1352,
+   "speaker_change": true
+  },
+  {
+   "start": 10360.36,
+   "end": 10361.44,
+   "text": "É que tem uma pracinha aqui.",
+   "turn": 1353,
+   "speaker_change": true
+  },
+  {
+   "start": 10361.44,
+   "end": 10362.56,
+   "text": "Vai seguindo,",
+   "turn": 1353,
+   "speaker_change": false
+  },
+  {
+   "start": 10362.56,
+   "end": 10366.6,
+   "text": "vai procurando aí porque a gente Ô, Mouri, de qualquer forma, vai andando, cara, senão",
+   "turn": 1354,
+   "speaker_change": true
+  },
+  {
+   "start": 10366.6,
+   "end": 10368,
+   "text": "vai andando.",
+   "turn": 1355,
+   "speaker_change": true
+  },
+  {
+   "start": 10368,
+   "end": 10368.52,
+   "text": "Fica parado.",
+   "turn": 1356,
+   "speaker_change": true
+  },
+  {
+   "start": 10368.52,
+   "end": 10370.08,
+   "text": "Pracinha é aqui atrás.",
+   "turn": 1357,
+   "speaker_change": true
+  },
+  {
+   "start": 10370.08,
+   "end": 10373.08,
+   "text": "É, vai, vai indo para cá esses conteúdos.",
+   "turn": 1357,
+   "speaker_change": false
+  },
+  {
+   "start": 10373.08,
+   "end": 10374.12,
+   "text": "E, e o negócio, né?",
+   "turn": 1358,
+   "speaker_change": true
+  },
+  {
+   "start": 10374.12,
+   "end": 10375.12,
+   "text": "Tá vendo?",
+   "turn": 1358,
+   "speaker_change": false
+  },
+  {
+   "start": 10375.12,
+   "end": 10379.88,
+   "text": "O que, o que faz a facção ser tão forte aqui é justamente porque tem muito conflito habitacional.",
+   "turn": 1358,
+   "speaker_change": false
+  },
+  {
+   "start": 10379.88,
+   "end": 10380.92,
+   "text": "Sim, muito.",
+   "turn": 1359,
+   "speaker_change": true
+  },
+  {
+   "start": 10380.92,
+   "end": 10385.04,
+   "text": "Aliás, ó, a facção adora conjunto habitacional assim pra gente entender assim.",
+   "turn": 1360,
+   "speaker_change": true
+  },
+  {
+   "start": 10385.04,
+   "end": 10397.92,
+   "text": "Pô, São Paulo isso aí é mesmo São Paulo também, meu amigo que a policial se vira e fala: \"Cara, você vai tá tendo venda de droga em tal lugar, é só procurar o conjunto habitacional perto, os caras estão dominando lá\".",
+   "turn": 1361,
+   "speaker_change": true
+  },
+  {
+   "start": 10397.92,
+   "end": 10405.64,
+   "text": "Porque aquela história, velho, o o morador que tá lá, ele tem que ter responsabilidade de pagar mensalidade e mostrar o que ele tá fazendo.",
+   "turn": 1361,
+   "speaker_change": false
+  },
+  {
+   "start": 10405.64,
+   "end": 10407.76,
+   "text": "Isso é outra coisa também.",
+   "turn": 1361,
+   "speaker_change": false
+  },
+  {
+   "start": 10407.76,
+   "end": 10412.24,
+   "text": "Nessa nessa nessa praça tem uma areninha,",
+   "turn": 1362,
+   "speaker_change": true
+  },
+  {
+   "start": 10412.24,
+   "end": 10412.68,
+   "text": "não sei.",
+   "turn": 1363,
+   "speaker_change": true
+  },
+  {
+   "start": 10412.68,
+   "end": 10414.44,
+   "text": "Aqui acho que fica.",
+   "turn": 1363,
+   "speaker_change": false
+  },
+  {
+   "start": 10414.44,
+   "end": 10420.32,
+   "text": "Não, não é. Mas vê aí se tem uma areninha nessa praça.",
+   "turn": 1363,
+   "speaker_change": false
+  },
+  {
+   "start": 10420.32,
+   "end": 10421.6,
+   "text": "Tem areninha.",
+   "turn": 1364,
+   "speaker_change": true
+  },
+  {
+   "start": 10421.6,
+   "end": 10425.16,
+   "text": "Tem aqui.",
+   "turn": 1364,
+   "speaker_change": false
+  },
+  {
+   "start": 10425.16,
+   "end": 10425.96,
+   "text": "Aqui.",
+   "turn": 1364,
+   "speaker_change": false
+  },
+  {
+   "start": 10425.96,
+   "end": 10427.92,
+   "text": "É, mas não tem outro aqui também.",
+   "turn": 1365,
+   "speaker_change": true
+  },
+  {
+   "start": 10427.92,
+   "end": 10430.72,
+   "text": "Aí outro lado.",
+   "turn": 1365,
+   "speaker_change": false
+  },
+  {
+   "start": 10430.72,
+   "end": 10432.2,
+   "text": "É pro outro lado.",
+   "turn": 1366,
+   "speaker_change": true
+  },
+  {
+   "start": 10432.2,
+   "end": 10435.72,
+   "text": "Faz, faz o balão.",
+   "turn": 1366,
+   "speaker_change": false
+  },
+  {
+   "start": 10435.72,
+   "end": 10448.52,
+   "text": "É mais aí tem que ser exato.",
+   "turn": 1367,
+   "speaker_change": true
+  },
+  {
+   "start": 10448.52,
+   "end": 10450.52,
+   "text": "Pronto.",
+   "turn": 1367,
+   "speaker_change": false
+  }
+ ]
+}

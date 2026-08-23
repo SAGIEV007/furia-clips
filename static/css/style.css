@@ -23,12 +23,12 @@
     --bg-raised: #1A1A1E;
 
     /* Dourado da marca: identidade e ação principal, nada além disso. */
-    --gold: #E8B93B;
-    --gold-brand: #FFD400;
-    --gold-dark: #8A6D1F;
-    --gold-light: #F5D174;
-    --gold-glow: rgba(232, 185, 59, 0.12);
-    --gold-quiet: rgba(232, 185, 59, 0.55);
+    --gold: #FCBE26;
+    --gold-brand: #FCBE26;
+    --gold-dark: #A67702;
+    --gold-light: #FDD87C;
+    --gold-glow: rgba(252, 190, 38, 0.12);
+    --gold-quiet: rgba(252, 190, 38, 0.55);
 
     --text-primary: #F5F5F4;
     --text-secondary: #A8A8A5;
@@ -73,7 +73,7 @@
        halo dourado ao redor de tudo lê como enfeite. */
     --shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
     --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.55);
-    --shadow-gold: 0 0 0 1px rgba(232, 185, 59, 0.18);
+    --shadow-gold: 0 0 0 1px rgba(252, 190, 38, 0.18);
 
     --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
 }
@@ -3346,9 +3346,9 @@ body {
     --bg-card: #121920;
     --bg-hover: #1b252e;
     --bg-input: #0f161d;
-    --gold: #f4c84a;
-    --gold-dark: #a77a1d;
-    --gold-light: #ffe28a;
+    --gold: #FCBE26;
+    --gold-dark: #A67702;
+    --gold-light: #FDD87C;
     --gold-glow: rgba(244, 200, 74, 0.14);
     --text-primary: #f4f7fa;
     --text-secondary: #aab6c2;
@@ -4285,9 +4285,9 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
     --surface-1: rgba(17, 30, 43, .92);
     --surface-2: rgba(20, 39, 55, .78);
     --surface-3: rgba(25, 48, 66, .62);
-    --gold: #f4c95d;
-    --gold-dark: #b68527;
-    --gold-light: #ffe39a;
+    --gold: #FCBE26;
+    --gold-dark: #A67702;
+    --gold-light: #FDD87C;
     --gold-glow: rgba(244, 201, 93, .16);
     --text-primary: #f4f7fb;
     --text-secondary: #aab9c9;
@@ -4848,10 +4848,10 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
     /* O ouro continua sendo a cor da marca, mas deixa de ser
        um brilho: vira acento. Halo colorido atrás de caixa é o
        sinal mais rápido de interface amadora. */
-    --gold: #E8B93A;
-    --gold-dark: #9A7A20;
-    --gold-light: #F5D169;
-    --gold-glow: rgba(232, 185, 58, 0.10);
+    --gold: #FCBE26;
+    --gold-dark: #A67702;
+    --gold-light: #FDD87C;
+    --gold-glow: rgba(252, 190, 38, 0.10);
 
     --text-primary: #F2F3F5;
     --text-secondary: #9BA1AA;
@@ -4928,7 +4928,7 @@ body { font-size: 14px; line-height: 1.55; -webkit-font-smoothing: antialiased; 
     gap: var(--space-4);
     margin: 0 0 var(--space-5);
     padding: var(--space-3) var(--space-4);
-    border: 1px solid rgba(232, 185, 59, .32);
+    border: 1px solid rgba(252, 190, 38, .32);
     border-left: 2px solid var(--gold);
     border-radius: var(--radius-md);
     background: linear-gradient(110deg, var(--gold-glow), rgba(18, 29, 40, .94) 48%, rgba(11, 20, 29, .96)), var(--bg-card);
@@ -4944,9 +4944,9 @@ body { font-size: 14px; line-height: 1.55; -webkit-font-smoothing: antialiased; 
     animation: run-pulse 1.8s var(--ease) infinite;
 }
 @keyframes run-pulse {
-    0%   { box-shadow: 0 0 0 0 rgba(232, 185, 59, .35); }
-    70%  { box-shadow: 0 0 0 8px rgba(232, 185, 59, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(232, 185, 59, 0); }
+    0%   { box-shadow: 0 0 0 0 rgba(252, 190, 38, .35); }
+    70%  { box-shadow: 0 0 0 8px rgba(252, 190, 38, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(252, 190, 38, 0); }
 }
 /* Quem prefere menos movimento não perde informação: o ponto continua lá. */
 @media (prefers-reduced-motion: reduce) {
@@ -4959,18 +4959,18 @@ body { font-size: 14px; line-height: 1.55; -webkit-font-smoothing: antialiased; 
 .run-bar-body > span { font-size: var(--text-sm); color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .run-bar-stage, .run-bar-scope {
     display: inline-flex; align-items: center; width: fit-content; max-width: 100%;
-    padding: 3px 8px; border: 1px solid rgba(232, 185, 59, .28); border-radius: 999px;
-    color: var(--gold-light); background: rgba(232, 185, 59, .09); font-size: 10px; font-weight: 800;
+    padding: 3px 8px; border: 1px solid rgba(252, 190, 38, .28); border-radius: 999px;
+    color: var(--gold-light); background: rgba(252, 190, 38, .09); font-size: 10px; font-weight: 800;
     letter-spacing: .02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .run-bar-progress-row { display: flex; align-items: center; gap: 8px; }
 .run-bar-progress-track { height: 5px; min-width: 90px; flex: 1; overflow: hidden; border-radius: 999px; background: rgba(255,255,255,.10); }
-.run-bar-progress-fill { width: 0; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--gold-dark), var(--gold-light)); box-shadow: 0 0 10px rgba(232,185,59,.25); transition: width .35s ease; }
+.run-bar-progress-fill { width: 0; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--gold-dark), var(--gold-light)); box-shadow: 0 0 10px rgba(252, 190, 38,.25); transition: width .35s ease; }
 .run-bar-progress-text { min-width: 34px; color: var(--gold-light); font-size: 10px; font-weight: 800; font-variant-numeric: tabular-nums; text-align: right; }
 .run-bar-step-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
 .run-bar-step { padding: 3px 7px; border: 1px solid rgba(160, 180, 196, .13); border-radius: 999px; color: var(--text-muted); background: rgba(255,255,255,.025); font-size: 9px; font-weight: 700; transition: color .2s ease, border-color .2s ease, background .2s ease; }
 .run-bar-step.complete { color: #a8dfb6; border-color: rgba(98,216,131,.27); background: rgba(98,216,131,.08); }
-.run-bar-step.active { color: var(--gold-light); border-color: rgba(232,185,59,.42); background: rgba(232,185,59,.12); }
+.run-bar-step.active { color: var(--gold-light); border-color: rgba(252, 190, 38,.42); background: rgba(252, 190, 38,.12); }
 .run-bar-step.error { color: #ffb2ad; border-color: rgba(239,68,68,.35); background: rgba(239,68,68,.10); }
 .run-bar-side { display: flex; flex-direction: column; align-items: flex-end; justify-content: space-between; gap: 9px; flex: 0 0 auto; }
 .run-bar-clock { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: var(--text-base); color: var(--gold-light); font-variant-numeric: tabular-nums; }
@@ -5039,7 +5039,7 @@ body { font-size: 14px; line-height: 1.55; -webkit-font-smoothing: antialiased; 
 .btn:active:not(:disabled) { transform: translateY(0); }
 .btn:disabled { cursor: not-allowed; opacity: .45; transform: none; }
 .btn-primary:hover:not(:disabled), .btn-gold:hover:not(:disabled) {
-    box-shadow: 0 4px 16px rgba(232, 185, 59, .18);
+    box-shadow: 0 4px 16px rgba(252, 190, 38, .18);
 }
 
 /* Um trabalho em andamento é a única coisa da tela que se move sozinha. */

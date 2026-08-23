@@ -217,9 +217,16 @@ def test_candidates_are_born_on_the_seams_instead_of_a_stopwatch():
 
     assert seam_blocks
     # The exchange survives as one unit instead of being closed by the clock.
-    assert len(seam_blocks) < len(timed_blocks)
+    # Counting blocks used to stand in for that, and stopped standing for it when
+    # the timed path was tied to the measured ceiling and grew coarser: fewer
+    # blocks can now mean a coarser stopwatch rather than a preserved exchange.
+    # So the claim is made directly — the seam blocks open where the conversation
+    # turns, and the timed ones do not.
     starts = [block["start"] for block in seam_blocks]
     assert 453.6 in starts
+    assert 453.6 not in [block["start"] for block in timed_blocks], (
+        "o relógio acertou a costura por acaso; este teste perdeu o que media"
+    )
 
 
 def test_a_source_with_no_conversation_keeps_the_timed_blocks():

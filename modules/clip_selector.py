@@ -154,7 +154,12 @@ class ClipSelector:
         self.max_clips = max_clips
         self.min_duration = min_duration
         self.max_duration = max_duration
-        self.preferred_max_duration = preferred_max_duration
+        # O teto preferencial não pode passar do limite duro. Nada reconciliava
+        # os dois, e enquanto os limiares de bloco eram absolutos isso não
+        # aparecia; quando eles passaram a sair do teto, um seletor pedido com
+        # `max_duration=30` e o teto padrão de 60 começou a montar blocos de 48s
+        # — maiores que o limite que ele mesmo declarou.
+        self.preferred_max_duration = min(preferred_max_duration, max_duration)
         # In the Renan-first pipeline, a clean turn boundary is not enough to
         # claim who is speaking. The selection path carries this requirement
         # from editorial_context into every backend and gate.
@@ -1699,8 +1704,29 @@ Retorne APENAS o JSON.
         pool = handover or allowed
         return max(pool, key=lambda item: (item[1], item[0]))[0]
 
+    # Onde não há costura de conversa, o bloco fecha pelo relógio. Os limiares
+    # eram 18s e 30s, absolutos, escolhidos quando o teto era 180s — nessa conta
+    # o bloco valia um décimo do corte e servia só como peça para o modelo juntar.
+    # Com o teto medido em 60s eles ficaram desproporcionais: no podcast do
+    # Acervo, que é a única das três fontes sem costura, saíam 78 fatias de 21s e
+    # o corte virava uma delas.
+    #
+    # Agora saem do teto, para os dois caminhos não discordarem quando a régua o
+    # mover. Medido em `scripts/medir_cortes.py`: o podcast vai de 0,29 para 0,41
+    # do alvo humano e o atravessamento de assunto cai de 9% para 4%; a live e a
+    # sabatina não se movem, porque as duas têm costura e nem passam por aqui.
+    #
+    # Não chega a 1,0 e o motivo está entendido: aqui o corte é um bloco, e o
+    # alvo do podcast é 94s. Fechar essa distância pede juntar blocos — o que o
+    # comentário antigo prometia e nunca aconteceu no caminho local — e isso é
+    # mudança maior, para um ciclo com a régua já montada.
+    BLOCK_SENTENCE_CLOSE_RATIO = 0.40
+    BLOCK_HARD_CLOSE_RATIO = 0.80
+
     def _timed_transcript_blocks(self, sentences):
         """Group sentences into compact editorial blocks for analysis."""
+        sentence_close = self.preferred_max_duration * self.BLOCK_SENTENCE_CLOSE_RATIO
+        hard_close = self.preferred_max_duration * self.BLOCK_HARD_CLOSE_RATIO
         blocks = []
         current_block_sentences = []
         current_start = None
@@ -1715,7 +1741,8 @@ Retorne APENAS o JSON.
 
             # Use smaller editorial blocks so a complete idea can remain short.
             # The selector may still join blocks when the context requires it.
-            if current_duration >= 30 or (sent["text"].strip()[-1:] in ".!?" and current_duration >= 18):
+            closes_a_sentence = sent["text"].strip()[-1:] in ".!?"
+            if current_duration >= hard_close or (closes_a_sentence and current_duration >= sentence_close):
                 block_text = " ".join(s["text"] for s in current_block_sentences)
                 blocks.append(self._make_editorial_block(
                     len(blocks), current_start, sent["end"], block_text, current_block_sentences
