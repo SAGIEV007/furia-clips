@@ -1950,19 +1950,24 @@ Retorne APENAS o JSON.
         else:
             completeness_score = -15
 
-        # V2 BONUSES - Hook/Context/Coice/Payoff (baseado em 50 ciclos de calibração)
+        # V2/V3 BONUSES - Hook/Context/Coice/Payoff (baseado em 50+ ciclos de calibração)
         bonus_v2 = 0
         
-        # Hook bonus - se tem hook forte no início
+        # Hook bonus - se tem hook forte no início - V3 aumentado
         try:
             hook_data = self._detect_hook_strength(original_text, True)
-            if hook_data["normalized"] >= 60:
-                bonus_v2 += 12
+            if hook_data["normalized"] >= 80:
+                bonus_v2 += 18
+            elif hook_data["normalized"] >= 60:
+                bonus_v2 += 14
             elif hook_data["normalized"] >= 40:
-                bonus_v2 += 6
-            # Renan direct bonus extra
-            if any(r.startswith("renan_") for r in hook_data["reasons"]):
-                bonus_v2 += 5
+                bonus_v2 += 8
+            elif hook_data["normalized"] >= 20:
+                bonus_v2 += 3
+            # Renan direct bonus extra - V3 aumentado
+            renan_direct_count = sum(1 for r in hook_data["reasons"] if r.startswith("renan_"))
+            if renan_direct_count > 0:
+                bonus_v2 += 6 + renan_direct_count * 2
         except:
             pass
         
@@ -2406,7 +2411,27 @@ Retorne APENAS o JSON.
         clips = []
         used_indices = set()
 
-        sorted_by_score = sorted(enumerate(scored_blocks), key=lambda x: x[1][1], reverse=True)
+        # V3: Ordena por score + hook + context + coice para priorizar qualidade
+        def _enhanced_sort_key(item):
+            idx, (block, score) = item
+            # Calcula hook e context bonus para ordenação
+            try:
+                hook_data = self._detect_hook_strength(block.get("text", ""), True)
+                hook_bonus = hook_data["normalized"] * 0.3
+            except:
+                hook_bonus = 0
+            try:
+                flags = self._editorial_flags(block.get("text", ""), block)
+                context_bonus = 15 if flags.get("context_complete") else (8 if not flags.get("starts_mid_sentence") else 0)
+                qa_bonus = 10 if flags.get("qa_bridge") else 0
+            except:
+                context_bonus = 0
+                qa_bonus = 0
+            # Score final com bônus
+            enhanced_score = score + hook_bonus + context_bonus + qa_bonus
+            return enhanced_score
+        
+        sorted_by_score = sorted(enumerate(scored_blocks), key=_enhanced_sort_key, reverse=True)
 
         for start_idx, (start_block, start_score) in sorted_by_score:
             if start_idx in used_indices:
