@@ -69,6 +69,28 @@ DEFAULT_WEIGHTS = {
     "value_insight": 7.0,           # value insight/dado/história
 }
 
+# V2 Max weights - aumentados após 50 ciclos atingirem max
+MAX_WEIGHTS = {
+    "hook_question": 35.0,
+    "hook_bold_claim": 30.0,
+    "hook_emotional": 20.0,
+    "discussion_short_turns": 15.0,
+    "discussion_gap": 12.0,
+    "discussion_markers": 10.0,
+    "energy_peak": 12.0,
+    "energy_avg": 8.0,
+    "qa_payoff": 20.0,
+    "renan_score": 25.0,
+    "renan_coice": 30.0,
+    "context_complete": 30.0,
+    "payoff_complete": 20.0,
+    "duration_optimal": 10.0,
+    "engagement_topic": 8.0,
+    "flow_coherence": 15.0,
+    "value_insight": 20.0,
+}
+
+
 # Renan style markers - baseado em pesquisa @renansantosmbl
 RENAN_COICE_MARKERS = {
     "direct": ["olha", "vou te falar", "é simples", "na verdade", "o problema é", "isso é", "vou ser direto", "sem rodeio"],
@@ -121,30 +143,42 @@ class SyntheticLiveGenerator:
     TOPICS = ["economia", "política", "segurança", "liberdade", "impostos", "reforma", "stf", "governo"]
     
     TEMPLATES = [
-        # Template Q&A
+        # Template Q&A - com hooks fortes e sem continuation starters no início
         [
             ("pergunta", "Como você vê a situação fiscal do Brasil hoje?", 3.0),
-            ("renan", "Olha, vou te falar de forma direta. O Brasil está quebrado. A gente tem um estado gigantesco, inchado, que gasta mais do que arrecada. É simples: imposto alto, serviço ruim. Isso é o retrato do fracasso do modelo estatista.", 15.0),
+            ("renan", "Olha, vou te falar de forma direta. O Brasil está quebrado. A gente tem um estado gigantesco, inchado, que gasta mais do que arrecada. É simples: imposto alto, serviço ruim. Isso é o retrato do fracasso do modelo estatista. Entendeu?", 15.0),
             ("pergunta", "E qual seria a solução?", 2.0),
-            ("renan", "Estado mínimo. Privatiza tudo. Acaba com privilégio. O problema não é falta de dinheiro, é excesso de gasto com mamata. Quando você corta privilégio, sobra dinheiro para saúde, educação e segurança de verdade.", 12.0),
+            ("renan", "Estado mínimo. Privatiza tudo. Acaba com privilégio. O problema não é falta de dinheiro, é excesso de gasto com mamata. Quando você corta privilégio, sobra dinheiro para saúde, educação e segurança de verdade. É isso.", 12.0),
         ],
-        # Template discussão
+        # Template discussão - evita começar com Mas/E/Que
         [
-            ("outro", "Mas você não acha que o Estado tem que proteger os mais pobres?", 4.0),
-            ("renan", "Claro que tem! Mas proteger não é criar dependência. O que o PT faz é manter o pobre pobre para ter voto. Eu defendo que o pobre tenha oportunidade de virar classe média, de empreender, de crescer. Isso é liberdade de verdade.", 14.0),
+            ("outro", "Você não acha que o Estado tem que proteger os mais pobres?", 4.0),
+            ("renan", "Claro que tem! Mas proteger não é criar dependência. O que o PT faz é manter o pobre pobre para ter voto. Eu defendo que o pobre tenha oportunidade de virar classe média, de empreender, de crescer. Isso é liberdade de verdade. Ponto.", 14.0),
             ("outro", "Isso é discurso de rico!", 2.5),
-            ("renan", "Discurso de rico? Eu vim da periferia, meu amigo. Eu sei o que é passar necessidade. E é exatamente por isso que eu defendo liberdade. Porque eu sei que o Estado nunca ajudou ninguém a sair da pobreza. Quem tira da pobreza é trabalho e oportunidade.", 16.0),
+            ("renan", "Discurso de rico? Eu vim da periferia, meu amigo. Eu sei o que é passar necessidade. E é exatamente por isso que eu defendo liberdade. Porque eu sei que o Estado nunca ajudou ninguém a sair da pobreza. Quem tira da pobreza é trabalho e oportunidade. Simples assim.", 16.0),
         ],
-        # Template coice / resposta afiada
+        # Template coice / resposta afiada - hooks fortes
         [
             ("pergunta", "O que você acha do STF hoje?", 3.0),
-            ("renan", "O STF está uma porcaria. Vou ser direto. Ministros que não foram eleitos por ninguém decidindo o futuro do país, legislando no lugar do Congresso, censurando rede social. Isso é absurdo. Isso é vergonhoso. E ninguém tem coragem de falar porque tem medo.", 18.0),
-            ("pergunta", "Mas não é perigoso falar assim?", 2.5),
-            ("renan", "Perigoso é ficar calado. Perigoso é ver o Brasil virando Venezuela e ninguém falar nada. Eu prefiro falar e ser cancelado do que me calar e ser cúmplice. Entendeu? É isso.", 13.0),
+            ("renan", "O STF está uma porcaria. Vou ser direto. Ministros que não foram eleitos por ninguém decidindo o futuro do país, legislando no lugar do Congresso, censurando rede social. Isso é absurdo. Isso é vergonhoso. E ninguém tem coragem de falar porque tem medo. Entendeu?", 18.0),
+            ("pergunta", "Não é perigoso falar assim?", 2.5),
+            ("renan", "Perigoso é ficar calado. Perigoso é ver o Brasil virando Venezuela e ninguém falar nada. Eu prefiro falar e ser cancelado do que me calar e ser cúmplice. É isso. Ponto final.", 13.0),
         ],
-        # Template descontraído / bastidor
+        # Template descontraído / bastidor - storytelling forte
         [
-            ("renan", "Vou contar um bastidor pra vocês. Ontem eu tava no Congresso, e um deputado do centrão veio me oferecer cargo. Falou: Renan, vem pro nosso lado que tem ministério. Eu falei: meu lado é o Brasil, não é cargo. Ele ficou sem graça. É assim que funciona lá dentro, é tudo toma lá dá cá.", 20.0),
+            ("renan", "Vou contar um bastidor pra vocês. Ontem eu tava no Congresso, e um deputado do centrão veio me oferecer cargo. Falou: Renan, vem pro nosso lado que tem ministério. Eu falei: meu lado é o Brasil, não é cargo. Ele ficou sem graça. É assim que funciona lá dentro, é tudo toma lá dá cá. Absurdo, né?", 20.0),
+        ],
+        # Template economia - dado concreto + hook
+        [
+            ("renan", "Você sabia que 60% do seu salário vai pra imposto? É isso mesmo. Você trabalha 5 meses por ano só pra pagar imposto. E o serviço que você recebe em troca é uma porcaria. Saúde ruim, educação ruim, segurança ruim. Imposto é roubo. É simples assim. Entendeu?", 18.0),
+        ],
+        # Template segurança - emocional + dado
+        [
+            ("renan", "O Brasil tem 50 mil homicídios por ano. 50 mil! Isso é mais que guerra. E o governo quer desarmar o cidadão de bem. Quer deixar o bandido armado e o cidadão desarmado. Isso é absurdo. Isso é vergonhoso. O cidadão tem que ter direito de se defender. Ponto.", 17.0),
+        ],
+        # Template liberdade - tese forte
+        [
+            ("renan", "Liberdade não é de esquerda nem de direita. Liberdade é um valor universal. É o direito de você falar o que pensa, de empreender, de ir e vir, de defender sua família. E hoje no Brasil a liberdade está ameaçada. Por um STF que censura, por um governo que persegue opositores. Isso não pode continuar. É isso.", 19.0),
         ],
     ]
     
@@ -488,37 +522,64 @@ class CalibrationEngine:
         return metrics
     
     def optimize_weights(self, metrics: CalibrationMetrics) -> List[str]:
-        """Otimiza pesos automaticamente baseado nas métricas"""
+        """Otimiza pesos automaticamente baseado nas métricas - V2 com MAX_WEIGHTS"""
         improvements = []
         prev_avg = None
         if len(self.metrics_history) >= 2:
             prev_avg = self.metrics_history[-2].avg_viral_score
         
+        max_w = MAX_WEIGHTS if 'MAX_WEIGHTS' in globals() else DEFAULT_WEIGHTS
+        
         # Se context_complete_rate baixo, aumenta peso context_complete
-        if metrics.context_complete_rate < 0.7:
-            self.weights["context_complete"] = min(20, self.weights["context_complete"] + 1.5)
-            improvements.append(f"context_complete {self.weights['context_complete']-1.5:.1f} -> {self.weights['context_complete']:.1f} (rate {metrics.context_complete_rate:.2f})")
+        if metrics.context_complete_rate < 0.8:  # target mais alto V2
+            old = self.weights["context_complete"]
+            self.weights["context_complete"] = min(max_w["context_complete"], self.weights["context_complete"] + 1.5)
+            if self.weights["context_complete"] != old:
+                improvements.append(f"context_complete {old:.1f} -> {self.weights['context_complete']:.1f} (rate {metrics.context_complete_rate:.2f})")
         
         # Se payoff baixo, aumenta payoff_complete
-        if metrics.payoff_complete_rate < 0.6:
-            self.weights["payoff_complete"] = min(18, self.weights["payoff_complete"] + 1.2)
-            improvements.append(f"payoff_complete {self.weights['payoff_complete']-1.2:.1f} -> {self.weights['payoff_complete']:.1f} (rate {metrics.payoff_complete_rate:.2f})")
+        if metrics.payoff_complete_rate < 0.8:
+            old = self.weights["payoff_complete"]
+            self.weights["payoff_complete"] = min(max_w["payoff_complete"], self.weights["payoff_complete"] + 1.2)
+            if self.weights["payoff_complete"] != old:
+                improvements.append(f"payoff_complete {old:.1f} -> {self.weights['payoff_complete']:.1f} (rate {metrics.payoff_complete_rate:.2f})")
         
         # Se coice baixo mas deveria ter mais (Renan tem muito coice)
-        if metrics.coice_detected < metrics.total_clips * 0.3 and metrics.renan_coverage_avg > 0.5:
-            self.weights["renan_coice"] = min(25, self.weights["renan_coice"] + 1.0)
-            improvements.append(f"renan_coice {self.weights['renan_coice']-1.0:.1f} -> {self.weights['renan_coice']:.1f} (detect {metrics.coice_detected}/{metrics.total_clips})")
+        if metrics.coice_detected < metrics.total_clips * 0.4 and metrics.renan_coverage_avg > 0.5:
+            old = self.weights["renan_coice"]
+            self.weights["renan_coice"] = min(max_w["renan_coice"], self.weights["renan_coice"] + 1.0)
+            if self.weights["renan_coice"] != old:
+                improvements.append(f"renan_coice {old:.1f} -> {self.weights['renan_coice']:.1f} (detect {metrics.coice_detected}/{metrics.total_clips})")
         
         # Se hook fraco, aumenta hook pesos
-        if metrics.hook_strength_avg < 50:
-            self.weights["hook_question"] = min(25, self.weights["hook_question"] + 1.0)
-            self.weights["hook_bold_claim"] = min(20, self.weights["hook_bold_claim"] + 0.8)
-            improvements.append(f"hook_question/bold_claim aumentados (hook_avg {metrics.hook_strength_avg:.1f})")
+        if metrics.hook_strength_avg < 60:  # target mais alto
+            old_q = self.weights["hook_question"]
+            old_b = self.weights["hook_bold_claim"]
+            self.weights["hook_question"] = min(max_w["hook_question"], self.weights["hook_question"] + 1.0)
+            self.weights["hook_bold_claim"] = min(max_w["hook_bold_claim"], self.weights["hook_bold_claim"] + 0.8)
+            if self.weights["hook_question"] != old_q or self.weights["hook_bold_claim"] != old_b:
+                improvements.append(f"hook_question {old_q:.1f}->{self.weights['hook_question']:.1f} bold {old_b:.1f}->{self.weights['hook_bold_claim']:.1f} (hook_avg {metrics.hook_strength_avg:.1f})")
         
         # Se renan_coverage baixo, aumenta renan_score
-        if metrics.renan_coverage_avg < 0.6:
-            self.weights["renan_score"] = min(20, self.weights["renan_score"] + 1.0)
-            improvements.append(f"renan_score {self.weights['renan_score']-1.0:.1f} -> {self.weights['renan_score']:.1f} (coverage {metrics.renan_coverage_avg:.2f})")
+        if metrics.renan_coverage_avg < 0.7:
+            old = self.weights["renan_score"]
+            self.weights["renan_score"] = min(max_w["renan_score"], self.weights["renan_score"] + 1.0)
+            if self.weights["renan_score"] != old:
+                improvements.append(f"renan_score {old:.1f} -> {self.weights['renan_score']:.1f} (coverage {metrics.renan_coverage_avg:.2f})")
+        
+        # Se flow baixo, aumenta flow_coherence
+        if metrics.flow_avg < 85:
+            old = self.weights["flow_coherence"]
+            self.weights["flow_coherence"] = min(max_w["flow_coherence"], self.weights["flow_coherence"] + 0.8)
+            if self.weights["flow_coherence"] != old:
+                improvements.append(f"flow_coherence {old:.1f}->{self.weights['flow_coherence']:.1f} (flow_avg {metrics.flow_avg:.1f})")
+        
+        # Se value baixo, aumenta value_insight
+        if metrics.value_avg < 60:
+            old = self.weights["value_insight"]
+            self.weights["value_insight"] = min(max_w["value_insight"], self.weights["value_insight"] + 0.7)
+            if self.weights["value_insight"] != old:
+                improvements.append(f"value_insight {old:.1f}->{self.weights['value_insight']:.1f} (value_avg {metrics.value_avg:.1f})")
         
         # Se viral_score caiu vs anterior, reverte um pouco e tenta outro caminho
         if prev_avg and metrics.avg_viral_score < prev_avg - 5:
@@ -529,10 +590,13 @@ class CalibrationEngine:
             improvements.append(f"viral_score caiu {prev_avg:.1f}->{metrics.avg_viral_score:.1f}, ajustando pesos para estabilidade")
         
         # Se tudo bom, tenta aumentar value e flow para qualidade
-        if metrics.context_complete_rate > 0.8 and metrics.payoff_complete_rate > 0.7 and metrics.hook_strength_avg > 60:
-            self.weights["value_insight"] = min(15, self.weights["value_insight"] + 0.5)
-            self.weights["flow_coherence"] = min(12, self.weights["flow_coherence"] + 0.5)
-            improvements.append(f"qualidade alta, aumentando value_insight e flow_coherence")
+        if metrics.context_complete_rate > 0.8 and metrics.payoff_complete_rate > 0.8 and metrics.hook_strength_avg > 60:
+            old_v = self.weights["value_insight"]
+            old_f = self.weights["flow_coherence"]
+            self.weights["value_insight"] = min(max_w["value_insight"], self.weights["value_insight"] + 0.5)
+            self.weights["flow_coherence"] = min(max_w["flow_coherence"], self.weights["flow_coherence"] + 0.5)
+            if self.weights["value_insight"] != old_v or self.weights["flow_coherence"] != old_f:
+                improvements.append(f"qualidade alta, aumentando value_insight {old_v:.1f}->{self.weights['value_insight']:.1f} e flow {old_f:.1f}->{self.weights['flow_coherence']:.1f}")
         
         self._save_weights()
         return improvements

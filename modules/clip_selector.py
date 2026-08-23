@@ -1884,11 +1884,12 @@ Retorne APENAS o JSON.
         }
 
     def _nlp_score_block(self, block, user_context, energy_profile, context_data=None, editorial_context=None):
-        """Score a block using NLP heuristics."""
+        """Score a block using NLP heuristics + Hook/Context/Coice/Payoff bonuses (V2)"""
         text = block["text"].lower()
+        original_text = block["text"]
         score = 40
 
-        # Hook detection
+        # Hook detection - basic
         first_words = " ".join(text.split()[:15])
         hook_patterns = [
             r"voce\s+sabia", r"presta\s+atencao", r"olha\s+isso",
@@ -1949,9 +1950,59 @@ Retorne APENAS o JSON.
         else:
             completeness_score = -15
 
+        # V2 BONUSES - Hook/Context/Coice/Payoff (baseado em 50 ciclos de calibração)
+        bonus_v2 = 0
+        
+        # Hook bonus - se tem hook forte no início
+        try:
+            hook_data = self._detect_hook_strength(original_text, True)
+            if hook_data["normalized"] >= 60:
+                bonus_v2 += 12
+            elif hook_data["normalized"] >= 40:
+                bonus_v2 += 6
+            # Renan direct bonus extra
+            if any(r.startswith("renan_") for r in hook_data["reasons"]):
+                bonus_v2 += 5
+        except:
+            pass
+        
+        # Context bonus - se não começa no meio e não tem referência fraca
+        try:
+            flags = self._editorial_flags(original_text, block)
+            if not flags.get("starts_mid_sentence") and not flags.get("starts_with_context_reference"):
+                bonus_v2 += 8
+            if flags.get("context_complete"):
+                bonus_v2 += 6
+            if flags.get("qa_bridge"):
+                bonus_v2 += 5
+        except:
+            pass
+        
+        # Coice bonus - se tem coice Renan
+        try:
+            # Simula detecção rápida de coice no texto
+            lower = text
+            coice_score = 0
+            for cat, markers in RENAN_COICE_MARKERS.items():
+                coice_score += sum(1 for m in markers if m in lower)
+            if coice_score >= 2:
+                bonus_v2 += min(12, coice_score * 3)
+        except:
+            pass
+        
+        # Payoff bonus - se tem payoff forte
+        try:
+            payoff_data = self._detect_payoff_strength(original_text)
+            if payoff_data["normalized"] >= 60:
+                bonus_v2 += 6
+            elif payoff_data["normalized"] >= 40:
+                bonus_v2 += 3
+        except:
+            pass
+
         total = (score + hook_score + emotional_score + punct_score
                  + context_score + duration_score + completeness_score
-                 + dossier_score - filler_penalty)
+                 + dossier_score - filler_penalty + bonus_v2)
         return max(0, min(100, total))
 
     def _dossier_context_score(self, block, editorial_context):
