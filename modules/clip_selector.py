@@ -102,6 +102,31 @@ WEAK_PAYOFF_ENDINGS_PT = {
     "eu", "ele", "ela", "eles", "elas",
 }
 
+# ═══════════════════════════════════════════
+# RENAN COICE & VIRALITY 4D - Research based
+# OpusClip Hook/Flow/Value/Trend + Renan style
+# ═══════════════════════════════════════════
+RENAN_COICE_MARKERS = {
+    "direct": ["olha", "vou te falar", "é simples", "na verdade", "o problema é", "isso é", "vou ser direto", "sem rodeio", "vou ser sincero"],
+    "provocative": ["absurdo", "vergonha", "mentira", "hipocrisia", "covarde", "canalha", "vagabundo", "pilantra", "porcaria", "lixo"],
+    "antissistema": ["sistema", "establishment", "velha política", "centrão", "corporativismo", "privilégio", "mamata", "toma lá dá cá"],
+    "liberdade": ["liberdade", "estado mínimo", "imposto é roubo", "livre mercado", "empreender", "burocracia", "estatista"],
+    "confront": ["detona", "expose", "escancara", "desmascara", "bomba", "urgente", "escândalo"],
+}
+
+RENAN_HOOK_PATTERNS = {
+    "question": [r"\bcomo\b.*\?", r"\bpor que\b", r"\bqual\b.*\?", r"\bquem\b", r"você sabia", r"já parou pra pensar", r"você já viu"],
+    "bold_claim": [r"ninguém te conta", r"a verdade é", r"vou provar", r"isso vai", r"é mentira que", r"vou te falar uma verdade"],
+    "emotional": [r"absurdo", r"vergonha", r"revoltante", r"inacreditável", r"chocante", r"urgente", r"bomba", r"escândalo"],
+}
+
+PAYOFF_MARKERS_ADV = {
+    "conclusion": ["entendeu?", "é isso", "ponto", "fim", "conclusão", "resumindo", "portanto", "então é isso", "é simples assim"],
+    "punchline": ["e é por isso que", "por isso que eu digo", "é exatamente isso", "não tem outro jeito", "é isso que acontece"],
+    "call_action": ["compartilha", "comenta", "o que você acha", "deixa nos comentários", "marca alguém", "o que vocês acham"],
+}
+
+
 
 class ClipSelector:
     def __init__(
@@ -355,6 +380,28 @@ class ClipSelector:
                 if emit_progress:
                     emit_progress(f"[Engajamento] Falha ao aplicar aprendizado: {str(e)[:120]}", "warning")
 
+        # 4. Coice + Virality 4D (Hook/Flow/Value/Trend) - OpusClip inspired + Renan style
+        try:
+            coice_moments = self._detect_coice_moments(sentences, energy_profile)
+            if emit_progress and coice_moments:
+                emit_progress(f"[Coice] {len(coice_moments)} momentos de coice Renan detectados", "info")
+            clips = self._apply_coice_and_virality(clips, coice_moments, transcription)
+            self._candidate_diagnostics["coice_moments"] = len(coice_moments)
+            self._candidate_diagnostics["virality_4d_applied"] = True
+            # Calcula médias para diagnóstico
+            if clips:
+                avg_hook = sum(c.get("hook_strength", 0) for c in clips) / len(clips)
+                avg_flow = sum(c.get("flow_strength", 0) for c in clips) / len(clips)
+                avg_value = sum(c.get("value_strength", 0) for c in clips) / len(clips)
+                avg_trend = sum(c.get("trend_strength", 0) for c in clips) / len(clips)
+                self._candidate_diagnostics["avg_hook"] = round(avg_hook, 1)
+                self._candidate_diagnostics["avg_flow"] = round(avg_flow, 1)
+                self._candidate_diagnostics["avg_value"] = round(avg_value, 1)
+                self._candidate_diagnostics["avg_trend"] = round(avg_trend, 1)
+        except Exception as e:
+            if emit_progress:
+                emit_progress(f"[Virality 4D] Falha ao aplicar coice+virality: {str(e)[:150]}", "warning")
+
         if emit_progress:
             source_labels = {"gemini": "Gemini Flash", "llm": "Ollama", "nlp": "NLP local"}
             source_label = source_labels.get(self._selection_source, "NLP local")
@@ -546,6 +593,300 @@ class ClipSelector:
                     clip["engagement_bonus"] = bonus
         
         return clips
+
+    # ═══════════════════════════════════════════
+    # ADVANCED: Coice, Hook, Payoff, Virality 4D
+    # Inspired by OpusClip Hook/Flow/Value/Trend
+    # ═══════════════════════════════════════════
+    def _detect_coice_moments(self, sentences, energy_profile=None):
+        """Detecta momentos de coice Renan - resposta afiada direta provocativa"""
+        moments = []
+        if not sentences:
+            return moments
+        
+        for i, sent in enumerate(sentences):
+            text = sent.get("text", "")
+            lower = text.lower()
+            score = 0.0
+            reasons = []
+            
+            # Marcadores de coice
+            for cat, markers in RENAN_COICE_MARKERS.items():
+                count = sum(1 for m in markers if m in lower)
+                if count > 0:
+                    weight = {"direct": 3, "provocative": 4, "antissistema": 2.5, "liberdade": 2, "confront": 3.5}[cat]
+                    score += count * weight
+                    reasons.append(f"{cat}:{count}")
+            
+            # Energia alta aumenta coice
+            energy = 0.5
+            if energy_profile:
+                try:
+                    s_start = float(sent.get("start", 0))
+                    s_end = float(sent.get("end", 0))
+                    energies = []
+                    for e in energy_profile:
+                        if isinstance(e, dict):
+                            t = float(e.get("time", e.get("start", 0)))
+                            if s_start <= t <= s_end:
+                                energies.append(float(e.get("energy", 0.5)))
+                    if energies:
+                        energy = sum(energies) / len(energies)
+                        if energy > 0.7:
+                            score += 3
+                            reasons.append(f"energia_alta:{energy:.2f}")
+                except:
+                    pass
+            
+            # Pergunta anterior + resposta longa = coice pattern
+            if i > 0:
+                prev_text = sentences[i-1].get("text", "")
+                if "?" in prev_text and len(text.split()) > 15:
+                    score += 3
+                    reasons.append("qa_coice_pattern")
+            
+            # Frases curtas e diretas no final com punchline
+            sents_split = re.split(r'[.!?]+', text)
+            if sents_split:
+                last = sents_split[-1].strip().lower() if sents_split[-1].strip() else (sents_split[-2].strip().lower() if len(sents_split)>1 else "")
+                if last and len(last.split()) <= 10 and any(w in last for w in ["isso", "ponto", "entendeu", "é isso", "simples"]):
+                    score += 2
+                    reasons.append("punchline_curta")
+            
+            if score >= 6.0:
+                moments.append({
+                    "start": float(sent.get("start", 0)),
+                    "end": float(sent.get("end", 0)),
+                    "score": round(min(1.0, score / 15.0), 3),
+                    "intensity": round(min(1.0, score / 15.0), 3),
+                    "reasons": reasons,
+                    "text_excerpt": text[:100],
+                    "type": "coice",
+                    "energy": round(energy, 3)
+                })
+        
+        return moments
+
+    def _detect_hook_strength(self, text: str, is_start: bool = True) -> dict:
+        """Detecta força do hook - primeiros 3s devem prender atenção (OpusClip Hook) + Renan style"""
+        lower = text.lower()
+        score = 0.0
+        reasons = []
+        
+        if is_start:
+            first_150 = lower[:150]
+            # Pergunta no início
+            if "?" in first_150[:80]:
+                score += 5
+                reasons.append("pergunta_inicio")
+            
+            # Bold claim
+            for pattern in RENAN_HOOK_PATTERNS["bold_claim"]:
+                if re.search(pattern, first_150):
+                    score += 4
+                    reasons.append("bold_claim")
+                    break
+            
+            # Emotional trigger
+            for pattern in RENAN_HOOK_PATTERNS["emotional"]:
+                if re.search(pattern, first_150):
+                    score += 3
+                    reasons.append("emotional_trigger")
+                    break
+            
+            # Dados concretos
+            if re.search(r'\b\d+[%]?\b', first_150) or re.search(r'\b\d+\s*(mil|milhão|bilhão)\b', first_150):
+                score += 2
+                reasons.append("dado_concreto")
+            
+            # Primeira pessoa + opinião forte
+            if any(w in first_150 for w in ["eu acho", "eu defendo", "na minha opinião", "vou te falar"]):
+                score += 2
+                reasons.append("opiniao_forte_inicio")
+            
+            # RENAN DIRECT HOOKS - estilo direto provocativo característico
+            renan_direct_patterns = [
+                (r"olha.*vou te falar", 5, "renan_direto_olha"),
+                (r"vou ser direto", 5, "renan_direto"),
+                (r"vou ser sincero", 5, "renan_sincero"),
+                (r"vou te falar de forma direta", 5, "renan_forma_direta"),
+                (r"vou contar um bastidor", 6, "renan_bastidor"),
+                (r"vou te contar uma verdade", 5, "renan_verdade"),
+                (r"o stf está", 6, "renan_stf_direto"),
+                (r"isso é absurdo", 5, "renan_absurdo"),
+                (r"isso é vergonhoso", 5, "renan_vergonha"),
+                (r"o brasil está quebrado", 6, "renan_brasil_quebrado"),
+                (r"estado mínimo", 4, "renan_estado_minimo"),
+                (r"imposto é roubo", 6, "renan_imposto_roubo"),
+                (r"privatiza tudo", 5, "renan_privatiza"),
+            ]
+            for pattern, pts, reason in renan_direct_patterns:
+                if re.search(pattern, first_150):
+                    score += pts
+                    reasons.append(reason)
+                    break  # só um bônus Renan direto para não inflar
+            
+            # Confronto direto
+            if any(w in first_150 for w in ["detona", "escancara", "desmascara", "bomba", "urgente", "escândalo"]):
+                score += 3
+                reasons.append("confronto_direto")
+        
+        return {"score": min(15.0, score), "reasons": reasons, "normalized": min(100, score * 8)}
+
+    def _detect_payoff_strength(self, text: str) -> dict:
+        """Detecta força do payoff - conclusão deve fechar raciocínio"""
+        lower = text.lower()
+        score = 0.0
+        reasons = []
+        
+        last_150 = lower[-150:]
+        
+        for cat, markers in PAYOFF_MARKERS_ADV.items():
+            for m in markers:
+                if m in last_150:
+                    weight = {"conclusion": 3, "punchline": 4, "call_action": 2}[cat]
+                    score += weight
+                    reasons.append(f"{cat}:{m}")
+                    break
+        
+        # Termina com frase forte curta
+        sentences = [s.strip() for s in re.split(r'[.!?]+', text) if s.strip()]
+        if sentences:
+            last = sentences[-1].lower()
+            if 3 <= len(last.split()) <= 12:
+                score += 2
+                reasons.append("frase_curta_forte_final")
+            # Se última frase tem conclusão
+            if any(w in last for w in ["entendeu", "é isso", "ponto final", "simples assim"]):
+                score += 3
+                reasons.append("conclusao_explicita")
+        
+        return {"score": min(10.0, score), "reasons": reasons, "normalized": min(100, score * 10)}
+
+    def _calculate_virality_4d(self, clip: dict, transcription: dict = None) -> dict:
+        """
+        Calcula Virality Score 4D inspirado OpusClip:
+        - Hook: prende atenção nos primeiros 3s (0-100)
+        - Flow: coerência e contexto completo (0-100)
+        - Value: insight, dado, história útil (0-100)
+        - Trend: alinhado com tópicos quentes (0-100)
+        """
+        text = clip.get("text", "")
+        lower = text.lower()
+        
+        # Hook: primeiros 120 chars
+        hook_data = self._detect_hook_strength(text, True)
+        hook = hook_data["normalized"]
+        
+        # Flow: contexto completo + payoff + sem corte abrupto + qa_bridge
+        flow = 50
+        if clip.get("context_complete"):
+            flow += 20
+        if clip.get("payoff_complete"):
+            flow += 15
+        if not clip.get("starts_mid_sentence"):
+            flow += 10
+        if clip.get("qa_bridge"):
+            flow += 10
+        if clip.get("question_answer_complete"):
+            flow += 5
+        flow = min(100, flow)
+        
+        # Value: insight, dado, história, bastidor, tese forte
+        value = 40
+        if re.search(r'\b\d+[%]?\b', lower):
+            value += 12
+        if any(w in lower for w in ["vou contar", "bastidor", "ontem", "quando eu", "eu vi", "aconteceu", "vou te contar um segredo"]):
+            value += 15
+        if any(w in lower for w in ["problema é", "solução é", "por isso", "é simples", "na verdade", "o que ninguém te conta"]):
+            value += 12
+        if any(w in lower for w in ["absurdo", "vergonha", "mentira", "corrupto", "escândalo"]):
+            value += 10
+        if len(text.split()) > 25:  # conteúdo substancial
+            value += 5
+        value = min(100, value)
+        
+        # Trend: tópicos quentes (baseado em engagement + atualidades)
+        trend = 50
+        hot_topics = {
+            "stf": 12, "lula": 10, "governo": 8, "imposto": 10, "reforma": 8,
+            "segurança": 12, "economia": 8, "liberdade": 10, "mbl": 8, "missão": 8,
+            "bolsonaro": 10, "congresso": 6, "centrão": 8, "corrupção": 10
+        }
+        for topic, weight in hot_topics.items():
+            if topic in lower:
+                trend += weight
+        trend = min(100, trend)
+        
+        # Viral final ponderado - Hook e Flow mais importantes (OpusClip research)
+        viral = int(hook * 0.30 + flow * 0.30 + value * 0.25 + trend * 0.15)
+        
+        return {
+            "hook": round(hook, 1),
+            "flow": round(flow, 1),
+            "value": round(value, 1),
+            "trend": round(trend, 1),
+            "viral": viral,
+            "hook_details": hook_data,
+        }
+
+    def _apply_coice_and_virality(self, clips, coice_moments, transcription=None):
+        """Aplica bônus de coice e recalcula virality 4D"""
+        if not clips:
+            return clips
+        
+        for clip in clips:
+            c_start = float(clip.get("start", 0))
+            c_end = float(clip.get("end", 0))
+            
+            # Bônus coice
+            coice_bonus = 0
+            coice_reasons = []
+            for cm in coice_moments:
+                overlap = max(0, min(c_end, cm["end"]) - max(c_start, cm["start"]))
+                if overlap > 0:
+                    coice_bonus += cm["score"] * 15  # até 15 pontos por coice
+                    coice_reasons.append(f"coice score {cm['score']} - {', '.join(cm['reasons'][:2])}")
+                    clip["coice_detected"] = True
+            
+            # Virality 4D
+            v4d = self._calculate_virality_4d(clip, transcription)
+            clip["virality_4d"] = v4d
+            clip["hook_strength"] = v4d["hook"]
+            clip["flow_strength"] = v4d["flow"]
+            clip["value_strength"] = v4d["value"]
+            clip["trend_strength"] = v4d["trend"]
+            
+            # Payoff strength
+            payoff_data = self._detect_payoff_strength(clip.get("text", ""))
+            clip["payoff_strength"] = payoff_data["normalized"]
+            clip["payoff_reasons"] = payoff_data["reasons"]
+            
+            # Hook strength já vem do v4d
+            clip["hook_reasons"] = v4d["hook_details"]["reasons"]
+            
+            # Bônus combinado
+            total_bonus = coice_bonus
+            # Bonus por hook forte
+            if v4d["hook"] >= 70:
+                total_bonus += 5
+            # Bonus por flow completo
+            if v4d["flow"] >= 85:
+                total_bonus += 4
+            # Bonus por value alto
+            if v4d["value"] >= 75:
+                total_bonus += 3
+            
+            if total_bonus > 0:
+                clip["viral_score"] = min(100, int(clip.get("viral_score", 50) + total_bonus))
+                clip["coice_bonus"] = round(coice_bonus, 1)
+                clip["virality_bonus"] = round(total_bonus - coice_bonus, 1)
+                if coice_reasons:
+                    clip["coice_reasons"] = coice_reasons[:3]
+        
+        # Reordena por viral_score + virality_4d viral
+        return sorted(clips, key=lambda c: (c.get("viral_score", 0) + c.get("virality_4d", {}).get("viral", 0) / 10), reverse=True)
+
 
     def get_selection_source(self):
         return self._selection_source or "nlp"
