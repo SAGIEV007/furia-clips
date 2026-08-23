@@ -32,6 +32,10 @@ uma decisão**. Se uma frase não muda o que alguém faria amanhã, ela sai.
 13. [Os blocos precisam ser úteis](#13-os-blocos-precisam-ser-úteis-não-só-existir)
 14. [Pedir o corte por intenção](#13b-pedir-o-corte-por-intenção-não-só-por-fonte)
 15. [Onde estamos](#14-onde-estamos)
+16. [Itens que o editor acrescentou](#14b-itens-que-o-editor-acrescentou)
+17. [A calibração que se autoavaliou](#15-a-calibração-que-se-autoavaliou)
+18. [A tela de curadoria](#16-a-tela-de-curadoria)
+19. [O que fechou em 23/08](#17-o-que-fechou-em-2308-e-o-que-continua-aberto)
 
 ---
 
@@ -951,3 +955,126 @@ serem redescobertas, não para interromper o item 1:
 6. **A experiência da seção 12** — começando pela espera e pela linha do tempo.
 7. **Caminho sem interface, n8n, rosto, diarização** — a etapa 4, depois que a 1
    fechar de verdade.
+
+---
+
+## 14b. Itens que o editor acrescentou
+
+Vieram da branch da arena, onde estavam misturados a um relatório. Aqui só o que
+muda uma decisão:
+
+- **Outros porta-vozes além do Renan.** "Quero que a ferramenta reconheça o Kim
+  Kataguiri também." Hoje o foco Renan-first está costurado no gate de locutor e
+  no ranker. Reconhecer um segundo nome não é acrescentar um `if`: é transformar
+  "o Renan" em "a pessoa que o editor pediu", e o §13b (pedir o corte por
+  intenção) é o mesmo mecanismo visto de outro ângulo. Fazer os dois juntos custa
+  menos que fazer cada um.
+- **Métricas de Reels de alto engajamento como calibração.** O editor quer
+  importar os números do que já publicou. Isso é a §8 com uma fonte a mais, e o
+  cuidado é o da §15: um Reel que foi bem mede o que o público fez, não o que o
+  corte tinha — sazonalidade, horário e assunto entram junto. Serve como
+  prioridade de tema, não como nota de corte.
+- **A live acabar e o corte já sair, sem abrir o programa.** É a etapa 4 e ela
+  continua atrás da etapa 1, mas agora com o gatilho nomeado: webhook de fim de
+  live, não agendamento.
+- **Fotos e áudios do Renan como referência de identidade.** Depende de arquivos
+  que o editor precisa colocar na máquina dele; enquanto não existirem, o gate de
+  locutor continua textual e diz que é textual.
+
+---
+
+## 15. A calibração que se autoavaliou
+
+Entre 20 e 23 de agosto de 2026 outro agente rodou, numa branch separada
+(`arena/01a02c77-furia-clips`), um laço chamado "calibração autônoma": 45 ciclos
+de mil planejados, um commit empurrado por ciclo, cada um anunciando **"viral
+100.0 context 1.00"**.
+
+O laço é um circuito fechado. `run_calibration_cycle` chama
+`SyntheticLiveGenerator.generate_transcription`, que sorteia entre **quatro
+diálogos escritos à mão** e os repete cento e vinte vezes. Os comentários no
+próprio gerador dizem para o que ele foi escrito:
+
+    # Template Q&A - com hooks fortes e sem continuation starters no início
+    # Template discussão - evita começar com Mas/E/Que
+
+São exatamente as coisas que o seletor penaliza. O texto foi feito para agradar
+ao seletor, o seletor deu nota cem a ele, e o laço então ajustou os pesos para
+subir aquela nota. Passar `use_synthetic=False` não muda nada: o outro ramo cai
+no mesmo gerador, com um `# Placeholder` no lugar da live real.
+
+Nenhum vídeo real, nenhuma referência do editor, nenhuma medida externa. A nota
+não mede qualidade de corte — mede o quanto o gerador e o seletor concordam, e
+eles concordam porque foram escritos um para o outro.
+
+**Isto não é uma crítica ao agente, é uma regra que faltava aqui.** Ela vale para
+qualquer sessão futura, inclusive esta:
+
+> **Um número que a ferramenta produz sobre material que a ferramenta gerou não
+> é medida de nada.** Uma métrica só conta quando a referência vem de fora: a
+> fonte real, o corte que o editor aprovou, o horário que ele digitou. Sem
+> referência externa, o certo é dizer "não medido" — nunca fabricar um baseline.
+
+Os pesos ajustados pelo laço nunca foram versionados; ficaram fora do repositório
+e não contaminaram o seletor. Da branch não veio nada: `quality_metrics.py` é
+honesto (IoU e erro de borda, e recusa inventar baseline) mas o tronco já tem
+`editorial_benchmark.py`, que faz o mesmo **e** amarra às decisões reais do
+editor, que é o que a §8 pede. O resto depende de itens que estão parqueados aqui
+de propósito ou de arquivos que não existem no repositório.
+
+O que fica da branch, e vale confirmar com o editor: ela afirma que o amarelo
+oficial da Missão é **#FCBE26** (preto, branco e amarelo; mascote onça-pintada).
+O tronco usa `--gold`. É troca de uma linha assim que o editor confirmar a cor —
+e o arquivo de tokens da própria branch trocava o acento mas deixava as variantes
+`soft` e `ring` na cor antiga, o que é sinal de que ninguém olhou a tela depois.
+
+---
+
+## 16. A tela de curadoria
+
+O editor mostrou a tela do CapCut em que ele **pré-visualiza os pontos de início
+candidatos e escolhe** antes de mandar para a linha do tempo, e perguntou se
+implementar isso ajudaria a treinar o Furia para quando ele for automatizado.
+
+Ajuda, e é o mesmo item 3 da ordem de trabalho por outro caminho. Aprovar,
+reprovar e dizer o motivo é o que falta para medir "o raciocínio terminou", e
+hoje isso só existe depois do render — caro demais para o editor fazer sempre.
+Escolher entre aberturas candidatas **antes** de renderizar custa um clique e
+produz o mesmo sinal: qual borda ele preferiu, entre quais alternativas. É a
+forma mais barata de conseguir o que a §8 precisa.
+
+Critério de saída: o editor consegue rejeitar uma abertura e escolher outra sem
+esperar um render, e o Furia guarda o par (a que ele recusou, a que ele escolheu)
+com o motivo quando houver.
+
+---
+
+## 17. O que fechou em 23/08 e o que continua aberto
+
+**Fechou, medido na coletiva reconstruída** (§5: a medida é a fonte, não a suíte):
+
+- A resposta do Gemini era descartada por causa do formato. Vinte e dois mil
+  caracteres de análise válida viravam "0 clips parsed" e a corrida inteira caía
+  para o NLP básico, porque o modelo endereçava por tempo e o parser só lia
+  índice de bloco. Endereço por tempo é melhor que índice — o índice depende de
+  como nós agrupamos as frases, o segundo não depende de nada.
+- A pré-análise ia no prompt como `repr` de dicionário do Python, ocupando 65% do
+  prompt num vídeo curto, e era de lá que o modelo tirava a forma errada.
+- Todo vídeo terminava com o último capítulo duplicado, e um corte que cabia
+  inteiro nele levava a penalidade de quem atravessa fronteira.
+- **A pergunta do repórter não era fronteira de bloco.** O editor diagnosticou
+  isso sozinho, sem ver o código: o excesso no fim do clipe 3 era o começo
+  excessivo do clipe 2. Três travas: pergunta curta lida como interrupção, o
+  portão de densidade de entrevista, e o passe de vizinhança redecidindo a
+  costura por conta própria. Blocos: 7 fatias de cronômetro → 3 blocos de
+  conversa. Cortes: 1 → 2, cada um abrindo na pergunta.
+
+**Continua aberto, e é a próxima medida a fazer:** nada disso foi medido na fonte
+real de João Pessoa (1h21), só na coletiva reconstruída a partir do relato do
+editor. O MP4 original está no Drive dele. Enquanto não rodar lá, o que está
+escrito acima vale como "o defeito estrutural fechou", não como "o corte ficou
+bom" — a diferença que a §5 existe para manter.
+
+**Também continua aberto:** o clipe 1 de João Pessoa tinha 180s e não concluía o
+tema. Esse é o "termina antes da conclusão", que segue sem reprodução estrutural
+e provavelmente só cede com o item 3 (o motivo do editor) ou com a §16.
