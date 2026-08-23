@@ -272,3 +272,33 @@ def add_reference_voice(audio_path: str) -> Dict[str, Any]:
     RENAN_META.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
     
     return {"success": True, "path": str(dest), "hash": content_hash}
+
+
+# Enhanced functions - try to import, fallback to basic
+try:
+    from .renan_gallery_enhanced import (
+        calculate_style_score,
+        detect_voice_characteristics,
+        smooth_timeline,
+        enhanced_detect_renan_timeline
+    )
+    ENHANCED_AVAILABLE = True
+except ImportError:
+    ENHANCED_AVAILABLE = False
+    def calculate_style_score(text):
+        return 0.0, []
+    def detect_voice_characteristics(ep, s, e):
+        return {"confidence": 0.0, "is_renan_voice": False}
+    def smooth_timeline(tl, window=2.0):
+        return tl
+    def enhanced_detect_renan_timeline(segments, energy_profile=None, use_style=True, smooth=True):
+        return detect_renan_timeline(segments, energy_profile)
+
+def get_enhanced_status():
+    """Status com enhanced info"""
+    base = get_gallery_status()
+    base["enhanced_available"] = ENHANCED_AVAILABLE
+    base["style_detection"] = ENHANCED_AVAILABLE
+    base["voice_detection"] = ENHANCED_AVAILABLE
+    base["timeline_smoothing"] = ENHANCED_AVAILABLE
+    return base

@@ -31,9 +31,18 @@ TECHNICAL_MAX_DURATION = 600.0
 # Etapa 1 enhancements - optional imports with fallback
 try:
     from .renan_gallery import detect_renan_timeline, prioritize_clips_with_renan, get_gallery_status
+    # Try enhanced version
+    try:
+        from .renan_gallery_enhanced import enhanced_detect_renan_timeline
+        def detect_renan_timeline(segments, energy_profile=None):
+            return enhanced_detect_renan_timeline(segments, energy_profile, use_style=True, smooth=True)
+        ENHANCED_GALLERY = True
+    except ImportError:
+        ENHANCED_GALLERY = False
     RENAN_GALLERY_AVAILABLE = True
 except ImportError:
     RENAN_GALLERY_AVAILABLE = False
+    ENHANCED_GALLERY = False
     def detect_renan_timeline(segments, energy_profile=None):
         return []
     def prioritize_clips_with_renan(clips, timeline):
