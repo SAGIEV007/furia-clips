@@ -133,8 +133,21 @@ def _common_yt_dlp_options():
 
 
 def _source_error(prefix: str, exc: Exception) -> SourceIngestError:
-    detail = str(exc)[:240]
+    detail = str(exc)[:480]
     normalized = detail.lower()
+    # TLS/SSL EOF - common in sandboxed environments with Cloudflare blocking datacenter IPs
+    if any(marker in normalized for marker in (
+        "ssl", "tls", "eof", "sslzeroreturnerror", "ssl_error_syscall",
+        "unable to download api page", "openssl",
+    )) and any(marker in normalized for marker in (
+        "youtube", "api page", "connection has been closed", "ssl", "eof"
+    )):
+        return SourceIngestError(
+            f"{prefix}: falha de TLS/SSL ao contatar a plataforma (Cloudflare bloqueou o IP do ambiente). "
+            "Isso acontece em sandboxes/datacenters. Fora do sandbox funciona normalmente. "
+            "Use upload local do arquivo MP4 como fallback - é o caminho mais previsível para renderização. "
+            "Se estiver local, atualize yt-dlp com 'yt-dlp -U' e tente novamente."
+        )
     if "401" in normalized or "unauthorized" in normalized:
         return SourceIngestError(
             f"{prefix}: a plataforma recusou o acesso (HTTP 401). "

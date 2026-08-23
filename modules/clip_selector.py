@@ -5,6 +5,13 @@ Selection priority in automatic mode:
 1. Google Gemini Flash, only when a key is already configured
 2. Ollama local LLM, when the service and model are available
 3. NLP keyword matching, always available and requiring no key
+
+Enhanced in Etapa 1 (Arena):
+- Renan gallery integration (face + voice, initially only Renan)
+- Energy / discussion detection (RMS + pitch + overlap <2s)
+- Engagement learning (performance snapshots + editor feedback)
+- Conversation seams detection (interview turns + Q&A payoff)
+Based on research: OpusClip ClipAnything multimodal, Vizard cleaner cuts, pyannote diarization
 """
 
 import json
@@ -13,12 +20,34 @@ import math
 import requests
 from difflib import SequenceMatcher
 from collections import Counter
+from typing import List, Dict, Any, Optional
 
 from .political_profile import PROFILE_NAME, build_political_prompt_fragment
 from .editorial_chapters import annotate_clip_with_chapters
 
 PREFERRED_MAX_DURATION = 180.0
 TECHNICAL_MAX_DURATION = 600.0
+
+# Etapa 1 enhancements - optional imports with fallback
+try:
+    from .renan_gallery import detect_renan_timeline, prioritize_clips_with_renan, get_gallery_status
+    RENAN_GALLERY_AVAILABLE = True
+except ImportError:
+    RENAN_GALLERY_AVAILABLE = False
+    def detect_renan_timeline(segments, energy_profile=None):
+        return []
+    def prioritize_clips_with_renan(clips, timeline):
+        return clips
+    def get_gallery_status():
+        return {"available": False}
+
+try:
+    from .engagement_learning import get_combined_learning_for_selector
+    ENGAGEMENT_LEARNING_AVAILABLE = True
+except ImportError:
+    ENGAGEMENT_LEARNING_AVAILABLE = False
+    def get_combined_learning_for_selector():
+        return {"available": False, "recommendations": []}
 
 
 def _safe_float(value, default=0.0):
@@ -281,11 +310,241 @@ class ClipSelector:
         else:
             diagnostics["reason"] = "adequate_pool"
 
+        # ═══════════════════════════════════════════════════
+        # ETAPA 1 ENHANCEMENTS - Renan Gallery + Energy + Discussion + Engagement
+        # ═══════════════════════════════════════════════════
+        if emit_progress:
+            emit_progress("[Etapa 1] Aplicando melhorias: Renan gallery, energia, discussão, engajamento...", "info")
+
+        # 1. Renan Gallery - detecta timeline Renan e prioriza
+        if RENAN_GALLERY_AVAILABLE:
+            try:
+                renan_timeline = detect_renan_timeline(transcription.get("segments", []), energy_profile)
+                if renan_timeline and emit_progress:
+                    renan_count = sum(1 for rt in renan_timeline if rt.get("is_renan"))
+                    emit_progress(f"[Renan Gallery] {renan_count}/{len(renan_timeline)} segmentos com Renan detectado", "info")
+                clips = prioritize_clips_with_renan(clips, renan_timeline)
+                self._candidate_diagnostics["renan_segments"] = len([rt for rt in renan_timeline if rt.get("is_renan")]) if renan_timeline else 0
+                self._candidate_diagnostics["renan_gallery_used"] = RENAN_GALLERY_AVAILABLE
+            except Exception as e:
+                if emit_progress:
+                    emit_progress(f"[Renan Gallery] Falha ao aplicar: {str(e)[:120]}", "warning")
+
+        # 2. Energy / Discussion detection - OpusClip inspired
+        try:
+            discussion_moments = self._detect_discussion_moments(sentences, energy_profile)
+            energy_peaks = self._detect_energy_peaks(energy_profile, sentences)
+            if emit_progress and discussion_moments:
+                emit_progress(f"[Energia] {len(discussion_moments)} momentos de discussão detectados, {len(energy_peaks)} picos de energia", "info")
+            clips = self._apply_energy_and_discussion(clips, discussion_moments, energy_peaks)
+            self._candidate_diagnostics["discussion_moments"] = len(discussion_moments)
+            self._candidate_diagnostics["energy_peaks"] = len(energy_peaks)
+        except Exception as e:
+            if emit_progress:
+                emit_progress(f"[Energia] Falha ao detectar discussão/energia: {str(e)[:120]}", "warning")
+
+        # 3. Engagement Learning - aprende com performance + feedback
+        if ENGAGEMENT_LEARNING_AVAILABLE:
+            try:
+                learning = get_combined_learning_for_selector()
+                if learning.get("available") and emit_progress:
+                    emit_progress(f"[Engajamento] Aprendizado combinado disponível: {learning['sources']}", "info")
+                clips = self._apply_engagement_learning(clips, learning)
+                self._candidate_diagnostics["engagement_learning_used"] = learning.get("available", False)
+            except Exception as e:
+                if emit_progress:
+                    emit_progress(f"[Engajamento] Falha ao aplicar aprendizado: {str(e)[:120]}", "warning")
+
         if emit_progress:
             source_labels = {"gemini": "Gemini Flash", "llm": "Ollama", "nlp": "NLP local"}
             source_label = source_labels.get(self._selection_source, "NLP local")
-            emit_progress(f"Selecionados {len(clips)} clips de partes diferentes do video (via {source_label})")
+            emit_progress(f"Selecionados {len(clips)} clips de partes diferentes do video (via {source_label}) - Etapa 1 calibrada")
 
+        return clips
+
+    def _detect_discussion_moments(self, sentences, energy_profile=None):
+        """
+        Detecta momentos de discussão acalorada.
+        Baseado em pesquisa: pyannote overlap + turnos curtos + energia alta + pitch variability
+        
+        Discussão = turnos < 5s + overlap + energia alta
+        Retorna lista de dicts com start, end, intensity, reason
+        """
+        moments = []
+        if not sentences or len(sentences) < 3:
+            return moments
+        
+        # Heurística: turnos curtos consecutivos indicam discussão
+        for i in range(len(sentences) - 2):
+            s1 = sentences[i]
+            s2 = sentences[i+1]
+            s3 = sentences[i+2]
+            
+            # Duração curta (< 8s) para cada
+            d1 = float(s1.get("duration", s1.get("end",0) - s1.get("start",0)))
+            d2 = float(s2.get("duration", s2.get("end",0) - s2.get("start",0)))
+            d3 = float(s3.get("duration", s3.get("end",0) - s3.get("start",0)))
+            
+            # Gap curto entre sentenças (< 1s) indica troca rápida
+            gap1 = float(s2.get("start",0)) - float(s1.get("end",0))
+            gap2 = float(s3.get("start",0)) - float(s2.get("end",0))
+            
+            # Texto com marcadores de discussão
+            text_combined = (s1.get("text","") + " " + s2.get("text","") + " " + s3.get("text","")).lower()
+            discussion_markers = {"não", "mas", "porém", "discordo", "absurdo", "mentira", "pergunta", "resposta", "?", "!"}
+            marker_count = sum(1 for m in discussion_markers if m in text_combined)
+            
+            # Critério: 2+ turnos curtos + gap curto + marcadores
+            if d1 < 10 and d2 < 10 and gap1 < 1.5 and marker_count >= 2:
+                intensity = min(1.0, (marker_count * 0.15) + (0.3 if d1 < 5 and d2 < 5 else 0))
+                moments.append({
+                    "start": float(s1.get("start",0)),
+                    "end": float(s2.get("end", s3.get("start",0))),
+                    "intensity": round(intensity, 2),
+                    "reason": f"turnos curtos {d1:.1f}s+{d2:.1f}s gap {gap1:.1f}s + {marker_count} marcadores",
+                    "type": "discussion",
+                    "sentences": [i, i+1]
+                })
+            
+            # Q&A payoff - pergunta + resposta com energia
+            if self._looks_like_explicit_question(s1.get("text","")) and d2 < 20:
+                # Verifica energia se disponível
+                energy_boost = 0
+                if energy_profile:
+                    try:
+                        for e in energy_profile:
+                            t = float(e.get("time", e.get("start",0)) if isinstance(e, dict) else 0)
+                            if float(s2.get("start",0)) <= t <= float(s2.get("end",0)):
+                                if float(e.get("energy",0)) > 0.65:
+                                    energy_boost = 0.2
+                                    break
+                    except:
+                        pass
+                
+                moments.append({
+                    "start": float(s1.get("start",0)),
+                    "end": float(s2.get("end",0)),
+                    "intensity": round(0.6 + energy_boost, 2),
+                    "reason": f"Q&A payoff: pergunta + resposta {d2:.1f}s" + (" + energia alta" if energy_boost else ""),
+                    "type": "qa_payoff",
+                    "sentences": [i, i+1]
+                })
+        
+        return moments
+
+    def _detect_energy_peaks(self, energy_profile, sentences):
+        """Detecta picos de energia - OpusClip inspired audio sentiment"""
+        peaks = []
+        if not energy_profile or len(energy_profile) < 3:
+            return peaks
+        
+        try:
+            # Normaliza energy_profile para lista de dicts com time e energy
+            energies = []
+            for e in energy_profile:
+                if isinstance(e, dict):
+                    t = float(e.get("time", e.get("start", e.get("timestamp", 0))))
+                    en = float(e.get("energy", e.get("rms", e.get("volume", 0.5))))
+                    energies.append((t, en))
+                elif isinstance(e, (list, tuple)) and len(e) >= 2:
+                    energies.append((float(e[0]), float(e[1])))
+            
+            if len(energies) < 3:
+                return peaks
+            
+            # Detecta picos: energia > 0.65 e maior que vizinhos
+            for i in range(1, len(energies)-1):
+                t, en = energies[i]
+                _, prev_en = energies[i-1]
+                _, next_en = energies[i+1]
+                
+                if en > 0.65 and en > prev_en and en > next_en:
+                    # Encontra sentença correspondente
+                    for sent in sentences:
+                        if float(sent.get("start",0)) <= t <= float(sent.get("end",0)):
+                            peaks.append({
+                                "time": t,
+                                "energy": round(en, 3),
+                                "sentence_text": sent.get("text","")[:80],
+                                "reason": f"pico energia {en:.2f} em {t:.1f}s"
+                            })
+                            break
+        except Exception:
+            pass
+        
+        return peaks[:20]  # Limita a 20 picos
+
+    def _apply_energy_and_discussion(self, clips, discussion_moments, energy_peaks):
+        """Aplica bônus de energia e discussão nos clips"""
+        if not clips:
+            return clips
+        
+        for clip in clips:
+            c_start = float(clip.get("start",0))
+            c_end = float(clip.get("end",0))
+            bonus = 0
+            reasons = []
+            
+            # Bônus por discussão
+            for dm in discussion_moments:
+                overlap = max(0, min(c_end, dm["end"]) - max(c_start, dm["start"]))
+                if overlap > 0:
+                    bonus += dm["intensity"] * 8  # Até 8 pontos por discussão
+                    reasons.append(f"discussão {dm['type']} intensidade {dm['intensity']}")
+            
+            # Bônus por picos de energia
+            for peak in energy_peaks:
+                if c_start <= peak["time"] <= c_end:
+                    bonus += peak["energy"] * 5  # Até ~5 pontos por pico
+                    reasons.append(f"pico energia {peak['energy']} em {peak['time']:.1f}s")
+            
+            if bonus > 0:
+                clip["viral_score"] = min(100, int(clip.get("viral_score", 50) + bonus))
+                clip["energy_bonus"] = round(bonus, 1)
+                clip["energy_reasons"] = reasons[:3]
+                # Marca como high energy se bonus alto
+                if bonus >= 10:
+                    clip["high_energy"] = True
+                    clip["discussion_detected"] = any("discussão" in r for r in reasons)
+        
+        # Reordena por viral_score após bônus
+        return sorted(clips, key=lambda c: c.get("viral_score",0), reverse=True)
+
+    def _apply_engagement_learning(self, clips, learning):
+        """Aplica aprendizado de engajamento (performance + feedback)"""
+        if not clips or not learning.get("available"):
+            return clips
+        
+        patterns = learning.get("performance_patterns", {})
+        by_format = patterns.get("by_format", {})
+        by_topic = patterns.get("by_topic", {})
+        by_duration = patterns.get("by_duration", {})
+        
+        # Se tem padrões, aplica bônus
+        if by_format or by_topic or by_duration:
+            for clip in clips:
+                bonus = 0
+                # Bônus por formato com alta média
+                # (futuro: quando tivermos format_id nos clips)
+                
+                # Bônus por duração: medium (30-60s) geralmente melhor para Reels
+                dur = float(clip.get("duration", 45))
+                if 30 <= dur <= 60:
+                    bonus += 3
+                elif 20 <= dur < 30 or 60 < dur <= 90:
+                    bonus += 1
+                
+                # Bônus por tópico com alto engajamento
+                text_lower = clip.get("text","").lower()
+                for topic, stats in by_topic.items():
+                    if topic.lower() in text_lower and stats.get("avg_views",0) > 50000:
+                        bonus += 2
+                        break
+                
+                if bonus > 0:
+                    clip["viral_score"] = min(100, int(clip.get("viral_score", 50) + bonus))
+                    clip["engagement_bonus"] = bonus
+        
         return clips
 
     def get_selection_source(self):

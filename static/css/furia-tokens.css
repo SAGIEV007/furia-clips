@@ -22,8 +22,8 @@
   --furia-text-inverse: #111318;
 
   /* Brand */
-  --furia-accent: #e8a317;
-  --furia-accent-hover: #f0b33a;
+  --furia-accent: #FCBE26; /* Missão oficial amarelo #FCBE26 - preto branco amarelo, onça-pintada */
+  --furia-accent-hover: #FFD54F; /* Missão amarelo claro */
   --furia-accent-soft: rgba(232, 163, 23, 0.14);
   --furia-accent-ring: rgba(232, 163, 23, 0.45);
 
@@ -163,4 +163,30 @@
 .furia-btn-ghost:hover {
   background: var(--furia-bg-hover);
   color: var(--furia-text-primary);
+}
+
+/* Partido Missão - Paleta Oficial - Pesquisa Wikipedia + web_search depth 3 */
+:root {
+  --missao-yellow: #FCBE26; /* Amarelo oficial - template Wikipedia */
+  --missao-black: #000000;  /* Preto oficial */
+  --missao-white: #FFFFFF;  /* Branco oficial */
+  --missao-yellow-soft: rgba(252, 190, 38, 0.14);
+  --missao-yellow-ring: rgba(252, 190, 38, 0.45);
+  --missao-yellow-hover: #FFD54F;
+  --missao-black-soft: rgba(0, 0, 0, 0.08);
+  --missao-mascot: "onça-pintada";
+  --missao-flag: "3 listras horizontais preto/branco/amarelo, logo na faixa branca";
+}
+
+/* Clean Professional Dashboard - Linear + Stripe + Vercel inspired */
+:root {
+  --dashboard-sidebar-width: 260px; /* 240-280px Linear pattern */
+  --dashboard-sidebar-collapsed: 64px;
+  --dashboard-kpi-height: 52px;
+  --dashboard-card-border: 1px solid rgba(255,255,255,0.08); /* Linear/Vercel: border not shadow */
+  --dashboard-card-radius: 12px;
+  --dashboard-grid-gutter: 24px;
+  --dashboard-row-height: 48px; /* 48-52px scanning */
+  --dashboard-row-height-dense: 36px;
+  --dashboard-skeleton-bg: linear-gradient(90deg, var(--furia-bg-elevated) 25%, var(--furia-bg-hover) 50%, var(--furia-bg-elevated) 75%);
 }

@@ -288,6 +288,12 @@ def _emit_job_update(job):
         socketio.emit("job_update", payload)
 
 
+# Garante DB inicializado mesmo quando importado via testes ou gunicorn
+try:
+    init_db()
+except Exception as _init_db_error:
+    print(f"[DB] Aviso: init_db falhou no import: {_init_db_error}")
+
 job_manager = JobManager(DB_PATH, max_workers=1, on_event=_emit_job_update)
 try:
     _recovered_jobs = job_manager.reconcile_stale()
