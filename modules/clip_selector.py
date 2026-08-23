@@ -1480,9 +1480,24 @@ Retorne APENAS o JSON.
         """
         turns = detect_interviewer_turns(sentences)
         span = max((float(item.get("end", 0) or 0) for item in sentences or []), default=0.0)
-        if not looks_like_an_interview(turns, span):
-            return []
-        return [turn["start_s"] for turn in turns if not turn["interjection"]]
+
+        # A whole question is evidence by itself, and it is local. The density
+        # gate below asks whether the *whole video* is an interview before
+        # honouring any seam, and its own reasoning undoes it: if a monologue
+        # produces almost no turns, then using turns as seams on a monologue
+        # changes almost nothing. What the gate did block is the shape the editor
+        # actually works on — a speech followed by a press conference — where the
+        # questions are real but too sparse across the whole runtime to clear
+        # one-turn-per-five-minutes. There the blocks fell back to the stopwatch,
+        # and the question ended up glued to the tail of the previous answer.
+        seams = {turn["start_s"] for turn in turns if turn.get("asks_a_whole_question")}
+
+        # The looser signals — a vocative, a short aside, an address with no
+        # question in it — are only trustworthy when the source really is an
+        # interview, so they stay behind the gate.
+        if looks_like_an_interview(turns, span):
+            seams.update(turn["start_s"] for turn in turns if not turn["interjection"])
+        return sorted(seams)
 
     def _blocks_between_seams(self, sentences, seams):
         """One block per exchange, split only when it outgrows a clip.
@@ -1578,15 +1593,15 @@ Retorne APENAS o JSON.
         entrevistador toma a palavra na junta, são respostas a perguntas
         distintas e as duas vivem.
         """
+        # A mesma costura que separa os blocos separa os cortes. Isto era
+        # derivado de novo aqui, com as duas travas que já custaram caro lá em
+        # cima — o portão de densidade e o filtro de interjeição — e uma
+        # coletiva com perguntas curtas caía nas duas. Julgar a mesma coisa em
+        # dois lugares é como o defeito volta; agora há uma fonte só.
         juntas_de_pergunta: list[float] = []
         if sentences:
             try:
-                turnos = detect_interviewer_turns(sentences)
-                duracao = max((float(s.get("end", 0) or 0) for s in sentences), default=0.0)
-                if looks_like_an_interview(turnos, duracao):
-                    juntas_de_pergunta = [
-                        float(t["start_s"]) for t in turnos if not t.get("interjection")
-                    ]
+                juntas_de_pergunta = self._conversation_seams(sentences)
             except (TypeError, ValueError, KeyError):
                 juntas_de_pergunta = []
 

@@ -67,6 +67,49 @@ _SHIFT = (
 # "Senhor manter então para a extrema pobreza até fazer a transição." The guest
 # resumes the same argument straight after, so a cut may run through it.
 INTERJECTION_MAX_WORDS = 12
+
+# A press-conference question is short. "Candidato, quais os compromissos que o
+# seu governo teria com a Paraíba?" is eleven words, and counting words alone
+# filed it as an interruption — so it never opened a block, and the clip that
+# carried it had to drag in the tail of the previous answer to reach it. The
+# editor saw both halves of that on the João Pessoa cuts: one clip running past
+# "essa é uma questão muito importante", the next starting on exactly that
+# overrun instead of on "candidato".
+#
+# The fragment the rule above exists to catch is not short — it is *incomplete*.
+# Grammar separates the two where length cannot.
+_QUESTION_OPENERS = (
+    "quais", "qual", "quantos", "quantas", "quanto", "como", "quando",
+    "onde", "quem", "porque", "por que", "o que", "que tipo", "sera",
+)
+# A vocative may come first: "Candidato, quais...", "Renan, por que...".
+_LEADING_VOCATIVE = re.compile(r"^[^,?!.]{1,28},\s*")
+
+
+def _is_complete_question(text: str) -> bool:
+    """Whether the interviewer's own words form a whole question.
+
+    The question mark is the reliable signal. Where the source carries no
+    punctuation at all it is missing, and the fallback only recognises questions
+    that *open* with an interrogative word — a yes/no question ("o senhor
+    pretende manter o programa") is indistinguishable from a statement without
+    punctuation, and guessing there would put a block boundary inside an answer.
+    Those keep being judged by length, which is the honest limit of this rule.
+    """
+    stripped = str(text or "").strip()
+    if not stripped:
+        return False
+    if stripped.endswith("?"):
+        return True
+    # The vocative may or may not carry its comma — an unpunctuated source has
+    # neither the comma nor the question mark — so the opener is accepted in the
+    # first position or the second, and nowhere else.
+    tokens = _normalize(_LEADING_VOCATIVE.sub("", stripped)).split()
+    for offset in (0, 1):
+        head = " ".join(tokens[offset:offset + 2])
+        if any(head == marker or head.startswith(f"{marker} ") for marker in _QUESTION_OPENERS):
+            return True
+    return False
 # Consecutive flagged sentences this close together are one turn, not several —
 # in the order of the transcript and in the clock, because on a coarsely
 # segmented source the two come apart.
@@ -158,12 +201,19 @@ def detect_interviewer_turns(sentences: list[dict[str, Any]]) -> list[dict[str, 
         # question of its own.
         words = len(spoken.split())
         shift = any(k in _normalize(text) for k in _SHIFT)
+        # Measured on what the interviewer actually said, never on the tail
+        # sentence — that one is usually the guest already answering, and its
+        # punctuation would speak for a turn it does not belong to.
+        question = _is_complete_question(spoken)
         turns.append({
             "start_s": round(float(ordered[first].get("start", 0) or 0), 3),
             "end_s": round(float(ordered[tail].get("end", 0) or 0), 3),
             "words": words,
             "changes_subject": shift,
-            "interjection": words <= INTERJECTION_MAX_WORDS and not shift,
+            "asks_a_whole_question": question,
+            # A whole question opens a block however short it is; only an
+            # incomplete aside is an interruption a cut may run through.
+            "interjection": words <= INTERJECTION_MAX_WORDS and not shift and not question,
             # A long question is still the same subject being pressed. Only an
             # explicit change of subject closes a block: measured on a sabatina,
             # counting long follow-ups as boundaries cut two good clips in half.
