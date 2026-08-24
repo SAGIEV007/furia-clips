@@ -155,4 +155,4 @@ Comece agora pela auditoria do estado real do checkout, leia a documentação vi
 
 [4]: https://github.com/SAGIEV007/furia-clips/blob/manus/rebuild-opus-parity/docs/continuity/DECISIONS.md — Decisões permanentes.
 
-[5]: https://chub-api.missao.org.br/mcp/wk_a07206ced171ac72acb18d6746e735486790ea98a2a2f51b — Endpoint do Campaign Hub fornecido pelo usuário; usar somente por acesso autorizado e leitura apropriada.
+[5]: Endpoint do Campaign Hub, fornecido pelo operador; usar somente por acesso autorizado e leitura apropriada — o endereço carrega a credencial no caminho e por isso NÃO fica escrito aqui: ele entra por `FURIA_CHUB_MCP_URL` no ambiente de quem roda. Ver `modules/chub_client.py`.

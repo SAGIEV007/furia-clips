@@ -132,4 +132,4 @@ Nenhum motor de seleção, ranking ou renderização foi declarado melhorado nes
 
 [3]: https://www.youtube.com/watch?v=57nyfP9IDW4 — fonte pública identificada no Campaign Hub.
 
-[4]: https://chub-api.missao.org.br/mcp/wk_a07206ced171ac72acb18d6746e735486790ea98a2a2f51b — Campaign Hub autorizado para consultas read-only nesta sessão.
+[4]: Campaign Hub, autorizado para consultas read-only — o endereço carrega a credencial no caminho e por isso NÃO fica escrito aqui: ele entra por `FURIA_CHUB_MCP_URL` no ambiente de quem roda. Ver `modules/chub_client.py`.

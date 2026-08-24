@@ -326,7 +326,7 @@ A próxima implementação deve ser offline-first: propor janelas ao redor de ca
 ## 18. Referências vivas
 
 - [Repositório Furia Clips](https://github.com/SAGIEV007/furia-clips)
-- [Campaign Hub MCP autorizado](https://chub-api.missao.org.br/mcp/wk_a07206ced171ac72acb18d6746e735486790ea98a2a2f51b)
+- Campaign Hub MCP autorizado — o endereço carrega a credencial no caminho e por isso NÃO fica escrito aqui: ele entra por `FURIA_CHUB_MCP_URL` no ambiente de quem roda. Ver `modules/chub_client.py`.
 - [Criadores/Garimpo](https://criadores.missao.org.br/garimpo)
 - [`AGENTS.md`](../../AGENTS.md)
 - [`PROJECT_STATE.md`](PROJECT_STATE.md)

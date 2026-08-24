@@ -116,11 +116,20 @@ def describe_snapshot(path: str | os.PathLike[str] | None) -> dict[str, Any]:
         return empty
     sources = records.get("sources") or []
     first = sources[0] if sources and isinstance(sources[0], dict) else {}
+    # `possible_cuts` é contagem por bloco, não uma lista de cortes: o Acervo diz
+    # quantos cortes cabem num bloco, não quais são. Contar o comprimento da
+    # lista vazia dizia 0 num vídeo onde o rótulo humano prevê 65.
+    cortes = sum(
+        int((block or {}).get("possible_cuts") or 0)
+        for block in (records.get("blocks") or [])
+        if isinstance(block, dict)
+    )
     return {
         "available": True,
         "blocks": len(records.get("blocks") or []),
         "highlights": len(records.get("highlights") or []),
         "sentences": len(records.get("sentences") or []),
+        "possible_cuts": cortes,
         "title": str(first.get("title") or ""),
         "video_id": str(first.get("youtube_id") or first.get("id") or ""),
         "collected_at": str(payload.get("collected_at") or ""),
@@ -255,6 +264,40 @@ def convert(payload: dict, transcript: dict | None = None) -> dict:
                 "audio_check_ranges": sentence.get("audioCheckRanges") or [],
             })
 
+    # E o resto da linha do tempo, quando a tabela de frases veio junto.
+    #
+    # Os blocos trazem só as frases que caíram dentro deles: em João Pessoa são
+    # 1113 de 1266, e as 153 que sobram não são lixo — são as transições, as
+    # perguntas soltas e os trechos que a rotulagem marcou como sem conteúdo.
+    # Descartá-las custava duas coisas. A primeira é que um corte que precisa
+    # recuar até a pergunta não encontrava a pergunta, porque ela mora na
+    # fronteira e a fronteira ficava de fora. A segunda é maior: cada frase do
+    # Acervo carrega `turn` e `speakerChange` já apurados por eles, que é
+    # exatamente a informação que o Furia reconstrói na marra a partir dos ">>"
+    # da legenda — e reconstrói pior, porque a marca diz que trocou e o `turn`
+    # diz de quem para quem.
+    conhecidas = {sentence["idx"] for sentence in sentences if sentence.get("idx") is not None}
+    fora_de_bloco = 0
+    if isinstance(transcript, dict):
+        video_id = str((transcript.get("video") or {}).get("id") or next(iter(sources), ""))
+        for sentence in transcript.get("sentences") or []:
+            if not isinstance(sentence, dict) or sentence.get("idx") in conhecidas:
+                continue
+            sentences.append({
+                "id": f"{video_id}:{sentence.get('idx')}",
+                "block_id": None,
+                "video_id": video_id,
+                "idx": sentence.get("idx"),
+                "start_s": sentence.get("startS"),
+                "end_s": sentence.get("endS"),
+                "turn": sentence.get("turn"),
+                "speaker_change": sentence.get("speakerChange"),
+                "text": sentence.get("text"),
+                "audio_check_ranges": sentence.get("audioCheckRanges") or [],
+            })
+            fora_de_bloco += 1
+        sentences.sort(key=lambda item: (item.get("idx") is None, item.get("idx") or 0))
+
     ignored = ignored_regions(transcript, next(iter(sources), ""))
 
     # Do not invent performance ratios for Acervo blocks. The account record is
@@ -280,6 +323,15 @@ def convert(payload: dict, transcript: dict | None = None) -> dict:
             },
         },
         "sync": {"status": "ready", "source": "campaign_hub_acervo_export"},
+        # Quantas frases vieram de fora dos blocos, para que ninguém confunda a
+        # linha do tempo inteira com o recorte que passou pela rotulagem.
+        "coverage": {
+            "sentences_in_blocks": len(sentences) - fora_de_bloco,
+            "sentences_outside_blocks": fora_de_bloco,
+            "possible_cuts_total": sum(
+                int(block.get("possible_cuts") or 0) for block in blocks
+            ),
+        },
         "records": {
             "sources": list(sources.values()),
             "blocks": blocks,
