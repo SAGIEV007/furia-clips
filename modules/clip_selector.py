@@ -388,6 +388,12 @@ class ClipSelector:
         # begins mid-sentence, with the subject of the sentence left outside.
         clips = self._open_where_the_thought_begins(clips, sentences, emit_progress)
 
+        # A mesma reparação do outro lado da borda. A abertura acima só cuida do
+        # começo; o fim continuava caindo onde o bloco caía, e onde a conversa
+        # não tem costura o bloco cai pelo relógio. É por isso que o podcast do
+        # Acervo entregava um terço do tamanho que o rotulador implica.
+        clips = self._close_where_the_thought_ends(clips, sentences, emit_progress)
+
         # If the canonical transcript has word timestamps, sharpen the repaired
         # seams without changing candidate discovery or ranking. Missing word
         # timestamps are a normal no-op and remain visible in diagnostics.
@@ -1476,16 +1482,21 @@ Combine blocos consecutivos apenas ate o menor trecho com contexto completo e co
 Retorne APENAS o JSON.
 """
 
-    def _build_transcript_blocks(self, sentences):
+    def _build_transcript_blocks(self, sentences, granularity="fine"):
         """Group sentences into the units the selector will choose between.
 
         On an interview these are the seams of the conversation. Everywhere else
         they are timed, as they always were.
+
+        ``granularity`` diz quem vai consumir o bloco. Um modelo combina blocos e
+        precisa deles finos; o caminho local não combina nada e usa o bloco como
+        corte. Onde há costura de conversa a fronteira é a troca de palavra e não
+        depende de quem consome, então a distinção só vale para o relógio.
         """
         seams = self._conversation_seams(sentences)
         if seams:
             return self._blocks_between_seams(sentences, seams)
-        return self._timed_transcript_blocks(sentences)
+        return self._timed_transcript_blocks(sentences, granularity=granularity)
 
     def _conversation_seams(self, sentences):
         """Where the interviewer takes the floor, when the source is a talk.
@@ -1720,13 +1731,42 @@ Retorne APENAS o JSON.
     # alvo do podcast é 94s. Fechar essa distância pede juntar blocos — o que o
     # comentário antigo prometia e nunca aconteceu no caminho local — e isso é
     # mudança maior, para um ciclo com a régua já montada.
+    # O tamanho certo do bloco depende de quem vai consumi-lo, e essa distinção
+    # faltava. Para Gemini e Ollama o bloco é matéria-prima: o prompt manda
+    # "combine apenas os blocos consecutivos necessários", então ele precisa ser
+    # fino o bastante para haver o que combinar. No caminho local ninguém combina
+    # — o bloco *vira* o corte —, e ali um bloco fino é um corte curto.
+    #
+    # Medido em `scripts/medir_cortes.py`, com o passe de fecho já no lugar: no
+    # podcast, que é a única das três fontes sem costura de conversa e por isso a
+    # única que depende destes limiares, a razão de duração sobe de 0,41 para
+    # 0,73 quando o bloco local vai a 0,90 do teto. A curva vira em 1,00 (0,68),
+    # então 0,90 é ótimo medido e não borda de varredura. Custa atravessamento de
+    # assunto: 4% para 15% — ainda abaixo dos 24% da sabatina, e é a troca certa,
+    # porque "não conclui o tema" é a queixa do editor e "atravessa" não é.
+    #
+    # Os limiares finos ficam onde estavam. Mexer neles otimizaria o caminho que
+    # eu meço e poderia estragar o que não meço — o Gemini roda na máquina do
+    # editor, não aqui.
     BLOCK_SENTENCE_CLOSE_RATIO = 0.40
     BLOCK_HARD_CLOSE_RATIO = 0.80
+    LOCAL_BLOCK_SENTENCE_CLOSE_RATIO = 0.90
+    LOCAL_BLOCK_HARD_CLOSE_RATIO = 1.00
 
-    def _timed_transcript_blocks(self, sentences):
-        """Group sentences into compact editorial blocks for analysis."""
-        sentence_close = self.preferred_max_duration * self.BLOCK_SENTENCE_CLOSE_RATIO
-        hard_close = self.preferred_max_duration * self.BLOCK_HARD_CLOSE_RATIO
+    def _timed_transcript_blocks(self, sentences, granularity="fine"):
+        """Group sentences into compact editorial blocks for analysis.
+
+        ``granularity="clip"`` monta blocos do tamanho de um corte, para o
+        caminho local, onde o bloco não é combinado por ninguém.
+        """
+        if granularity == "clip":
+            sentence_ratio = self.LOCAL_BLOCK_SENTENCE_CLOSE_RATIO
+            hard_ratio = self.LOCAL_BLOCK_HARD_CLOSE_RATIO
+        else:
+            sentence_ratio = self.BLOCK_SENTENCE_CLOSE_RATIO
+            hard_ratio = self.BLOCK_HARD_CLOSE_RATIO
+        sentence_close = self.preferred_max_duration * sentence_ratio
+        hard_close = self.preferred_max_duration * hard_ratio
         blocks = []
         current_block_sentences = []
         current_start = None
@@ -2074,7 +2114,9 @@ Retorne APENAS o JSON.
         if emit_progress:
             emit_progress("[NLP] Construindo clips com analise por palavras-chave...")
 
-        blocks = self._build_transcript_blocks(sentences)
+        # Aqui ninguém combina bloco: o bloco vira o corte, então ele é montado
+        # do tamanho de um corte.
+        blocks = self._build_transcript_blocks(sentences, granularity="clip")
         if not blocks:
             return []
 
@@ -2489,6 +2531,92 @@ Retorne APENAS o JSON.
         if first in references or pair in references:
             return False
         return True
+
+    def _close_where_the_thought_ends(self, clips, sentences, emit_progress=None):
+        """Espelho do recuo de abertura, do outro lado da borda.
+
+        O corte fechava onde o *bloco* fechava. Medido contra as fronteiras
+        humanas do Acervo, o podcast — a única das três fontes onde a conversa
+        não tem costura detectável — entregava 39s onde o rotulador implica 94s:
+        ali o corte é um bloco, e o bloco fecha pelo relógio. É a queixa mais
+        teimosa do editor, "ele parece não concluir o tema", e o comentário do
+        módulo promete o contrário desde sempre sem nunca cumprir.
+
+        A regra é gramática, não tópico. A abertura recua enquanto o texto não
+        *começa* um pensamento; o fecho avança enquanto o texto seguinte não
+        *consegue começar* um. Um trecho que abre com "e", "mas", "então", "aí"
+        ou "porque" é por construção a continuação do anterior: deixá-lo de fora
+        para um corte no meio do raciocínio, e deixá-lo virar corte próprio abre
+        um no meio dele — as duas queixas, a mesma fronteira.
+
+        Antes de escrever isto eu medi a alternativa. Coesão léxica entre blocos
+        vizinhos (TextTiling, o método clássico) acerta a direção mas separa
+        fraco demais — +0,04 a +0,09 de diferença, com três travessias de
+        amostra —, e um limiar ali seria ajuste a ruído. A muleta de conversa, no
+        podcast, aparece em 59% dos pares dentro do mesmo território e em
+        nenhuma das travessias.
+
+        O avanço para na primeira frase que se sustenta sozinha, na palavra do
+        entrevistador (quem responde terminou quando quem pergunta retoma) e no
+        limite duro de duração. O orçamento do avanço é um teto preferencial de
+        material a mais — a mesma grandeza que a régua mediu, em vez de mais um
+        número inventado.
+        """
+        if not sentences or not clips:
+            return clips
+        ordered = sorted(sentences, key=lambda item: float(item.get("start", 0) or 0))
+        cased = self._casing_is_meaningful(ordered)
+        extended = 0
+
+        for clip in clips:
+            start = float(clip.get("start", 0) or 0)
+            end = float(clip.get("end", 0) or 0)
+            if end <= start:
+                continue
+
+            # O orçamento do avanço é um teto preferencial de material — a mesma
+            # grandeza que a régua mediu, em vez de mais um número inventado. Um
+            # corte que fecha onde o bloco fechava pode assim chegar ao dobro do
+            # teto quando o raciocínio de fato corre longo, e o limite duro
+            # continua sendo a palavra final.
+            ceiling = min(
+                start + self.max_duration,
+                end + self.preferred_max_duration,
+            )
+            target = end
+            for item in ordered:
+                item_start = float(item.get("start", 0) or 0)
+                item_end = float(item.get("end", 0) or 0)
+                if item_start < target - 0.25:
+                    continue
+                text = str(item.get("text") or "")
+                # A palavra do entrevistador fecha o raciocínio de quem responde.
+                if is_interviewer_sentence(text):
+                    break
+                # Uma frase que se sustenta sozinha é o próximo assunto, não a
+                # continuação deste.
+                if self._opens_a_thought(text, cased):
+                    break
+                if item_end > ceiling:
+                    break
+                target = item_end
+
+            if target > end + 0.05:
+                clip["end"] = round(target, 3)
+                clip["duration"] = round(target - start, 3)
+                moved = self._text_between(ordered, start, target)
+                if moved:
+                    clip["text"] = moved
+                clip["closing_extended_s"] = round(target - end, 3)
+                extended += 1
+
+        if extended and emit_progress:
+            emit_progress(
+                f"[Fecho] {extended} corte(s) estendido(s) até o raciocínio fechar, "
+                "em vez de pararem onde o bloco parava.",
+                "info",
+            )
+        return clips
 
     def _open_where_the_thought_begins(self, clips, sentences, emit_progress=None):
         """Make every clip start where somebody starts saying something.

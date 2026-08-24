@@ -65,7 +65,10 @@ def medir(caminho: str) -> dict:
     ]
     territorios = [(r["start"], r["end"], r["cortes"]) for r in fixture["blocos_de_referencia"]]
     seletor, clips = cortar(segmentos)
-    blocos = seletor._build_transcript_blocks(seletor._build_sentences(segmentos))
+    # A granularidade do caminho local: é dela que estes cortes saíram.
+    blocos = seletor._build_transcript_blocks(
+        seletor._build_sentences(segmentos), granularity="clip"
+    )
 
     def tocados(clip):
         return [

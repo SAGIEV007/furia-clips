@@ -1123,11 +1123,43 @@ limite duro**, e nada os reconciliava. Enquanto os limiares de bloco eram
 absolutos ninguém via; quando passaram a sair do teto, um seletor pedido com
 `max_duration=30` montava blocos de 48s.
 
-**Continua aberto:** o podcast fica em 0,41 e não em 1,0. O motivo está entendido
-e não é o teto: ali o corte é *um bloco*, e o alvo dele é 94s. Fechar essa
-distância pede **juntar blocos** — o que o comentário do módulo promete desde
-sempre ("the selector may still join blocks when the context requires it") e que
-nunca aconteceu no caminho local. É o próximo item, e agora tem régua para medir.
+**O fecho ganhou o passo que faltava, e ele é espelho do recuo de abertura.** A
+abertura recua enquanto o texto não *começa* um pensamento; o fecho avança
+enquanto o texto seguinte não *consegue começar* um. Um trecho que abre com "e",
+"mas", "então", "aí" ou "porque" é por construção a continuação do anterior:
+deixá-lo de fora para o corte no meio do raciocínio, deixá-lo virar corte próprio
+abre um no meio dele. As duas queixas do editor, a mesma fronteira.
+
+Antes de escrever isso eu medi a alternativa clássica. **TextTiling** — coesão
+léxica em janela deslizante, fronteira nos vales de similaridade — tem recall
+alto nos meus dados (14 de 17 fronteiras humanas caem perto de um vale) e
+precisão péssima (7% a 24%: há oito vezes mais vales que fronteiras). Como
+decisão local, a separação entre "mesmo território" e "atravessa" é de +0,04 a
++0,09, com três travessias de amostra numa fonte. Construir limiar ali seria
+ajustar a ruído — a §15 de novo. A muleta de conversa, medida na mesma fonte,
+aparece em 59% dos pares dentro do território e em **nenhuma** travessia.
+
+**E o tamanho do bloco passou a depender de quem o consome**, distinção que
+faltava. Para Gemini e Ollama o bloco é matéria-prima — o prompt manda "combine
+apenas os blocos consecutivos necessários", então ele precisa ser fino o
+bastante para haver o que combinar. No caminho local ninguém combina: o bloco
+*vira* o corte, e ali bloco fino é corte curto. Com o bloco local a 0,90 do teto:
+
+    podcast   razão 0,41 -> 0,73    cortes 24 -> 13 (o humano vê 16)
+    live      1,09 e 0%, intactas       sabatina  1,02 e 24%, intactas
+    agregado  razão 1,02              atravessamento 4% -> 15%
+
+A curva vira em 1,00 (0,68), então 0,90 é ótimo medido e não borda de varredura.
+Os limiares finos ficaram onde estavam de propósito: mexer neles otimizaria o
+caminho que eu meço e poderia estragar o que não meço.
+
+**Continua aberto, e é a razão pela qual a fase 1 do plano vem antes de tudo:**
+0,73 não é 1,0, e a distância que sobra não é de gramática. Ela é "este argumento
+continua por mais um minuto", que nem a muleta nem a coesão léxica alcançam. O
+prompt do Gemini já pede exatamente isso ("cada clip deve ter início, meio e
+fim") e **o caminho do Gemini nunca foi medido** — nesta máquina não há chave.
+Pode ser que ele já feche a distância sozinho; pode ser que não. Enquanto não se
+medir lá, mexer mais no caminho local é afinar o motor errado.
 
 **A tela de render deixou de ser pulada.** `tests/test_tela_do_estudio.py` pulava
 por falta do Playwright do node — a guarda contra a tela em branco existia e não
