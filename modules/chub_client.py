@@ -65,16 +65,45 @@ def ocultar_credencial(texto: Any) -> str:
     return _SEGREDO.sub(lambda achado: achado.group(1) + "…", str(texto))
 
 
-def endpoint_configurado(settings: dict | None = None) -> str:
+def arquivo_do_endpoint(data_dir=None):
+    """Onde o endereço fica guardado, fora do repositório.
+
+    `FuriaClipsData` é a pasta local do operador, ao lado do resto do que o app
+    grava por lá. Nunca dentro do checkout: esta pasta vai para o GitHub, e o
+    repositório é público.
+    """
+    from pathlib import Path
+
+    base = Path(
+        data_dir
+        or os.environ.get("FURIA_CLIPS_DATA_DIR")
+        or (Path.home() / "FuriaClipsData")
+    )
+    return base / "chub-endpoint.txt"
+
+
+def endpoint_configurado(settings: dict | None = None, *, data_dir=None) -> str:
     """O endereço do CHUB, de onde o operador o tiver posto.
 
     A ordem é a de quem manda mais: o ambiente do processo primeiro, porque é
-    ele que um script de sincronização define, e as configurações do app depois.
+    ele que um script de sincronização define para uma corrida só; as
+    configurações do app depois; e por último o arquivo que o `chub.bat` grava
+    na primeira vez — que é como o app passa a saber o endereço sem ninguém
+    configurar nada duas vezes.
     """
-    for valor in (
+    candidatos = [
         os.environ.get("FURIA_CHUB_MCP_URL"),
         (settings or {}).get("chub_mcp_url"),
-    ):
+    ]
+    try:
+        arquivo = arquivo_do_endpoint(data_dir)
+        if arquivo.is_file():
+            candidatos.append(arquivo.read_text(encoding="utf-8"))
+    except OSError:
+        pass
+    for valor in candidatos:
+        # Um arquivo escrito pelo `echo` do Windows chega com quebra de linha, e
+        # uma URL com "\n" no fim falha de um jeito que não parece com a causa.
         if str(valor or "").strip():
             return str(valor).strip()
     return ""

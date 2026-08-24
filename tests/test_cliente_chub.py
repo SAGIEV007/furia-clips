@@ -267,3 +267,41 @@ def test_o_corpo_de_erro_do_servidor_tambem_e_limpo():
     with pytest.raises(ChubError) as erro:
         cliente.chamar_ferramenta("chub_acervo_stats")
     assert "wk_0000exemplo" not in str(erro.value), str(erro.value)
+
+
+# ── onde o endereço fica guardado ─────────────────────────────────────────
+
+def test_o_endereco_e_lido_do_arquivo_local(tmp_path, monkeypatch):
+    """O `chub.bat` grava uma vez e o app passa a saber, sem configurar duas vezes."""
+    from modules.chub_client import arquivo_do_endpoint, endpoint_configurado
+
+    monkeypatch.delenv("FURIA_CHUB_MCP_URL", raising=False)
+    arquivo = arquivo_do_endpoint(tmp_path)
+    arquivo.parent.mkdir(parents=True, exist_ok=True)
+    # O `echo` do Windows deixa quebra de linha, e uma URL com "\n" no fim falha
+    # de um jeito que não parece com a causa.
+    arquivo.write_text("https://exemplo.invalido/mcp/wk_gravado\r\n", encoding="utf-8")
+
+    assert endpoint_configurado(data_dir=tmp_path) == "https://exemplo.invalido/mcp/wk_gravado"
+
+
+def test_o_ambiente_ganha_do_arquivo(tmp_path, monkeypatch):
+    """Uma corrida pontual precisa poder apontar para outro lugar."""
+    from modules.chub_client import arquivo_do_endpoint, endpoint_configurado
+
+    arquivo = arquivo_do_endpoint(tmp_path)
+    arquivo.parent.mkdir(parents=True, exist_ok=True)
+    arquivo.write_text("https://exemplo.invalido/mcp/wk_arquivo", encoding="utf-8")
+    monkeypatch.setenv("FURIA_CHUB_MCP_URL", "https://exemplo.invalido/mcp/wk_ambiente")
+
+    assert endpoint_configurado(data_dir=tmp_path).endswith("wk_ambiente")
+
+
+def test_o_arquivo_do_endereco_fica_fora_do_repositorio():
+    """Este repositório é público; o endereço é a senha."""
+    from pathlib import Path
+
+    from modules.chub_client import arquivo_do_endpoint
+
+    repositorio = Path(__file__).resolve().parents[1]
+    assert repositorio not in arquivo_do_endpoint().parents

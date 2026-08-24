@@ -68,3 +68,7 @@ docs/instagram-reels-catalog.json
 # OS
 .DS_Store
 Thumbs.db
+
+# Credenciais locais (o endereco do CHUB carrega a chave no caminho)
+chub-endpoint.txt
+*.chub-endpoint
