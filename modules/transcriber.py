@@ -26,8 +26,22 @@ def _looks_like_a_gpu_failure(exc):
     return any(mark in text for mark in _GPU_FAILURE_MARKS)
 
 
+def _normalize_for_echo(text):
+    """Compara texto ignorando pontuação e caixa, que é como o eco volta."""
+    return _re.sub(r"[^a-zà-ÿ0-9 ]+", "", str(text or "").lower()).strip()
+
+
 class Transcriber:
-    def __init__(self, model_name="small", language="pt", word_timestamps=False, beam_size=1, device="auto"):
+    # A janela do `initial_prompt` do Whisper é curta. São 337 entradas no
+    # léxico: enfiar todas trocaria um erro de nome por um reconhecedor pior no
+    # vídeo inteiro.
+    VOCABULARY_PROMPT_MAX_CHARS = 380
+    # Só a abertura pode ser eco do prompt. Depois disso é outra coisa, e
+    # descartar seria adivinhar.
+    ECHOED_PROMPT_WINDOW_S = 30.0
+
+    def __init__(self, model_name="small", language="pt", word_timestamps=False, beam_size=1,
+                 device="auto", vocabulary_bias=True):
         self.model_name = model_name
         self.language = language
         self.word_timestamps = bool(word_timestamps)
@@ -37,7 +51,102 @@ class Transcriber:
         self.compute_type = "int8"
         self.model = None
         self._engine = "cache"
+        # `initial_prompt` é conhecido por induzir repetição em alguns áudios.
+        # Um recurso que às vezes piora precisa de interruptor, senão um vídeo
+        # estragado não tem como ser recuperado sem editar código.
+        self.vocabulary_bias = bool(vocabulary_bias)
+        self._vocabulary_prompt_cache = None
         os.makedirs(CACHE_DIR, exist_ok=True)
+
+    def _vocabulary_prompt(self):
+        """O viés de vocabulário que vai antes do reconhecedor decidir.
+
+        O léxico do projeto diz o problema na própria nota: "'Nicolas Ferreira'
+        aparece mais vezes que 'Nikolas Ferreira', e a forma rara é a certa". Um
+        reconhecedor escolhe a frequente. Corrigir depois conserta a grafia, mas
+        não recupera o que virou outra palavra — "Kataguiri" ouvido como "cata
+        guiri" é erro de segmentação, e nenhuma tabela de troca alcança isso.
+
+        Sai como **frase**, não como lista: uma lista solta faz o reconhecedor
+        repetir, e a frase ainda modela a pontuação do que vem depois — que é o
+        que separa uma legenda utilizável de um bloco de 128 palavras sem um
+        ponto final.
+
+        Só nomes com ``confirmado=true``. Enviesar para uma grafia que ninguém
+        aprovou seria corrigir em silêncio pela porta dos fundos, pior que
+        corrigir depois, porque não deixa rastro em ``conferir_no_audio``.
+        """
+        if not self.vocabulary_bias:
+            return ""
+        if self._vocabulary_prompt_cache is not None:
+            return self._vocabulary_prompt_cache
+
+        nomes = []
+        try:
+            caminho = os.path.join(
+                os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                "data", "lexico", "entidades_chub.json",
+            )
+            with open(caminho, encoding="utf-8") as arquivo:
+                dados = json.load(arquivo)
+            entradas = [item for item in dados.get("entradas", []) if item.get("confirmado")]
+            entradas.sort(key=lambda item: int(item.get("mencoes_chub") or 0), reverse=True)
+            for item in entradas:
+                nome = str(item.get("canonico") or "").strip()
+                if nome and nome not in nomes:
+                    nomes.append(nome)
+        except (OSError, ValueError, KeyError, TypeError):
+            nomes = []
+
+        abertura = "Entrevista em português do Brasil com Renan Santos, do MBL e do Partido Missão"
+        assunto = []
+        for nome in nomes:
+            if nome in abertura or nome in assunto:
+                continue
+            tentativa = assunto + [nome]
+            frase = f"{abertura}, falando sobre {', '.join(tentativa)}."
+            if len(frase) > self.VOCABULARY_PROMPT_MAX_CHARS:
+                break
+            assunto = tentativa
+        prompt = f"{abertura}, falando sobre {', '.join(assunto)}." if assunto else f"{abertura}."
+        self._vocabulary_prompt_cache = prompt
+        return prompt
+
+    def _drop_echoed_prompt(self, result):
+        """Tira o viés da transcrição quando o reconhecedor o devolve como fala.
+
+        É um modo de falha documentado do `initial_prompt`, e aqui ele é caro: a
+        linha vira a primeira legenda do vídeo, entra no corte e pode virar aspas
+        numa headline. Uma citação de algo que ninguém disse é o erro mais grave
+        que este projeto pode cometer, e ele nasceria de um recurso feito para
+        melhorar a transcrição.
+
+        Só o eco literal sai, e só na abertura. Ele cita esses nomes o tempo
+        todo — é o assunto dele —, então qualquer regra mais larga apagaria fala
+        de verdade.
+        """
+        prompt = self._vocabulary_prompt()
+        if not prompt:
+            return
+        alvo = _normalize_for_echo(prompt)
+        segments = result.get("segments") or []
+        mantidos = [
+            segment for segment in segments
+            if not (
+                float(segment.get("start", 0) or 0) <= self.ECHOED_PROMPT_WINDOW_S
+                and _normalize_for_echo(segment.get("text", "")) == alvo
+            )
+        ]
+        if len(mantidos) == len(segments):
+            return
+        for posicao, segment in enumerate(mantidos):
+            segment["id"] = posicao
+        result["segments"] = mantidos
+        result["segment_count"] = len(mantidos)
+        result["full_text"] = " ".join(
+            str(segment.get("text") or "") for segment in mantidos
+        ).strip()
+        result["prompt_ecoado_removido"] = True
 
     def _detect_device(self):
         if self.requested_device in {"cpu", "cuda"}:
@@ -251,6 +360,9 @@ class Transcriber:
                 f"{len(result['full_text'])} caracteres ({elapsed:.0f}s)"
             )
 
+        # Antes da revisão: o eco do próprio viés não é fala, e deixá-lo passar
+        # o entregaria à correção de nomes como se fosse.
+        self._drop_echoed_prompt(result)
         self._revise_captions(result, emit_progress)
         self._save_to_cache(audio_path, result)
         return result
@@ -317,6 +429,9 @@ class Transcriber:
             task="transcribe",
             beam_size=self.beam_size,
             word_timestamps=self.word_timestamps,
+            # O viés de vocabulário: nomes do léxico antes de o reconhecedor
+            # decidir, em vez de tabela de troca depois que ele já errou.
+            initial_prompt=self._vocabulary_prompt() or None,
             vad_filter=True,
             vad_parameters=dict(
                 min_silence_duration_ms=300,
@@ -371,6 +486,10 @@ class Transcriber:
             task="transcribe",
             verbose=False,
             word_timestamps=self.word_timestamps,
+            # O mesmo viés do outro motor: os dois caminhos têm de ouvir os
+            # mesmos nomes, senão a qualidade da legenda passa a depender de qual
+            # biblioteca a máquina do editor tinha instalada.
+            initial_prompt=self._vocabulary_prompt() or None,
             fp16=self.device == "cuda",
         )
 

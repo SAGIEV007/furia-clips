@@ -51,6 +51,12 @@ QUOTA_ESGOTADA = {
 }
 
 
+SELECAO_VALIDA = (
+    '[{"blocks": [0, 1], "title": "Um corte inteiro", '
+    '"hook": "B", "flow": "A", "value": "B", "energy": "B"}]'
+)
+
+
 def _blocos(seletor, quantos):
     blocos = []
     tempo = 0.0
@@ -154,3 +160,78 @@ def test_erro_comum_de_lote_nao_interrompe_os_outros(monkeypatch):
         f"pediu {lotes_pedidos} de 5 lotes; falha comum de lote não pode cancelar "
         f"a corrida inteira"
     )
+
+
+# ── a mensagem prometia um próximo modelo que não existia ──────────────────
+
+def test_quota_num_modelo_tenta_o_seguinte_antes_de_desistir(monkeypatch):
+    """`models_to_try = [model_name]` — uma lista com um modelo só.
+
+    O aviso dizia "Tentando proximo modelo..." e não havia próximo: a corrida
+    caía para o NLP com alternativas de pé. Medido na conta real do editor:
+    `gemini-2.5-flash` devolvia 429 enquanto `gemini-flash-latest` devolvia 200
+    no mesmo instante. A quota do Gemini é por modelo.
+    """
+    vistos = []
+
+    def falso_post(url, **kwargs):
+        modelo = url.split("/models/")[1].split(":")[0]
+        vistos.append(modelo)
+        if modelo == "gemini-2.5-flash":
+            return _Resposta(429, QUOTA_ESGOTADA)
+        return _Resposta(200, {"candidates": [{"content": {"parts": [{"text": "[]"}]}}]})
+
+    import modules.clip_selector as modulo
+
+    monkeypatch.setattr(modulo.requests, "post", falso_post)
+    monkeypatch.setattr("time.sleep", lambda *_: None)
+
+    seletor = ClipSelector(max_clips=12, min_duration=20, max_duration=480)
+    blocos = _blocos(seletor, 4)
+    seletor._gemini_lot(
+        blocos, [s for b in blocos for s in b["sentences"]], blocos,
+        "prompt", "", {"gemini_api_key": "x"}, "x", None,
+    )
+    assert len(set(vistos)) > 1, (
+        f"só tentou {set(vistos)}; o aviso promete um próximo modelo e não havia"
+    )
+    assert vistos[0] == "gemini-2.5-flash", "o modelo configurado tem de vir primeiro"
+
+
+def test_a_cadeia_de_reserva_usa_apelidos_e_nao_versoes(monkeypatch):
+    """Versão fixa apodrece; apelido não.
+
+    `gemini-2.0-flash` já devolve 404 na conta do editor — some da API sem aviso.
+    Os apelidos `-latest` são a promessa do próprio fornecedor de apontar para o
+    modelo corrente, então a reserva é feita deles.
+    """
+    reserva = ClipSelector.GEMINI_FALLBACK_MODELS
+    assert reserva, "não há cadeia de reserva"
+    assert all(m.endswith("-latest") for m in reserva), (
+        f"a reserva tem versão fixa, que apodrece: {reserva}"
+    )
+
+
+def test_modelo_que_sumiu_da_api_nao_derruba_a_corrida(monkeypatch):
+    """404 é modelo que deixou de existir; a reserva tem de assumir."""
+    def falso_post(url, **kwargs):
+        modelo = url.split("/models/")[1].split(":")[0]
+        if modelo == "gemini-2.5-flash":
+            return _Resposta(404, {"error": {"message": "model not found"}}, "not found")
+        return _Resposta(200, {"candidates": [{"content": {"parts": [{"text": SELECAO_VALIDA}]}}]})
+
+    import modules.clip_selector as modulo
+
+    monkeypatch.setattr(modulo.requests, "post", falso_post)
+    monkeypatch.setattr("time.sleep", lambda *_: None)
+
+    seletor = ClipSelector(max_clips=12, min_duration=20, max_duration=480)
+    blocos = _blocos(seletor, 4)
+    avisos = []
+    resultado = seletor._gemini_lot(
+        blocos, [s for b in blocos for s in b["sentences"]], blocos,
+        "prompt", "", {"gemini_api_key": "x"}, "x",
+        lambda m, n="info": avisos.append(m),
+    )
+    assert resultado is not seletor.QUOTA_ESGOTADA
+    assert resultado is not None, f"o 404 derrubou o lote: {avisos}"

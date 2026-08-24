@@ -1153,7 +1153,44 @@ A curva vira em 1,00 (0,68), então 0,90 é ótimo medido e não borda de varred
 Os limiares finos ficaram onde estavam de propósito: mexer neles otimizaria o
 caminho que eu meço e poderia estragar o que não meço.
 
-**Continua aberto, e é a razão pela qual a fase 1 do plano vem antes de tudo:**
+**A fase 1 rodou, com a chave do editor, e a resposta é o contrário do esperado.**
+Medido nas três fontes, com o caminho declarado em cada linha (o campo `origem`
+existe para que "pedi Gemini" e "recebi Gemini" não sejam a mesma coisa):
+
+    fonte      NLP razão·atrav·cortes   Gemini razão·atrav·cortes   humano vê
+    podcast    0,73 · 15% · 13          0,58 · 12% · 16             16
+    live       1,09 ·  0% · 14          1,39 ·  0% ·  9             14
+    sabatina   1,02 · 24% · 17          1,34 · 33% · 12             32
+    agregado   razão 1,02 · 15%         razão 1,34 · 12%
+
+**O caminho local corta mais perto do tamanho humano que o modelo pago**, e por
+margem clara. O Gemini ganha um pouco no atravessamento e acerta a contagem do
+podcast na mosca (16 = 16), mas erra a duração para os dois lados: curto demais
+no podcast, longo demais na live e na sabatina.
+
+Isso não decide qual caminho deve ser o padrão, e a régua não tem como decidir: o
+Gemini entrega coisas que ela não mede — nome do clip, motivo, locutor, e as
+notas de hook/flow/value/energy que o ranker usa. O que fica estabelecido é mais
+estreito e mais útil: **a distância que falta não é de modelo.** Trabalhar no
+caminho local é legítimo, e as constantes medidas nele valem.
+
+Medir também expôs três defeitos que nenhum teste sintético pegaria, e os três
+eram silenciosos:
+
+- **Quota é da conta, não do lote.** O 429 chegava, o Furia ia pedir o lote
+  seguinte, e numa fonte de 1h21 são dezenas de requisições condenadas antes de a
+  corrida cair calada no NLP.
+- **"Tentando proximo modelo..." e não havia próximo.** `models_to_try` tinha um
+  modelo só. No mesmo instante, na mesma conta, `gemini-2.5-flash` devolvia 429 e
+  `gemini-flash-latest` devolvia 200 — a quota é por modelo. A reserva agora é
+  feita de apelidos `-latest` e não de versões, porque `gemini-2.0-flash` já
+  devolve 404: versão fixa apodrece, apelido não.
+- **O modelo responde no relógio que nós ensinamos.** Voltou `{"start": "00:55"}`
+  e foi recusado, porque `float("00:55")` levanta `ValueError` no mesmo `except`
+  que já custou João Pessoa. E o formato veio de nós: a transcrição vai com cada
+  bloco rotulado `[MM:SS - MM:SS]`. Ensinar um formato e recusar a resposta nele.
+
+**Continua aberto, e a fase 1 já não é a razão:**
 0,73 não é 1,0, e a distância que sobra não é de gramática. Ela é "este argumento
 continua por mais um minuto", que nem a muleta nem a coesão léxica alcançam. O
 prompt do Gemini já pede exatamente isso ("cada clip deve ter início, meio e

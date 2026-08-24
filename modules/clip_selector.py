@@ -1047,7 +1047,15 @@ class ClipSelector:
         # impede que uma configuração corrompida altere o caminho da requisição.
         configured_model = str(settings.get("gemini_model", "gemini-2.5-flash") or "").strip()
         model_name = configured_model if re.fullmatch(r"gemini-[a-z0-9.-]+", configured_model) else "gemini-2.5-flash"
-        models_to_try = [model_name]
+        # A mensagem de quota dizia "Tentando proximo modelo..." e a lista tinha um
+        # modelo só: não havia próximo, e a corrida caía para o NLP com
+        # alternativas de pé. Medido na conta do editor, no mesmo instante:
+        # gemini-2.5-flash devolvia 429 e gemini-flash-latest devolvia 200. A
+        # quota é por modelo.
+        models_to_try = [model_name] + [
+            alternativa for alternativa in self.GEMINI_FALLBACK_MODELS
+            if alternativa != model_name
+        ]
         last_error = ""
 
         for model_name in models_to_try:
@@ -1186,6 +1194,13 @@ class ClipSelector:
         if str(last_error).startswith("429"):
             return self.QUOTA_ESGOTADA
         return None
+
+    # A reserva quando o modelo configurado nega. Feita de apelidos e não de
+    # versões: `gemini-2.0-flash` já devolve 404 na conta do editor — some da API
+    # sem aviso —, enquanto `-latest` é a promessa do próprio fornecedor de
+    # apontar para o modelo corrente. Uma lista de versões fixas apodrece, e foi
+    # apodrecendo em silêncio que ela chegou até aqui.
+    GEMINI_FALLBACK_MODELS = ("gemini-flash-latest", "gemini-flash-lite-latest")
 
     # Sentinela devolvida por `_gemini_lot` quando a conta — e não o lote —
     # acabou. Um objeto próprio em vez de `None` porque as duas falhas pedem
