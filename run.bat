@@ -53,7 +53,16 @@ call :validate_runtime
 if errorlevel 1 goto :bootstrap_failed
 
 call :log "Verificando modelo facial opcional do MediaPipe."
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\ensure_face_model.ps1" -ProjectRoot "%~dp0"
+REM O ponto no fim de "%~dp0." nao e enfeite. %~dp0 sempre termina em barra
+REM invertida, e o PowerShell le \" como aspa escapada: o argumento chegava como
+REM C:\furia-clips\" — com uma aspa literal dentro do caminho. Dai vinha
+REM "Caracteres invalidos no caminho" a cada abertura do programa, e o modelo
+REM facial nunca era preparado; o enquadramento automatico de rosto ficava
+REM desligado sem ninguem saber por que. O ponto encerra a string num caractere
+REM comum, e C:\furia-clips\. resolve para a mesma pasta.
+REM
+REM Falhava em qualquer pasta. Nao tinha relacao com acento no caminho.
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\ensure_face_model.ps1" -ProjectRoot "%~dp0."
 set "FACE_MODEL_CODE=!ERRORLEVEL!"
 call :log "Preparação do modelo facial terminou com codigo !FACE_MODEL_CODE!"
 

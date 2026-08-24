@@ -962,7 +962,18 @@
                 </button>
             </div>
         </div>
-    </main>
+    </div><!-- /#subtitleModal — era </main> aqui, e o <main> já fechava na linha 875.
+
+         Com a tag errada o modal de legendas nunca fechava, e tudo o que vinha
+         depois dele no arquivo virava filho de um elemento com `display: none`.
+         O primeiro a cair dentro era o player: ele abria certo (a classe
+         `is-open` entrava, o vídeo era baixado, nenhum erro no console) e ficava
+         com 0 pixel de altura, porque um filho de `display:none` não ocupa
+         espaço. Do lado de fora parecia que o clique não fazia nada.
+
+         O editor relatou isso duas vezes — "o player simplesmente SUMIU" — e eu
+         procurei no JavaScript as duas vezes, porque é onde um clique que não
+         responde costuma morrer. Estava no HTML, a uma tag de distância. -->
 
     <!-- Player Dock (Fixo à direita) -->
     <aside class="player-dock" id="playerDock">
