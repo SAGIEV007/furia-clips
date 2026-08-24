@@ -945,6 +945,22 @@ class ClipSelector:
                 lot, sentences, transcript_blocks, system_prompt,
                 user_context, settings, api_key, emit_progress,
             )
+            if found is self.QUOTA_ESGOTADA:
+                # Pedir os outros lotes é pedir de novo o que já foi negado. Numa
+                # fonte de 1h21 são dezenas de requisições condenadas antes de a
+                # corrida cair calada no NLP básico.
+                restantes = len(lots) - position
+                if emit_progress:
+                    emit_progress(
+                        "[Gemini] A quota da sua conta acabou. "
+                        + (f"Os {restantes} lote(s) restantes foram interrompidos, "
+                           if restantes else "A corrida foi interrompida, ")
+                        + "porque o limite é da conta e não deste trecho. "
+                        "O corte segue pelo caminho local, que é mais fraco.",
+                        "warning",
+                    )
+                failed += restantes + 1
+                break
             if found is None:
                 failed += 1
                 continue
@@ -1164,7 +1180,17 @@ class ClipSelector:
 
         if emit_progress and last_error:
             emit_progress(f"[Gemini] Lote sem resposta. Ultimo erro: {last_error}", "warning")
+        # Quota esgotada não é um problema deste lote: é da conta, e os lotes
+        # seguintes vão bater na mesma porta. Quem chama precisa saber a
+        # diferença para parar em vez de insistir.
+        if str(last_error).startswith("429"):
+            return self.QUOTA_ESGOTADA
         return None
+
+    # Sentinela devolvida por `_gemini_lot` quando a conta — e não o lote —
+    # acabou. Um objeto próprio em vez de `None` porque as duas falhas pedem
+    # respostas opostas: uma segue para o lote seguinte, a outra para a corrida.
+    QUOTA_ESGOTADA = object()
 
     def _get_gemini_system_prompt(self, editorial_profile=PROFILE_NAME):
         political_fragment = ""
@@ -1832,21 +1858,52 @@ Retorne APENAS o JSON.
     SPAN_MATCH_S = 0.25
 
     @staticmethod
-    def _span_from(obj):
+    def _instant(value):
+        """Um instante do vídeo em segundos, aceito em número ou em relógio.
+
+        A transcrição vai para o modelo com cada bloco rotulado `[MM:SS - MM:SS]`,
+        e desde a 6.12 a pré-análise também. Então ele responde no relógio que nós
+        ensinamos — `{"start": "00:55"}` foi o que a sabatina devolveu na conta
+        real — e `float("00:55")` levanta `ValueError` dentro do mesmo `except`
+        que já custou a coletiva de João Pessoa. Ensinar um formato e recusar a
+        resposta nele é o mesmo defeito uma camada acima.
+        """
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            return float(value)
+        texto = str(value or "").strip()
+        if not texto:
+            return None
+        if ":" in texto:
+            partes = texto.split(":")
+            if len(partes) > 3:
+                return None
+            total = 0.0
+            for parte in partes:
+                try:
+                    total = total * 60.0 + float(parte)
+                except ValueError:
+                    return None
+            return total
+        try:
+            return float(texto)
+        except ValueError:
+            return None
+
+    @classmethod
+    def _span_from(cls, obj):
         """O intervalo de tempo declarado num objeto, ou None se não houver.
 
-        `start`/`end` dentro de um endereço de bloco são segundos do vídeo. É o que
-        o modelo quer dizer quando devolve `{"start": 219.0, "end": 223.0, "text":
-        "..."}`: aquele momento, não o bloco de índice 219.
+        `start`/`end` dentro de um endereço de bloco são o momento do vídeo. É o
+        que o modelo quer dizer quando devolve `{"start": 219.0, "end": 223.0,
+        "text": "..."}`: aquele instante, não o bloco de índice 219.
         """
         if not isinstance(obj, dict):
             return None
-        try:
-            start = float(obj["start"])
-            end = float(obj["end"])
-        except (KeyError, TypeError, ValueError):
+        if "start" not in obj or "end" not in obj:
             return None
-        if end <= start:
+        start = cls._instant(obj["start"])
+        end = cls._instant(obj["end"])
+        if start is None or end is None or end <= start:
             return None
         return start, end
 

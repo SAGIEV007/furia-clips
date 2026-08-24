@@ -257,3 +257,57 @@ def test_a_pre_analise_nao_ensina_a_forma_errada(selector):
 def test_sem_pre_analise_o_prompt_nao_ganha_secao_vazia(selector):
     assert selector._render_editorial_context(None) == ""
     assert selector._render_editorial_context({}) == ""
+
+
+# ── o modelo devolve o relógio que nós ensinamos a ele ─────────────────────
+
+RESPOSTA_EM_RELOGIO = """```json
+[
+  {
+    "blocks": [
+      {"start": "03:39", "end": "03:52", "text": "a pergunta da reporter"},
+      {"start": "03:52", "end": "04:41", "text": "a resposta inteira"}
+    ],
+    "title": "Compromissos com a Paraíba",
+    "hook": "B", "flow": "A", "value": "B", "energy": "B"
+  }
+]
+```"""
+
+
+def test_endereço_em_mm_ss_é_lido(selector):
+    """`"start": "00:55"` é o formato que o prompt ensina, e ele era recusado.
+
+    A transcrição vai para o modelo com cada bloco rotulado `[MM:SS - MM:SS]`, e
+    desde a 6.12 a pré-análise também. Medindo o caminho do Gemini na conta real,
+    o primeiro lote da sabatina voltou exatamente assim — e `float("00:55")`
+    levanta `ValueError` dentro do mesmo `except` que já tinha custado a coletiva
+    de João Pessoa. Ensinar um formato e recusar a resposta nele é o defeito
+    inteiro, de novo, uma camada acima.
+    """
+    blocos = _blocos(selector, COLETIVA)
+    clips = selector._parse_llm_response(RESPOSTA_EM_RELOGIO, [], blocos, 0, source="gemini")
+    assert clips, "o modelo respondeu no relógio que nós ensinamos e foi recusado"
+    assert clips[0]["start"] == pytest.approx(219.0)
+    assert clips[0]["end"] == pytest.approx(281.0)
+
+
+def test_relógio_com_hora_também_é_lido(selector):
+    """Fonte de 1h21 fala em HH:MM:SS, e é a duração real das fontes do editor."""
+    resposta = """[
+      {"blocks": [{"start": "00:03:39", "end": "00:04:41", "text": "x"}],
+       "title": "t", "hook": "B", "flow": "A", "value": "B", "energy": "B"}
+    ]"""
+    blocos = _blocos(selector, COLETIVA)
+    clips = selector._parse_llm_response(resposta, [], blocos, 0)
+    assert clips
+    assert clips[0]["start"] == pytest.approx(219.0)
+
+
+def test_texto_que_não_é_relógio_continua_recusado(selector):
+    resposta = """[
+      {"blocks": [{"start": "logo depois", "end": "mais tarde", "text": "x"}],
+       "title": "t", "hook": "B", "flow": "B", "value": "B", "energy": "B"}
+    ]"""
+    blocos = _blocos(selector, COLETIVA)
+    assert selector._parse_llm_response(resposta, [], blocos, 0) == []
