@@ -32,6 +32,24 @@ def parse_timestamp(value: str) -> float:
     raise ValueError(f"Timestamp inválido: {value}")
 
 
+# A marca de troca de locutor, como o YouTube e o tactiq a escrevem. Ela sai do
+# texto — uma legenda com ">>" no meio acabaria queimada no vídeo ou dentro de
+# aspas numa headline — mas não é jogada fora: vira um campo.
+#
+# Na transcrição de 1h21 que o editor mandou são 153 dessas marcas, e cada uma diz
+# onde o repórter toma a palavra. Era a informação mais valiosa que o arquivo
+# carregava para saber onde o corte abre, e o parser a apagava na entrada como se
+# fosse sujeira de formatação. A detecção de turno era então reconstruída por
+# adivinhação de vocabulário — "candidato,", "o senhor" — tendo a resposta
+# escrita no próprio arquivo.
+_SPEAKER_CUE_RE = re.compile(r"(?:^|\s)>>")
+
+
+def marks_a_speaker_change(text: str) -> bool:
+    """Se esta linha vinha marcada como troca de locutor no arquivo."""
+    return bool(_SPEAKER_CUE_RE.search(str(text or "")))
+
+
 def _clean_text(text: str) -> str:
     text = html.unescape(text)
     text = re.sub(r"<\d{2}:\d{2}:\d{2}[\.,]\d{3}>\s*", "", text)
@@ -72,7 +90,12 @@ def _deduplicate_progressive_segments(segments: Iterable[dict]) -> list[dict]:
     cleaned: list[dict] = []
     for raw in segments:
         item = dict(raw)
-        item["text"] = _clean_text(str(item.get("text", "")))
+        bruto = str(item.get("text", ""))
+        # Lida antes da limpeza: `_clean_text` tira o ">>" do texto, e é aqui que
+        # a informação seria perdida para sempre.
+        if marks_a_speaker_change(bruto):
+            item["speaker_change"] = True
+        item["text"] = _clean_text(bruto)
         if not item["text"]:
             continue
         if not cleaned:
@@ -111,12 +134,17 @@ def _normalize(segments: Iterable[dict], duration: float | None = None) -> list[
         end = max(start + 0.05, float(end))
         if duration is not None:
             end = min(end, max(start + 0.05, float(duration)))
+        bruto = str(item["text"])
         normalized = {
             "id": index,
             "start": round(start, 3),
             "end": round(end, 3),
-            "text": _clean_text(str(item["text"])),
+            "text": _clean_text(bruto),
         }
+        # Lido do texto cru, antes da limpeza. Só quando a marca existe: metade
+        # dos arquivos não traz nenhuma, e ausência não pode virar sinal.
+        if item.get("speaker_change") or marks_a_speaker_change(bruto):
+            normalized["speaker_change"] = True
         for key in ("speaker", "source", "confidence"):
             if item.get(key) is not None:
                 normalized[key] = item[key]

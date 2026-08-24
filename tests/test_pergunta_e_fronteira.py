@@ -155,9 +155,9 @@ def test_cada_pergunta_e_sua_resposta_viram_uma_unidade_selecionavel():
     ("O senhor pretende manter o programa", False),
 ])
 def test_a_gramatica_decide_e_nao_o_tamanho(texto, esperado):
-    from modules.interview_turns import _is_complete_question
+    from modules.interview_turns import is_a_whole_question
 
-    assert _is_complete_question(texto) is esperado, texto
+    assert is_a_whole_question(texto) is esperado, texto
 
 
 def test_uma_coletiva_esparsa_ainda_ganha_costura_na_pergunta():

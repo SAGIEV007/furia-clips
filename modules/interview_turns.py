@@ -78,15 +78,20 @@ INTERJECTION_MAX_WORDS = 12
 #
 # The fragment the rule above exists to catch is not short — it is *incomplete*.
 # Grammar separates the two where length cannot.
+# "porque" numa palavra é a conjunção causal — "é porque naturalmente eles
+# concordam" —, não a interrogativa, que em português se escreve separada. Ela
+# estava na lista, e junto com a limpeza de vocativo abaixo ("isso, é porque"
+# vira "é porque") transformava uma explicação em pergunta: na coletiva de João
+# Pessoa isso pôs uma fronteira de bloco no meio de uma frase do próprio Renan.
 _QUESTION_OPENERS = (
     "quais", "qual", "quantos", "quantas", "quanto", "como", "quando",
-    "onde", "quem", "porque", "por que", "o que", "que tipo", "sera",
+    "onde", "quem", "por que", "o que", "que tipo", "sera",
 )
 # A vocative may come first: "Candidato, quais...", "Renan, por que...".
 _LEADING_VOCATIVE = re.compile(r"^[^,?!.]{1,28},\s*")
 
 
-def _is_complete_question(text: str) -> bool:
+def is_a_whole_question(text: str) -> bool:
     """Whether the interviewer's own words form a whole question.
 
     The question mark is the reliable signal. Where the source carries no
@@ -204,7 +209,7 @@ def detect_interviewer_turns(sentences: list[dict[str, Any]]) -> list[dict[str, 
         # Measured on what the interviewer actually said, never on the tail
         # sentence — that one is usually the guest already answering, and its
         # punctuation would speak for a turn it does not belong to.
-        question = _is_complete_question(spoken)
+        question = is_a_whole_question(spoken)
         turns.append({
             "start_s": round(float(ordered[first].get("start", 0) or 0), 3),
             "end_s": round(float(ordered[tail].get("end", 0) or 0), 3),

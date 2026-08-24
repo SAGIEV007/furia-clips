@@ -20,6 +20,7 @@ from .editorial_chapters import annotate_clip_with_chapters
 from .interview_turns import (
     detect_interviewer_turns,
     first_address_to_guest,
+    is_a_whole_question,
     is_interviewer_sentence,
     looks_like_an_interview,
 )
@@ -126,6 +127,12 @@ class ClipSelector:
     # A pause this long before a sentence is a natural opening: the speaker
     # stopped, and whatever comes next stands on its own.
     OPENING_PAUSE_S = 1.2
+
+    # Quanto de pergunta cabe na frente de uma resposta. Uma pergunta de coletiva
+    # leva cinco a quinze segundos; passando de trinta o que está atrás não é o
+    # setup deste corte, é o fim da resposta anterior mais a pergunta, e recuar
+    # até lá abriria o corte no assunto errado.
+    MAX_QUESTION_SETUP_S = 30.0
 
     # How far a clip's end may move to land on a seam of the conversation. The
     # selector already had a view on how much material the idea needs; beyond
@@ -844,6 +851,15 @@ class ClipSelector:
                 "speaker": unique_speakers[0] if len(unique_speakers) == 1 else "",
                 "speakers": unique_speakers,
                 "speaker_change_detected": len(unique_speakers) > 1,
+                # Os instantes em que o arquivo marcou troca de locutor (">>").
+                # É o instante que importa e não só o sinal: uma frase montada
+                # pode conter a marca no meio dela — "Agora o peraló tem os
+                # outros candidato." carrega três, e a que interessa é a última.
+                "speaker_change_at": [
+                    round(float(item.get("start", 0) or 0), 3)
+                    for item in current_segments
+                    if item.get("speaker_change")
+                ],
                 "speaker_confidence": min(confidences) if confidences else None,
                 "overlap_suspected": any(bool(item.get("overlap_suspected")) for item in current_segments),
                 "timing_ambiguous": any(
@@ -868,6 +884,18 @@ class ClipSelector:
 
             if pause_before > 0.8 and current_text:
                 flush()
+
+            # A marca ">>" do arquivo diz que quem fala mudou aqui. Juntar a fala
+            # de duas pessoas numa mesma "frase" está errado de saída, e tinha uma
+            # consequência concreta: na coletiva de João Pessoa, "Agora o peraló
+            # tem os outros" (repórter) e "candidato. Eh, quais os compromissos..."
+            # (outro repórter) viravam uma frase só. A fronteira do bloco só cai em
+            # fronteira de frase, então o corte abria em "Eh, quais os
+            # compromissos" — o editor pediu que abrisse em "candidato", que é
+            # exatamente onde a marca está.
+            if current_text and seg.get("speaker_change"):
+                flush()
+                current_start = None
 
             if current_start is None:
                 current_start = start
@@ -1562,6 +1590,23 @@ Retorne APENAS o JSON.
         # one-turn-per-five-minutes. There the blocks fell back to the stopwatch,
         # and the question ended up glued to the tail of the previous answer.
         seams = {turn["start_s"] for turn in turns if turn.get("asks_a_whole_question")}
+
+        # E, antes de qualquer adivinhação: a marca que o arquivo já traz. O
+        # YouTube e o tactiq escrevem ">>" onde o locutor troca, e a transcrição
+        # de 1h21 que o editor mandou tem 153 delas. O parser as apagava na
+        # entrada, então a costura era reconstruída por vocabulário — "candidato,",
+        # "o senhor" — tendo a resposta escrita no próprio arquivo. Uma pergunta
+        # que não use nenhuma dessas formas passava batida, e foi assim que quatro
+        # dos oito cortes da coletiva abriram no meio de uma frase.
+        #
+        # Marca não é diarização: ela diz que trocou, não quem passou a falar.
+        # Para decidir onde o corte abre é o suficiente, e é evidência do arquivo
+        # em vez de palpite meu.
+        for item in sentences or []:
+            for instante in item.get("speaker_change_at") or []:
+                seams.add(float(instante))
+            if item.get("speaker_change"):
+                seams.add(float(item.get("start", 0) or 0))
 
         # The looser signals — a vocative, a short aside, an address with no
         # question in it — are only trustworthy when the source really is an
@@ -2690,6 +2735,92 @@ Retorne APENAS o JSON.
             )
         return clips
 
+    @staticmethod
+    def _turn_starts_here(sentence):
+        """O arquivo marcou troca de locutor no começo desta frase.
+
+        A marca vale para o começo, não para qualquer lugar dela: uma frase
+        montada pode carregar marca no meio — quando o repórter corta e devolve
+        a palavra dentro da mesma linha de legenda — e isso não faz dela o
+        início de um turno.
+        """
+        start = float(sentence.get("start", 0) or 0)
+        if sentence.get("speaker_change"):
+            return True
+        return any(
+            abs(float(instante) - start) < 0.35
+            for instante in sentence.get("speaker_change_at") or []
+        )
+
+    def _question_marked_just_before(self, ordered, index, floor):
+        """A pergunta que este corte responde, quando o arquivo a marcou.
+
+        O recuo de abertura procura onde o *raciocínio* começa, e por isso não
+        toca numa resposta que se sustenta sozinha: "Falando a verdade, eu não
+        vou abrir concessão" é uma frase inteira, nada nela indica que falta
+        algo. E falta — a pergunta, seis segundos atrás.
+
+        O que indica isso não está no texto da resposta, está na marca: o
+        arquivo diz que quem fala mudou ali, e que o turno anterior é uma
+        pergunta inteira. Nesse caso o corte abre na pergunta, que é o setup
+        dele. Um turno, nunca dois: duas trocas atrás já é outra conversa.
+        """
+        if index <= 0:
+            return None
+        opening = ordered[index]
+        if not self._turn_starts_here(opening):
+            return None
+
+        # O turno anterior inteiro, e não a frase anterior. Uma pergunta de
+        # coletiva quase nunca cabe numa frase só — "como vai desenvolver sua
+        # campanha frente a candidatos que já têm experiência nas urnas, né? /
+        # Como chegar mais no país." são duas, e recuar só até a segunda abriria
+        # o corte na metade da pergunta, que é pior do que abrir na resposta.
+        fim = index
+        while fim > 0:
+            position = fim - 1
+            while position > 0 and not self._turn_starts_here(ordered[position]):
+                position -= 1
+            if not self._turn_starts_here(ordered[position]):
+                return None
+
+            # Pergunta inteira, ou alguém se dirigindo ao entrevistado. A
+            # segunda forma existe porque metade das perguntas de coletiva não é
+            # uma frase interrogativa: "A pergunta é, o senhor foi com a parada
+            # de segurança para" não tem ponto de interrogação nem abre com
+            # pronome interrogativo, e é exatamente a pergunta que o corte de
+            # 12:39 estava deixando de fora. O que a identifica é o tratamento —
+            # "o senhor" —, e isso já está medido em `is_interviewer_sentence`.
+            textos = [str(item.get("text") or "") for item in ordered[position:fim]]
+            if any(is_a_whole_question(t) or is_interviewer_sentence(t) for t in textos):
+                start = float(ordered[position].get("start", 0) or 0)
+                if start < floor:
+                    return None
+                if float(opening.get("start", 0) or 0) - start > self.MAX_QUESTION_SETUP_S:
+                    return None
+                return start
+
+            # Um "Sim, sim." entre a pergunta e a resposta é aceite de palavra,
+            # não é a conversa mudando de assunto — e na coletiva ele fica entre
+            # a pergunta do repórter e a resposta que este corte carrega. Passar
+            # por cima dele não é atravessar dois turnos; é ignorar um turno que
+            # não diz nada. Qualquer coisa maior que isso é outra conversa e o
+            # recuo para ali.
+            if not self._is_acknowledgement(textos):
+                return None
+            fim = position
+        return None
+
+    # Aceite de palavra: curto, sem pergunta e sem conteúdo próprio.
+    ACKNOWLEDGEMENT_MAX_WORDS = 5
+
+    @classmethod
+    def _is_acknowledgement(cls, textos):
+        juntas = " ".join(texto.strip() for texto in textos).strip()
+        if not juntas or "?" in juntas:
+            return False
+        return len(re.findall(r"[^\W\d_]+", juntas, flags=re.UNICODE)) <= cls.ACKNOWLEDGEMENT_MAX_WORDS
+
     def _open_where_the_thought_begins(self, clips, sentences, emit_progress=None):
         """Make every clip start where somebody starts saying something.
 
@@ -2740,15 +2871,6 @@ Retorne APENAS o JSON.
                     continue
 
             mid_sentence = starts[index] < start - 0.35
-            if not mid_sentence:
-                # A clip already opening on the interviewer is opening on the
-                # question, and the answer follows inside it. That is a shape the
-                # editor approved — the turn alignment puts boundaries there on
-                # purpose — so it is left exactly where it is.
-                if is_interviewer_sentence(str(ordered[index].get("text") or "")):
-                    continue
-                if self._opens_a_thought(ordered[index].get("text"), cased):
-                    continue
 
             # O recuo mede contra o limite duro, não contra o teto preferencial.
             # O teto é suave exatamente para este caso: o NORTE autoriza passar
@@ -2760,6 +2882,32 @@ Retorne APENAS o JSON.
             # editor. O `MAX_OPENING_REWIND_S` continua limitando quanto se
             # recua; o que muda é só quem paga a conta.
             floor = max(start - self.MAX_OPENING_REWIND_S, end - self.max_duration)
+
+            if not mid_sentence:
+                # Antes de dar o corte por bem aberto: o arquivo pode dizer que
+                # a pergunta está logo atrás. Isso vale mesmo quando a frase de
+                # abertura se sustenta sozinha — é justamente aí que o defeito
+                # se esconde.
+                pergunta = self._question_marked_just_before(ordered, index, floor)
+                if pergunta is not None and end - pergunta >= self.min_duration:
+                    clip["start"] = round(pergunta, 3)
+                    clip["duration"] = round(end - pergunta, 3)
+                    rebuilt = self._text_between(sentences, pergunta, end)
+                    if rebuilt:
+                        clip["text"] = rebuilt
+                    clip["opening_repaired_s"] = round(pergunta - start, 2)
+                    clip["opening_source"] = "pergunta marcada"
+                    repaired += 1
+                    continue
+                # A clip already opening on the interviewer is opening on the
+                # question, and the answer follows inside it. That is a shape the
+                # editor approved — the turn alignment puts boundaries there on
+                # purpose — so it is left exactly where it is.
+                if is_interviewer_sentence(str(ordered[index].get("text") or "")):
+                    continue
+                if self._opens_a_thought(ordered[index].get("text"), cased):
+                    continue
+
             target = index
             while starts[target] >= floor:
                 item = ordered[target]
@@ -2983,12 +3131,22 @@ Retorne APENAS o JSON.
 
     @staticmethod
     def _text_between(sentences, start, end):
-        """The transcript actually contained in a window, after it was moved."""
+        """The transcript actually contained in a window, after it was moved.
+
+        A tolerância de 0,25 s existe para arredondamento, e uma frase que
+        *termina* dentro dela nunca chegou ao corte: a legenda do tactiq quebra
+        a linha na marca de troca de locutor, e a última palavra do locutor
+        anterior fica com duração de centésimos logo antes da borda. Ela não
+        está no áudio do corte e não pode estar na legenda dele — foi assim que
+        o corte que abre na pergunta de 22:00 começava escrito com um "E"
+        pendurado que ninguém fala.
+        """
         parts = [
             str(item.get("text") or "").strip()
             for item in sorted(sentences or [], key=lambda entry: float(entry.get("start", 0) or 0))
             if float(item.get("start", 0) or 0) >= start - 0.25
             and float(item.get("end", 0) or 0) <= end + 0.25
+            and float(item.get("end", 0) or 0) > start + 0.05
         ]
         return " ".join(part for part in parts if part).strip()
 
