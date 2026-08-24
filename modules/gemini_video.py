@@ -41,11 +41,17 @@ class GeminiVideoAnalyzer:
         if cancel_check:
             cancel_check()
         analysis_path, analysis_meta = self._prepare_analysis_media(path, emit_progress, cancel_check)
+        espera = self._analysis_timeout(analysis_meta.get("original_duration_seconds") or 0)
+        analysis_meta["network_timeout_seconds"] = espera
         try:
             mime_type = mimetypes.guess_type(analysis_path.name)[0] or "video/mp4"
             if emit_progress:
-                emit_progress("[Gemini] Enviando a cópia audiovisual compactada para análise online...", "info")
-            file_info = self._upload_file(analysis_path, mime_type, emit_progress, cancel_check)
+                emit_progress(
+                    f"[Gemini] Enviando a cópia audiovisual compactada para análise online "
+                    f"(espera de até {espera // 60} min, proporcional à duração da fonte)...",
+                    "info",
+                )
+            file_info = self._upload_file(analysis_path, mime_type, emit_progress, cancel_check, timeout=espera)
             self._wait_until_active(file_info.get("name", ""), emit_progress, cancel_check)
 
             prompt_context = dict(editorial_context or {})
@@ -64,7 +70,7 @@ class GeminiVideoAnalyzer:
                     "responseMimeType": "application/json",
                 },
             }
-            response = self._generate_content(request_payload, emit_progress, cancel_check)
+            response = self._generate_content(request_payload, emit_progress, cancel_check, timeout=espera)
             if response.status_code != 200:
                 raise GeminiVideoError(f"Gemini retornou HTTP {response.status_code}: {self._error_text(response)}")
             payload = response.json()
@@ -124,6 +130,29 @@ class GeminiVideoAnalyzer:
             fps, maxrate = "1", "350k"
         return {"fps": fps, "maxrate": maxrate, "max_width": 640, "audio_bitrate": "16k"}
 
+    # Quanto esperar pela rede, medido contra o que a fonte é — não um número fixo.
+    #
+    # O perfil acima já sabe que a fonte é longa: acima de 45 minutos ele desce a
+    # 1 quadro a cada 12 segundos para caber. Só que os dois tempos-limite de rede
+    # eram 180 segundos, sempre, e isso condenava a chamada antes de ela sair.
+    #
+    # No diagnóstico que o editor exportou: um vídeo de 139,7 minutos levou 15
+    # minutos e 26 segundos só para compactar, mais 47 segundos de upload — e aí
+    # o programa deu ao Gemini 3 minutos para analisar duas horas de material e
+    # desistiu com "Read timed out. (read timeout=180)". Aconteceu duas vezes na
+    # mesma sessão: 45 minutos de espera para nenhum resultado.
+    #
+    # Gastar quinze minutos preparando e três esperando é a proporção errada.
+    ANALYSIS_TIMEOUT_MIN_S = 180
+    ANALYSIS_TIMEOUT_MAX_S = 1500
+    ANALYSIS_TIMEOUT_PER_MINUTE_S = 12
+
+    @classmethod
+    def _analysis_timeout(cls, duration_seconds: float) -> int:
+        minutos = max(0.0, float(duration_seconds or 0.0)) / 60.0
+        estimado = cls.ANALYSIS_TIMEOUT_MIN_S + minutos * cls.ANALYSIS_TIMEOUT_PER_MINUTE_S
+        return int(min(cls.ANALYSIS_TIMEOUT_MAX_S, max(cls.ANALYSIS_TIMEOUT_MIN_S, estimado)))
+
     @classmethod
     def _prepare_analysis_media(cls, path: Path, emit_progress=None, cancel_check=None):
         duration = cls._probe_duration(path)
@@ -180,7 +209,7 @@ class GeminiVideoAnalyzer:
             proxy.unlink(missing_ok=True)
             raise
 
-    def _generate_content(self, request_payload: dict, emit_progress=None, cancel_check=None):
+    def _generate_content(self, request_payload: dict, emit_progress=None, cancel_check=None, timeout: int | None = None):
         """Retry only transient API failures; the video upload is not repeated."""
         endpoint = f"{self.base_url}/v1beta/models/{self.model}:generateContent"
         retryable = {408, 429, 500, 502, 503, 504}
@@ -189,7 +218,9 @@ class GeminiVideoAnalyzer:
         for attempt in range(1, max_attempts + 1):
             if cancel_check:
                 cancel_check()
-            response = self.session.post(endpoint, json=request_payload, timeout=180)
+            response = self.session.post(
+                endpoint, json=request_payload, timeout=timeout or self.ANALYSIS_TIMEOUT_MIN_S
+            )
             last_response = response
             if response.status_code == 200:
                 return response
@@ -217,7 +248,7 @@ class GeminiVideoAnalyzer:
                 return
             time.sleep(min(0.5, remaining))
 
-    def _upload_file(self, path: Path, mime_type: str, emit_progress=None, cancel_check=None) -> dict:
+    def _upload_file(self, path: Path, mime_type: str, emit_progress=None, cancel_check=None, timeout: int | None = None) -> dict:
         if cancel_check:
             cancel_check()
         size = path.stat().st_size
@@ -251,7 +282,7 @@ class GeminiVideoAnalyzer:
                     "Content-Type": mime_type,
                 },
                 data=handle,
-                timeout=180,
+                timeout=timeout or self.ANALYSIS_TIMEOUT_MIN_S,
             )
         if cancel_check:
             cancel_check()
