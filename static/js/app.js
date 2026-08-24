@@ -114,7 +114,22 @@ const RUN_STAGE_LABELS = {
     ranking: "Ranking",
     render: "Cortes",
 };
-const run = { active: false, title: "", startedAt: 0, timer: null, progress: 0, stage: "source", scope: "Fonte inteira" };
+const run = { active: false, title: "", startedAt: 0, timer: null, progress: 0, stage: "source", scope: "Fonte inteira", lastSignal: 0 };
+
+// Quanto tempo de silêncio do servidor antes de destrancar a interface sozinha.
+//
+// O trinco existe para o operador não disparar duas operações em cima da mesma
+// fonte, e ele é uma conveniência — quem de fato serializa o trabalho é a fila
+// no servidor. Só que ele era absoluto: `run.active` só voltava a ser falso
+// quando chegava uma atualização de job dizendo que acabou. Se essa atualização
+// não chegasse — processo interrompido, socket caído, servidor reiniciado — todo
+// cartão de ação ficava com `pointer-events: none` para sempre, e o único que
+// não ficava era justamente o que estava rodando e por isso também não responde.
+//
+// O editor descreveu exatamente isso: "apesar de o botão de fazer tudo ser o
+// único que pareceu clicável, nem ele funcionou", depois de ter parado um
+// processo. Um trinco sem chave por fora é um travamento, não uma proteção.
+const RUN_STALL_MS = 90000;
 
 function inferRunStage(detail = "") {
     const value = String(detail || "").toLowerCase();
@@ -162,6 +177,18 @@ function paintRun() {
         card.classList.toggle("is-running", run.active && card.dataset.action === run.action);
     });
     if (!run.active) return;
+    // O servidor emudeceu: solta o trinco antes que ele vire travamento.
+    if (run.lastSignal && Date.now() - run.lastSignal > RUN_STALL_MS) {
+        const parado = run.title || "A operação";
+        endRun();
+        showToast(`${parado} parou de responder; as ações foram liberadas.`, "warning");
+        addConsoleLog(
+            `[Sistema] Sem notícia do servidor há ${Math.round(RUN_STALL_MS / 1000)}s. ` +
+            "As ações foram destrancadas — se a operação ainda estiver rodando, ela aparece no painel de operação.",
+            "warning",
+        );
+        return;
+    }
     document.getElementById("runBarTitle").textContent = run.title || "Processando";
     setRunBarScope(run.scope);
     renderRunBarState(run.stage, run.progress);
@@ -177,6 +204,7 @@ function beginRun(title, action = "", detail = "Preparando…") {
     run.startedAt = Date.now();
     run.progress = 0;
     run.stage = inferRunStage(detail);
+    run.lastSignal = Date.now();
     setRunBarScope(state.processingScopeLabel || "Fonte inteira");
     const line = document.getElementById("runBarDetail");
     if (line) line.textContent = detail;
@@ -187,6 +215,7 @@ function beginRun(title, action = "", detail = "Preparando…") {
 
 function describeRun(detail) {
     if (!run.active) return;
+    run.lastSignal = Date.now();
     const line = document.getElementById("runBarDetail");
     // A mensagem de progresso já vem carimbada com versão e etapa; o que
     // interessa na barra é a última coisa dita, sem o carimbo.
@@ -197,8 +226,13 @@ function describeRun(detail) {
 function endRun() {
     run.active = false;
     run.action = "";
+    run.lastSignal = 0;
     window.clearInterval(run.timer);
     run.timer = null;
+    // O botão de cancelar se desabilitava ao pedir a parada e nunca voltava.
+    // Se o pedido não surtisse efeito, não havia como pedir de novo.
+    const cancelar = document.getElementById("runBarCancel");
+    if (cancelar) cancelar.disabled = false;
     paintRun();
 }
 
@@ -2020,12 +2054,30 @@ function selectVideo(item, sourceElement = null) {
         return;
     }
     const changedVideo = state.selectedVideo && state.selectedVideo !== item.path;
+    // Uma transcrição sem dono é desta fonte, não lixo.
+    //
+    // O sentinela "pending-source" existe justamente para a transcrição que
+    // chegou antes de haver vídeo escolhido. Só que `manualTranscriptVideo`
+    // também fica em branco em três caminhos — quando o servidor devolve a
+    // transcrição sem o caminho da fonte, quando a transcrição local termina
+    // antes de haver seleção, e quando o editor cola o texto à mão. Nesses
+    // casos ela não era "pending-source" nem igual ao caminho do item, então
+    // caía no descarte alguma linha abaixo, sem aviso nenhum.
+    //
+    // O editor viu o resultado disso e não a causa: "apesar de eu ter colado a
+    // transcrição previamente, o programa aparentemente tentou fazer uma
+    // transcrição também". Tinha mesmo: a colada já não existia mais.
+    const transcriptUnclaimed = !state.manualTranscriptVideo || state.manualTranscriptVideo === "pending-source";
     const transcriptBelongsToItem = state.manualTranscript && (
-        state.manualTranscriptVideo === item.path || state.manualTranscriptVideo === "pending-source"
+        state.manualTranscriptVideo === item.path || transcriptUnclaimed
     );
     state.selectedVideo = item.path;
     state.selectedVideoName = item.name;
-    if (transcriptBelongsToItem && state.manualTranscriptVideo === "pending-source") {
+    // E ela ganha dono agora. Sobreviver sem dono seria pior que ser
+    // descartada: na próxima troca de fonte ela continuaria "sem dono" e
+    // colaria no vídeo errado — o corte sairia com a transcrição de outro
+    // vídeo, que é um defeito silencioso e muito mais caro de perceber.
+    if (transcriptBelongsToItem && transcriptUnclaimed) {
         state.manualTranscriptVideo = item.path;
     }
     if (changedVideo) {
@@ -2106,6 +2158,17 @@ function showVideoPreview(item) {
     const nameEl = document.getElementById("previewVideoName");
     const status = document.getElementById("videoPreviewStatus");
     const mainContent = document.querySelector(".main-content");
+
+    // `state.selectedVideo` guarda o *caminho*, não o item — e dois lugares
+    // chamavam esta função com ele: o clique num bloco editorial e o clique
+    // numa unidade de leitura, que são justamente os dois lugares de onde o
+    // editor abriria o player para conferir um corte. Uma string não tem
+    // `.path`, então a guarda abaixo devolvia na hora e o player simplesmente
+    // não aparecia. Nenhum erro no console, nenhuma mensagem: o clique não
+    // fazia nada. Foi assim que "o player simplesmente SUMIU".
+    if (typeof item === "string") {
+        item = { path: item, name: state.selectedVideoName || "" };
+    }
     if (!section || !video || !source || !item?.path) return;
     const token = ++state.previewToken;
     
