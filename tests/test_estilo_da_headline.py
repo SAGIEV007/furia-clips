@@ -168,3 +168,122 @@ def test_o_corpus_e_json_valido_e_tem_o_que_promete():
     assert dados["chamadas_superiores"]["observadas"]
     assert dados["chamadas_superiores"]["palavras_max"] >= 1
     assert dados["padroes"] and dados["regras_lidas_do_corpus"]
+
+
+# ── o editor já diz o assunto, e o gerador ignorava ────────────────────────
+
+def test_o_assunto_pode_vir_do_minicontexto_quando_a_fonte_nao_repete():
+    """`key_term` exigia duas ocorrências, e numa legenda curta há uma.
+
+    A legenda que o editor importa no estúdio tem quatro linhas: "STF" aparece
+    uma vez. Sem assunto, as famílias resumo, atribuição e afirmação morrem todas
+    de uma vez — e a atribuição é justamente a forma da arte que ele aprovou,
+    `RENAN SANTOS DETONA: "..."`.
+
+    Ele já escreveu o assunto no minicontexto. Usar isso não é inventar: o termo
+    só entra se estiver **também na fonte**, então continua sendo o que foi dito.
+    O que o minicontexto autoriza é tratá-lo como assunto sem exigir repetição.
+    """
+    from modules.headline_copy import key_term
+
+    curta = ["o STF está uma porcaria",
+             "ministros que ninguém elegeu decidindo o futuro do país"]
+    assert key_term(curta) == ("", ""), "o teste perdeu o que media: a fonte já repetia"
+
+    termo, _ = key_term(curta, mini_context="Renan Santos sobre o STF")
+    assert termo.upper() == "STF", f"o assunto do minicontexto não foi usado: {termo!r}"
+
+
+def test_o_minicontexto_nao_autoriza_assunto_que_a_fonte_nao_tem():
+    """O portão de invenção continua de pé, e é ele que separa isto de chutar.
+
+    Se o editor escrever "sobre o Lula" numa legenda que não fala de Lula, o
+    termo não entra — senão a arte afirmaria um assunto que o corte não sustenta.
+    """
+    from modules.headline_copy import key_term
+
+    termo, _ = key_term(
+        ["o STF está uma porcaria", "ministros que ninguém elegeu decidindo o futuro"],
+        mini_context="Renan Santos sobre o Lula e o Banco Master",
+    )
+    assert termo == "", f"entrou {termo!r}, que não está na fonte"
+
+
+def test_a_fonte_que_repete_continua_mandando():
+    """O controle: onde a fonte tem assunto próprio, o minicontexto não sobrepõe."""
+    from modules.headline_copy import key_term
+
+    repetida = [
+        "a compra de voto é a base da democracia brasileira",
+        "existe compra de voto hoje no Brasil inteiro",
+        "a compra de voto está presente na vida das pessoas",
+    ]
+    termo, _ = key_term(repetida, mini_context="Renan Santos sobre o STF")
+    assert "compra de voto" in termo.lower(), termo
+
+
+@pytest.mark.xfail(strict=True, reason=(
+    "Depende do portão de conteúdo acima. A família de atribuição já encontra a "
+    "primeira linha da unidade — 'o STF está uma porcaria', que é exatamente o "
+    "que a arte dele cita — e é `_disqualify` que a recusa por conteúdo."
+))
+def test_a_forma_que_o_editor_aprovou_volta_a_sair():
+    """`RENAN SANTOS DETONA: "..."` — a arte que ele mostrou como aceitável."""
+    from modules.headline_studio import FORMAT_SQUARE, generate_artwork_copy
+
+    legenda = """1
+00:00:00,000 --> 00:00:03,500
+o STF está uma porcaria
+
+2
+00:00:03,600 --> 00:00:08,000
+ministros que ninguém elegeu decidindo o futuro do país
+
+3
+00:00:08,100 --> 00:00:12,500
+legislando no lugar do Congresso e censurando rede social
+
+4
+00:00:12,600 --> 00:00:16,000
+isso é absurdo isso é vergonhoso
+"""
+    resultado = generate_artwork_copy(
+        legenda, mini_context="Renan Santos sobre o STF",
+        preferred_format=FORMAT_SQUARE, ai_backend=None,
+    )
+    sugestoes = resultado["formats"][FORMAT_SQUARE]["suggestions"]
+    assert sugestoes, "a legenda do editor continua devolvendo tela em branco"
+    modos = {item["mode"] for item in sugestoes}
+    assert "atribuicao" in modos, (
+        f"a forma aprovada não saiu; modos disponíveis: {modos}"
+    )
+
+
+@pytest.mark.xfail(strict=True, reason=(
+    "Calibração que é do editor, não minha. A arte que ele aprovou cita 'O STF "
+    "ESTÁ UMA PORCARIA' e os portões a recusam: cinco palavras passaram a caber "
+    "no piso de tamanho, mas o de conteúdo conta duas — 'stf' e 'porcaria' — "
+    "porque 'está' é palavra funcional. Baixar o piso de conteúdo para dois "
+    "deixaria passar 'é isso aí então né', que também tem duas. A distinção real "
+    "é que a arte dele tem dois SUBSTANTIVOS e o ruído não tem nenhum, e eu não "
+    "tenho corpus para validar essa regra — tenho um exemplo. Baixar constante "
+    "até o exemplo passar é ajustar a ferramenta ao teste, que é o erro da §15. "
+    "Precisa da §7: uma dúzia de exemplos que ele aprova e rejeita."
+))
+def test_o_piso_de_tamanho_nao_recusa_a_arte_que_o_editor_aprovou():
+    """"O STF ESTÁ UMA PORCARIA" — cinco palavras, e é recusada.
+
+    Um piso que exclui o exemplo que o próprio editor mostrou como aceitável está
+    calibrado contra ele. Mas qual piso mover, e para onde, é julgamento que
+    precisa de mais de um exemplo.
+    """
+    from modules.headline_quote import _disqualify
+
+    assert _disqualify("o STF está uma porcaria", cased=False, punctuated=False) == ""
+
+
+def test_frase_curta_e_vazia_continua_recusada():
+    """O controle: cinco palavras sem conteúdo continuam não dizendo nada."""
+    from modules.headline_quote import _disqualify
+
+    assert _disqualify("é isso aí então né", cased=False, punctuated=False)

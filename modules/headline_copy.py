@@ -233,7 +233,35 @@ _SUBJECTLESS_VERB_START = {
 }
 
 
-def key_term(texts: list[str]) -> tuple[str, str]:
+def _artigo_de(termo: str, artigos: dict) -> str:
+    """O artigo que a fonte usa antes do termo, ou nada — nunca um chute."""
+    contagem = artigos.get(termo.lower()) or artigos.get(termo)
+    return contagem.most_common(1)[0][0] if contagem else ""
+
+
+def _termo_do_minicontexto(mini_context: str, palavras: list[str], bruto: str) -> str:
+    """O assunto que o editor nomeou, se a fonte de fato o contém.
+
+    Preferimos a sigla e o nome próprio — que é o que ele destaca na arte — e
+    devolvemos a grafia como ela aparece **na fonte**, não como ele digitou.
+    """
+    if not mini_context:
+        return ""
+    presentes = set(palavras)
+    candidatos = re.findall(r"\b[A-ZÀ-Þ][\wÀ-ÿ]{1,}\b", mini_context)
+    siglas = [c for c in candidatos if c.isupper() and len(c) >= 2]
+    for candidato in siglas + candidatos:
+        baixo = candidato.lower()
+        if baixo in _FUNCTION_WORDS or len(baixo) < 3:
+            continue
+        if baixo not in presentes:
+            continue
+        achado = re.search(rf"\b{re.escape(candidato)}\b", bruto, re.IGNORECASE)
+        return achado.group(0) if achado else candidato
+    return ""
+
+
+def key_term(texts: list[str], mini_context: str = "") -> tuple[str, str]:
     """O assunto da fonte, na forma em que ele foi dito, e o artigo que o rege.
 
     É o trecho que vai destacado na arte, e por isso não pode ser escolhido por
@@ -290,6 +318,19 @@ def key_term(texts: list[str]) -> tuple[str, str]:
     # "STF" visto duas, e então cair no filtro levando o assunto junto.
     repetidos = {termo: vezes for termo, vezes in ocorrencias.items() if vezes >= 2}
     if not repetidos:
+        # A legenda que o editor importa no estúdio tem quatro linhas, e nela o
+        # assunto aparece uma vez. Sem termo, morrem de uma vez as famílias
+        # resumo, atribuição e afirmação — e a atribuição é justamente a forma da
+        # arte que ele aprovou.
+        #
+        # Mas ele já escreveu o assunto: está no minicontexto. Usar isso não é
+        # inventar, porque o termo só entra se estiver **também na fonte** — o
+        # portão de invenção continua inteiro. O que o minicontexto autoriza é
+        # tratá-lo como assunto sem exigir repetição, que é uma exigência que só
+        # faz sentido quando ninguém disse qual é o assunto.
+        do_contexto = _termo_do_minicontexto(mini_context, palavras, bruto)
+        if do_contexto:
+            return do_contexto, _artigo_de(do_contexto, artigos)
         return "", ""
 
     def valor(item: tuple[str, int]) -> tuple[float, int]:
@@ -391,9 +432,31 @@ def claim_headlines(units: list[dict[str, Any]], speaker: Speaker, termo: str) -
     cased = ClipSelector._casing_is_meaningful(units)
     punctuated = transcript_is_punctuated(units)
 
+    def candidatos(unidade):
+        """A unidade inteira e, se ela não couber, a primeira linha dela.
+
+        A arte aprovada pelo editor cita "O STF ESTÁ UMA PORCARIA", que é a
+        primeira linha de uma unidade de vinte e três palavras. Numa legenda sem
+        pausa e sem pontuação, a quebra de linha é a única fronteira de oração
+        que existe — e ela é fronteira de verdade, marcada por quem legendou.
+        Usar a primeira linha não é recortar pelo meio: é parar onde alguém já
+        tinha parado. As linhas seguintes ficam de fora porque só a primeira
+        abre onde a unidade abre; as do meio começariam penduradas.
+        """
+        yield str(unidade.get("text") or ""), unidade
+        pecas = unidade.get("pieces") or []
+        if len(pecas) > 1:
+            primeira = pecas[0]
+            texto = str(primeira.get("text") or "")
+            if texto and texto != str(unidade.get("text") or ""):
+                yield texto, {**unidade, **primeira, "boundary_source": "linha de legenda"}
+
     saidas: list[tuple[str, dict[str, Any]]] = []
-    for unidade in units or []:
-        bruto = str(unidade.get("text") or "")
+    vistos: set[str] = set()
+    for origem in units or []:
+      for bruto, unidade in candidatos(origem):
+        if normalize(bruto) in vistos:
+            continue
         # Os mesmos portões de todo o resto. Sem esta linha a família nova
         # atribuiu ao entrevistado uma fala que ele estava *encenando* na voz de
         # um cabo eleitoral — a citação falsa mais cara que este módulo produz, e
@@ -418,7 +481,11 @@ def claim_headlines(units: list[dict[str, Any]], speaker: Speaker, termo: str) -
         frase = f"{speaker.name} diz que {limpo[0].lower() + limpo[1:]}."
         if len(frase) > HEADLINE_MAX_CHARS:
             continue
+        vistos.add(normalize(bruto))
         saidas.append((frase, unidade))
+        # Achada uma forma para esta unidade, a linha isolada não precisa
+        # concorrer com ela: seriam duas headlines dizendo a mesma coisa.
+        break
     # A afirmação que fala do assunto da fonte vem primeiro, e entre iguais a
     # mais curta — curto vence, medido no Campaign Hub.
     saidas.sort(key=lambda item: (
@@ -490,7 +557,7 @@ def build(
     from .clip_selector import ClipSelector
 
     inteiro = " ".join(textos)
-    termo, artigo = key_term(textos)
+    termo, artigo = key_term(textos, mini_context=mini_context)
     stance = detect_stance(inteiro, signals)
     role = detect_role(mini_context, inteiro)
     ganchos = HOOKS[stance]

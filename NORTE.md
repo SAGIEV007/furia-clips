@@ -1063,15 +1063,31 @@ orador respirou, a linha é evidência de que quem legendou achou que ela encheu
 fronteira real, de outra natureza, e citação tirada dali precisa de conferência
 maior.
 
-**Defeito medido e NÃO corrigido, marcado como `xfail` estrito** em
-`test_legenda_sem_pontuacao.py`: mais material produz **menos** headline. A mesma
-fonte devolve uma sugestão com duas linhas e nenhuma com quatro. As unidades saem
-certas nos dois casos e `pick_quotes` devolve a mesma citação nos dois; o que muda
-é o score dela — 76,15 com duas linhas, 49,85 com quatro —, porque a pontuação é
-relativa ao conjunto. Em algum ponto de `headline_copy.build` isso é comparado
-contra um piso que não é relativo, e a fonte que funcionava para de funcionar por
-ter crescido. Está marcado para se anunciar sozinho quando for corrigido, em vez
-de ficar escondido atrás de uma suíte verde.
+**O `xfail` estrito se anunciou sozinho, e a causa não era a que eu supus.** O
+defeito "mais material produz menos headline" estava marcado como score relativo
+contra piso absoluto. Era outra coisa: `key_term` exigia que o assunto se
+repetisse, e numa legenda de quatro linhas "STF" aparece uma vez. Sem assunto,
+morrem de uma vez as famílias resumo, atribuição e afirmação.
+
+O termo passou a poder vir do **minicontexto** — onde o editor já escreve o
+assunto e onde ninguém lia. Isso não afrouxa o portão de invenção: o termo só
+entra se estiver **também na fonte**, e a grafia devolvida é a da fonte, não a
+que ele digitou. O que o minicontexto autoriza é tratá-lo como assunto sem exigir
+repetição, exigência que só faz sentido quando ninguém disse qual é o assunto.
+
+**Calibração que é do editor, não minha — dois `xfail` estritos abertos.** A arte
+que ele aprovou cita "O STF ESTÁ UMA PORCARIA" e os portões a recusam. O piso de
+tamanho passou de seis para cinco palavras, justificado pelo próprio exemplo. Mas
+o piso de conteúdo conta duas — "stf" e "porcaria", porque "está" é palavra
+funcional — e baixá-lo para dois deixaria passar "é isso aí então né", que também
+tem duas. A distinção real é que a arte dele tem dois **substantivos** e o ruído
+não tem nenhum; eu não tenho corpus para validar essa regra, tenho um exemplo.
+Baixar constante até o exemplo passar é ajustar a ferramenta ao teste, que é o
+erro da §15 cometido de novo em escala menor.
+
+Isto é §7 — o que só o editor pode fazer. **O que destrava: uma dúzia de frases
+que ele aprova e rejeita.** Com doze exemplos a regra sai medida; com um, sai
+chutada.
 
 ---
 

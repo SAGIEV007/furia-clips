@@ -47,7 +47,12 @@ QUOTE_MIN_WORDS = 4
 # um exemplo." e "Seja muito bem-vindo." — curtas, em primeira pessoa, e sem
 # conteúdo nenhum. Seis palavras e três palavras de conteúdo é o piso que separa
 # uma afirmação de uma muleta de conversa.
-HEADLINE_MIN_WORDS = 6
+# Cinco, e não seis, porque seis recusava a arte que o editor aprovou. A citação
+# dela é "O STF ESTÁ UMA PORCARIA" — cinco palavras, três de conteúdo — e um piso
+# que exclui o exemplo aceitável está calibrado contra o próprio editor. O que
+# garante que cinco palavras dizem algo não é a contagem total e sim
+# `HEADLINE_MIN_CONTENT_WORDS`, que continua em três.
+HEADLINE_MIN_WORDS = 5
 HEADLINE_MIN_CONTENT_WORDS = 3
 
 # Palavras que não carregam conteúdo. Não é uma lista de parada completa nem
@@ -269,6 +274,19 @@ def units_from_pauses(segments: list[dict[str, Any]] | None) -> list[dict[str, A
                 "start": float(atual[0].get("start", 0) or 0),
                 "end": float(atual[-1].get("end", 0) or 0),
                 "boundary_source": fonte,
+                # As linhas de onde a unidade foi feita. A arte que o editor
+                # aprovou citou "O STF ESTÁ UMA PORCARIA" — a primeira linha de
+                # uma unidade de vinte e três palavras. Sem guardar as peças, a
+                # única forma de chegar nela seria recortar pelo meio, que é
+                # justamente o que não se faz.
+                "pieces": [
+                    {
+                        "text": " ".join(str(s.get("text") or "").split()),
+                        "start": float(s.get("start", 0) or 0),
+                        "end": float(s.get("end", 0) or 0),
+                    }
+                    for s in atual if str(s.get("text") or "").strip()
+                ],
             })
         atual.clear()
 

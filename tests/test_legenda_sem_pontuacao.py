@@ -251,17 +251,18 @@ def test_onde_ha_pausa_ela_continua_mandando():
     )
 
 
-@pytest.mark.xfail(strict=True, reason=(
-    "Defeito conhecido, medido e ainda não corrigido: mais material produz MENOS "
-    "headline. Com duas linhas esta fonte devolve uma sugestão; com quatro, "
-    "nenhuma. As unidades saem certas nos dois casos e `pick_quotes` devolve a "
-    "mesma citação nos dois — o que muda é o score dela, 76,15 com duas linhas e "
-    "49,85 com quatro, porque a pontuação é relativa ao conjunto. Em algum ponto "
-    "de `headline_copy.build` isso é comparado contra um piso que não é relativo, "
-    "e a fonte que funcionava para de funcionar por ter crescido. Fica marcado "
-    "como xfail estrito para anunciar-se sozinho quando for corrigido."
-))
 def test_a_legenda_de_cues_coladas_volta_a_produzir_headline():
+    """Esteve marcado como `xfail` estrito por meia hora, e ele se anunciou.
+
+    O defeito medido era "mais material produz menos headline": com duas linhas
+    esta fonte devolvia uma sugestão e com quatro, nenhuma. A causa não era o
+    score relativo, como eu tinha suposto ao marcar — era `key_term` exigindo que
+    o assunto se repetisse. Numa legenda de quatro linhas "STF" aparece uma vez,
+    e sem assunto morrem de uma vez as famílias resumo, atribuição e afirmação.
+    O termo passou a poder vir do minicontexto, que é onde o editor já escreve o
+    assunto, e o teste virou verde sozinho — que é para isso que `strict=True`
+    serve.
+    """
     result = generate_artwork_copy(
         SEM_PAUSA, mini_context="Renan Santos sobre o STF",
         preferred_format=FORMAT_SQUARE, ai_backend=None,
