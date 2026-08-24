@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import glob
 import inspect
+import os
 import json
 import statistics
 import sys
@@ -43,28 +44,41 @@ TOQUE_MINIMO_S = 1.0
 COBERTURA_MINIMA_S = 5.0
 
 
-def cortar(segmentos, *, max_clips=12, min_duration=20, max_duration=480):
+def cortar(segmentos, *, max_clips=12, min_duration=20, max_duration=480,
+           backend="nlp", emit_progress=None):
+    """Roda o seletor uma vez.
+
+    ``backend="gemini"`` usa a chave em ``GEMINI_API_KEY`` do ambiente. Ela nunca
+    é escrita em arquivo nem impressa: entra pelo dicionário de settings, que é
+    por onde o seletor a espera.
+    """
     seletor = ClipSelector(max_clips=max_clips, min_duration=min_duration, max_duration=max_duration)
     contexto = analyze_transcript_context({"segments": segmentos})
+    settings = {}
+    if backend == "gemini":
+        chave = os.environ.get("GEMINI_API_KEY", "").strip()
+        if not chave:
+            raise SystemExit("defina GEMINI_API_KEY no ambiente para medir o caminho do Gemini")
+        settings = {"ai_backend": "gemini", "gemini_api_key": chave}
     aceitos = inspect.signature(seletor.select_clips).parameters
     argumentos = {
         nome: valor for nome, valor in [
             ("transcription", {"segments": segmentos}), ("energy_profile", []),
-            ("user_context", ""), ("settings", {}), ("emit_progress", None),
+            ("user_context", ""), ("settings", settings), ("emit_progress", emit_progress),
             ("editorial_context", contexto),
         ] if nome in aceitos
     }
     return seletor, seletor.select_clips(**argumentos)
 
 
-def medir(caminho: str) -> dict:
+def medir(caminho: str, backend: str = "nlp") -> dict:
     fixture = json.loads(Path(caminho).read_text(encoding="utf-8"))
     segmentos = [
         {"start": s["start"], "end": s["end"], "text": s["text"]}
         for s in fixture["sentencas"]
     ]
     territorios = [(r["start"], r["end"], r["cortes"]) for r in fixture["blocos_de_referencia"]]
-    seletor, clips = cortar(segmentos)
+    seletor, clips = cortar(segmentos, backend=backend)
     # A granularidade do caminho local: é dela que estes cortes saíram.
     blocos = seletor._build_transcript_blocks(
         seletor._build_sentences(segmentos), granularity="clip"
@@ -86,6 +100,7 @@ def medir(caminho: str) -> dict:
 
     return {
         "fonte": fixture["fonte"]["titulo"],
+        "backend": backend,
         "video": fixture["fonte"]["videoId"],
         "janela_s": fixture["janela"]["ate_s"] - fixture["janela"]["de_s"],
         "territorios": len(territorios),
@@ -99,6 +114,10 @@ def medir(caminho: str) -> dict:
         "duracao_mediana_s": round(statistics.median(duracoes), 1),
         "duracao_alvo_s": round(statistics.median(alvo), 1),
         "razao_duracao": round(statistics.median(duracoes) / statistics.median(alvo), 2) if alvo else 0.0,
+        # De onde os cortes de fato vieram. Pedir Gemini e receber NLP por queda
+        # silenciosa foi o defeito que custou a coletiva de João Pessoa inteira;
+        # a régua não repete isso.
+        "origem": sorted({str(c.get("source") or "?") for c in clips}),
     }
 
 
@@ -110,7 +129,17 @@ def main(caminhos):
         print("nenhuma fixture do Acervo encontrada em tests/fixtures/")
         return 1
 
-    linhas = [medir(caminho) for caminho in caminhos]
+    # `FURIA_BACKEND=ambos` mede os dois caminhos na mesma janela, que é a única
+    # comparação que responde "o Gemini corta melhor, e quanto?". Sem isso a
+    # régua media o fallback e chamava de resultado.
+    backend = os.environ.get("FURIA_BACKEND", "nlp")
+    if backend == "ambos":
+        linhas = []
+        for caminho in caminhos:
+            linhas.append(medir(caminho, backend="nlp"))
+            linhas.append(medir(caminho, backend="gemini"))
+    else:
+        linhas = [medir(caminho, backend=backend) for caminho in caminhos]
     largura = 118
     print("=" * largura)
     print("CORTES DO FURIA CONTRA AS FRONTEIRAS MARCADAS POR HUMANO (Acervo)")
@@ -124,13 +153,19 @@ def main(caminhos):
         print(f"  atravessam fronteira .. {linha['atravessam']:4}  ({linha['atravessam_pct']}%)")
         print(f"  duração mediana ....... {linha['duracao_mediana_s']:6.1f}s  alvo humano {linha['duracao_alvo_s']:6.1f}s"
               f"  →  razão {linha['razao_duracao']}")
+        print(f"  origem dos cortes ..... {', '.join(linha['origem'])}  (pedido: {linha['backend']})")
 
     if len(linhas) > 1:
         print("\n" + "-" * largura)
-        print(f"AGREGADO em {len(linhas)} fontes:")
-        print(f"  razão de duração (mediana) .. {statistics.median(l['razao_duracao'] for l in linhas):.2f}"
-              "   (1.0 = do tamanho que o humano implica)")
-        print(f"  atravessamento (mediana) .... {statistics.median(l['atravessam_pct'] for l in linhas):.0f}%")
+        for caminho in sorted({l["backend"] for l in linhas}):
+            grupo = [l for l in linhas if l["backend"] == caminho]
+            print(f"AGREGADO — {caminho} ({len(grupo)} fontes):")
+            print(f"  razão de duração (mediana) .. {statistics.median(l['razao_duracao'] for l in grupo):.2f}"
+                  "   (1.0 = do tamanho que o humano implica)")
+            print(f"  atravessamento (mediana) .... {statistics.median(l['atravessam_pct'] for l in grupo):.0f}%")
+            caiu = [l for l in grupo if caminho != "nlp" and "nlp" in l["origem"]]
+            if caiu:
+                print(f"  ATENÇÃO: {len(caiu)} fonte(s) caíram para o NLP apesar de pedir {caminho}")
     print()
     return 0
 
