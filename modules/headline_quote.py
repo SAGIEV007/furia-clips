@@ -258,7 +258,7 @@ def units_from_pauses(segments: list[dict[str, Any]] | None) -> list[dict[str, A
     unidades: list[dict[str, Any]] = []
     atual: list[dict[str, Any]] = []
 
-    def fechar():
+    def fechar(fonte="pausa"):
         if not atual:
             return
         texto = " ".join(str(s.get("text") or "").strip() for s in atual).strip()
@@ -268,11 +268,27 @@ def units_from_pauses(segments: list[dict[str, Any]] | None) -> list[dict[str, A
                 "text": texto,
                 "start": float(atual[0].get("start", 0) or 0),
                 "end": float(atual[-1].get("end", 0) or 0),
-                "boundary_source": "pausa",
+                "boundary_source": fonte,
             })
         atual.clear()
 
     for posicao, segmento in enumerate(ordenados):
+        # Metade dos arquivos de legenda tem cue contígua: a linha seguinte
+        # começa um décimo de segundo depois da anterior, e nenhuma pausa passa
+        # de 0,3 s. Fechando só *depois* de cruzar o teto, a legenda inteira
+        # virava uma unidade de 29 palavras — acima do máximo — e a tela devolvia
+        # zero headlines. Foi assim que o editor viu "não aparece nada".
+        #
+        # A quebra de linha é fronteira real, só de outra natureza: a pausa é
+        # evidência de que o orador respirou, a linha é evidência de que quem
+        # legendou achou que ela tinha enchido. Por isso ela fecha a unidade, e
+        # por isso sai marcada com outro nome — uma citação tirada dali precisa
+        # de conferência maior no áudio.
+        adicionadas = len(str(segmento.get("text") or "").split())
+        acumuladas = sum(len(str(s.get("text") or "").split()) for s in atual)
+        if atual and acumuladas >= HEADLINE_MIN_WORDS and acumuladas + adicionadas > UNIT_MAX_WORDS:
+            fechar("linha de legenda")
+
         atual.append(segmento)
         palavras = sum(len(str(s.get("text") or "").split()) for s in atual)
         proximo = ordenados[posicao + 1] if posicao + 1 < len(ordenados) else None
@@ -280,9 +296,11 @@ def units_from_pauses(segments: list[dict[str, Any]] | None) -> list[dict[str, A
             float(proximo.get("start", 0) or 0) - float(segmento.get("end", 0) or 0)
             if proximo else float("inf")
         )
-        if palavras >= UNIT_MAX_WORDS or (pausa >= PAUSE_BOUNDARY_S and palavras >= HEADLINE_MIN_WORDS):
-            fechar()
-    fechar()
+        if pausa >= PAUSE_BOUNDARY_S and palavras >= HEADLINE_MIN_WORDS:
+            fechar("pausa")
+        elif palavras >= UNIT_MAX_WORDS:
+            fechar("linha de legenda")
+    fechar("pausa" if not unidades else "linha de legenda")
     return unidades
 
 

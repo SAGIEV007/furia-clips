@@ -1030,6 +1030,51 @@ e o arquivo de tokens da própria branch trocava o acento mas deixava as variant
 
 ---
 
+## 15b. Headline: o corpus do editor entrou, e um defeito ficou marcado
+
+`data/estilo/headlines_publicadas.json` estava no repositório desde 18/08 —
+dezenove chamadas superiores que o editor **publicou de verdade**, sete padrões de
+forma, as palavras que ele sobe para caixa alta — e **nenhuma linha dele chegava
+ao gerador**, que trabalhava com treze ganchos inventados. Cruzando as duas
+listas, só "BOMBA!" coincidia. É literalmente a queixa dele sobre as headlines que
+rejeitou: "não tem uma coisa para chamar a atenção como eu fiz no meu".
+
+Agora os ganchos saem do feed. Mas nem tudo lá transfere, e o próprio corpus
+avisa que copiar molde sobre corte que não o sustenta produz manchete falsa. Há
+três espécies:
+
+- **reação pura** — "NA LATA!", "CHOCADA!", "MEU DEUS!", "SEM FILTRO!" — diz o
+  que sentir e serve a qualquer corte da mesma postura. Estas entram.
+- **carrega conteúdo** — "FIM DO XANDÃO?", "NEM FLÁVIO, NEM LULA:" — era
+  verdadeira no corte de onde saiu e vira afirmação falsa em qualquer outro.
+- **afirma sobre o próprio corte** — "VIRALIZOU!", "EM ALTA!", "RESPOSTA
+  HONESTA!". Esta só aparece olhando duas vezes: um corte recém-gerado não
+  viralizou, não foi publicado, e a ferramenta não tem como saber se a resposta
+  é honesta. Eram verdadeiras quando o editor escolheu à mão olhando o post; não
+  transferem para uma máquina que escolhe antes.
+
+Doze das dezenove transferem. **Defeito corrigido junto:** metade dos arquivos de
+legenda tem cue contígua — a linha seguinte começa 0,1 s depois — e nenhuma pausa
+passa de 0,3 s. `units_from_pauses` fechava a unidade só *depois* de cruzar o teto
+de palavras, então a legenda inteira virava um bloco de 29 palavras, acima do
+máximo, e a tela devolvia zero. A quebra de linha agora fecha a unidade, e sai
+marcada como `linha de legenda` em vez de `pausa`: a pausa é evidência de que o
+orador respirou, a linha é evidência de que quem legendou achou que ela encheu —
+fronteira real, de outra natureza, e citação tirada dali precisa de conferência
+maior.
+
+**Defeito medido e NÃO corrigido, marcado como `xfail` estrito** em
+`test_legenda_sem_pontuacao.py`: mais material produz **menos** headline. A mesma
+fonte devolve uma sugestão com duas linhas e nenhuma com quatro. As unidades saem
+certas nos dois casos e `pick_quotes` devolve a mesma citação nos dois; o que muda
+é o score dela — 76,15 com duas linhas, 49,85 com quatro —, porque a pontuação é
+relativa ao conjunto. Em algum ponto de `headline_copy.build` isso é comparado
+contra um piso que não é relativo, e a fonte que funcionava para de funcionar por
+ter crescido. Está marcado para se anunciar sozinho quando for corrigido, em vez
+de ficar escondido atrás de uma suíte verde.
+
+---
+
 ## 16. A tela de curadoria
 
 O editor mostrou a tela do CapCut em que ele **pré-visualiza os pontos de início

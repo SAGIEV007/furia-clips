@@ -49,12 +49,41 @@ from .political_profile import normalize
 # Os ganchos que o editor usa, por tom, do mais forte para o mais brando. O
 # primeiro de cada família é o padrão e os outros ficam à mão para ele trocar
 # sem reescrever a headline inteira.
-HOOKS = {
-    "denuncia": ("BOMBA!", "ABSURDO!", "VERGONHA!", "INACREDITÁVEL"),
-    "alerta": ("ALERTA!", "ATENÇÃO", "OLHA ISSO", "CUIDADO"),
-    "promessa": ("ELE PROMETEU", "OLHA ISSO", "ATENÇÃO", "A VERDADE É"),
-    "neutro": ("OLHA ISSO", "ATENÇÃO", "ENTENDA"),
+# As chamadas superiores saem do feed do editor, não da minha cabeça. Eram treze
+# ganchos inventados aqui contra dezenove que ele publicou de verdade, e só
+# "BOMBA!" coincidia — que é exatamente a queixa dele sobre as headlines que
+# rejeitou: "não tem uma coisa para chamar a atenção como eu fiz no meu".
+#
+# `estilo_publicado.ganchos_que_transferem()` já removeu as que não servem a
+# outro corte: as que nomeiam gente ("FIM DO XANDÃO?") e as que afirmam algo
+# sobre o próprio corte ("VIRALIZOU!" num corte que nem foi publicado). O que
+# resta é reação pura, e a postura só escolhe qual delas cabe.
+_POSTURA_DO_GANCHO = {
+    "denuncia": ("BOMBA!", "NA LATA!", "SEM FILTRO!", "CHOCADA!", "MEU DEUS!"),
+    "alerta": ("MEU DEUS!", "BOMBA!", "ANOTOU A PLACA?", "CHOCADA!"),
+    "promessa": ("ANOTOU A PLACA?", "IMPRESSIONANTE", "SIM!!", "DESAFIO!"),
+    "neutro": ("IMPRESSIONANTE", "INUSITADO!", "INCRÍVEL:", "ANOTOU A PLACA?"),
 }
+
+
+def _hooks_do_feed():
+    """A escolha por postura, filtrada pelo que o feed realmente tem.
+
+    Se o corpus de estilo mudar — ele é transcrito à mão de capturas de tela —
+    uma chamada que sumir de lá some daqui, em vez de continuar viva numa
+    constante que ninguém revisa.
+    """
+    from .estilo_publicado import ganchos_que_transferem
+
+    disponiveis = set(ganchos_que_transferem())
+    escolhidos = {}
+    for postura, preferidos in _POSTURA_DO_GANCHO.items():
+        mantidos = tuple(g for g in preferidos if g in disponiveis)
+        escolhidos[postura] = mantidos or tuple(sorted(disponiveis))[:3] or ("BOMBA!",)
+    return escolhidos
+
+
+HOOKS = _hooks_do_feed()
 
 # O verbo diz a postura, e ela tem de estar no texto. "critica" e "denuncia" são
 # afirmações sobre o que a pessoa fez; usá-los sem evidência é editorializar por

@@ -12,6 +12,8 @@ Ela é real e não é fim de frase, então a citação sai marcada para ser conf
 áudio antes de virar aspas.
 """
 
+import pytest
+
 from modules.headline_quote import (
     transcript_is_punctuated,
     units_from_pauses,
@@ -191,3 +193,80 @@ def test_terminar_em_palavra_funcional_e_fragmento_com_ou_sem_pontuacao():
         assert _disqualify(
             "só existe compra de voto é", cased=False, punctuated=pontuada
         ) in {"termina no meio de uma oração", "sem fechamento de frase"}
+
+
+# ── quando nem pausa existe ────────────────────────────────────────────────
+
+SEM_PAUSA = """1
+00:00:00,000 --> 00:00:03,500
+o STF está uma porcaria
+
+2
+00:00:03,600 --> 00:00:08,000
+ministros que ninguém elegeu decidindo o futuro do país
+
+3
+00:00:08,100 --> 00:00:12,500
+legislando no lugar do Congresso e censurando rede social
+
+4
+00:00:12,600 --> 00:00:16,000
+isso é absurdo isso é vergonhoso
+"""
+
+
+def test_legenda_com_cues_coladas_ainda_produz_unidades():
+    """Uma folga de 0,1 s entre cues não é pausa, e a legenda virava um bloco só.
+
+    Metade dos arquivos de legenda tem cue contígua — a linha seguinte começa um
+    décimo de segundo depois da anterior. Sem pausa acima de 0,3 s, tudo virava
+    uma unidade de 29 palavras, acima do teto de 24, e a tela devolvia zero
+    headlines. Foi assim que o editor viu "não aparece nada".
+    """
+    unidades = units_from_pauses(_linhas(SEM_PAUSA))
+    assert len(unidades) > 1, (
+        f"a legenda inteira virou {len(unidades)} unidade(s) de "
+        f"{[len(u['text'].split()) for u in unidades]} palavras"
+    )
+    assert all(len(u["text"].split()) <= 24 for u in unidades)
+
+
+def test_a_fronteira_de_linha_sai_marcada_como_mais_fraca_que_a_pausa():
+    """Quem corta ali precisa saber que não foi o orador que parou.
+
+    A pausa é evidência de que ele respirou. A quebra de linha é evidência de que
+    alguém que legendou achou que a linha tinha enchido — é fronteira real, mas
+    de outra natureza, e uma citação tirada dali precisa de conferência maior.
+    """
+    unidades = units_from_pauses(_linhas(SEM_PAUSA))
+    fontes = {u["boundary_source"] for u in unidades}
+    assert "linha de legenda" in fontes, fontes
+
+
+def test_onde_ha_pausa_ela_continua_mandando():
+    """O controle: a pausa não perde para a contagem de palavras."""
+    unidades = units_from_pauses(_linhas(SEM_PONTUACAO))
+    assert all(u["boundary_source"] == "pausa" for u in unidades), (
+        f"a pausa deixou de ser a fronteira: {[u['boundary_source'] for u in unidades]}"
+    )
+
+
+@pytest.mark.xfail(strict=True, reason=(
+    "Defeito conhecido, medido e ainda não corrigido: mais material produz MENOS "
+    "headline. Com duas linhas esta fonte devolve uma sugestão; com quatro, "
+    "nenhuma. As unidades saem certas nos dois casos e `pick_quotes` devolve a "
+    "mesma citação nos dois — o que muda é o score dela, 76,15 com duas linhas e "
+    "49,85 com quatro, porque a pontuação é relativa ao conjunto. Em algum ponto "
+    "de `headline_copy.build` isso é comparado contra um piso que não é relativo, "
+    "e a fonte que funcionava para de funcionar por ter crescido. Fica marcado "
+    "como xfail estrito para anunciar-se sozinho quando for corrigido."
+))
+def test_a_legenda_de_cues_coladas_volta_a_produzir_headline():
+    result = generate_artwork_copy(
+        SEM_PAUSA, mini_context="Renan Santos sobre o STF",
+        preferred_format=FORMAT_SQUARE, ai_backend=None,
+    )
+    sugestoes = result["formats"][FORMAT_SQUARE]["suggestions"]
+    assert sugestoes, "a legenda de cues coladas continua devolvendo tela em branco"
+    for item in sugestoes:
+        assert item["eyebrow"].strip()
