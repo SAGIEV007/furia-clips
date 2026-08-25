@@ -3287,6 +3287,12 @@ function renderResultsGrid() {
                     <span class="score-value">${clip.viral_score || 0}</span>
                     <span class="score-label">/100</span>
                 </div>
+                <!-- Onde na fonte, e por quanto tempo. É a primeira pergunta de
+                     quem edita vídeo, e não estava em lugar nenhum do cartão. -->
+                <span class="result-tempo" title="Posição na fonte e duração do corte">
+                    <b>${formatTime(clip.start || 0)}</b><i>→</i><b>${formatTime(clip.end || 0)}</b>
+                    <em>${Math.round(durationSeconds)}s</em>
+                </span>
                 ${clip.has_hook ? '<span class="hook-badge"><span class="material-icons-round" style="font-size:12px">flash_on</span> Gancho</span>' : ''}
                 <span class="clip-source-badge ${sourceClass}">${sourceLabel}</span>
                 <span class="candidate-origin-badge ${originClass}" title="${escapeHtml(candidateOriginNote)}"><span class="material-icons-round">${candidateOrigin === "local_fallback" ? "alt_route" : "verified"}</span>${escapeHtml(candidateOriginLabel)}</span>
@@ -3324,10 +3330,8 @@ function renderResultsGrid() {
                 ${weakPayoffFlag ? `<div class="clip-review-risk"><span class="material-icons-round">pending</span><span><b>Payoff a revisar:</b> o final pode continuar o raciocínio em vez de concluí-lo.</span></div>` : ''}
                 ${(speakerLabel || overlapSuspected || Number.isFinite(speakerConfidence)) ? `<div class="clip-speaker-note ${overlapSuspected ? 'warning' : ''}"><span class="material-icons-round">${overlapSuspected ? 'record_voice_over' : 'person'}</span> ${speakerLabel ? `Locutor: ${escapeHtml(speakerLabel)}` : 'Locutor não identificado'}${Number.isFinite(speakerConfidence) ? ` · ${Math.round(Math.max(0, Math.min(1, speakerConfidence)) * 100)}%` : ''}${overlapSuspected ? ' · possível sobreposição' : ''}</div>` : ''}
                 ${diversityPenalty >= 20 ? `<div class="clip-diversity-note"><span class="material-icons-round">filter_list</span> Similaridade com outro corte: ${diversityPenalty}%${diversityReason ? ` · ${escapeHtml(diversityReason)}` : ''}</div>` : ''}
-                <div class="result-duration">
-                    <span class="material-icons-round" style="font-size:14px">schedule</span>
-                    ${formatTime(clip.start)} - ${formatTime(clip.end)} (${Number(clip.duration || 0).toFixed(1)}s)
-                </div>
+                <!-- O tempo do corte subiu para a faixa do topo, onde é a
+                     primeira coisa que se lê. Repetir aqui era ruído. -->
                 ${(editorialBlock.thesis || editorialBlock.context_summary || blockTags.length) ? `<div class="editorial-block-dossier">
                     <div class="editorial-block-kicker"><span class="material-icons-round">inventory_2</span> Dossiê do bloco · ${escapeHtml(editorialBlock.state || "candidato")}</div>
                     ${editorialBlock.thesis ? `<strong>${escapeHtml(editorialBlock.thesis)}</strong>` : ''}
@@ -3448,6 +3452,11 @@ function renderResultsGrid() {
     if (clips.length === 0) {
         grid.innerHTML = `<div class="review-empty-state"><span class="material-icons-round">filter_alt_off</span><strong>Nenhum corte nesta fila</strong><p>Altere o filtro para revisar os outros candidatos.</p></div>`;
     }
+
+    // O mapa da fonte lê `state.clips` inteiro, não a fila filtrada: ele existe
+    // para mostrar a cobertura da fonte, e um filtro de revisão não muda de
+    // onde os cortes saíram.
+    window.desenharMapaDaFonte?.();
 }
 
 function toggleBoundaryEditor(index) {

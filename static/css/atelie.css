@@ -1,189 +1,51 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   FURIA CLIPS — ATELIÊ
-   A camada de arquitetura da interface, por cima do estilo antigo.
+   FURIA CLIPS — ATELIÊ (componentes)
 
-   A direção é sala de corte: fundo fundo o bastante para o vídeo ser a coisa
-   mais clara da tela, um único acento — o ouro que o Furia já usa — e a onda de
-   áudio como elemento gráfico central, porque é ela que o editor precisa ler.
+   Este arquivo já foi a camada de arquitetura. Não é mais: `sala.css` assumiu
+   a moldura, o palco, as seções e o tema, e manter os dois desenhando as
+   mesmas coisas era pior do que ter um só — eram duas camadas de `!important`
+   brigando, e a mais específica ganhava por acidente. O título "Resultados"
+   ficava invisível no tema claro exatamente por isso: `.main-content
+   .section-header h3` daqui vencia `.section-header h3` de lá, e pintava com
+   uma tinta de tema escuro.
 
-   Escuro primeiro, e de propósito: esta ferramenta fica aberta o dia inteiro ao
-   lado do CapCut e do Premiere, e tem que pertencer àquela família.
+   O que sobrou aqui são COMPONENTES que a sala não desenha: o inspetor, a
+   gaveta do registro, a paleta de comandos, a gaveta de ajustes, o talho e os
+   gráficos do Painel.
 
-   A tipografia é Inter porque é a única que existe na pasta, e o programa
-   precisa abrir sem internet. Personalidade aqui vem de peso, espaçamento e
-   ritmo — não de uma fonte cara. Números de tempo vão em monoespaçada do
-   sistema para as colunas alinharem.
+   Os tokens `--at-*` continuam existindo porque esses componentes os usam, mas
+   agora são apelidos dos papéis da sala. Assim eles seguem o tema sem que uma
+   linha deles precise mudar — e existe UM lugar onde a cor é decidida.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 :root {
-    /* Largura da barra lateral. Quem é fixo e fica ao lado dela precisa saber
-       onde ela termina. */
-    --at-esquerda: 15.5rem;
+    --at-fundo:        var(--sa-fundo);
+    --at-superficie:   var(--sa-superficie);
+    --at-elevado:      var(--sa-elevado);
+    --at-alto:         var(--sa-alto);
+    --at-linha:        var(--sa-linha);
+    --at-linha-forte:  var(--sa-linha-forte);
 
-    /* Escuro é o desenho principal; o claro vem depois, no fim do arquivo. */
-    --at-fundo:        #0d0f11;
-    --at-superficie:   #16191d;
-    --at-elevado:      #1d2126;
-    --at-alto:         #252a30;
-    --at-linha:        #262b31;
-    --at-linha-forte:  #343a41;
+    --at-tinta:        var(--sa-tinta);
+    --at-tinta-media:  var(--sa-tinta-media);
+    --at-tinta-fraca:  var(--sa-tinta-fraca);
 
-    --at-tinta:        #e9ebed;
-    --at-tinta-media:  #99a2aa;
-    --at-tinta-fraca:  #646d75;
+    --at-ouro:         var(--sa-ouro);
+    --at-ouro-fundo:   var(--sa-ouro-fundo);
+    --at-ouro-linha:   var(--sa-ouro-linha);
 
-    /* O único acento. Verde, âmbar e vermelho existem só para estado. */
-    --at-ouro:         #f0a91e;
-    --at-ouro-fundo:   #2a2010;
-    --at-ouro-linha:   #4a3a15;
+    --at-bom:          var(--sa-bom);
+    --at-bom-fundo:    var(--sa-bom-fundo);
+    --at-atencao:      var(--sa-atencao);
+    --at-atencao-fundo:var(--sa-atencao-fundo);
+    --at-ruim:         var(--sa-ruim);
+    --at-ruim-fundo:   var(--sa-ruim-fundo);
 
-    --at-bom:          #4ec97a;
-    --at-bom-fundo:    #12271a;
-    --at-atencao:      #e8b13c;
-    --at-atencao-fundo:#2a2211;
-    --at-ruim:         #e86a5c;
-    --at-ruim-fundo:   #2a1614;
+    --at-mono: var(--sa-mono);
 
-    --at-mono: ui-monospace, "SF Mono", "Cascadia Mono", "Segoe UI Mono", Menlo, Consolas, monospace;
-
-    --at-r: 8px;
-    --at-r-p: 5px;
-    --at-sombra: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.6);
-}
-
-/* ── o chão ─────────────────────────────────────────────────────────────── */
-
-body {
-    background: var(--at-fundo) !important;
-    color: var(--at-tinta) !important;
-    font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif !important;
-    letter-spacing: -0.006em;
-}
-
-.main-content {
-    background: var(--at-fundo) !important;
-    padding-bottom: 4.5rem !important;
-}
-
-/* ── a barra de ambientes ───────────────────────────────────────────────── */
-
-.rail {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-    position: sticky;
-    top: 0;
-    z-index: 60;
-    padding: 0 1.5rem;
-    background: color-mix(in srgb, var(--at-fundo) 92%, transparent);
-    backdrop-filter: blur(14px);
-    border-bottom: 1px solid var(--at-linha);
-}
-
-.rail-tabs { display: flex; gap: 2px; }
-
-.rail-tab {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.95rem 0.95rem 0.85rem;
-    border: none;
-    background: none;
-    color: var(--at-tinta-fraca);
-    font: inherit;
-    font-size: 0.875rem;
-    font-weight: 600;
-    letter-spacing: -0.01em;
-    cursor: pointer;
-    border-bottom: 2px solid transparent;
-    margin-bottom: -1px;
-    transition: color .13s ease, border-color .13s ease;
-}
-.rail-tab .material-icons-round { font-size: 19px; }
-.rail-tab:hover { color: var(--at-tinta-media); }
-.rail-tab.is-active {
-    color: var(--at-ouro);
-    border-bottom-color: var(--at-ouro);
-}
-.rail-tab:focus-visible { outline: 2px solid var(--at-ouro); outline-offset: -3px; border-radius: var(--at-r-p); }
-
-.rail-command {
-    display: flex;
-    align-items: center;
-    gap: 0.55rem;
-    padding: 0.42rem 0.6rem 0.42rem 0.55rem;
-    border: 1px solid var(--at-linha-forte);
-    border-radius: var(--at-r-p);
-    background: var(--at-superficie);
-    color: var(--at-tinta-fraca);
-    font: inherit;
-    font-size: 0.8rem;
-    cursor: pointer;
-    transition: border-color .13s ease, color .13s ease;
-}
-.rail-command:hover { border-color: var(--at-ouro-linha); color: var(--at-tinta-media); }
-.rail-command .material-icons-round { font-size: 17px; }
-.rail-command kbd {
-    font-family: var(--at-mono);
-    font-size: 0.68rem;
-    padding: 0.1em 0.4em;
-    border: 1px solid var(--at-linha-forte);
-    border-radius: 3px;
-    color: var(--at-tinta-fraca);
-    background: var(--at-fundo);
-}
-
-/* ── palco: ambientes à esquerda, inspetor à direita ────────────────────── */
-
-.palco {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 21rem;
-    gap: 1.5rem;
-    align-items: start;
-    padding: 1.5rem;
-}
-@media (max-width: 1180px) {
-    .palco { grid-template-columns: minmax(0, 1fr); }
-    .inspetor { display: none; }
-}
-
-.ambiente { display: flex; flex-direction: column; gap: 1.25rem; min-width: 0; }
-.ambiente[hidden] { display: none; }
-
-.ambiente-intro { margin-bottom: -0.35rem; }
-.ambiente-intro h2 {
-    font-size: 1.35rem;
-    font-weight: 700;
-    letter-spacing: -0.025em;
-    margin: 0 0 0.2rem;
-    color: var(--at-tinta);
-}
-.ambiente-intro p {
-    margin: 0;
-    font-size: 0.875rem;
-    color: var(--at-tinta-fraca);
-}
-
-/* ── as seções que já existiam, revestidas ──────────────────────────────── */
-
-.main-content .section {
-    background: var(--at-superficie) !important;
-    border: 1px solid var(--at-linha) !important;
-    border-radius: var(--at-r) !important;
-    box-shadow: none !important;
-    margin: 0 !important;
-}
-.main-content .section-header {
-    border-bottom: 1px solid var(--at-linha) !important;
-    background: transparent !important;
-}
-.main-content .section-header h3,
-.main-content .section-header h2 {
-    font-size: 0.94rem !important;
-    font-weight: 600 !important;
-    letter-spacing: -0.012em !important;
-    color: var(--at-tinta) !important;
+    --at-r:   var(--sa-r);
+    --at-r-p: var(--sa-r-p);
+    --at-sombra: var(--sa-sombra);
 }
 
 /* ── inspetor ───────────────────────────────────────────────────────────── */
@@ -267,12 +129,12 @@ body {
 
 .gaveta {
     position: fixed;
-    /* A barra lateral é fixa, tem altura inteira e z-index 100. Com a gaveta
-       começando em zero, os seus primeiros 248 px ficavam ATRÁS dela — e é
-       exatamente ali que mora o puxador. Clicar não fazia nada, e o botão de
-       Ajustes engolia o clique. Descobri porque o teste de navegador reclamou
-       que o clique estava sendo interceptado; a olho, parecia certo. */
-    left: var(--at-esquerda); right: 0; bottom: 0;
+    /* Houve um tempo em que isto era `left: var(--at-esquerda)`: a barra
+       lateral era fixa, de altura inteira e z-index 100, e os primeiros 248 px
+       da gaveta ficavam ATRÁS dela — bem onde mora o puxador. Clicar não fazia
+       nada. A barra lateral não existe mais, então a gaveta atravessa a tela
+       inteira e o defeito não tem mais onde acontecer. */
+    left: 0; right: 0; bottom: 0;
     z-index: 70;
     background: var(--at-superficie);
     border-top: 1px solid var(--at-linha);
@@ -517,98 +379,6 @@ body[data-densidade="compacta"] .main-content .section-body { padding: 0.75rem !
 body[data-densidade="compacta"] .result-card { padding: 0.7rem !important; }
 body[data-densidade="compacta"] .talho-tela { height: 64px; }
 body[data-densidade="compacta"] .ambiente-intro { display: none; }
-
-/* ── claro ──────────────────────────────────────────────────────────────── */
-
-body.light-mode,
-[data-theme="light"] {
-    --at-fundo:        #f4f5f6;
-    --at-superficie:   #ffffff;
-    --at-elevado:      #fafbfb;
-    --at-alto:         #eef0f1;
-    --at-linha:        #e0e3e5;
-    --at-linha-forte:  #cbd0d4;
-
-    --at-tinta:        #14171a;
-    --at-tinta-media:  #4d565e;
-    --at-tinta-fraca:  #79838b;
-
-    --at-ouro:         #9a6510;
-    --at-ouro-fundo:   #fbf2df;
-    --at-ouro-linha:   #ebd9ae;
-
-    --at-bom:          #17743f;
-    --at-bom-fundo:    #e4f2e9;
-    --at-atencao:      #8a6106;
-    --at-atencao-fundo:#fbf1da;
-    --at-ruim:         #a8362b;
-    --at-ruim-fundo:   #f8e6e3;
-}
-body.light-mode .talho-tela,
-[data-theme="light"] .talho-tela { background: #eceef0; }
-body.light-mode .talho-cursor,
-[data-theme="light"] .talho-cursor { background: #14171a; }
-body.light-mode .talho-fora,
-[data-theme="light"] .talho-fora { background: rgba(244,245,246,.72); }
-
-@media (prefers-reduced-motion: reduce) {
-    * { transition: none !important; animation: none !important; }
-    .gaveta-seta { transition: none !important; }
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   A ESQUERDA MAGRA E O CABEÇALHO CURTO
-   O cabeçalho ocupava um terço da altura útil repetindo o nome do produto e
-   uma trilha de quatro passos que a barra de ambientes agora representa melhor.
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-.sidebar {
-    background: var(--at-superficie) !important;
-    border-right: 1px solid var(--at-linha) !important;
-    width: 15.5rem !important;
-    display: flex !important;
-    flex-direction: column !important;
-}
-.sidebar-header { border-bottom: 1px solid var(--at-linha) !important; }
-.sidebar-content { flex: 1 1 auto; overflow-y: auto; }
-.sidebar .sidebar-section { background: none !important; border: none !important; }
-
-.sidebar-ajustes {
-    display: flex;
-    align-items: center;
-    gap: 0.55rem;
-    width: 100%;
-    padding: 0.8rem 1rem;
-    border: none;
-    border-top: 1px solid var(--at-linha);
-    background: none;
-    color: var(--at-tinta-fraca);
-    font: inherit;
-    font-size: 0.82rem;
-    cursor: pointer;
-    text-align: left;
-}
-.sidebar-ajustes:hover { color: var(--at-ouro); background: var(--at-elevado); }
-.sidebar-ajustes .material-icons-round { font-size: 18px; }
-
-/* o herói vira uma faixa */
-.main-header {
-    padding: 0.85rem 1.5rem !important;
-    background: var(--at-fundo) !important;
-    border: none !important;
-    border-bottom: 1px solid var(--at-linha) !important;
-    align-items: center !important;
-}
-.main-header .eyebrow, .main-header p { display: none !important; }
-.main-header h2 {
-    font-size: 0.95rem !important;
-    font-weight: 600 !important;
-    letter-spacing: -0.012em !important;
-    margin: 0 !important;
-    color: var(--at-tinta-media) !important;
-}
-/* a trilha de passos era a navegação antiga; agora ela é a barra de ambientes */
-.workflow-steps { display: none !important; }
 
 /* ── a gaveta de ajustes ────────────────────────────────────────────────── */
 
@@ -1066,17 +836,16 @@ body.light-mode, [data-theme="light"] {
 .main-content.dock-open .palco { grid-template-columns: minmax(0, 1fr); }
 .main-content.dock-open .inspetor { display: none; }
 
-@media (max-width: 1500px) {
-    .palco { grid-template-columns: minmax(0, 1fr); }
-    .inspetor { display: none; }
-}
-/* 1366 x 768 ainda é a tela mais comum em notebook de trabalho, e com a prévia
-   aberta sobravam 550 px para a coluna do meio. O corte tem que pegar essa tela,
-   não passar de raspão por ela. */
+/* Abaixo de 1500 px o inspetor deixava de caber ao lado — quando ele era uma
+   coluna permanente. Agora ele só existe com algo selecionado, e a sala já
+   empilha a coluna sozinha nessa largura; esconder aqui apagaria justamente o
+   que o editor acabou de pedir para ver. */
+/* 1366 x 768 ainda é a tela mais comum em notebook de trabalho, e é a tela do
+   editor. Antes, com a prévia aberta, sobravam 550 px para a coluna do meio.
+   A barra lateral que espremia essa conta não existe mais — a largura inteira
+   é do palco —, mas a prévia continua tendo de caber. */
 @media (max-width: 1440px) {
-    :root { --player-width: 330px; --at-esquerda: 12.5rem; }
-    .sidebar { width: 12.5rem !important; }
-    .palco { padding: 1rem; gap: 1rem; }
+    :root { --player-width: 330px; }
 }
 /* A prévia nunca pode passar de um terço da tela. */
 .player-dock { max-width: 34vw; }

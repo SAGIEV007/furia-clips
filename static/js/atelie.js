@@ -40,6 +40,66 @@
     });
     irPara(lembrar("furia.ambiente") || "fila");
 
+    /* ── tema ───────────────────────────────────────────────────────────────
+
+       "nem sei onde altero para o tema branco". Não sabia porque não havia
+       onde: o botão nunca existiu, e o claro também não — 34 lugares do estilo
+       antigo pintavam com preto translúcido fixo, que no claro virava laje
+       cinza por cima do texto.
+
+       Escuro é o padrão e NÃO segue o sistema. Premiere, DaVinci e CapCut
+       também não seguem: abrem escuros e ficam escuros até alguém mandar o
+       contrário. Uma ferramenta de corte que fica branca porque o Windows
+       mudou de humor está errada para quem a usa.                             */
+
+    const botaoTema = document.getElementById("btnTema");
+
+    function aplicarTema(tema) {
+        const raiz = document.documentElement;
+        if (tema === "claro" || tema === "escuro") raiz.dataset.tema = tema;
+        else delete raiz.dataset.tema;
+
+        // Escuro é o padrão e não segue o sistema, de propósito: ferramenta de
+        // corte não pode ficar branca porque o Windows mudou de humor.
+        const claroAgora = tema === "claro";
+        if (botaoTema) {
+            botaoTema.querySelector(".material-icons-round").textContent =
+                claroAgora ? "light_mode" : "dark_mode";
+            botaoTema.title = claroAgora
+                ? "Tema claro — clique para escurecer"
+                : "Tema escuro — clique para clarear";
+        }
+        // O canvas da onda e o mapa desenham com a cor lida do CSS: trocado o
+        // tema, o que já está na tela ficou com a cor antiga.
+        window.redesenharTalhos?.();
+        window.desenharMapaDaFonte?.();
+    }
+
+    botaoTema?.addEventListener("click", () => {
+        const atual = document.documentElement.dataset.tema;
+        const proximo = atual === "claro" ? "escuro" : "claro";
+        aplicarTema(proximo);
+        guardar("furia.tema", proximo);
+    });
+
+    aplicarTema(lembrar("furia.tema") || "");
+
+    /* ── seleção de corte ───────────────────────────────────────────────────
+
+       O inspetor era permanente e passava o dia dizendo "Nada selecionado" —
+       450 px de tela para uma frase. Agora ele entra quando há seleção. O mapa
+       da fonte chama isto ao clicar num bloco.                                */
+
+    window.selecionarCorte = function selecionarCorte(indice) {
+        const inspetor = document.getElementById("inspetor");
+        const cartao = document.querySelector(`#resultsGrid .clip-card:nth-of-type(${indice + 1})`);
+        cartao?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+        document.querySelectorAll("#resultsGrid .clip-card.is-selected")
+            .forEach((n) => n.classList.remove("is-selected"));
+        cartao?.classList.add("is-selected");
+        if (inspetor && inspetor.textContent.trim()) inspetor.classList.add("is-active");
+    };
+
     /* ── gaveta do registro técnico ─────────────────────────────────────── */
 
     const gaveta = document.getElementById("gavetaConsole");

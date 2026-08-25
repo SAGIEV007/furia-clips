@@ -8,74 +8,87 @@
     <link rel="stylesheet" href="/static/vendor/fonts.css">
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="stylesheet" href="/static/css/atelie.css">
+    <link rel="stylesheet" href="/static/css/sala.css">
 </head>
 <body>
-    <!-- Sidebar -->
-    <aside class="sidebar" id="sidebar">
-        <div class="sidebar-header">
-            <div class="logo">
-                <div class="logo-icon">
-                    <span class="material-icons-round">local_fire_department</span>
-                </div>
-                <div class="logo-text">
-                    <h1>Furia Clips</h1>
-                    <span class="slogan">Corte. Ranqueie. Domine.</span>
-                </div>
-            </div>
-        </div>
-
-        <div class="sidebar-content">
-            <!-- Video Selection -->
-            <div class="sidebar-section">
-                <h3><span class="material-icons-round">movie</span> Vídeo selecionado</h3>
-                <div class="selected-video" id="selectedVideoInfo">
-                    <div class="no-video">
-                        <div class="pulse-ring">
-                            <span class="material-icons-round">cloud_upload</span>
-                        </div>
-                        <p>Nenhum vídeo carregado</p>
-                        <small>Importe ou cole o link na etapa Fonte</small>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Settings -->
-            
-
-            <!-- Aparência -->
-            
-
-            <!-- Voz de referência -->
-            
-
-            <!-- AI Backend -->
-            
-
-            <!-- Output Directory -->
-            
-
-            
-        </div>
-        <button class="sidebar-ajustes" id="btnAjustes">
-            <span class="material-icons-round">tune</span>
-            <span>Ajustes, aparência e voz</span>
-        </button>
-    </aside>
-
     <!-- Main Content -->
     <main class="main-content">
-        <!-- Header -->
-        <header class="main-header">
-            <div class="main-header-copy">
-                <div class="eyebrow"><span class="eyebrow-mark"></span> FURIA WORKSPACE <span class="eyebrow-divider">/</span> ESTAÇÃO EDITORIAL</div>
-                <h2>Clipping com critério.</h2>
-                <p>Transforme uma live em cortes revisáveis, ranqueados e prontos para decisão.</p>
+        <!-- ══ A BARRA DO TOPO ══════════════════════════════════════════════
+             Uma faixa de 56 px no lugar de quatro.
+
+             Antes daqui havia: uma barra lateral de 250 px com um cartão e o
+             resto vazio, um cabeçalho de marketing, uma trilha decorativa de
+             quatro etapas, e só então a barra de ambientes. Medido a 1366×768,
+             isso comia um quinto da largura e um terço da altura antes de
+             qualquer conteúdo aparecer — a razão de o editor precisar de zoom
+             de 67% para ver a tela.
+
+             Marca, ambientes, a fonte em uso, o estado e as ações cabem numa
+             linha só. O que sobra vira palco. -->
+        <header class="topo">
+            <a class="topo-marca" href="#" onclick="return false;" title="Furia Clips">
+                <span class="topo-chama"><span class="material-icons-round">local_fire_department</span></span>
+                <span class="topo-nome">Furia</span>
+            </a>
+
+            <nav class="rail" role="tablist" aria-label="Ambientes do Furia">
+                <div class="rail-tabs">
+                    <button class="rail-tab is-active" data-ambiente="painel"
+                            role="tab" aria-selected="true" aria-controls="amb-painel">
+                        <span class="material-icons-round">insights</span>
+                        <span class="rail-tab-label">Painel</span>
+                    </button>
+                    <button class="rail-tab" data-ambiente="fila"
+                            role="tab" aria-selected="false" aria-controls="amb-fila">
+                        <span class="material-icons-round">playlist_add</span>
+                        <span class="rail-tab-label">Fila</span>
+                    </button>
+                    <button class="rail-tab" data-ambiente="cortar"
+                            role="tab" aria-selected="false" aria-controls="amb-cortar">
+                        <span class="material-icons-round">content_cut</span>
+                        <span class="rail-tab-label">Cortar</span>
+                    </button>
+                    <button class="rail-tab" data-ambiente="auditoria"
+                            role="tab" aria-selected="false" aria-controls="amb-auditoria">
+                        <span class="material-icons-round">fact_check</span>
+                        <span class="rail-tab-label">Auditoria</span>
+                    </button>
+                    <button class="rail-tab" data-ambiente="acervo"
+                            role="tab" aria-selected="false" aria-controls="amb-acervo">
+                        <span class="material-icons-round">inventory_2</span>
+                        <span class="rail-tab-label">Acervo</span>
+                    </button>
+                </div>
+            </nav>
+
+            <!-- A fonte em uso. Era um cartão de 250 px de largura por 200 de
+                 altura na lateral; é uma linha de texto, que é o que ela é. -->
+            <div class="selected-video topo-fonte" id="selectedVideoInfo">
+                <div class="no-video">
+                    <div class="pulse-ring">
+                        <span class="material-icons-round">cloud_upload</span>
+                    </div>
+                    <p>Nenhum vídeo carregado</p>
+                    <small>Importe ou cole o link na etapa Fonte</small>
+                </div>
             </div>
-            <div class="main-header-actions">
+
+            <div class="topo-dir">
                 <div class="workspace-state" id="workspaceState"><span class="status-dot online"></span><span>Pronto para analisar</span></div>
                 <span class="runtime-version" id="runtimeVersion" title="Versão do programa em uso">build local</span>
-                <button class="btn btn-help" id="btnHelp">
-                    <span class="material-icons-round">help</span> Ajuda
+                <button class="rail-command" id="btnPaleta" title="Buscar qualquer ação (Ctrl+K)">
+                    <span class="material-icons-round">search</span>
+                    <span>Buscar ação</span>
+                    <kbd>Ctrl K</kbd>
+                </button>
+                <button class="topo-icone" id="btnTema" type="button" title="Alternar entre tema escuro e claro" aria-label="Alternar tema">
+                    <span class="material-icons-round">dark_mode</span>
+                </button>
+                <button class="topo-icone" id="btnAjustes" type="button" title="Ajustes, aparência e voz" aria-label="Ajustes">
+                    <span class="material-icons-round">tune</span>
+                </button>
+                <button class="topo-icone btn-help" id="btnHelp" type="button" title="Ajuda" aria-label="Ajuda">
+                    <span class="material-icons-round">help</span>
                 </button>
             </div>
         </header>
@@ -157,41 +170,6 @@
 
         <!-- Console -->
         
-
-        <nav class="rail" role="tablist" aria-label="Ambientes do Furia">
-            <div class="rail-tabs">
-                <button class="rail-tab is-active" data-ambiente="painel"
-                        role="tab" aria-selected="true" aria-controls="amb-painel">
-                    <span class="material-icons-round">insights</span>
-                    <span class="rail-tab-label">Painel</span>
-                </button>
-                <button class="rail-tab" data-ambiente="fila"
-                        role="tab" aria-selected="false" aria-controls="amb-fila">
-                    <span class="material-icons-round">playlist_add</span>
-                    <span class="rail-tab-label">Fila</span>
-                </button>
-                <button class="rail-tab" data-ambiente="cortar"
-                        role="tab" aria-selected="false" aria-controls="amb-cortar">
-                    <span class="material-icons-round">content_cut</span>
-                    <span class="rail-tab-label">Cortar</span>
-                </button>
-                <button class="rail-tab" data-ambiente="auditoria"
-                        role="tab" aria-selected="false" aria-controls="amb-auditoria">
-                    <span class="material-icons-round">fact_check</span>
-                    <span class="rail-tab-label">Auditoria</span>
-                </button>
-                <button class="rail-tab" data-ambiente="acervo"
-                        role="tab" aria-selected="false" aria-controls="amb-acervo">
-                    <span class="material-icons-round">inventory_2</span>
-                    <span class="rail-tab-label">Acervo</span>
-                </button>
-            </div>
-            <button class="rail-command" id="btnPaleta" title="Buscar qualquer ação (Ctrl+K)">
-                <span class="material-icons-round">search</span>
-                <span>Buscar ação</span>
-                <kbd>Ctrl K</kbd>
-            </button>
-        </nav>
 
         <div class="palco">
             <div class="ambientes">
@@ -534,6 +512,17 @@
                 <h2>Auditoria</h2>
                 <p>Aprovar, rejeitar e ajustar os cortes que saíram.</p>
             </div>
+
+            <!-- ══ O MAPA DA FONTE ═══════════════════════════════════════════
+                 O editor pergunta toda rodada: "estou perdendo cortes?". A
+                 resposta existia só dentro de um JSON de diagnóstico. Aqui ela
+                 é a primeira coisa que ele vê — a fonte inteira como régua,
+                 cada corte no lugar exato de onde saiu, os descartados numa
+                 pista abaixo, e os vãos grandes marcados com a própria
+                 duração. Clicar num bloco leva o player até aquele ponto.
+                 Desenhado em mapa.js; some sozinho quando não há cortes. -->
+            <figure class="mapa" id="mapaFonte" hidden aria-label="Mapa da fonte: onde cada corte nasceu"></figure>
+
 <section class="section" id="resultsSection" style="display:none">
             <div class="section-header">
                 <h3><span class="material-icons-round">emoji_events</span> Resultados — Clips Ranqueados</h3>
@@ -1315,6 +1304,7 @@
     <script src="/static/vendor/socket.io.min.js"></script>
     <script src="/static/js/app.js"></script>
     <script src="/static/js/talho.js"></script>
+    <script src="/static/js/mapa.js"></script>
     <script src="/static/js/painel.js"></script>
     <script src="/static/js/atelie.js"></script>
 
