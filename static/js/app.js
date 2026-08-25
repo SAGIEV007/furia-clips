@@ -2378,9 +2378,31 @@ const mediaSection = document.getElementById("mediaLibrarySection");
 
 // ─── Close Preview ───
 
-document.getElementById("btnClosePreview").addEventListener("click", () => {
-    const previewSection = document.getElementById("videoPreviewSection");
-    if (previewSection) previewSection.style.display = "none";
+// "ao clicar na prévia do video para fechar não fecha". Não fechava mesmo: o
+// botão escondia `videoPreviewSection`, um elemento que deixou de existir quando
+// a prévia virou o dock lateral. `getElementById` devolvia null, a guarda
+// engolia, e o clique não fazia absolutamente nada — sem erro, sem aviso.
+//
+// Fechar é desfazer o que `showVideoPreview` faz: tirar a classe do dock, tirar
+// a do `main-content` (que é quem devolve a largura ao palco) e PARAR o vídeo.
+// Prévia fechada que continua tocando som atrás da tela é pior que prévia
+// aberta.
+function fecharPrevia() {
+    const dock = document.getElementById("playerDock");
+    const video = document.getElementById("videoPreview");
+    dock?.classList.remove("is-open");
+    document.querySelector(".main-content")?.classList.remove("dock-open");
+    if (video) {
+        try { video.pause(); } catch (erro) { /* mídia ainda não carregada */ }
+    }
+}
+document.getElementById("btnClosePreview")?.addEventListener("click", fecharPrevia);
+// Esc fecha, como em toda janela sobreposta.
+document.addEventListener("keydown", (evento) => {
+    if (evento.key !== "Escape") return;
+    if (!document.getElementById("playerDock")?.classList.contains("is-open")) return;
+    if (/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || "")) return;
+    fecharPrevia();
 });
 
 // ─── Actions ───

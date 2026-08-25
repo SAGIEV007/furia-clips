@@ -242,15 +242,25 @@ body {
 .workflow-steps { display: none !important; }
 
 .main-content {
-    margin: 0 !important;
+    margin: 0;
     padding: 0 !important;
-    width: 100% !important;
+    /* `width: 100%` aqui era um bug meu: com a prévia aberta o bloco media
+       1366 px E ainda ganhava 330 px de margem, então transbordava em vez de
+       encolher, e o canto do topo — versão, ajuda, tema — ficava debaixo do
+       painel. `auto` deixa a margem fazer o trabalho dela. */
+    width: auto !important;
     max-width: none !important;
     background: var(--sa-fundo) !important;
     min-height: 100vh;
     display: flex;
     flex-direction: column;
 }
+
+/* A prévia é um painel fixo por cima da direita da tela. Sem devolver a
+   margem, ela cobria o canto do topo — a versão e o botão de ajuda ficavam
+   debaixo dela. Foi um `margin: 0 !important` meu que apagou esta regra do
+   estilo antigo; a foto da tela é que mostrou. */
+.main-content.dock-open { margin-right: var(--player-width); }
 
 /* ══ A BARRA DO TOPO ════════════════════════════════════════════════════════
    Tudo que era quatro faixas cabe aqui, em 56 px. */
@@ -833,6 +843,115 @@ body {
     background: var(--sa-superficie);
 }
 .inspetor.is-active { display: block; }
+
+/* ══ A PRÉVIA ══════════════════════════════════════════════════════════════
+
+   "ao clicar na prévia do video para fechar não fecha". Não fechava mesmo — o
+   botão apontava para um elemento apagado duas versões antes (corrigido no
+   app.js). Mas fechado não era o único problema: aberto, aquilo era um painel
+   com moldura de cartão em volta de um vídeo pequeno.
+
+   Numa sala de corte a prévia é um monitor. Fundo preto até a borda, o material
+   ocupando tudo que couber, e a moldura reduzida a uma linha de cabeçalho e uma
+   régua de dados embaixo.                                                     */
+
+.player-dock {
+    background: var(--sa-superficie) !important;
+    border-left: 1px solid var(--sa-linha) !important;
+    box-shadow: var(--sa-sombra-g) !important;
+}
+
+.dock-header {
+    display: flex;
+    align-items: center;
+    gap: var(--sa-2);
+    height: var(--sa-topo-h);
+    flex: none;
+    padding: 0 var(--sa-2) 0 var(--sa-4) !important;
+    background: none !important;
+    border-bottom: 1px solid var(--sa-linha) !important;
+}
+.dock-header h3 {
+    margin: 0;
+    font-size: 12px !important;
+    font-weight: 600;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--sa-tinta-fraca) !important;
+}
+.dock-header h3 .material-icons-round { font-size: 16px !important; color: var(--sa-tinta-fraca) !important; }
+#btnClosePreview {
+    margin-left: auto;
+    display: grid;
+    place-items: center;
+    width: 30px; height: 30px;
+    padding: 0 !important;
+    border: 1px solid var(--sa-linha) !important;
+    border-radius: var(--sa-r-p) !important;
+    background: var(--sa-elevado) !important;
+    color: var(--sa-tinta-media) !important;
+}
+#btnClosePreview:hover { color: var(--sa-tinta) !important; border-color: var(--sa-linha-forte) !important; }
+
+.dock-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    padding: 0 !important;
+    min-height: 0;
+    flex: 1 1 auto;
+    overflow-y: auto;
+}
+
+.preview-video-name {
+    order: 2;
+    display: block;
+    padding: 10px var(--sa-4);
+    font-size: 12.5px;
+    line-height: 1.45;
+    color: var(--sa-tinta-media);
+    border-bottom: 1px solid var(--sa-linha);
+    /* Nome de arquivo de live é comprido e o editor precisa lê-lo inteiro para
+       saber qual fonte está no monitor. Quebra, não corta. */
+    overflow-wrap: anywhere;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    max-width: none;
+}
+
+/* O monitor: preto de borda a borda, sem cartão em volta. */
+.video-preview-container {
+    order: 1;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: #000 !important;
+}
+#videoPreview {
+    display: block;
+    width: 100%;
+    max-height: 46vh;
+    background: #000;
+    border-radius: 0 !important;
+}
+
+.video-info-bar {
+    display: flex;
+    align-items: center;
+    gap: var(--sa-3);
+    flex-wrap: wrap;
+    padding: 8px var(--sa-4) !important;
+    background: var(--sa-elevado) !important;
+    border: 0 !important;
+    border-bottom: 1px solid var(--sa-linha) !important;
+    font-family: var(--sa-mono);
+    font-size: 11px;
+    color: var(--sa-tinta-media);
+}
+.video-info-bar .preview-status.loading { color: var(--sa-ouro); }
+.video-info-bar .preview-status.error { color: var(--sa-ruim); }
 
 /* ══ O RODAPÉ DO REGISTRO ══════════════════════════════════════════════════ */
 

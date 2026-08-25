@@ -147,6 +147,39 @@ def test_o_inspetor_vazio_nao_ocupa_a_tela(pagina_do_editor):
         )
 
 
+def test_a_previa_aberta_encolhe_o_palco_em_vez_de_cobri_lo(pagina_do_editor):
+    """Um `width: 100%` meu fazia o palco transbordar em vez de encolher.
+
+    A prévia é um painel fixo de 330 px na direita. O estilo antigo devolvia a
+    largura com `margin-right`, mas eu tinha fixado `width: 100% !important` no
+    palco: ele media a tela inteira E ainda ganhava a margem, então passava por
+    baixo do painel. O canto direito do topo — versão, tema, ajuda — ficava
+    embaixo da prévia, inalcançável. Só a foto da tela mostrou.
+    """
+    pagina, _ = pagina_do_editor
+    largura_livre = pagina.locator(".topo").bounding_box()["width"]
+    pagina.evaluate(
+        """() => {
+            document.getElementById('playerDock').classList.add('is-open');
+            document.querySelector('.main-content').classList.add('dock-open');
+        }"""
+    )
+    time.sleep(0.4)
+    com_previa = pagina.locator(".topo").bounding_box()["width"]
+    dock = pagina.locator("#playerDock").bounding_box()["width"]
+    pagina.evaluate(
+        """() => {
+            document.getElementById('playerDock').classList.remove('is-open');
+            document.querySelector('.main-content').classList.remove('dock-open');
+        }"""
+    )
+    time.sleep(0.3)
+    assert com_previa < largura_livre - dock + 10, (
+        f"o topo continuou com {com_previa}px atrás de uma prévia de {dock}px: "
+        "o canto direito fica inalcançável"
+    )
+
+
 def test_o_mapa_poe_cada_corte_no_lugar_certo(pagina_do_editor):
     """Um mapa fora de escala mente com confiança; este confere a régua."""
     pagina, _ = pagina_do_editor
