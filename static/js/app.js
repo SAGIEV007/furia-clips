@@ -655,6 +655,9 @@ function handleStatusUpdate(data) {
             }
             renderReviewCommandCenter();
             renderResultsGrid();
+            // A mesa reage: a lâmina nova pisca e o tique toca. Sem isto o
+            // corte aparece no meio dos outros sem nada dizer que chegou agora.
+            window.mesaCorteChegou?.();
             updateResultsModeBadge(state.selectionSource);
             updateOpenFolderButton(state.outputFolder);
             break;
@@ -677,6 +680,7 @@ function handleStatusUpdate(data) {
                     "error",
                 );
             }
+            window.mesaSom?.(completedClips.length ? "feito" : "falha");
             renderEditorialAudit(data.data.editorial_audit, data.data.audit_mode || "standard");
             renderCandidateVolumeNotice(state.candidateDiagnostics);
             displayResults(completedClips, data.data.video_layout || null);
@@ -1050,6 +1054,11 @@ document.getElementById("btnRepositoryPushFeedback")?.addEventListener("click", 
 document.getElementById("btnRepositoryRestoreFeedback")?.addEventListener("click", () => runRepositorySync("restore_feedback"));
 
 function showProgressBar() {
+    // A mesa assume: uma varredura grave, uma vez por operação. Aqui e não em
+    // cada etapa — o editor ouviria a mesma nota seis vezes por vídeo.
+    if (document.getElementById("progressBarContainer")?.style.display !== "block") {
+        window.mesaSom?.("armar");
+    }
     showProcessingControls();
     const container = document.getElementById("progressBarContainer");
     const bar = document.getElementById("progressBar");

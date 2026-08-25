@@ -14,38 +14,42 @@
    gráficos do Painel.
 
    Os tokens `--at-*` continuam existindo porque esses componentes os usam, mas
-   agora são apelidos dos papéis da sala. Assim eles seguem o tema sem que uma
-   linha deles precise mudar — e existe UM lugar onde a cor é decidida.
+   são apelidos dos papéis da MESA (`--f-*`), definidos em mesa.css. Assim estes
+   componentes herdam a identidade nova sem que uma linha deles mude, e existe
+   UM lugar onde a cor é decidida.
+
+   Quando a sala virou mesa, foi só reapontar este bloco. É o que um apelido
+   compra: a troca inteira de identidade custou vinte linhas aqui.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 :root {
-    --at-fundo:        var(--sa-fundo);
-    --at-superficie:   var(--sa-superficie);
-    --at-elevado:      var(--sa-elevado);
-    --at-alto:         var(--sa-alto);
-    --at-linha:        var(--sa-linha);
-    --at-linha-forte:  var(--sa-linha-forte);
+    --at-fundo:        var(--f-vazio);
+    --at-superficie:   var(--f-painel);
+    --at-elevado:      var(--f-alto);
+    --at-alto:         var(--f-alto);
+    --at-linha:        var(--f-aresta);
+    --at-linha-forte:  var(--f-aresta-luz);
 
-    --at-tinta:        var(--sa-tinta);
-    --at-tinta-media:  var(--sa-tinta-media);
-    --at-tinta-fraca:  var(--sa-tinta-fraca);
+    --at-tinta:        var(--f-tinta);
+    --at-tinta-media:  var(--f-tinta-2);
+    --at-tinta-fraca:  var(--f-tinta-3);
 
-    --at-ouro:         var(--sa-ouro);
-    --at-ouro-fundo:   var(--sa-ouro-fundo);
-    --at-ouro-linha:   var(--sa-ouro-linha);
+    --at-ouro:         var(--f-ambar);
+    --at-ouro-fundo:   var(--f-ambar-in);
+    --at-ouro-linha:   var(--f-aresta-luz);
 
-    --at-bom:          var(--sa-bom);
-    --at-bom-fundo:    var(--sa-bom-fundo);
-    --at-atencao:      var(--sa-atencao);
-    --at-atencao-fundo:var(--sa-atencao-fundo);
-    --at-ruim:         var(--sa-ruim);
-    --at-ruim-fundo:   var(--sa-ruim-fundo);
+    --at-bom:          var(--f-fosforo);
+    --at-bom-fundo:    var(--f-fosf-in);
+    --at-atencao:      var(--f-ambar);
+    --at-atencao-fundo:var(--f-ambar-in);
+    --at-ruim:         var(--f-alerta);
+    --at-ruim-fundo:   var(--f-alerta-in);
 
-    --at-mono: var(--sa-mono);
+    --at-mono: var(--f-mono);
 
-    --at-r:   var(--sa-r);
-    --at-r-p: var(--sa-r-p);
-    --at-sombra: var(--sa-sombra);
+    --at-r:   var(--f-r-g);
+    --at-r-p: var(--f-r);
+    --at-sombra: var(--f-sombra-peca);
 }
 
 /* ── inspetor ───────────────────────────────────────────────────────────── */
@@ -511,21 +515,30 @@ body.light-mode .section, [data-theme="light"] .section { background: var(--at-s
    não diria nada. O meio é cinza de propósito, porque o meio quer dizer "nada
    demais".
 
-   Azul acima, vermelho abaixo: par divergente validado nos dois temas
-   (ΔE 19,2 em protanopia no escuro, 21,6 no claro; contraste ≥ 3:1 nos dois).
-   O ouro fica reservado para o acento da interface e nunca entra em dado — se
-   entrasse, o olho confundiria "isto é do Furia" com "isto rendeu bem".
+   Azul acima, vermelho abaixo — e o ÂMBAR FICA DE FORA, sempre.
+
+   Esta é a regra mais importante do Painel e ela sobreviveu à troca inteira de
+   identidade. Na mesa o âmbar quer dizer uma coisa só: "isto é material do
+   Furia". Se ele também pintasse "rendeu bem", o olho passaria a confundir as
+   duas leituras na mesma tela — e é justamente na tela onde as duas aparecem
+   juntas que a confusão custaria caro.
+
+   O par foi re-medido para a superfície da mesa (#111721), e desta vez com o
+   âmbar DENTRO da conta: são três significados que convivem, então os três
+   precisam se distinguir entre si, não só dois deles.
+
+       âmbar #FFB020 · acima #4EA8FF · abaixo #FF6B5C
+       pior par (todos): ΔE 11,9 daltônico · 17,4 visão normal · todos > 3:1
+
+   Os três ficam acima da faixa de luminosidade da régua categórica, pela mesma
+   razão de sempre nesta identidade: sobre preto quase absoluto, um valor dentro
+   da faixa não acende.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 :root {
-    --viz-acima:  #3987e5;
-    --viz-abaixo: #e66767;
-    --viz-meio:   #383835;
-}
-body.light-mode, [data-theme="light"] {
-    --viz-acima:  #2a78d6;
-    --viz-abaixo: #e34948;
-    --viz-meio:   #e2e1de;
+    --viz-acima:  #4ea8ff;
+    --viz-abaixo: #ff6b5c;
+    --viz-meio:   var(--f-aresta-luz);
 }
 
 .painel { display: flex; flex-direction: column; gap: 1.1rem; }
@@ -552,6 +565,8 @@ body.light-mode, [data-theme="light"] {
     background: var(--at-superficie);
 }
 .marco-rotulo {
+    font-size: 9.5px !important;
+    letter-spacing: .17em !important;
     font-size: 0.68rem;
     font-weight: 600;
     letter-spacing: 0.1em;
@@ -559,6 +574,9 @@ body.light-mode, [data-theme="light"] {
     color: var(--at-tinta-fraca);
 }
 .marco-valor {
+    font-family: var(--f-mono) !important;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
     font-family: var(--at-mono);
     font-size: 1.7rem;
     font-weight: 600;
@@ -570,6 +588,11 @@ body.light-mode, [data-theme="light"] {
 .marco-nota { font-size: 0.76rem; color: var(--at-tinta-fraca); }
 .marco.destaque { background: var(--at-elevado); }
 .marco.destaque .marco-valor {
+    color: var(--f-ambar) !important;
+    text-shadow: 0 0 22px color-mix(in srgb, var(--f-ambar) 45%, transparent);
+    font-family: var(--f-mono) !important;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
     font-family: Inter, sans-serif;
     font-size: 1.45rem;
     color: var(--at-ouro);

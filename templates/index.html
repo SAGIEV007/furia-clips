@@ -8,40 +8,60 @@
     <link rel="stylesheet" href="/static/vendor/fonts.css">
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="stylesheet" href="/static/css/atelie.css">
-    <link rel="stylesheet" href="/static/css/sala.css">
+    <link rel="stylesheet" href="/static/css/mesa.css">
 </head>
 <body>
     <!-- Main Content -->
     <main class="main-content">
-        <!-- ══ A BARRA DO TOPO ══════════════════════════════════════════════
-             Uma faixa de 56 px no lugar de quatro.
-
-             Antes daqui havia: uma barra lateral de 250 px com um cartão e o
-             resto vazio, um cabeçalho de marketing, uma trilha decorativa de
-             quatro etapas, e só então a barra de ambientes. Medido a 1366×768,
-             isso comia um quinto da largura e um terço da altura antes de
-             qualquer conteúdo aparecer — a razão de o editor precisar de zoom
-             de 67% para ver a tela.
-
-             Marca, ambientes, a fonte em uso, o estado e as ações cabem numa
-             linha só. O que sobra vira palco. -->
-        <header class="topo">
-            <a class="topo-marca" href="#" onclick="return false;" title="Furia Clips">
-                <span class="topo-chama"><span class="material-icons-round">local_fire_department</span></span>
-                <span class="topo-nome">Furia</span>
+        <!-- ══ A LOUSA ══════════════════════════════════════════════════════
+             Numa galeria de TV a lousa diz três coisas: o que está na mesa, em
+             que estado está, e nada mais. Aqui é a fonte, o estado da estação e
+             as teclas de serviço. -->
+        <header class="f-lousa">
+            <a class="f-marca" href="#" onclick="return false;" title="Furia" data-marca-furia>
+                <span class="f-chama" aria-hidden="true"></span>
             </a>
 
-            <nav class="rail" role="tablist" aria-label="Ambientes do Furia">
+            <span class="f-lousa-sep" aria-hidden="true"></span>
+
+            <!-- O mostrador da fonte. O cartão antigo continua existindo
+                 escondido, porque o app.js escreve nele; a mesa LÊ dali e
+                 escreve aqui, em vez de remendar a peça velha. -->
+            <div class="f-leitura">
+                <span class="f-slate-rotulo">Fonte</span>
+                <span class="f-leitura-valor vazio" id="furiaLeituraFonte">sem fonte carregada</span>
+            </div>
+
+            <div class="workspace-state" id="workspaceState">
+                <span class="status-dot online"></span><span>Pronta</span>
+            </div>
+            <span class="runtime-version" id="runtimeVersion" title="Versão do programa em uso">build local</span>
+
+            <button class="f-tecla" id="btnSom" type="button" aria-pressed="true"
+                    title="Som ligado — clique para silenciar">
+                <span class="material-icons-round">volume_up</span>
+            </button>
+            <button class="f-tecla" id="btnAjustes" type="button" title="Ajustes, aparência e voz">
+                <span class="material-icons-round">tune</span>
+            </button>
+            <button class="f-tecla btn-help" id="btnHelp" type="button" title="Ajuda">
+                <span class="material-icons-round">help_outline</span>
+            </button>
+        </header>
+
+        <!-- ══ A LINHA ═══════════════════════════════════════════════════════
+             Cinco ambientes tinham o mesmo peso, e não têm o mesmo papel. Três
+             são um PERCURSO com ordem (a fonte entra, é cortada, é revisada);
+             dois são CONSULTA, que se abre quando dá vontade. Cinco abas iguais
+             escondiam isso. Agora o percurso é uma trilha acesa e a consulta
+             fica separada, do outro lado do corte. -->
+        <nav class="f-linha" role="tablist" aria-label="Estações do Furia">
+            <div class="rail">
                 <div class="rail-tabs">
-                    <button class="rail-tab is-active" data-ambiente="painel"
-                            role="tab" aria-selected="true" aria-controls="amb-painel">
-                        <span class="material-icons-round">insights</span>
-                        <span class="rail-tab-label">Painel</span>
-                    </button>
                     <button class="rail-tab" data-ambiente="fila"
                             role="tab" aria-selected="false" aria-controls="amb-fila">
-                        <span class="material-icons-round">playlist_add</span>
-                        <span class="rail-tab-label">Fila</span>
+                        <span class="material-icons-round">input</span>
+                        <span class="rail-tab-label">Fonte</span>
                     </button>
                     <button class="rail-tab" data-ambiente="cortar"
                             role="tab" aria-selected="false" aria-controls="amb-cortar">
@@ -53,45 +73,37 @@
                         <span class="material-icons-round">fact_check</span>
                         <span class="rail-tab-label">Auditoria</span>
                     </button>
+                </div>
+
+                <span class="f-linha-corte" aria-hidden="true"></span>
+
+                <div class="rail-tabs f-consulta">
+                    <button class="rail-tab" data-ambiente="painel"
+                            role="tab" aria-selected="false" aria-controls="amb-painel">
+                        <span class="material-icons-round">insights</span>
+                        <span class="rail-tab-label">Painel</span>
+                    </button>
                     <button class="rail-tab" data-ambiente="acervo"
                             role="tab" aria-selected="false" aria-controls="amb-acervo">
                         <span class="material-icons-round">inventory_2</span>
                         <span class="rail-tab-label">Acervo</span>
                     </button>
                 </div>
-            </nav>
-
-            <!-- A fonte em uso. Era um cartão de 250 px de largura por 200 de
-                 altura na lateral; é uma linha de texto, que é o que ela é. -->
-            <div class="selected-video topo-fonte" id="selectedVideoInfo">
-                <div class="no-video">
-                    <div class="pulse-ring">
-                        <span class="material-icons-round">cloud_upload</span>
-                    </div>
-                    <p>Nenhum vídeo carregado</p>
-                    <small>Importe ou cole o link na etapa Fonte</small>
-                </div>
             </div>
 
-            <div class="topo-dir">
-                <div class="workspace-state" id="workspaceState"><span class="status-dot online"></span><span>Pronto para analisar</span></div>
-                <span class="runtime-version" id="runtimeVersion" title="Versão do programa em uso">build local</span>
+            <div class="f-linha-dir">
                 <button class="rail-command" id="btnPaleta" title="Buscar qualquer ação (Ctrl+K)">
                     <span class="material-icons-round">search</span>
                     <span>Buscar ação</span>
                     <kbd>Ctrl K</kbd>
                 </button>
-                <button class="topo-icone" id="btnTema" type="button" title="Alternar entre tema escuro e claro" aria-label="Alternar tema">
-                    <span class="material-icons-round">dark_mode</span>
-                </button>
-                <button class="topo-icone" id="btnAjustes" type="button" title="Ajustes, aparência e voz" aria-label="Ajustes">
-                    <span class="material-icons-round">tune</span>
-                </button>
-                <button class="topo-icone btn-help" id="btnHelp" type="button" title="Ajuda" aria-label="Ajuda">
-                    <span class="material-icons-round">help</span>
-                </button>
             </div>
-        </header>
+        </nav>
+
+        <!-- O cartão antigo da fonte: o app.js escreve nele, a lousa lê dele. -->
+        <div class="selected-video" id="selectedVideoInfo" hidden>
+            <div class="no-video"><p>Nenhum vídeo carregado</p></div>
+        </div>
 
         <!-- O que está rodando agora. O editor descreveu o sintoma: apertar um
              botão enquanto outra função roda. O servidor já recusa, mas antes
@@ -1322,6 +1334,7 @@
     <script src="/static/js/mapa.js"></script>
     <script src="/static/js/painel.js"></script>
     <script src="/static/js/atelie.js"></script>
+    <script src="/static/js/mesa.js"></script>
 
 </body>
 </html>

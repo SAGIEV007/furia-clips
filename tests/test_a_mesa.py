@@ -1,25 +1,30 @@
-"""A moldura tinha de encolher, e o mapa tinha de dizer a verdade.
+"""A mesa: o que a identidade nova promete, medido no navegador.
 
-"a experiência é HORRÍVEL", "só ficou totalmente visível com zoom de 67%", "até
-o menu da esquerda é IDÊNTICO". Três reclamações, uma causa só, e ela não era
-cor nem canto arredondado — era ARQUITETURA.
+Quatro vezes o editor pediu uma reformulação de desenho. Nas três primeiras eu
+entreguei uma reforma — arquitetura nova, cor nova, e o mesmo vocabulário visual
+por baixo. Ele viu nas três: "você tem apenas reaproveitado o site antigo".
 
-Medido nas fotos da tela dele, antes: quatro faixas de moldura antes de qualquer
-conteúdo (barra lateral com um cartão e o resto vazio, cabeçalho de marketing,
-trilha decorativa de quatro etapas, barra de ambientes), mais um inspetor
-permanente à direita dizendo "Nada selecionado". Numa tela de 1366×768 isso
-comia um quinto da largura e um terço da altura.
+A quarta é a mesa de corte, e este arquivo guarda as promessas dela:
 
-Este arquivo mede as duas coisas que a reforma promete, no navegador, na tela
-dele — porque "parece melhor" não é medida:
+1. A moldura cabe em duas faixas finas e o palco fica com a tela.
+2. As cinco estações deixaram de ter o mesmo peso: três formam um percurso,
+   duas são consulta, e a separação está na tela.
+3. O mapa da fonte conta a história certa da rodada real.
 
-1. Quanto da tela sobrou para o trabalho.
-2. Se o mapa da fonte conta a história certa sobre a rodada real dele.
+Os números da fixture são os da corrida PENÉLOPE — 29min32 de fonte, 11 cortes
+entregues, 21 candidatos derrubados pela peneira, 12 deles inteiros dentro de um
+corte que ele recebeu.
 
-O mapa é a peça nova. Ele responde, sem abrir arquivo nenhum, a pergunta que o
-editor repete toda rodada: "estou perdendo cortes?". Os números da fixture são
-os da corrida PENÉLOPE — 29min32 de fonte, 11 cortes entregues, 21 candidatos
-derrubados pela peneira, 12 deles inteiros dentro de um corte que ele recebeu.
+── uma coisa que este arquivo deixou de proteger ───────────────────────────
+
+Havia aqui um teste do botão de tema claro. Ele nasceu de uma queixa dele: "nem
+sei onde altero para o tema branco". A mesa é comprometida com o escuro — é a
+tese dela, do mesmo jeito que Poolsuite não tem modo claro —, então o botão saiu
+e o teste saiu junto.
+
+Isso é uma DECISÃO, não um descuido, e a diferença entre as duas é ela estar
+escrita. Se o editor quiser o claro de volta, ele volta como variante desenhada
+da mesa e o teste volta com ele.
 """
 
 import glob
@@ -113,20 +118,50 @@ def test_a_tela_nao_quebra(pagina_do_editor):
     assert erros == [], f"erro de JavaScript ao montar a sala: {erros}"
 
 
-def test_a_moldura_cabe_numa_faixa(pagina_do_editor):
-    """Quatro faixas viraram uma.
+def test_a_moldura_cabe_em_duas_faixas_finas(pagina_do_editor):
+    """Quantos pixels de altura ele gasta antes de ver algo útil.
 
-    O número é o que importa: quantos pixels de altura o editor gasta antes de
-    ver a primeira coisa útil. Eram cerca de 250; a barra do topo tem 56.
+    Eram cerca de 250, em quatro faixas. Agora são duas — a lousa e a linha — e
+    as duas juntas têm de caber em menos de 110.
     """
     pagina, _ = pagina_do_editor
-    topo = pagina.locator(".topo").bounding_box()
-    assert topo["height"] <= 60, f"a moldura voltou a crescer: {topo['height']}px"
+    lousa = pagina.locator(".f-lousa").bounding_box()
+    linha = pagina.locator(".f-linha").bounding_box()
+    total = lousa["height"] + linha["height"]
+    assert total <= 110, f"a moldura voltou a crescer: {total}px"
 
     for morto in (".sidebar", ".main-header", ".workflow-steps"):
         assert pagina.locator(morto).count() == 0 or not pagina.locator(morto).first.is_visible(), (
             f"{morto} voltou à tela"
         )
+
+
+def test_o_percurso_e_a_consulta_nao_tem_o_mesmo_peso(pagina_do_editor):
+    """A reorganização que ele pediu junto com o desenho.
+
+    Cinco abas iguais faziam o editor decidir a cada clique o que o trabalho já
+    decide: a fonte entra, é cortada, é revisada — nessa ordem. Painel e Acervo
+    se abrem quando dá vontade. Agora o percurso é uma trilha e a consulta fica
+    do outro lado de um corte.
+    """
+    pagina, _ = pagina_do_editor
+    percurso = pagina.locator(".rail-tabs:not(.f-consulta) .rail-tab")
+    consulta = pagina.locator(".f-consulta .rail-tab")
+    assert [percurso.nth(i).get_attribute("data-ambiente") for i in range(percurso.count())] \
+        == ["fila", "cortar", "auditoria"], "a ordem do percurso mudou"
+    assert {consulta.nth(i).get_attribute("data-ambiente") for i in range(consulta.count())} \
+        == {"painel", "acervo"}
+    assert pagina.locator(".f-linha-corte").count() == 1, (
+        "sumiu o corte que separa o percurso da consulta"
+    )
+
+    # A estação ativa acende; as outras não. É o que dá direção à linha.
+    aceso = pagina.evaluate(
+        """() => [...document.querySelectorAll('.rail-tab')]
+              .filter(t => getComputedStyle(t, '::after').backgroundColor.includes('255, 176, 32'))
+              .map(t => t.dataset.ambiente)"""
+    )
+    assert aceso == ["auditoria"], f"lâmpadas acesas: {aceso}"
 
 
 def test_o_palco_usa_a_largura_toda(pagina_do_editor):
@@ -157,7 +192,7 @@ def test_a_previa_aberta_encolhe_o_palco_em_vez_de_cobri_lo(pagina_do_editor):
     embaixo da prévia, inalcançável. Só a foto da tela mostrou.
     """
     pagina, _ = pagina_do_editor
-    largura_livre = pagina.locator(".topo").bounding_box()["width"]
+    largura_livre = pagina.locator(".f-lousa").bounding_box()["width"]
     pagina.evaluate(
         """() => {
             document.getElementById('playerDock').classList.add('is-open');
@@ -165,7 +200,7 @@ def test_a_previa_aberta_encolhe_o_palco_em_vez_de_cobri_lo(pagina_do_editor):
         }"""
     )
     time.sleep(0.4)
-    com_previa = pagina.locator(".topo").bounding_box()["width"]
+    com_previa = pagina.locator(".f-lousa").bounding_box()["width"]
     dock = pagina.locator("#playerDock").bounding_box()["width"]
     pagina.evaluate(
         """() => {
@@ -272,29 +307,3 @@ def test_clicar_num_bloco_leva_o_player_ate_ele(pagina_do_editor):
     assert abs(onde - CORTES[4]["start"]) < 1, (
         f"o player foi para {onde}s e o corte começa em {CORTES[4]['start']}s"
     )
-
-
-def test_o_tema_claro_existe_e_o_botao_o_encontra(pagina_do_editor):
-    """"nem sei onde altero para o tema branco" — não sabia porque não havia."""
-    pagina, _ = pagina_do_editor
-    botao = pagina.locator("#btnTema")
-    assert botao.is_visible(), "o botão de tema não está na tela"
-
-    def tinta():
-        return pagina.evaluate(
-            "getComputedStyle(document.querySelector('.ambiente-intro h2')).color"
-        )
-
-    escuro = tinta()
-    botao.click()
-    time.sleep(0.3)
-    claro = tinta()
-    assert pagina.evaluate("document.documentElement.dataset.tema") == "claro"
-    assert claro != escuro, "o tema mudou de nome mas não de cor"
-    # O defeito antigo: o título usava preenchimento em gradiente, desenhado
-    # para brilhar sobre preto, e sumia no claro.
-    assert claro.startswith("rgb(2") or claro.startswith("rgb(1"), (
-        f"o título ficou claro sobre fundo claro: {claro}"
-    )
-    botao.click()
-    time.sleep(0.2)
