@@ -339,6 +339,50 @@ def build_block_evidence(
     }
 
 
+def _hook_observations(account_data: Any) -> list[dict[str, Any]]:
+    """The per-hook ratios of an account, in either shape the snapshot may use.
+
+    This function is why the Campaign Hub hook prior had never once fired. The
+    code asked the account for ``hook_observations``; every published snapshot,
+    the one shipped with the program included, writes ``hook_priors`` — already
+    grouped, with ``observations`` and ``mean_ratio`` instead of one row per
+    post. The key simply did not exist, so the list came back empty, the sample
+    count was zero, and ``available`` was False on every clip ever scored,
+    including text that lands squarely in the account's strongest hook family.
+
+    Measured on the packaged snapshot before this: "Eu vou dizer uma coisa: o PT
+    mentiu por trinta anos" — textbook `tese-provocativa`, six observations on
+    file — came back `available=False, sample_count=0, observed_signal=50.0`.
+
+    The grouped shape is expanded back into one row per observation. Repeating
+    the group's mean is not an invention of data: the mean is the best estimate
+    of that group's centre, and the count is exactly what the snapshot reports.
+    The three-observation floor below still decides whether any of it is used.
+    """
+    if not isinstance(account_data, dict):
+        return []
+    detalhado = account_data.get("hook_observations")
+    if isinstance(detalhado, list) and detalhado:
+        return [item for item in detalhado if isinstance(item, dict)]
+    agrupado = account_data.get("hook_priors")
+    if not isinstance(agrupado, list):
+        return []
+    expandido: list[dict[str, Any]] = []
+    for item in agrupado:
+        if not isinstance(item, dict):
+            continue
+        try:
+            razao = float(item.get("mean_ratio"))
+            quantas = int(item.get("observations") or 0)
+        except (TypeError, ValueError):
+            continue
+        hook = str(item.get("hook") or "").strip()
+        if not hook or quantas <= 0:
+            continue
+        expandido.extend({"hook": hook, "ratio": razao} for _ in range(min(quantas, 500)))
+    return expandido
+
+
 def build_performance_prior(
     text: str,
     *,
@@ -357,7 +401,7 @@ def build_performance_prior(
     accounts = profile.get("accounts", {}) if isinstance(profile, dict) else {}
     selected_account = account if account in SUPPORTED_ACCOUNTS else profile.get("default_account", "@renansantosmbl")
     account_data = accounts.get(selected_account, {}) if isinstance(accounts, dict) else {}
-    observations = account_data.get("hook_observations", []) if isinstance(account_data, dict) else []
+    observations = _hook_observations(account_data)
     hook_details = classify_hook_details(text)
     hook = hook_details["family"]
     hook_values = [float(item["ratio"]) for item in observations if item.get("hook") == hook]

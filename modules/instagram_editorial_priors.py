@@ -61,7 +61,14 @@ def _family_from_clip(clip: dict, text: str) -> str:
         return "graph_evidence"
     if re.search(r"\b(evento|palco|debate|ato público|ato publico)\b", normalized):
         return "event_mobilization"
-    return "conversation_social"
+    # Antes isto devolvia "conversation_social", que por acaso é a família com a
+    # maior mediana de views da tabela inteira — um milhão, vinda de um único
+    # post. Ou seja: "não reconheci este trecho" virava o bônus máximo. Medido,
+    # seis de dez textos caíam aqui, e entre eles uma receita de bolo e um
+    # comentário de futebol, os dois pontuando acima de um trecho sobre
+    # desestatização. Não reconhecer não é uma descoberta; devolve neutro, que é
+    # o que o chamador já sabe tratar (available=False, sinal 50).
+    return "desconhecida"
 
 
 def _aggregate_records(records: list[dict]) -> dict:
