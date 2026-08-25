@@ -31,40 +31,59 @@
 
    ─── as decisões ───────────────────────────────────────────────────────────
 
-   FÓSFORO. Âmbar sobre preto é o monitor de vídeo âmbar, e é o fogo do nome.
-   Verde-fósforo é o "no ar" de qualquer galeria de TV. As duas cores fazem
-   parte da mesma história e foram medidas juntas (validate_palette.js, contra
-   a superfície #0b0f13):
+   COR, escolhida do zero. A primeira mesa era âmbar sobre preto, e o editor
+   apontou o vício: "nunca falei nada sobre âmbar". O âmbar veio da marca antiga
+   do Furia, ou seja, eu tinha reaproveitado a decisão mais visível de todas
+   enquanto dizia que estava começando do zero.
 
-       #FFB020 ↔ #42E8B4   ΔE 14,0 daltônico · 23,1 visão normal · ambos >3:1
-       #FFB020 ↔ #5B7086   ΔE 29,5 daltônico · 34,6 visão normal
+   O mundo agora é um OBSERVATÓRIO — o encontro que ele pediu entre as duas
+   referências. De Cipher vem a precisão e o vazio profundo; de Poolsuite, a
+   cor quente e a licença de se divertir. Fundo índigo quase preto, e três
+   lâmpadas que acendem nele:
 
-   As duas ficam ACIMA da faixa de luminosidade que o validador pede para série
-   categórica, e isso é escolha: elas não são séries de gráfico, são lâmpadas.
-   Uma lâmpada dentro da faixa não acende.
+       rosa    #FF3D8B   o material do Furia — cortes, blocos, o que ele fez
+       ciano   #22E4F5   no ar, aprovado, vivo
+       sol     #FFC857   o número que importa mais na tela
+
+   Medidas juntas, todos os pares (validate_palette.js, superfície #100C1F):
+       pior par: ΔE 17,5 daltônico · 24,7 visão normal · todas > 3:1
+
+   Ficam acima da faixa de luminosidade da régua categórica de propósito: sobre
+   índigo quase preto, um valor dentro da faixa não acende. São lâmpadas.
 
    METAL. Todo painel tem uma linha clara em cima e escura embaixo. É o que
    separa "retângulo com fundo" de "peça física com aresta pegando luz". Custa
    duas linhas de CSS e é metade da impressão.
 
-   MONOESPAÇADA COMO ASSINATURA. Todo número — tempo, nota, contagem, duração —
-   vai em monoespaçada tabular. Não é preciosismo: coluna de tempo que não
-   alinha não se lê, e é o que faz a tela parecer instrumento em vez de
-   formulário.
+   MOSTRADOR. Todo número — tempo, nota, contagem, duração — em monoespaçada
+   tabular. Coluna de tempo que não alinha não se lê, e é o que faz a tela
+   parecer instrumento em vez de formulário.
 
-   RÓTULO GRAVADO. Maiúscula minúscula com entreletra larga, como serigrafia em
-   painel de equipamento. É o detalhe que o olho reconhece sem saber por quê.
+   RÓTULO GRAVADO. Caixa alta com entreletra larga, como serigrafia em painel de
+   equipamento. O olho reconhece sem saber por quê.
 
-   VARREDURA. Uma trama de 1px a 3% sobre os painéis. No limite do perceptível
-   de propósito: presente o bastante para dar matéria, fraca o bastante para não
-   custar legibilidade nenhuma na oitava hora.
+   VARREDURA. Trama de 1px a 3% sobre a janela. No limite do perceptível: matéria
+   sim, cansaço na oitava hora não.
+
+   ─── e a parte que faltava ─────────────────────────────────────────────────
+
+   "quero apenas que o fúria também seja divertido e não só bonito".
+
+   A primeira mesa era competente e sem graça. O que Poolsuite ensina não é o
+   retrô — é que a ficção precisa ter BRINQUEDO dentro: um cursor de taça de
+   martíni, temas trocáveis, um sistema operacional inteiro que não existe.
+   Nada daquilo serve para nada, e é tudo aquilo que faz voltar.
+
+   Daí as PELES (`--pele` no elemento raiz): o observatório é a de casa, e as
+   outras são o mesmo instrumento em outro mundo. Trocar de pele não muda uma
+   linha de layout — só os papéis de cor —, e é a prova de que o sistema é
+   sistema.
 
    ─── o que NÃO fiz, e por quê ──────────────────────────────────────────────
 
-   Sem paleta de arco-íris, sem vidro fosco, sem gradiente em texto. Não por
-   conservadorismo: porque numa mesa a cor é informação. Se o painel de fundo
-   for colorido, o âmbar de um corte pronto deixa de significar alguma coisa.
-   O impacto aqui vem de contraste e de matéria, não de saturação.
+   Sem arco-íris e sem gradiente em texto. Numa mesa a cor é informação: se o
+   fundo for colorido, o rosa de um corte pronto deixa de significar alguma
+   coisa. O encanto vem de matéria, movimento e brinquedo — não de saturação.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 /* ── 1. O CHÃO ──────────────────────────────────────────────────────────── */
@@ -74,37 +93,39 @@
 
     /* Profundidade. Frio, não neutro: preto absoluto lê como buraco, preto
        azulado lê como estúdio apagado. */
-    --f-vazio:    #06080a;
-    --f-mesa:     #0b0f13;
-    --f-painel:   #111721;
-    --f-alto:     #18202c;
-    --f-fundo-in: #0e141b;
+    --f-vazio:    #070512;
+    --f-mesa:     #0b0819;
+    --f-painel:   #100c1f;
+    --f-alto:     #1a1430;
+    --f-fundo-in: #0c0919;
 
     /* As arestas que dão matéria. */
-    --f-aresta:      #1b2430;
-    --f-aresta-luz:  #2a3948;
+    --f-aresta:      #241c3f;
+    --f-aresta-luz:  #382c5c;
     --f-brilho:      rgb(255 255 255 / .055);
     --f-sombra-int:  rgb(0 0 0 / .55);
 
     /* Tinta. */
-    --f-tinta:   #e8eef4;
-    --f-tinta-2: #8a9aab;
-    --f-tinta-3: #55677a;
+    --f-tinta:   #eee9ff;
+    --f-tinta-2: #a094c4;
+    --f-tinta-3: #6b5f93;
 
-    /* Sinal. Três lâmpadas e nada mais. */
-    --f-ambar:    #ffb020;
-    --f-ambar-in: #241803;
-    --f-fosforo:  #42e8b4;
-    --f-fosf-in:  #04241b;
-    --f-alerta:   #ff5240;
-    --f-alerta-in:#2a0d09;
-    --f-inerte:   #5b7086;
+    /* Sinal. Ver o bloco de decisões no topo do arquivo. */
+    --f-sol:      #ffc857;
+    --f-violeta:  #9b6bff;
+    --f-sinal:    #ff3d8b;
+    --f-sinal-in: #2b0a1c;
+    --f-vivo:  #22e4f5;
+    --f-vivo-in:  #04222b;
+    --f-alerta:   #ff5c72;
+    --f-alerta-in:#2e0d16;
+    --f-inerte:   #5c5478;
 
     /* Halo: uma lâmpada acesa contamina o ar em volta. */
-    --f-halo-ambar:   0 0 0 1px color-mix(in srgb, var(--f-ambar) 40%, transparent),
-                      0 0 18px -4px color-mix(in srgb, var(--f-ambar) 55%, transparent);
-    --f-halo-fosforo: 0 0 0 1px color-mix(in srgb, var(--f-fosforo) 40%, transparent),
-                      0 0 18px -4px color-mix(in srgb, var(--f-fosforo) 50%, transparent);
+    --f-halo-sinal:   0 0 0 1px color-mix(in srgb, var(--f-sinal) 40%, transparent),
+                      0 0 18px -4px color-mix(in srgb, var(--f-sinal) 55%, transparent);
+    --f-halo-vivo: 0 0 0 1px color-mix(in srgb, var(--f-vivo) 40%, transparent),
+                      0 0 18px -4px color-mix(in srgb, var(--f-vivo) 50%, transparent);
 
     --f-mono: ui-monospace, "Cascadia Mono", "Consolas", "SF Mono", Menlo, monospace;
 
@@ -163,7 +184,7 @@ body::after {
     mix-blend-mode: overlay;
 }
 
-::selection { background: var(--f-ambar); color: #100a00; }
+::selection { background: var(--f-sinal); color: #100a00; }
 
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: var(--f-vazio); }
@@ -175,7 +196,7 @@ body::after {
 ::-webkit-scrollbar-thumb:hover { background: var(--f-inerte); }
 
 :where(a, button, input, select, textarea, [tabindex]):focus-visible {
-    outline: 1px solid var(--f-ambar);
+    outline: 1px solid var(--f-sinal);
     outline-offset: 2px;
 }
 
@@ -257,8 +278,8 @@ h1, h2, h3, h4 { margin: 0; font-weight: 700; letter-spacing: -0.03em; }
 .f-marca .f-chama {
     width: 8px; height: 8px;
     border-radius: 50%;
-    background: var(--f-ambar);
-    box-shadow: var(--f-halo-ambar);
+    background: var(--f-sinal);
+    box-shadow: var(--f-halo-sinal);
     animation: f-brasa 3.4s ease-in-out infinite;
 }
 @keyframes f-brasa {
@@ -328,11 +349,11 @@ h1, h2, h3, h4 { margin: 0; font-weight: 700; letter-spacing: -0.03em; }
     flex: none;
 }
 .workspace-state .status-dot.online {
-    background: var(--f-fosforo);
-    box-shadow: var(--f-halo-fosforo);
+    background: var(--f-vivo);
+    box-shadow: var(--f-halo-vivo);
 }
-.workspace-state.f-rodando { color: var(--f-ambar); border-color: color-mix(in srgb, var(--f-ambar) 35%, transparent); }
-.workspace-state.f-rodando .status-dot { background: var(--f-ambar); box-shadow: var(--f-halo-ambar); animation: f-brasa 1.1s ease-in-out infinite; }
+.workspace-state.f-rodando { color: var(--f-sinal); border-color: color-mix(in srgb, var(--f-sinal) 35%, transparent); }
+.workspace-state.f-rodando .status-dot { background: var(--f-sinal); box-shadow: var(--f-halo-sinal); animation: f-brasa 1.1s ease-in-out infinite; }
 
 .runtime-version {
     flex: none;
@@ -366,7 +387,7 @@ h1, h2, h3, h4 { margin: 0; font-weight: 700; letter-spacing: -0.03em; }
 .f-tecla:hover { color: var(--f-tinta); border-color: var(--f-aresta-luz); }
 .f-tecla:active { transform: translateY(1px); box-shadow: inset 0 2px 4px rgb(0 0 0 / .5); }
 .f-tecla .material-icons-round { font-size: 17px; }
-.f-tecla.f-acesa { color: var(--f-ambar); border-color: color-mix(in srgb, var(--f-ambar) 45%, transparent); }
+.f-tecla.f-acesa { color: var(--f-sinal); border-color: color-mix(in srgb, var(--f-sinal) 45%, transparent); }
 
 /* ══ 5. A LINHA ═════════════════════════════════════════════════════════════
 
@@ -435,13 +456,13 @@ h1, h2, h3, h4 { margin: 0; font-weight: 700; letter-spacing: -0.03em; }
     transition: background .18s, box-shadow .18s;
 }
 .rail-tab.is-active { color: var(--f-tinta); }
-.rail-tab.is-active .material-icons-round { opacity: 1; color: var(--f-ambar); }
+.rail-tab.is-active .material-icons-round { opacity: 1; color: var(--f-sinal); }
 .rail-tab.is-active::after {
-    background: var(--f-ambar);
-    box-shadow: 0 0 10px -1px var(--f-ambar);
+    background: var(--f-sinal);
+    box-shadow: 0 0 10px -1px var(--f-sinal);
 }
 /* Já visitada nesta sessão: brasa, não apagado. */
-.rail-tab.f-percorrida:not(.is-active)::after { background: color-mix(in srgb, var(--f-ambar) 32%, var(--f-aresta-luz)); }
+.rail-tab.f-percorrida:not(.is-active)::after { background: color-mix(in srgb, var(--f-sinal) 32%, var(--f-aresta-luz)); }
 
 /* O separador entre o percurso e a consulta: elas não são a mesma coisa. */
 .f-linha-corte {
@@ -453,8 +474,8 @@ h1, h2, h3, h4 { margin: 0; font-weight: 700; letter-spacing: -0.03em; }
 .f-consulta { display: flex; align-items: stretch; }
 .f-consulta .rail-tab { color: var(--f-tinta-3); }
 .f-consulta .rail-tab::after { display: none; }
-.f-consulta .rail-tab.is-active { color: var(--f-fosforo); }
-.f-consulta .rail-tab.is-active .material-icons-round { color: var(--f-fosforo); }
+.f-consulta .rail-tab.is-active { color: var(--f-vivo); }
+.f-consulta .rail-tab.is-active .material-icons-round { color: var(--f-vivo); }
 
 .f-linha-dir { display: flex; align-items: center; gap: var(--f-2); margin-left: auto; flex: none; }
 
@@ -497,8 +518,8 @@ h1, h2, h3, h4 { margin: 0; font-weight: 700; letter-spacing: -0.03em; }
     gap: var(--f-3);
     height: 30px;
     padding: 0 var(--f-4);
-    background: linear-gradient(180deg, var(--f-ambar-in), #0a0805);
-    border-bottom: 1px solid color-mix(in srgb, var(--f-ambar) 30%, transparent);
+    background: linear-gradient(180deg, var(--f-sinal-in), #0a0805);
+    border-bottom: 1px solid color-mix(in srgb, var(--f-sinal) 30%, transparent);
     font-size: 11.5px;
     overflow: hidden;
 }
@@ -506,15 +527,15 @@ h1, h2, h3, h4 { margin: 0; font-weight: 700; letter-spacing: -0.03em; }
 .run-bar-pulse {
     width: 6px; height: 6px; flex: none;
     border-radius: 50%;
-    background: var(--f-ambar);
-    box-shadow: var(--f-halo-ambar);
+    background: var(--f-sinal);
+    box-shadow: var(--f-halo-sinal);
     animation: f-brasa 1.1s ease-in-out infinite;
 }
 .run-bar-body { display: flex; align-items: center; gap: var(--f-3); flex: 1 1 auto; min-width: 0; }
 .run-bar-heading { display: flex; align-items: center; gap: var(--f-2); flex: none; }
 .run-bar-heading strong {
     font-size: 10px; font-weight: 700; letter-spacing: .14em;
-    text-transform: uppercase; color: var(--f-ambar);
+    text-transform: uppercase; color: var(--f-sinal);
 }
 .run-bar-stage {
     font-family: var(--f-mono);
@@ -534,13 +555,13 @@ h1, h2, h3, h4 { margin: 0; font-weight: 700; letter-spacing: -0.03em; }
 }
 .run-bar-progress-fill {
     height: 100%;
-    background: var(--f-ambar);
-    box-shadow: 0 0 8px -1px var(--f-ambar);
+    background: var(--f-sinal);
+    box-shadow: 0 0 8px -1px var(--f-sinal);
     transition: width .3s var(--f-curva);
 }
 .run-bar-progress-text {
     font-family: var(--f-mono); font-size: 10.5px;
-    color: var(--f-ambar); min-width: 2.8em; text-align: right;
+    color: var(--f-sinal); min-width: 2.8em; text-align: right;
 }
 .run-bar-step-strip { display: flex; align-items: center; gap: 4px; flex: none; }
 .run-bar-step {
@@ -550,11 +571,11 @@ h1, h2, h3, h4 { margin: 0; font-weight: 700; letter-spacing: -0.03em; }
     font-size: 0;
     transition: background .2s, width .2s, box-shadow .2s;
 }
-.run-bar-step.done { background: var(--f-fosforo); }
+.run-bar-step.done { background: var(--f-vivo); }
 .run-bar-step.active {
     width: 16px; border-radius: 3px;
-    background: var(--f-ambar);
-    box-shadow: 0 0 8px -1px var(--f-ambar);
+    background: var(--f-sinal);
+    box-shadow: 0 0 8px -1px var(--f-sinal);
 }
 .run-bar-side { display: flex; align-items: center; gap: var(--f-2); flex: none; }
 .run-bar-scope { display: none; }
@@ -693,8 +714,8 @@ h1, h2, h3, h4 { margin: 0; font-weight: 700; letter-spacing: -0.03em; }
 .ambientes :is(input, textarea, select):hover { border-color: var(--f-aresta-luz) !important; }
 .ambientes :is(input, textarea, select):focus {
     outline: none;
-    border-color: var(--f-ambar) !important;
-    box-shadow: inset 0 1px 3px rgb(0 0 0 / .45), 0 0 0 1px color-mix(in srgb, var(--f-ambar) 45%, transparent);
+    border-color: var(--f-sinal) !important;
+    box-shadow: inset 0 1px 3px rgb(0 0 0 / .45), 0 0 0 1px color-mix(in srgb, var(--f-sinal) 45%, transparent);
 }
 .ambientes textarea { min-height: 5rem; resize: vertical; line-height: 1.55; }
 .ambientes ::placeholder { color: var(--f-tinta-3); opacity: 1; }
@@ -724,13 +745,13 @@ h1, h2, h3, h4 { margin: 0; font-weight: 700; letter-spacing: -0.03em; }
     transition: transform .18s var(--f-curva), background .16s, box-shadow .16s;
 }
 .ambientes input[type="checkbox"]:checked {
-    border-color: color-mix(in srgb, var(--f-fosforo) 45%, transparent);
-    background: var(--f-fosf-in);
+    border-color: color-mix(in srgb, var(--f-vivo) 45%, transparent);
+    background: var(--f-vivo-in);
 }
 .ambientes input[type="checkbox"]:checked::after {
     transform: translateX(15px);
-    background: var(--f-fosforo);
-    box-shadow: 0 0 8px -1px var(--f-fosforo);
+    background: var(--f-vivo);
+    box-shadow: 0 0 8px -1px var(--f-vivo);
 }
 
 /* ── botões ─────────────────────────────────────────────────────────────── */
@@ -764,18 +785,18 @@ h1, h2, h3, h4 { margin: 0; font-weight: 700; letter-spacing: -0.03em; }
 
 /* A tecla principal: a única acesa da mesa. */
 .ambientes .btn-primary {
-    background: linear-gradient(180deg, #ffc247, var(--f-ambar)) !important;
-    border-color: color-mix(in srgb, var(--f-ambar) 70%, black) !important;
+    background: linear-gradient(180deg, #ffc247, var(--f-sinal)) !important;
+    border-color: color-mix(in srgb, var(--f-sinal) 70%, black) !important;
     color: #150d00 !important;
     box-shadow: inset 0 1px 0 rgb(255 255 255 / .35),
-                0 0 18px -6px var(--f-ambar) !important;
+                0 0 18px -6px var(--f-sinal) !important;
 }
 .ambientes .btn-primary:hover { filter: brightness(1.08); color: #150d00 !important; }
 
 .ambientes .btn-success {
-    background: var(--f-fosf-in) !important;
-    border-color: color-mix(in srgb, var(--f-fosforo) 40%, transparent) !important;
-    color: var(--f-fosforo) !important;
+    background: var(--f-vivo-in) !important;
+    border-color: color-mix(in srgb, var(--f-vivo) 40%, transparent) !important;
+    color: var(--f-vivo) !important;
 }
 .ambientes .btn-danger {
     background: var(--f-alerta-in) !important;
@@ -797,7 +818,7 @@ h1, h2, h3, h4 { margin: 0; font-weight: 700; letter-spacing: -0.03em; }
     text-transform: uppercase; color: var(--f-tinta-3);
 }
 .mapa-resumo { margin: 0; font-size: 11.5px; color: var(--f-tinta-3); }
-.mapa-resumo b { color: var(--f-ambar); font-family: var(--f-mono); font-weight: 700; }
+.mapa-resumo b { color: var(--f-sinal); font-family: var(--f-mono); font-weight: 700; }
 
 .mapa-pista {
     display: grid;
@@ -813,7 +834,7 @@ h1, h2, h3, h4 { margin: 0; font-weight: 700; letter-spacing: -0.03em; }
     background: var(--f-cor-pista);
     box-shadow: 0 0 8px -1px var(--f-cor-pista);
 }
-.mapa-pista[data-pista="entregues"]   { --f-cor-pista: var(--f-ambar); }
+.mapa-pista[data-pista="entregues"]   { --f-cor-pista: var(--f-sinal); }
 .mapa-pista[data-pista="descartados"] { --f-cor-pista: var(--f-inerte); }
 
 .mapa-trilho {
@@ -843,10 +864,10 @@ h1, h2, h3, h4 { margin: 0; font-weight: 700; letter-spacing: -0.03em; }
     cursor: pointer;
     transition: filter .12s, box-shadow .12s;
 }
-.mapa-pista[data-pista="entregues"] .mapa-bloco { box-shadow: 0 0 10px -3px var(--f-ambar); }
+.mapa-pista[data-pista="entregues"] .mapa-bloco { box-shadow: 0 0 10px -3px var(--f-sinal); }
 .mapa-bloco:hover { filter: brightness(1.25); }
 .mapa-bloco.is-active {
-    box-shadow: 0 0 0 1px #05070a, 0 0 0 2px var(--f-fosforo), 0 0 14px -2px var(--f-fosforo);
+    box-shadow: 0 0 0 1px #05070a, 0 0 0 2px var(--f-vivo), 0 0 14px -2px var(--f-vivo);
     z-index: 2;
 }
 .mapa-pista[data-pista="descartados"] .mapa-bloco {
@@ -897,7 +918,7 @@ h1, h2, h3, h4 { margin: 0; font-weight: 700; letter-spacing: -0.03em; }
 .mapa-dica.is-active { opacity: 1; }
 .mapa-dica b {
     display: block; font-family: var(--f-mono); font-size: 10.5px;
-    color: var(--f-ambar); margin-bottom: 3px;
+    color: var(--f-sinal); margin-bottom: 3px;
 }
 .mapa-dica span { color: var(--f-tinta-2); }
 
@@ -923,8 +944,8 @@ h1, h2, h3, h4 { margin: 0; font-weight: 700; letter-spacing: -0.03em; }
 }
 .result-card:hover { border-color: var(--f-aresta-luz) !important; }
 .result-card.is-selected {
-    border-color: color-mix(in srgb, var(--f-ambar) 60%, transparent) !important;
-    box-shadow: inset 0 1px 0 var(--f-brilho), 0 0 22px -8px var(--f-ambar) !important;
+    border-color: color-mix(in srgb, var(--f-sinal) 60%, transparent) !important;
+    box-shadow: inset 0 1px 0 var(--f-brilho), 0 0 22px -8px var(--f-sinal) !important;
 }
 
 .result-header-bar {
@@ -966,8 +987,8 @@ h1, h2, h3, h4 { margin: 0; font-weight: 700; letter-spacing: -0.03em; }
     font-variant-numeric: tabular-nums;
 }
 .viral-score-badge .score-label { font-size: 9px; color: var(--f-tinta-3); }
-.viral-score-badge.high { border-color: color-mix(in srgb, var(--f-ambar) 50%, transparent) !important; }
-.viral-score-badge.high .score-value { color: var(--f-ambar); }
+.viral-score-badge.high { border-color: color-mix(in srgb, var(--f-sinal) 50%, transparent) !important; }
+.viral-score-badge.high .score-value { color: var(--f-sinal); }
 
 .result-tempo {
     display: inline-flex; align-items: baseline; gap: 5px;
@@ -1006,9 +1027,9 @@ h1, h2, h3, h4 { margin: 0; font-weight: 700; letter-spacing: -0.03em; }
                   .material-icons-round { font-size: 11px !important; }
 
 .result-header-bar .review-state-chip.approved {
-    border-color: color-mix(in srgb, var(--f-fosforo) 45%, transparent) !important;
-    color: var(--f-fosforo) !important;
-    background: var(--f-fosf-in) !important;
+    border-color: color-mix(in srgb, var(--f-vivo) 45%, transparent) !important;
+    color: var(--f-vivo) !important;
+    background: var(--f-vivo-in) !important;
 }
 .result-header-bar .review-state-chip.rejected {
     border-color: color-mix(in srgb, var(--f-alerta) 45%, transparent) !important;
@@ -1016,9 +1037,9 @@ h1, h2, h3, h4 { margin: 0; font-weight: 700; letter-spacing: -0.03em; }
     background: var(--f-alerta-in) !important;
 }
 .result-header-bar .clip-adjustment-chip.saved {
-    border-color: color-mix(in srgb, var(--f-ambar) 45%, transparent) !important;
-    color: var(--f-ambar) !important;
-    background: var(--f-ambar-in) !important;
+    border-color: color-mix(in srgb, var(--f-sinal) 45%, transparent) !important;
+    color: var(--f-sinal) !important;
+    background: var(--f-sinal-in) !important;
 }
 
 /* O monitor. Preto de aresta a aresta, sem moldura. */
@@ -1060,10 +1081,10 @@ h1, h2, h3, h4 { margin: 0; font-weight: 700; letter-spacing: -0.03em; }
     display: flex; align-items: flex-start; gap: 7px;
     margin: var(--f-2) 0 !important;
     padding: 7px 9px !important;
-    background: var(--f-ambar-in) !important;
-    border: 1px solid color-mix(in srgb, var(--f-ambar) 32%, transparent) !important;
+    background: var(--f-sinal-in) !important;
+    border: 1px solid color-mix(in srgb, var(--f-sinal) 32%, transparent) !important;
     border-radius: var(--f-r) !important;
-    color: var(--f-ambar) !important;
+    color: var(--f-sinal) !important;
     font-size: 11px !important;
     line-height: 1.45;
 }
@@ -1081,7 +1102,7 @@ h1, h2, h3, h4 { margin: 0; font-weight: 700; letter-spacing: -0.03em; }
     from { opacity: 0; transform: translateY(10px) scale(.985); }
 }
 @keyframes f-flash {
-    0%   { box-shadow: inset 0 1px 0 var(--f-brilho), 0 0 0 1px var(--f-ambar), 0 0 30px -6px var(--f-ambar); }
+    0%   { box-shadow: inset 0 1px 0 var(--f-brilho), 0 0 0 1px var(--f-sinal), 0 0 30px -6px var(--f-sinal); }
     100% { box-shadow: inset 0 1px 0 var(--f-brilho), 0 0 0 1px transparent, 0 0 0 transparent; }
 }
 .result-card.f-nova {
@@ -1136,7 +1157,7 @@ h1, h2, h3, h4 { margin: 0; font-weight: 700; letter-spacing: -0.03em; }
     border: 0 !important; border-bottom: 1px solid var(--f-aresta) !important;
     font-family: var(--f-mono); font-size: 10.5px; color: var(--f-tinta-2);
 }
-.video-info-bar .preview-status.loading { color: var(--f-ambar); }
+.video-info-bar .preview-status.loading { color: var(--f-sinal); }
 .video-info-bar .preview-status.error { color: var(--f-alerta); }
 .preview-video-name {
     order: 3; display: block;
@@ -1206,9 +1227,9 @@ h1, h2, h3, h4 { margin: 0; font-weight: 700; letter-spacing: -0.03em; }
     padding: var(--f-3) var(--f-4) !important;
 }
 .console-line { border: 0 !important; padding: 0 !important; }
-.console-line.success { color: var(--f-fosforo) !important; }
+.console-line.success { color: var(--f-vivo) !important; }
 .console-line.error   { color: var(--f-alerta) !important; }
-.console-line.warning { color: var(--f-ambar) !important; }
+.console-line.warning { color: var(--f-sinal) !important; }
 .console-line.info    { color: var(--f-tinta-2) !important; }
 
 /* ══ 15. A ENTRADA ══════════════════════════════════════════════════════════
@@ -1239,8 +1260,8 @@ h1, h2, h3, h4 { margin: 0; font-weight: 700; letter-spacing: -0.03em; }
     position: absolute; left: 50%; top: 50%;
     width: 0; height: 2px;
     transform: translate(-50%, 40px);
-    background: var(--f-ambar);
-    box-shadow: 0 0 16px 1px var(--f-ambar);
+    background: var(--f-sinal);
+    box-shadow: 0 0 16px 1px var(--f-sinal);
     animation: f-varrer .46s var(--f-curva) .2s forwards;
 }
 
@@ -1249,7 +1270,7 @@ h1, h2, h3, h4 { margin: 0; font-weight: 700; letter-spacing: -0.03em; }
     content: "";
     position: absolute; inset: 0;
     background: radial-gradient(60% 40% at 50% 50%,
-        color-mix(in srgb, var(--f-ambar) 12%, transparent), transparent 70%);
+        color-mix(in srgb, var(--f-sinal) 12%, transparent), transparent 70%);
     opacity: 0;
     animation: f-clarao .5s ease-out .18s;
 }
@@ -1257,23 +1278,78 @@ h1, h2, h3, h4 { margin: 0; font-weight: 700; letter-spacing: -0.03em; }
 @keyframes f-filamento {
     0%   { color: var(--f-aresta-luz); filter: none; }
     55%  { color: #ffd98a; }
-    100% { color: var(--f-ambar); filter: drop-shadow(0 0 14px color-mix(in srgb, var(--f-ambar) 60%, transparent)); }
+    100% { color: var(--f-sinal); filter: drop-shadow(0 0 14px color-mix(in srgb, var(--f-sinal) 60%, transparent)); }
 }
 @keyframes f-varrer { to { width: min(430px, 64vw); } }
 @keyframes f-clarao { 0% { opacity: 0; } 40% { opacity: 1; } 100% { opacity: 0; } }
 @keyframes f-apagar  { to { opacity: 0; visibility: hidden; } }
 
 /* ══ 16. O PAINEL ═══════════════════════════════════════════════════════════
-   Ele mandou referência de dashboard, e o que faltava aqui não era gráfico —
-   era o miolo falar a língua da mesa. A moldura já vinha; a fileira de marcos
-   e os títulos ainda eram de site. */
+
+   "esse dashboards é exatamente igual ao anterior 🤡" — e estava mesmo. Eu
+   tinha trocado a pintura dos mostradores e não tinha mexido no que o painel
+   MOSTRA nem em como ele arruma.
+
+   Duas mudanças de fundo:
+
+   1. O topo dá a RESPOSTA, não o dado. "news-peg · 1,40× a mediana" obriga o
+      editor a traduzir sozinho, toda vez. "Abra o próximo corte com news-peg"
+      é a mesma informação já decidida — e o veredito muda de tom quando a
+      evidência não aguenta, em vez de mandar apostar em quatro posts.
+
+   2. O mapa de evidência: duas variáveis, duas dimensões. A lista de barras só
+      sabe desenhar uma, e por isso escondia a única coisa que separa aposta de
+      ruído. Ver o comentário em painel.js.                                     */
+
+.painel-grade { display: flex; flex-direction: column; gap: var(--f-4); }
+
+/* ── o veredito ─────────────────────────────────────────────────────────── */
+
+.veredito {
+    padding: var(--f-5) var(--f-5) var(--f-4) !important;
+    background:
+        radial-gradient(120% 160% at 12% 0%,
+            color-mix(in srgb, var(--f-sol) 12%, transparent), transparent 62%),
+        linear-gradient(180deg, var(--f-painel), var(--f-mesa)) !important;
+}
+.veredito-rotulo {
+    display: block;
+    font-size: 10px; font-weight: 700; letter-spacing: .17em;
+    text-transform: uppercase; color: var(--f-tinta-3);
+    margin-bottom: 6px;
+}
+.veredito-nome {
+    display: block;
+    font-family: var(--f-mono);
+    font-size: clamp(30px, 4.4vw, 46px);
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -0.045em;
+    color: var(--f-sol);
+    text-shadow: 0 0 40px color-mix(in srgb, var(--f-sol) 45%, transparent);
+}
+.veredito-conta { margin: 10px 0 0; font-size: 12.5px; color: var(--f-tinta-2); }
+.veredito-conta b { color: var(--f-tinta); font-family: var(--f-mono); }
+.veredito-alerta {
+    margin: 10px 0 0;
+    padding: 7px 10px;
+    border: 1px solid color-mix(in srgb, var(--f-alerta) 35%, transparent);
+    border-radius: var(--f-r);
+    background: var(--f-alerta-in);
+    color: var(--f-alerta);
+    font-size: 11.5px;
+}
+.veredito-fraco .veredito-nome { color: var(--f-tinta-2); text-shadow: none; }
+
+/* ── os mostradores ─────────────────────────────────────────────────────── */
 
 .marcos {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     gap: 0 !important;
     overflow: hidden;
     border-radius: var(--f-r-g);
 }
-/* Fileira de mostradores separados por filete, não cartões soltos. */
 .marco {
     background: none !important;
     border: 0 !important;
@@ -1282,25 +1358,131 @@ h1, h2, h3, h4 { margin: 0; font-weight: 700; letter-spacing: -0.03em; }
     padding: var(--f-4) !important;
 }
 .marco:first-child { border-left: 0 !important; }
-.marco.destaque {
-    background: linear-gradient(180deg,
-        color-mix(in srgb, var(--f-ambar) 7%, transparent), transparent) !important;
+.marco-valor { color: var(--f-tinta) !important; }
+
+/* ── o mapa de evidência ────────────────────────────────────────────────── */
+
+.ev-plano {
+    position: relative;
+    height: 260px;
+    margin: var(--f-3) 0 6px;
+    background:
+        linear-gradient(90deg, color-mix(in srgb, var(--viz-abaixo) 5%, transparent), transparent 48%,
+                        transparent 52%, color-mix(in srgb, var(--viz-acima) 5%, transparent)),
+        #05030d;
+    border-radius: var(--f-r);
+    box-shadow: inset 0 1px 5px rgb(0 0 0 / .7), inset 0 0 0 1px var(--f-aresta);
+    /* Sem recorte: o nome de um ponto colado na borda saía cortado — "outi" no
+       lugar de "outro". Um rótulo pela metade é pior que rótulo nenhum, porque
+       o editor lê uma palavra que não existe. */
+    overflow: visible;
+    isolation: isolate;
 }
 
-.painel .section-header h3,
-.painel h3, .painel h4 {
+/* Os eixos: a mediana da conta e o corte de evidência magra. */
+.ev-eixo-v {
+    position: absolute; left: 50%; top: 0; bottom: 0; width: 1px;
+    background: var(--f-aresta-luz);
+}
+.ev-eixo-h {
+    position: absolute; left: 0; right: 0;
+    bottom: calc(var(--corte-y) * 100%);
+    height: 1px;
+    background: repeating-linear-gradient(90deg,
+        var(--f-aresta-luz) 0 5px, transparent 5px 10px);
+}
+
+.ev-zona {
+    position: absolute;
+    font-size: 9px; font-weight: 700; letter-spacing: .19em;
+    text-transform: uppercase; color: var(--f-tinta-3);
+    opacity: .5; pointer-events: none;
+}
+.ev-aposte   { top: 9px;    right: 11px; color: var(--f-vivo); opacity: .65; }
+.ev-evite    { top: 9px;    left: 11px; }
+.ev-promessa { bottom: 9px; right: 11px; color: var(--f-sol); opacity: .6; }
+.ev-semsinal { bottom: 9px; left: 11px; }
+
+.ev-ponto {
+    position: absolute;
+    left: calc(var(--x) * 100%);
+    bottom: calc(var(--y) * 100%);
+    transform: translate(-50%, 50%);
+    width: 11px; height: 11px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: var(--viz-acima);
+    box-shadow: 0 0 0 3px #05030d, 0 0 14px -1px var(--viz-acima);
+    cursor: pointer;
+    transition: transform .14s var(--f-curva);
+}
+.ev-ponto.abaixo { background: var(--viz-abaixo); box-shadow: 0 0 0 3px #05030d, 0 0 14px -1px var(--viz-abaixo); }
+/* Amostra magra: o ponto fica vazado. A forma diz "cuidado" mesmo sem cor —
+   é a mesma regra do resto da mesa, identidade nunca só na cor. */
+.ev-ponto.frouxo { background: transparent; box-shadow: 0 0 0 2px currentColor inset, 0 0 0 3px #05030d; }
+.ev-ponto.frouxo.acima  { color: var(--viz-acima); }
+.ev-ponto.frouxo.abaixo { color: var(--viz-abaixo); }
+.ev-ponto:hover, .ev-ponto:focus-visible { transform: translate(-50%, 50%) scale(1.45); z-index: 4; }
+
+.ev-nome {
+    position: absolute;
+    left: 50%; bottom: 16px;
+    transform: translateX(-50%);
     font-size: 10px;
-    font-weight: 700;
-    letter-spacing: .17em;
-    text-transform: uppercase;
+    color: var(--f-tinta-2);
+    white-space: nowrap;
+    pointer-events: none;
+}
+.ev-dica {
+    position: absolute;
+    left: 50%; top: -30px;
+    transform: translateX(-50%);
+    padding: 4px 8px;
+    background: var(--f-alto);
+    border: 1px solid var(--f-aresta-luz);
+    border-radius: var(--f-r);
+    font-family: var(--f-mono);
+    font-size: 10.5px;
+    color: var(--f-tinta);
+    white-space: nowrap;
+    opacity: 0; pointer-events: none;
+    transition: opacity .12s;
+    z-index: 5;
+}
+.ev-ponto:hover .ev-dica, .ev-ponto:focus-visible .ev-dica { opacity: 1; }
+
+.ev-legendas {
+    display: flex; justify-content: space-between;
+    font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase;
     color: var(--f-tinta-3);
 }
+.ev-legendas .ev-meio { color: var(--f-tinta-2); }
 
-/* A régua "rende menos ↔ rende mais" é o eixo do gráfico: recessiva. */
+/* ── temas e nomes ──────────────────────────────────────────────────────── */
+
+.dupla { display: grid; grid-template-columns: 1fr 1fr; gap: var(--f-4); }
+@media (max-width: 900px) { .dupla { grid-template-columns: 1fr; } }
+
+.painel .section-header h3, .painel h3, .painel h4,
+.cartao-topo h3 {
+    font-size: 10px; font-weight: 700; letter-spacing: .17em;
+    text-transform: uppercase; color: var(--f-tinta-3);
+}
+.cartao-topo p { margin: 4px 0 0; font-size: 11.5px; color: var(--f-tinta-3); line-height: 1.5; }
+.cartao-topo p b { color: var(--f-tinta-2); }
+
 .faixa-nome { color: var(--f-tinta-2); }
 .faixa-valor { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
 .faixa-n { font-family: var(--f-mono); color: var(--f-tinta-3); }
 .faixa-barra { box-shadow: 0 0 12px -4px currentColor; }
+
+.qq-conta { font-family: var(--f-mono); font-size: 11.5px; color: var(--f-tinta-3); }
+.qq-conta b { color: var(--f-tinta); }
+.qq-contra b { color: var(--viz-abaixo); }
+.qq-favor b  { color: var(--viz-acima); }
+
+.painel-rodape { font-size: 10.5px; color: var(--f-tinta-3); line-height: 1.6; margin: 0; }
 
 /* ══ 17. MEDIDAS ════════════════════════════════════════════════════════════ */
 
@@ -1326,4 +1508,114 @@ h1, h2, h3, h4 { margin: 0; font-weight: 700; letter-spacing: -0.03em; }
         transition-duration: .01ms !important;
     }
     body::after { display: none; }
+}
+
+
+/* ══ 18. AS PELES ═══════════════════════════════════════════════════════════
+
+   "quero apenas que o fúria também seja divertido e não só bonito sabe? algo
+   que encante"
+
+   Poolsuite tem temas de área de trabalho e um cursor que vira taça de martíni.
+   Nada daquilo serve para nada, e é tudo aquilo que faz voltar. A primeira mesa
+   era competente e sem graça exatamente por não ter nenhum brinquedo dentro.
+
+   Uma pele troca SÓ os papéis de cor. Nenhuma linha de layout, nenhum tamanho,
+   nenhuma decisão de arquitetura. É por isso que ela é barata de fazer e é por
+   isso que ela vale: se trocar o mundo inteiro custa doze linhas, o sistema é
+   sistema de verdade e não pintura.
+
+   E resolve o que ficou pendente do tema claro: em vez de "claro/escuro", que
+   nunca foi a pergunta certa para uma ferramenta de corte, ele escolhe em que
+   mundo quer trabalhar hoje.                                                   */
+
+/* OBSERVATÓRIO — a de casa. Índigo profundo, rosa e ciano.
+   É o encontro que ele pediu: o vazio preciso de um lado, a cor quente do
+   outro. Definida no topo do arquivo; aqui só ficam as outras. */
+
+/* ── CINEMA ─────────────────────────────────────────────────────────────────
+   A sala escura de verdade: carvão neutro, âmbar de projetor, verde de saída
+   de emergência. É a mesa mais sóbria das três, para o dia em que o trabalho
+   pesa mais que a vontade. */
+:root[data-pele="cinema"] {
+    --f-vazio:    #0a0a0b;
+    --f-mesa:     #0f0f11;
+    --f-painel:   #151517;
+    --f-alto:     #1e1e21;
+    --f-fundo-in: #101012;
+    --f-aresta:      #26262a;
+    --f-aresta-luz:  #3a3a40;
+    --f-tinta:   #f0efec;
+    --f-tinta-2: #9d9b95;
+    --f-tinta-3: #6b6963;
+    --f-sinal:    #ffab2e;
+    --f-sinal-in: #241803;
+    --f-vivo:     #4ade9b;
+    --f-vivo-in:  #06241a;
+    --f-alerta:   #ff5a45;
+    --f-alerta-in:#2a0e0a;
+    --f-sol:      #ffe08a;
+    --f-violeta:  #b09a6a;
+    --f-inerte:   #6b6963;
+    --viz-acima:  #6db3ff;
+    --viz-abaixo: #ff8674;
+}
+
+/* ── PISCINA ────────────────────────────────────────────────────────────────
+   O verão que Poolsuite inventou, traduzido para uma bancada: azul de água
+   funda, coral, turquesa. Continua legível porque continua escura — o mundo
+   muda, a regra de contraste não. */
+:root[data-pele="piscina"] {
+    --f-vazio:    #04141f;
+    --f-mesa:     #061b29;
+    --f-painel:   #082436;
+    --f-alto:     #0d3149;
+    --f-fundo-in: #051c2b;
+    --f-aresta:      #0f3d59;
+    --f-aresta-luz:  #17587d;
+    --f-tinta:   #eafaff;
+    --f-tinta-2: #8fc2d8;
+    --f-tinta-3: #5c93ab;
+    --f-sinal:    #ff7a5c;
+    --f-sinal-in: #2b0f09;
+    --f-vivo:     #2fe0c8;
+    --f-vivo-in:  #05282a;
+    --f-alerta:   #ff4d6d;
+    --f-alerta-in:#2c0a15;
+    --f-sol:      #ffd166;
+    --f-violeta:  #7ad7f0;
+    --f-inerte:   #4d7f96;
+    --viz-acima:  #35d0ff;
+    --viz-abaixo: #ff8b6b;
+}
+
+/* O seletor de pele: três amostras de tinta, não um menu. */
+.f-peles { display: flex; align-items: center; gap: 4px; flex: none; }
+.f-pele {
+    width: 16px; height: 16px;
+    padding: 0;
+    border: 1px solid var(--f-aresta-luz);
+    border-radius: 50%;
+    cursor: pointer;
+    transition: transform .14s var(--f-curva), box-shadow .14s;
+}
+.f-pele:hover { transform: scale(1.18); }
+.f-pele[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--f-vazio), 0 0 0 3px var(--f-tinta-2); }
+.f-pele[data-pele="observatorio"] { background: linear-gradient(135deg, #ff3d8b, #22e4f5); }
+.f-pele[data-pele="cinema"]       { background: linear-gradient(135deg, #ffab2e, #4ade9b); }
+.f-pele[data-pele="piscina"]      { background: linear-gradient(135deg, #ff7a5c, #2fe0c8); }
+
+/* ══ 19. A ONÇA ═════════════════════════════════════════════════════════════
+
+   Ela já existia — desenhada, guardada em static/img e usada em dois lugares
+   perdidos do estilo antigo. Uma onça é o bicho certo para uma ferramenta
+   chamada Furia, e ela estava no arquivo fazendo nada.
+
+   Cursor não é enfeite gratuito aqui: é o único elemento da tela que segue a
+   pessoa o tempo todo. Poolsuite entendeu isso antes de todo mundo.
+
+   Só nos lugares onde a mão AGE — botão, aba, ponto do mapa, bloco do corte.
+   Sobre texto continua sendo o cursor de texto, porque ali a mão lê. */
+body :is(button, .rail-tab, .mapa-bloco, .ev-ponto, .f-pele, [role="tab"]):not(:disabled) {
+    cursor: url("/static/img/cursor-onca.svg") 12 12, pointer;
 }

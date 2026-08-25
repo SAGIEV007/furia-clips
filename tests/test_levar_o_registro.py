@@ -28,7 +28,7 @@ RAIZ = Path(__file__).resolve().parents[1]
 TEMPLATE = RAIZ / "templates" / "index.html"
 ATELIE_CSS = RAIZ / "static" / "css" / "atelie.css"
 ATELIE_JS = RAIZ / "static" / "js" / "atelie.js"
-SALA_CSS = RAIZ / "static" / "css" / "sala.css"
+MESA_CSS = RAIZ / "static" / "css" / "mesa.css"
 
 
 def test_nao_existe_barra_lateral_para_engolir_o_puxador():
@@ -44,7 +44,7 @@ def test_nao_existe_barra_lateral_para_engolir_o_puxador():
     exigir a compensação de um obstáculo que não existe seria proteger o
     passado. O que precisa continuar verdadeiro é o fato, não a fórmula.
     """
-    css = SALA_CSS.read_text(encoding="utf-8")
+    css = MESA_CSS.read_text(encoding="utf-8")
     assert ".sidebar," in css and "display: none !important" in css, (
         "a barra lateral voltou; se voltar, o puxador da gaveta volta a sumir atrás dela"
     )
@@ -102,11 +102,11 @@ def test_a_previa_e_o_inspetor_se_revezam():
     exatamente o que o editor acabou de clicar para ver.
     """
     assert ".main-content.dock-open .inspetor { display: none; }" in ATELIE_CSS.read_text(encoding="utf-8")
-    sala = SALA_CSS.read_text(encoding="utf-8")
-    assert ".inspetor.is-active { display: block; }" in sala, (
+    mesa = MESA_CSS.read_text(encoding="utf-8")
+    assert ".inspetor.is-active { display: block; }" in mesa, (
         "o inspetor voltou a ser permanente; ele passava o dia dizendo 'Nada selecionado'"
     )
-    assert ".inspetor {\n    display: none;" in sala, (
+    assert ".inspetor {\n    display: none;" in mesa, (
         "sem seleção o inspetor tem de estar fora da tela, não vazio dentro dela"
     )
 

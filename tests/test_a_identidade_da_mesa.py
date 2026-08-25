@@ -125,14 +125,19 @@ def test_a_ignicao_acontece_uma_vez_por_sessao():
 def test_o_ambar_nunca_entra_em_dado():
     """A regra mais importante do Painel, e ela sobreviveu à troca de identidade.
 
-    Na mesa o âmbar quer dizer uma coisa só: "isto é material do Furia". Se ele
-    também pintasse "rendeu bem", as duas leituras se confundiriam na única tela
-    onde aparecem juntas.
+    Na mesa a cor de sinal quer dizer uma coisa só: "isto é material do Furia".
+    Se ela também pintasse "rendeu bem", as duas leituras se confundiriam na
+    única tela onde aparecem juntas. Vale para qualquer cor que ocupe o papel —
+    o teste lê o token, não um hex fixo, porque a paleta já mudou uma vez e vai
+    mudar de novo.
     """
     atelie = open(os.path.join(RAIZ, "static", "css", "atelie.css"), encoding="utf-8").read()
+    mesa = open(MESA_CSS, encoding="utf-8").read()
+    sinal = re.search(r"--f-sinal:\s*(#[0-9a-fA-F]+)", mesa).group(1).lower()
     bloco = atelie[atelie.index("--viz-acima"):atelie.index("--viz-meio")]
-    assert "ffb020" not in bloco.lower() and "--f-ambar" not in bloco, (
-        "o âmbar entrou na escala de desempenho e passou a significar duas coisas"
+    assert sinal not in bloco.lower() and "--f-sinal" not in bloco, (
+        f"a cor de sinal ({sinal}) entrou na escala de desempenho e passou a "
+        "significar duas coisas ao mesmo tempo"
     )
 
 
@@ -203,6 +208,10 @@ def test_a_mesa_esta_desenhada_na_tela():
     )
     assert "tabular-nums" in visto["tabular"], "os números pararam de alinhar em coluna"
     assert visto["marca"], "a marca desenhada não chegou à tela"
-    assert "255, 176, 32" in visto["lampada"], (
+    # A cor exata não entra aqui de propósito: o editor tem autonomia total
+    # sobre a paleta e já a trocou uma vez. O que precisa continuar verdadeiro é
+    # que a estação ativa ACENDE — uma cor saturada, não a aresta apagada.
+    canais_lampada = [int(n) for n in re.findall(r"\d+", visto["lampada"])[:3]]
+    assert max(canais_lampada) - min(canais_lampada) > 60, (
         f"a lâmpada da estação ativa apagou: {visto['lampada']}"
     )

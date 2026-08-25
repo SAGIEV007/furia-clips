@@ -34,14 +34,14 @@
     --at-tinta-media:  var(--f-tinta-2);
     --at-tinta-fraca:  var(--f-tinta-3);
 
-    --at-ouro:         var(--f-ambar);
-    --at-ouro-fundo:   var(--f-ambar-in);
+    --at-ouro:         var(--f-sinal);
+    --at-ouro-fundo:   var(--f-sinal-in);
     --at-ouro-linha:   var(--f-aresta-luz);
 
-    --at-bom:          var(--f-fosforo);
-    --at-bom-fundo:    var(--f-fosf-in);
-    --at-atencao:      var(--f-ambar);
-    --at-atencao-fundo:var(--f-ambar-in);
+    --at-bom:          var(--f-vivo);
+    --at-bom-fundo:    var(--f-vivo-in);
+    --at-atencao:      var(--f-sinal);
+    --at-atencao-fundo:var(--f-sinal-in);
     --at-ruim:         var(--f-alerta);
     --at-ruim-fundo:   var(--f-alerta-in);
 
@@ -588,8 +588,8 @@ body.light-mode .section, [data-theme="light"] .section { background: var(--at-s
 .marco-nota { font-size: 0.76rem; color: var(--at-tinta-fraca); }
 .marco.destaque { background: var(--at-elevado); }
 .marco.destaque .marco-valor {
-    color: var(--f-ambar) !important;
-    text-shadow: 0 0 22px color-mix(in srgb, var(--f-ambar) 45%, transparent);
+    color: var(--f-sinal) !important;
+    text-shadow: 0 0 22px color-mix(in srgb, var(--f-sinal) 45%, transparent);
     font-family: var(--f-mono) !important;
     font-variant-numeric: tabular-nums;
     letter-spacing: -0.02em;

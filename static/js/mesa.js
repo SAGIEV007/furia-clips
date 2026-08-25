@@ -135,6 +135,36 @@
     });
     pintarSom();
 
+    /* ── as peles ───────────────────────────────────────────────────────────
+
+       Trocar de pele troca só os papéis de cor. Como o mapa da fonte e a onda
+       do talho desenham em canvas — lendo a cor do CSS uma vez, no momento do
+       desenho —, o que já está na tela fica com a cor velha até alguém pedir de
+       novo. Daí o redesenho aqui. */
+
+    function vestir(pele, tocar) {
+        const raiz = document.documentElement;
+        if (pele && pele !== "observatorio") raiz.dataset.pele = pele;
+        else delete raiz.dataset.pele;
+        document.querySelectorAll(".f-pele").forEach((b) => {
+            b.setAttribute("aria-pressed", b.dataset.pele === (pele || "observatorio") ? "true" : "false");
+        });
+        // O Painel não entra aqui: ele é HTML e CSS puros, então as barras já
+        // trocam sozinhas com os tokens. Só o que desenha em canvas precisa
+        // ser refeito.
+        window.redesenharTalhos?.();
+        window.desenharMapaDaFonte?.();
+        if (tocar) SONS.tique();
+    }
+
+    document.querySelectorAll(".f-pele").forEach((botao) => {
+        botao.addEventListener("click", () => {
+            vestir(botao.dataset.pele, true);
+            guardar("furia.pele", botao.dataset.pele);
+        });
+    });
+    vestir(lembrar("furia.pele") || "observatorio", false);
+
     /* ── a trilha: por onde ele já passou ───────────────────────────────────
        O percurso (Fila → Cortar → Auditoria) mostra o caminho andado. Uma aba
        visitada fica em brasa; a atual, acesa. É o que transforma cinco abas

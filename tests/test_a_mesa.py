@@ -156,10 +156,23 @@ def test_o_percurso_e_a_consulta_nao_tem_o_mesmo_peso(pagina_do_editor):
     )
 
     # A estação ativa acende; as outras não. É o que dá direção à linha.
+    #
+    # A cor exata não entra: o editor tem autonomia total sobre a paleta e já a
+    # trocou uma vez — a primeira versão deste teste procurava o âmbar cravado
+    # no seletor e reprovou na troca. O teste lê o token vigente.
     aceso = pagina.evaluate(
-        """() => [...document.querySelectorAll('.rail-tab')]
-              .filter(t => getComputedStyle(t, '::after').backgroundColor.includes('255, 176, 32'))
-              .map(t => t.dataset.ambiente)"""
+        """() => {
+            const sinal = getComputedStyle(document.documentElement)
+                .getPropertyValue('--f-sinal').trim();
+            const tinta = document.createElement('span');
+            tinta.style.color = sinal;
+            document.body.appendChild(tinta);
+            const alvo = getComputedStyle(tinta).color;
+            tinta.remove();
+            return [...document.querySelectorAll('.rail-tab')]
+                .filter(t => getComputedStyle(t, '::after').backgroundColor === alvo)
+                .map(t => t.dataset.ambiente);
+        }"""
     )
     assert aceso == ["auditoria"], f"lâmpadas acesas: {aceso}"
 
