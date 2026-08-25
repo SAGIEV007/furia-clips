@@ -304,14 +304,19 @@
         ].join("\n");
     }
 
-    document.getElementById("btnCopiarRegistro")?.addEventListener("click", async () => {
-        const texto = registro();
+    /* Copiar, com plano B. A área de transferência moderna é negada fora de
+       conexão segura em parte dos navegadores, e o Furia roda local, sem
+       certificado — sem o caminho antigo, copiar falharia calado justamente na
+       máquina dele.
+
+       (O endereço local não aparece escrito aqui de propósito: um teste proíbe
+       "http" nestes arquivos para garantir que nada busque rede, e ele é uma
+       verificação burra que não deve ser afrouxada por causa de um comentário.) */
+    async function copiar(texto) {
         try {
             await navigator.clipboard.writeText(texto);
-            dizer(`copiado — ${texto.split("\n").length - 4} linhas`);
+            return true;
         } catch (erro) {
-            // Área de transferência negada (acontece fora de https em alguns
-            // navegadores). O caminho antigo ainda funciona.
             const caixa = document.createElement("textarea");
             caixa.value = texto;
             caixa.style.position = "fixed";
@@ -320,8 +325,18 @@
             caixa.select();
             const deu = document.execCommand("copy");
             caixa.remove();
-            dizer(deu ? "copiado" : "não deu para copiar; use Salvar em arquivo", !deu);
+            return deu;
         }
+    }
+
+    document.getElementById("btnCopiarRegistro")?.addEventListener("click", async () => {
+        const texto = registro();
+        const deu = await copiar(texto);
+        dizer(
+            deu ? `copiado — ${texto.split("\n").length - 4} linhas`
+                : "não deu para copiar; use Salvar em arquivo",
+            !deu,
+        );
     });
 
     document.getElementById("btnSalvarRegistro")?.addEventListener("click", () => {
@@ -334,6 +349,115 @@
         link.remove();
         window.setTimeout(() => URL.revokeObjectURL(link.href), 4000);
         dizer("salvo na pasta de downloads");
+    });
+
+    /* ── mandar a rodada para análise ───────────────────────────────────────
+
+       "onde eu acho essas informações para te passar? no console mesmo?"
+
+       O relatório completo sempre existiu, mas mora em
+       C:\\Users\\<ele>\\FuriaClipsData\\diagnostics, e chegar lá exige navegar no
+       explorador. Dois caminhos agora:
+
+       - abrir a pasta, para arrastar o arquivo inteiro quando o assunto for a
+         seleção toda;
+       - copiar um RESUMO, que é o que resolve a pergunta que eu faço mais: qual
+         corte abriu ou fechou errado. Para isso não preciso de 500 KB de JSON,
+         preciso da primeira e da última frase de cada corte. Isso cabe numa
+         mensagem, e ele pode marcar os ruins direto no texto colado.          */
+
+    document.getElementById("btnAbrirPastaDiagnostico")?.addEventListener("click", async () => {
+        try {
+            const resposta = await fetch("/api/open-diagnostics", { method: "POST" });
+            const corpo = await resposta.json();
+            if (!resposta.ok) { dizer(corpo.error || "não deu", true); return; }
+            dizer(
+                corpo.arquivos
+                    ? `pasta aberta · ${corpo.arquivos} relatório(s) · o mais novo é ${corpo.mais_recente}`
+                    : "pasta aberta — ainda sem relatório; rode um vídeo primeiro",
+            );
+        } catch (erro) {
+            dizer(String(erro.message).slice(0, 80), true);
+        }
+    });
+
+    document.getElementById("btnCopiarResumoDaRodada")?.addEventListener("click", async () => {
+        const cortes = window.state?.clips || [];
+        if (!cortes.length) {
+            dizer("nenhum corte nesta sessão ainda", true);
+            return;
+        }
+        const relogio = (s) => {
+            const t = Math.max(0, Math.round(Number(s) || 0));
+            return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`;
+        };
+        const limpo = (texto) => String(texto || "").replace(/\s+/g, " ").trim();
+        const descartados =
+            window.state?.diagnostics?.descartados_por_sobreposicao
+            || window.state?.selectionDiagnostics?.descartados_por_sobreposicao
+            || [];
+
+        const linhas = [
+            `FURIA ${document.getElementById("runtimeVersion")?.textContent?.trim() || ""}`
+            + ` · ${new Date().toLocaleString("pt-BR")}`,
+            // O nome vem do estado, não do elemento: ler o textContent trazia
+            // junto o ícone e a dica escondida ("cloud_upload Nenhum vídeo
+            // carregado Importe ou cole o link…"), e a primeira linha do
+            // resumo saía impossível de ler.
+            `fonte: ${limpo(window.state?.selectedVideoName)
+                || limpo(String(window.state?.selectedVideo || "").split(/[\\/]/).pop())
+                || "não identificada"}`,
+            `${cortes.length} corte(s) entregues`
+            + (descartados.length ? ` · ${descartados.length} candidato(s) descartados pela peneira` : ""),
+            "",
+            "Marque abaixo o que abriu ou fechou errado:",
+            "",
+        ];
+        cortes.forEach((corte, i) => {
+            // Primeira e última frase são exatamente o que decide se a borda
+            // ficou certa. O miolo não ajuda a responder isso e só faria o
+            // texto não caber numa mensagem.
+            const texto = limpo(corte.text);
+            const frases = texto.split(/(?<=[.!?])\s+/).filter(Boolean);
+            const abre = frases[0] || texto.slice(0, 120) || "(sem transcrição)";
+            // A última "frase" só vale como fecho se ela FECHAR. Um trecho que
+            // termina no meio da palavra não é o fim do corte — é sinal de que
+            // a transcrição chegou cortada, e mostrá-lo faria eu julgar um
+            // fecho que não existe.
+            const ultima = frases.length > 1 ? frases[frases.length - 1] : "";
+            const fecha = /[.!?]\s*$/.test(ultima)
+                ? ultima
+                : (ultima ? `${ultima} …(transcrição incompleta aqui)` : "");
+            linhas.push(
+                `#${corte.rank || i + 1}  ${relogio(corte.start)}–${relogio(corte.end)}`
+                + `  (${Math.round(Number(corte.duration) || 0)}s, nota ${corte.viral_score ?? "—"})`
+                + `${corte.review_status && corte.review_status !== "needs_review" ? ` · ${corte.review_status}` : ""}`,
+            );
+            linhas.push(`    abre:  ${abre.slice(0, 160)}`);
+            if (fecha) linhas.push(`    fecha: ${fecha.slice(0, 160)}`);
+            linhas.push("");
+        });
+
+        const soltos = descartados.filter((d) => !d.dentro_do_vencedor);
+        if (soltos.length) {
+            linhas.push(`Descartados que traziam material próprio (${soltos.length}):`);
+            soltos.slice(0, 10).forEach((d) => {
+                linhas.push(
+                    `  ${relogio(d.inicio)}–${relogio(d.fim)} (${Math.round(d.duracao)}s`
+                    + `${d.inedito_s != null ? `, ${Math.round(d.inedito_s)}s inéditos` : ""})`
+                    + `  “${limpo(d.trecho).slice(0, 90)}”`,
+                );
+            });
+        }
+
+        const texto = linhas.join("\n");
+        const deu = await copiar(texto);
+        dizer(
+            deu
+                ? `resumo copiado — ${cortes.length} corte(s), ${texto.split("\n").length} linhas. Cole na conversa.`
+                : "não deu para copiar; use Salvar em arquivo",
+            !deu,
+        );
     });
 
     document.getElementById("btnAbrirPastaLogs")?.addEventListener("click", async () => {

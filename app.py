@@ -5394,6 +5394,41 @@ def api_open_logs():
     return jsonify({"success": True, "pasta": pasta})
 
 
+@app.route("/api/open-diagnostics", methods=["POST"])
+def api_open_diagnostics():
+    """Abrir a pasta onde o relatório de cada rodada é gravado.
+
+    O editor: "onde eu acho essas informações para te passar? no console mesmo?".
+
+    O arquivo sempre existiu e o console sempre disse o caminho, mas o caminho é
+    `C:\\Users\\<ele>\\FuriaClipsData\\diagnostics` — um lugar que só se alcança
+    navegando no explorador, que é justamente o tipo de coisa que ele não deveria
+    precisar fazer para me mandar um arquivo. Com a pasta aberta, arrastar o mais
+    recente para a conversa são dois cliques.
+
+    Fora do repositório de propósito: diagnóstico carrega transcrição, e
+    transcrição de material não publicado não entra em pasta versionada.
+    """
+    from pathlib import Path
+
+    pasta = Path(
+        os.environ.get("FURIA_CLIPS_DATA_DIR") or (Path.home() / "FuriaClipsData")
+    ) / "diagnostics"
+    pasta.mkdir(parents=True, exist_ok=True)
+    arquivos = sorted(pasta.glob("selecao-*.json"), key=lambda p: p.stat().st_mtime, reverse=True)
+    corpo = {
+        "pasta": str(pasta),
+        "arquivos": len(arquivos),
+        "mais_recente": arquivos[0].name if arquivos else "",
+    }
+    try:
+        open_local_path(str(pasta))
+    except (FileNotFoundError, OSError) as erro:
+        # Sem ambiente gráfico o comando falha, e dizer ONDE fica ainda resolve.
+        return jsonify({"error": f"Não deu para abrir: {str(erro)[:120]}", **corpo}), 500
+    return jsonify({"success": True, **corpo})
+
+
 @app.route("/api/open_folder", methods=["POST"])
 def api_open_folder():
     data = request.get_json(silent=True) or {}

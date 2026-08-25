@@ -153,10 +153,32 @@ def test_o_claro_cobre_os_fundos_escuros_escritos_na_mao():
     No escuro isso some; no claro vira placa cinza por cima do texto. Foi o que
     apareceu no primeiro print: botões de fonte, dica, cartão do vídeo e meta do
     dia, todos ilegíveis.
+
+    ── por que este teste mudou de forma ──────────────────────────────────────
+
+    Ele exigia o texto `[data-theme="light"] .source-tabs` dentro do arquivo. E
+    passou verde durante toda a reforma da sala — enquanto as 34 regras estavam
+    MORTAS: o tema novo carimba `data-tema="claro"`, e nenhuma das duas condições
+    antigas (`body.light-mode`, `[data-theme="light"]`) casava mais com coisa
+    alguma. O teste procurava uma string, e a string continuava lá.
+
+    Um teste que só sabe dizer "a linha existe no arquivo" não sabe dizer se ela
+    faz alguma coisa. Agora ele exige que a regra seja INCONDICIONAL — sem
+    condição não há condição para apodrecer — e que a superfície aponte para um
+    papel em vez de uma cor fixa, que é a propriedade que faz os dois temas
+    funcionarem.
     """
     css = ATELIE_CSS.read_text(encoding="utf-8")
     for classe in (".source-tabs", ".source-panel", ".selected-video", ".action-card", ".result-card"):
-        assert f'[data-theme="light"] {classe}' in css, f"{classe} continua escuro no tema claro"
+        assert f"\n{classe} {{" in css, (
+            f"{classe} perdeu a regra que troca o preenchimento fixo por um papel"
+        )
+    # E a condição morta não pode voltar por nenhum dos dois nomes.
+    for morta in ('[data-theme="light"] .source-tabs', "body.light-mode .source-tabs"):
+        assert morta not in css, (
+            f"a superfície voltou a depender de {morta!r}, uma condição que o "
+            "tema atual nunca carimba"
+        )
 
 
 def test_a_paleta_e_o_talho_nao_dependem_de_rede():

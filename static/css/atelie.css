@@ -448,74 +448,56 @@ body[data-densidade="compacta"] .ambiente-intro { display: none; }
    Véus por cima de vídeo e a cortina das janelas continuam escuros de propósito.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-body.light-mode .context-review-grid article,
-[data-theme="light"] .context-review-grid article { background: var(--at-elevado); }
-body.light-mode .setting-select, .setting-input,
-[data-theme="light"] .setting-select, .setting-input { background: var(--at-elevado); }
-body.light-mode .workflow-steps,
-[data-theme="light"] .workflow-steps { background: var(--at-superficie); }
-body.light-mode .media-drop-zone,
-[data-theme="light"] .media-drop-zone { background: var(--at-superficie); }
-body.light-mode .source-tabs,
-[data-theme="light"] .source-tabs { background: var(--at-elevado); }
-body.light-mode .source-panel,
-[data-theme="light"] .source-panel { background: var(--at-alto); }
-body.light-mode .context-input,
-[data-theme="light"] .context-input { background: var(--at-elevado); }
-body.light-mode .action-card,
-[data-theme="light"] .action-card { background: var(--at-superficie); }
-body.light-mode .daily-editorial-goal, .editorial-learning, .editorial-data-card, .transcript-archive-card,
-[data-theme="light"] .daily-editorial-goal, .editorial-learning, .editorial-data-card, .transcript-archive-card { background: var(--at-alto); }
-body.light-mode .result-card,
-[data-theme="light"] .result-card { background: var(--at-superficie); }
-body.light-mode .result-text-preview, .score-breakdown,
-[data-theme="light"] .result-text-preview, .score-breakdown { background: var(--at-elevado); }
-body.light-mode .headline-studio-inputs, .headline-studio-controls,
-[data-theme="light"] .headline-studio-inputs, .headline-studio-controls { background: var(--at-alto); }
-body.light-mode .headline-studio-result-summary,
-[data-theme="light"] .headline-studio-result-summary { background: var(--at-elevado); }
-body.light-mode .artwork-format-result,
-[data-theme="light"] .artwork-format-result { background: var(--at-alto); }
-body.light-mode .transcript-archive-item,
-[data-theme="light"] .transcript-archive-item { background: var(--at-alto); }
-body.light-mode .performance-metrics-grid > div:first-child, .performance-metrics-controls,
-[data-theme="light"] .performance-metrics-grid > div:first-child, .performance-metrics-controls { background: var(--at-alto); }
-body.light-mode .clip-feedback-controls select,
-[data-theme="light"] .clip-feedback-controls select { background: var(--at-superficie); }
-body.light-mode .sidebar,
-[data-theme="light"] .sidebar { background: var(--at-superficie); }
-body.light-mode .sidebar-section,
-[data-theme="light"] .sidebar-section { background: var(--at-elevado); }
-body.light-mode .selected-video,
-[data-theme="light"] .selected-video { background: var(--at-elevado); }
-body.light-mode .main-header,
-[data-theme="light"] .main-header { background: var(--at-superficie); }
-body.light-mode .section,
-[data-theme="light"] .section { background: var(--at-superficie); }
-body.light-mode .media-card,
-[data-theme="light"] .media-card { background: var(--at-superficie); }
-body.light-mode .context-analysis-controls, .editorial-audit-controls,
-[data-theme="light"] .context-analysis-controls, .editorial-audit-controls { background: var(--at-elevado); }
-body.light-mode .context-analysis-result,
-[data-theme="light"] .context-analysis-result { background: var(--at-elevado); }
-body.light-mode .review-command-center,
-[data-theme="light"] .review-command-center { background: var(--at-elevado); }
-body.light-mode .score-breakdown-grades, .editorial-factors,
-[data-theme="light"] .score-breakdown-grades, .editorial-factors { background: var(--at-elevado); }
-body.light-mode .progress-bar-container,
-[data-theme="light"] .progress-bar-container { background: var(--at-superficie); }
-body.light-mode .processing-journey,
-[data-theme="light"] .processing-journey { background: var(--at-elevado); }
-body.light-mode .runtime-version,
-[data-theme="light"] .runtime-version { background: var(--at-elevado); }
-body.light-mode .campaign-hub-memory-card,
-[data-theme="light"] .campaign-hub-memory-card { background: var(--at-alto); }
-body.light-mode .editorial-block-card,
-[data-theme="light"] .editorial-block-card { background: var(--at-alto); }
-body.light-mode .editorial-block-card:hover,
-[data-theme="light"] .editorial-block-card:hover { background: var(--at-superficie); }
-body.light-mode .reading-unit:hover,
-[data-theme="light"] .reading-unit:hover { background: var(--at-superficie); }
+/* ── as superfícies dos painéis antigos ─────────────────────────────────────
+
+   Este bloco era condicional: `body.light-mode` e `[data-theme="light"]`. As
+   duas condições estavam mortas — o tema novo carimba `data-tema="claro"`, e
+   nenhuma delas casava mais. Trinta e oito regras que nunca disparavam, e um
+   teste que passava só porque procurava o texto no arquivo.
+
+   A correção não foi renomear o atributo: foi tirar a condição. Estas regras só
+   trocam um preenchimento fixo do estilo antigo por um token de papel, e os
+   tokens já viram com o tema sozinhos. Sem condição elas valem nos dois, e a
+   pergunta "qual tema?" some do arquivo.
+
+   De quebra morre um defeito antigo de precedência: `body.light-mode .a, .b`
+   deixava `.b` sem ancestral, valendo sempre.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.context-review-grid article {background: var(--at-elevado); }
+.setting-select, .setting-input {background: var(--at-elevado); }
+.workflow-steps {background: var(--at-superficie); }
+.media-drop-zone {background: var(--at-superficie); }
+.source-tabs {background: var(--at-elevado); }
+.source-panel {background: var(--at-alto); }
+.context-input {background: var(--at-elevado); }
+.action-card {background: var(--at-superficie); }
+.daily-editorial-goal, .editorial-learning, .editorial-data-card, .transcript-archive-card {background: var(--at-alto); }
+.result-card {background: var(--at-superficie); }
+.result-text-preview, .score-breakdown {background: var(--at-elevado); }
+.headline-studio-inputs, .headline-studio-controls {background: var(--at-alto); }
+.headline-studio-result-summary {background: var(--at-elevado); }
+.artwork-format-result {background: var(--at-alto); }
+.transcript-archive-item {background: var(--at-alto); }
+.performance-metrics-grid > div:first-child, .performance-metrics-controls {background: var(--at-alto); }
+.clip-feedback-controls select {background: var(--at-superficie); }
+.sidebar {background: var(--at-superficie); }
+.sidebar-section {background: var(--at-elevado); }
+.selected-video {background: var(--at-elevado); }
+.main-header {background: var(--at-superficie); }
+.section {background: var(--at-superficie); }
+.media-card {background: var(--at-superficie); }
+.context-analysis-controls, .editorial-audit-controls {background: var(--at-elevado); }
+.context-analysis-result {background: var(--at-elevado); }
+.review-command-center {background: var(--at-elevado); }
+.score-breakdown-grades, .editorial-factors {background: var(--at-elevado); }
+.progress-bar-container {background: var(--at-superficie); }
+.processing-journey {background: var(--at-elevado); }
+.runtime-version {background: var(--at-elevado); }
+.campaign-hub-memory-card {background: var(--at-alto); }
+.editorial-block-card {background: var(--at-alto); }
+.editorial-block-card:hover {background: var(--at-superficie); }
+.reading-unit:hover {background: var(--at-superficie); }
 
 body.light-mode .sidebar, [data-theme="light"] .sidebar { border-right: 1px solid var(--at-linha); }
 body.light-mode .main-header, [data-theme="light"] .main-header { background: var(--at-fundo) !important; }
