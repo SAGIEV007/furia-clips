@@ -1,0 +1,345 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   FURIA 2 — A BANCADA
+
+   O conceito inteiro está em docs/CONCEITO-FURIA-2.md. O resumo que importa
+   para quem mexer neste arquivo:
+
+     1. Cor é informação, nunca decoração.  A interface é cinza. Existem DUAS
+        cores no programa todo — fósforo (a máquina falando) e sangue (coisa
+        errada). Se você for adicionar uma terceira, não adicione.
+     2. Ferramenta é objeto, não aba.  Nada nasce aberto. O centro da tela é
+        sempre dos cortes.
+     3. O programa liga, não carrega.
+     4. Tudo que aparece responde a uma pergunta do corte.
+
+   Duas regras de ofício que vêm da tela dele, um notebook de 1366×768:
+   a faixa de cima e a doca de baixo têm altura FIXA e a parede fica com o
+   resto. Nada aqui usa `vh` solto, porque `vh` no Windows com a barra de
+   tarefas mede errado e empurra a doca para fora da tela.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+    /* o breu — preto de verdade. Cinza-escuro faz miniatura de vídeo parecer
+       suja; preto faz ela acender. É a única razão dele ser #000. */
+    --f2-breu: #000000;
+
+    /* os cinco cinzas. A interface inteira mora aqui dentro: bordas, janelas,
+       doca, texto secundário. Cinco degraus dão hierarquia completa sem gastar
+       uma gota de cor. */
+    --f2-c1: #0b0b0b;   /* fundo de peça */
+    --f2-c2: #151515;   /* peça acima da peça */
+    --f2-c3: #242424;   /* borda em repouso */
+    --f2-c4: #3d3d3d;   /* borda desperta, texto apagadíssimo */
+    --f2-c5: #6f6f6f;   /* texto secundário */
+
+    /* branco de folha. Levemente quente: branco puro sobre preto vibra e arde
+       depois de umas horas, e ele passa oito por dia aqui. */
+    --f2-folha: #f2efe6;
+
+    /* verde-fósforo — SÓ a máquina falando. Veio da barra de instalação do
+       Poolsuite. É cor de aparelho ligado, e é a cor que nunca aparece dentro
+       de uma entrevista política: quando acende, é o programa, nunca o
+       material. */
+    --f2-fosforo: #3ef2a5;
+
+    /* vermelho de gravação — SÓ quando tem coisa errada. É a única cor que um
+       editor lê sem pensar. Por isso é cara: usa uma vez e vale. */
+    --f2-sangue: #ff2f2f;
+
+    /* Só existem fontes que já estão na máquina: o programa abre sem internet.
+       Consolas vem em todo Windows; Cascadia Mono vem no 11. */
+    --f2-mono: "Cascadia Mono", Consolas, "DejaVu Sans Mono", ui-monospace, monospace;
+
+    --f2-faixa: 40px;
+    --f2-doca: 78px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+    height: 100%;
+    margin: 0;
+    background: var(--f2-breu);
+    color: var(--f2-folha);
+    font-family: var(--f2-mono);
+    font-size: 13px;
+    /* Suavização desligada de propósito: letra de instrumento tem que ter
+       borda, não halo. */
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+}
+
+/* Rótulo de equipamento: pequeno, maiúsculo, muito espaçado. Aparece em toda
+   parte — na doca, na faixa, nos títulos de janela. É o tom de voz da casa. */
+.f2-rotulo {
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--f2-c5);
+}
+
+/* ── a moldura ────────────────────────────────────────────────────────────
+   Três faixas empilhadas, alturas fixas em cima e embaixo. */
+
+.f2-bancada {
+    display: grid;
+    grid-template-rows: var(--f2-faixa) 1fr var(--f2-doca);
+    height: 100%;
+}
+
+/* ── a faixa de cima ──────────────────────────────────────────────────────
+   Marca à esquerda, o que a máquina está fazendo no meio, o contador de fita
+   à direita. Nunca cresce. */
+
+.f2-faixa {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    padding: 0 14px;
+    border-bottom: 1px solid var(--f2-c3);
+}
+
+.f2-marca { display: flex; align-items: center; }
+.f2-marca svg { display: block; height: 15px; width: auto; color: var(--f2-folha); }
+
+/* O quadradinho do "i" é o único pedaço vivo da marca: ele pulsa quando a
+   máquina está trabalhando e fica cinza quando ela está parada. A marca é o
+   LED de painel. */
+.f2-marca .f2-pulso { fill: var(--f2-c4); transition: fill 0.2s; }
+body.f2-trabalhando .f2-marca .f2-pulso {
+    fill: var(--f2-fosforo);
+    animation: f2-pulsar 1.1s steps(2, end) infinite;
+}
+@keyframes f2-pulsar { 50% { opacity: 0.25; } }
+
+.f2-estado {
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--f2-c5);
+}
+body.f2-trabalhando .f2-estado { color: var(--f2-fosforo); }
+
+.f2-fita {
+    justify-self: end;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+}
+/* Tabular: o contador não pode dançar quando o número vira. */
+.f2-contador {
+    font-variant-numeric: tabular-nums;
+    font-size: 13px;
+    letter-spacing: 0.06em;
+    color: var(--f2-c4);
+}
+body.f2-trabalhando .f2-contador { color: var(--f2-folha); }
+.f2-olho {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--f2-c3);
+}
+body.f2-trabalhando .f2-olho {
+    background: var(--f2-sangue);
+    animation: f2-piscar 1.6s ease-in-out infinite;
+}
+@keyframes f2-piscar { 50% { opacity: 0.2; } }
+
+/* ── a parede ─────────────────────────────────────────────────────────────
+   O centro da tela é sempre dos cortes. Enquanto não há corte, ela fica
+   vazia de verdade — não com uma caixa escrito "vazio" dentro. */
+
+.f2-parede {
+    position: relative;
+    overflow: hidden;
+}
+
+.f2-vazio {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    /* Baixo o bastante para não chamar atenção, alto o bastante para ler. */
+    color: var(--f2-c4);
+    user-select: none;
+}
+.f2-vazio-linha {
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+}
+.f2-vazio-dica {
+    margin-top: -8px;
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    color: var(--f2-c3);
+}
+/* Uma régua de nada: dá escala à bancada vazia e é o lugar onde o mapa da
+   fonte vai nascer na tela 5. */
+.f2-regua { display: block; opacity: 0.5; }
+
+/* ── a doca ───────────────────────────────────────────────────────────────
+   Poolsuite: objeto com o nome escrito embaixo, por extenso, sempre. Não é
+   aba, não é menu — é prateleira. */
+
+.f2-doca {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    border-top: 1px solid var(--f2-c3);
+    background: var(--f2-c1);
+}
+
+.f2-objeto {
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--f2-c5);
+    font: inherit;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 7px;
+    width: 92px;
+    padding: 9px 0 8px;
+}
+.f2-objeto svg { display: block; width: 26px; height: 26px; }
+.f2-objeto .f2-nome {
+    font-size: 9.5px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+}
+
+.f2-objeto:hover,
+.f2-objeto:focus-visible {
+    border-color: var(--f2-c3);
+    color: var(--f2-folha);
+    outline: none;
+}
+.f2-objeto:active { background: var(--f2-c2); }
+
+/* Um objeto já na bancada fica com a borda acesa — assim ele sabe o que está
+   aberto sem contar janela. */
+.f2-objeto[aria-pressed="true"] {
+    border-color: var(--f2-c4);
+    color: var(--f2-folha);
+}
+
+/* O convite: com a bancada vazia, o único objeto que resolve isso respira.
+   É a alternativa a um aviso no meio da tela — a orientação mora no lugar
+   onde ela é executada. */
+body.f2-bancada-vazia .f2-objeto[data-objeto="fonte"] {
+    color: var(--f2-folha);
+}
+body.f2-bancada-vazia .f2-objeto[data-objeto="fonte"] svg {
+    animation: f2-respirar 2.6s ease-in-out infinite;
+}
+@keyframes f2-respirar {
+    0%, 100% { color: var(--f2-c5); }
+    50%      { color: var(--f2-fosforo); }
+}
+
+/* ── a ignição ────────────────────────────────────────────────────────────
+   A caixa de instalador do Poolsuite, traduzida para o breu; e dentro dela,
+   a dissolução em pontos do Cipher. As duas referências no mesmo gesto:
+   à esquerda a marca se remonta de pó, à direita a máquina se apresenta e a
+   barra corre até 100%.
+
+   Uma vez por sessão, um segundo e meio, e qualquer tecla pula. Uma abertura
+   que não se pula é uma abertura que se odeia na terceira vez. */
+
+.f2-ignicao {
+    position: fixed;
+    inset: 0;
+    z-index: 900;
+    background: var(--f2-breu);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.f2-ignicao.f2-saindo { animation: f2-apagar 0.34s ease forwards; }
+@keyframes f2-apagar { to { opacity: 0; visibility: hidden; } }
+
+.f2-caixa {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    width: 552px;
+    border: 1px solid var(--f2-c4);
+    background: var(--f2-breu);
+}
+.f2-caixa-po { border-right: 1px solid var(--f2-c3); }
+.f2-caixa-po canvas { display: block; width: 200px; height: 148px; }
+
+.f2-caixa-ficha {
+    padding: 16px 18px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+.f2-ficha-nome {
+    font-size: 14px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--f2-folha);
+}
+.f2-ficha-versao { margin-top: 8px; color: var(--f2-c5); font-size: 11px; }
+.f2-ficha-creditos {
+    margin-top: 7px;
+    font-size: 10.5px;
+    line-height: 1.6;
+    color: var(--f2-c4);
+}
+.f2-ficha-tarefa {
+    margin-top: auto;
+    padding-top: 14px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--f2-c5);
+}
+/* A barra é feita de tracinhos, não de uma barra lisa: um bloco por passo,
+   como o instalador de 1997. Uma barra lisa mede; uma barra de tracinhos
+   conta — e contar é o que faz parecer aparelho. */
+.f2-barra {
+    margin-top: 7px;
+    display: flex;
+    gap: 2px;
+    height: 12px;
+}
+.f2-tijolo {
+    flex: 1;
+    background: var(--f2-c2);
+    border: 1px solid var(--f2-c3);
+}
+.f2-tijolo.f2-cheio {
+    background: var(--f2-fosforo);
+    border-color: var(--f2-fosforo);
+}
+
+.f2-pular {
+    position: fixed;
+    bottom: 18px;
+    left: 0; right: 0;
+    text-align: center;
+    font-size: 9.5px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--f2-c4);
+}
+
+/* Quem pediu menos movimento recebe menos movimento. */
+@media (prefers-reduced-motion: reduce) {
+    .f2-marca .f2-pulso,
+    .f2-olho,
+    body.f2-bancada-vazia .f2-objeto[data-objeto="fonte"] svg {
+        animation: none !important;
+    }
+}
