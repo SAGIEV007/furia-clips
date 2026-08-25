@@ -12,18 +12,18 @@ O diagnóstico real da corrida dele respondia com um número e nada mais:
 Doze o quê? A pergunta só tem resposta se o registro disser QUEM saiu e por
 causa de quem. E há dois casos opostos escondidos atrás daquele mesmo "12":
 
-* Um candidato de 40 s inteiramente dentro de um corte de 143 s tem
-  sobreposição 1,00 e morre. O editor não perdeu nada — o corte longo contém
-  aquela fala, e ele já disse que em respostas longas prefere o contexto
-  inteiro.
+* Um candidato de 40 s inteiramente dentro de um corte de 143 s não acrescenta
+  nada e morre. O editor não perdeu coisa alguma — o corte longo contém aquela
+  fala, e ele já disse que em respostas longas prefere o contexto inteiro.
 * Um candidato que só herdou alguns segundos de pergunta da repórter na borda
-  tem sobreposição baixa. Esse sobrevive — e este teste mede até onde.
+  acrescenta quase tudo. Esse sobrevive — e este teste mede até onde.
 
 São situações opostas e o contador dava o mesmo "1" para as duas. Agora o
 diagnóstico separa, e o registro na tela diz a diferença em português.
 
-Nada aqui muda quem é selecionado: é metadado sobre uma decisão que já era
-tomada do mesmo jeito antes.
+Este arquivo nasceu como metadado sobre uma decisão que não mudava. A decisão
+mudou depois (ver `test_a_peneira_pergunta_o_que_acrescenta`), e o registro
+continua sendo o que torna a mudança verificável em vez de acreditável.
 """
 
 import pytest
@@ -61,7 +61,12 @@ def test_o_corte_longo_engole_o_curto_e_o_registro_diz_isso(seletor):
     assert len(livro) == 1
     item = livro[0]
     assert item["motivo"] == "overlap"
-    assert item["medida"] == pytest.approx(1.0)
+    # A medida mudou de significado junto com a peneira, e o nome novo diz qual
+    # é: antes era "quanto ele repete" (1,00 = repete tudo), agora é "quanto ele
+    # acrescenta" (0,00 = não acrescenta nada). É a mesma situação lida pela
+    # pergunta certa.
+    assert item["fracao_inedita"] == pytest.approx(0.0)
+    assert item["inedito_s"] == pytest.approx(0.0)
     assert item["dentro_do_vencedor"] is True, (
         "estar inteiro dentro do vencedor é o que separa 'conteúdo que já tenho' "
         "de 'corte perdido'"
@@ -75,7 +80,8 @@ def test_a_pergunta_da_reporter_na_borda_nao_mata_o_candidato(seletor):
 
     Um corte que termina com a repórter começando a próxima pergunta vaza
     poucos segundos para dentro do candidato seguinte. Dois candidatos de 45 s
-    lado a lado, com 6 s de vazamento: 6/45 = 0,13, muito abaixo de 0,30.
+    lado a lado, com 6 s de vazamento: o segundo acrescenta 39 dos seus 45 s,
+    87% de novidade.
     """
     primeiro = _corte(100, 145, "Resposta sobre o primeiro assunto do debate.", 80.0)
     segundo = _corte(139, 184, "Outra resposta, sobre assunto completamente distinto.", 75.0)
@@ -91,9 +97,16 @@ def test_a_pergunta_da_reporter_na_borda_nao_mata_o_candidato(seletor):
 def test_seis_segundos_de_vazamento_sobrevivem_em_toda_duracao_util(seletor, duracao):
     """A mesma medição, varrida por tamanho de candidato.
 
-    O limite é 30% do MENOR dos dois. Com 6 s de vazamento, o candidato só morre
-    se durar menos de 20 s — abaixo do mínimo que a ferramenta entrega. Em toda
-    duração que ele publica, a pergunta na borda é inofensiva.
+    Com 6 s de vazamento, o menor candidato aqui (20 s) ainda acrescenta 70% de
+    si mesmo — muito acima do piso de 40%. Em toda duração que ele publica, a
+    pergunta na borda é inofensiva.
+
+    Este teste já pagou por si: quando a peneira nova ganhou um piso ABSOLUTO de
+    material inédito (30 s, medido nos cortes publicados), ele reprovou nos
+    tamanhos 20 e 30 na mesma hora. Um candidato de 30 s que repete 6 é 80% de
+    novidade e não é duplicata de nada; o piso absoluto reintroduzia por outra
+    porta exatamente o defeito que eu tinha acabado de garantir que não existia.
+    O piso saiu, a proporção ficou.
     """
     vazamento = 6.0
     primeiro = _corte(100, 100 + duracao, "Primeira resposta do bloco.", 80.0)

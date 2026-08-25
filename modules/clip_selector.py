@@ -68,6 +68,49 @@ WEAK_PAYOFF_ENDINGS_PT = {
     "então", "entao", "portanto", "logo", "ou seja", "por isso", "dessa forma", "com isso",
 }
 
+# ─────────────────────────────────────────────────────────────────────────────
+# ABERTURAS QUE A GRAMÁTICA JÁ DENUNCIA COMO CONTINUAÇÃO
+#
+# Medido na corrida real do editor (PENÉLOPE, 11 cortes entregues): o predicado
+# de reparo aprovava as ONZE aberturas, inclusive as que ele reprovou a olho.
+# Como ele nunca dizia "isto não começa nada", o recuo nunca andava, e cortes
+# que abrem no meio do raciocínio ficavam como estavam.
+#
+#     #6  "Agora eu não sei o que que vocês estão avaliando…"
+#     #9  "Somando tudo a três pontos na redondado,"
+#     #7  "Quatro debates organizados aí."
+#     #10 "O Renan também criticou Flávio Bolsonaro…"
+#     #3  "Está certo? O Lula tem que estar nos debates…"
+#
+# As cinco falham por motivos gramaticais, não por assunto — e por isso dá para
+# detectá-las sem inventar limiar. Cada conjunto abaixo é uma categoria, não uma
+# lista de palavras colhida de uma amostra.
+#
+# ESTES CONJUNTOS SERVEM AO REPARO, NUNCA AO PORTÃO. `_editorial_flags` continua
+# com as listas antigas de propósito: alargar o portão faria MAIS candidatos
+# serem adiados, e o editor foi explícito que nada pode reduzir a quantidade de
+# cortes. Alargar o reparo faz o corte COMEÇAR MAIS CEDO, que é a direção que
+# ele prefere — "em casos de respostas longas eu gostaria de ter o contexto
+# inteiro porque aí eu mesmo edito" — e o recuo já tem orçamento
+# (`MAX_OPENING_REWIND_S`), então ninguém desaparece por causa disto.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# "Também/inclusive/aliás X" afirma "além de algo", e esse algo ficou para trás.
+ADDITIVE_ADVERBS_PT = {"também", "tambem", "inclusive", "aliás", "alias", "tampouco"}
+
+# "Agora" na primeira palavra é o "agora" do discurso — contraste com o que veio
+# antes —, não o do relógio. Só vale na posição 1: "agora são três horas" no meio
+# de uma frase é hora de verdade.
+CONTRAST_OPENERS_PT = {"agora"}
+
+# Advérbio de lugar usado como ponteiro: "organizados aí", "foi lá". Aponta para
+# algo que o corte não mostra. Só conta no fim da primeira oração, que é o uso
+# dêitico; "lá em Brasília" traz o próprio referente e fica de fora.
+POINTING_ADVERBS_PT = {"aí", "ai", "ali", "lá", "la"}
+
+# Quantas palavras contam como "primeira oração" para procurar o aditivo.
+FIRST_CLAUSE_WORDS = 8
+
 
 def _block_field(block, *names):
     """Read a block field written in either naming convention.
@@ -412,6 +455,11 @@ class ClipSelector:
         # não tem costura o bloco cai pelo relógio. É por isso que o podcast do
         # Acervo entregava um terço do tamanho que o rotulador implica.
         clips = self._close_where_the_thought_ends(clips, sentences, emit_progress)
+
+        # O avanço acima só sabe ESTENDER. Quando o rabo de assunto novo já veio
+        # dentro do bloco, ninguém o tirava — e é a queixa do editor sobre o
+        # corte que termina em "segundo ponto:", com o raciocínio pela metade.
+        clips = self._trim_trailing_announcement(clips, sentences, emit_progress)
 
         # If the canonical transcript has word timestamps, sharpen the repaired
         # seams without changing candidate discovery or ranking. Missing word
@@ -2659,6 +2707,39 @@ Retorne APENAS o JSON.
         references = {item.lower() for item in CONTEXT_REFERENCE_STARTERS_PT}
         if first in references or pair in references:
             return False
+
+        # As cinco categorias medidas na corrida da PENÉLOPE, onde as onze
+        # aberturas passavam por aqui. Ver o bloco de constantes lá em cima para
+        # por que cada uma é gramática e não assunto.
+
+        # "Agora eu não sei o que que vocês estão avaliando" — contraste com o
+        # que veio antes.
+        if first in CONTRAST_OPENERS_PT:
+            return False
+
+        # "Somando tudo a três pontos" — oração gerundiva é subordinada por
+        # construção: ela modifica uma principal que ficou de fora.
+        if len(first) > 4 and first.endswith("ndo"):
+            return False
+
+        primeira_oracao = words[:FIRST_CLAUSE_WORDS]
+
+        # "O Renan também criticou Flávio Bolsonaro" — o "além de" ficou atrás.
+        if any(palavra in ADDITIVE_ADVERBS_PT for palavra in primeira_oracao):
+            return False
+
+        # "Quatro debates organizados aí." — o dêitico só aponta se estiver no
+        # fim da oração; "lá em Brasília" carrega o próprio referente.
+        fim_da_oracao = re.split(r"[.!?,;:]", raw, maxsplit=1)[0]
+        palavras_da_oracao = re.findall(r"[\wÀ-ÿ-]+", fim_da_oracao.lower())
+        if len(palavras_da_oracao) >= 2 and palavras_da_oracao[-1] in POINTING_ADVERBS_PT:
+            return False
+
+        # "Está certo?" — fragmento curto que responde a algo que ficou atrás.
+        # Uma pergunta longa é hook e continua valendo como abertura.
+        if raw.rstrip().endswith("?") and len(words) <= 3:
+            return False
+
         return True
 
     def _close_where_the_thought_ends(self, clips, sentences, emit_progress=None):
@@ -2832,6 +2913,112 @@ Retorne APENAS o JSON.
         if not juntas or "?" in juntas:
             return False
         return len(re.findall(r"[^\W\d_]+", juntas, flags=re.UNICODE)) <= cls.ACKNOWLEDGEMENT_MAX_WORDS
+
+    @staticmethod
+    def _announces_a_new_subject(text):
+        """A última frase ABRE um assunto em vez de fechar este?
+
+        É o pior fim possível, e o mais difícil de ver: gramaticalmente ela está
+        perfeita — sujeito, verbo, ponto final —, então `payoff_complete` diz que
+        está tudo certo. O problema não é a forma, é a função. Ela promete um
+        desenvolvimento que o corte não entrega.
+
+        Medido nos cortes reais do editor:
+
+            #9 termina em "Eu tive essa experiência uma vez no Arontalcus."
+            e ele relatou outro terminando em "segundo ponto:"
+
+        Nos dois casos o espectador fica esperando o que vem depois. O editor:
+        "ele parece não concluir o tema".
+
+        O detector é deliberadamente ESTREITO. Um fim bom também é uma frase que
+        se sustenta sozinha, então "se sustenta sozinha" não separa nada — foi
+        por isso que o avanço, que usa esse critério, nunca pegou o caso. O que
+        separa é a marca de anúncio: uma enumeração pendurada, ou um caso novo
+        sendo apresentado com referente indefinido.
+
+        Preferi deixar passar um fim ruim a cortar um fim bom. "Eu vou falar do
+        que quiser." (#8) é um fecho ótimo e cai bem perto destas regras; ele
+        continua de fora porque não anuncia nada.
+        """
+        raw = str(text or "").strip()
+        if not raw:
+            return False
+        normalizado = raw.lower()
+
+        # Enumeração pendurada: "segundo ponto:", "primeiro:", "outra coisa:".
+        if raw.rstrip().endswith(":"):
+            return True
+        if re.match(
+            r"^(primeiro|segundo|terceiro|quarto|quinto|outro|outra|mais um|mais uma)\b"
+            r".{0,24}\b(ponto|coisa|questao|questão|exemplo|caso)\b",
+            normalizado,
+        ):
+            return True
+
+        # Caso novo sendo apresentado. "uma vez" é a marca clássica de abertura
+        # de causo, e "teve um/uma" apresenta referente indefinido — as duas
+        # anunciam o que viria a seguir.
+        if re.search(r"\buma vez\b", normalizado):
+            return True
+        if re.match(r"^(teve|tinha|houve)\s+(um|uma)\b", normalizado):
+            return True
+
+        return False
+
+    def _trim_trailing_announcement(self, clips, sentences, emit_progress=None):
+        """Tira do fim a frase que anuncia um assunto novo.
+
+        O avanço (`_close_where_the_thought_ends`) só sabe somar material. Quando
+        o rabo já nasceu dentro do bloco, nenhum passo o removia.
+
+        Corta no máximo UMA frase, e só se o que sobra continua sendo um corte
+        de verdade. Isto nunca faz um corte desaparecer: um corte encurtado
+        continua existindo, e a guarda de duração mínima impede que ele encolha
+        até cair no chão da renderização.
+        """
+        if not sentences or not clips:
+            return clips
+        ordered = sorted(sentences, key=lambda item: float(item.get("start", 0) or 0))
+        aparados = 0
+
+        for clip in clips:
+            start = float(clip.get("start", 0) or 0)
+            end = float(clip.get("end", 0) or 0)
+            if end <= start:
+                continue
+            dentro = [
+                item for item in ordered
+                if float(item.get("start", 0) or 0) >= start - 0.25
+                and float(item.get("end", 0) or 0) <= end + 0.25
+            ]
+            # Com menos de duas frases não há rabo para tirar: o que sobraria
+            # seria o corte inteiro.
+            if len(dentro) < 2:
+                continue
+            ultima = dentro[-1]
+            if not self._announces_a_new_subject(ultima.get("text")):
+                continue
+            novo_fim = float(dentro[-2].get("end", 0) or 0)
+            if novo_fim <= start or (novo_fim - start) < self.min_duration:
+                continue
+
+            clip["end"] = round(novo_fim, 3)
+            clip["duration"] = round(novo_fim - start, 3)
+            refeito = self._text_between(ordered, start, novo_fim)
+            if refeito:
+                clip["text"] = refeito
+            clip["closing_trimmed_s"] = round(end - novo_fim, 3)
+            clip["closing_trim_reason"] = "a última frase abria um assunto novo"
+            aparados += 1
+
+        if aparados and emit_progress:
+            emit_progress(
+                f"[Fecho] {aparados} corte(s) perderam a última frase por ela abrir "
+                "um assunto novo em vez de fechar este.",
+                "info",
+            )
+        return clips
 
     def _open_where_the_thought_begins(self, clips, sentences, emit_progress=None):
         """Make every clip start where somebody starts saying something.
@@ -4353,20 +4540,54 @@ Retorne APENAS o JSON.
         for clip in ordered:
             duplicate = False
             duplicate_reason = ""
-            for existing in selected:
-                overlap = self._calculate_overlap(clip, existing)
-                text_similarity = self._text_similarity(clip.get("text", ""), existing.get("text", ""))
-                if overlap > 0.30:
-                    duplicate = True
-                    duplicate_reason = "overlap"
-                    break
-                # Repeated wording in adjacent candidate windows is usually a
-                # rolling-caption duplicate. Require high lexical and sequence
-                # similarity so short common political phrases survive.
-                if text_similarity >= 0.90:
-                    duplicate = True
-                    duplicate_reason = "similarity"
-                    break
+            existing = None
+
+            # ── a pergunta certa ────────────────────────────────────────────
+            # A regra antiga era "quanto este candidato divide com aquele?", e
+            # ela não distingue duas situações opostas. Medido na corrida real
+            # do editor (PENÉLOPE, 21 descartes por sobreposição):
+            #
+            #   12 estavam INTEIROS dentro de um corte entregue. Não se perdeu
+            #      nada: o corte longo contém aquela fala, e ele já disse que em
+            #      resposta longa prefere o contexto inteiro.
+            #    9 só encostavam na borda. Um deles cobria 19:54–21:45 — quase
+            #      dois minutos que nenhum corte entregou.
+            #
+            # As duas morriam pelo mesmo motivo. A pergunta que separa não é
+            # quanto o candidato REPETE, é quanto ele ACRESCENTA.
+            inedito = self._material_inedito(clip, selected)
+            duracao = max(0.0, float(clip.get("end", 0) or 0) - float(clip.get("start", 0) or 0))
+            fracao = (inedito / duracao) if duracao > 0 else 0.0
+            # Só entra na conta quem de fato divide material com alguém. Sem
+            # esta guarda, um candidato curto e sozinho — 25s, sem encostar em
+            # nada — morreria pelo piso de material inédito, que é uma régua de
+            # REPETIÇÃO e não de duração. Seria reduzir a quantidade de cortes
+            # por uma porta lateral, exatamente o que não pode acontecer.
+            partilha_material = inedito < duracao - 0.5
+            if selected and partilha_material and fracao < self.FRACAO_INEDITA_MINIMA:
+                duplicate = True
+                duplicate_reason = "overlap"
+                existing = self._maior_sobreposicao(clip, selected)
+
+            if not duplicate:
+                for candidato_vencedor in selected:
+                    text_similarity = self._text_similarity(
+                        clip.get("text", ""), candidato_vencedor.get("text", "")
+                    )
+                    # Repeated wording in adjacent candidate windows is usually a
+                    # rolling-caption duplicate. Require high lexical and sequence
+                    # similarity so short common political phrases survive.
+                    if text_similarity >= 0.90:
+                        duplicate = True
+                        duplicate_reason = "similarity"
+                        existing = candidato_vencedor
+                        break
+
+            overlap = fracao
+            text_similarity = (
+                self._text_similarity(clip.get("text", ""), existing.get("text", ""))
+                if existing is not None else 0.0
+            )
             if duplicate:
                 self._record_hard_negative(
                     clip,
@@ -4387,13 +4608,14 @@ Retorne APENAS o JSON.
                     existing,
                     duplicate_reason,
                     overlap if duplicate_reason == "overlap" else text_similarity,
+                    inedito_s=inedito if duplicate_reason == "overlap" else None,
                 )
                 continue
             selected.append(clip)
 
         return selected
 
-    def _registrar_descarte_por_sobreposicao(self, perdedor, vencedor, motivo, medida):
+    def _registrar_descarte_por_sobreposicao(self, perdedor, vencedor, motivo, medida, inedito_s=None):
         """Anota quem a peneira derrubou, e por causa de quem.
 
         Medido no diagnóstico real do editor: 24 candidatos primários viraram 14
@@ -4420,7 +4642,13 @@ Retorne APENAS o JSON.
         texto = " ".join(str(perdedor.get("text", "") or "").split())
         ledger.append({
             "motivo": motivo,
+            # Em "overlap" a medida é a FRAÇÃO INÉDITA — quanto deste candidato
+            # nenhum corte escolhido cobria. Em "similarity" é a semelhança de
+            # texto. Nomes separados porque significam coisas opostas: fração
+            # inédita ALTA é bom, semelhança ALTA é ruim.
             "medida": round(float(medida or 0), 3),
+            "fracao_inedita": round(float(medida or 0), 3) if motivo == "overlap" else None,
+            "inedito_s": round(float(inedito_s), 1) if inedito_s is not None else None,
             "inicio": round(inicio, 1),
             "fim": round(fim, 1),
             "duracao": round(max(0.0, fim - inicio), 1),
@@ -4432,6 +4660,86 @@ Retorne APENAS o JSON.
             "dentro_do_vencedor": bool(inicio >= venc_inicio - 0.5 and fim <= venc_fim + 0.5),
             "trecho": texto[:180],
         })
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # QUANTO UM CANDIDATO PRECISA ACRESCENTAR PARA VALER UM CORTE
+    #
+    # Medido na base do CHUB, não achado: 4.109 cortes que a campanha realmente
+    # publicou, nas três contas orgânicas, com duração entre 1s e 15min.
+    #
+    #     percentil 5   facebook 32s · instagram 36s · tiktok 46s
+    #     percentil 10  facebook 44s · instagram 48s · tiktok 60s
+    #     mediana       facebook 102s · instagram 91s · tiktok 123s
+    #
+    # Ou seja: 95% de tudo que eles publicam tem 32 segundos ou mais. Abaixo
+    # disso é a exceção da exceção. Um candidato cujo material inédito não chega
+    # lá não é um corte que se sustenta — é um pedaço de outro que já saiu.
+    #
+    # ── e por que o piso ABSOLUTO foi embora ────────────────────────────────
+    #
+    # A primeira versão disto tinha duas condições: material inédito abaixo de
+    # 30s OU fração inédita abaixo de 40%. O teste do vazamento da repórter
+    # pegou o erro na hora:
+    #
+    #     dois candidatos de 30s, com 6s de pergunta vazada na borda
+    #     inédito = 24s  →  abaixo do piso  →  MORRIA
+    #
+    # Um candidato que repete 6 dos seus 30 segundos não é duplicata de coisa
+    # nenhuma; ele só encosta. Eu tinha acabado de garantir ao editor que a
+    # pergunta na borda não custa cortes, e o piso absoluto reintroduzia
+    # exatamente aquele defeito por outra porta.
+    #
+    # A pergunta certa é PROPORÇÃO, não tamanho: quanto DESTE candidato já foi
+    # entregue. 24 de 30 é 80% de novidade e sobrevive; 51 de 165 é 31% e não.
+    # A medida de duração publicável acima continua valendo como referência do
+    # que é um corte — só não serve como régua de repetição.
+    FRACAO_INEDITA_MINIMA = 0.40
+
+    @staticmethod
+    def _material_inedito(clip, selecionados):
+        """Segundos deste candidato que nenhum corte já escolhido cobre.
+
+        A conta é sobre a UNIÃO dos escolhidos, não sobre cada um de cada vez.
+        Comparar par a par escondia o caso mais comum: um candidato que dois
+        vizinhos cobrem juntos, sem que nenhum dos dois o cubra sozinho.
+        """
+        inicio = float(clip.get("start", 0) or 0)
+        fim = float(clip.get("end", 0) or 0)
+        if fim <= inicio:
+            return 0.0
+        coberto = 0.0
+        cursor = inicio
+        faixas = sorted(
+            (
+                (float(outro.get("start", 0) or 0), float(outro.get("end", 0) or 0))
+                for outro in selecionados
+            ),
+            key=lambda par: par[0],
+        )
+        for de, ate in faixas:
+            de = max(de, inicio)
+            ate = min(ate, fim)
+            if ate <= de:
+                continue
+            de = max(de, cursor)
+            if ate > de:
+                coberto += ate - de
+                cursor = ate
+        return max(0.0, (fim - inicio) - coberto)
+
+    @staticmethod
+    def _maior_sobreposicao(clip, selecionados):
+        """Qual escolhido é o principal responsável — para o registro dizer quem."""
+        inicio = float(clip.get("start", 0) or 0)
+        fim = float(clip.get("end", 0) or 0)
+        melhor, maior = None, -1.0
+        for outro in selecionados:
+            partilha = min(fim, float(outro.get("end", 0) or 0)) - max(
+                inicio, float(outro.get("start", 0) or 0)
+            )
+            if partilha > maior:
+                melhor, maior = outro, partilha
+        return melhor if melhor is not None else (selecionados[0] if selecionados else None)
 
     def _text_similarity(self, first, second):
         def normalize(value):
