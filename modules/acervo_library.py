@@ -82,11 +82,60 @@ def library_dir(data_dir: str | os.PathLike[str] | None = None) -> Path:
     return base / "acervo"
 
 
-def snapshot_path_for(video_path: str | os.PathLike[str] | None, data_dir=None) -> Path | None:
-    """The export that belongs to this media file, whether or not it exists."""
+def bindings_path(data_dir=None) -> Path:
+    """Where hand-made links between a media file and a YouTube id are kept."""
+    return library_dir(data_dir) / "vinculos.json"
+
+
+def _bindings(data_dir=None) -> dict[str, str]:
+    try:
+        loaded = json.loads(bindings_path(data_dir).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return {str(key): str(value) for key, value in loaded.items()} if isinstance(loaded, dict) else {}
+
+
+def bound_id_for(video_path, data_dir=None) -> str | None:
+    """The id an operator attached to this file by hand, if there is one."""
+    return _bindings(data_dir).get(Path(str(video_path or "")).name) or None
+
+
+def bind(video_path, youtube_id: str, data_dir=None) -> dict[str, Any]:
+    """Attach a YouTube id to a media file whose name no longer carries one.
+
+    Everything that connects Furia to the Acervo hangs on eleven characters in
+    the file name. Renaming a download — which is the normal thing to do, and
+    what the editor does — silently disconnects it: no error, no warning, just a
+    run that reads the source alone as if the Acervo had nothing on it. This is
+    the way back without renaming anything.
+    """
+    nome = Path(str(video_path or "")).name
+    if not nome:
+        raise ValueError("Informe o arquivo de vídeo.")
+    identificador = str(youtube_id or "").strip()
+    if not _ID_SHAPE.match(identificador):
+        raise ValueError(
+            f"'{identificador}' não parece um id do YouTube. São 11 caracteres, "
+            f"como os de youtube.com/watch?v=XXXXXXXXXXX."
+        )
+    registro = _bindings(data_dir)
+    registro[nome] = identificador
+    destino = bindings_path(data_dir)
+    destino.parent.mkdir(parents=True, exist_ok=True)
+    destino.write_text(json.dumps(registro, ensure_ascii=False, indent=2), encoding="utf-8")
+    return {"arquivo": nome, "youtube_id": identificador, "vinculos": str(destino)}
+
+
+def resolved_id_for(video_path, data_dir=None) -> str | None:
+    """The id of this source: read from the name, or attached by hand."""
     if not video_path:
         return None
-    youtube_id = youtube_id_from_name(Path(str(video_path)).name)
+    return youtube_id_from_name(Path(str(video_path)).name) or bound_id_for(video_path, data_dir)
+
+
+def snapshot_path_for(video_path: str | os.PathLike[str] | None, data_dir=None) -> Path | None:
+    """The export that belongs to this media file, whether or not it exists."""
+    youtube_id = resolved_id_for(video_path, data_dir)
     if not youtube_id:
         return None
     return library_dir(data_dir) / f"{youtube_id}.json"

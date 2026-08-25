@@ -361,7 +361,7 @@ def _announce_acervo_source(settings, video_path):
     have to guess which one they are in: with published blocks the boundaries were
     reviewed by a person, without them Furia is reading the source alone.
     """
-    from modules.acervo_library import describe_snapshot, youtube_id_from_name
+    from modules.acervo_library import describe_snapshot, resolved_id_for
 
     described = describe_snapshot((settings or {}).get("campaign_hub_snapshot_path"))
     if described.get("available") and described.get("blocks"):
@@ -371,11 +371,25 @@ def _announce_acervo_source(settings, video_path):
             "success",
         )
         return
-    youtube_id = youtube_id_from_name(os.path.basename(str(video_path or "")))
+
+    # Uma frase só cobria duas situações que não têm nada a ver uma com a outra,
+    # e o editor não tinha como distinguir: "o Acervo não tem blocos deste vídeo"
+    # e "eu não faço ideia de qual vídeo é este". A segunda é a comum, porque
+    # todo o vínculo com o Acervo depende de onze caracteres no nome do arquivo,
+    # e renomear um download — que é o normal — desliga o Acervo em silêncio.
+    youtube_id = resolved_id_for(video_path)
+    if not youtube_id:
+        nome = os.path.basename(str(video_path or "")) or "este arquivo"
+        emit_progress(
+            f"[Acervo] Desligado nesta fonte: não há id do YouTube no nome de '{nome}', "
+            f"então o Furia não tem como saber qual vídeo do Acervo procurar. "
+            f"Vincule com: chub.bat --vincular \"{nome}\" ID_DO_YOUTUBE",
+            "warning",
+        )
+        return
     emit_progress(
-        "[Acervo] Nenhum bloco publicado para esta fonte"
-        + (f" ({youtube_id})" if youtube_id else "")
-        + "; o Furia vai ler o vídeo por conta própria.",
+        f"[Acervo] Vídeo reconhecido ({youtube_id}), mas nenhum bloco baixado para ele. "
+        f"Baixe com: chub.bat {youtube_id} — por enquanto o Furia vai ler o vídeo sozinho.",
         "info",
     )
 

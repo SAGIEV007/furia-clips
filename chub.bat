@@ -10,6 +10,16 @@ REM      chub.bat --testar
 REM      chub.bat --listar
 REM      chub.bat --tudo --limite 50
 REM      chub.bat KpjvWf9SsWQ
+REM      chub.bat --vincular "MEU VIDEO.mp4" KpjvWf9SsWQ
+REM
+REM  ATENCAO: testar a conexao NAO baixa nada. O Furia le os blocos de arquivos
+REM  em %USERPROFILE%\FuriaClipsData\acervo\, um por video, e eles so aparecem
+REM  ali depois de "chub.bat ID_DO_VIDEO". O Acervo se atualiza sozinho do lado
+REM  do CHUB; a copia local nao - ela e um retrato do dia em que voce baixou.
+REM
+REM  E o Furia so reconhece de qual video se trata pelos 11 caracteres do id do
+REM  YouTube no nome do arquivo. Renomeou, o Acervo desliga em silencio. O
+REM  --vincular resolve isso sem precisar renomear nada.
 REM
 REM  O endereco do CHUB carrega a credencial dentro dele, entao ele NAO fica
 REM  guardado nesta pasta (que vai para o GitHub). Fica em

@@ -10,6 +10,12 @@ escreva num arquivo do projeto):
     python scripts/sincronizar_acervo.py KpjvWf9SsWQ fZpyzDpnA2o
     python scripts/sincronizar_acervo.py --listar
     python scripts/sincronizar_acervo.py --tudo --limite 50
+    python scripts/sincronizar_acervo.py --vincular "PENELOPE.mp4" abc123XYZ_1
+
+Renomear um download desliga o Acervo em silêncio, porque tudo depende dos onze
+caracteres do id do YouTube no nome do arquivo. ``--vincular`` é a saída sem
+renomear nada: ele anota, em ~/FuriaClipsData/acervo/vinculos.json, qual vídeo
+do Acervo é aquele arquivo.
 
 Os exports vão para ``~/FuriaClipsData/acervo/{id}.json``, que é onde o Furia já
 procura sozinho quando reconhece o id do YouTube no nome do arquivo de vídeo.
@@ -28,7 +34,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from modules.acervo_library import describe_snapshot, library_dir  # noqa: E402
+from modules.acervo_library import bind, describe_snapshot, library_dir  # noqa: E402
 from modules.chub_client import ChubClient, ChubError, videos_do_acervo  # noqa: E402
 
 
@@ -101,7 +107,30 @@ def main() -> int:
     parser.add_argument("--tudo", action="store_true", help="sincronizar todos os vídeos do Acervo")
     parser.add_argument("--limite", type=int, default=25, help="teto de vídeos para --listar/--tudo")
     parser.add_argument("--forcar", action="store_true", help="refazer export que já existe")
+    parser.add_argument(
+        "--vincular", nargs=2, metavar=("ARQUIVO", "ID"),
+        help="dizer qual vídeo do YouTube é um arquivo cujo nome não traz o id",
+    )
     args = parser.parse_args()
+
+    # Vincular não fala com o CHUB: é só um bilhete local dizendo qual vídeo é
+    # qual. Vem antes de tudo para funcionar mesmo sem credencial configurada.
+    if args.vincular:
+        arquivo, identificador = args.vincular
+        try:
+            feito = bind(arquivo, identificador)
+        except ValueError as erro:
+            print(f"ERRO: {erro}", file=sys.stderr)
+            return 2
+        print(f"'{feito['arquivo']}' agora é o vídeo {feito['youtube_id']}.")
+        print(f"anotado em {feito['vinculos']}")
+        destino = library_dir() / f"{feito['youtube_id']}.json"
+        if destino.is_file():
+            pronto = describe_snapshot(destino)
+            print(f"os {pronto['blocks']} blocos desse vídeo já estão baixados; o Furia vai usá-los.")
+        else:
+            print(f"agora baixe os blocos: chub.bat {feito['youtube_id']}")
+        return 0
 
     if not (args.videos or args.testar or args.listar or args.tudo):
         parser.print_help()
