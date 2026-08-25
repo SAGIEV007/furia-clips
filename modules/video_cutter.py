@@ -326,7 +326,18 @@ class VideoCutter:
     def batch_cut(self, video_path, cuts, project_name, use_face_tracking=False,
                   face_positions_map=None, emit_progress=None, output_dir=None,
                   video_layout=None, preset=None, original_aspect_indices=None,
-                  layout_plans=None):
+                  layout_plans=None, on_clip_ready=None):
+        """Corta os trechos escolhidos, um por um.
+
+        `on_clip_ready` recebe cada corte assim que ele passa na validação, em
+        vez de todos no fim. O editor: "se eu coloco um video para ir cortando e
+        ele tem 2 horas e vai gerar 30 cortes, que os cortes ja vai saindo para
+        eu analisar antes do video todo ser concluido".
+
+        Renderizar já era um por um; o que faltava era contar. Numa fonte de duas
+        horas ele esperava a última renderização para ver a primeira — e a
+        primeira costuma estar pronta em menos de um minuto.
+        """
         active_preset = get_preset(preset) if isinstance(preset, str) else (preset or self.preset)
         self.last_rejections = []
         base_export = output_dir if output_dir and os.path.isabs(output_dir) else EXPORT_DIR
@@ -416,7 +427,7 @@ class VideoCutter:
                             "error",
                         )
                     continue
-                results.append({
+                pronto = {
                     "index": i,
                     "path": output_path,
                     "start": cut["start"],
@@ -432,7 +443,21 @@ class VideoCutter:
                     "validation": validation.as_dict(),
                     "preset": active_preset["aspect"] if render_vertical else "original_16:9",
                     "layout_plan": dict(layout_plan) if isinstance(layout_plan, dict) else None,
-                })
+                }
+                results.append(pronto)
+                # Entregar agora. Um aviso que falha não pode derrubar o corte
+                # que já está no disco: o arquivo existe, e a lista final sai
+                # igual mesmo que ninguém esteja ouvindo.
+                if on_clip_ready is not None:
+                    try:
+                        on_clip_ready(dict(pronto), i, len(cuts))
+                    except Exception as erro:  # noqa: BLE001
+                        if emit_progress:
+                            emit_progress(
+                                f"[Entrega] O corte {rank} foi gerado, mas o aviso "
+                                f"em tempo real falhou: {str(erro)[:120]}",
+                                "warning",
+                            )
 
         if emit_progress:
             emit_progress(f"Corte completo: {len(results)}/{len(cuts)} clips gerados")

@@ -618,6 +618,47 @@ function handleStatusUpdate(data) {
             });
             showToast(data.data.transcription ? "Vídeo e transcrição importados!" : "Vídeo do link importado!", "success");
             break;
+        // Um corte pronto, entregue antes de a fonte inteira terminar.
+        //
+        // "se eu coloco um video para ir cortando e ele tem 2 horas e vai gerar
+        // 30 cortes, que os cortes ja vai saindo para eu analisar antes do video
+        // todo ser concluido".
+        //
+        // O cartão que chega aqui é o MESMO objeto que a lista final vai trazer
+        // — montado por uma função só no servidor —, então ele já nasce com
+        // clip_id, e ajustar entrada e saída ou aprovar funciona na hora, sem
+        // esperar o resto.
+        case "clip_ready": {
+            const corte = data.data.clip;
+            if (!corte) break;
+            state.clips = state.clips || [];
+            // O `cut_complete` no fim reescreve `state.clips` inteiro. Até lá,
+            // chegar duas vezes o mesmo índice não pode duplicar o cartão.
+            const jaEsta = state.clips.findIndex((c) => c && c.clip_id === corte.clip_id);
+            if (jaEsta >= 0) state.clips[jaEsta] = corte;
+            else state.clips.push(corte);
+
+            state.selectionSource = data.data.selection_source || state.selectionSource || "nlp";
+            state.outputFolder = data.data.output_folder || state.outputFolder || "";
+
+            const entregues = Number(data.data.delivered) || state.clips.length;
+            const esperados = Number(data.data.expected) || 0;
+            addConsoleLog(
+                `[Entrega] Corte ${entregues}${esperados ? ` de ${esperados}` : ""} pronto: `
+                + `${formatTime(corte.start || 0)}–${formatTime(corte.end || 0)}. `
+                + "Já dá para revisar enquanto o resto sai.",
+                "success",
+            );
+            if (entregues === 1) {
+                showToast("Primeiro corte pronto — já dá para revisar.", "success");
+                window.irParaAmbiente?.("auditoria");
+            }
+            renderReviewCommandCenter();
+            renderResultsGrid();
+            updateResultsModeBadge(state.selectionSource);
+            updateOpenFolderButton(state.outputFolder);
+            break;
+        }
         case "cut_complete": {
             hideProgressBar();
             const completedClips = Array.isArray(data.data.clips) ? data.data.clips : [];

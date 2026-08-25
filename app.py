@@ -3917,26 +3917,31 @@ def api_cut_shorts():
             if processing_interval.get("active"):
                 project_name += f"_interval_{int(processing_interval['start_seconds'])}-{int(processing_interval['end_seconds'])}"
             output_dir = settings.get("output_dir", "") or ""
-            results = cutter.batch_cut(
-                video_path, top_clips, project_name,
-                use_face_tracking=bool(face_positions_map),
-                face_positions_map=face_positions_map,
-                original_aspect_indices=original_aspect_indices,
-                emit_progress=emit_progress,
-                output_dir=output_dir if output_dir else None,
-                video_layout=video_layout,
-                layout_plans=layout_plans,
-            )
-            render_rejections = list(editorial_gate_rejections)
-            render_rejections.extend(getattr(cutter, "last_rejections", []))
-
-            # Persist rendered clips so review decisions can calibrate future ranking.
-            # Only export up to the adaptive maximum, ensuring the highest ranked
-            # clips are chosen without discarding candidates prematurely in the pipeline.
-            results = results[:settings.get("adaptive_max_clips", 36)]
+            # ── persistir e entregar, corte a corte ─────────────────────────
+            #
+            # "se eu coloco um video para ir cortando e ele tem 2 horas e vai
+            # gerar 30 cortes, que os cortes ja vai saindo para eu analisar antes
+            # do video todo ser concluido".
+            #
+            # Cortar já era um por um; o que faltava era CONTAR. A primeira
+            # renderização costuma terminar em menos de um minuto, e ele esperava
+            # a última para ver aquela.
+            #
+            # O registro no banco vem junto, e não depois: sem `clip_id` o cartão
+            # nasce sem poder ser ajustado nem aprovado — a ferramenta de entrada
+            # e saída responde "este resultado ainda não possui um registro
+            # persistente". Entregar um cartão pela metade seria pior que
+            # entregar tarde.
+            limite_de_cortes = settings.get("adaptive_max_clips", 36)
             output_folder = ""
             clip_id_by_index = {}
-            for i, res in enumerate(results):
+            entregues = {}
+
+            def persistir_corte(res, i):
+                """Grava o corte no banco. Chamar duas vezes não grava duas."""
+                nonlocal output_folder
+                if i in clip_id_by_index:
+                    return clip_id_by_index[i]
                 clip_data = top_clips[i] if i < len(top_clips) else {}
                 clip_id_by_index[i] = save_clip(
                     active_project_id, res["path"], res["start"], res["end"],
@@ -3960,11 +3965,16 @@ def api_cut_shorts():
                 )
                 if not output_folder:
                     output_folder = res.get("output_folder", "")
+                return clip_id_by_index[i]
 
-            clip_results = []
-            for i, res in enumerate(results):
+            # ── a montagem de um corte, num lugar só ────────────────────────
+            # O mesmo dicionário sai por dois caminhos agora: o aviso em tempo
+            # real, corte a corte, e a lista final. Duplicar a montagem seria
+            # garantir que os dois divergissem na primeira alteração — e o
+            # editor veria um cartão durante o processo e outro no fim.
+            def montar_corte(res, i):
                 clip_info = top_clips[i] if i < len(top_clips) else {}
-                clip_results.append({
+                return {
                     **res,
                     "viral_score": clip_info.get("viral_score", 0),
                     "has_hook": clip_info.get("has_hook", False),
@@ -3998,7 +4008,56 @@ def api_cut_shorts():
                     "transcript_digest": transcription.get("transcript_digest", ""),
                     "source_start": round(float(res.get("start", 0) or 0) + processing_interval.get("offset_seconds", 0.0), 3),
                     "source_end": round(float(res.get("end", 0) or 0) + processing_interval.get("offset_seconds", 0.0), 3),
+                }
+
+            def entregar_corte(res, i, total):
+                """Manda um corte para a tela assim que ele existe no disco."""
+                # O teto de exportação é aplicado no fim; entregar além dele
+                # mostraria um cartão que a lista final não teria.
+                if len(entregues) >= limite_de_cortes:
+                    return
+                persistir_corte(res, i)
+                montado = montar_corte(res, i)
+                entregues[i] = montado
+                emit_status("clip_ready", {
+                    "clip": montado,
+                    "index": i,
+                    "delivered": len(entregues),
+                    "expected": total,
+                    "project_id": active_project_id,
+                    "output_folder": output_folder,
+                    "selection_source": selection_source,
                 })
+
+            results = cutter.batch_cut(
+                video_path, top_clips, project_name,
+                use_face_tracking=bool(face_positions_map),
+                face_positions_map=face_positions_map,
+                original_aspect_indices=original_aspect_indices,
+                emit_progress=emit_progress,
+                output_dir=output_dir if output_dir else None,
+                video_layout=video_layout,
+                layout_plans=layout_plans,
+                on_clip_ready=entregar_corte,
+            )
+            render_rejections = list(editorial_gate_rejections)
+            render_rejections.extend(getattr(cutter, "last_rejections", []))
+
+            # O teto de exportação continua sendo aplicado aqui, e agora ele é o
+            # mesmo número que a entrega em tempo real respeitou.
+            results = results[:limite_de_cortes]
+            # Quase tudo já foi gravado durante o corte. Esta varredura cobre o
+            # caso de a entrega ter falhado no meio: `persistir_corte` é
+            # idempotente, então quem já está no banco não entra duas vezes.
+            for i, res in enumerate(results):
+                persistir_corte(res, i)
+
+            # Reaproveitar o que já foi montado durante a entrega mantém a lista
+            # final idêntica ao que ele viu chegar.
+            clip_results = [
+                entregues.get(i) or montar_corte(res, i)
+                for i, res in enumerate(results)
+            ]
 
             emit_status("cut_complete", {
                 "clips": clip_results,
