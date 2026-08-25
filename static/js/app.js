@@ -3843,12 +3843,53 @@ function copyToClipboard(text) {
 
 // ─── Source Intake ───
 
+// O 409 diz "cancele na barra do topo"; o editor respondeu "não mostra barra no
+// topo só para constar", e estava certo. Depois de recarregar a página, a aba
+// não guarda nenhuma lembrança do processamento — quem sabe dele é o servidor.
+// Então a barra é trazida de volta a partir do que o servidor informa, com o
+// botão de cancelar vivo, em vez de mandar o editor procurar um botão que não
+// existe. Ela se solta sozinha pelo mesmo destravamento de 90 s do resto.
+function adotarProcessamentoDoServidor(payload) {
+    const nomes = {
+        source_import: "Baixando a fonte",
+        transcription: "Transcrevendo",
+        cut: "Cortando",
+        analysis: "Analisando o vídeo",
+    };
+    const decorridoServidor = Number(payload?.elapsed_seconds);
+    // Já existe barra: ela é a mesma operação. Reiniciá-la zeraria o relógio que
+    // o editor está lendo.
+    if (run.active) return decorridoServidor;
+    const titulo = nomes[payload?.operation] || "Processamento em andamento";
+    if (payload?.job_id) state.activeJob = { ...(state.activeJob || {}), id: payload.job_id };
+    beginRun(titulo, "", "Retomado a partir do servidor — use Cancelar se ele estiver travado.");
+    const decorrido = Number(payload?.elapsed_seconds);
+    if (Number.isFinite(decorrido) && decorrido > 0) {
+        run.startedAt = Date.now() - decorrido * 1000;
+        paintRun();
+    }
+    return decorrido;
+}
+
 async function parseJsonResponse(response, context = "servidor") {
     // 409 é a recusa deliberada do servidor quando já existe trabalho em
     // andamento. Tratada como erro genérico, ela chegava ao editor como uma
     // falha inexplicável — quando na verdade é a guarda funcionando.
     if (response.status === 409) {
-        throw new Error("Já existe um processamento em andamento. Espere ele terminar ou cancele na barra do topo.");
+        let payload = null;
+        try {
+            payload = JSON.parse(await response.text());
+        } catch (erro) {
+            payload = null;
+        }
+        const decorrido = adotarProcessamentoDoServidor(payload);
+        const ha = Number.isFinite(decorrido) && decorrido > 0
+            ? ` Está rodando há ${Math.floor(decorrido / 60)}min${String(decorrido % 60).padStart(2, "0")}s.`
+            : "";
+        throw new Error(
+            `Já existe um processamento em andamento.${ha} A barra do topo voltou a aparecer: ` +
+            "espere terminar, ou clique em Cancelar nela.",
+        );
     }
     const raw = await response.text();
     if (!raw) {

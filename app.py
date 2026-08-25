@@ -11,6 +11,7 @@ import tempfile
 import requests
 import re
 import unicodedata
+from collections import Counter
 from datetime import datetime
 
 
@@ -223,6 +224,32 @@ def _set_legacy_task(operation, active=True, job_id=None):
         current_task["started_at"] = datetime.now().isoformat(timespec="seconds")
     else:
         current_task["started_at"] = None
+
+
+def _busy_response():
+    """The 409 that says what is running, since when, and how to get out of it.
+
+    The refusal used to be four words. On screen it became "Espere ele terminar
+    ou cancele na barra do topo" — and the editor answered, correctly, "não
+    mostra barra no topo". After a reload the page has no memory of the run, so
+    the only exit it offered did not exist. What the server knows and the page
+    does not is exactly this: the operation, and when it started.
+    """
+    started = current_task.get("started_at")
+    decorrido = None
+    if started:
+        try:
+            decorrido = int((datetime.now() - datetime.fromisoformat(started)).total_seconds())
+        except (TypeError, ValueError):
+            decorrido = None
+    return jsonify({
+        "error": "Já existe um processamento em andamento",
+        "busy": True,
+        "operation": current_task.get("operation") or "",
+        "job_id": current_task.get("job_id"),
+        "started_at": started,
+        "elapsed_seconds": decorrido,
+    }), 409
 
 
 def emit_progress(message, level="info", *, event_name="progress.message", stage=None, details=None, job_id=None):
@@ -775,7 +802,33 @@ def _defer_context_incomplete_candidates(candidates):
 
 
 def _defer_speaker_conflicts(candidates):
-    """Keep voice conflicts reviewable and never publish a confirmed other speaker."""
+    """Never publish a confirmed other speaker — and never let "I don't know" delete a cut.
+
+    A 29-minute debate produced fifteen candidates and zero clips. The console
+    said why:
+
+        [Locutor] 0 corte(s) com a voz cadastrada, 0 com outra voz, 9 sem
+                  decisão pelo áudio.
+        [Gate de locutor] 9 candidato(s) adiados para revisão de voz.
+        Corte completo: 0/0 clips gerados
+
+    Nine measurements, nine ``None``, nine cuts thrown away. ``None`` is not a
+    finding: ``speaker_id.identify`` returns it precisely when the audio does not
+    settle the question, and the module's own words for it are "locutor não
+    confirmado" — not confirmed, which is not the same as refuted. On a panel
+    *about* Renan, where he is the subject and never speaks, every stretch is
+    honestly undecided, and the gate answered that by deleting the run.
+
+    The incoherence was visible in the old contract itself: a clip that was never
+    measured rendered, while a clip that *was* measured and came back undecided
+    did not. Both mean the same thing — nobody knows who is speaking. Switching
+    the measurement on was what emptied the folder.
+
+    So blocking now needs evidence, exactly like publishing does. ``False`` is a
+    claim and it blocks. ``None`` renders, carrying the flag, so the editor sees
+    the doubt on a clip he can actually watch instead of on a clip that no longer
+    exists.
+    """
     renderable = []
     deferred = []
     for candidate in candidates or []:
@@ -791,17 +844,52 @@ def _defer_speaker_conflicts(candidates):
         flags = candidate.setdefault("review_flags", {})
         flags["speaker_identity_review_required"] = True
         flags["speaker_identity_available"] = False
-        candidate["speaker_gate_status"] = "reject" if decision is False else "review"
-        reason = "voz confirmada como outro locutor" if decision is False else "voz não suficientemente identificada"
+        if decision is None:
+            # Undecided: the same standing as never having measured. It travels
+            # as a warning on a delivered clip, not as a reason to withhold one.
+            candidate["speaker_gate_status"] = "review"
+            candidate["review_required"] = True
+            reasons = candidate.get("review_reasons")
+            if not isinstance(reasons, list):
+                reasons = []
+                candidate["review_reasons"] = reasons
+            reasons.append("voz não confirmada pelo áudio; confira quem fala antes de publicar")
+            renderable.append(candidate)
+            continue
+        candidate["speaker_gate_status"] = "reject"
         deferred.append({
             "start": candidate.get("start", candidate.get("start_time")),
             "end": candidate.get("end", candidate.get("end_time")),
             "duration": candidate.get("duration"),
-            "reason": reason,
+            "reason": "voz confirmada como outro locutor",
             "review_flags": flags,
             "speaker_verdict": verdict,
         })
     return renderable, deferred
+
+
+def _report_speaker_gate(renderable, rejections, emit_progress):
+    """Say what the gate did, separating what it blocked from what it only marked.
+
+    One line saying "adiados para revisão de voz" covered both outcomes and read
+    like a rejection either way. They are not the same event: a blocked clip is
+    gone, a marked one is in the folder waiting to be watched.
+    """
+    if not emit_progress:
+        return
+    if rejections:
+        emit_progress(
+            f"[Gate de locutor] {len(rejections)} corte(s) descartado(s): "
+            f"o áudio confirmou outra voz, não a cadastrada.",
+            "warning",
+        )
+    marked = sum(1 for clip in renderable or [] if clip.get("speaker_gate_status") == "review")
+    if marked:
+        emit_progress(
+            f"[Gate de locutor] {marked} corte(s) entregue(s) com aviso: o áudio não "
+            f"decidiu quem fala. Confira antes de publicar — nenhum foi descartado por isso.",
+            "info",
+        )
 
 
 def _transcription_source_mode(settings):
@@ -2562,7 +2650,7 @@ def api_source_import():
         return jsonify({"success": False, "error": str(exc)}), 400
     with processing_lock:
         if current_task["active"]:
-            return jsonify({"error": "Já existe um processamento em andamento"}), 409
+            return _busy_response()
         _set_legacy_task("source_import", active=True)
 
     max_height = data.get("max_height", settings.get("source_max_height", 1080))
@@ -3011,7 +3099,7 @@ def api_remove_silence():
 
     with processing_lock:
         if current_task["active"]:
-            return jsonify({"error": "Já existe um processamento em andamento"}), 409
+            return _busy_response()
         _set_legacy_task("silence_removal", active=True)
 
     threading.Thread(target=task, daemon=True).start()
@@ -3538,11 +3626,7 @@ def api_cut_shorts():
             editorial_gate_rejections.extend(speaker_rejections)
             top_clips = speaker_renderable
             candidate_diagnostics["speaker_gate_deferred_count"] = len(speaker_rejections)
-            if speaker_rejections:
-                emit_progress(
-                    f"[Gate de locutor] {len(speaker_rejections)} candidato(s) adiados para revisão de voz.",
-                    "warning",
-                )
+            _report_speaker_gate(top_clips, speaker_rejections, emit_progress)
 
             _write_selection_diagnostics(
                 job_id=getattr(ctx, "job_id", None),
@@ -3749,14 +3833,30 @@ def api_cut_shorts():
             if results:
                 emit_progress(f"Corte completo! {len(results)} clips gerados via {source_label}.", "success")
             else:
-                detail = "; ".join(
+                # "Nenhum clip válido foi entregue; os arquivos rejeitados foram
+                # removidos" descreve uma falha de renderização. Quando os portões
+                # levaram todos os candidatos, nada chegou a ser renderizado, e a
+                # frase acusava a etapa errada: na tela o editor lia "nenhum corte
+                # reconhecido" e concluía que o programa não tinha achado nada,
+                # quando tinha achado quinze e descartado quinze.
+                erros_de_render = [
                     error
                     for rejection in render_rejections
                     for error in rejection.get("errors", [])
-                )
-                message = "Nenhum clip válido foi entregue; os arquivos rejeitados foram removidos."
-                if detail:
-                    message += f" Diagnóstico: {detail[:320]}"
+                ]
+                if erros_de_render:
+                    message = "Nenhum clip válido foi entregue; os arquivos rejeitados foram removidos."
+                    message += f" Diagnóstico: {'; '.join(erros_de_render)[:320]}"
+                else:
+                    motivos = Counter(
+                        str(rejection.get("reason") or "sem motivo registrado").split(";")[0].strip()
+                        for rejection in render_rejections
+                    )
+                    resumo = "; ".join(f"{motivo} ({quantos})" for motivo, quantos in motivos.most_common(4))
+                    message = (
+                        f"Os cortes foram encontrados, mas nenhum passou pelos portões de revisão: "
+                        f"{len(render_rejections)} candidato(s) adiados. Motivos: {resumo or 'não registrados'}."
+                    )
                 emit_progress(message, "error")
             return {
                 "artifacts": [{
@@ -4029,7 +4129,7 @@ def api_generate_subtitles():
 
     with processing_lock:
         if current_task["active"]:
-            return jsonify({"error": "Já existe um processamento em andamento"}), 409
+            return _busy_response()
         _set_legacy_task("subtitles", active=True)
 
     threading.Thread(target=task, daemon=True).start()
@@ -4079,7 +4179,7 @@ def api_generate_seo():
 
     with processing_lock:
         if current_task["active"]:
-            return jsonify({"error": "Já existe um processamento em andamento"}), 409
+            return _busy_response()
         _set_legacy_task("seo", active=True)
 
     threading.Thread(target=task, daemon=True).start()
@@ -4319,7 +4419,7 @@ def api_generate_thumbnail():
 
     with processing_lock:
         if current_task["active"]:
-            return jsonify({"error": "Já existe um processamento em andamento"}), 409
+            return _busy_response()
         _set_legacy_task("processing", active=True)
 
     threading.Thread(target=task, daemon=True).start()
@@ -4627,11 +4727,7 @@ def api_process_complete():
             top_clips, speaker_rejections = _defer_speaker_conflicts(top_clips)
             candidate_diagnostics["speaker_gate_deferred_count"] = len(speaker_rejections)
             candidate_diagnostics["final_count"] = len(top_clips)
-            if speaker_rejections:
-                emit_progress(
-                    f"[Gate de locutor] {len(speaker_rejections)} candidato(s) adiados para revisão de voz.",
-                    "warning",
-                )
+            _report_speaker_gate(top_clips, speaker_rejections, emit_progress)
             _write_selection_diagnostics(
                 job_id=getattr(ctx, "job_id", None),
                 video_path=source_video_path,
