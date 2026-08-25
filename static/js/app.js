@@ -3529,12 +3529,40 @@ async function persistClipBoundary(index) {
         if (feedback) feedback.textContent = "Este resultado ainda não possui um registro persistente.";
         return;
     }
-    const adjustment = clip.latest_adjustment || {
-        start: Number(clip.start),
-        end: Number(clip.end),
-        duration: Number(clip.duration),
-        boundary_adjustment: { source: "manual" },
+    // As alças escrevem nos campos escondidos; o "Pré-visualizar" lia deles, o
+    // "Salvar" não. Quem arrastasse e salvasse direto gravava clip.start e
+    // clip.end — os valores ORIGINAIS — e o corte voltava igual, sem erro e sem
+    // registro. Era exatamente o que o editor descreveu: "confirmei que era para
+    // calibrar o corte, o video se manteve o mesmo, não gerou logs".
+    const campoInicio = document.querySelector(`[data-boundary-start="${index}"]`);
+    const campoFim = document.querySelector(`[data-boundary-end="${index}"]`);
+    const arrastado = {
+        start: Number(campoInicio?.value),
+        end: Number(campoFim?.value),
     };
+    const usarArrasto = Number.isFinite(arrastado.start) && Number.isFinite(arrastado.end)
+        && arrastado.end > arrastado.start;
+    const adjustment = usarArrasto
+        ? {
+            start: arrastado.start,
+            end: arrastado.end,
+            duration: Number((arrastado.end - arrastado.start).toFixed(2)),
+            boundary_adjustment: { source: "manual" },
+        }
+        : clip.latest_adjustment || {
+            start: Number(clip.start),
+            end: Number(clip.end),
+            duration: Number(clip.duration),
+            boundary_adjustment: { source: "manual" },
+        };
+    if (usarArrasto) {
+        addConsoleLog(
+            `[Ajuste] Corte ${index + 1}: ${Number(clip.start).toFixed(1)}s→${Number(clip.end).toFixed(1)}s `
+            + `passa a ${adjustment.start.toFixed(1)}s→${adjustment.end.toFixed(1)}s `
+            + `(${adjustment.duration.toFixed(1)}s).`,
+            "info",
+        );
+    }
     if (!Number.isFinite(Number(adjustment.start)) || !Number.isFinite(Number(adjustment.end))) {
         if (feedback) feedback.textContent = "Pré-visualize limites válidos antes de salvar.";
         return;

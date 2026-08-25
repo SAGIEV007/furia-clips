@@ -228,7 +228,16 @@
     /* Monta o talho dentro do editor de bordas de um corte. */
     window.montarTalho = function montarTalho(indice) {
         const caixa = document.getElementById(`boundary-editor-${indice}`);
-        if (!caixa || talhos.has(indice)) { talhos.get(indice) && desenhar(talhos.get(indice)); return; }
+        if (!caixa) return;
+        // Salvar e pré-visualizar chamam `renderResultsGrid`, que reconstrói o
+        // cartão inteiro a partir do HTML: campos novos, rótulos visíveis, e o
+        // talho anterior fora do documento. O mapa continuava guardando aquele
+        // nó morto, então reabrir devolvia cedo e o editor via de volta os
+        // campos de número antigos — "REAPARECE O SISTEMA DE BOTÕES E NUMEROS
+        // ANTIGOS". Um nó que saiu do documento não vale como talho montado.
+        const anterior = talhos.get(indice);
+        if (anterior && anterior.raiz.isConnected) { desenhar(anterior); return; }
+        talhos.delete(indice);
 
         const clip = window.state?.clips?.[indice];
         if (!clip) return;
