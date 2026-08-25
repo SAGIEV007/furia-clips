@@ -1811,6 +1811,60 @@ def api_download_editorial_backup(filename):
     return send_file(candidate, as_attachment=True, download_name=filename)
 
 
+@app.route("/api/painel", methods=["GET"])
+def api_painel():
+    """Os números que o painel desenha, já prontos para virar barra.
+
+    Tudo aqui é medição externa: desempenho de posts publicados e blocos que uma
+    pessoa revisou. Nada é produzido pelo próprio Furia, que é a única forma de
+    um painel dizer alguma coisa — um número que a ferramenta gera sobre o que a
+    ferramenta fez não mede nada.
+
+    A conta que importa é a razão contra a mediana da própria conta: 1,00 é o
+    desempenho típico, e o que interessa é quanto um gancho ou um tema se afasta
+    disso. Por isso o painel desenha a distância até 1,00 e não o valor bruto.
+    """
+    from modules.espelho_chub import carregar, descrever
+
+    conta = request.args.get("conta") or "@renansantosmbl"
+    plataforma = request.args.get("plataforma") or "instagram"
+    espelho = carregar()
+    resumo = descrever()
+
+    ganchos = sorted(
+        (item for item in espelho.get("ganchos") or []
+         if item.get("conta") == conta and item.get("plataforma") == plataforma
+         and int(item.get("n") or 0) >= 3),
+        key=lambda item: -float(item.get("mediana") or 0),
+    )
+    temas = sorted(
+        (item for item in espelho.get("temas") or [] if item.get("conta") == conta
+         and int(item.get("n") or 0) >= 8),
+        key=lambda item: -float(item.get("mediana") or 0),
+    )
+    papeis = espelho.get("papeis") or []
+
+    return jsonify({
+        "espelho": {
+            "disponivel": resumo.get("disponivel", False),
+            "gerado_em": resumo.get("gerado_em", ""),
+            "origem": resumo.get("origem", ""),
+            **(espelho.get("fonte") or {}),
+        },
+        "conta": conta,
+        "plataforma": plataforma,
+        "contas": sorted({item["conta"] for item in espelho.get("ganchos") or []}),
+        "ganchos": ganchos,
+        "temas": {"melhores": temas[:7], "piores": temas[-5:][::-1]},
+        "papeis": {
+            "adversarios": sum(1 for p in papeis if p["lado"] == "adversario"),
+            "aliados": sum(1 for p in papeis if p["lado"] == "aliado"),
+            "indefinidos": [p["nome"] for p in papeis if p["lado"] == "indefinido"],
+            "principais": [p for p in papeis if p["lado"] == "adversario"][:6],
+        },
+    })
+
+
 @app.route("/api/waveform", methods=["GET"])
 def api_waveform():
     """A forma do som num trecho, para o editor enxergar onde a fala começa.

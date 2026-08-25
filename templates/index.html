@@ -160,8 +160,13 @@
 
         <nav class="rail" role="tablist" aria-label="Ambientes do Furia">
             <div class="rail-tabs">
-                <button class="rail-tab is-active" data-ambiente="fila"
-                        role="tab" aria-selected="true" aria-controls="amb-fila">
+                <button class="rail-tab is-active" data-ambiente="painel"
+                        role="tab" aria-selected="true" aria-controls="amb-painel">
+                    <span class="material-icons-round">insights</span>
+                    <span class="rail-tab-label">Painel</span>
+                </button>
+                <button class="rail-tab" data-ambiente="fila"
+                        role="tab" aria-selected="false" aria-controls="amb-fila">
                     <span class="material-icons-round">playlist_add</span>
                     <span class="rail-tab-label">Fila</span>
                 </button>
@@ -190,8 +195,21 @@
 
         <div class="palco">
             <div class="ambientes">
-        <div class="ambiente is-active" id="amb-fila" role="tabpanel"
-             aria-labelledby="rail-fila">
+        <div class="ambiente is-active" id="amb-painel" role="tabpanel" aria-labelledby="rail-painel">
+            <div class="ambiente-intro ambiente-intro-larga">
+                <div>
+                    <h2>Painel</h2>
+                    <p>O que o Furia sabe sobre o que funciona — medido em material que foi ao ar.</p>
+                </div>
+                <label class="painel-conta">
+                    conta
+                    <select id="painelConta" aria-label="Conta a exibir"></select>
+                </label>
+            </div>
+            <div class="painel" id="painelCorpo"></div>
+        </div>
+        <div class="ambiente" id="amb-fila" role="tabpanel"
+             aria-labelledby="rail-fila" hidden>
             <div class="ambiente-intro">
                 <h2>Fila</h2>
                 <p>Colar links, importar vídeos e ver o que está processando.</p>
@@ -1283,6 +1301,7 @@
     <script src="/static/vendor/socket.io.min.js"></script>
     <script src="/static/js/app.js"></script>
     <script src="/static/js/talho.js"></script>
+    <script src="/static/js/painel.js"></script>
     <script src="/static/js/atelie.js"></script>
 
 </body>

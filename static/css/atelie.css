@@ -737,3 +737,296 @@ body.light-mode .reading-unit:hover,
 body.light-mode .sidebar, [data-theme="light"] .sidebar { border-right: 1px solid var(--at-linha); }
 body.light-mode .main-header, [data-theme="light"] .main-header { background: var(--at-fundo) !important; }
 body.light-mode .section, [data-theme="light"] .section { background: var(--at-superficie) !important; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   O PAINEL
+
+   Escala divergente: a barra sai do meio. 1,00 é o desempenho típico da conta,
+   então o que interessa é a distância até ali — não o valor bruto, que sozinho
+   não diria nada. O meio é cinza de propósito, porque o meio quer dizer "nada
+   demais".
+
+   Azul acima, vermelho abaixo: par divergente validado nos dois temas
+   (ΔE 19,2 em protanopia no escuro, 21,6 no claro; contraste ≥ 3:1 nos dois).
+   O ouro fica reservado para o acento da interface e nunca entra em dado — se
+   entrasse, o olho confundiria "isto é do Furia" com "isto rendeu bem".
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+    --viz-acima:  #3987e5;
+    --viz-abaixo: #e66767;
+    --viz-meio:   #383835;
+}
+body.light-mode, [data-theme="light"] {
+    --viz-acima:  #2a78d6;
+    --viz-abaixo: #e34948;
+    --viz-meio:   #e2e1de;
+}
+
+.painel { display: flex; flex-direction: column; gap: 1.1rem; }
+.painel[aria-busy="true"] { opacity: .5; }
+
+/* ── marcos: os números grandes ─────────────────────────────────────────── */
+
+.marcos {
+    display: grid;
+    grid-template-columns: 1.6fr repeat(3, 1fr);
+    gap: 1px;
+    background: var(--at-linha);
+    border: 1px solid var(--at-linha);
+    border-radius: var(--at-r);
+    overflow: hidden;
+}
+@media (max-width: 900px) { .marcos { grid-template-columns: 1fr 1fr; } }
+
+.marco {
+    display: flex;
+    flex-direction: column;
+    gap: 0.22rem;
+    padding: 1rem 1.1rem;
+    background: var(--at-superficie);
+}
+.marco-rotulo {
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--at-tinta-fraca);
+}
+.marco-valor {
+    font-family: var(--at-mono);
+    font-size: 1.7rem;
+    font-weight: 600;
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    color: var(--at-tinta);
+    font-variant-numeric: tabular-nums;
+}
+.marco-nota { font-size: 0.76rem; color: var(--at-tinta-fraca); }
+.marco.destaque { background: var(--at-elevado); }
+.marco.destaque .marco-valor {
+    font-family: Inter, sans-serif;
+    font-size: 1.45rem;
+    color: var(--at-ouro);
+    letter-spacing: -0.025em;
+}
+
+/* ── cartões de gráfico ─────────────────────────────────────────────────── */
+
+.cartao {
+    background: var(--at-superficie);
+    border: 1px solid var(--at-linha);
+    border-radius: var(--at-r);
+    padding: 1.1rem 1.2rem 1.2rem;
+}
+.cartao-topo { margin-bottom: 1rem; }
+.cartao-topo h3 {
+    margin: 0 0 0.22rem;
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    color: var(--at-tinta);
+}
+.cartao-topo p {
+    margin: 0;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    color: var(--at-tinta-fraca);
+    max-width: 62ch;
+}
+.cartao-topo b { color: var(--at-tinta-media); font-weight: 600; }
+
+.dupla { display: grid; grid-template-columns: 1fr 1fr; gap: 1.1rem; }
+@media (max-width: 1000px) { .dupla { grid-template-columns: 1fr; } }
+
+/* ── as faixas divergentes ──────────────────────────────────────────────── */
+
+.faixas { display: flex; flex-direction: column; gap: 1px; }
+
+.faixas-regua {
+    display: grid;
+    grid-template-columns: 9.5rem 1fr 2.6rem 2.2rem;
+    align-items: center;
+    font-size: 0.66rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--at-tinta-fraca);
+    padding-bottom: 0.45rem;
+    margin-bottom: 0.3rem;
+    border-bottom: 1px solid var(--at-linha);
+}
+/* Os três rótulos ocupavam a MESMA célula da grade, um por cima do outro: numa
+   coluna larga o alinhamento disfarçava, mas nos cartões estreitos saía
+   "MENOSQUE1,00TÍPICO" embaralhado. Eles precisam de uma grade própria dentro
+   da coluna do trilho. */
+.faixas-regua { grid-template-columns: 9.5rem 1fr 2.6rem 2.2rem; }
+.faixas-regua .regua-eixos {
+    grid-column: 2;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: baseline;
+    gap: 0.4rem;
+    min-width: 0;
+}
+.faixas-regua .regua-eixos span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    opacity: .75;
+}
+.faixas-regua .regua-eixos span:first-child { text-align: right; }
+.faixas-regua .regua-eixos span:last-child { text-align: left; }
+.faixas-regua .regua-meio {
+    font-family: var(--at-mono);
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--at-tinta-media);
+    opacity: 1;
+}
+/* Cartão estreito: as pontas somem e fica só o zero da escala, que é o que
+   não pode faltar. */
+@media (max-width: 1400px) {
+    .dupla .faixas-regua .regua-eixos span:not(.regua-meio) { display: none; }
+    .dupla .faixas-regua .regua-eixos { grid-template-columns: 1fr auto 1fr; }
+}
+
+.faixa {
+    display: grid;
+    grid-template-columns: 9.5rem 1fr 2.6rem 2.2rem;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.3rem 0;
+    border-radius: 3px;
+}
+.faixa:hover, .faixa:focus-visible { background: var(--at-elevado); outline: none; }
+.faixa:focus-visible { box-shadow: inset 0 0 0 1px var(--at-ouro); }
+
+.faixa-nome {
+    font-size: 0.82rem;
+    color: var(--at-tinta-media);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.faixa-trilho { position: relative; height: 15px; }
+.faixa-meio {
+    position: absolute;
+    left: 50%; top: -1px; bottom: -1px;
+    width: 1px;
+    background: var(--viz-meio);
+}
+.faixa-barra {
+    position: absolute;
+    top: 2px; bottom: 2px;
+    border-radius: 0;
+    min-width: 2px;
+}
+/* Cantos arredondados só na ponta que é dado; a que encosta na linha do meio
+   fica reta, porque ali não termina nada — é a origem da escala. */
+.faixa-barra.acima  { background: var(--viz-acima);  border-radius: 0 4px 4px 0; }
+.faixa-barra.abaixo { background: var(--viz-abaixo); border-radius: 4px 0 0 4px; }
+
+.faixa-valor {
+    font-family: var(--at-mono);
+    font-size: 0.82rem;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    color: var(--at-tinta);
+}
+.faixa-n {
+    font-family: var(--at-mono);
+    font-size: 0.7rem;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    color: var(--at-tinta-fraca);
+}
+/* Amostra pequena não pode parecer tão firme quanto amostra grande. */
+.faixa.amostra-magra .faixa-barra { opacity: .5; }
+.faixa.amostra-magra .faixa-n { color: var(--at-atencao); }
+
+/* ── o mapa de nomes ────────────────────────────────────────────────────── */
+
+.mapa-contagem {
+    display: flex;
+    gap: 1.4rem;
+    flex-wrap: wrap;
+    padding-bottom: 0.9rem;
+    margin-bottom: 0.7rem;
+    border-bottom: 1px solid var(--at-linha);
+    font-size: 0.8rem;
+    color: var(--at-tinta-fraca);
+}
+.mapa-contagem b {
+    font-family: var(--at-mono);
+    font-size: 1.05rem;
+    color: var(--at-tinta);
+    margin-right: 0.28rem;
+}
+.mapa-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.42rem; }
+.mapa-lista li {
+    display: grid;
+    grid-template-columns: 10rem 1fr auto;
+    align-items: center;
+    gap: 0.7rem;
+    font-size: 0.82rem;
+}
+.mapa-nome { color: var(--at-tinta-media); }
+.mapa-barra { height: 5px; background: var(--at-alto); border-radius: 3px; overflow: hidden; }
+.mapa-barra i { display: block; height: 100%; background: var(--viz-abaixo); border-radius: 3px; }
+.mapa-n {
+    font-family: var(--at-mono);
+    font-size: 0.7rem;
+    color: var(--at-tinta-fraca);
+    font-variant-numeric: tabular-nums;
+}
+.mapa-duvida {
+    display: flex;
+    gap: 0.55rem;
+    margin: 0.9rem 0 0;
+    padding: 0.65rem 0.75rem;
+    background: var(--at-atencao-fundo);
+    border-radius: var(--at-r-p);
+    font-size: 0.78rem;
+    line-height: 1.55;
+    color: var(--at-tinta-media);
+}
+.mapa-duvida .material-icons-round { font-size: 17px; color: var(--at-atencao); flex-shrink: 0; }
+.mapa-duvida b { color: var(--at-atencao); }
+
+.painel-rodape {
+    margin: 0;
+    font-size: 0.74rem;
+    color: var(--at-tinta-fraca);
+    line-height: 1.55;
+}
+.painel-vazio {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+    padding: 2.5rem 1.5rem;
+    background: var(--at-superficie);
+    border: 1px dashed var(--at-linha-forte);
+    border-radius: var(--at-r);
+    color: var(--at-tinta-fraca);
+}
+.painel-vazio .material-icons-round { font-size: 30px; color: var(--at-linha-forte); }
+.painel-vazio strong { color: var(--at-tinta); font-size: 0.98rem; }
+.painel-vazio p { margin: 0; font-size: 0.85rem; }
+
+.painel-conta {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.78rem;
+    color: var(--at-tinta-fraca);
+}
+.painel-conta select {
+    padding: 0.32rem 0.5rem;
+    border: 1px solid var(--at-linha-forte);
+    border-radius: var(--at-r-p);
+    background: var(--at-superficie);
+    color: var(--at-tinta);
+    font: inherit;
+    font-size: 0.8rem;
+}
