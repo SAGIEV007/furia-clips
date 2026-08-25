@@ -1,0 +1,2157 @@
+{
+ "schema": "espelho-chub-v1",
+ "gerado_em": "2026-08-25T04:21:52+00:00",
+ "origem": "consulta ao banco do Campaign Hub",
+ "fonte": {
+  "posts_com_desempenho": 29596,
+  "cortes_publicados": 5339,
+  "cortes_com_transcricao": 3946,
+  "cortes_com_gancho_rotulado": 4480,
+  "blocos_do_acervo": 17673,
+  "momentos_fortes": 35410,
+  "temas_controlados": 100,
+  "marcacoes_de_papel": 11535
+ },
+ "ganchos": [
+  {
+   "conta": "@partidomissao",
+   "plataforma": "facebook",
+   "familia": "tese-provocativa",
+   "n": 29,
+   "mediana": 1.05,
+   "p90": 3.546
+  },
+  {
+   "conta": "@partidomissao",
+   "plataforma": "facebook",
+   "familia": "outro",
+   "n": 4,
+   "mediana": 1.058,
+   "p90": 4.121
+  },
+  {
+   "conta": "@partidomissao",
+   "plataforma": "facebook",
+   "familia": "acusacao-direta",
+   "n": 3,
+   "mediana": 2.238,
+   "p90": 19.217
+  },
+  {
+   "conta": "@partidomissao",
+   "plataforma": "facebook",
+   "familia": "curiosity-gap",
+   "n": 3,
+   "mediana": 1.222,
+   "p90": 1.693
+  },
+  {
+   "conta": "@partidomissao",
+   "plataforma": "instagram",
+   "familia": "tese-provocativa",
+   "n": 24,
+   "mediana": 1.0,
+   "p90": 3.234
+  },
+  {
+   "conta": "@partidomissao",
+   "plataforma": "instagram",
+   "familia": "acusacao-direta",
+   "n": 9,
+   "mediana": 0.818,
+   "p90": 1.393
+  },
+  {
+   "conta": "@partidomissao",
+   "plataforma": "instagram",
+   "familia": "curiosity-gap",
+   "n": 5,
+   "mediana": 0.539,
+   "p90": 2.216
+  },
+  {
+   "conta": "@partidomissao",
+   "plataforma": "instagram",
+   "familia": "outro",
+   "n": 5,
+   "mediana": 2.24,
+   "p90": 3.461
+  },
+  {
+   "conta": "@partidomissao",
+   "plataforma": "instagram",
+   "familia": "desafio-ao-espectador",
+   "n": 3,
+   "mediana": 2.852,
+   "p90": 4.696
+  },
+  {
+   "conta": "@renansantosmbl",
+   "plataforma": "facebook",
+   "familia": "tese-provocativa",
+   "n": 347,
+   "mediana": 1.0,
+   "p90": 3.314
+  },
+  {
+   "conta": "@renansantosmbl",
+   "plataforma": "facebook",
+   "familia": "acusacao-direta",
+   "n": 246,
+   "mediana": 1.093,
+   "p90": 3.597
+  },
+  {
+   "conta": "@renansantosmbl",
+   "plataforma": "facebook",
+   "familia": "curiosity-gap",
+   "n": 142,
+   "mediana": 0.98,
+   "p90": 3.228
+  },
+  {
+   "conta": "@renansantosmbl",
+   "plataforma": "facebook",
+   "familia": "revelacao-de-local",
+   "n": 64,
+   "mediana": 1.023,
+   "p90": 3.051
+  },
+  {
+   "conta": "@renansantosmbl",
+   "plataforma": "facebook",
+   "familia": "desafio-ao-espectador",
+   "n": 54,
+   "mediana": 0.991,
+   "p90": 2.496
+  },
+  {
+   "conta": "@renansantosmbl",
+   "plataforma": "facebook",
+   "familia": "news-peg",
+   "n": 29,
+   "mediana": 0.968,
+   "p90": 7.355
+  },
+  {
+   "conta": "@renansantosmbl",
+   "plataforma": "facebook",
+   "familia": "callback",
+   "n": 24,
+   "mediana": 1.086,
+   "p90": 7.123
+  },
+  {
+   "conta": "@renansantosmbl",
+   "plataforma": "facebook",
+   "familia": "outro",
+   "n": 24,
+   "mediana": 0.674,
+   "p90": 1.362
+  },
+  {
+   "conta": "@renansantosmbl",
+   "plataforma": "facebook",
+   "familia": "numero-choque",
+   "n": 9,
+   "mediana": 0.571,
+   "p90": 2.261
+  },
+  {
+   "conta": "@renansantosmbl",
+   "plataforma": "facebook",
+   "familia": "contraste-regional",
+   "n": 3,
+   "mediana": 1.241,
+   "p90": 1.492
+  },
+  {
+   "conta": "@renansantosmbl",
+   "plataforma": "instagram",
+   "familia": "tese-provocativa",
+   "n": 482,
+   "mediana": 0.98,
+   "p90": 2.222
+  },
+  {
+   "conta": "@renansantosmbl",
+   "plataforma": "instagram",
+   "familia": "acusacao-direta",
+   "n": 298,
+   "mediana": 1.059,
+   "p90": 2.459
+  },
+  {
+   "conta": "@renansantosmbl",
+   "plataforma": "instagram",
+   "familia": "curiosity-gap",
+   "n": 192,
+   "mediana": 1.0,
+   "p90": 2.471
+  },
+  {
+   "conta": "@renansantosmbl",
+   "plataforma": "instagram",
+   "familia": "revelacao-de-local",
+   "n": 82,
+   "mediana": 0.992,
+   "p90": 2.021
+  },
+  {
+   "conta": "@renansantosmbl",
+   "plataforma": "instagram",
+   "familia": "desafio-ao-espectador",
+   "n": 65,
+   "mediana": 0.916,
+   "p90": 2.131
+  },
+  {
+   "conta": "@renansantosmbl",
+   "plataforma": "instagram",
+   "familia": "news-peg",
+   "n": 47,
+   "mediana": 1.403,
+   "p90": 3.178
+  },
+  {
+   "conta": "@renansantosmbl",
+   "plataforma": "instagram",
+   "familia": "outro",
+   "n": 43,
+   "mediana": 0.893,
+   "p90": 1.722
+  },
+  {
+   "conta": "@renansantosmbl",
+   "plataforma": "instagram",
+   "familia": "callback",
+   "n": 28,
+   "mediana": 1.215,
+   "p90": 2.791
+  },
+  {
+   "conta": "@renansantosmbl",
+   "plataforma": "instagram",
+   "familia": "numero-choque",
+   "n": 14,
+   "mediana": 0.985,
+   "p90": 1.701
+  },
+  {
+   "conta": "@renansantosmbl",
+   "plataforma": "instagram",
+   "familia": "contraste-regional",
+   "n": 4,
+   "mediana": 1.192,
+   "p90": 1.355
+  },
+  {
+   "conta": "@renansantosmbl",
+   "plataforma": "tiktok",
+   "familia": "tese-provocativa",
+   "n": 336,
+   "mediana": 1.0,
+   "p90": 4.545
+  },
+  {
+   "conta": "@renansantosmbl",
+   "plataforma": "tiktok",
+   "familia": "acusacao-direta",
+   "n": 222,
+   "mediana": 0.974,
+   "p90": 3.969
+  },
+  {
+   "conta": "@renansantosmbl",
+   "plataforma": "tiktok",
+   "familia": "curiosity-gap",
+   "n": 132,
+   "mediana": 1.0,
+   "p90": 5.259
+  },
+  {
+   "conta": "@renansantosmbl",
+   "plataforma": "tiktok",
+   "familia": "revelacao-de-local",
+   "n": 64,
+   "mediana": 1.332,
+   "p90": 4.928
+  },
+  {
+   "conta": "@renansantosmbl",
+   "plataforma": "tiktok",
+   "familia": "desafio-ao-espectador",
+   "n": 46,
+   "mediana": 1.11,
+   "p90": 3.644
+  },
+  {
+   "conta": "@renansantosmbl",
+   "plataforma": "tiktok",
+   "familia": "news-peg",
+   "n": 36,
+   "mediana": 1.782,
+   "p90": 3.786
+  },
+  {
+   "conta": "@renansantosmbl",
+   "plataforma": "tiktok",
+   "familia": "outro",
+   "n": 29,
+   "mediana": 0.694,
+   "p90": 1.144
+  },
+  {
+   "conta": "@renansantosmbl",
+   "plataforma": "tiktok",
+   "familia": "callback",
+   "n": 26,
+   "mediana": 1.398,
+   "p90": 8.835
+  },
+  {
+   "conta": "@renansantosmbl",
+   "plataforma": "tiktok",
+   "familia": "numero-choque",
+   "n": 11,
+   "mediana": 1.0,
+   "p90": 1.918
+  },
+  {
+   "conta": "@renansantosmbl",
+   "plataforma": "tiktok",
+   "familia": "contraste-regional",
+   "n": 4,
+   "mediana": 1.652,
+   "p90": 3.043
+  },
+  {
+   "conta": "@renansantosreserva",
+   "plataforma": "facebook",
+   "familia": "tese-provocativa",
+   "n": 66,
+   "mediana": 0.988,
+   "p90": 5.71
+  },
+  {
+   "conta": "@renansantosreserva",
+   "plataforma": "facebook",
+   "familia": "acusacao-direta",
+   "n": 29,
+   "mediana": 0.538,
+   "p90": 12.29
+  },
+  {
+   "conta": "@renansantosreserva",
+   "plataforma": "facebook",
+   "familia": "outro",
+   "n": 13,
+   "mediana": 0.719,
+   "p90": 25.331
+  },
+  {
+   "conta": "@renansantosreserva",
+   "plataforma": "facebook",
+   "familia": "curiosity-gap",
+   "n": 9,
+   "mediana": 0.12,
+   "p90": 1.539
+  },
+  {
+   "conta": "@renansantosreserva",
+   "plataforma": "facebook",
+   "familia": "desafio-ao-espectador",
+   "n": 5,
+   "mediana": 0.209,
+   "p90": 24.934
+  },
+  {
+   "conta": "@renansantosreserva",
+   "plataforma": "facebook",
+   "familia": "news-peg",
+   "n": 4,
+   "mediana": 1.293,
+   "p90": 1.458
+  },
+  {
+   "conta": "@renansantosreserva",
+   "plataforma": "facebook",
+   "familia": "callback",
+   "n": 4,
+   "mediana": 0.2,
+   "p90": 28.74
+  },
+  {
+   "conta": "@renansantosreserva",
+   "plataforma": "facebook",
+   "familia": "revelacao-de-local",
+   "n": 3,
+   "mediana": 0.341,
+   "p90": 1.866
+  },
+  {
+   "conta": "@renansantosreserva",
+   "plataforma": "instagram",
+   "familia": "tese-provocativa",
+   "n": 150,
+   "mediana": 1.0,
+   "p90": 6.178
+  },
+  {
+   "conta": "@renansantosreserva",
+   "plataforma": "instagram",
+   "familia": "acusacao-direta",
+   "n": 58,
+   "mediana": 0.986,
+   "p90": 5.546
+  },
+  {
+   "conta": "@renansantosreserva",
+   "plataforma": "instagram",
+   "familia": "outro",
+   "n": 29,
+   "mediana": 0.901,
+   "p90": 6.965
+  },
+  {
+   "conta": "@renansantosreserva",
+   "plataforma": "instagram",
+   "familia": "curiosity-gap",
+   "n": 21,
+   "mediana": 1.222,
+   "p90": 4.981
+  },
+  {
+   "conta": "@renansantosreserva",
+   "plataforma": "instagram",
+   "familia": "news-peg",
+   "n": 10,
+   "mediana": 2.186,
+   "p90": 6.984
+  },
+  {
+   "conta": "@renansantosreserva",
+   "plataforma": "instagram",
+   "familia": "desafio-ao-espectador",
+   "n": 10,
+   "mediana": 0.699,
+   "p90": 3.827
+  },
+  {
+   "conta": "@renansantosreserva",
+   "plataforma": "instagram",
+   "familia": "revelacao-de-local",
+   "n": 10,
+   "mediana": 0.86,
+   "p90": 8.108
+  },
+  {
+   "conta": "@renansantosreserva",
+   "plataforma": "instagram",
+   "familia": "callback",
+   "n": 6,
+   "mediana": 1.833,
+   "p90": 3.738
+  }
+ ],
+ "temas": [
+  {
+   "conta": "@partidomissao",
+   "slug": "corrupcao",
+   "dimensao": "issue",
+   "n": 14,
+   "mediana": 1.509
+  },
+  {
+   "conta": "@partidomissao",
+   "slug": "campanha-e-eleicoes",
+   "dimensao": "app_theme",
+   "n": 39,
+   "mediana": 1.132
+  },
+  {
+   "conta": "@partidomissao",
+   "slug": "eleicao-candidatura",
+   "dimensao": "event",
+   "n": 26,
+   "mediana": 1.113
+  },
+  {
+   "conta": "@partidomissao",
+   "slug": "corrupcao-e-escandalos",
+   "dimensao": "app_theme",
+   "n": 10,
+   "mediana": 1.017
+  },
+  {
+   "conta": "@partidomissao",
+   "slug": "crime-organizado",
+   "dimensao": "issue",
+   "n": 19,
+   "mediana": 1.0
+  },
+  {
+   "conta": "@partidomissao",
+   "slug": "gasto-publico",
+   "dimensao": "issue",
+   "n": 12,
+   "mediana": 1.0
+  },
+  {
+   "conta": "@partidomissao",
+   "slug": "missao",
+   "dimensao": "app_theme",
+   "n": 13,
+   "mediana": 1.0
+  },
+  {
+   "conta": "@partidomissao",
+   "slug": "seguranca-publica",
+   "dimensao": "issue",
+   "n": 18,
+   "mediana": 0.98
+  },
+  {
+   "conta": "@partidomissao",
+   "slug": "crime-e-faccoes",
+   "dimensao": "app_theme",
+   "n": 17,
+   "mediana": 0.98
+  },
+  {
+   "conta": "@partidomissao",
+   "slug": "justica-e-instituicoes",
+   "dimensao": "app_theme",
+   "n": 8,
+   "mediana": 0.963
+  },
+  {
+   "conta": "@renansantosmbl",
+   "slug": "saude",
+   "dimensao": "issue",
+   "n": 12,
+   "mediana": 2.109
+  },
+  {
+   "conta": "@renansantosmbl",
+   "slug": "uf-sp",
+   "dimensao": "app_uf",
+   "n": 24,
+   "mediana": 2.068
+  },
+  {
+   "conta": "@renansantosmbl",
+   "slug": "economia-e-trabalho",
+   "dimensao": "app_theme",
+   "n": 23,
+   "mediana": 1.265
+  },
+  {
+   "conta": "@renansantosmbl",
+   "slug": "corrupcao-e-escandalos",
+   "dimensao": "app_theme",
+   "n": 66,
+   "mediana": 1.239
+  },
+  {
+   "conta": "@renansantosmbl",
+   "slug": "celebridades-influencers",
+   "dimensao": "actor",
+   "n": 19,
+   "mediana": 1.224
+  },
+  {
+   "conta": "@renansantosmbl",
+   "slug": "censura-digital",
+   "dimensao": "issue",
+   "n": 10,
+   "mediana": 1.145
+  },
+  {
+   "conta": "@renansantosmbl",
+   "slug": "pauta-trans",
+   "dimensao": "issue",
+   "n": 8,
+   "mediana": 1.142
+  },
+  {
+   "conta": "@renansantosmbl",
+   "slug": "comportamento-e-familia",
+   "dimensao": "app_theme",
+   "n": 59,
+   "mediana": 1.128
+  },
+  {
+   "conta": "@renansantosmbl",
+   "slug": "energia-tecnologia-e-infra",
+   "dimensao": "app_theme",
+   "n": 9,
+   "mediana": 1.126
+  },
+  {
+   "conta": "@renansantosmbl",
+   "slug": "prefeitura-gestao-local",
+   "dimensao": "actor",
+   "n": 19,
+   "mediana": 1.112
+  },
+  {
+   "conta": "@renansantosmbl",
+   "slug": "municipios-e-federalismo",
+   "dimensao": "app_theme",
+   "n": 22,
+   "mediana": 1.082
+  },
+  {
+   "conta": "@renansantosmbl",
+   "slug": "corrupcao",
+   "dimensao": "app_theme",
+   "n": 39,
+   "mediana": 1.079
+  },
+  {
+   "conta": "@renansantosmbl",
+   "slug": "uf-ce",
+   "dimensao": "app_uf",
+   "n": 15,
+   "mediana": 1.07
+  },
+  {
+   "conta": "@renansantosmbl",
+   "slug": "faccoes-criminosas",
+   "dimensao": "actor",
+   "n": 21,
+   "mediana": 1.049
+  },
+  {
+   "conta": "@renansantosmbl",
+   "slug": "bolsonaro-direita",
+   "dimensao": "actor",
+   "n": 54,
+   "mediana": 1.045
+  },
+  {
+   "conta": "@renansantosmbl",
+   "slug": "valores-liberdade",
+   "dimensao": "app_theme",
+   "n": 27,
+   "mediana": 1.017
+  },
+  {
+   "conta": "@renansantosmbl",
+   "slug": "lula-pt",
+   "dimensao": "actor",
+   "n": 106,
+   "mediana": 1.009
+  },
+  {
+   "conta": "@renansantosmbl",
+   "slug": "sao-paulo",
+   "dimensao": "place",
+   "n": 9,
+   "mediana": 1.0
+  },
+  {
+   "conta": "@renansantosmbl",
+   "slug": "propriedade-invasoes",
+   "dimensao": "issue",
+   "n": 31,
+   "mediana": 1.0
+  },
+  {
+   "conta": "@renansantosmbl",
+   "slug": "emprego-renda",
+   "dimensao": "issue",
+   "n": 24,
+   "mediana": 1.0
+  },
+  {
+   "conta": "@renansantosmbl",
+   "slug": "periferia",
+   "dimensao": "constituency",
+   "n": 8,
+   "mediana": 1.0
+  },
+  {
+   "conta": "@renansantosmbl",
+   "slug": "agro-e-ambiente",
+   "dimensao": "app_theme",
+   "n": 18,
+   "mediana": 1.0
+  },
+  {
+   "conta": "@renansantosmbl",
+   "slug": "campanha-e-eleicoes",
+   "dimensao": "app_theme",
+   "n": 158,
+   "mediana": 1.0
+  },
+  {
+   "conta": "@renansantosmbl",
+   "slug": "corrupcao",
+   "dimensao": "issue",
+   "n": 144,
+   "mediana": 1.0
+  },
+  {
+   "conta": "@renansantosmbl",
+   "slug": "crime-organizado",
+   "dimensao": "issue",
+   "n": 190,
+   "mediana": 1.0
+  },
+  {
+   "conta": "@renansantosmbl",
+   "slug": "debate-cultural",
+   "dimensao": "event",
+   "n": 83,
+   "mediana": 1.0
+  },
+  {
+   "conta": "@renansantosmbl",
+   "slug": "decisao-judicial",
+   "dimensao": "event",
+   "n": 14,
+   "mediana": 1.0
+  },
+  {
+   "conta": "@renansantosmbl",
+   "slug": "agro",
+   "dimensao": "issue",
+   "n": 35,
+   "mediana": 1.0
+  },
+  {
+   "conta": "@renansantosmbl",
+   "slug": "uf-ms",
+   "dimensao": "app_uf",
+   "n": 8,
+   "mediana": 0.998
+  },
+  {
+   "conta": "@renansantosmbl",
+   "slug": "escandalo-investigacao",
+   "dimensao": "event",
+   "n": 69,
+   "mediana": 0.991
+  },
+  {
+   "conta": "@renansantosmbl",
+   "slug": "eleicao-candidatura",
+   "dimensao": "event",
+   "n": 190,
+   "mediana": 0.986
+  },
+  {
+   "conta": "@renansantosmbl",
+   "slug": "uf-rj",
+   "dimensao": "app_uf",
+   "n": 17,
+   "mediana": 0.986
+  },
+  {
+   "conta": "@renansantosmbl",
+   "slug": "seguranca",
+   "dimensao": "app_theme",
+   "n": 63,
+   "mediana": 0.983
+  },
+  {
+   "conta": "@renansantosmbl",
+   "slug": "crime-e-faccoes",
+   "dimensao": "app_theme",
+   "n": 133,
+   "mediana": 0.981
+  },
+  {
+   "conta": "@renansantosmbl",
+   "slug": "impostos",
+   "dimensao": "issue",
+   "n": 45,
+   "mediana": 0.981
+  },
+  {
+   "conta": "@renansantosmbl",
+   "slug": "energia",
+   "dimensao": "issue",
+   "n": 11,
+   "mediana": 0.954
+  },
+  {
+   "conta": "@renansantosmbl",
+   "slug": "nordeste",
+   "dimensao": "place",
+   "n": 29,
+   "mediana": 0.944
+  },
+  {
+   "conta": "@renansantosmbl",
+   "slug": "contas-publicas",
+   "dimensao": "app_theme",
+   "n": 36,
+   "mediana": 0.944
+  },
+  {
+   "conta": "@renansantosmbl",
+   "slug": "jogo-politico",
+   "dimensao": "app_theme",
+   "n": 59,
+   "mediana": 0.944
+  },
+  {
+   "conta": "@renansantosmbl",
+   "slug": "guerra-cultural",
+   "dimensao": "app_theme",
+   "n": 45,
+   "mediana": 0.931
+  },
+  {
+   "conta": "@renansantosmbl",
+   "slug": "liberdade-expressao",
+   "dimensao": "issue",
+   "n": 15,
+   "mediana": 0.931
+  },
+  {
+   "conta": "@renansantosmbl",
+   "slug": "saneamento-moradia",
+   "dimensao": "issue",
+   "n": 44,
+   "mediana": 0.915
+  },
+  {
+   "conta": "@renansantosmbl",
+   "slug": "seguranca-publica",
+   "dimensao": "issue",
+   "n": 207,
+   "mediana": 0.907
+  },
+  {
+   "conta": "@renansantosmbl",
+   "slug": "saude-e-educacao",
+   "dimensao": "app_theme",
+   "n": 16,
+   "mediana": 0.891
+  },
+  {
+   "conta": "@renansantosmbl",
+   "slug": "juventude",
+   "dimensao": "constituency",
+   "n": 12,
+   "mediana": 0.879
+  },
+  {
+   "conta": "@renansantosmbl",
+   "slug": "justica-e-instituicoes",
+   "dimensao": "app_theme",
+   "n": 60,
+   "mediana": 0.829
+  },
+  {
+   "conta": "@renansantosmbl",
+   "slug": "educacao",
+   "dimensao": "issue",
+   "n": 31,
+   "mediana": 0.829
+  },
+  {
+   "conta": "@renansantosmbl",
+   "slug": "gasto-publico",
+   "dimensao": "issue",
+   "n": 99,
+   "mediana": 0.819
+  },
+  {
+   "conta": "@renansantosmbl",
+   "slug": "exterior",
+   "dimensao": "place",
+   "n": 22,
+   "mediana": 0.799
+  },
+  {
+   "conta": "@renansantosmbl",
+   "slug": "cidades",
+   "dimensao": "app_theme",
+   "n": 8,
+   "mediana": 0.791
+  },
+  {
+   "conta": "@renansantosmbl",
+   "slug": "missao",
+   "dimensao": "app_theme",
+   "n": 39,
+   "mediana": 0.776
+  },
+  {
+   "conta": "@renansantosmbl",
+   "slug": "midia-imprensa",
+   "dimensao": "actor",
+   "n": 10,
+   "mediana": 0.768
+  },
+  {
+   "conta": "@renansantosmbl",
+   "slug": "economia",
+   "dimensao": "app_theme",
+   "n": 10,
+   "mediana": 0.748
+  },
+  {
+   "conta": "@renansantosmbl",
+   "slug": "meio-ambiente",
+   "dimensao": "issue",
+   "n": 21,
+   "mediana": 0.726
+  },
+  {
+   "conta": "@renansantosmbl",
+   "slug": "cidades-e-moradia",
+   "dimensao": "app_theme",
+   "n": 34,
+   "mediana": 0.696
+  },
+  {
+   "conta": "@renansantosmbl",
+   "slug": "congresso-centrao",
+   "dimensao": "actor",
+   "n": 22,
+   "mediana": 0.696
+  },
+  {
+   "conta": "@renansantosmbl",
+   "slug": "stf-moraes",
+   "dimensao": "actor",
+   "n": 38,
+   "mediana": 0.681
+  },
+  {
+   "conta": "@renansantosmbl",
+   "slug": "mundo-e-historia",
+   "dimensao": "app_theme",
+   "n": 33,
+   "mediana": 0.681
+  },
+  {
+   "conta": "@renansantosmbl",
+   "slug": "transporte",
+   "dimensao": "issue",
+   "n": 11,
+   "mediana": 0.53
+  },
+  {
+   "conta": "@renansantosmbl",
+   "slug": "uf-pa",
+   "dimensao": "app_uf",
+   "n": 14,
+   "mediana": 0.465
+  },
+  {
+   "conta": "@renansantosreserva",
+   "slug": "municipios-e-federalismo",
+   "dimensao": "app_theme",
+   "n": 8,
+   "mediana": 3.301
+  },
+  {
+   "conta": "@renansantosreserva",
+   "slug": "nordeste",
+   "dimensao": "place",
+   "n": 10,
+   "mediana": 1.781
+  },
+  {
+   "conta": "@renansantosreserva",
+   "slug": "campanha-e-eleicoes",
+   "dimensao": "app_theme",
+   "n": 66,
+   "mediana": 1.676
+  },
+  {
+   "conta": "@renansantosreserva",
+   "slug": "emprego-renda",
+   "dimensao": "issue",
+   "n": 14,
+   "mediana": 1.284
+  },
+  {
+   "conta": "@renansantosreserva",
+   "slug": "debate-cultural",
+   "dimensao": "event",
+   "n": 16,
+   "mediana": 1.266
+  },
+  {
+   "conta": "@renansantosreserva",
+   "slug": "eleicao-candidatura",
+   "dimensao": "event",
+   "n": 75,
+   "mediana": 1.222
+  },
+  {
+   "conta": "@renansantosreserva",
+   "slug": "bolsonaro-direita",
+   "dimensao": "actor",
+   "n": 37,
+   "mediana": 1.099
+  },
+  {
+   "conta": "@renansantosreserva",
+   "slug": "escandalo-investigacao",
+   "dimensao": "event",
+   "n": 13,
+   "mediana": 1.089
+  },
+  {
+   "conta": "@renansantosreserva",
+   "slug": "comportamento-e-familia",
+   "dimensao": "app_theme",
+   "n": 27,
+   "mediana": 1.087
+  },
+  {
+   "conta": "@renansantosreserva",
+   "slug": "contas-publicas",
+   "dimensao": "app_theme",
+   "n": 17,
+   "mediana": 1.06
+  },
+  {
+   "conta": "@renansantosreserva",
+   "slug": "saneamento-moradia",
+   "dimensao": "issue",
+   "n": 8,
+   "mediana": 1.06
+  },
+  {
+   "conta": "@renansantosreserva",
+   "slug": "crime-organizado",
+   "dimensao": "issue",
+   "n": 54,
+   "mediana": 1.036
+  },
+  {
+   "conta": "@renansantosreserva",
+   "slug": "economia-e-trabalho",
+   "dimensao": "app_theme",
+   "n": 18,
+   "mediana": 1.017
+  },
+  {
+   "conta": "@renansantosreserva",
+   "slug": "mundo-e-historia",
+   "dimensao": "app_theme",
+   "n": 11,
+   "mediana": 1.0
+  },
+  {
+   "conta": "@renansantosreserva",
+   "slug": "corrupcao",
+   "dimensao": "issue",
+   "n": 48,
+   "mediana": 1.0
+  },
+  {
+   "conta": "@renansantosreserva",
+   "slug": "gasto-publico",
+   "dimensao": "issue",
+   "n": 36,
+   "mediana": 0.981
+  },
+  {
+   "conta": "@renansantosreserva",
+   "slug": "corrupcao-e-escandalos",
+   "dimensao": "app_theme",
+   "n": 19,
+   "mediana": 0.971
+  },
+  {
+   "conta": "@renansantosreserva",
+   "slug": "lula-pt",
+   "dimensao": "actor",
+   "n": 39,
+   "mediana": 0.964
+  },
+  {
+   "conta": "@renansantosreserva",
+   "slug": "seguranca-publica",
+   "dimensao": "issue",
+   "n": 52,
+   "mediana": 0.954
+  },
+  {
+   "conta": "@renansantosreserva",
+   "slug": "impostos",
+   "dimensao": "issue",
+   "n": 8,
+   "mediana": 0.754
+  },
+  {
+   "conta": "@renansantosreserva",
+   "slug": "crime-e-faccoes",
+   "dimensao": "app_theme",
+   "n": 35,
+   "mediana": 0.726
+  },
+  {
+   "conta": "@renansantosreserva",
+   "slug": "faccoes-criminosas",
+   "dimensao": "actor",
+   "n": 19,
+   "mediana": 0.607
+  },
+  {
+   "conta": "@renansantosreserva",
+   "slug": "justica-e-instituicoes",
+   "dimensao": "app_theme",
+   "n": 13,
+   "mediana": 0.552
+  },
+  {
+   "conta": "@renansantosreserva",
+   "slug": "stf-moraes",
+   "dimensao": "actor",
+   "n": 12,
+   "mediana": 0.341
+  }
+ ],
+ "papeis": [
+  {
+   "nome": "Renan Santos",
+   "lado": "aliado",
+   "confianca": 0.993,
+   "marcacoes": 3099,
+   "contra": 23,
+   "a_favor": 3076,
+   "variantes": [
+    "Renan",
+    "Renan Santos",
+    "renan",
+    "renan orador",
+    "renan palestrante",
+    "renan pre candidato",
+    "renan santos",
+    "renan santos arroba renansantosmbl",
+    "renan santos mbl",
+    "renan speaker"
+   ]
+  },
+  {
+   "nome": "Lula",
+   "lado": "adversario",
+   "confianca": 0.885,
+   "marcacoes": 1221,
+   "contra": 1081,
+   "a_favor": 140,
+   "variantes": [
+    "Luiz Inácio Lula da Silva",
+    "Lula",
+    "luiz inacio lula da silva",
+    "lula"
+   ]
+  },
+  {
+   "nome": "Flávio Bolsonaro",
+   "lado": "adversario",
+   "confianca": 0.865,
+   "marcacoes": 740,
+   "contra": 640,
+   "a_favor": 100,
+   "variantes": [
+    "Flavio Bolsonaro",
+    "Flávio",
+    "Flávio (Bolsonaro)",
+    "Flávio Bolsonaro",
+    "flavio",
+    "flavio bolsonaro"
+   ]
+  },
+  {
+   "nome": "Jair Bolsonaro",
+   "lado": "adversario",
+   "confianca": 0.741,
+   "marcacoes": 609,
+   "contra": 451,
+   "a_favor": 158,
+   "variantes": [
+    "Bolsonaro",
+    "Jair Bolsonaro",
+    "bolsonaro",
+    "bolsonaro jair",
+    "bolsonaro jair bolsonaro",
+    "jair bolsonaro"
+   ]
+  },
+  {
+   "nome": "Comando Vermelho",
+   "lado": "adversario",
+   "confianca": 1.0,
+   "marcacoes": 317,
+   "contra": 317,
+   "a_favor": 0,
+   "variantes": [
+    "Comando Vermelho"
+   ]
+  },
+  {
+   "nome": "Lula / PT",
+   "lado": "adversario",
+   "confianca": 1.0,
+   "marcacoes": 214,
+   "contra": 214,
+   "a_favor": 0,
+   "variantes": [
+    "Lula / PT",
+    "Lula/PT",
+    "lula pt"
+   ]
+  },
+  {
+   "nome": "PCC",
+   "lado": "adversario",
+   "confianca": 1.0,
+   "marcacoes": 199,
+   "contra": 199,
+   "a_favor": 0,
+   "variantes": [
+    "pcc primeiro comando da capital"
+   ]
+  },
+  {
+   "nome": "Daniel Vorcaro",
+   "lado": "adversario",
+   "confianca": 1.0,
+   "marcacoes": 168,
+   "contra": 168,
+   "a_favor": 0,
+   "variantes": [
+    "Daniel Vorcaro",
+    "Daniel Vorkaro",
+    "Vorcaro",
+    "daniel vorcar",
+    "daniel vorcaro",
+    "daniel vorkaro",
+    "vorcaro"
+   ]
+  },
+  {
+   "nome": "PT",
+   "lado": "adversario",
+   "confianca": 1.0,
+   "marcacoes": 167,
+   "contra": 167,
+   "a_favor": 0,
+   "variantes": [
+    "partido dos trabalhadores pt"
+   ]
+  },
+  {
+   "nome": "Kim Kataguiri",
+   "lado": "aliado",
+   "confianca": 0.962,
+   "marcacoes": 158,
+   "contra": 6,
+   "a_favor": 152,
+   "variantes": [
+    "Kim Kataguiri",
+    "kim kataguiri"
+   ]
+  },
+  {
+   "nome": "Alexandre de Moraes",
+   "lado": "adversario",
+   "confianca": 1.0,
+   "marcacoes": 138,
+   "contra": 138,
+   "a_favor": 0,
+   "variantes": [
+    "Alexandre de Moraes"
+   ]
+  },
+  {
+   "nome": "Tarcísio de Freitas",
+   "lado": "indefinido",
+   "confianca": 0.512,
+   "marcacoes": 129,
+   "contra": 66,
+   "a_favor": 63,
+   "variantes": [
+    "Tarcísio",
+    "Tarcísio Gomes de Freitas",
+    "Tarcísio de Freitas",
+    "tarcisio",
+    "tarcisio de freitas",
+    "tarcisio gomes de freitas"
+   ]
+  },
+  {
+   "nome": "Romeu Zema",
+   "lado": "indefinido",
+   "confianca": 0.508,
+   "marcacoes": 122,
+   "contra": 62,
+   "a_favor": 60,
+   "variantes": [
+    "Romeu Zema",
+    "Zema",
+    "romeu zema",
+    "zema"
+   ]
+  },
+  {
+   "nome": "Donald Trump",
+   "lado": "indefinido",
+   "confianca": 0.542,
+   "marcacoes": 107,
+   "contra": 58,
+   "a_favor": 49,
+   "variantes": [
+    "Donald Trump",
+    "Trump",
+    "donald trump",
+    "trump"
+   ]
+  },
+  {
+   "nome": "Ciro Nogueira",
+   "lado": "adversario",
+   "confianca": 0.75,
+   "marcacoes": 96,
+   "contra": 72,
+   "a_favor": 24,
+   "variantes": [
+    "Ciro Nogueira",
+    "ciro nogueira"
+   ]
+  },
+  {
+   "nome": "Erika Hilton",
+   "lado": "adversario",
+   "confianca": 0.793,
+   "marcacoes": 92,
+   "contra": 73,
+   "a_favor": 19,
+   "variantes": [
+    "Erika Hilton",
+    "erika hilton"
+   ]
+  },
+  {
+   "nome": "Janja",
+   "lado": "indefinido",
+   "confianca": 0.692,
+   "marcacoes": 91,
+   "contra": 63,
+   "a_favor": 28,
+   "variantes": [
+    "Janja"
+   ]
+  },
+  {
+   "nome": "Nikolas Ferreira",
+   "lado": "adversario",
+   "confianca": 0.864,
+   "marcacoes": 81,
+   "contra": 70,
+   "a_favor": 11,
+   "variantes": [
+    "Nicolas",
+    "Nicolas Ferreira",
+    "Nicolás Ferreira",
+    "Nikolas Ferreira",
+    "nicolas",
+    "nicolas ferreira",
+    "nikolas ferreira"
+   ]
+  },
+  {
+   "nome": "Dilma Rousseff",
+   "lado": "adversario",
+   "confianca": 0.797,
+   "marcacoes": 79,
+   "contra": 63,
+   "a_favor": 16,
+   "variantes": [
+    "Dilma",
+    "Dilma Rousseff",
+    "dilma",
+    "dilma rousseff"
+   ]
+  },
+  {
+   "nome": "Fernando Haddad",
+   "lado": "adversario",
+   "confianca": 0.822,
+   "marcacoes": 73,
+   "contra": 60,
+   "a_favor": 13,
+   "variantes": [
+    "Fernando Haddad",
+    "Haddad",
+    "fernando haddad",
+    "haddad"
+   ]
+  },
+  {
+   "nome": "Dias Toffoli",
+   "lado": "adversario",
+   "confianca": 1.0,
+   "marcacoes": 70,
+   "contra": 70,
+   "a_favor": 0,
+   "variantes": [
+    "Dias Toffoli",
+    "Toffoli",
+    "dias toffoli",
+    "toffoli"
+   ]
+  },
+  {
+   "nome": "Centrão",
+   "lado": "adversario",
+   "confianca": 1.0,
+   "marcacoes": 69,
+   "contra": 69,
+   "a_favor": 0,
+   "variantes": [
+    "Centrão",
+    "centrao",
+    "centrão"
+   ]
+  },
+  {
+   "nome": "Ronaldo Caiado",
+   "lado": "indefinido",
+   "confianca": 0.615,
+   "marcacoes": 65,
+   "contra": 40,
+   "a_favor": 25,
+   "variantes": [
+    "Caiado",
+    "Ronaldo Caiado",
+    "caiado",
+    "ronaldo caiado"
+   ]
+  },
+  {
+   "nome": "MBL",
+   "lado": "aliado",
+   "confianca": 1.0,
+   "marcacoes": 64,
+   "contra": 0,
+   "a_favor": 64,
+   "variantes": []
+  },
+  {
+   "nome": "Valdemar da Costa Neto",
+   "lado": "adversario",
+   "confianca": 0.742,
+   "marcacoes": 62,
+   "contra": 46,
+   "a_favor": 16,
+   "variantes": [
+    "Valdemar Costa Neto",
+    "Valdemar da Costa Neto",
+    "valdemar",
+    "valdemar costa neto",
+    "valdemar da costa neto"
+   ]
+  },
+  {
+   "nome": "Eduardo Bolsonaro",
+   "lado": "indefinido",
+   "confianca": 0.635,
+   "marcacoes": 52,
+   "contra": 33,
+   "a_favor": 19,
+   "variantes": [
+    "Eduardo Bolsonaro"
+   ]
+  },
+  {
+   "nome": "Guido Mantega",
+   "lado": "indefinido",
+   "confianca": 0.577,
+   "marcacoes": 52,
+   "contra": 30,
+   "a_favor": 22,
+   "variantes": [
+    "Guido Mantega"
+   ]
+  },
+  {
+   "nome": "Nayib Bukele",
+   "lado": "aliado",
+   "confianca": 1.0,
+   "marcacoes": 52,
+   "contra": 0,
+   "a_favor": 52,
+   "variantes": [
+    "Bukele",
+    "Nayib Bukele",
+    "bukele",
+    "nayib bukele"
+   ]
+  },
+  {
+   "nome": "Neymar",
+   "lado": "indefinido",
+   "confianca": 0.673,
+   "marcacoes": 49,
+   "contra": 33,
+   "a_favor": 16,
+   "variantes": [
+    "Neymar"
+   ]
+  },
+  {
+   "nome": "Guilherme Boulos",
+   "lado": "adversario",
+   "confianca": 0.796,
+   "marcacoes": 49,
+   "contra": 39,
+   "a_favor": 10,
+   "variantes": [
+    "Boulos",
+    "Guilherme Boulos",
+    "boulos",
+    "guilherme boulos"
+   ]
+  },
+  {
+   "nome": "Pablo Marçal",
+   "lado": "adversario",
+   "confianca": 0.756,
+   "marcacoes": 45,
+   "contra": 34,
+   "a_favor": 11,
+   "variantes": [
+    "Marçal",
+    "Pablo Marçal",
+    "marcal",
+    "pablo marcal"
+   ]
+  },
+  {
+   "nome": "Javier Milei",
+   "lado": "aliado",
+   "confianca": 1.0,
+   "marcacoes": 45,
+   "contra": 0,
+   "a_favor": 45,
+   "variantes": [
+    "Javier Milei",
+    "Milei",
+    "javier milei",
+    "milei"
+   ]
+  },
+  {
+   "nome": "Gilmar Mendes",
+   "lado": "adversario",
+   "confianca": 0.75,
+   "marcacoes": 44,
+   "contra": 33,
+   "a_favor": 11,
+   "variantes": [
+    "Gilmar Mendes"
+   ]
+  },
+  {
+   "nome": "família Bolsonaro",
+   "lado": "adversario",
+   "confianca": 1.0,
+   "marcacoes": 43,
+   "contra": 43,
+   "a_favor": 0,
+   "variantes": [
+    "Família Bolsonaro",
+    "bolsonaro familia",
+    "familia bolsonaro",
+    "família Bolsonaro"
+   ]
+  },
+  {
+   "nome": "Wesley Safadão",
+   "lado": "indefinido",
+   "confianca": 0.634,
+   "marcacoes": 41,
+   "contra": 26,
+   "a_favor": 15,
+   "variantes": [
+    "Wesley Safadão"
+   ]
+  },
+  {
+   "nome": "Davi Alcolumbre",
+   "lado": "adversario",
+   "confianca": 1.0,
+   "marcacoes": 40,
+   "contra": 40,
+   "a_favor": 0,
+   "variantes": [
+    "Alcolumbre",
+    "Davi Alcolumbre",
+    "alcolumbre",
+    "davi alcolumbre"
+   ]
+  },
+  {
+   "nome": "STF",
+   "lado": "adversario",
+   "confianca": 1.0,
+   "marcacoes": 39,
+   "contra": 39,
+   "a_favor": 0,
+   "variantes": []
+  },
+  {
+   "nome": "Jacques Wagner",
+   "lado": "indefinido",
+   "confianca": 0.667,
+   "marcacoes": 39,
+   "contra": 26,
+   "a_favor": 13,
+   "variantes": [
+    "Jacques Wagner"
+   ]
+  },
+  {
+   "nome": "Renato Santos",
+   "lado": "aliado",
+   "confianca": 1.0,
+   "marcacoes": 36,
+   "contra": 0,
+   "a_favor": 36,
+   "variantes": [
+    "Renato Santos"
+   ]
+  },
+  {
+   "nome": "Flávio Dino",
+   "lado": "indefinido",
+   "confianca": 0.667,
+   "marcacoes": 36,
+   "contra": 24,
+   "a_favor": 12,
+   "variantes": [
+    "Flávio Dino"
+   ]
+  },
+  {
+   "nome": "André Valadão",
+   "lado": "adversario",
+   "confianca": 1.0,
+   "marcacoes": 32,
+   "contra": 32,
+   "a_favor": 0,
+   "variantes": [
+    "André Valadão"
+   ]
+  },
+  {
+   "nome": "Virgínia",
+   "lado": "adversario",
+   "confianca": 1.0,
+   "marcacoes": 32,
+   "contra": 32,
+   "a_favor": 0,
+   "variantes": [
+    "Virginia",
+    "Virgínia",
+    "virginia"
+   ]
+  },
+  {
+   "nome": "Fabiano Zettel",
+   "lado": "adversario",
+   "confianca": 1.0,
+   "marcacoes": 31,
+   "contra": 31,
+   "a_favor": 0,
+   "variantes": [
+    "Fabiano Zettel"
+   ]
+  },
+  {
+   "nome": "João Campos",
+   "lado": "adversario",
+   "confianca": 1.0,
+   "marcacoes": 30,
+   "contra": 30,
+   "a_favor": 0,
+   "variantes": [
+    "João Campos"
+   ]
+  },
+  {
+   "nome": "Rui Costa",
+   "lado": "indefinido",
+   "confianca": 0.6,
+   "marcacoes": 30,
+   "contra": 18,
+   "a_favor": 12,
+   "variantes": [
+    "Rui Costa"
+   ]
+  },
+  {
+   "nome": "PSOL",
+   "lado": "adversario",
+   "confianca": 1.0,
+   "marcacoes": 29,
+   "contra": 29,
+   "a_favor": 0,
+   "variantes": [
+    "PSOL"
+   ]
+  },
+  {
+   "nome": "Ricardo Lewandowski",
+   "lado": "adversario",
+   "confianca": 1.0,
+   "marcacoes": 29,
+   "contra": 29,
+   "a_favor": 0,
+   "variantes": [
+    "Lewandowski",
+    "Ricardo Lewandowski",
+    "lewandowski",
+    "ricardo lewandowski"
+   ]
+  },
+  {
+   "nome": "Ratinho Júnior",
+   "lado": "adversario",
+   "confianca": 1.0,
+   "marcacoes": 29,
+   "contra": 29,
+   "a_favor": 0,
+   "variantes": [
+    "Ratinho",
+    "Ratinho Júnior",
+    "ratinho",
+    "ratinho junior"
+   ]
+  },
+  {
+   "nome": "Marcinho VP",
+   "lado": "adversario",
+   "confianca": 1.0,
+   "marcacoes": 28,
+   "contra": 28,
+   "a_favor": 0,
+   "variantes": [
+    "Marcinho VP"
+   ]
+  },
+  {
+   "nome": "Jerônimo Rodrigues",
+   "lado": "adversario",
+   "confianca": 1.0,
+   "marcacoes": 28,
+   "contra": 28,
+   "a_favor": 0,
+   "variantes": [
+    "Jerônimo Rodrigues"
+   ]
+  },
+  {
+   "nome": "Tabata Amaral",
+   "lado": "adversario",
+   "confianca": 1.0,
+   "marcacoes": 26,
+   "contra": 26,
+   "a_favor": 0,
+   "variantes": [
+    "Tabata Amaral"
+   ]
+  },
+  {
+   "nome": "Sérgio Moro",
+   "lado": "indefinido",
+   "confianca": 0.64,
+   "marcacoes": 25,
+   "contra": 16,
+   "a_favor": 9,
+   "variantes": [
+    "Sérgio Moro",
+    "sergio moro"
+   ]
+  },
+  {
+   "nome": "Eduardo Paes",
+   "lado": "indefinido",
+   "confianca": 0.56,
+   "marcacoes": 25,
+   "contra": 14,
+   "a_favor": 11,
+   "variantes": [
+    "Eduardo Paes"
+   ]
+  },
+  {
+   "nome": "Bolsonaro / direita",
+   "lado": "adversario",
+   "confianca": 1.0,
+   "marcacoes": 24,
+   "contra": 24,
+   "a_favor": 0,
+   "variantes": [
+    "Bolsonaro / direita"
+   ]
+  },
+  {
+   "nome": "facções criminosas",
+   "lado": "adversario",
+   "confianca": 1.0,
+   "marcacoes": 23,
+   "contra": 23,
+   "a_favor": 0,
+   "variantes": [
+    "faccao criminosa",
+    "faccoes",
+    "faccoes criminosas",
+    "facções"
+   ]
+  },
+  {
+   "nome": "China",
+   "lado": "adversario",
+   "confianca": 1.0,
+   "marcacoes": 21,
+   "contra": 21,
+   "a_favor": 0,
+   "variantes": [
+    "China"
+   ]
+  },
+  {
+   "nome": "Arthur Lira",
+   "lado": "adversario",
+   "confianca": 1.0,
+   "marcacoes": 21,
+   "contra": 21,
+   "a_favor": 0,
+   "variantes": [
+    "Arthur Lira"
+   ]
+  },
+  {
+   "nome": "Partido dos Trabalhadores (PT)",
+   "lado": "adversario",
+   "confianca": 1.0,
+   "marcacoes": 21,
+   "contra": 21,
+   "a_favor": 0,
+   "variantes": [
+    "Partido dos Trabalhadores (PT)"
+   ]
+  },
+  {
+   "nome": "Jerônimo",
+   "lado": "adversario",
+   "confianca": 1.0,
+   "marcacoes": 21,
+   "contra": 21,
+   "a_favor": 0,
+   "variantes": [
+    "Jerônimo"
+   ]
+  },
+  {
+   "nome": "Gilberto Kassab",
+   "lado": "adversario",
+   "confianca": 1.0,
+   "marcacoes": 21,
+   "contra": 21,
+   "a_favor": 0,
+   "variantes": [
+    "Gilberto Kassab",
+    "Kassab",
+    "gilberto kassab",
+    "kassab"
+   ]
+  },
+  {
+   "nome": "Lulinha",
+   "lado": "adversario",
+   "confianca": 1.0,
+   "marcacoes": 20,
+   "contra": 20,
+   "a_favor": 0,
+   "variantes": [
+    "Lulinha",
+    "lulinha"
+   ]
+  },
+  {
+   "nome": "Barbalho",
+   "lado": "adversario",
+   "confianca": 1.0,
+   "marcacoes": 18,
+   "contra": 18,
+   "a_favor": 0,
+   "variantes": [
+    "Barbalho"
+   ]
+  },
+  {
+   "nome": "Helder Barbalho",
+   "lado": "adversario",
+   "confianca": 1.0,
+   "marcacoes": 18,
+   "contra": 18,
+   "a_favor": 0,
+   "variantes": [
+    "Helder Barbalho"
+   ]
+  },
+  {
+   "nome": "Maduro",
+   "lado": "adversario",
+   "confianca": 1.0,
+   "marcacoes": 18,
+   "contra": 18,
+   "a_favor": 0,
+   "variantes": [
+    "Maduro"
+   ]
+  },
+  {
+   "nome": "esquerda",
+   "lado": "adversario",
+   "confianca": 1.0,
+   "marcacoes": 18,
+   "contra": 18,
+   "a_favor": 0,
+   "variantes": [
+    "a esquerda",
+    "esquerda"
+   ]
+  },
+  {
+   "nome": "Everton Rocha",
+   "lado": "adversario",
+   "confianca": 1.0,
+   "marcacoes": 17,
+   "contra": 17,
+   "a_favor": 0,
+   "variantes": [
+    "Everton Rocha"
+   ]
+  },
+  {
+   "nome": "Queiroz",
+   "lado": "adversario",
+   "confianca": 1.0,
+   "marcacoes": 17,
+   "contra": 17,
+   "a_favor": 0,
+   "variantes": [
+    "Queiroz"
+   ]
+  },
+  {
+   "nome": "Renan Calheiros",
+   "lado": "indefinido",
+   "confianca": 0.529,
+   "marcacoes": 17,
+   "contra": 9,
+   "a_favor": 8,
+   "variantes": [
+    "Renan Calheiros",
+    "renan calheiros"
+   ]
+  },
+  {
+   "nome": "Governador do Ceará",
+   "lado": "adversario",
+   "confianca": 1.0,
+   "marcacoes": 16,
+   "contra": 16,
+   "a_favor": 0,
+   "variantes": [
+    "Governador do Ceará"
+   ]
+  },
+  {
+   "nome": "George Soros",
+   "lado": "adversario",
+   "confianca": 1.0,
+   "marcacoes": 15,
+   "contra": 15,
+   "a_favor": 0,
+   "variantes": [
+    "George Soros"
+   ]
+  },
+  {
+   "nome": "Marina Silva",
+   "lado": "adversario",
+   "confianca": 1.0,
+   "marcacoes": 15,
+   "contra": 15,
+   "a_favor": 0,
+   "variantes": [
+    "Marina Silva"
+   ]
+  },
+  {
+   "nome": "Bacelar",
+   "lado": "adversario",
+   "confianca": 1.0,
+   "marcacoes": 14,
+   "contra": 14,
+   "a_favor": 0,
+   "variantes": [
+    "Bacelar"
+   ]
+  },
+  {
+   "nome": "TCP",
+   "lado": "adversario",
+   "confianca": 1.0,
+   "marcacoes": 14,
+   "contra": 14,
+   "a_favor": 0,
+   "variantes": []
+  },
+  {
+   "nome": "governador do Ceará",
+   "lado": "adversario",
+   "confianca": 1.0,
+   "marcacoes": 13,
+   "contra": 13,
+   "a_favor": 0,
+   "variantes": [
+    "governador do Ceará"
+   ]
+  },
+  {
+   "nome": "MST",
+   "lado": "adversario",
+   "confianca": 1.0,
+   "marcacoes": 13,
+   "contra": 13,
+   "a_favor": 0,
+   "variantes": []
+  },
+  {
+   "nome": "Felipe Neto",
+   "lado": "adversario",
+   "confianca": 1.0,
+   "marcacoes": 13,
+   "contra": 13,
+   "a_favor": 0,
+   "variantes": [
+    "Felipe Neto"
+   ]
+  },
+  {
+   "nome": "Deolane",
+   "lado": "adversario",
+   "confianca": 1.0,
+   "marcacoes": 13,
+   "contra": 13,
+   "a_favor": 0,
+   "variantes": [
+    "Deolane"
+   ]
+  },
+  {
+   "nome": "Rede Globo",
+   "lado": "adversario",
+   "confianca": 1.0,
+   "marcacoes": 13,
+   "contra": 13,
+   "a_favor": 0,
+   "variantes": [
+    "Rede Globo"
+   ]
+  },
+  {
+   "nome": "Banco Master",
+   "lado": "adversario",
+   "confianca": 1.0,
+   "marcacoes": 13,
+   "contra": 13,
+   "a_favor": 0,
+   "variantes": [
+    "Banco Master"
+   ]
+  },
+  {
+   "nome": "Nicolás Maduro",
+   "lado": "adversario",
+   "confianca": 1.0,
+   "marcacoes": 13,
+   "contra": 13,
+   "a_favor": 0,
+   "variantes": [
+    "Nicolás Maduro"
+   ]
+  },
+  {
+   "nome": "Oruam",
+   "lado": "adversario",
+   "confianca": 1.0,
+   "marcacoes": 12,
+   "contra": 12,
+   "a_favor": 0,
+   "variantes": [
+    "Oruam"
+   ]
+  },
+  {
+   "nome": "MC Rian",
+   "lado": "adversario",
+   "confianca": 1.0,
+   "marcacoes": 12,
+   "contra": 12,
+   "a_favor": 0,
+   "variantes": [
+    "MC Rian"
+   ]
+  },
+  {
+   "nome": "Cláudio Castro",
+   "lado": "adversario",
+   "confianca": 1.0,
+   "marcacoes": 12,
+   "contra": 12,
+   "a_favor": 0,
+   "variantes": [
+    "Cláudio Castro"
+   ]
+  }
+ ],
+ "formatos": [
+  {
+   "nome": "analise_estudio",
+   "videos": 91,
+   "nota": "Renan sozinho em estúdio; enquadramento fechado costuma servir."
+  },
+  {
+   "nome": "evento",
+   "videos": 5,
+   "nota": "Palco e plateia; muitas vozes, e quase nunca a dele."
+  },
+  {
+   "nome": "coletiva",
+   "videos": 4,
+   "nota": "Pergunta e resposta com imprensa; a pergunta faz parte do corte."
+  },
+  {
+   "nome": "irl_live",
+   "videos": 3,
+   "nota": "Rua, deslocamento, áudio difícil."
+  }
+ ],
+ "portoes": {
+  "pergunta_e_resposta_completas": 14,
+  "comeca_no_meio_da_frase": -28,
+  "termina_sem_fechar": -18,
+  "duracao_e_preferencia_suave": true
+ },
+ "minimo_de_observacoes": 3
+}

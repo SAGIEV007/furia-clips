@@ -362,6 +362,25 @@ def _announce_acervo_source(settings, video_path):
     reviewed by a person, without them Furia is reading the source alone.
     """
     from modules.acervo_library import describe_snapshot, resolved_id_for
+    from modules.espelho_chub import descrever as descrever_espelho
+
+    # O espelho vale para toda fonte, esteja ela no Acervo ou não — é o que o
+    # CHUB sabe sobre o que funciona, não sobre este vídeo. Dizer a data e o
+    # tamanho da amostra é como o editor confere que ele chegou.
+    espelho = descrever_espelho()
+    if espelho.get("disponivel"):
+        emit_progress(
+            f"[Espelho CHUB] {espelho['resumo']} · gerado em "
+            f"{str(espelho.get('gerado_em', ''))[:10]} · {espelho['origem']} · "
+            f"maior amostra: {espelho['maior_amostra']} exemplos.",
+            "info",
+        )
+    else:
+        emit_progress(
+            "[Espelho CHUB] Nenhum espelho encontrado; o Furia vai ranquear sem a "
+            "memória de desempenho. Rode: chub.bat --espelho",
+            "warning",
+        )
 
     described = describe_snapshot((settings or {}).get("campaign_hub_snapshot_path"))
     if described.get("available") and described.get("blocks"):

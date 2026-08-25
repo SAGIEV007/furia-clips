@@ -11,6 +11,7 @@ REM      chub.bat --listar
 REM      chub.bat --tudo --limite 50
 REM      chub.bat KpjvWf9SsWQ
 REM      chub.bat --vincular "MEU VIDEO.mp4" KpjvWf9SsWQ
+REM      chub.bat --espelho
 REM
 REM  ATENCAO: testar a conexao NAO baixa nada. O Furia le os blocos de arquivos
 REM  em %USERPROFILE%\FuriaClipsData\acervo\, um por video, e eles so aparecem

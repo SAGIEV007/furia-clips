@@ -99,6 +99,50 @@ def baixar(cliente: ChubClient, video_id: str, *, forcar: bool) -> bool:
     return True
 
 
+def mostrar_espelho() -> int:
+    """A conferência da etapa 1: o que o Furia tem em mãos e de quando é.
+
+    O número que importa aqui é o tamanho da amostra. Se `tese-provocativa`
+    disser 482 onde o arquivo antigo dizia 6, o espelho chegou.
+    """
+    from modules.espelho_chub import caminho_local, carregar, descrever
+
+    resumo = descrever()
+    if not resumo.get("disponivel"):
+        print("Nenhum espelho encontrado.", file=sys.stderr)
+        return 1
+
+    espelho = carregar()
+    print(f"{resumo['resumo']}")
+    print(f"gerado em {str(resumo.get('gerado_em',''))[:10]} · {resumo['origem']}")
+    print(f"local esperado para atualizacoes: {caminho_local()}")
+
+    print("\nganchos (@renansantosmbl · instagram) — mediana de desempenho:")
+    ganchos = [g for g in espelho["ganchos"]
+               if g["conta"] == "@renansantosmbl" and g["plataforma"] == "instagram"]
+    for item in sorted(ganchos, key=lambda g: -g["mediana"]):
+        marca = "  <-- o melhor" if item["mediana"] == max(g["mediana"] for g in ganchos) else ""
+        print(f"  {item['familia']:<24} n={item['n']:<4} mediana={item['mediana']:.3f}{marca}")
+
+    temas = [t for t in espelho["temas"] if t["conta"] == "@renansantosmbl"]
+    temas.sort(key=lambda t: -t["mediana"])
+    print(f"\ntemas (@renansantosmbl) — {len(temas)} medidos, os 5 melhores e os 5 piores:")
+    for item in temas[:5] + temas[-5:]:
+        print(f"  {item['slug']:<28} n={item['n']:<4} mediana={item['mediana']:.3f}")
+
+    papeis = espelho["papeis"]
+    contra = [p for p in papeis if p["lado"] == "adversario"]
+    duvida = [p for p in papeis if p["lado"] == "indefinido"]
+    print(f"\nmapa de nomes: {len(papeis)} pessoas · {len(contra)} adversarios · "
+          f"{len(duvida)} sem lado definido")
+    for item in contra[:8]:
+        print(f"  {item['nome']:<24} adversario   {item['contra']} contra / {item['a_favor']} a favor")
+    if duvida:
+        print(f"\n  sem lado definido (o Furia NAO vai trata-los como adversario):")
+        print("  " + ", ".join(item["nome"] for item in duvida))
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("videos", nargs="*", help="ids do YouTube a sincronizar")
@@ -111,7 +155,14 @@ def main() -> int:
         "--vincular", nargs=2, metavar=("ARQUIVO", "ID"),
         help="dizer qual vídeo do YouTube é um arquivo cujo nome não traz o id",
     )
+    parser.add_argument(
+        "--espelho", action="store_true",
+        help="mostrar o espelho do CHUB em uso (ganchos, temas e mapa de nomes)",
+    )
     args = parser.parse_args()
+
+    if args.espelho:
+        return mostrar_espelho()
 
     # Vincular não fala com o CHUB: é só um bilhete local dizendo qual vídeo é
     # qual. Vem antes de tudo para funcionar mesmo sem credencial configurada.
