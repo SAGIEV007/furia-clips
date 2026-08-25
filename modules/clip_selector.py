@@ -193,6 +193,12 @@ class ClipSelector:
             "word_boundary_segments_available": False,
             "word_boundary_refined_count": 0,
             "word_boundary_review_count": 0,
+            # Quem morreu na peneira de sobreposição, com nome e endereço. O
+            # contador dizia "12 descartados" e mais nada: não dava para saber
+            # se eram fragmentos redundantes ou cortes perdidos. Sem esta lista
+            # a pergunta do editor — "estou perdendo cortes?" — só tinha
+            # resposta por adivinhação.
+            "descartados_por_sobreposicao": [],
             "hard_negatives": [],
             "hard_negative_count": 0,
             "reason": "not_evaluated",
@@ -343,6 +349,12 @@ class ClipSelector:
             "word_boundary_segments_available": False,
             "word_boundary_refined_count": 0,
             "word_boundary_review_count": 0,
+            # Quem morreu na peneira de sobreposição, com nome e endereço. O
+            # contador dizia "12 descartados" e mais nada: não dava para saber
+            # se eram fragmentos redundantes ou cortes perdidos. Sem esta lista
+            # a pergunta do editor — "estou perdendo cortes?" — só tinha
+            # resposta por adivinhação.
+            "descartados_por_sobreposicao": [],
             "hard_negatives": [],
             "hard_negative_count": 0,
             "reason": "short_source" if expected_count == 0 else ("adequate_pool" if len(primary_clips) >= expected_count else "primary_pool_thin"),
@@ -4370,10 +4382,56 @@ Retorne APENAS o JSON.
                     self._candidate_diagnostics[field] = int(
                         self._candidate_diagnostics.get(field, 0) or 0
                     ) + 1
+                self._registrar_descarte_por_sobreposicao(
+                    clip,
+                    existing,
+                    duplicate_reason,
+                    overlap if duplicate_reason == "overlap" else text_similarity,
+                )
                 continue
             selected.append(clip)
 
         return selected
+
+    def _registrar_descarte_por_sobreposicao(self, perdedor, vencedor, motivo, medida):
+        """Anota quem a peneira derrubou, e por causa de quem.
+
+        Medido no diagnóstico real do editor: 24 candidatos primários viraram 14
+        finais, com 12 mortos aqui. O número sozinho não responde nada. Um
+        candidato de 40 s inteiramente dentro de um corte de 143 s tem
+        sobreposição 1,00 e morre; um candidato de 45 s que só herdou 6 s de
+        pergunta da repórter tem 0,13 e sobrevive. São situações opostas e o
+        contador dava o mesmo "1" para as duas.
+
+        Só metadado — nenhum candidato deixa de ser considerado por causa disto.
+        """
+        try:
+            inicio = float(perdedor.get("start", 0) or 0)
+            fim = float(perdedor.get("end", 0) or 0)
+            venc_inicio = float(vencedor.get("start", 0) or 0)
+            venc_fim = float(vencedor.get("end", 0) or 0)
+        except (TypeError, ValueError):
+            return
+        ledger = self._candidate_diagnostics.setdefault("descartados_por_sobreposicao", [])
+        # Um vídeo de duas horas pode gerar centenas de descartes; o arquivo que
+        # o editor envia precisa continuar abrível.
+        if len(ledger) >= 60:
+            return
+        texto = " ".join(str(perdedor.get("text", "") or "").split())
+        ledger.append({
+            "motivo": motivo,
+            "medida": round(float(medida or 0), 3),
+            "inicio": round(inicio, 1),
+            "fim": round(fim, 1),
+            "duracao": round(max(0.0, fim - inicio), 1),
+            "vencedor_inicio": round(venc_inicio, 1),
+            "vencedor_fim": round(venc_fim, 1),
+            "vencedor_duracao": round(max(0.0, venc_fim - venc_inicio), 1),
+            # Estava inteiro dentro do vencedor? É a diferença entre "fragmento
+            # redundante" e "corte perdido", e é a única pergunta que importa.
+            "dentro_do_vencedor": bool(inicio >= venc_inicio - 0.5 and fim <= venc_fim + 0.5),
+            "trecho": texto[:180],
+        })
 
     def _text_similarity(self, first, second):
         def normalize(value):

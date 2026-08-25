@@ -750,9 +750,54 @@ def _write_selection_diagnostics(
                 "Envie esse arquivo para analisar por que cada corte entrou ou ficou de fora.",
                 "info",
             )
+            _anunciar_descartes_por_sobreposicao(diagnostics, emit_progress)
     except (OSError, TypeError, ValueError) as exc:
         if emit_progress:
             emit_progress(f"[Diagnóstico] Não foi possível gravar o relatório de seleção: {str(exc)[:140]}", "warning")
+
+
+def _anunciar_descartes_por_sobreposicao(diagnostics, emit_progress):
+    """Diz no registro quantos trechos a peneira derrubou, e de que tipo.
+
+    O editor pergunta se está perdendo cortes. Na corrida da Penélope foram 24
+    candidatos primários e 14 finais; a diferença estava num contador que ele
+    nunca viu, dentro de um JSON que ele precisa abrir para ler.
+
+    A separação importa e é o motivo desta linha existir: um trecho INTEIRO
+    dentro de um corte já escolhido é conteúdo que ele já tem — o corte longo
+    contém aquela fala. Um trecho que só encosta na borda é outra coisa: uma
+    fala diferente que morreu porque compartilha alguns segundos com a vizinha.
+    O primeiro caso não custa nada; o segundo é corte perdido de verdade.
+    """
+    ledger = (diagnostics or {}).get("descartados_por_sobreposicao")
+    if not isinstance(ledger, list) or not ledger:
+        return
+    dentro = [item for item in ledger if item.get("dentro_do_vencedor")]
+    encostados = [item for item in ledger if not item.get("dentro_do_vencedor")]
+    emit_progress(
+        f"[Peneira] {len(ledger)} trecho(s) saíram por repetir outro já escolhido: "
+        f"{len(dentro)} estavam inteiros dentro de um corte maior (esse conteúdo você já tem) "
+        f"e {len(encostados)} só encostavam na borda.",
+        "info",
+    )
+    for item in sorted(encostados, key=lambda i: float(i.get("duracao", 0) or 0), reverse=True)[:5]:
+        emit_progress(
+            f"[Peneira] Perdido: {_format_seconds(item.get('inicio', 0))}–"
+            f"{_format_seconds(item.get('fim', 0))} ({item.get('duracao')}s) — "
+            f"encostava no corte de {_format_seconds(item.get('vencedor_inicio', 0))}–"
+            f"{_format_seconds(item.get('vencedor_fim', 0))}. "
+            f"“{str(item.get('trecho') or '')[:90]}”",
+            "info",
+        )
+
+
+def _format_seconds(valor):
+    """Segundos em minuto:segundo. Ninguém edita vídeo contando até 3600."""
+    try:
+        total = int(float(valor or 0))
+    except (TypeError, ValueError):
+        return "0:00"
+    return f"{total // 60}:{total % 60:02d}"
 
 
 def _defer_context_incomplete_candidates(candidates):
