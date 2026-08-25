@@ -2,6 +2,11 @@
 // FURIA CLIPS - Frontend Application v2.0
 // ═══════════════════════════════════════════════════
 
+// O talho e a paleta são arquivos separados e precisam ler o vídeo selecionado,
+// os cortes e a transcrição. `const` em escopo de arquivo não é alcançável de
+// fora, e sem esta linha o ajuste de corte não acha corte nenhum — descobri
+// medindo no navegador, porque nada disso dá erro: `window.state?.clips` volta
+// indefinido em silêncio.
 const state = {
     selectedVideo: null,
     selectedVideoName: "",
@@ -47,6 +52,8 @@ const state = {
     lastDiagnostic: null,
     diagnosticLoading: false,
 };
+window.state = state;
+
 
 // Sistema de Toasts (Notificações UI)
 function showToast(title, message, type = "info", duration = 4000) {
@@ -871,19 +878,14 @@ function showStage(stage, { manual = false } = {}) {
     currentStage = stage;
     if (manual) stageChosenAt = Date.now();
 
-    Object.entries(STAGE_SECTIONS).forEach(([nome, ids]) => {
-        const visivel = nome === stage;
-        ids.forEach((id) => {
-            const secao = document.getElementById(id);
-            if (!secao) return;
-            // Uma classe, e não o atributo `hidden`: prévia e resultados se
-            // escondem com `display:none` embutido e voltam com `display:block`
-            // vindo de outro trecho do código. Estilo embutido ganha de
-            // `[hidden]`, então esconder assim não teria efeito nenhum nelas —
-            // e mostrar de novo faria reaparecerem na etapa errada.
-            secao.classList.toggle("stage-off", !visivel);
-        });
-    });
+    // A barra de ambientes assumiu a navegação, e duas navegações na mesma tela
+    // brigam: esta escondia `resultsSection` enquanto a outra mostrava o
+    // ambiente Auditoria, e o cartão do corte nascia com zero pixel — sem erro
+    // nenhum, como sempre acontece quando o culpado é `display:none`.
+    //
+    // A função continua existindo porque várias partes do código a chamam para
+    // dizer em que momento estamos; ela só não mexe mais em visibilidade.
+    document.querySelectorAll(".stage-off").forEach((secao) => secao.classList.remove("stage-off"));
 
     document.querySelectorAll(".workflow-step").forEach((passo, indice) => {
         const nome = STAGE_ORDER[indice];
@@ -3333,7 +3335,7 @@ function renderResultsGrid() {
                     ${editorialBlock.moment_reason ? `<small><b>Momento:</b> ${escapeHtml(editorialBlock.moment_reason)}</small>` : ''}
                     ${blockTags.length ? `<div class="editorial-block-tags">${blockTags.map((tag) => `<span>${escapeHtml(tag)}</span>`).join('')}</div>` : ''}
                 </div>` : ''}
-                <button class="btn btn-sm btn-boundary-toggle" onclick="toggleBoundaryEditor(${originalIndex})" title="Remover falas desnecessárias antes ou depois do trecho"><span class="material-icons-round">content_cut</span> Cortar fala antes/depois</button>
+                <button class="btn btn-sm btn-boundary-toggle" onclick="toggleBoundaryEditor(${originalIndex})" title="Remover falas desnecessárias antes ou depois do trecho"><span class="material-icons-round">graphic_eq</span> Ajustar entrada e saída</button>
                 <div class="clip-boundary-editor" id="boundary-editor-${originalIndex}" hidden>
                     <div class="clip-boundary-fields">
                         <label>Entrada <input type="number" min="0" step="0.1" data-boundary-start="${originalIndex}" value="${Number(clip.start || 0).toFixed(1)}"></label>
@@ -3341,7 +3343,7 @@ function renderResultsGrid() {
                         <button class="btn btn-sm btn-primary" onclick="previewClipBoundary(${originalIndex})"><span class="material-icons-round">preview</span> Pré-visualizar</button>
                         <button class="btn btn-sm btn-success" onclick="persistClipBoundary(${originalIndex})" ${clip.clip_id ? "" : "disabled"}><span class="material-icons-round">save</span> Salvar ajuste</button>
                     </div>
-                    <small><b>Como usar:</b> Entrada = primeiro segundo útil; saída = último segundo útil. “Pré-visualizar” atualiza somente este card e mantém o arquivo original. “Salvar ajuste” registra a decisão para o próximo render; não cria um MP4 novo nesta etapa.</small>
+                    <small><b>Como usar:</b> Arraste as alças douradas sobre a onda. O trecho aceso é o corte; o cinza dos lados é a margem, para você poder voltar. “Pré-visualizar” atualiza somente este card e mantém o arquivo original. “Salvar ajuste” registra a decisão para o próximo render; não cria um MP4 novo nesta etapa.</small>
                     <div class="clip-boundary-feedback" id="boundary-feedback-${originalIndex}" aria-live="polite"></div>
                 </div>
                 <div class="review-format-chip" title="${escapeHtml(layoutMeta.hint)}"><span class="material-icons-round">${escapeHtml(layoutMeta.icon)}</span>${escapeHtml(layoutMeta.label)}</div>
@@ -3452,6 +3454,10 @@ function toggleBoundaryEditor(index) {
     const editor = document.getElementById(`boundary-editor-${index}`);
     if (!editor) return;
     editor.hidden = !editor.hidden;
+    // A onda só pode ser desenhada depois que o painel tem tamanho: filho de um
+    // elemento escondido mede zero pixel, e um canvas de zero pixel não desenha
+    // nada nem reclama. Foi assim que o player sumiu duas vezes.
+    if (!editor.hidden) window.montarTalho?.(index);
 }
 
 async function previewClipBoundary(index) {

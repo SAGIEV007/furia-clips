@@ -1811,6 +1811,71 @@ def api_download_editorial_backup(filename):
     return send_file(candidate, as_attachment=True, download_name=filename)
 
 
+@app.route("/api/waveform", methods=["GET"])
+def api_waveform():
+    """A forma do som num trecho, para o editor enxergar onde a fala começa.
+
+    O ajuste de corte eram dois campos de número em segundos absolutos da fonte
+    — "300.0" e "800.0". O editor descreveu o que isso é de usar: "não sabia o
+    que eu estava medindo, não sabia onde era o início que eu queria porque o
+    próprio corte não permitia voltar, e eu sequer sabia se eram segundos".
+
+    Nada disso se conserta com um rótulo melhor no campo. Som se edita olhando
+    para o som. Isto devolve a altura do áudio em fatias iguais, e é sobre esse
+    desenho que as alças passam a ser arrastadas — o número vira consequência do
+    arrasto, não o controle.
+
+    A janela pedida inclui de propósito a margem de fora do corte, porque a
+    queixa central era não conseguir voltar: para escolher onde entrar é preciso
+    ouvir a frase anterior.
+    """
+    from modules.speaker_id import read_pcm
+
+    video_path = _resolve_media_input(request.args.get("video_path", ""))
+    if not video_path or not os.path.isfile(video_path):
+        return jsonify({"error": "Vídeo não encontrado."}), 404
+    try:
+        inicio = max(0.0, float(request.args.get("start", 0)))
+        fim = float(request.args.get("end", 0))
+        fatias = max(40, min(1200, int(request.args.get("buckets", 400))))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Intervalo inválido."}), 400
+    if fim <= inicio:
+        return jsonify({"error": "O fim tem que vir depois do começo."}), 400
+    if fim - inicio > 1800:
+        return jsonify({"error": "Janela longa demais; peça no máximo 30 minutos."}), 400
+
+    try:
+        amostras = read_pcm(video_path, inicio, fim)
+    except (OSError, ValueError, subprocess.CalledProcessError) as erro:
+        return jsonify({"error": f"Não deu para ler o áudio: {str(erro)[:200]}"}), 500
+    if amostras.size == 0:
+        return jsonify({"start": inicio, "end": fim, "peaks": [0.0] * fatias, "silent": True})
+
+    import numpy as np
+
+    largura = max(1, amostras.size // fatias)
+    aparadas = amostras[: largura * fatias].reshape(fatias, largura)
+    # Energia média, não pico. Com milhares de amostras por fatia, quase toda
+    # fatia contém algum estalo alto, e o pico satura: desenhei e saiu um bloco
+    # retangular, inútil para achar onde a frase começa. A média quadrática
+    # mostra o contorno da fala — sílaba, pausa, respiração — que é o que os
+    # olhos usam para achar a borda.
+    picos = np.sqrt((aparadas.astype(np.float64) ** 2).mean(axis=1))
+    # Raiz de novo para levantar o que é baixo: fala normal ocupa uma faixa
+    # estreita perto do chão, e sem isso o desenho fica quase todo rente à base.
+    picos = np.sqrt(picos)
+    # Normalizar pela própria janela: o que interessa é o contorno da fala aqui,
+    # não o volume absoluto. Um trecho gravado baixo tem que desenhar igual.
+    teto = float(picos.max()) or 1.0
+    return jsonify({
+        "start": inicio,
+        "end": fim,
+        "peaks": [round(float(valor) / teto, 4) for valor in picos],
+        "silent": teto < 0.005,
+    })
+
+
 @app.route("/api/acervo/status", methods=["GET"])
 def api_acervo_status():
     """Whether this source arrives with blocks a person already reviewed."""

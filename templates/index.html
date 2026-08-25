@@ -7,6 +7,7 @@
     <link rel="icon" type="image/svg+xml" href="/static/img/favicon.svg">
     <link rel="stylesheet" href="/static/vendor/fonts.css">
     <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/atelie.css">
 </head>
 <body>
     <!-- Sidebar -->
@@ -39,225 +40,26 @@
             </div>
 
             <!-- Settings -->
-            <div class="sidebar-section">
-                <h3><span class="material-icons-round">settings</span> Configurações</h3>
-
-                <div class="setting-group">
-                    <label>Modelo Whisper (reserva local)</label>
-                    <select id="settingWhisperModel" class="setting-select">
-                        <option value="tiny">Tiny (mais rápido)</option>
-                        <option value="base">Base</option>
-                        <option value="small" selected>Small (recomendado)</option>
-                        <option value="medium">Medium (mais preciso)</option>
-                        <option value="large">Large (melhor qualidade)</option>
-                    </select>
-                    <small class="setting-hint">Em CPU, lives acima de 45 min usam Base automaticamente para descoberta rápida; Gemini Online continua sendo a prioridade.</small>
-                </div>
-
-                <div class="setting-group">
-                    <label>Foco editorial</label>
-                    <select id="settingEditorialFocus" class="setting-select">
-                        <option value="auto" selected>Automático (detectar pelo vídeo)</option>
-                        <option value="renan_santos">Renan Santos / MBL</option>
-                        <option value="generic_political">Político genérico / participante principal</option>
-                    </select>
-                    <small class="setting-hint">Use Político genérico quando o vídeo não for centrado no Renan.</small>
-                </div>
-
-                <div class="setting-group">
-                    <label>Formato de saída</label>
-                    <select id="settingRenderPreset" class="setting-select">
-                        <option value="shorts" selected>YouTube Shorts — 9:16</option>
-                        <option value="political_shorts">Política editorial — 9:16</option>
-                        <option value="reels">Instagram Reels — 9:16</option>
-                        <option value="tiktok">TikTok — 9:16</option>
-                        <option value="square">Quadrado — 1:1</option>
-                        <option value="landscape">Paisagem — 16:9</option>
-                    </select>
-                    <small class="setting-hint">Define resolução, aspecto e área segura da legenda.</small>
-                </div>
-
-                <div class="setting-group">
-                    <label>Pausa mínima (s) <span class="setting-value" id="silenceValue">0.5s</span></label>
-                    <input type="range" id="settingSilenceDuration" min="0.2" max="2.0" step="0.1" value="0.5" class="setting-range">
-                </div>
-
-                <div class="setting-group">
-                    <label>Idioma do áudio</label>
-                    <select id="settingLanguage" class="setting-select">
-                        <option value="pt" selected>Português</option>
-                        <option value="en">English</option>
-                        <option value="es">Espanhol</option>
-                    </select>
-                </div>
-
-                <div class="setting-group">
-                    <label>Fonte da transcrição</label>
-                    <select id="settingTranscriptionSource" class="setting-select">
-                        <option value="auto" selected>Automático: Gemini → legenda → Whisper</option>
-                        <option value="public_subtitle">Preferir legenda encontrada → Whisper</option>
-                        <option value="whisper">Forçar Whisper local</option>
-                    </select>
-                    <small class="setting-hint">Transcrição manual sempre tem prioridade. Use Whisper quando quiser uma nova leitura do áudio, mesmo que exista legenda pública.</small>
-                </div>
-
-                <div class="setting-group">
-                    <label>Gênero do vídeo</label>
-                    <select id="settingVideoGenre" class="setting-select">
-                        <option value="" selected>Automático (detectar)</option>
-                        <option value="debate">Debate ou painel</option>
-                        <option value="podcast">Podcast ou entrevista</option>
-                        <option value="palestra">Palestra ou apresentação</option>
-                        <option value="vlog">Vlog ou orador único</option>
-                    </select>
-                </div>
-
-                <div class="setting-group">
-                    <label>Perfil editorial</label>
-                    <select id="settingEditorialProfile" class="setting-select">
-                        <option value="renan_santos_politics" selected>Política — Renan Santos e MBL</option>
-                        <option value="generic">Genérico — todos os temas</option>
-                    </select>
-                    <small class="setting-hint">Prioriza tese, conflito, proposta, evidência e conclusão.</small>
-                </div>
-
-                <div class="setting-group">
-                    <label>Base histórica de clipping</label>
-                    <select id="settingCampaignHubAccount" class="setting-select">
-                        <option value="@renansantosmbl" selected>Renan Santos / MBL — principal</option>
-                        <option value="@renansantosreserva">Renan Santos / Reserva</option>
-                    </select>
-                    <small class="setting-hint">Usa priors locais de hooks e contexto observados; não envia nada ao Campaign Hub e não substitui a análise do vídeo.</small>
-                    <div class="campaign-hub-local-status" id="campaignHubLocalStatus" role="status" aria-live="polite">
-                        <span class="status-dot offline"></span><span>Verificando memória editorial local…</span>
-                    </div>
-                    <div class="campaign-hub-setting-actions">
-                        <button class="btn btn-sm btn-outline" id="btnImportCampaignHubMemory" type="button">
-                            <span class="material-icons-round">sync</span> Atualizar memória
-                        </button>
-                        <input type="file" id="campaignHubMemoryFileInput" accept=".json,application/json" hidden>
-                    </div>
-                    <small class="setting-hint">Importa um export autorizado e mescla apenas registros novos/alterados. O processamento continua offline.</small>
-                </div>
-
-            </div>
+            
 
             <!-- Aparência -->
-            <div class="sidebar-section">
-                <h3><span class="material-icons-round">tune</span> Aparência</h3>
-                <div class="setting-group setting-toggle">
-                    <label for="settingSound">Som ao terminar</label>
-                    <input type="checkbox" id="settingSound" class="setting-switch">
-                </div>
-                <div class="setting-group">
-                    <label for="settingCursor">Cursor de onça</label>
-                    <select id="settingCursor" class="setting-select">
-                        <option value="drag" selected>Ao arrastar</option>
-                        <option value="always">Sempre</option>
-                        <option value="off">Desligado</option>
-                    </select>
-                    <small class="setting-hint">Ligado o tempo todo ele atrasa em relação ao ponteiro do sistema e some sobre campo de texto. "Ao arrastar" é o meio-termo.</small>
-                </div>
-            </div>
+            
 
             <!-- Voz de referência -->
-            <div class="sidebar-section">
-                <h3><span class="material-icons-round">record_voice_over</span> Voz de referência</h3>
-                <div class="voice-panel" id="voicePanel">
-                    <div class="voice-status" id="voiceStatus" role="status" aria-live="polite">
-                        <span class="status-dot offline"></span><span>Verificando…</span>
-                    </div>
-                    <small class="setting-hint">
-                        Uma amostra limpa — só ele falando, sem música e sem outra voz — permite ao Furia
-                        dizer que um trecho <em>não</em> é dele e cortar antes. Serve qualquer vídeo ou
-                        áudio: MP4, MP3, WAV, M4A. Não precisa converter nada.
-                    </small>
-                    <button class="btn btn-sm btn-outline" id="btnEnrollVoice" type="button">
-                        <span class="material-icons-round">upload</span> Enviar amostra
-                    </button>
-                    <input type="file" id="voiceFileInput" accept="video/*,audio/*" hidden>
-                </div>
-            </div>
+            
 
             <!-- AI Backend -->
-            <div class="sidebar-section">
-                <h3><span class="material-icons-round">smart_toy</span> Motor de análise</h3>
-
-                <div class="setting-group">
-                    <label>Motor de IA</label>
-                    <select id="settingAiBackend" class="setting-select">
-                        <option value="gemini" selected>Gemini Online (prioritário → fallback local)</option>
-                        <option value="auto">Automático (Gemini → Ollama → local)</option>
-                        <option value="ollama">Ollama (Local/Gratis)</option>
-                        <option value="claude">Claude API (Pago)</option>
-                    </select>
-                </div>
-
-                <div class="setting-group ai-config" id="ollamaConfig">
-                    <label>Modelo Ollama</label>
-                    <select id="settingOllamaModel" class="setting-select">
-                        <option value="llama3.2:3b" selected>Llama 3.2 3B (Leve)</option>
-                        <option value="llama3.1:8b">Llama 3.1 8B</option>
-                        <option value="mistral:7b">Mistral 7B</option>
-                        <option value="phi3:mini">Phi-3 Mini</option>
-                    </select>
-                </div>
-
-                <div class="setting-group ai-config" id="geminiConfig" style="display:none">
-                    <label>Gemini API Key <span class="setting-hint">(opcional)</span></label>
-                    <input type="password" id="settingGeminiKey" class="setting-input" placeholder="Cole a chave; ela será salva fora do checkout">
-                    <div class="ai-key-status" id="geminiKeyStatus" aria-live="polite">Verificando se existe uma chave persistente...</div>
-                    <small class="setting-hint">A chave é salva em `FuriaClipsData/config/local.env`, fora do GitHub. Para dois notebooks, use a mesma pasta de dados sincronizada ou copie esse arquivo uma vez para o segundo computador. Disponível no <a href="https://aistudio.google.com/apikeys" target="_blank">Google AI Studio</a>.</small>
-                    <label for="settingGeminiModel">Modelo Gemini <span class="setting-hint">(avançado)</span></label>
-                    <input type="text" id="settingGeminiModel" class="setting-input" value="gemini-2.5-flash" placeholder="gemini-2.5-flash" autocomplete="off">
-                    <small class="setting-hint">Usado tanto na análise multimodal quanto no ranking dos cortes. Mantenha o padrão salvo, salvo se sua conta tiver outro modelo compatível.</small>
-                </div>
-
-                <div class="setting-group ai-config" id="claudeConfig" style="display:none">
-                    <label>Claude API Key</label>
-                    <input type="password" id="settingClaudeKey" class="setting-input" placeholder="Cole sua API key aqui">
-                </div>
-
-                <div class="ai-status" id="aiStatus">
-                    <span class="material-icons-round">check_circle</span>
-                    <span>Gemini Online prioritário; fallback local somente se necessário</span>
-                </div>
-
-                <!-- Ollama Status Badge -->
-                <div class="ollama-status-badge" id="ollamaStatusBadge">
-                    <div class="ollama-status-indicator">
-                        <span class="status-dot" id="ollamaStatusDot"></span>
-                        <span class="status-label" id="ollamaStatusLabel">Verificando...</span>
-                    </div>
-                    <div class="ollama-mode-indicator" id="ollamaModeIndicator">
-                        <span class="mode-icon material-icons-round" id="ollamaModeIcon">psychology</span>
-                        <span class="mode-label" id="ollamaModeLabel">---</span>
-                    </div>
-                </div>
-            </div>
+            
 
             <!-- Output Directory -->
-            <div class="sidebar-section">
-                <h3><span class="material-icons-round">folder_open</span> Pasta de saída</h3>
-                <div class="setting-group">
-                    <div class="output-dir-display" id="outputDirDisplay">
-                        <span class="material-icons-round">folder</span>
-                        <span id="outputDirText">workspace/exports</span>
-                    </div>
-                    <button class="btn btn-sm btn-outline" id="btnChangeOutputDir" style="margin-top:8px; width:100%">
-                        <span class="material-icons-round">edit</span> Alterar Pasta de saída
-                    </button>
-                    <button class="btn btn-sm btn-outline" id="btnOpenDownloadsDir" style="margin-top:8px; width:100%">
-                        <span class="material-icons-round">folder_open</span> Abrir Pasta de Downloads
-                    </button>
-                </div>
-            </div>
+            
 
-            <button class="btn btn-save-settings" id="btnSaveSettings">
-                <span class="material-icons-round">save</span>
-                Salvar Configurações
-            </button>
+            
         </div>
+        <button class="sidebar-ajustes" id="btnAjustes">
+            <span class="material-icons-round">tune</span>
+            <span>Ajustes, aparência e voz</span>
+        </button>
     </aside>
 
     <!-- Main Content -->
@@ -324,31 +126,77 @@
         </nav>
 
         <!-- Media Library (like CapCut) -->
-        <section class="section" id="mediaLibrarySection">
-            <div class="section-header">
-                <h3><span class="material-icons-round">video_library</span> Biblioteca de mídias</h3>
-                <div class="section-actions">
-                    <button class="btn btn-sm btn-primary" id="btnImportMedia">
-                        <span class="material-icons-round">add</span> Importar vídeo
-                    </button>
-                </div>
-            </div>
-
-            <div class="media-drop-zone" id="mediaDropZone">
-                <span class="material-icons-round">cloud_upload</span>
-                <p>Arraste um vídeo aqui ou clique em <strong>Importar vídeo</strong></p>
-                <span class="drop-formats">MP4, MKV, AVI, MOV, WebM</span>
-            </div>
-
-            <div class="media-grid" id="mediaGrid">
-                <!-- Media thumbnails loaded dynamically -->
-            </div>
-
-            <input type="file" id="fileInput" accept=".mp4,.mkv,.avi,.mov,.webm,.flv,.wmv" style="display:none" multiple>
-        </section>
+        
 
         <!-- Source Intake -->
-        <section class="section" id="sourceSection">
+        
+
+        <!-- O que o Furia entendeu desta fonte -->
+        
+
+        <!-- Editorial Blocks -->
+        
+
+        <!-- Video Preview removido daqui, foi para o dock fora da main-content -->
+
+        <!-- User Context / ClipAnything -->
+        
+
+        <!-- Headline Studio -->
+        
+
+        <!-- Observed performance -->
+        
+        <!-- Actions -->
+        
+
+        
+
+        <!-- Results Panel -->
+        
+
+        <!-- Console -->
+        
+
+        <nav class="rail" role="tablist" aria-label="Ambientes do Furia">
+            <div class="rail-tabs">
+                <button class="rail-tab is-active" data-ambiente="fila"
+                        role="tab" aria-selected="true" aria-controls="amb-fila">
+                    <span class="material-icons-round">playlist_add</span>
+                    <span class="rail-tab-label">Fila</span>
+                </button>
+                <button class="rail-tab" data-ambiente="cortar"
+                        role="tab" aria-selected="false" aria-controls="amb-cortar">
+                    <span class="material-icons-round">content_cut</span>
+                    <span class="rail-tab-label">Cortar</span>
+                </button>
+                <button class="rail-tab" data-ambiente="auditoria"
+                        role="tab" aria-selected="false" aria-controls="amb-auditoria">
+                    <span class="material-icons-round">fact_check</span>
+                    <span class="rail-tab-label">Auditoria</span>
+                </button>
+                <button class="rail-tab" data-ambiente="acervo"
+                        role="tab" aria-selected="false" aria-controls="amb-acervo">
+                    <span class="material-icons-round">inventory_2</span>
+                    <span class="rail-tab-label">Acervo</span>
+                </button>
+            </div>
+            <button class="rail-command" id="btnPaleta" title="Buscar qualquer ação (Ctrl+K)">
+                <span class="material-icons-round">search</span>
+                <span>Buscar ação</span>
+                <kbd>Ctrl K</kbd>
+            </button>
+        </nav>
+
+        <div class="palco">
+            <div class="ambientes">
+        <div class="ambiente is-active" id="amb-fila" role="tabpanel"
+             aria-labelledby="rail-fila">
+            <div class="ambiente-intro">
+                <h2>Fila</h2>
+                <p>Colar links, importar vídeos e ver o que está processando.</p>
+            </div>
+<section class="section" id="sourceSection">
             <div class="section-header">
                 <h3><span class="material-icons-round">input</span> Fonte da análise</h3>
                 <span class="section-hint">Upload, transcrição manual ou link público</span>
@@ -426,286 +274,29 @@
              </div>
 
         </section>
-
-        <!-- O que o Furia entendeu desta fonte -->
-        <section class="section reading-section" id="sourceReadingSection">
+<section class="section" id="mediaLibrarySection">
             <div class="section-header">
-                <div>
-                    <h3><span class="material-icons-round">segment</span> Leitura da fonte</h3>
-                    <p class="section-hint">O que o Furia entendeu deste vídeo antes de cortar. Clique num trecho para ir até ele no preview.</p>
-                </div>
+                <h3><span class="material-icons-round">video_library</span> Biblioteca de mídias</h3>
                 <div class="section-actions">
-                    <button class="btn btn-sm btn-outline" id="btnImportAcervo" type="button" title="Importar os blocos que o Acervo publicou para este vídeo">
-                        <span class="material-icons-round">library_add</span> Importar blocos
-                    </button>
-                    <input id="acervoImportInput" type="file" accept=".json,application/json" hidden>
-                    <button class="btn btn-sm" id="btnRefreshReading" type="button">
-                        <span class="material-icons-round">refresh</span> Ler fonte
+                    <button class="btn btn-sm btn-primary" id="btnImportMedia">
+                        <span class="material-icons-round">add</span> Importar vídeo
                     </button>
                 </div>
             </div>
 
-            <div class="reading-body" id="readingBody">
-                <p class="reading-empty" id="readingEmpty">Carregue um vídeo e uma transcrição para ver a leitura.</p>
-                <div class="reading-summary" id="readingSummary" hidden>
-                    <div class="reading-metric"><strong id="readingUnitCount">—</strong><span>trechos</span></div>
-                    <div class="reading-metric"><strong id="readingCoverage">—</strong><span>da fonte coberta</span></div>
-                    <div class="reading-metric"><strong id="readingHighlights">—</strong><span>momentos fortes</span></div>
-                    <span class="reading-origin" id="readingOrigin" hidden></span>
-                </div>
-                <div class="reading-timeline" id="readingTimeline" hidden aria-hidden="true"></div>
-                <ol class="reading-list" id="readingList" aria-live="polite"></ol>
+            <div class="media-drop-zone" id="mediaDropZone">
+                <span class="material-icons-round">cloud_upload</span>
+                <p>Arraste um vídeo aqui ou clique em <strong>Importar vídeo</strong></p>
+                <span class="drop-formats">MP4, MKV, AVI, MOV, WebM</span>
             </div>
+
+            <div class="media-grid" id="mediaGrid">
+                <!-- Media thumbnails loaded dynamically -->
+            </div>
+
+            <input type="file" id="fileInput" accept=".mp4,.mkv,.avi,.mov,.webm,.flv,.wmv" style="display:none" multiple>
         </section>
-
-        <!-- Editorial Blocks -->
-        <section class="section editorial-blocks-section" id="editorialBlocksSection">
-            <div class="section-header">
-                <div>
-                    <h3><span class="material-icons-round">view_agenda</span> Blocos da pré-análise</h3>
-                    <p class="section-hint">Escolha um trecho contextualizado antes de gerar cortes. Se o Acervo já publicou blocos deste vídeo, são eles; se não, é a leitura que o Furia faz da transcrição carregada.</p>
-                </div>
-                <div class="section-actions editorial-blocks-actions">
-                    <span class="studio-status-pill" id="editorialBlocksStatus"><span class="status-dot offline"></span> Nenhum bloco para esta fonte</span>
-                    <button class="btn btn-sm btn-outline" id="btnRefreshEditorialBlocks" type="button"><span class="material-icons-round">refresh</span> Atualizar</button>
-                </div>
-            </div>
-            <div class="editorial-blocks-toolbar">
-                <input id="editorialBlocksSearch" class="setting-input" type="search" placeholder="Buscar por tema, título ou pergunta…" aria-label="Buscar blocos">
-                <label class="editorial-blocks-filter"><input id="editorialBlocksRenanOnly" type="checkbox" checked> Mostrar falas do Renan primeiro (sem ocultar outros oradores)</label>
-            </div>
-            <div class="editorial-blocks-list" id="editorialBlocksList" aria-live="polite">
-                <div class="editorial-blocks-empty">Cole um link do YouTube ou selecione um vídeo local para ver os blocos.</div>
-            </div>
-        </section>
-
-        <!-- Video Preview removido daqui, foi para o dock fora da main-content -->
-
-        <!-- User Context / ClipAnything -->
-        <section class="section" id="contextSection">
-            <div class="section-header">
-                <h3><span class="material-icons-round">psychology</span> Refinamento opcional do editor</h3>
-            </div>
-            <div class="context-input-wrapper">
-                <p class="source-help">O perfil político Renan Santos/MBL, a análise de contexto e a busca por pergunta–resposta já são automáticos. Use este campo apenas para priorizar um assunto específico.</p>
-                <textarea id="userContextInput" class="context-input" placeholder="Opcional: encontre a pergunta sobre segurança pública, priorize a resposta sobre impostos ou procure a reação ao tema X." rows="2"></textarea>
-                <div class="context-suggestions" id="contextSuggestions">
-                    <button class="context-chip" data-context="Confrontos politicos com uma resposta forte e contexto completo">Confrontos</button>
-                    <button class="context-chip" data-context="Propostas concretas de seguranca, economia ou educacao com numeros e conclusao">Propostas</button>
-                    <button class="context-chip" data-context="Criticas ao governo ou ao STF com contexto juridico e fala completa">Criticas juridicas</button>
-                    <button class="context-chip" data-context="Dados, pesquisas, leis e fatos que sustentem uma tese politica">Dados e fatos</button>
-                    <button class="context-chip" data-context="Frases de efeito com gancho inicial e conclusao forte">Frases de efeito</button>
-                    <button class="context-chip" data-context="Momentos de mobilizacao, campanha e chamada para acao depois de uma ideia clara">Mobilizacao</button>
-                </div>
-                <div class="context-analysis-controls" id="contextAnalysisControls" aria-label="Análise integral antes do corte">
-                    <div class="context-analysis-copy">
-                        <strong><span class="material-icons-round">manage_search</span> Analisar o vídeo antes de cortar</strong>
-                        <p>Gera localmente um dossiê com tese, perguntas, capítulos, participantes, energia do áudio e hooks. O envio do vídeo ao Gemini é opcional e deve ser reservado para fontes curtas ou casos em que a leitura visual seja indispensável.</p>
-                    </div>
-                    <div class="context-analysis-actions">
-                        <label class="context-analysis-toggle"><input type="checkbox" id="contextAnalyzeVideo"> Enviar o vídeo ao Gemini para leitura audiovisual (opcional; pode demorar em fontes longas)</label>
-                        <button class="btn btn-sm btn-primary" id="btnAnalyzeEditorialContext" type="button"><span class="material-icons-round">psychology</span> Analisar contexto</button>
-                    </div>
-                    <div class="context-analysis-status" id="contextAnalysisStatus" role="status" aria-live="polite">Ainda não analisado nesta sessão.</div>
-                    <div class="context-analysis-result" id="contextAnalysisResult" hidden></div>
-                </div>
-                <div class="editorial-audit-controls" aria-label="Auditoria editorial e formato sugerido">
-                    <label>Profundidade da análise
-                        <select id="settingAuditMode" class="setting-select">
-                            <option value="standard" selected>Balanceada — recomendada</option>
-                            <option value="full">Auditoria completa — contexto, evidência, payoff e formato</option>
-                            <option value="fast">Rápida — sinais locais e revisão posterior</option>
-                        </select>
-                    </label>
-                    <label>Formato a priorizar
-                        <select id="settingPreferredFormat" class="setting-select">
-                            <option value="auto" selected>Escolher automaticamente</option>
-                            <option value="vertical_916">9:16 — headline central</option>
-                            <option value="square_alfinetei">1:1 — Alfinetei</option>
-                        </select>
-                    </label>
-                    <p class="source-help-inline">A auditoria completa não inventa fatos nem substitui sua revisão. Ela usa a transcrição canônica, o perfil editorial local, feedback aprovado/rejeitado e priors agregados somente de leitura para explicar a escolha.</p>
-                </div>
-            </div>
-        </section>
-
-        <!-- Headline Studio -->
-        <section class="section headline-studio-section" id="headlineStudioSection">
-            <div class="section-header">
-                <div>
-                    <h3><span class="material-icons-round">format_quote</span> Estúdio de Texto de Arte</h3>
-                    <p class="section-hint">Headline curta para 9:16 ou 1:1 Alfinetei</p>
-                </div>
-                <span class="studio-status-pill"><span class="status-dot online"></span> Base local · Renan/MBL quando confirmado</span>
-            </div>
-            <div class="headline-studio-intro">
-                <span class="material-icons-round">auto_awesome</span>
-                <p>Importe a legenda de um corte pronto ou cole a fala. A ferramenta extrai a tese e cria texto <strong>para a arte</strong> — sem SEO, hashtags ou descrição de publicação.</p>
-            </div>
-            <div class="headline-studio-grid">
-                <div class="headline-studio-inputs">
-                    <label for="artworkTranscriptInput">Transcrição do corte pronto</label>
-                    <div class="artwork-transcript-drop-target" id="artworkTranscriptDropTarget">
-                        <textarea id="artworkTranscriptInput" class="context-input artwork-transcript-input" rows="8" placeholder="Cole aqui um TXT, SRT ou VTT. Ex.: a tese principal, a fala e a conclusão do corte."></textarea>
-                        <div class="artwork-drop-hint"><span class="material-icons-round">upload_file</span><span>Arraste um TXT, SRT ou VTT para esta área; a transcrição será importada automaticamente.</span></div>
-                    </div>
-                    <div class="source-actions">
-                        <input type="file" id="artworkTranscriptFileInput" accept=".txt,.srt,.vtt" style="display:none">
-                        <button class="btn btn-sm btn-outline" id="btnImportArtworkTranscript" type="button"><span class="material-icons-round">folder_open</span> Importar TXT/SRT/VTT</button>
-                        <button class="btn btn-sm btn-outline" id="btnUseLoadedTranscript" type="button"><span class="material-icons-round">description</span> Usar transcrição carregada</button>
-                    </div>
-                    <label for="artworkMiniContext">Minicontexto opcional</label>
-                    <textarea id="artworkMiniContext" class="context-input" rows="3" maxlength="280" placeholder="Ex.: Renan critica a tributação de criptoativos; quero uma chamada forte, mas sem acusação factual nova."></textarea>
-                    <p class="headline-studio-hint">Use o minicontexto para informar intenção, personagem ou enquadramento. Ele não substitui o que foi dito no corte.</p>
-                </div>
-                <div class="headline-studio-controls">
-                    <span class="studio-control-label">Formato de publicação</span>
-                    <div class="artwork-format-options" role="radiogroup" aria-label="Formato de texto de arte">
-                        <label class="artwork-format-option"><input type="radio" name="artworkFormat" value="auto" checked><span><strong>Escolher por mim</strong><small>Recomenda o formato mais adequado</small></span></label>
-                        <label class="artwork-format-option"><input type="radio" name="artworkFormat" value="vertical_916"><span><strong>9:16 central</strong><small>Amarelo + preto, com destaque vermelho opcional</small></span></label>
-                        <label class="artwork-format-option"><input type="radio" name="artworkFormat" value="square_alfinetei"><span><strong>1:1 Alfinetei</strong><small>Chamada superior + headline branca curta</small></span></label>
-                    </div>
-                    <label class="headline-ai-toggle"><input type="checkbox" id="artworkUseAi" checked> Refinar com a IA configurada quando disponível</label>
-                    <button class="btn btn-primary headline-studio-generate" id="btnGenerateArtworkCopy" type="button"><span class="material-icons-round">bolt</span> Criar textos de arte</button>
-                    <div class="headline-studio-status" id="headlineStudioStatus">Pronto para receber a transcrição de um corte finalizado.</div>
-                    <div class="headline-learning-status" id="headlineLearningStatus">Carregando aprendizado editorial local...</div>
-                </div>
-            </div>
-            <div class="headline-studio-results" id="headlineStudioResults" aria-live="polite" style="display:none"></div>
-        </section>
-
-        <!-- Observed performance -->
-        <section class="section performance-metrics-section non-core-panel" id="performanceMetricsSection" hidden>
-            <div class="section-header">
-                <div>
-                    <h3><span class="material-icons-round">monitoring</span> Métricas observadas</h3>
-                    <p class="section-hint">Histórico opcional pós-publicação. Não decide cortes nem substitui a revisão editorial.</p>
-                </div>
-                <div class="performance-section-actions">
-                    <span class="studio-status-pill"><span class="status-dot online"></span> Histórico local</span>
-                    <button class="btn btn-sm btn-outline performance-collapse-toggle" id="btnTogglePerformanceMetrics" type="button" aria-expanded="false" aria-controls="performanceMetricsBody">
-                        <span class="material-icons-round">expand_more</span> Abrir histórico
-                    </button>
-                </div>
-            </div>
-            <div class="performance-metrics-body" id="performanceMetricsBody" hidden>
-            <div class="performance-cohort-toolbar" aria-label="Filtros da coorte observada">
-                <label>Plataforma
-                    <select id="performanceMetricPlatform">
-                        <option value="">Todas</option>
-                        <option value="instagram">Instagram</option>
-                        <option value="youtube">YouTube</option>
-                        <option value="tiktok">TikTok</option>
-                    </select>
-                </label>
-                <label>Formato
-                    <select id="performanceMetricFormat">
-                        <option value="">Todos</option>
-                        <option value="vertical_916">9:16 central</option>
-                        <option value="square_alfinetei">1:1 Alfinetei</option>
-                    </select>
-                </label>
-                <label>Período
-                    <select id="performanceMetricWindow">
-                        <option value="">Todos</option>
-                        <option value="today">Hoje</option>
-                        <option value="week">Esta semana</option>
-                        <option value="month">Este mês</option>
-                        <option value="all">Desde o começo</option>
-                    </select>
-                </label>
-                <label>Região
-                    <select id="performanceMetricRegion">
-                        <option value="">Todas</option>
-                        <option value="brasil">Brasil</option>
-                        <option value="state">Estado</option>
-                        <option value="city">Cidade</option>
-                    </select>
-                </label>
-            </div>
-            <div class="performance-metrics-grid">
-                <div>
-                    <label for="performanceMetricsInput">Snapshot autorizado ou anotação manual</label>
-                    <textarea id="performanceMetricsInput" class="context-input performance-metrics-input" rows="6" placeholder='Cole um JSON, por exemplo: {"content_key":"reel-0813","platform":"instagram","format_id":"square_alfinetei","account_key":"@renansantosmbl","observation_window":"week","region":"brasil","views":10000,"likes":800,"comments":100,"shares":50,"saves":50}'></textarea>
-                    <p class="headline-studio-hint">Você cola um snapshot autorizado ou anotação manual. O Furia Clips calcula views, variação, velocidade observada e engajamento informado. Não inventa retenção, não lê dados privados automaticamente e não reproduz a fórmula de XP.</p>
-                </div>
-                <div class="performance-metrics-controls">
-                    <button class="btn btn-primary" id="btnSavePerformanceMetrics" type="button"><span class="material-icons-round">save</span> Salvar métricas</button>
-                    <button class="btn btn-outline" id="btnRefreshPerformanceMetrics" type="button"><span class="material-icons-round">refresh</span> Atualizar histórico</button>
-                    <div class="performance-metrics-status" id="performanceMetricsStatus">Nenhum snapshot observado nesta instalação.</div>
-                    <div class="performance-metrics-summary" id="performanceMetricsSummary" aria-live="polite"></div>
-                </div>
-                        </div>
-            </div>
-        </section>
-        <!-- Actions -->
-        <section class="section" id="actionsSection">
-            <div class="section-header">
-                <div>
-                    <h3><span class="material-icons-round">bolt</span> Ações</h3>
-                    <p class="section-hint">Escolha uma operação. O corte inteligente usa contexto antes de selecionar.</p>
-                </div>
-                <span class="section-kicker">Atalho: Ctrl/Cmd + Enter</span>
-            </div>
-
-            <div class="action-cards">
-                <div class="action-card" id="actionSilence" data-action="silence" hidden>
-                    <div class="action-icon">
-                        <span class="material-icons-round">content_cut</span>
-                    </div>
-                    <h4>Remover silêncio</h4>
-                    <p>Remove as pausas longas antes de qualquer outra etapa.</p>
-                    <button class="btn btn-action">Executar Corte</button>
-                </div>
-
-                <div class="action-card" id="actionSubtitles" data-action="subtitles" hidden>
-                    <div class="action-icon">
-                        <span class="material-icons-round">subtitles</span>
-                    </div>
-                    <h4>Gerar legendas</h4>
-                    <p>Legenda karaokê queimada no vídeo, com os nomes já corrigidos.</p>
-                    <button class="btn btn-action" onclick="openSubtitleModal()">Configurar e Gerar</button>
-                </div>
-
-                <div class="action-card" id="actionCut" data-action="cut">
-                    <div class="action-icon">
-                        <span class="material-icons-round">auto_awesome</span>
-                    </div>
-                    <h4>Cortar shorts</h4>
-                    <p>Lê a fonte, escolhe os trechos e corta nas costuras da conversa.</p>
-                    <button class="btn btn-action">Cortar e Ranquear</button>
-                </div>
-
-                <div class="action-card" id="actionArtwork" data-action="artwork">
-                    <div class="action-icon">
-                        <span class="material-icons-round">format_quote</span>
-                    </div>
-                    <h4>Texto de arte</h4>
-                    <p>Headline curta para 9:16 e 1:1, a partir da transcrição do corte.</p>
-                    <button class="btn btn-action">Abrir Estúdio</button>
-                </div>
-
-                <div class="action-card non-core-panel" id="actionThumbnail" data-action="thumbnail" hidden>
-                    <div class="action-icon">
-                        <span class="material-icons-round">image</span>
-                    </div>
-                    <h4>Gerar thumbnail</h4>
-                    <p>Sugestão de capa com a identidade da Missão.</p>
-                    <button class="btn btn-action">Gerar Capa</button>
-                </div>
-
-                <div class="action-card action-card-complete" id="actionComplete" data-action="complete">
-                    <div class="action-icon action-icon-primary">
-                        <span class="material-icons-round">rocket_launch</span>
-                    </div>
-                    <h4>Processo completo</h4>
-                    <p>Silêncio + transcrição + contexto + seleção IA + cortes</p>
-                    <button class="btn btn-action btn-gold">Executar Tudo</button>
-                </div>
-            </div>
-        </section>
-
-        <section class="section operation-dashboard" id="operationDashboard" aria-label="Operação diária">
+<section class="section operation-dashboard" id="operationDashboard" aria-label="Operação diária">
             <div class="section-header">
                 <div>
                     <h3><span class="material-icons-round">dashboard</span> Operação do Dia</h3>
@@ -771,9 +362,161 @@
                 <div class="project-library-list" id="projectLibraryList"></div>
             </div>
         </section>
+        </div>
+        <div class="ambiente" id="amb-cortar" role="tabpanel"
+             aria-labelledby="rail-cortar" hidden>
+            <div class="ambiente-intro">
+                <h2>Cortar</h2>
+                <p>A fonte, o que o Furia entendeu dela, e as ações de corte.</p>
+            </div>
+<section class="section" id="contextSection">
+            <div class="section-header">
+                <h3><span class="material-icons-round">psychology</span> Refinamento opcional do editor</h3>
+            </div>
+            <div class="context-input-wrapper">
+                <p class="source-help">O perfil político Renan Santos/MBL, a análise de contexto e a busca por pergunta–resposta já são automáticos. Use este campo apenas para priorizar um assunto específico.</p>
+                <textarea id="userContextInput" class="context-input" placeholder="Opcional: encontre a pergunta sobre segurança pública, priorize a resposta sobre impostos ou procure a reação ao tema X." rows="2"></textarea>
+                <div class="context-suggestions" id="contextSuggestions">
+                    <button class="context-chip" data-context="Confrontos politicos com uma resposta forte e contexto completo">Confrontos</button>
+                    <button class="context-chip" data-context="Propostas concretas de seguranca, economia ou educacao com numeros e conclusao">Propostas</button>
+                    <button class="context-chip" data-context="Criticas ao governo ou ao STF com contexto juridico e fala completa">Criticas juridicas</button>
+                    <button class="context-chip" data-context="Dados, pesquisas, leis e fatos que sustentem uma tese politica">Dados e fatos</button>
+                    <button class="context-chip" data-context="Frases de efeito com gancho inicial e conclusao forte">Frases de efeito</button>
+                    <button class="context-chip" data-context="Momentos de mobilizacao, campanha e chamada para acao depois de uma ideia clara">Mobilizacao</button>
+                </div>
+                <div class="context-analysis-controls" id="contextAnalysisControls" aria-label="Análise integral antes do corte">
+                    <div class="context-analysis-copy">
+                        <strong><span class="material-icons-round">manage_search</span> Analisar o vídeo antes de cortar</strong>
+                        <p>Gera localmente um dossiê com tese, perguntas, capítulos, participantes, energia do áudio e hooks. O envio do vídeo ao Gemini é opcional e deve ser reservado para fontes curtas ou casos em que a leitura visual seja indispensável.</p>
+                    </div>
+                    <div class="context-analysis-actions">
+                        <label class="context-analysis-toggle"><input type="checkbox" id="contextAnalyzeVideo"> Enviar o vídeo ao Gemini para leitura audiovisual (opcional; pode demorar em fontes longas)</label>
+                        <button class="btn btn-sm btn-primary" id="btnAnalyzeEditorialContext" type="button"><span class="material-icons-round">psychology</span> Analisar contexto</button>
+                    </div>
+                    <div class="context-analysis-status" id="contextAnalysisStatus" role="status" aria-live="polite">Ainda não analisado nesta sessão.</div>
+                    <div class="context-analysis-result" id="contextAnalysisResult" hidden></div>
+                </div>
+                <div class="editorial-audit-controls" aria-label="Auditoria editorial e formato sugerido">
+                    <label>Profundidade da análise
+                        <select id="settingAuditMode" class="setting-select">
+                            <option value="standard" selected>Balanceada — recomendada</option>
+                            <option value="full">Auditoria completa — contexto, evidência, payoff e formato</option>
+                            <option value="fast">Rápida — sinais locais e revisão posterior</option>
+                        </select>
+                    </label>
+                    <label>Formato a priorizar
+                        <select id="settingPreferredFormat" class="setting-select">
+                            <option value="auto" selected>Escolher automaticamente</option>
+                            <option value="vertical_916">9:16 — headline central</option>
+                            <option value="square_alfinetei">1:1 — Alfinetei</option>
+                        </select>
+                    </label>
+                    <p class="source-help-inline">A auditoria completa não inventa fatos nem substitui sua revisão. Ela usa a transcrição canônica, o perfil editorial local, feedback aprovado/rejeitado e priors agregados somente de leitura para explicar a escolha.</p>
+                </div>
+            </div>
+        </section>
+<section class="section" id="actionsSection">
+            <div class="section-header">
+                <div>
+                    <h3><span class="material-icons-round">bolt</span> Ações</h3>
+                    <p class="section-hint">Escolha uma operação. O corte inteligente usa contexto antes de selecionar.</p>
+                </div>
+                <span class="section-kicker">Atalho: Ctrl/Cmd + Enter</span>
+            </div>
 
-        <!-- Results Panel -->
-        <section class="section" id="resultsSection" style="display:none">
+            <div class="action-cards">
+                <div class="action-card" id="actionSilence" data-action="silence" hidden>
+                    <div class="action-icon">
+                        <span class="material-icons-round">content_cut</span>
+                    </div>
+                    <h4>Remover silêncio</h4>
+                    <p>Remove as pausas longas antes de qualquer outra etapa.</p>
+                    <button class="btn btn-action">Executar Corte</button>
+                </div>
+
+                <div class="action-card" id="actionSubtitles" data-action="subtitles" hidden>
+                    <div class="action-icon">
+                        <span class="material-icons-round">subtitles</span>
+                    </div>
+                    <h4>Gerar legendas</h4>
+                    <p>Legenda karaokê queimada no vídeo, com os nomes já corrigidos.</p>
+                    <button class="btn btn-action" onclick="openSubtitleModal()">Configurar e Gerar</button>
+                </div>
+
+                <div class="action-card" id="actionCut" data-action="cut">
+                    <div class="action-icon">
+                        <span class="material-icons-round">auto_awesome</span>
+                    </div>
+                    <h4>Cortar shorts</h4>
+                    <p>Lê a fonte, escolhe os trechos e corta nas costuras da conversa.</p>
+                    <button class="btn btn-action">Cortar e Ranquear</button>
+                </div>
+
+                <div class="action-card" id="actionArtwork" data-action="artwork">
+                    <div class="action-icon">
+                        <span class="material-icons-round">format_quote</span>
+                    </div>
+                    <h4>Texto de arte</h4>
+                    <p>Headline curta para 9:16 e 1:1, a partir da transcrição do corte.</p>
+                    <button class="btn btn-action">Abrir Estúdio</button>
+                </div>
+
+                <div class="action-card non-core-panel" id="actionThumbnail" data-action="thumbnail" hidden>
+                    <div class="action-icon">
+                        <span class="material-icons-round">image</span>
+                    </div>
+                    <h4>Gerar thumbnail</h4>
+                    <p>Sugestão de capa com a identidade da Missão.</p>
+                    <button class="btn btn-action">Gerar Capa</button>
+                </div>
+
+                <div class="action-card action-card-complete" id="actionComplete" data-action="complete">
+                    <div class="action-icon action-icon-primary">
+                        <span class="material-icons-round">rocket_launch</span>
+                    </div>
+                    <h4>Processo completo</h4>
+                    <p>Silêncio + transcrição + contexto + seleção IA + cortes</p>
+                    <button class="btn btn-action btn-gold">Executar Tudo</button>
+                </div>
+            </div>
+        </section>
+<section class="section reading-section" id="sourceReadingSection">
+            <div class="section-header">
+                <div>
+                    <h3><span class="material-icons-round">segment</span> Leitura da fonte</h3>
+                    <p class="section-hint">O que o Furia entendeu deste vídeo antes de cortar. Clique num trecho para ir até ele no preview.</p>
+                </div>
+                <div class="section-actions">
+                    <button class="btn btn-sm btn-outline" id="btnImportAcervo" type="button" title="Importar os blocos que o Acervo publicou para este vídeo">
+                        <span class="material-icons-round">library_add</span> Importar blocos
+                    </button>
+                    <input id="acervoImportInput" type="file" accept=".json,application/json" hidden>
+                    <button class="btn btn-sm" id="btnRefreshReading" type="button">
+                        <span class="material-icons-round">refresh</span> Ler fonte
+                    </button>
+                </div>
+            </div>
+
+            <div class="reading-body" id="readingBody">
+                <p class="reading-empty" id="readingEmpty">Carregue um vídeo e uma transcrição para ver a leitura.</p>
+                <div class="reading-summary" id="readingSummary" hidden>
+                    <div class="reading-metric"><strong id="readingUnitCount">—</strong><span>trechos</span></div>
+                    <div class="reading-metric"><strong id="readingCoverage">—</strong><span>da fonte coberta</span></div>
+                    <div class="reading-metric"><strong id="readingHighlights">—</strong><span>momentos fortes</span></div>
+                    <span class="reading-origin" id="readingOrigin" hidden></span>
+                </div>
+                <div class="reading-timeline" id="readingTimeline" hidden aria-hidden="true"></div>
+                <ol class="reading-list" id="readingList" aria-live="polite"></ol>
+            </div>
+        </section>
+        </div>
+        <div class="ambiente" id="amb-auditoria" role="tabpanel"
+             aria-labelledby="rail-auditoria" hidden>
+            <div class="ambiente-intro">
+                <h2>Auditoria</h2>
+                <p>Aprovar, rejeitar e ajustar os cortes que saíram.</p>
+            </div>
+<section class="section" id="resultsSection" style="display:none">
             <div class="section-header">
                 <h3><span class="material-icons-round">emoji_events</span> Resultados — Clips Ranqueados</h3>
                 <div class="section-actions">
@@ -840,9 +583,164 @@
                 <!-- Results loaded dynamically -->
             </div>
         </section>
+<section class="section headline-studio-section" id="headlineStudioSection">
+            <div class="section-header">
+                <div>
+                    <h3><span class="material-icons-round">format_quote</span> Estúdio de Texto de Arte</h3>
+                    <p class="section-hint">Headline curta para 9:16 ou 1:1 Alfinetei</p>
+                </div>
+                <span class="studio-status-pill"><span class="status-dot online"></span> Base local · Renan/MBL quando confirmado</span>
+            </div>
+            <div class="headline-studio-intro">
+                <span class="material-icons-round">auto_awesome</span>
+                <p>Importe a legenda de um corte pronto ou cole a fala. A ferramenta extrai a tese e cria texto <strong>para a arte</strong> — sem SEO, hashtags ou descrição de publicação.</p>
+            </div>
+            <div class="headline-studio-grid">
+                <div class="headline-studio-inputs">
+                    <label for="artworkTranscriptInput">Transcrição do corte pronto</label>
+                    <div class="artwork-transcript-drop-target" id="artworkTranscriptDropTarget">
+                        <textarea id="artworkTranscriptInput" class="context-input artwork-transcript-input" rows="8" placeholder="Cole aqui um TXT, SRT ou VTT. Ex.: a tese principal, a fala e a conclusão do corte."></textarea>
+                        <div class="artwork-drop-hint"><span class="material-icons-round">upload_file</span><span>Arraste um TXT, SRT ou VTT para esta área; a transcrição será importada automaticamente.</span></div>
+                    </div>
+                    <div class="source-actions">
+                        <input type="file" id="artworkTranscriptFileInput" accept=".txt,.srt,.vtt" style="display:none">
+                        <button class="btn btn-sm btn-outline" id="btnImportArtworkTranscript" type="button"><span class="material-icons-round">folder_open</span> Importar TXT/SRT/VTT</button>
+                        <button class="btn btn-sm btn-outline" id="btnUseLoadedTranscript" type="button"><span class="material-icons-round">description</span> Usar transcrição carregada</button>
+                    </div>
+                    <label for="artworkMiniContext">Minicontexto opcional</label>
+                    <textarea id="artworkMiniContext" class="context-input" rows="3" maxlength="280" placeholder="Ex.: Renan critica a tributação de criptoativos; quero uma chamada forte, mas sem acusação factual nova."></textarea>
+                    <p class="headline-studio-hint">Use o minicontexto para informar intenção, personagem ou enquadramento. Ele não substitui o que foi dito no corte.</p>
+                </div>
+                <div class="headline-studio-controls">
+                    <span class="studio-control-label">Formato de publicação</span>
+                    <div class="artwork-format-options" role="radiogroup" aria-label="Formato de texto de arte">
+                        <label class="artwork-format-option"><input type="radio" name="artworkFormat" value="auto" checked><span><strong>Escolher por mim</strong><small>Recomenda o formato mais adequado</small></span></label>
+                        <label class="artwork-format-option"><input type="radio" name="artworkFormat" value="vertical_916"><span><strong>9:16 central</strong><small>Amarelo + preto, com destaque vermelho opcional</small></span></label>
+                        <label class="artwork-format-option"><input type="radio" name="artworkFormat" value="square_alfinetei"><span><strong>1:1 Alfinetei</strong><small>Chamada superior + headline branca curta</small></span></label>
+                    </div>
+                    <label class="headline-ai-toggle"><input type="checkbox" id="artworkUseAi" checked> Refinar com a IA configurada quando disponível</label>
+                    <button class="btn btn-primary headline-studio-generate" id="btnGenerateArtworkCopy" type="button"><span class="material-icons-round">bolt</span> Criar textos de arte</button>
+                    <div class="headline-studio-status" id="headlineStudioStatus">Pronto para receber a transcrição de um corte finalizado.</div>
+                    <div class="headline-learning-status" id="headlineLearningStatus">Carregando aprendizado editorial local...</div>
+                </div>
+            </div>
+            <div class="headline-studio-results" id="headlineStudioResults" aria-live="polite" style="display:none"></div>
+        </section>
+        </div>
+        <div class="ambiente" id="amb-acervo" role="tabpanel"
+             aria-labelledby="rail-acervo" hidden>
+            <div class="ambiente-intro">
+                <h2>Acervo</h2>
+                <p>Buscar por tema no CHUB e ver blocos sem baixar o vídeo.</p>
+            </div>
+<section class="section editorial-blocks-section" id="editorialBlocksSection">
+            <div class="section-header">
+                <div>
+                    <h3><span class="material-icons-round">view_agenda</span> Blocos da pré-análise</h3>
+                    <p class="section-hint">Escolha um trecho contextualizado antes de gerar cortes. Se o Acervo já publicou blocos deste vídeo, são eles; se não, é a leitura que o Furia faz da transcrição carregada.</p>
+                </div>
+                <div class="section-actions editorial-blocks-actions">
+                    <span class="studio-status-pill" id="editorialBlocksStatus"><span class="status-dot offline"></span> Nenhum bloco para esta fonte</span>
+                    <button class="btn btn-sm btn-outline" id="btnRefreshEditorialBlocks" type="button"><span class="material-icons-round">refresh</span> Atualizar</button>
+                </div>
+            </div>
+            <div class="editorial-blocks-toolbar">
+                <input id="editorialBlocksSearch" class="setting-input" type="search" placeholder="Buscar por tema, título ou pergunta…" aria-label="Buscar blocos">
+                <label class="editorial-blocks-filter"><input id="editorialBlocksRenanOnly" type="checkbox" checked> Mostrar falas do Renan primeiro (sem ocultar outros oradores)</label>
+            </div>
+            <div class="editorial-blocks-list" id="editorialBlocksList" aria-live="polite">
+                <div class="editorial-blocks-empty">Cole um link do YouTube ou selecione um vídeo local para ver os blocos.</div>
+            </div>
+        </section>
+<section class="section performance-metrics-section non-core-panel" id="performanceMetricsSection" hidden>
+            <div class="section-header">
+                <div>
+                    <h3><span class="material-icons-round">monitoring</span> Métricas observadas</h3>
+                    <p class="section-hint">Histórico opcional pós-publicação. Não decide cortes nem substitui a revisão editorial.</p>
+                </div>
+                <div class="performance-section-actions">
+                    <span class="studio-status-pill"><span class="status-dot online"></span> Histórico local</span>
+                    <button class="btn btn-sm btn-outline performance-collapse-toggle" id="btnTogglePerformanceMetrics" type="button" aria-expanded="false" aria-controls="performanceMetricsBody">
+                        <span class="material-icons-round">expand_more</span> Abrir histórico
+                    </button>
+                </div>
+            </div>
+            <div class="performance-metrics-body" id="performanceMetricsBody" hidden>
+            <div class="performance-cohort-toolbar" aria-label="Filtros da coorte observada">
+                <label>Plataforma
+                    <select id="performanceMetricPlatform">
+                        <option value="">Todas</option>
+                        <option value="instagram">Instagram</option>
+                        <option value="youtube">YouTube</option>
+                        <option value="tiktok">TikTok</option>
+                    </select>
+                </label>
+                <label>Formato
+                    <select id="performanceMetricFormat">
+                        <option value="">Todos</option>
+                        <option value="vertical_916">9:16 central</option>
+                        <option value="square_alfinetei">1:1 Alfinetei</option>
+                    </select>
+                </label>
+                <label>Período
+                    <select id="performanceMetricWindow">
+                        <option value="">Todos</option>
+                        <option value="today">Hoje</option>
+                        <option value="week">Esta semana</option>
+                        <option value="month">Este mês</option>
+                        <option value="all">Desde o começo</option>
+                    </select>
+                </label>
+                <label>Região
+                    <select id="performanceMetricRegion">
+                        <option value="">Todas</option>
+                        <option value="brasil">Brasil</option>
+                        <option value="state">Estado</option>
+                        <option value="city">Cidade</option>
+                    </select>
+                </label>
+            </div>
+            <div class="performance-metrics-grid">
+                <div>
+                    <label for="performanceMetricsInput">Snapshot autorizado ou anotação manual</label>
+                    <textarea id="performanceMetricsInput" class="context-input performance-metrics-input" rows="6" placeholder='Cole um JSON, por exemplo: {"content_key":"reel-0813","platform":"instagram","format_id":"square_alfinetei","account_key":"@renansantosmbl","observation_window":"week","region":"brasil","views":10000,"likes":800,"comments":100,"shares":50,"saves":50}'></textarea>
+                    <p class="headline-studio-hint">Você cola um snapshot autorizado ou anotação manual. O Furia Clips calcula views, variação, velocidade observada e engajamento informado. Não inventa retenção, não lê dados privados automaticamente e não reproduz a fórmula de XP.</p>
+                </div>
+                <div class="performance-metrics-controls">
+                    <button class="btn btn-primary" id="btnSavePerformanceMetrics" type="button"><span class="material-icons-round">save</span> Salvar métricas</button>
+                    <button class="btn btn-outline" id="btnRefreshPerformanceMetrics" type="button"><span class="material-icons-round">refresh</span> Atualizar histórico</button>
+                    <div class="performance-metrics-status" id="performanceMetricsStatus">Nenhum snapshot observado nesta instalação.</div>
+                    <div class="performance-metrics-summary" id="performanceMetricsSummary" aria-live="polite"></div>
+                </div>
+                        </div>
+            </div>
+        </section>
+        </div>
+            </div>
 
-        <!-- Console -->
-        <section class="section" id="consoleSection">
+            <!-- O lado direito não era sobra: é onde mora o detalhe do que está
+                 selecionado, como em qualquer ferramenta de edição. -->
+            <aside class="inspetor" id="inspetor" aria-label="Detalhes do item selecionado">
+                <div class="inspetor-vazio" id="inspetorVazio">
+                    <span class="material-icons-round">ads_click</span>
+                    <strong>Nada selecionado</strong>
+                    <p>Clique num corte para ver a nota, de onde ela vem, a evidência do CHUB e os avisos de revisão.</p>
+                </div>
+                <div class="inspetor-corpo" id="inspetorCorpo" hidden></div>
+            </aside>
+        </div>
+
+        <!-- O console deixa de ser uma seção da página e vira uma gaveta: ele
+             importa quando quebra, não o tempo todo. -->
+        <div class="gaveta" id="gavetaConsole" data-aberta="false">
+            <button class="gaveta-puxador" id="btnGaveta" aria-expanded="false" aria-controls="gavetaCorpo">
+                <span class="material-icons-round">terminal</span>
+                <span>Registro técnico</span>
+                <span class="gaveta-contagem" id="gavetaContagem"></span>
+                <span class="material-icons-round gaveta-seta">expand_less</span>
+            </button>
+            <div class="gaveta-corpo" id="gavetaCorpo" hidden>
+<section class="section" id="consoleSection">
             <div class="section-header collapsible" id="consoleToggle">
                 <h3><span class="material-icons-round">terminal</span> Console</h3>
                 <div class="console-header-actions"><button class="btn btn-sm btn-outline" id="btnCopyConsoleLog" type="button" title="Copiar diagnóstico completo da sessão e do job"><span class="material-icons-round">content_copy</span> Copiar diagnóstico</button><span class="material-icons-round toggle-icon">expand_more</span></div>
@@ -872,6 +770,8 @@
                 </div>
             </div>
         </section>
+            </div>
+        </div>
     </main>
 
     <!-- Subtitle Configuration Modal -->
@@ -1154,7 +1054,236 @@
             </div>
         </div>
     </div>
+    <!-- Configuração, aparência, voz, motor e pasta saíram da tela. Ficar
+         visíveis o tempo todo era o que deixava a esquerda pesada. -->
+    <div class="ajustes-fundo" id="ajustesFundo" hidden>
+        <aside class="ajustes" role="dialog" aria-modal="true" aria-label="Ajustes">
+            <header class="ajustes-topo">
+                <h3><span class="material-icons-round">tune</span> Ajustes</h3>
+                <button class="btn btn-icon" id="btnFecharAjustes" aria-label="Fechar ajustes">
+                    <span class="material-icons-round">close</span>
+                </button>
+            </header>
+            <div class="ajustes-corpo">
+<div class="sidebar-section">
+                <h3><span class="material-icons-round">settings</span> Configurações</h3>
+
+                <div class="setting-group">
+                    <label>Modelo Whisper (reserva local)</label>
+                    <select id="settingWhisperModel" class="setting-select">
+                        <option value="tiny">Tiny (mais rápido)</option>
+                        <option value="base">Base</option>
+                        <option value="small" selected>Small (recomendado)</option>
+                        <option value="medium">Medium (mais preciso)</option>
+                        <option value="large">Large (melhor qualidade)</option>
+                    </select>
+                    <small class="setting-hint">Em CPU, lives acima de 45 min usam Base automaticamente para descoberta rápida; Gemini Online continua sendo a prioridade.</small>
+                </div>
+
+                <div class="setting-group">
+                    <label>Foco editorial</label>
+                    <select id="settingEditorialFocus" class="setting-select">
+                        <option value="auto" selected>Automático (detectar pelo vídeo)</option>
+                        <option value="renan_santos">Renan Santos / MBL</option>
+                        <option value="generic_political">Político genérico / participante principal</option>
+                    </select>
+                    <small class="setting-hint">Use Político genérico quando o vídeo não for centrado no Renan.</small>
+                </div>
+
+                <div class="setting-group">
+                    <label>Formato de saída</label>
+                    <select id="settingRenderPreset" class="setting-select">
+                        <option value="shorts" selected>YouTube Shorts — 9:16</option>
+                        <option value="political_shorts">Política editorial — 9:16</option>
+                        <option value="reels">Instagram Reels — 9:16</option>
+                        <option value="tiktok">TikTok — 9:16</option>
+                        <option value="square">Quadrado — 1:1</option>
+                        <option value="landscape">Paisagem — 16:9</option>
+                    </select>
+                    <small class="setting-hint">Define resolução, aspecto e área segura da legenda.</small>
+                </div>
+
+                <div class="setting-group">
+                    <label>Pausa mínima (s) <span class="setting-value" id="silenceValue">0.5s</span></label>
+                    <input type="range" id="settingSilenceDuration" min="0.2" max="2.0" step="0.1" value="0.5" class="setting-range">
+                </div>
+
+                <div class="setting-group">
+                    <label>Idioma do áudio</label>
+                    <select id="settingLanguage" class="setting-select">
+                        <option value="pt" selected>Português</option>
+                        <option value="en">English</option>
+                        <option value="es">Espanhol</option>
+                    </select>
+                </div>
+
+                <div class="setting-group">
+                    <label>Fonte da transcrição</label>
+                    <select id="settingTranscriptionSource" class="setting-select">
+                        <option value="auto" selected>Automático: Gemini → legenda → Whisper</option>
+                        <option value="public_subtitle">Preferir legenda encontrada → Whisper</option>
+                        <option value="whisper">Forçar Whisper local</option>
+                    </select>
+                    <small class="setting-hint">Transcrição manual sempre tem prioridade. Use Whisper quando quiser uma nova leitura do áudio, mesmo que exista legenda pública.</small>
+                </div>
+
+                <div class="setting-group">
+                    <label>Gênero do vídeo</label>
+                    <select id="settingVideoGenre" class="setting-select">
+                        <option value="" selected>Automático (detectar)</option>
+                        <option value="debate">Debate ou painel</option>
+                        <option value="podcast">Podcast ou entrevista</option>
+                        <option value="palestra">Palestra ou apresentação</option>
+                        <option value="vlog">Vlog ou orador único</option>
+                    </select>
+                </div>
+
+                <div class="setting-group">
+                    <label>Perfil editorial</label>
+                    <select id="settingEditorialProfile" class="setting-select">
+                        <option value="renan_santos_politics" selected>Política — Renan Santos e MBL</option>
+                        <option value="generic">Genérico — todos os temas</option>
+                    </select>
+                    <small class="setting-hint">Prioriza tese, conflito, proposta, evidência e conclusão.</small>
+                </div>
+
+                <div class="setting-group">
+                    <label>Base histórica de clipping</label>
+                    <select id="settingCampaignHubAccount" class="setting-select">
+                        <option value="@renansantosmbl" selected>Renan Santos / MBL — principal</option>
+                        <option value="@renansantosreserva">Renan Santos / Reserva</option>
+                    </select>
+                    <small class="setting-hint">Usa priors locais de hooks e contexto observados; não envia nada ao Campaign Hub e não substitui a análise do vídeo.</small>
+                    <div class="campaign-hub-local-status" id="campaignHubLocalStatus" role="status" aria-live="polite">
+                        <span class="status-dot offline"></span><span>Verificando memória editorial local…</span>
+                    </div>
+                    <div class="campaign-hub-setting-actions">
+                        <button class="btn btn-sm btn-outline" id="btnImportCampaignHubMemory" type="button">
+                            <span class="material-icons-round">sync</span> Atualizar memória
+                        </button>
+                        <input type="file" id="campaignHubMemoryFileInput" accept=".json,application/json" hidden>
+                    </div>
+                    <small class="setting-hint">Importa um export autorizado e mescla apenas registros novos/alterados. O processamento continua offline.</small>
+                </div>
+
+            </div>
+<div class="sidebar-section">
+                <h3><span class="material-icons-round">tune</span> Aparência</h3>
+                <div class="setting-group setting-toggle">
+                    <label for="settingSound">Som ao terminar</label>
+                    <input type="checkbox" id="settingSound" class="setting-switch">
+                </div>
+                <div class="setting-group">
+                    <label for="settingCursor">Cursor de onça</label>
+                    <select id="settingCursor" class="setting-select">
+                        <option value="drag" selected>Ao arrastar</option>
+                        <option value="always">Sempre</option>
+                        <option value="off">Desligado</option>
+                    </select>
+                    <small class="setting-hint">Ligado o tempo todo ele atrasa em relação ao ponteiro do sistema e some sobre campo de texto. "Ao arrastar" é o meio-termo.</small>
+                </div>
+            </div>
+<div class="sidebar-section">
+                <h3><span class="material-icons-round">record_voice_over</span> Voz de referência</h3>
+                <div class="voice-panel" id="voicePanel">
+                    <div class="voice-status" id="voiceStatus" role="status" aria-live="polite">
+                        <span class="status-dot offline"></span><span>Verificando…</span>
+                    </div>
+                    <small class="setting-hint">
+                        Uma amostra limpa — só ele falando, sem música e sem outra voz — permite ao Furia
+                        dizer que um trecho <em>não</em> é dele e cortar antes. Serve qualquer vídeo ou
+                        áudio: MP4, MP3, WAV, M4A. Não precisa converter nada.
+                    </small>
+                    <button class="btn btn-sm btn-outline" id="btnEnrollVoice" type="button">
+                        <span class="material-icons-round">upload</span> Enviar amostra
+                    </button>
+                    <input type="file" id="voiceFileInput" accept="video/*,audio/*" hidden>
+                </div>
+            </div>
+<div class="sidebar-section">
+                <h3><span class="material-icons-round">smart_toy</span> Motor de análise</h3>
+
+                <div class="setting-group">
+                    <label>Motor de IA</label>
+                    <select id="settingAiBackend" class="setting-select">
+                        <option value="gemini" selected>Gemini Online (prioritário → fallback local)</option>
+                        <option value="auto">Automático (Gemini → Ollama → local)</option>
+                        <option value="ollama">Ollama (Local/Gratis)</option>
+                        <option value="claude">Claude API (Pago)</option>
+                    </select>
+                </div>
+
+                <div class="setting-group ai-config" id="ollamaConfig">
+                    <label>Modelo Ollama</label>
+                    <select id="settingOllamaModel" class="setting-select">
+                        <option value="llama3.2:3b" selected>Llama 3.2 3B (Leve)</option>
+                        <option value="llama3.1:8b">Llama 3.1 8B</option>
+                        <option value="mistral:7b">Mistral 7B</option>
+                        <option value="phi3:mini">Phi-3 Mini</option>
+                    </select>
+                </div>
+
+                <div class="setting-group ai-config" id="geminiConfig" style="display:none">
+                    <label>Gemini API Key <span class="setting-hint">(opcional)</span></label>
+                    <input type="password" id="settingGeminiKey" class="setting-input" placeholder="Cole a chave; ela será salva fora do checkout">
+                    <div class="ai-key-status" id="geminiKeyStatus" aria-live="polite">Verificando se existe uma chave persistente...</div>
+                    <small class="setting-hint">A chave é salva em `FuriaClipsData/config/local.env`, fora do GitHub. Para dois notebooks, use a mesma pasta de dados sincronizada ou copie esse arquivo uma vez para o segundo computador. Disponível no <a href="https://aistudio.google.com/apikeys" target="_blank">Google AI Studio</a>.</small>
+                    <label for="settingGeminiModel">Modelo Gemini <span class="setting-hint">(avançado)</span></label>
+                    <input type="text" id="settingGeminiModel" class="setting-input" value="gemini-2.5-flash" placeholder="gemini-2.5-flash" autocomplete="off">
+                    <small class="setting-hint">Usado tanto na análise multimodal quanto no ranking dos cortes. Mantenha o padrão salvo, salvo se sua conta tiver outro modelo compatível.</small>
+                </div>
+
+                <div class="setting-group ai-config" id="claudeConfig" style="display:none">
+                    <label>Claude API Key</label>
+                    <input type="password" id="settingClaudeKey" class="setting-input" placeholder="Cole sua API key aqui">
+                </div>
+
+                <div class="ai-status" id="aiStatus">
+                    <span class="material-icons-round">check_circle</span>
+                    <span>Gemini Online prioritário; fallback local somente se necessário</span>
+                </div>
+
+                <!-- Ollama Status Badge -->
+                <div class="ollama-status-badge" id="ollamaStatusBadge">
+                    <div class="ollama-status-indicator">
+                        <span class="status-dot" id="ollamaStatusDot"></span>
+                        <span class="status-label" id="ollamaStatusLabel">Verificando...</span>
+                    </div>
+                    <div class="ollama-mode-indicator" id="ollamaModeIndicator">
+                        <span class="mode-icon material-icons-round" id="ollamaModeIcon">psychology</span>
+                        <span class="mode-label" id="ollamaModeLabel">---</span>
+                    </div>
+                </div>
+            </div>
+<div class="sidebar-section">
+                <h3><span class="material-icons-round">folder_open</span> Pasta de saída</h3>
+                <div class="setting-group">
+                    <div class="output-dir-display" id="outputDirDisplay">
+                        <span class="material-icons-round">folder</span>
+                        <span id="outputDirText">workspace/exports</span>
+                    </div>
+                    <button class="btn btn-sm btn-outline" id="btnChangeOutputDir" style="margin-top:8px; width:100%">
+                        <span class="material-icons-round">edit</span> Alterar Pasta de saída
+                    </button>
+                    <button class="btn btn-sm btn-outline" id="btnOpenDownloadsDir" style="margin-top:8px; width:100%">
+                        <span class="material-icons-round">folder_open</span> Abrir Pasta de Downloads
+                    </button>
+                </div>
+            </div>
+                <div class="ajustes-rodape">
+<button class="btn btn-save-settings" id="btnSaveSettings">
+                <span class="material-icons-round">save</span>
+                Salvar Configurações
+            </button>
+                </div>
+            </div>
+        </aside>
+    </div>
+
     <script src="/static/vendor/socket.io.min.js"></script>
     <script src="/static/js/app.js"></script>
+    <script src="/static/js/talho.js"></script>
+    <script src="/static/js/atelie.js"></script>
+
 </body>
 </html>

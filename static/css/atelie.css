@@ -1,0 +1,739 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   FURIA CLIPS — ATELIÊ
+   A camada de arquitetura da interface, por cima do estilo antigo.
+
+   A direção é sala de corte: fundo fundo o bastante para o vídeo ser a coisa
+   mais clara da tela, um único acento — o ouro que o Furia já usa — e a onda de
+   áudio como elemento gráfico central, porque é ela que o editor precisa ler.
+
+   Escuro primeiro, e de propósito: esta ferramenta fica aberta o dia inteiro ao
+   lado do CapCut e do Premiere, e tem que pertencer àquela família.
+
+   A tipografia é Inter porque é a única que existe na pasta, e o programa
+   precisa abrir sem internet. Personalidade aqui vem de peso, espaçamento e
+   ritmo — não de uma fonte cara. Números de tempo vão em monoespaçada do
+   sistema para as colunas alinharem.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+    /* Escuro é o desenho principal; o claro vem depois, no fim do arquivo. */
+    --at-fundo:        #0d0f11;
+    --at-superficie:   #16191d;
+    --at-elevado:      #1d2126;
+    --at-alto:         #252a30;
+    --at-linha:        #262b31;
+    --at-linha-forte:  #343a41;
+
+    --at-tinta:        #e9ebed;
+    --at-tinta-media:  #99a2aa;
+    --at-tinta-fraca:  #646d75;
+
+    /* O único acento. Verde, âmbar e vermelho existem só para estado. */
+    --at-ouro:         #f0a91e;
+    --at-ouro-fundo:   #2a2010;
+    --at-ouro-linha:   #4a3a15;
+
+    --at-bom:          #4ec97a;
+    --at-bom-fundo:    #12271a;
+    --at-atencao:      #e8b13c;
+    --at-atencao-fundo:#2a2211;
+    --at-ruim:         #e86a5c;
+    --at-ruim-fundo:   #2a1614;
+
+    --at-mono: ui-monospace, "SF Mono", "Cascadia Mono", "Segoe UI Mono", Menlo, Consolas, monospace;
+
+    --at-r: 8px;
+    --at-r-p: 5px;
+    --at-sombra: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.6);
+}
+
+/* ── o chão ─────────────────────────────────────────────────────────────── */
+
+body {
+    background: var(--at-fundo) !important;
+    color: var(--at-tinta) !important;
+    font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif !important;
+    letter-spacing: -0.006em;
+}
+
+.main-content {
+    background: var(--at-fundo) !important;
+    padding-bottom: 4.5rem !important;
+}
+
+/* ── a barra de ambientes ───────────────────────────────────────────────── */
+
+.rail {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    position: sticky;
+    top: 0;
+    z-index: 60;
+    padding: 0 1.5rem;
+    background: color-mix(in srgb, var(--at-fundo) 92%, transparent);
+    backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--at-linha);
+}
+
+.rail-tabs { display: flex; gap: 2px; }
+
+.rail-tab {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.95rem 0.95rem 0.85rem;
+    border: none;
+    background: none;
+    color: var(--at-tinta-fraca);
+    font: inherit;
+    font-size: 0.875rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: color .13s ease, border-color .13s ease;
+}
+.rail-tab .material-icons-round { font-size: 19px; }
+.rail-tab:hover { color: var(--at-tinta-media); }
+.rail-tab.is-active {
+    color: var(--at-ouro);
+    border-bottom-color: var(--at-ouro);
+}
+.rail-tab:focus-visible { outline: 2px solid var(--at-ouro); outline-offset: -3px; border-radius: var(--at-r-p); }
+
+.rail-command {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.42rem 0.6rem 0.42rem 0.55rem;
+    border: 1px solid var(--at-linha-forte);
+    border-radius: var(--at-r-p);
+    background: var(--at-superficie);
+    color: var(--at-tinta-fraca);
+    font: inherit;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: border-color .13s ease, color .13s ease;
+}
+.rail-command:hover { border-color: var(--at-ouro-linha); color: var(--at-tinta-media); }
+.rail-command .material-icons-round { font-size: 17px; }
+.rail-command kbd {
+    font-family: var(--at-mono);
+    font-size: 0.68rem;
+    padding: 0.1em 0.4em;
+    border: 1px solid var(--at-linha-forte);
+    border-radius: 3px;
+    color: var(--at-tinta-fraca);
+    background: var(--at-fundo);
+}
+
+/* ── palco: ambientes à esquerda, inspetor à direita ────────────────────── */
+
+.palco {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 21rem;
+    gap: 1.5rem;
+    align-items: start;
+    padding: 1.5rem;
+}
+@media (max-width: 1180px) {
+    .palco { grid-template-columns: minmax(0, 1fr); }
+    .inspetor { display: none; }
+}
+
+.ambiente { display: flex; flex-direction: column; gap: 1.25rem; min-width: 0; }
+.ambiente[hidden] { display: none; }
+
+.ambiente-intro { margin-bottom: -0.35rem; }
+.ambiente-intro h2 {
+    font-size: 1.35rem;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    margin: 0 0 0.2rem;
+    color: var(--at-tinta);
+}
+.ambiente-intro p {
+    margin: 0;
+    font-size: 0.875rem;
+    color: var(--at-tinta-fraca);
+}
+
+/* ── as seções que já existiam, revestidas ──────────────────────────────── */
+
+.main-content .section {
+    background: var(--at-superficie) !important;
+    border: 1px solid var(--at-linha) !important;
+    border-radius: var(--at-r) !important;
+    box-shadow: none !important;
+    margin: 0 !important;
+}
+.main-content .section-header {
+    border-bottom: 1px solid var(--at-linha) !important;
+    background: transparent !important;
+}
+.main-content .section-header h3,
+.main-content .section-header h2 {
+    font-size: 0.94rem !important;
+    font-weight: 600 !important;
+    letter-spacing: -0.012em !important;
+    color: var(--at-tinta) !important;
+}
+
+/* ── inspetor ───────────────────────────────────────────────────────────── */
+
+.inspetor {
+    position: sticky;
+    top: 4.2rem;
+    max-height: calc(100vh - 6rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    background: var(--at-superficie);
+    border: 1px solid var(--at-linha);
+    border-radius: var(--at-r);
+    padding: 1.15rem;
+}
+.inspetor-vazio {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.45rem;
+    padding: 1.25rem 0.25rem;
+    color: var(--at-tinta-fraca);
+}
+.inspetor-vazio .material-icons-round { font-size: 26px; color: var(--at-linha-forte); }
+.inspetor-vazio strong { color: var(--at-tinta-media); font-size: 0.9rem; font-weight: 600; }
+.inspetor-vazio p { margin: 0; font-size: 0.82rem; line-height: 1.55; }
+
+.inspetor-titulo {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--at-tinta-fraca);
+    margin: 0 0 0.7rem;
+}
+.inspetor-nota {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    margin-bottom: 0.15rem;
+}
+.inspetor-nota b {
+    font-family: var(--at-mono);
+    font-size: 2.1rem;
+    font-weight: 600;
+    line-height: 1;
+    color: var(--at-ouro);
+    font-variant-numeric: tabular-nums;
+}
+.inspetor-nota span { font-size: 0.78rem; color: var(--at-tinta-fraca); }
+
+.inspetor-linha {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.5rem 0;
+    border-top: 1px solid var(--at-linha);
+    font-size: 0.82rem;
+}
+.inspetor-linha dt { color: var(--at-tinta-fraca); }
+.inspetor-linha dd {
+    margin: 0;
+    color: var(--at-tinta);
+    font-family: var(--at-mono);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+.inspetor-fonte {
+    margin-top: 0.9rem;
+    padding: 0.6rem 0.7rem;
+    background: var(--at-ouro-fundo);
+    border: 1px solid var(--at-ouro-linha);
+    border-radius: var(--at-r-p);
+    font-size: 0.76rem;
+    line-height: 1.5;
+    color: var(--at-tinta-media);
+}
+.inspetor-fonte b { color: var(--at-ouro); }
+
+/* ── a gaveta do registro técnico ───────────────────────────────────────── */
+
+.gaveta {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    z-index: 70;
+    background: var(--at-superficie);
+    border-top: 1px solid var(--at-linha);
+}
+.gaveta-puxador {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    width: 100%;
+    padding: 0.62rem 1.5rem;
+    border: none;
+    background: none;
+    color: var(--at-tinta-fraca);
+    font: inherit;
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+.gaveta-puxador:hover { color: var(--at-tinta-media); }
+.gaveta-puxador .material-icons-round { font-size: 17px; }
+.gaveta-seta { margin-left: auto; transition: transform .18s ease; }
+.gaveta[data-aberta="true"] .gaveta-seta { transform: rotate(180deg); }
+.gaveta-contagem {
+    font-family: var(--at-mono);
+    font-size: 0.7rem;
+    padding: 0.1em 0.42em;
+    border-radius: 3px;
+    background: var(--at-elevado);
+    color: var(--at-tinta-fraca);
+}
+.gaveta-contagem[data-erro="true"] { background: var(--at-ruim-fundo); color: var(--at-ruim); }
+.gaveta-corpo { max-height: 44vh; overflow-y: auto; border-top: 1px solid var(--at-linha); }
+.gaveta-corpo .section { border: none !important; border-radius: 0 !important; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   O AJUSTE DE CORTE
+   Era isto: <input type="number" value="300.0"> e <input value="800.0">.
+   Segundos absolutos da fonte, sem unidade, sem relógio, sem onda, sem poder
+   voltar. O editor: "não sabia o que eu estava medindo".
+   Agora a onda é o controle e o número é consequência do arrasto.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.talho {
+    background: var(--at-elevado);
+    border: 1px solid var(--at-linha-forte);
+    border-radius: var(--at-r);
+    padding: 0.9rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+}
+
+.talho-relogios {
+    display: flex;
+    align-items: baseline;
+    gap: 1.1rem;
+    flex-wrap: wrap;
+    font-family: var(--at-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 0.8rem;
+}
+.talho-relogio { display: flex; align-items: baseline; gap: 0.35rem; }
+.talho-relogio i {
+    font-style: normal;
+    font-family: Inter, sans-serif;
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--at-tinta-fraca);
+}
+.talho-relogio b { font-weight: 600; color: var(--at-tinta); font-size: 0.95rem; }
+.talho-relogio.duracao b { color: var(--at-ouro); }
+
+/* a tela da onda */
+.talho-tela {
+    position: relative;
+    height: 92px;
+    background: var(--at-fundo);
+    border-radius: var(--at-r-p);
+    overflow: hidden;
+    cursor: text;
+    touch-action: none;
+}
+.talho-tela canvas { display: block; width: 100%; height: 100%; }
+
+/* as bordas de fora do corte, apagadas */
+.talho-fora {
+    position: absolute;
+    top: 0; bottom: 0;
+    background: color-mix(in srgb, var(--at-fundo) 74%, transparent);
+    pointer-events: none;
+}
+
+/* as alças: do lado de fora da borda, com área de toque bem maior que o desenho */
+.talho-alca {
+    position: absolute;
+    top: 0; bottom: 0;
+    width: 26px;
+    margin-left: -13px;
+    cursor: ew-resize;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 3;
+    touch-action: none;
+}
+.talho-alca::before {
+    content: "";
+    width: 3px;
+    height: 100%;
+    background: var(--at-ouro);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--at-fundo) 60%, transparent);
+}
+.talho-alca::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    width: 13px; height: 30px;
+    margin-top: -15px;
+    border-radius: 3px;
+    background: var(--at-ouro);
+    box-shadow: 0 1px 4px rgba(0,0,0,.5);
+}
+.talho-alca:hover::after,
+.talho-alca.arrastando::after { background: #ffc44d; }
+.talho-alca:focus-visible { outline: 2px solid #ffc44d; outline-offset: 2px; }
+
+.talho-cursor {
+    position: absolute;
+    top: 0; bottom: 0;
+    width: 1px;
+    background: #fff;
+    pointer-events: none;
+    z-index: 4;
+    opacity: .85;
+}
+
+/* a legenda que acompanha o arrasto */
+.talho-fala {
+    min-height: 2.5rem;
+    padding: 0.5rem 0.65rem;
+    background: var(--at-fundo);
+    border-radius: var(--at-r-p);
+    border-left: 2px solid var(--at-linha-forte);
+    font-size: 0.85rem;
+    line-height: 1.5;
+    color: var(--at-tinta-media);
+}
+.talho-fala.no-corte { border-left-color: var(--at-ouro); color: var(--at-tinta); }
+.talho-fala em { font-style: normal; color: var(--at-tinta-fraca); }
+
+.talho-acoes { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.talho-dica {
+    margin-left: auto;
+    font-size: 0.72rem;
+    color: var(--at-tinta-fraca);
+}
+.talho-dica kbd {
+    font-family: var(--at-mono);
+    font-size: 0.68rem;
+    padding: 0.08em 0.32em;
+    border: 1px solid var(--at-linha-forte);
+    border-radius: 3px;
+}
+.talho-encaixe {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.75rem;
+    color: var(--at-tinta-fraca);
+    cursor: pointer;
+    user-select: none;
+}
+
+/* ── paleta de comandos ─────────────────────────────────────────────────── */
+
+.paleta-fundo {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    background: rgba(0,0,0,.62);
+    backdrop-filter: blur(3px);
+    display: flex;
+    justify-content: center;
+    padding-top: 14vh;
+}
+.paleta-fundo[hidden] { display: none; }
+.paleta {
+    width: min(38rem, calc(100vw - 2rem));
+    height: fit-content;
+    max-height: 60vh;
+    background: var(--at-elevado);
+    border: 1px solid var(--at-linha-forte);
+    border-radius: 12px;
+    box-shadow: 0 24px 64px -12px rgba(0,0,0,.8);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+.paleta input {
+    width: 100%;
+    padding: 1rem 1.1rem;
+    border: none;
+    border-bottom: 1px solid var(--at-linha);
+    background: none;
+    color: var(--at-tinta);
+    font: inherit;
+    font-size: 1rem;
+    outline: none;
+}
+.paleta input::placeholder { color: var(--at-tinta-fraca); }
+.paleta-lista { overflow-y: auto; padding: 0.35rem; }
+.paleta-item {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    width: 100%;
+    padding: 0.6rem 0.75rem;
+    border: none;
+    border-radius: var(--at-r-p);
+    background: none;
+    color: var(--at-tinta-media);
+    font: inherit;
+    font-size: 0.88rem;
+    text-align: left;
+    cursor: pointer;
+}
+.paleta-item .material-icons-round { font-size: 18px; color: var(--at-tinta-fraca); }
+.paleta-item small { margin-left: auto; font-size: 0.72rem; color: var(--at-tinta-fraca); }
+.paleta-item.marcado { background: var(--at-alto); color: var(--at-tinta); }
+.paleta-item.marcado .material-icons-round { color: var(--at-ouro); }
+.paleta-vazio { padding: 1.4rem 1.1rem; color: var(--at-tinta-fraca); font-size: 0.86rem; }
+
+/* ── densidade ──────────────────────────────────────────────────────────── */
+
+body[data-densidade="compacta"] .ambiente { gap: 0.7rem; }
+body[data-densidade="compacta"] .main-content .section-body { padding: 0.75rem !important; }
+body[data-densidade="compacta"] .result-card { padding: 0.7rem !important; }
+body[data-densidade="compacta"] .talho-tela { height: 64px; }
+body[data-densidade="compacta"] .ambiente-intro { display: none; }
+
+/* ── claro ──────────────────────────────────────────────────────────────── */
+
+body.light-mode,
+[data-theme="light"] {
+    --at-fundo:        #f4f5f6;
+    --at-superficie:   #ffffff;
+    --at-elevado:      #fafbfb;
+    --at-alto:         #eef0f1;
+    --at-linha:        #e0e3e5;
+    --at-linha-forte:  #cbd0d4;
+
+    --at-tinta:        #14171a;
+    --at-tinta-media:  #4d565e;
+    --at-tinta-fraca:  #79838b;
+
+    --at-ouro:         #9a6510;
+    --at-ouro-fundo:   #fbf2df;
+    --at-ouro-linha:   #ebd9ae;
+
+    --at-bom:          #17743f;
+    --at-bom-fundo:    #e4f2e9;
+    --at-atencao:      #8a6106;
+    --at-atencao-fundo:#fbf1da;
+    --at-ruim:         #a8362b;
+    --at-ruim-fundo:   #f8e6e3;
+}
+body.light-mode .talho-tela,
+[data-theme="light"] .talho-tela { background: #eceef0; }
+body.light-mode .talho-cursor,
+[data-theme="light"] .talho-cursor { background: #14171a; }
+body.light-mode .talho-fora,
+[data-theme="light"] .talho-fora { background: rgba(244,245,246,.72); }
+
+@media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+    .gaveta-seta { transition: none !important; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   A ESQUERDA MAGRA E O CABEÇALHO CURTO
+   O cabeçalho ocupava um terço da altura útil repetindo o nome do produto e
+   uma trilha de quatro passos que a barra de ambientes agora representa melhor.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.sidebar {
+    background: var(--at-superficie) !important;
+    border-right: 1px solid var(--at-linha) !important;
+    width: 15.5rem !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+.sidebar-header { border-bottom: 1px solid var(--at-linha) !important; }
+.sidebar-content { flex: 1 1 auto; overflow-y: auto; }
+.sidebar .sidebar-section { background: none !important; border: none !important; }
+
+.sidebar-ajustes {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    width: 100%;
+    padding: 0.8rem 1rem;
+    border: none;
+    border-top: 1px solid var(--at-linha);
+    background: none;
+    color: var(--at-tinta-fraca);
+    font: inherit;
+    font-size: 0.82rem;
+    cursor: pointer;
+    text-align: left;
+}
+.sidebar-ajustes:hover { color: var(--at-ouro); background: var(--at-elevado); }
+.sidebar-ajustes .material-icons-round { font-size: 18px; }
+
+/* o herói vira uma faixa */
+.main-header {
+    padding: 0.85rem 1.5rem !important;
+    background: var(--at-fundo) !important;
+    border: none !important;
+    border-bottom: 1px solid var(--at-linha) !important;
+    align-items: center !important;
+}
+.main-header .eyebrow, .main-header p { display: none !important; }
+.main-header h2 {
+    font-size: 0.95rem !important;
+    font-weight: 600 !important;
+    letter-spacing: -0.012em !important;
+    margin: 0 !important;
+    color: var(--at-tinta-media) !important;
+}
+/* a trilha de passos era a navegação antiga; agora ela é a barra de ambientes */
+.workflow-steps { display: none !important; }
+
+/* ── a gaveta de ajustes ────────────────────────────────────────────────── */
+
+.ajustes-fundo {
+    position: fixed;
+    inset: 0;
+    z-index: 190;
+    background: rgba(0,0,0,.55);
+    display: flex;
+    justify-content: flex-start;
+}
+.ajustes-fundo[hidden] { display: none; }
+.ajustes {
+    width: min(23rem, 100vw);
+    height: 100%;
+    background: var(--at-superficie);
+    border-right: 1px solid var(--at-linha-forte);
+    display: flex;
+    flex-direction: column;
+    box-shadow: var(--at-sombra);
+}
+.ajustes-topo {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.9rem 1rem;
+    border-bottom: 1px solid var(--at-linha);
+}
+.ajustes-topo h3 {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--at-tinta);
+}
+.ajustes-corpo { flex: 1; overflow-y: auto; padding: 0.4rem 1rem 1.2rem; }
+.ajustes-corpo .sidebar-section { background: none !important; border: none !important; padding: 0.9rem 0 !important; }
+.ajustes-corpo .sidebar-section + .sidebar-section { border-top: 1px solid var(--at-linha) !important; }
+.ajustes-rodape { position: sticky; bottom: 0; padding-top: 0.8rem; background: var(--at-superficie); }
+.ajustes-rodape .btn { width: 100%; justify-content: center; }
+
+/* Os campos de número saíram de cena, mas os rótulos "Entrada" e "Saída"
+   continuavam aparecendo: `.clip-boundary-fields label` traz `display:flex` do
+   estilo antigo, e display vence o atributo `hidden`. É o mesmo motivo pelo qual
+   o player nasceu com zero pixel — atributo perde para regra de estilo. */
+.clip-boundary-fields label[hidden] { display: none !important; }
+.clip-boundary-fields { gap: 0.5rem !important; }
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   O CLARO QUE NUNCA EXISTIU DE VERDADE
+
+   Medi no navegador: trinta e sete lugares do estilo antigo pintam o fundo com
+   uma cor escura escrita na mão — `rgba(5, 8, 11, .48)` e parentes — em vez de
+   usar variável. No escuro isso é invisível, porque escuro sobre escuro some.
+   No claro vira uma placa cinza por cima do texto, e foi exatamente isso que
+   apareceu no primeiro print: os botões de fonte, a dica embaixo deles, o
+   cartão do vídeo e a meta do dia, todos ilegíveis.
+
+   Não é um tema alternativo mal ajustado; é um tema que nunca foi construído.
+   Aqui cada um desses lugares recebe a superfície clara equivalente, escolhida
+   pela opacidade que o preenchimento escuro tinha — quanto mais opaco, mais
+   alto era o papel dele na hierarquia.
+
+   Véus por cima de vídeo e a cortina das janelas continuam escuros de propósito.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+body.light-mode .context-review-grid article,
+[data-theme="light"] .context-review-grid article { background: var(--at-elevado); }
+body.light-mode .setting-select, .setting-input,
+[data-theme="light"] .setting-select, .setting-input { background: var(--at-elevado); }
+body.light-mode .workflow-steps,
+[data-theme="light"] .workflow-steps { background: var(--at-superficie); }
+body.light-mode .media-drop-zone,
+[data-theme="light"] .media-drop-zone { background: var(--at-superficie); }
+body.light-mode .source-tabs,
+[data-theme="light"] .source-tabs { background: var(--at-elevado); }
+body.light-mode .source-panel,
+[data-theme="light"] .source-panel { background: var(--at-alto); }
+body.light-mode .context-input,
+[data-theme="light"] .context-input { background: var(--at-elevado); }
+body.light-mode .action-card,
+[data-theme="light"] .action-card { background: var(--at-superficie); }
+body.light-mode .daily-editorial-goal, .editorial-learning, .editorial-data-card, .transcript-archive-card,
+[data-theme="light"] .daily-editorial-goal, .editorial-learning, .editorial-data-card, .transcript-archive-card { background: var(--at-alto); }
+body.light-mode .result-card,
+[data-theme="light"] .result-card { background: var(--at-superficie); }
+body.light-mode .result-text-preview, .score-breakdown,
+[data-theme="light"] .result-text-preview, .score-breakdown { background: var(--at-elevado); }
+body.light-mode .headline-studio-inputs, .headline-studio-controls,
+[data-theme="light"] .headline-studio-inputs, .headline-studio-controls { background: var(--at-alto); }
+body.light-mode .headline-studio-result-summary,
+[data-theme="light"] .headline-studio-result-summary { background: var(--at-elevado); }
+body.light-mode .artwork-format-result,
+[data-theme="light"] .artwork-format-result { background: var(--at-alto); }
+body.light-mode .transcript-archive-item,
+[data-theme="light"] .transcript-archive-item { background: var(--at-alto); }
+body.light-mode .performance-metrics-grid > div:first-child, .performance-metrics-controls,
+[data-theme="light"] .performance-metrics-grid > div:first-child, .performance-metrics-controls { background: var(--at-alto); }
+body.light-mode .clip-feedback-controls select,
+[data-theme="light"] .clip-feedback-controls select { background: var(--at-superficie); }
+body.light-mode .sidebar,
+[data-theme="light"] .sidebar { background: var(--at-superficie); }
+body.light-mode .sidebar-section,
+[data-theme="light"] .sidebar-section { background: var(--at-elevado); }
+body.light-mode .selected-video,
+[data-theme="light"] .selected-video { background: var(--at-elevado); }
+body.light-mode .main-header,
+[data-theme="light"] .main-header { background: var(--at-superficie); }
+body.light-mode .section,
+[data-theme="light"] .section { background: var(--at-superficie); }
+body.light-mode .media-card,
+[data-theme="light"] .media-card { background: var(--at-superficie); }
+body.light-mode .context-analysis-controls, .editorial-audit-controls,
+[data-theme="light"] .context-analysis-controls, .editorial-audit-controls { background: var(--at-elevado); }
+body.light-mode .context-analysis-result,
+[data-theme="light"] .context-analysis-result { background: var(--at-elevado); }
+body.light-mode .review-command-center,
+[data-theme="light"] .review-command-center { background: var(--at-elevado); }
+body.light-mode .score-breakdown-grades, .editorial-factors,
+[data-theme="light"] .score-breakdown-grades, .editorial-factors { background: var(--at-elevado); }
+body.light-mode .progress-bar-container,
+[data-theme="light"] .progress-bar-container { background: var(--at-superficie); }
+body.light-mode .processing-journey,
+[data-theme="light"] .processing-journey { background: var(--at-elevado); }
+body.light-mode .runtime-version,
+[data-theme="light"] .runtime-version { background: var(--at-elevado); }
+body.light-mode .campaign-hub-memory-card,
+[data-theme="light"] .campaign-hub-memory-card { background: var(--at-alto); }
+body.light-mode .editorial-block-card,
+[data-theme="light"] .editorial-block-card { background: var(--at-alto); }
+body.light-mode .editorial-block-card:hover,
+[data-theme="light"] .editorial-block-card:hover { background: var(--at-superficie); }
+body.light-mode .reading-unit:hover,
+[data-theme="light"] .reading-unit:hover { background: var(--at-superficie); }
+
+body.light-mode .sidebar, [data-theme="light"] .sidebar { border-right: 1px solid var(--at-linha); }
+body.light-mode .main-header, [data-theme="light"] .main-header { background: var(--at-fundo) !important; }
+body.light-mode .section, [data-theme="light"] .section { background: var(--at-superficie) !important; }
