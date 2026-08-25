@@ -758,6 +758,20 @@
                 <span class="material-icons-round gaveta-seta">expand_less</span>
             </button>
             <div class="gaveta-corpo" id="gavetaCorpo" hidden>
+                <!-- Ler não é o mesmo que levar: o registro precisa sair da tela
+                     inteiro, num clique, para poder ser mandado para alguém. -->
+                <div class="gaveta-acoes">
+                    <button type="button" id="btnCopiarRegistro">
+                        <span class="material-icons-round">content_copy</span> Copiar tudo
+                    </button>
+                    <button type="button" id="btnSalvarRegistro">
+                        <span class="material-icons-round">download</span> Salvar em arquivo
+                    </button>
+                    <button type="button" id="btnAbrirPastaLogs">
+                        <span class="material-icons-round">folder_open</span> Abrir a pasta de logs
+                    </button>
+                    <span class="gaveta-aviso" id="gavetaAviso"></span>
+                </div>
 <section class="section" id="consoleSection">
             <div class="section-header collapsible" id="consoleToggle">
                 <h3><span class="material-icons-round">terminal</span> Console</h3>

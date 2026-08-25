@@ -16,6 +16,10 @@
    ═══════════════════════════════════════════════════════════════════════════ */
 
 :root {
+    /* Largura da barra lateral. Quem é fixo e fica ao lado dela precisa saber
+       onde ela termina. */
+    --at-esquerda: 15.5rem;
+
     /* Escuro é o desenho principal; o claro vem depois, no fim do arquivo. */
     --at-fundo:        #0d0f11;
     --at-superficie:   #16191d;
@@ -263,11 +267,20 @@ body {
 
 .gaveta {
     position: fixed;
-    left: 0; right: 0; bottom: 0;
+    /* A barra lateral é fixa, tem altura inteira e z-index 100. Com a gaveta
+       começando em zero, os seus primeiros 248 px ficavam ATRÁS dela — e é
+       exatamente ali que mora o puxador. Clicar não fazia nada, e o botão de
+       Ajustes engolia o clique. Descobri porque o teste de navegador reclamou
+       que o clique estava sendo interceptado; a olho, parecia certo. */
+    left: var(--at-esquerda); right: 0; bottom: 0;
     z-index: 70;
     background: var(--at-superficie);
     border-top: 1px solid var(--at-linha);
 }
+.main-content.dock-open ~ .gaveta,
+.gaveta { right: 0; }
+.main-content.dock-open + .gaveta { right: var(--player-width); }
+
 .gaveta-puxador {
     display: flex;
     align-items: center;
@@ -1030,3 +1043,74 @@ body.light-mode, [data-theme="light"] {
     font: inherit;
     font-size: 0.8rem;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LARGURA — duas colunas de detalhe brigando pelo mesmo espaço
+
+   O editor: "o layout ainda ficou horrível... só ficou totalmente visível com
+   zoom de 67%". Medido: a barra lateral leva 248 px, a prévia do vídeo empurra
+   o conteúdo em 420 px quando abre, e o inspetor toma mais 336 px. Numa tela de
+   1920 sobram 900 px para o trabalho — e o trabalho é a coluna do meio.
+
+   O erro é conceitual, não de número: prévia e inspetor são a MESMA coisa —
+   detalhe do que está selecionado, à direita. Ter as duas ao mesmo tempo é ter
+   duas respostas para a mesma pergunta, cada uma comendo um terço da tela.
+
+   Então elas se revezam. Com a prévia aberta o inspetor recolhe; ao fechar a
+   prévia ele volta. E o corte de largura sobe para 1500 px, porque abaixo disso
+   três colunas nunca couberam de verdade — só pareciam caber.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+:root { --player-width: 400px; }
+
+.main-content.dock-open .palco { grid-template-columns: minmax(0, 1fr); }
+.main-content.dock-open .inspetor { display: none; }
+
+@media (max-width: 1500px) {
+    .palco { grid-template-columns: minmax(0, 1fr); }
+    .inspetor { display: none; }
+}
+/* 1366 x 768 ainda é a tela mais comum em notebook de trabalho, e com a prévia
+   aberta sobravam 550 px para a coluna do meio. O corte tem que pegar essa tela,
+   não passar de raspão por ela. */
+@media (max-width: 1440px) {
+    :root { --player-width: 330px; --at-esquerda: 12.5rem; }
+    .sidebar { width: 12.5rem !important; }
+    .palco { padding: 1rem; gap: 1rem; }
+}
+/* A prévia nunca pode passar de um terço da tela. */
+.player-dock { max-width: 34vw; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   O REGISTRO TÉCNICO PRECISA SAIR DA TELA
+
+   "não tem nem console para eu copiar os logs e te mandar exceto o .bat". A
+   gaveta existe, mas ler não é o mesmo que levar: o editor precisa mandar o
+   registro para alguém, e selecionar centenas de linhas com o mouse dentro de
+   uma caixa com rolagem é uma tarefa que ninguém termina.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.gaveta-acoes {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.5rem 1.5rem;
+    border-bottom: 1px solid var(--at-linha);
+    background: var(--at-elevado);
+}
+.gaveta-acoes button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.6rem;
+    border: 1px solid var(--at-linha-forte);
+    border-radius: var(--at-r-p);
+    background: var(--at-superficie);
+    color: var(--at-tinta-media);
+    font: inherit;
+    font-size: 0.78rem;
+    cursor: pointer;
+}
+.gaveta-acoes button:hover { border-color: var(--at-ouro-linha); color: var(--at-ouro); }
+.gaveta-acoes .material-icons-round { font-size: 16px; }
+.gaveta-acoes .gaveta-aviso { margin-left: auto; font-size: 0.74rem; color: var(--at-tinta-fraca); }

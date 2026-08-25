@@ -5269,6 +5269,27 @@ def api_output_file():
     return send_file(target, conditional=True)
 
 
+@app.route("/api/open-logs", methods=["POST"])
+def api_open_logs():
+    """Abrir a pasta dos registros do lançador.
+
+    O editor precisou mandar o log três vezes e as três vezes teve de copiar da
+    janela preta do .bat, porque era o único lugar de onde dava para levar texto
+    embora. Os arquivos sempre estiveram em `logs/`, ao lado do programa; o que
+    faltava era um caminho até eles que não exigisse abrir o explorador de
+    arquivos e navegar.
+    """
+    pasta = os.path.join(BASE_DIR, "logs")
+    os.makedirs(pasta, exist_ok=True)
+    try:
+        open_local_path(pasta)
+    except (FileNotFoundError, OSError) as erro:
+        # Sem ambiente gráfico — comum quando o programa roda num servidor.
+        # Dizer onde os arquivos estão ainda resolve o problema do editor.
+        return jsonify({"error": f"Não deu para abrir: {str(erro)[:120]}", "pasta": pasta}), 500
+    return jsonify({"success": True, "pasta": pasta})
+
+
 @app.route("/api/open_folder", methods=["POST"])
 def api_open_folder():
     data = request.get_json(silent=True) or {}

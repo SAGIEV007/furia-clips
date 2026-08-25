@@ -214,3 +214,75 @@
     fundo.addEventListener("mousedown", (e) => { if (e.target === fundo) abrir(false); });
     document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !fundo.hidden) abrir(false); });
 })();
+
+/* ── levar o registro para fora ──────────────────────────────────────────── */
+//
+// "não tem nem console para eu copiar os logs e te mandar exceto o .bat". A
+// gaveta já mostrava tudo, mas mostrar não resolve: selecionar centenas de
+// linhas com o mouse dentro de uma caixa com rolagem é uma tarefa que ninguém
+// termina. O registro precisa sair inteiro, num clique.
+(function () {
+    "use strict";
+    const aviso = document.getElementById("gavetaAviso");
+    const dizer = (texto, erro) => {
+        if (!aviso) return;
+        aviso.textContent = texto;
+        aviso.style.color = erro ? "var(--at-ruim)" : "var(--at-bom)";
+        window.setTimeout(() => { aviso.textContent = ""; }, 6000);
+    };
+
+    function registro() {
+        const linhas = [...document.querySelectorAll("#consoleOutput .console-line")]
+            .map((l) => l.textContent.replace(/\s+/g, " ").trim());
+        const versao = document.getElementById("runtimeVersion")?.textContent?.trim() || "";
+        return [
+            `Furia Clips ${versao}`,
+            `registro copiado em ${new Date().toLocaleString("pt-BR")}`,
+            `${linhas.length} linhas`,
+            "",
+            ...linhas,
+        ].join("\n");
+    }
+
+    document.getElementById("btnCopiarRegistro")?.addEventListener("click", async () => {
+        const texto = registro();
+        try {
+            await navigator.clipboard.writeText(texto);
+            dizer(`copiado — ${texto.split("\n").length - 4} linhas`);
+        } catch (erro) {
+            // Área de transferência negada (acontece fora de https em alguns
+            // navegadores). O caminho antigo ainda funciona.
+            const caixa = document.createElement("textarea");
+            caixa.value = texto;
+            caixa.style.position = "fixed";
+            caixa.style.opacity = "0";
+            document.body.appendChild(caixa);
+            caixa.select();
+            const deu = document.execCommand("copy");
+            caixa.remove();
+            dizer(deu ? "copiado" : "não deu para copiar; use Salvar em arquivo", !deu);
+        }
+    });
+
+    document.getElementById("btnSalvarRegistro")?.addEventListener("click", () => {
+        const agora = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(new Blob([registro()], { type: "text/plain;charset=utf-8" }));
+        link.download = `furia-registro-${agora}.txt`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.setTimeout(() => URL.revokeObjectURL(link.href), 4000);
+        dizer("salvo na pasta de downloads");
+    });
+
+    document.getElementById("btnAbrirPastaLogs")?.addEventListener("click", async () => {
+        try {
+            const resposta = await fetch("/api/open-logs", { method: "POST" });
+            const corpo = await resposta.json();
+            dizer(resposta.ok ? (corpo.pasta || "pasta aberta") : (corpo.error || "não deu"), !resposta.ok);
+        } catch (erro) {
+            dizer(String(erro.message).slice(0, 80), true);
+        }
+    });
+})();
