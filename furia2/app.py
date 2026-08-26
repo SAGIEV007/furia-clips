@@ -1,13 +1,21 @@
-"""FURIA 2 — o servidor da bancada.
+"""FURIA 2 — a bancada.
 
-O motor do Furia 1 (transcrição, análise, seleção, corte) entra depois que as
-telas estiverem aprovadas — ele já foi conferido e importa sozinho, sem
-depender de nada da interface velha. Enquanto isso, o que existe aqui é o que
-cada tela aprovada precisa para ser VERDADE em vez de maquete: a fonte lista
-os vídeos que estão mesmo no disco dele, com o quadro de verdade de cada um.
+A interface nova. O motor é o do Furia 1 e continua onde sempre esteve: as
+rotas daqui são um Blueprint que o `app.py` da raiz registra, então a bancada
+roda DENTRO do mesmo programa e enxerga tudo que já funciona — transcrição,
+Gemini, CHUB, blocos, corte, render. Nada foi copiado e nada foi reescrito.
 
-Roda na porta 5001 de propósito: o Furia 1 roda na 5000, e a combinação foi os
-dois abertos lado a lado, para comparar.
+Isso é a decisão do conceito posta em prática: o que sobrevive é o motor e as
+três peças de interface que já funcionavam; o resto da interface morre. Juntar
+por Blueprint, e não por porta separada, é o que faz "o resto morre" não
+significar "o resto para de funcionar".
+
+    /            a interface antiga, intacta
+    /2           a bancada nova
+    /api/fonte…  /api/cortes…  /api/talho…  /api/mapa…   as rotas daqui
+
+Este arquivo também sobe sozinho na porta 5001 (`python furia2/app.py`), o que
+serve para trabalhar no desenho sem carregar o motor inteiro.
 """
 
 import json
@@ -17,7 +25,7 @@ import sys
 import uuid
 from pathlib import Path
 
-from flask import Flask, abort, jsonify, render_template, request, send_file
+from flask import Blueprint, Flask, abort, jsonify, render_template, request, send_file
 
 # O Furia 2 mora dentro do repositório do Furia 1 para poder usar as peças que
 # já funcionam sem copiá-las. Nada da interface velha é importado aqui — só
@@ -52,10 +60,17 @@ DIAGNOSTICOS = Path(
     os.environ.get("FURIA_CLIPS_DATA_DIR") or (Path.home() / "FuriaClipsData")
 ) / "diagnostics"
 
-app = Flask(
+# As rotas moram num Blueprint, não num Flask próprio: assim elas podem ser
+# penduradas no programa principal sem duplicar nada. O caminho da estática é
+# separado do `/static` da interface antiga de propósito — dois programas
+# servindo `style.css` do mesmo endereço é o tipo de confusão que só aparece
+# na máquina dele, três dias depois.
+bancada = Blueprint(
+    "bancada",
     __name__,
     template_folder=str(Path(__file__).parent / "templates"),
     static_folder=str(Path(__file__).parent / "static"),
+    static_url_path="/furia2",
 )
 
 
@@ -106,7 +121,7 @@ def _ficha(caminho, chave):
     }
 
 
-@app.route("/api/fonte/lista")
+@bancada.route("/api/fonte/lista")
 def api_fonte_lista():
     """Os vídeos que já estão na pasta de trabalho.
 
@@ -161,7 +176,7 @@ def _resolver(chave):
     return caminho
 
 
-@app.route("/api/fonte/quadro")
+@bancada.route("/api/fonte/quadro")
 def api_fonte_quadro():
     """Um quadro do vídeo, para ele escolher a fonte OLHANDO em vez de lendo.
 
@@ -196,7 +211,7 @@ def api_fonte_quadro():
 # ── trazer material novo ────────────────────────────────────────────────────
 
 
-@app.route("/api/fonte/escolher", methods=["POST"])
+@bancada.route("/api/fonte/escolher", methods=["POST"])
 def api_fonte_escolher():
     """A janela do Windows. Ele nunca vai digitar um caminho."""
     try:
@@ -217,7 +232,7 @@ def api_fonte_escolher():
     return jsonify({"ok": True, "desistiu": False, "fonte": ficha})
 
 
-@app.route("/api/fonte/ler-link", methods=["POST"])
+@bancada.route("/api/fonte/ler-link", methods=["POST"])
 def api_fonte_ler_link():
     """Ler o link ANTES de baixar.
 
@@ -304,7 +319,7 @@ def _corte_para_a_tela(bruto, numero, inicio, fim, ajustado):
     }
 
 
-@app.route("/api/cortes/lista")
+@bancada.route("/api/cortes/lista")
 def api_cortes_lista():
     dados, fonte = _folha_da_rodada()
     if not dados:
@@ -339,7 +354,7 @@ def api_cortes_lista():
     })
 
 
-@app.route("/api/cortes/quadro")
+@bancada.route("/api/cortes/quadro")
 def api_cortes_quadro():
     """O quadro de um corte, arrancado no comecinho dele.
 
@@ -437,7 +452,7 @@ def _corte_pedido(dados):
     return numero
 
 
-@app.route("/api/talho/trecho")
+@bancada.route("/api/talho/trecho")
 def api_talho_trecho():
     """Tudo que o talho precisa de um corte, numa chamada só."""
     dados, fonte = _folha_da_rodada()
@@ -476,7 +491,7 @@ def api_talho_trecho():
     })
 
 
-@app.route("/api/talho/onda")
+@bancada.route("/api/talho/onda")
 def api_talho_onda():
     """A forma do som na janela pedida.
 
@@ -523,7 +538,7 @@ def api_talho_onda():
     })
 
 
-@app.route("/api/talho/som")
+@bancada.route("/api/talho/som")
 def api_talho_som():
     """A fonte inteira, para o navegador tocar e procurar dentro dela.
 
@@ -536,7 +551,7 @@ def api_talho_som():
     return send_file(fonte, conditional=True, max_age=3600)
 
 
-@app.route("/api/talho/guardar", methods=["POST"])
+@bancada.route("/api/talho/guardar", methods=["POST"])
 def api_talho_guardar():
     """Grava a borda que ELE decidiu — e devolve o que ficou gravado.
 
@@ -643,7 +658,7 @@ def _vaos(entregues, duracao):
     return vazios
 
 
-@app.route("/api/mapa/onda")
+@bancada.route("/api/mapa/onda")
 def api_mapa_onda():
     """A onda da fonte INTEIRA, para servir de chão ao mapa.
 
@@ -707,7 +722,7 @@ def api_mapa_onda():
     return jsonify(corpo)
 
 
-@app.route("/api/mapa")
+@bancada.route("/api/mapa")
 def api_mapa():
     """Onde a rodada cortou, onde recusou, e onde não achou nada.
 
@@ -812,13 +827,29 @@ def api_mapa():
 # ── a bancada ───────────────────────────────────────────────────────────────
 
 
-@app.route("/")
-def bancada():
+@bancada.route("/2")
+def pagina_da_bancada():
     return render_template("bancada.html")
 
 
+def criar_app():
+    """Um Flask só com a bancada, sem o motor.
+
+    Serve para duas coisas: trabalhar no desenho sem esperar o programa inteiro
+    subir, e rodar os testes das telas sem arrastar o motor para dentro deles.
+    Quem serve o editor de verdade é o `app.py` da raiz, que registra o mesmo
+    Blueprint ao lado de tudo o mais.
+    """
+    sozinho = Flask(__name__)
+    sozinho.register_blueprint(bancada)
+    return sozinho
+
+
+app = criar_app()
+
+
 if __name__ == "__main__":
-    print(f"Furia 2 — bancada em http://127.0.0.1:{PORTA}")
+    print(f"Furia 2 — bancada em http://127.0.0.1:{PORTA}/2")
     # 127.0.0.1 e não 0.0.0.0: o programa é da máquina dele e não tem por que
     # ficar escutando a rede da casa.
     app.run(host="127.0.0.1", port=PORTA, debug=False)

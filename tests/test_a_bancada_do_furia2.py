@@ -139,7 +139,8 @@ def test_o_vermelho_nunca_e_decoracao_permanente():
     # formalidade: só entra o que for estado, nunca o que for enfeite.
     estados = (
         ":hover", ":active", "f2-ruim", "f2-trabalhando", "f2-erro",
-        'data-conferir="1"', ":not(:empty)",
+        'data-conferir="1"', ":not(:empty)", 'data-viva="ruim"',
+        'data-nivel="error"',
     )
     for bloco in folha.split("}"):
         if "--f2-sangue" not in bloco or "--f2-sangue:" in bloco:
@@ -251,12 +252,20 @@ def test_a_marca_e_desenhada_e_nao_depende_de_fonte_baixada():
     pagina = html()
     assert "<svg" in pagina and 'aria-label="Furia"' in pagina, "a marca deixou de ser desenhada"
 
-    # Toda origem de arquivo da página tem de ser (a) do próprio programa ou
-    # (b) escrita ali dentro. Procurar a palavra "http" não serve: o endereço
-    # `http://www.w3.org/2000/svg` é o nome do formato SVG, não um download —
-    # ele aparece em toda marca desenhada e nunca sai da máquina.
+    # Toda origem de arquivo da página tem de vir do PRÓPRIO PROGRAMA: escrita
+    # ali dentro (`data:`), montada pelo Flask (`url_for`), ou um caminho da
+    # raiz do programa (`/static/...`).
+    #
+    # A regra é sobre HOSPEDEIRO, não sobre caminho. Procurar a palavra "http"
+    # não serve: `http://www.w3.org/2000/svg` é o nome do formato SVG, não um
+    # download, e aparece em toda marca desenhada. E um caminho que começa com
+    # barra nunca sai da máquina — foi assim que a biblioteca do canal do motor
+    # entrou, servida pelo mesmo programa, e reprovar isso seria proibir o
+    # programa de usar os próprios arquivos.
     for atributo, valor in re.findall(r'\b(href|src)="([^"]*)"', pagina):
-        de_casa = valor.startswith("data:") or "url_for(" in valor
+        de_casa = (valor.startswith("data:")
+                   or "url_for(" in valor
+                   or (valor.startswith("/") and not valor.startswith("//")))
         assert de_casa, f"{atributo}=\"{valor[:60]}\" busca arquivo fora do programa"
 
     folha = sem_comentario(css())

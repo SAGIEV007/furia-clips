@@ -1174,3 +1174,265 @@ body.f2-bancada-vazia .f2-objeto[data-objeto="fonte"] svg {
 /* A legenda do mapa é a mesma da parede, e de propósito: duas telas com o
    mesmo gesto e o mesmo lugar de resposta. */
 .f2-mapa .f2-legenda { position: static; height: 46px; margin-top: auto; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   AJUSTES
+
+   O programa velho tinha uma gaveta com quarenta e cinco campos, e ele
+   reclamou dela com todas as letras: "TEM ATÉ O MESMO MENU DE ANTES". A
+   gaveta não era feia — era grande. Quarenta e cinco campos numa tela é
+   quarenta e cinco decisões que ninguém tomou.
+
+   Aqui só entra o que MUDA UM CORTE, e entra como objeto: uma fileira de
+   opções para escolher, não uma caixa para digitar. E antes dos controles vem
+   o que ele mais precisa ver antes de rodar meia hora de entrevista — se a
+   máquina está inteira. O resto dos ajustes continua na interface antiga,
+   para o dia raro em que ele precisar.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.f2-ajustes { display: flex; flex-direction: column; min-height: 0; flex: 1; overflow-y: auto; }
+
+.f2-secao {
+    padding: 12px 14px 4px;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--f2-c4);
+}
+
+/* ── o estado da máquina ─────────────────────────────────────────────────── */
+
+.f2-pecas { padding: 0 14px 10px; }
+.f2-peca-linha {
+    display: grid;
+    grid-template-columns: 12px 96px 1fr;
+    align-items: baseline;
+    gap: 10px;
+    padding: 5px 0;
+    border-bottom: 1px solid var(--f2-c2);
+    font-size: 11px;
+}
+.f2-peca-linha:last-child { border-bottom: 0; }
+.f2-peca-nome {
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--f2-c5);
+}
+.f2-peca-diz { color: var(--f2-folha); }
+
+/* O LED. Aceso quando a peça respondeu, apagado quando não respondeu, vermelho
+   quando respondeu dizendo que tem coisa errada. Três estados, uma bolinha. */
+.f2-led {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    align-self: center;
+    background: var(--f2-c3);
+}
+.f2-led[data-viva="1"] { background: var(--f2-fosforo); }
+.f2-led[data-viva="ruim"] { background: var(--f2-sangue); }
+
+/* ── as escolhas ──────────────────────────────────────────────────────────
+   Fileira de opções, não campo de digitar. Ele nunca vai digitar "0.25". */
+
+.f2-escolha {
+    display: grid;
+    grid-template-columns: 132px 1fr;
+    /* Alinhado pelo TOPO. Centralizado, o rótulo de uma escolha que quebra em
+       duas fileiras de opções desce para o meio e parece pertencer à fileira
+       de baixo. */
+    align-items: start;
+    gap: 12px;
+    padding: 7px 14px;
+}
+.f2-escolha-nome {
+    padding-top: 7px;
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--f2-c5);
+}
+.f2-opcoes { display: flex; flex-wrap: wrap; gap: 5px; }
+.f2-opcao {
+    -webkit-appearance: none;
+    appearance: none;
+    background: var(--f2-c1);
+    border: 1px solid var(--f2-c3);
+    border-radius: var(--f2-canto);
+    color: var(--f2-c5);
+    font: inherit;
+    font-size: 10.5px;
+    letter-spacing: 0.06em;
+    padding: 0 10px;
+    height: 26px;
+    cursor: pointer;
+}
+.f2-opcao:hover { border-color: var(--f2-c5); color: var(--f2-folha); }
+/* A escolhida é a única acesa. Sem caixa de seleção, sem marca de conferido:
+   a que está valendo é a que está clara. */
+.f2-opcao[aria-pressed="true"] {
+    background: var(--f2-c2);
+    border-color: var(--f2-folha);
+    color: var(--f2-folha);
+}
+
+.f2-ajustes .f2-talho-pe { margin-top: auto; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   REGISTRO
+
+   Ele já precisou me mandar o registro três vezes, e as três vezes copiou da
+   janela preta do lançador — porque era o único lugar de onde dava para levar
+   texto embora. Mostrar não resolve: selecionar centenas de linhas com o mouse
+   dentro de uma caixa com rolagem é uma tarefa que ninguém termina.
+
+   Por isso a janela tem menos leitura e mais SAÍDA: copiar tudo, salvar num
+   arquivo, abrir a pasta. E abrir a pasta do diagnóstico, que é o arquivo que
+   ele me manda quando um corte sai errado.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.f2-registro { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+
+.f2-linhas {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 10px 12px;
+    font-size: 11px;
+    line-height: 1.55;
+    /* Aqui é a máquina falando o dia inteiro: monoespaçada, e selecionável,
+       porque este é o único lugar do programa onde selecionar texto com o
+       mouse é uma coisa que ele pode querer fazer. */
+    font-family: var(--f2-mono);
+    user-select: text;
+    -webkit-user-select: text;
+}
+.f2-linha-reg { display: grid; grid-template-columns: 62px 1fr; gap: 8px; }
+.f2-linha-hora { color: var(--f2-c3); font-variant-numeric: tabular-nums; }
+.f2-linha-diz { color: var(--f2-c5); overflow-wrap: anywhere; }
+.f2-linha-reg[data-nivel="success"] .f2-linha-diz { color: var(--f2-folha); }
+.f2-linha-reg[data-nivel="error"] .f2-linha-diz { color: var(--f2-sangue); }
+.f2-linha-reg[data-nivel="warning"] .f2-linha-diz { color: var(--f2-folha); }
+
+.f2-registro-vazio {
+    padding: 22px 12px;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--f2-c4);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   O PAINEL
+
+   Ele pediu um painel "magnífico, responsável, bonito e com informação útil".
+   Responsável é a palavra difícil, e ela manda em tudo aqui.
+
+   Regra que veio do NORTE e não se negocia: um número que a ferramenta gera
+   sobre o que a ferramenta fez não mede nada. Tudo nesta tela é medição de
+   FORA — desempenho de post publicado, gancho rotulado por gente, tema
+   controlado. 29.596 posts, não onze cortes.
+
+   E responsabilidade tem uma segunda metade, que é o tamanho da amostra. Um
+   gancho com mediana 1,19 em QUATRO posts não é um gancho bom: é um rumor.
+   Por isso a barra de evidência fina é OCA — mesmo comprimento, sem miolo. O
+   comprimento não mente sobre o valor; o vazio não deixa confiar nele.
+
+   Sem terceira cor. A polaridade — acima ou abaixo da mediana da conta — é
+   dita pelo LADO da linha de 1,00 e pelo número, que são canais mais fortes
+   que cor e funcionam para quem não distingue cor nenhuma.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.f2-painel { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+
+.f2-painel-topo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--f2-c3);
+}
+
+/* A linha do espelho. O LED aqui é a máquina dizendo de onde vêm os números —
+   é o mesmo LED dos ajustes, e é a única coisa colorida da tela. */
+.f2-espelho {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 9px 14px;
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    color: var(--f2-c5);
+    border-bottom: 1px solid var(--f2-c2);
+}
+.f2-espelho b { color: var(--f2-folha); font-weight: inherit; }
+
+.f2-painel-corpo { flex: 1; min-height: 0; overflow-y: auto; padding: 4px 0 10px; }
+
+.f2-painel-titulo {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 12px 14px 8px;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--f2-c4);
+}
+.f2-painel-titulo span { letter-spacing: 0.06em; text-transform: none; }
+
+/* ── a fileira de barras ──────────────────────────────────────────────────── */
+
+.f2-barra-linha {
+    display: grid;
+    grid-template-columns: 154px 1fr 52px;
+    align-items: center;
+    gap: 10px;
+    padding: 3px 14px;
+    cursor: default;
+}
+.f2-barra-linha:hover { background: var(--f2-c1); }
+.f2-barra-nome {
+    font-size: 11px;
+    color: var(--f2-c5);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.f2-barra-linha:hover .f2-barra-nome { color: var(--f2-folha); }
+
+.f2-pista { position: relative; height: 22px; }
+/* A linha do 1,00: fio de um pixel, sólido, um passo acima do fundo. É o eixo
+   da leitura inteira — tudo à direita puxa, tudo à esquerda afunda. */
+.f2-um { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--f2-c4); }
+.f2-barra {
+    position: absolute;
+    top: 5px;
+    height: 12px;
+    background: var(--f2-folha);
+}
+/* Ponta arredondada só do lado que cresce; quadrada na linha de base. */
+.f2-barra[data-lado="acima"] { border-radius: 0 4px 4px 0; }
+.f2-barra[data-lado="abaixo"] { border-radius: 4px 0 0 4px; background: var(--f2-c5); }
+/* Evidência fina: oca. Mesmo comprimento, sem miolo. */
+.f2-barra[data-fina="1"] {
+    background: transparent;
+    box-shadow: inset 0 0 0 1px var(--f2-c5);
+}
+/* O teto: até onde este gancho chega quando dá certo. Um risco, não um número
+   — número em toda linha é ruído, e este vai para a legenda do pé. */
+.f2-teto { position: absolute; top: 2px; height: 18px; width: 1px; background: var(--f2-c4); }
+
+.f2-barra-valor {
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    color: var(--f2-c5);
+}
+.f2-barra-linha:hover .f2-barra-valor { color: var(--f2-folha); }
+
+/* ── os temas, em duas colunas ────────────────────────────────────────────── */
+
+.f2-colunas { display: grid; grid-template-columns: 1fr 1fr; gap: 0 18px; }
+
+.f2-painel .f2-legenda { position: static; height: 44px; margin-top: auto; }

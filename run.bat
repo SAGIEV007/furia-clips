@@ -88,12 +88,17 @@ echo ==================================================
 echo    Iniciando Furia Clips...
 echo ==================================================
 echo.
-echo [Furia Clips] Acesse: http://localhost:3001
+echo [Furia Clips] A bancada:          http://localhost:3001/2
+echo [Furia Clips] A interface antiga: http://localhost:3001
 echo [Furia Clips] Para parar: feche esta janela ou Ctrl+C
 echo [Furia Clips] Log do launcher: %RUN_LOG%
 echo.
 
-start "" powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "%~dp0scripts\open_browser_windows.ps1" -Url "http://127.0.0.1:3001" -TimeoutSeconds 120 -LogFile "%RUN_LOG%"
+REM Duas abas, o mesmo programa: a bancada nova e a interface antiga.
+REM Sao duas frentes da mesma maquina, entao dao para ficar abertas lado a
+REM lado sem uma atrapalhar a outra - que e como ele pediu para comparar.
+start "" powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "%~dp0scripts\open_browser_windows.ps1" -Url "http://127.0.0.1:3001/2" -TimeoutSeconds 120 -LogFile "%RUN_LOG%"
+start "" powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "%~dp0scripts\open_browser_windows.ps1" -Url "http://127.0.0.1:3001" -TimeoutSeconds 150 -LogFile "%RUN_LOG%"
 "%~dp0venv\Scripts\python.exe" app.py
 
 set "APP_CODE=!ERRORLEVEL!"

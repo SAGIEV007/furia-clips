@@ -395,11 +395,9 @@
         foto.src = `/api/fonte/quadro?chave=${encodeURIComponent(fonte.chave)}`;
         montada.querySelector(".f2-montada-tela").appendChild(foto);
 
-        montada.querySelector("[data-moer]").addEventListener("click", () => {
-            // O motor entra depois das telas. Enquanto não entra, o botão DIZ.
-            window.furiaEstado({ texto: "moer — o motor entra depois das telas" });
-            SONS.falha();
-        });
+        fonteNaBancada = fonte;
+        anotar(`fonte na bancada: ${fonte.nome} (${relogioCurto(fonte.segundos)})`);
+        montada.querySelector("[data-moer]").addEventListener("click", moer);
 
         parede.appendChild(montada);
         SONS.feito();
@@ -829,6 +827,9 @@
             trecho.proposto_guardado = true;
             pintarBordas();
             SONS.feito();
+            anotar(`corte ${trecho.n}: borda guardada em ${relogioFino(inicio)} → ${relogioFino(fim)}`
+                   + ` (a máquina propunha ${relogioFino(trecho.proposto.inicio)} → ${relogioFino(trecho.proposto.fim)})`,
+                   "success");
             dizer(`guardado: ${relogioFino(inicio)} → ${relogioFino(fim)}`);
             abrirAParede();
         });
@@ -1118,6 +1119,730 @@
         }
         fecharJanela("mapa");
         abrirJanela({ nome: "mapa", largura: 1080, altura: 312, corpo: montarOMapa(mapa) });
+    };
+
+    /* ── moer: a bancada ligada no motor ────────────────────────────────────
+
+       O motor é o do Furia 1 e continua onde sempre esteve. A bancada manda o
+       vídeo pela mesma rota que a interface antiga sempre usou e escuta o
+       mesmo canal — então não existe "o novo funciona e o velho quebrou": é o
+       mesmo programa.
+
+       Cada corte que fica pronto no disco chega aqui na hora, um a um, e sobe
+       na parede. Ele não espera meia hora olhando uma barra para descobrir no
+       fim se prestou: o terceiro corte já está lá para julgar enquanto o
+       oitavo ainda está sendo cortado. */
+
+    const CANAL = window.io ? window.io() : null;
+    let fonteNaBancada = null;
+    let moendo = false;
+
+    /* Tudo que a máquina disse nesta sessão, para o registro poder devolver.
+       Com teto: uma rodada de duas horas cospe milhares de linhas, e guardar
+       todas na memória de uma aba aberta o dia inteiro é como o navegador
+       engasga sem ninguém entender por quê. As mais recentes são as que
+       importam para diagnosticar. */
+    const REGISTRO = [];
+    const TETO_DO_REGISTRO = 4000;
+
+    function anotar(mensagem, nivel) {
+        REGISTRO.push({
+            hora: new Date().toLocaleTimeString("pt-BR"),
+            diz: String(mensagem || ""),
+            nivel: String(nivel || "info"),
+        });
+        if (REGISTRO.length > TETO_DO_REGISTRO) REGISTRO.splice(0, REGISTRO.length - TETO_DO_REGISTRO);
+        window.furiaRegistroMudou?.();
+    }
+
+    function limparPrefixo(mensagem) {
+        // O motor carimba "[Versão 2.0 · abc123] " em toda linha, o que serve
+        // para o registro e não serve para a faixa de cima.
+        return String(mensagem || "").replace(/^\[Versão[^\]]*\]\s*/, "");
+    }
+
+    function corteDaEntrega(bruto, indice) {
+        const inicio = Number(bruto.start ?? 0);
+        const fim = Number(bruto.end ?? 0);
+        const bandeiras = bruto.review_flags || {};
+        return {
+            n: Number(bruto.rank ?? indice + 1),
+            inicio, fim,
+            duracao: Number(bruto.duration ?? Math.max(0, fim - inicio)),
+            // Antes da folha existir, quem sabe se o corte pede conferência é o
+            // próprio corte que acabou de chegar.
+            conferir: Boolean(bruto.review_required || bandeiras.review_required
+                || (bruto.review_reasons || []).length),
+            motivos: (bruto.review_reasons || []).map(String).slice(0, 4),
+            fala: String(bruto.title || bruto.text || "").trim(),
+            origem: String(bruto.candidate_origin || ""),
+            ajustado: false,
+            aoVivo: true,
+        };
+    }
+
+    function corteChegou(dados) {
+        const corte = corteDaEntrega(dados.clip || {}, dados.index || 0);
+        if (!cortesNaParede.some((c) => c.n === corte.n)) cortesNaParede.push(corte);
+        cortesNaParede.sort((a, b) => a.n - b.n);
+        pintarAParede({
+            cortes: cortesNaParede,
+            // Durante a rodada não existe folha ainda, então não existe quadro
+            // para arrancar: o mural mostra a fala, que é o que já chegou.
+            fonte: { tem_som: true, tem_imagem: false },
+            resumo: {
+                entregues: cortesNaParede.length,
+                conferir: cortesNaParede.filter((c) => c.conferir).length,
+            },
+        });
+        window.furiaEstado({
+            texto: `moendo · corte ${dados.delivered || cortesNaParede.length} de ${dados.expected || "?"}`,
+            trabalhando: true,
+            // O contador de fita conta o material já moído: até onde da fonte a
+            // máquina já chegou. É a mesma piada do relógio do Poolsuite, só
+            // que aqui o número é verdade.
+            fita: corte.fim,
+        });
+        SONS.tique();
+    }
+
+    if (CANAL) {
+        CANAL.on("progress", (dados) => {
+            // O registro anota SEMPRE, mesmo fora de uma rodada: é o que ele
+            // me manda quando alguma coisa deu errado, e a linha que explica
+            // costuma ser justamente a que veio antes de ele mandar moer.
+            anotar(limparPrefixo(dados.message), dados.level);
+            if (!moendo) return;
+            const texto = limparPrefixo(dados.message).slice(0, 90);
+            if (texto) window.furiaEstado({ texto, trabalhando: true });
+        });
+
+        CANAL.on("status", (evento) => {
+            const qual = evento?.status;
+            const dados = evento?.data || {};
+            if (qual === "clip_ready") { corteChegou(dados); return; }
+            if (qual === "complete_done") {
+                moendo = false;
+                anotar(`rodada terminada: ${dados.total_clips || 0} cortes`, "success");
+                window.furiaEstado({ texto: `${dados.total_clips || 0} cortes prontos`, trabalhando: false });
+                SONS.feito();
+                // A folha de decisões só existe no fim. Agora que ela existe, a
+                // parede troca o que chegou ao vivo pela versão de verdade —
+                // com quadro, com motivo escrito e com o mapa alimentado.
+                abrirAParede();
+                return;
+            }
+            if (qual === "error") {
+                moendo = false;
+                const oQue = limparPrefixo(dados.error || "deu errado");
+                anotar(oQue, "error");
+                window.furiaEstado({ texto: oQue, trabalhando: false });
+                SONS.falha();
+                return;
+            }
+            if (qual === "cancelled") {
+                moendo = false;
+                window.furiaEstado({ texto: "cancelado", trabalhando: false });
+            }
+        });
+    }
+
+    async function moer() {
+        if (moendo) { window.furiaEstado({ texto: "já está moendo" }); return; }
+        if (!fonteNaBancada) return;
+        // Caminho absoluto quando ele escolheu na janela do Windows; caminho de
+        // dentro da pasta de trabalho no resto dos casos. Quem decide o que é
+        // permitido é o motor, que já tinha essa regra.
+        const alvo = fonteNaBancada.caminho || fonteNaBancada.chave;
+
+        moendo = true;
+        cortesNaParede = [];
+        anotar(`moendo: ${fonteNaBancada.nome}`, "success");
+        window.furiaEstado({ texto: "moendo", trabalhando: true, fita: 0 });
+        SONS.armar();
+
+        const resposta = await pedir("/api/process/complete", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ video_path: alvo }),
+        });
+        if (resposta.ok === false || resposta.error) {
+            moendo = false;
+            window.furiaEstado({ texto: resposta.erro || resposta.error, trabalhando: false });
+            SONS.falha();
+        }
+    }
+
+    /* ── ajustes ────────────────────────────────────────────────────────────
+
+       O programa velho tinha uma gaveta com quarenta e cinco campos, e ele
+       reclamou dela com todas as letras. A gaveta não era feia — era grande.
+
+       Aqui só entra o que MUDA UM CORTE, como fileira de opções em vez de
+       campo para digitar. E antes dos controles vem o que ele mais precisa
+       ver antes de mandar meia hora de entrevista para o moinho: se a máquina
+       está inteira. O resto dos ajustes continua na interface antiga. */
+
+    const ESCOLHAS = [
+        {
+            chave: "cut_duration", nome: "duração alvo",
+            opcoes: [[30, "30 s"], [45, "45 s"], [60, "60 s"], [90, "90 s"], [120, "2 min"]],
+        },
+        {
+            chave: "padding", nome: "folga na borda",
+            opcoes: [[0, "colado"], [0.25, "0,25 s"], [0.5, "0,5 s"], [1, "1 s"]],
+        },
+        {
+            chave: "transcription_source", nome: "quem transcreve",
+            opcoes: [["auto", "automático"], ["whisper", "whisper aqui"], ["gemini", "gemini"]],
+        },
+        {
+            chave: "whisper_model", nome: "modelo do whisper",
+            opcoes: [["base", "base · rápido"], ["small", "small"], ["medium", "medium · lento"]],
+        },
+        {
+            chave: "gemini_model", nome: "modelo do gemini",
+            opcoes: [["gemini-2.5-flash", "2.5 flash"], ["gemini-2.5-pro", "2.5 pro"]],
+        },
+        {
+            chave: "campaign_hub_account", nome: "conta do chub",
+            opcoes: [["@renansantosmbl", "renansantosmbl"],
+                     ["@renansantosreserva", "reserva"],
+                     ["@partidomissao", "partido missão"]],
+        },
+    ];
+
+    function mesmoValor(a, b) {
+        // "0.25" e 0.25 são o mesmo ajuste. Comparar como texto puro deixaria
+        // a opção certa apagada e ele clicaria de novo achando que não pegou.
+        const na = Number(a);
+        const nb = Number(b);
+        if (Number.isFinite(na) && Number.isFinite(nb)) return na === nb;
+        return String(a) === String(b);
+    }
+
+    function montarOsAjustes(ajustes, presets, estado) {
+        const corpo = document.createElement("div");
+        corpo.className = "f2-corpo f2-ajustes";
+        corpo.innerHTML = `
+            <div class="f2-secao">estado da máquina</div>
+            <div class="f2-pecas" data-pecas></div>
+            <div class="f2-secao">o que muda o corte</div>
+            <div data-escolhas></div>
+            <div class="f2-talho-pe">
+                <button class="f2-tecla" data-antigo type="button">abrir os ajustes completos</button>
+                <span class="f2-recado" data-recado></span>
+            </div>`;
+
+        const oRecado = corpo.querySelector("[data-recado]");
+        function dizer(texto, ruim) {
+            oRecado.textContent = texto;
+            oRecado.classList.toggle("f2-ruim", !!ruim);
+            if (ruim) SONS.falha();
+            window.clearTimeout(dizer.relogio);
+            dizer.relogio = window.setTimeout(() => { oRecado.textContent = ""; }, 6000);
+        }
+
+        /* ── o estado ─────────────────────────────────────────────────────── */
+
+        const pecas = corpo.querySelector("[data-pecas]");
+        for (const peca of estado) {
+            const linha = document.createElement("div");
+            linha.className = "f2-peca-linha";
+            linha.innerHTML = `<span class="f2-led" data-viva="${peca.viva}"></span>
+                <span class="f2-peca-nome"></span><span class="f2-peca-diz"></span>`;
+            linha.querySelector(".f2-peca-nome").textContent = peca.nome;
+            linha.querySelector(".f2-peca-diz").textContent = peca.diz;
+            pecas.appendChild(linha);
+        }
+
+        /* ── as escolhas ──────────────────────────────────────────────────── */
+
+        const onde = corpo.querySelector("[data-escolhas]");
+        const todas = ESCOLHAS.concat([{
+            chave: "render_preset", nome: "formato de saída",
+            opcoes: (presets || []).map((p) => [p.id, p.name]),
+        }]);
+
+        for (const escolha of todas) {
+            if (!escolha.opcoes.length) continue;
+            const linha = document.createElement("div");
+            linha.className = "f2-escolha";
+            linha.innerHTML = `<span class="f2-escolha-nome"></span><div class="f2-opcoes"></div>`;
+            linha.querySelector(".f2-escolha-nome").textContent = escolha.nome;
+            const caixa = linha.querySelector(".f2-opcoes");
+
+            for (const [valor, rotulo] of escolha.opcoes) {
+                const botao = document.createElement("button");
+                botao.type = "button";
+                botao.className = "f2-opcao";
+                botao.textContent = rotulo;
+                botao.setAttribute("aria-pressed",
+                    mesmoValor(ajustes[escolha.chave], valor) ? "true" : "false");
+                botao.addEventListener("click", async () => {
+                    const antes = caixa.querySelector('[aria-pressed="true"]');
+                    caixa.querySelectorAll(".f2-opcao").forEach((b) => b.setAttribute("aria-pressed", "false"));
+                    botao.setAttribute("aria-pressed", "true");
+
+                    const resposta = await pedir("/api/settings", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ [escolha.chave]: valor }),
+                    });
+                    if (resposta.ok === false) {
+                        // Desmarcar de volta. Deixar a opção nova acesa depois
+                        // de uma gravação que falhou é a mesma mentira do
+                        // ajuste do Furia 1 que respondia 200 e não guardava.
+                        botao.setAttribute("aria-pressed", "false");
+                        antes?.setAttribute("aria-pressed", "true");
+                        dizer(resposta.erro || "não deu para guardar", true);
+                        return;
+                    }
+                    ajustes[escolha.chave] = valor;
+                    anotar(`ajuste: ${escolha.nome} passou para ${rotulo}`);
+                    SONS.tique();
+                    dizer(`${escolha.nome}: ${rotulo}`);
+                });
+                caixa.appendChild(botao);
+            }
+            onde.appendChild(linha);
+        }
+
+        corpo.querySelector("[data-antigo]").addEventListener("click", () => {
+            // Os quarenta e cinco campos continuam existindo, na interface
+            // antiga, para o dia raro em que ele precisar de um deles. Tirar
+            // seria quebrar o que já funciona; trazer seria refazer a gaveta.
+            window.open("/", "_blank", "noopener");
+        });
+
+        return corpo;
+    }
+
+    MONTADO.ajustes = async function () {
+        const [ajustes, presets, chub, ollama] = await Promise.all([
+            pedir("/api/settings"),
+            pedir("/api/render-presets"),
+            pedir("/api/campaign-hub/status"),
+            pedir("/api/ollama/status"),
+        ]);
+        if (ajustes.ok === false) {
+            window.furiaEstado({ texto: "não deu para ler os ajustes" });
+            SONS.falha();
+            return;
+        }
+
+        const conta = ajustes.campaign_hub_account || "@renansantosmbl";
+        const daConta = (chub.accounts || {})[conta] || {};
+        const estado = [
+            {
+                nome: "gemini",
+                viva: ajustes.gemini_api_key_configured ? "1" : "ruim",
+                diz: ajustes.gemini_api_key_configured
+                    ? `chave posta · ${ajustes.gemini_model || ""}`
+                    : "sem chave — a análise de vídeo não roda",
+            },
+            {
+                nome: "chub",
+                viva: chub.available ? "1" : "0",
+                diz: chub.available
+                    ? `de pé · ${daConta.hook_observations || 0} observações de gancho em ${conta}`
+                    : "não respondeu",
+            },
+            {
+                nome: "transcrição",
+                viva: "1",
+                diz: `${ajustes.transcription_source || "auto"} · whisper ${ajustes.whisper_model || ""} nesta máquina`,
+            },
+            {
+                nome: "ollama",
+                viva: ollama.connected ? "1" : "0",
+                diz: ollama.connected ? `${ollama.model} de pé` : "desligado — não é obrigatório",
+            },
+            {
+                nome: "versão",
+                viva: "1",
+                diz: `${ajustes.program_version || ""} · ${ajustes.program_revision || ""}`,
+            },
+        ];
+
+        fecharJanela("ajustes");
+        abrirJanela({
+            nome: "ajustes", largura: 680, altura: 560,
+            corpo: montarOsAjustes(ajustes, presets.presets || [], estado),
+        });
+    };
+
+    /* ── registro ───────────────────────────────────────────────────────────
+
+       Ele já precisou me mandar o registro três vezes, e as três vezes copiou
+       da janela preta do lançador — porque era o único lugar de onde dava para
+       levar texto embora. Mostrar não resolve: selecionar centenas de linhas
+       com o mouse dentro de uma caixa com rolagem é tarefa que ninguém
+       termina. Por isso esta janela tem menos leitura e mais SAÍDA. */
+
+    function textoDoRegistro() {
+        const cabeca = [
+            `Furia — registro da sessão`,
+            `gerado em ${new Date().toLocaleString("pt-BR")}`,
+            `${REGISTRO.length} linhas`,
+            "",
+        ];
+        return cabeca.concat(
+            REGISTRO.map((l) => `[${l.hora}] ${l.nivel === "info" ? "" : l.nivel.toUpperCase() + " "}${l.diz}`),
+        ).join("\n");
+    }
+
+    async function levarEmbora(texto) {
+        try {
+            await navigator.clipboard.writeText(texto);
+            return true;
+        } catch (erro) {
+            // A área de transferência é negada fora de https em parte dos
+            // navegadores. Sem plano B, copiar falharia calado — e falha
+            // calada é o defeito mais caro deste programa.
+            const caixa = document.createElement("textarea");
+            caixa.value = texto;
+            caixa.style.position = "fixed";
+            caixa.style.opacity = "0";
+            document.body.appendChild(caixa);
+            caixa.select();
+            let deu = false;
+            try { deu = document.execCommand("copy"); } catch (e2) { deu = false; }
+            caixa.remove();
+            return deu;
+        }
+    }
+
+    function montarORegistro() {
+        const corpo = document.createElement("div");
+        corpo.className = "f2-corpo f2-registro";
+        corpo.innerHTML = `
+            <div class="f2-linhas" data-linhas></div>
+            <div class="f2-talho-pe">
+                <button class="f2-tecla" data-copiar type="button">copiar tudo</button>
+                <button class="f2-tecla" data-salvar type="button">salvar num arquivo</button>
+                <button class="f2-tecla" data-pasta type="button">abrir a pasta</button>
+                <button class="f2-tecla" data-diag type="button">abrir o diagnóstico</button>
+                <span class="f2-recado" data-recado></span>
+            </div>`;
+
+        const linhas = corpo.querySelector("[data-linhas]");
+        const oRecado = corpo.querySelector("[data-recado]");
+        function dizer(texto, ruim) {
+            oRecado.textContent = texto;
+            oRecado.classList.toggle("f2-ruim", !!ruim);
+            if (ruim) SONS.falha();
+            window.clearTimeout(dizer.relogio);
+            dizer.relogio = window.setTimeout(() => { oRecado.textContent = ""; }, 6000);
+        }
+
+        function pintar() {
+            if (!REGISTRO.length) {
+                linhas.innerHTML = `<div class="f2-registro-vazio">a máquina ainda não disse nada nesta sessão</div>`;
+                return;
+            }
+            // Colado no fim continua colado no fim; rolado para cima fica onde
+            // ele deixou. Puxar a rolagem de volta enquanto ele lê uma linha
+            // de erro é o jeito mais rápido de tornar o registro inútil.
+            const noFim = linhas.scrollTop + linhas.clientHeight >= linhas.scrollHeight - 24;
+            linhas.textContent = "";
+            for (const l of REGISTRO) {
+                const linha = document.createElement("div");
+                linha.className = "f2-linha-reg";
+                linha.dataset.nivel = l.nivel;
+                const hora = document.createElement("span");
+                hora.className = "f2-linha-hora";
+                hora.textContent = l.hora;
+                const diz = document.createElement("span");
+                diz.className = "f2-linha-diz";
+                diz.textContent = l.diz;
+                linha.append(hora, diz);
+                linhas.appendChild(linha);
+            }
+            if (noFim) linhas.scrollTop = linhas.scrollHeight;
+        }
+
+        corpo.querySelector("[data-copiar]").addEventListener("click", async () => {
+            if (!REGISTRO.length) { dizer("não há nada para copiar"); return; }
+            const deu = await levarEmbora(textoDoRegistro());
+            if (deu) { SONS.feito(); dizer(`${REGISTRO.length} linhas copiadas — é só colar na conversa`); }
+            else dizer("o navegador não deixou copiar; use salvar num arquivo", true);
+        });
+
+        corpo.querySelector("[data-salvar]").addEventListener("click", () => {
+            if (!REGISTRO.length) { dizer("não há nada para salvar"); return; }
+            const bolha = new Blob([textoDoRegistro()], { type: "text/plain;charset=utf-8" });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(bolha);
+            const agora = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, "");
+            link.download = `furia-registro-${agora}.txt`;
+            link.click();
+            window.setTimeout(() => URL.revokeObjectURL(link.href), 4000);
+            SONS.feito();
+            dizer("salvo na pasta de downloads");
+        });
+
+        corpo.querySelector("[data-pasta]").addEventListener("click", async () => {
+            const r = await pedir("/api/open-logs", { method: "POST" });
+            // Sem ambiente gráfico o comando falha, e aí dizer ONDE fica ainda
+            // resolve: ele abre a pasta na mão.
+            if (r.ok === false || r.error) dizer(r.pasta || r.erro || r.error, true);
+            else dizer(r.pasta || "pasta aberta");
+        });
+
+        corpo.querySelector("[data-diag]").addEventListener("click", async () => {
+            const r = await pedir("/api/open-diagnostics", { method: "POST" });
+            const onde = r.pasta ? `${r.pasta} · ${r.arquivos || 0} arquivos` : "";
+            if (r.ok === false || r.error) dizer(onde || r.erro || r.error, true);
+            else dizer(onde || "pasta aberta");
+        });
+
+        pintar();
+        window.furiaRegistroMudou = () => {
+            if (abertas.registro) pintar();
+        };
+        return corpo;
+    }
+
+    MONTADO.registro = function () {
+        abrirJanela({ nome: "registro", largura: 820, altura: 460, corpo: montarORegistro() });
+    };
+
+    /* ── o painel ───────────────────────────────────────────────────────────
+
+       Magnífico, responsável, bonito e útil — as quatro palavras dele. A
+       difícil é responsável, e ela manda em tudo aqui.
+
+       Regra que não se negocia: um número que a ferramenta gera sobre o que a
+       ferramenta fez não mede nada. Tudo nesta tela é medição de FORA —
+       desempenho de post publicado, gancho rotulado por gente, tema
+       controlado. Vinte e nove mil posts, não onze cortes.
+
+       A segunda metade da responsabilidade é o tamanho da amostra: um gancho
+       com mediana 1,19 em QUATRO posts não é um gancho bom, é um rumor. Daí a
+       barra oca. */
+
+    const EVIDENCIA_FINA = 10;    // abaixo disso o número é rumor, não medida
+
+    function porCento(x) { return `${Math.max(0, Math.min(100, x * 100))}%`; }
+
+    function numeroBonito(n) {
+        return Number(n || 0).toLocaleString("pt-BR");
+    }
+
+    function razao(v) {
+        return `${Number(v || 0).toFixed(2).replace(".", ",")}×`;
+    }
+
+    function montarOPainel(dados, aoContar) {
+        const bloco = document.createElement("div");
+
+        function fileira(itens, titulo, direita) {
+            if (!itens.length) return;
+            const cabeca = document.createElement("div");
+            cabeca.className = "f2-painel-titulo";
+            cabeca.innerHTML = `<span style="letter-spacing:0.2em;text-transform:uppercase">${titulo}</span>`;
+            if (direita) {
+                const nota = document.createElement("span");
+                nota.textContent = direita;
+                cabeca.appendChild(nota);
+            }
+            bloco.appendChild(cabeca);
+
+            // O teto do eixo é comum a todas as barras da fileira: escalas
+            // diferentes por linha fariam duas barras do mesmo tamanho
+            // valerem números diferentes, que é a mentira mais fácil de contar
+            // com um gráfico.
+            //
+            // E o eixo é medido pelas MEDIANAS, que é o que as barras
+            // desenham. Esticá-lo até o p90 mais alto (3,18) empurrava todas
+            // as barras para o primeiro terço da pista e deixava dois terços
+            // de vazio: o eixo passava a servir o risquinho de contexto em vez
+            // de servir o dado. Quem não couber no eixo perde o risco e conta
+            // o seu número na legenda do pé.
+            const maiorMediana = Math.max(...itens.map((i) => Number(i.mediana || 0)), 1.2);
+            const teto = Math.ceil(maiorMediana * 1.25 * 10) / 10;
+            const posicaoDoUm = 1 / teto;
+
+            for (const item of itens) {
+                const mediana = Number(item.mediana || 0);
+                const n = Number(item.n || 0);
+                const fina = n < EVIDENCIA_FINA;
+                const acima = mediana >= 1;
+
+                const linha = document.createElement("div");
+                linha.className = "f2-barra-linha";
+                linha.innerHTML = `
+                    <span class="f2-barra-nome"></span>
+                    <span class="f2-pista">
+                        <span class="f2-um"></span>
+                        <span class="f2-barra"></span>
+                    </span>
+                    <span class="f2-barra-valor"></span>`;
+                linha.querySelector(".f2-barra-nome").textContent =
+                    String(item.familia || item.slug || "").replace(/-/g, " ");
+                linha.querySelector(".f2-barra-valor").textContent = razao(mediana);
+                linha.querySelector(".f2-um").style.left = porCento(posicaoDoUm);
+
+                const barra = linha.querySelector(".f2-barra");
+                barra.dataset.lado = acima ? "acima" : "abaixo";
+                barra.dataset.fina = fina ? "1" : "0";
+                const de = Math.min(mediana, 1) / teto;
+                const ate = Math.max(mediana, 1) / teto;
+                barra.style.left = porCento(de);
+                barra.style.width = porCento(ate - de);
+
+                // O teto do gancho: até onde ele chega quando dá certo. Só
+                // aparece quando é maior que a mediana e cabe no eixo.
+                const p90 = Number(item.p90 || 0);
+                if (p90 > mediana && p90 <= teto) {
+                    const risco = document.createElement("span");
+                    risco.className = "f2-teto";
+                    risco.style.left = porCento(p90 / teto);
+                    linha.querySelector(".f2-pista").appendChild(risco);
+                }
+
+                const nome = String(item.familia || item.slug || "");
+                const conta = () => aoContar({
+                    marca: `${razao(mediana)} · ${numeroBonito(n)} posts`,
+                    texto: fina
+                        ? `${nome} — evidência fina: ${n} posts só. O número existe, mas ainda não é medida.`
+                        : `${nome} — ${p90 ? `chega a ${razao(p90)} quando dá certo. ` : ""}`
+                          + `Medido em ${numeroBonito(n)} posts publicados.`,
+                    ruim: fina ? "evidência fina" : "",
+                });
+                linha.addEventListener("mouseenter", conta);
+                bloco.appendChild(linha);
+            }
+        }
+
+        fileira(dados.ganchos || [], "o que puxa e o que afunda",
+                "mediana contra a da própria conta · barra oca = evidência fina");
+
+        // Os temas que puxam e os que afundam entram na MESMA fileira, e não
+        // em duas. Duas fileiras são dois eixos, e dois eixos fazem uma barra
+        // de 2,11 parecer do tamanho de uma de 0,71 — comparação errada com
+        // cara de comparação certa.
+        const temas = ((dados.temas || {}).melhores || [])
+            .concat((dados.temas || {}).piores || [])
+            .sort((a, b) => Number(b.mediana || 0) - Number(a.mediana || 0));
+        fileira(temas, "tema", "os que mais puxam e os que mais afundam, no mesmo eixo");
+        return bloco;
+    }
+
+    async function pintarOPainel(janela, conta, plataforma) {
+        const corpo = janela.querySelector(".f2-painel");
+        const onde = corpo.querySelector("[data-grafico]");
+        const espelho = corpo.querySelector("[data-espelho]");
+        const led = corpo.querySelector("[data-led]");
+        const marca = corpo.querySelector("[data-marca]");
+        const fala = corpo.querySelector("[data-fala]");
+        const aviso = corpo.querySelector("[data-aviso]");
+
+        onde.textContent = "";
+        const dados = await pedir(
+            `/api/painel?conta=${encodeURIComponent(conta)}&plataforma=${encodeURIComponent(plataforma)}`,
+        );
+        if (dados.ok === false) { espelho.textContent = "não deu para ler o espelho"; return; }
+
+        const e = dados.espelho || {};
+        led.dataset.viva = e.disponivel ? "1" : "ruim";
+        espelho.innerHTML = "";
+        if (e.disponivel) {
+            const quando = String(e.gerado_em || "").slice(0, 10).split("-").reverse().join("/");
+            const posts = document.createElement("b");
+            posts.textContent = numeroBonito(e.posts_com_desempenho);
+            const cortes = document.createElement("b");
+            cortes.textContent = numeroBonito(e.cortes_publicados);
+            espelho.append(
+                "espelho do chub · ", posts, " posts medidos · ",
+                cortes, " cortes publicados · ", quando ? `de ${quando}` : "",
+            );
+        } else {
+            espelho.textContent = "o espelho do chub não está instalado — sem ele o painel não mede nada";
+        }
+
+        function aoContar({ marca: m, texto, ruim }) {
+            marca.textContent = m || "";
+            fala.classList.toggle("f2-quieta", !texto);
+            fala.textContent = texto || "";
+            aviso.textContent = ruim || "";
+        }
+        function emRepouso() {
+            marca.textContent = "";
+            aviso.textContent = "";
+            fala.classList.add("f2-quieta");
+            const ganchos = dados.ganchos || [];
+            const melhor = ganchos[0];
+            // A tela abre dizendo alguma coisa. Painel que abre mudo obriga o
+            // sujeito a caçar o número que interessa, e ele não vai caçar.
+            fala.textContent = melhor
+                ? `nesta conta, o gancho que mais puxa é ${String(melhor.familia).replace(/-/g, " ")}`
+                  + `, ${razao(melhor.mediana)} a mediana em ${numeroBonito(melhor.n)} posts`
+                : "sem gancho medido nesta conta e plataforma";
+        }
+
+        onde.appendChild(montarOPainel(dados, aoContar));
+        onde.addEventListener("mouseleave", emRepouso);
+        emRepouso();
+    }
+
+    MONTADO.painel = async function () {
+        const primeiro = await pedir("/api/painel");
+        if (primeiro.ok === false) {
+            window.furiaEstado({ texto: "não deu para abrir o painel" });
+            SONS.falha();
+            return;
+        }
+        let conta = primeiro.conta;
+        let plataforma = primeiro.plataforma;
+
+        const corpo = document.createElement("div");
+        corpo.className = "f2-corpo f2-painel";
+        corpo.innerHTML = `
+            <div class="f2-painel-topo">
+                <div class="f2-opcoes" data-contas></div>
+                <div class="f2-opcoes" data-plataformas></div>
+            </div>
+            <div class="f2-espelho"><span class="f2-led" data-led></span><span data-espelho></span></div>
+            <div class="f2-painel-corpo" data-grafico></div>
+            <div class="f2-legenda">
+                <span class="f2-legenda-marca" data-marca></span>
+                <span class="f2-legenda-fala f2-quieta" data-fala></span>
+                <span class="f2-legenda-aviso" data-aviso></span>
+            </div>`;
+
+        const janela = abrirJanela({ nome: "painel", largura: 1000, altura: 560, corpo });
+
+        function fileiraDeOpcoes(caixa, valores, atual, aoEscolher) {
+            caixa.textContent = "";
+            for (const [valor, rotulo] of valores) {
+                const b = document.createElement("button");
+                b.type = "button";
+                b.className = "f2-opcao";
+                b.textContent = rotulo;
+                b.setAttribute("aria-pressed", valor === atual ? "true" : "false");
+                b.addEventListener("click", () => { aoEscolher(valor); SONS.tique(); });
+                caixa.appendChild(b);
+            }
+        }
+
+        function repintar() {
+            fileiraDeOpcoes(
+                corpo.querySelector("[data-contas]"),
+                (primeiro.contas || [conta]).map((c) => [c, c.replace("@", "")]),
+                conta,
+                (v) => { conta = v; repintar(); },
+            );
+            fileiraDeOpcoes(
+                corpo.querySelector("[data-plataformas]"),
+                [["instagram", "instagram"], ["facebook", "facebook"], ["tiktok", "tiktok"]],
+                plataforma,
+                (v) => { plataforma = v; repintar(); },
+            );
+            pintarOPainel(janela, conta, plataforma);
+        }
+        repintar();
     };
 
     /* ── a ignição ────────────────────────────────────────────────────────── */

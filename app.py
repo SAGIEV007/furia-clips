@@ -168,6 +168,23 @@ _ALLOWED_CORS = [
 ]
 socketio = SocketIO(app, cors_allowed_origins=_ALLOWED_CORS, async_mode="threading")
 
+# ─── A bancada ───
+#
+# A interface nova entra aqui, como Blueprint, dentro do MESMO programa. Não é
+# um segundo servidor numa segunda porta: é a mesma máquina com outra frente.
+#
+# É o que faz a decisão do conceito — "sobrevive o motor e as três peças de
+# interface que já funcionavam; o resto da interface morre" — não significar
+# "o resto para de funcionar". Transcrição, Gemini, CHUB, blocos, corte e
+# render continuam exatamente onde estavam, e a bancada fala com eles pelas
+# mesmas rotas que a interface antiga sempre usou.
+#
+#     /     a interface antiga, intacta
+#     /2    a bancada
+from furia2.app import bancada as _bancada_furia2
+
+app.register_blueprint(_bancada_furia2)
+
 
 def _load_program_version():
     """Load the public release version from the repository's VERSION file."""
