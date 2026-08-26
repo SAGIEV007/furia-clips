@@ -102,12 +102,103 @@ def test_a_bancada_sobe_sozinha_para_trabalhar_no_desenho():
 # ── moer ────────────────────────────────────────────────────────────────────
 
 
-def test_o_botao_moer_manda_o_caminho_que_o_motor_entende():
-    """Caminho absoluto quando ele escolheu na janela do Windows; caminho de
-    dentro da pasta de trabalho no resto. Quem decide o que é permitido é o
-    motor, que já tinha essa regra."""
+def test_o_botao_moer_manda_um_caminho_de_dentro_da_pasta_de_trabalho():
+    """Era a causa de "moer" falhar sem explicar por quê.
+
+    O motor só aceita vídeo de dentro da pasta de trabalho — regra dele, e uma
+    regra certa: senão qualquer página aberta no navegador poderia mandar o
+    programa ler um arquivo qualquer do computador. Escolher na janela do
+    Windows dá o CAMINHO, não a permissão.
+
+    A bancada mandava o caminho absoluto do computador dele e o motor recusava.
+    Agora o vídeo é importado no momento em que ele escolhe, e o que sai daqui
+    é sempre uma chave de dentro da pasta.
+    """
     codigo = JS.read_text(encoding="utf-8")
-    assert "fonteNaBancada.caminho || fonteNaBancada.chave" in codigo
+    assert "const alvo = fonteNaBancada.chave;" in codigo
+    origem = (RAIZ / "furia2" / "app.py").read_text(encoding="utf-8")
+    assert "_importar_para_a_pasta" in origem
+
+
+def test_escolher_um_video_de_fora_importa_na_hora(tmp_path, monkeypatch):
+    """Escolher e importar são um gesto só do ponto de vista dele: ele apontou
+    para o vídeo, e o que ele espera é que o vídeo esteja no programa."""
+    import furia2.app as bancada_mod
+
+    trabalho = tmp_path / "workspace"
+    (trabalho / "uploads").mkdir(parents=True)
+    de_fora = tmp_path / "outra pasta" / "entrevista.mp4"
+    de_fora.parent.mkdir()
+    de_fora.write_bytes(b"x" * 4096)
+
+    monkeypatch.setattr(bancada_mod, "WORKSPACE_DIR", str(trabalho))
+    monkeypatch.setattr(bancada_mod, "choose_path", lambda **k: str(de_fora))
+
+    corpo = bancada_mod.criar_app().test_client().post("/api/fonte/escolher").get_json()
+    assert corpo["ok"] is True
+    assert corpo["fonte"]["chave"] == "uploads/entrevista.mp4", (
+        "a fonte tem de sair daqui com uma chave de dentro da pasta de trabalho"
+    )
+    assert (trabalho / "uploads" / "entrevista.mp4").read_bytes() == b"x" * 4096
+
+
+def test_importar_o_mesmo_video_duas_vezes_nao_copia_de_novo(tmp_path, monkeypatch):
+    """Mesmo nome e mesmo tamanho é o que ele já importou. Copiar de novo seria
+    um minuto de espera para chegar ao mesmo arquivo."""
+    import furia2.app as bancada_mod
+
+    trabalho = tmp_path / "workspace"
+    (trabalho / "uploads").mkdir(parents=True)
+    ja = trabalho / "uploads" / "entrevista.mp4"
+    ja.write_bytes(b"y" * 4096)
+    de_fora = tmp_path / "outra" / "entrevista.mp4"
+    de_fora.parent.mkdir()
+    de_fora.write_bytes(b"y" * 4096)
+    quando = ja.stat().st_mtime_ns
+
+    monkeypatch.setattr(bancada_mod, "WORKSPACE_DIR", str(trabalho))
+    monkeypatch.setattr(bancada_mod, "choose_path", lambda **k: str(de_fora))
+    bancada_mod.criar_app().test_client().post("/api/fonte/escolher")
+    assert ja.stat().st_mtime_ns == quando, "recopiou um arquivo que já estava lá"
+
+
+def test_um_video_que_ja_esta_na_pasta_nao_e_copiado(tmp_path, monkeypatch):
+    """Escolher pela janela do Windows um vídeo que já mora na pasta de
+    trabalho não pode criar uma segunda cópia dele."""
+    import furia2.app as bancada_mod
+
+    trabalho = tmp_path / "workspace"
+    (trabalho / "uploads").mkdir(parents=True)
+    dentro = trabalho / "uploads" / "ja-esta-aqui.mp4"
+    dentro.write_bytes(b"z" * 2048)
+
+    monkeypatch.setattr(bancada_mod, "WORKSPACE_DIR", str(trabalho))
+    monkeypatch.setattr(bancada_mod, "choose_path", lambda **k: str(dentro))
+    corpo = bancada_mod.criar_app().test_client().post("/api/fonte/escolher").get_json()
+    assert corpo["fonte"]["chave"] == "uploads/ja-esta-aqui.mp4"
+    assert len(list((trabalho / "uploads").glob("*.mp4"))) == 1
+
+
+def test_a_importacao_interrompida_nao_deixa_video_pela_metade_na_lista():
+    """Se a máquina desligar no meio, o que fica é um `.parcial` que ninguém
+    confunde com vídeo bom — em vez de um mp4 pela metade na lista de fontes."""
+    origem = (RAIZ / "furia2" / "app.py").read_text(encoding="utf-8")
+    trecho = origem[origem.find("def _importar_para_a_pasta"):]
+    assert ".parcial" in trecho
+    assert "parcial.replace(destino)" in trecho
+
+
+def test_a_fonte_toca_na_bancada():
+    """A primeira coisa que ele quis fazer com a fonte na bancada foi ASSISTIR
+    — o gesto óbvio de um editor de vídeo, e que a tela não dava."""
+    codigo = JS.read_text(encoding="utf-8")
+    assert 'document.createElement("video")' in codigo
+    assert "tela.controls = true;" in codigo
+    origem = (RAIZ / "furia2" / "app.py").read_text(encoding="utf-8")
+    trecho = origem[origem.find("def api_fonte_video"):]
+    assert "conditional=True" in trecho[:400], (
+        "sem resposta por faixa, arrastar a linha do tempo baixa o arquivo inteiro"
+    )
 
 
 def test_moer_duas_vezes_nao_dispara_duas_rodadas():
@@ -177,8 +268,17 @@ def test_os_ajustes_so_trazem_o_que_muda_o_corte():
     codigo = JS.read_text(encoding="utf-8")
     trecho = codigo[codigo.find("const ESCOLHAS = ["):codigo.find("function mesmoValor")]
     assert trecho.count("chave:") <= 8, "os ajustes voltaram a virar uma gaveta"
-    # E o resto continua alcançável, em vez de sumir.
-    assert "abrir os ajustes completos" in codigo
+
+
+def test_nada_na_bancada_joga_ele_de_volta_no_programa_velho():
+    """Eu tinha posto um botão "abrir os ajustes completos" que abria a
+    interface antiga numa aba nova. Ele perguntou POR QUE, e a pergunta estava
+    certa: ele mandou refazer o programa justamente para sair de lá. Um botão
+    que devolve o sujeito ao lugar de onde ele quis sair não é uma saída de
+    emergência — é a bancada admitindo que não dá conta."""
+    codigo = JS.read_text(encoding="utf-8")
+    assert 'window.open("/"' not in codigo
+    assert "abrir os ajustes completos" not in codigo
 
 
 def test_um_ajuste_que_nao_gravou_nao_fica_aceso():

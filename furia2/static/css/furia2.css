@@ -30,7 +30,17 @@
     --f2-c2: #151515;   /* peça acima da peça */
     --f2-c3: #242424;   /* borda em repouso */
     --f2-c4: #3d3d3d;   /* borda desperta, texto apagadíssimo */
-    --f2-c5: #6f6f6f;   /* texto secundário */
+    --f2-c5: #8f8f8f;   /* texto secundário */
+
+    /* Ele disse que as fontes ficavam difíceis de ler, e estava certo. Eu tinha
+       confundido AUSTERO com APAGADO: o cinza do texto secundário era #6f6f6f
+       sobre preto — 4,6 de contraste, no limite de quem enxerga bem, e abaixo
+       dele para quem não enxerga. Subiu para #8f8f8f, que dá 7,4.
+
+       E as letras estavam espaçadas demais. Rótulo em maiúscula com 0,2 de
+       espaço vira uma fileira de letras soltas: o olho lê letra por letra em
+       vez de ler a palavra. Caiu para 0,12, que ainda soa a equipamento e
+       volta a ser palavra. */
 
     /* branco de folha. Levemente quente: branco puro sobre preto vibra e arde
        depois de umas horas, e ele passa oito por dia aqui. */
@@ -106,8 +116,8 @@ input, textarea, .f2-selecionavel {
 /* Rótulo de equipamento: pequeno, maiúsculo, muito espaçado. Aparece em toda
    parte — na doca, na faixa, nos títulos de janela. É o tom de voz da casa. */
 .f2-rotulo {
-    font-size: 10px;
-    letter-spacing: 0.18em;
+    font-size: 11.5px;
+    letter-spacing: 0.11em;
     text-transform: uppercase;
     color: var(--f2-c5);
 }
@@ -117,7 +127,7 @@ input, textarea, .f2-selecionavel {
 
 .f2-bancada {
     display: grid;
-    grid-template-rows: var(--f2-faixa) 1fr var(--f2-doca);
+    grid-template-rows: var(--f2-faixa) 1fr;
     height: 100%;
 }
 
@@ -147,8 +157,8 @@ body.f2-trabalhando .f2-marca .f2-pulso {
 @keyframes f2-pulsar { 50% { opacity: 0.25; } }
 
 .f2-estado {
-    font-size: 11px;
-    letter-spacing: 0.16em;
+    font-size: 12.5px;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--f2-c5);
 }
@@ -201,72 +211,111 @@ body.f2-trabalhando .f2-olho {
     user-select: none;
 }
 .f2-vazio-linha {
-    font-size: 11px;
-    letter-spacing: 0.2em;
+    font-size: 12.5px;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
 }
 .f2-vazio-dica {
     margin-top: -8px;
-    font-size: 10px;
-    letter-spacing: 0.14em;
+    font-size: 11.5px;
+    letter-spacing: 0.09em;
     color: var(--f2-c3);
 }
 /* Uma régua de nada: dá escala à bancada vazia e é o lugar onde o mapa da
    fonte vai nascer na tela 5. */
 .f2-regua { display: block; opacity: 0.5; }
 
-/* ── a doca ───────────────────────────────────────────────────────────────
-   Poolsuite: objeto com o nome escrito embaixo, por extenso, sempre. Não é
-   aba, não é menu — é prateleira.
+/* ── o menu: galáxia e doca ───────────────────────────────────────────────
+   Um menu só, em dois estados. Em repouso é uma galáxia girando no meio da
+   tela — as ferramentas SÃO as estrelas. Com trabalho na bancada as mesmas
+   estrelas descem, se alinham numa fileira embaixo e a órbita para.
 
-   Ela era uma faixa de ponta a ponta, e faixa de ponta a ponta é barra de
-   navegador. Aqui é uma PEÇA: emoldurada, solta da borda de baixo, com
-   divisória entre um objeto e outro. Custa doze pixels de altura e é o que
-   faz a doca parecer equipamento em cima da mesa em vez de rodapé de site. */
+   A camada inteira é `pointer-events: none` e só as estrelas recebem clique:
+   assim o pó e o núcleo não roubam o mouse da parede que está por baixo. */
 
-.f2-doca {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    align-self: center;
-    justify-self: center;
-    margin-bottom: 12px;
+.f2-menu {
+    position: fixed;
+    inset: var(--f2-faixa) 0 0 0;
+    z-index: 150;
+    pointer-events: none;
+}
+.f2-poeira {
+    position: absolute;
+    inset: 0;
+    width: 100%; height: 100%;
+    /* Some junto com a órbita: enquanto ele trabalha, a tela não gasta luz
+       nenhuma com enfeite. */
+    opacity: 1;
+    transition: opacity 0.6s var(--f2-passo);
+}
+.f2-menu[data-modo="doca"] .f2-poeira { opacity: 0; }
+
+/* No modo doca a fileira ganha uma moldura em volta das estrelas — e só em
+   volta delas. Uma faixa de ponta a ponta é barra de navegador; uma peça
+   emoldurada, solta da borda de baixo, é equipamento em cima da mesa. As
+   medidas vêm do JS, que é quem sabe onde a fileira parou. */
+.f2-menu[data-modo="doca"]::after {
+    content: "";
+    position: absolute;
+    left: var(--doca-x, 0);
+    width: var(--doca-w, 0);
+    bottom: var(--doca-b, 12px);
+    height: var(--doca-h, 68px);
+    background: var(--f2-c1);
     border: 1px solid var(--f2-c4);
     border-radius: var(--f2-canto);
-    background: var(--f2-c1);
-    overflow: hidden;
 }
+/* A divisória entre um objeto e outro, que é o que dá a sensação de gaveta
+   com repartições. */
+.f2-menu[data-modo="doca"] .f2-objeto {
+    border-right: 1px solid var(--f2-c3);
+    border-radius: 0;
+}
+.f2-menu[data-modo="doca"] .f2-objeto:last-child { border-right-color: transparent; }
+
+.f2-estrelas { position: absolute; inset: 0; }
 
 .f2-objeto {
+    position: absolute;
+    left: 0; top: 0;
+    z-index: 1;
     -webkit-appearance: none;
     appearance: none;
-    background: var(--f2-c1);
-    border: 0;
-    /* A divisória é o que dá a sensação de gaveta com repartições. */
-    border-right: 1px solid var(--f2-c3);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--f2-canto);
     color: var(--f2-c5);
     font: inherit;
     cursor: pointer;
+    pointer-events: auto;
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 7px;
     width: 88px;
     padding: 8px 0 7px;
+    /* A viagem da órbita até a fileira. Só a posição e o tamanho viajam; a
+       peça é a mesma, e é por isso que dá para entender que ela desceu em vez
+       de ter sumido e nascido outra. */
+    transition: transform 0.75s var(--f2-passo), opacity 0.5s var(--f2-passo),
+                border-color 0.2s, color 0.2s, background 0.2s;
 }
-.f2-objeto:last-child { border-right: 0; }
 .f2-objeto svg { display: block; width: 26px; height: 26px; }
 .f2-objeto .f2-nome {
-    font-size: 9.5px;
-    letter-spacing: 0.16em;
+    font-size: 11px;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
 }
 
 .f2-objeto:hover,
 .f2-objeto:focus-visible {
     background: var(--f2-c2);
+    border-color: var(--f2-c4);
     color: var(--f2-folha);
     outline: none;
+    /* Em cima da órbita, a estrela sob o mouse para de piscar de longe e vem
+       para a frente — a mesma regra do Cipher, agora no menu. */
+    opacity: 1 !important;
 }
 
 /* Um objeto já na bancada fica aceso — assim ele sabe o que está aberto sem
@@ -277,18 +326,19 @@ body.f2-trabalhando .f2-olho {
     box-shadow: inset 0 -2px 0 var(--f2-c5);
 }
 
-/* O convite: com a bancada vazia, o único objeto que resolve isso respira.
-   É a alternativa a um aviso no meio da tela — a orientação mora no lugar
-   onde ela é executada. */
-body.f2-bancada-vazia .f2-objeto[data-objeto="fonte"] {
-    color: var(--f2-folha);
-}
+/* O convite: com a bancada vazia, o único objeto que resolve isso respira. */
+body.f2-bancada-vazia .f2-objeto[data-objeto="fonte"] { color: var(--f2-folha); }
 body.f2-bancada-vazia .f2-objeto[data-objeto="fonte"] svg {
     animation: f2-respirar 2.6s ease-in-out infinite;
 }
 @keyframes f2-respirar {
     0%, 100% { color: var(--f2-c5); }
     50%      { color: var(--f2-fosforo); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .f2-objeto { transition: none; }
+    body.f2-bancada-vazia .f2-objeto[data-objeto="fonte"] svg { animation: none; }
 }
 
 /* ── a ignição ────────────────────────────────────────────────────────────
@@ -337,7 +387,7 @@ body.f2-bancada-vazia .f2-objeto[data-objeto="fonte"] svg {
 .f2-ficha-versao { margin-top: 8px; color: var(--f2-c5); font-size: 11px; }
 .f2-ficha-creditos {
     margin-top: 7px;
-    font-size: 10.5px;
+    font-size: 12px;
     line-height: 1.6;
     color: var(--f2-c4);
 }
@@ -346,8 +396,8 @@ body.f2-bancada-vazia .f2-objeto[data-objeto="fonte"] svg {
     padding-top: 14px;
     display: flex;
     justify-content: space-between;
-    font-size: 10px;
-    letter-spacing: 0.14em;
+    font-size: 11.5px;
+    letter-spacing: 0.09em;
     text-transform: uppercase;
     color: var(--f2-c5);
 }
@@ -375,8 +425,8 @@ body.f2-bancada-vazia .f2-objeto[data-objeto="fonte"] svg {
     bottom: 18px;
     left: 0; right: 0;
     text-align: center;
-    font-size: 9.5px;
-    letter-spacing: 0.2em;
+    font-size: 12.5px;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
     color: var(--f2-c4);
 }
@@ -432,8 +482,8 @@ body.f2-bancada-vazia .f2-objeto[data-objeto="fonte"] svg {
     user-select: none;
 }
 .f2-titulo .f2-nome-janela {
-    font-size: 10px;
-    letter-spacing: 0.2em;
+    font-size: 11.5px;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
     color: var(--f2-c5);
 }
@@ -480,8 +530,8 @@ body.f2-bancada-vazia .f2-objeto[data-objeto="fonte"] svg {
     box-shadow: 0 1px 0 var(--f2-c4), inset 0 1px 0 rgba(255, 255, 255, 0.07);
     color: var(--f2-folha);
     font: inherit;
-    font-size: 10px;
-    letter-spacing: 0.14em;
+    font-size: 11.5px;
+    letter-spacing: 0.09em;
     text-transform: uppercase;
     padding: 0 14px;
     height: 30px;
@@ -577,12 +627,12 @@ body.f2-bancada-vazia .f2-objeto[data-objeto="fonte"] svg {
     padding: 2px 5px;
     background: var(--f2-breu);
     font-variant-numeric: tabular-nums;
-    font-size: 10px;
+    font-size: 11.5px;
     color: var(--f2-folha);
 }
 .f2-quadro-nome {
     margin-top: 6px;
-    font-size: 10.5px;
+    font-size: 12px;
     line-height: 1.35;
     /* Duas linhas e para. Nome de arquivo do YouTube tem cento e vinte
        caracteres e empurraria o mural inteiro para baixo. */
@@ -596,8 +646,8 @@ body.f2-bancada-vazia .f2-objeto[data-objeto="fonte"] svg {
     align-items: center;
     justify-content: center;
     height: 100%;
-    font-size: 9.5px;
-    letter-spacing: 0.14em;
+    font-size: 12.5px;
+    letter-spacing: 0.09em;
     text-transform: uppercase;
     color: var(--f2-c4);
 }
@@ -607,8 +657,8 @@ body.f2-bancada-vazia .f2-objeto[data-objeto="fonte"] svg {
     justify-content: space-between;
     padding: 7px 10px;
     border-top: 1px solid var(--f2-c3);
-    font-size: 10px;
-    letter-spacing: 0.14em;
+    font-size: 11.5px;
+    letter-spacing: 0.09em;
     text-transform: uppercase;
     color: var(--f2-c4);
 }
@@ -630,14 +680,15 @@ body.f2-bancada-vazia .f2-objeto[data-objeto="fonte"] svg {
     gap: 14px;
 }
 .f2-montada-tela {
-    width: 460px;
-    max-width: 62vw;
+    width: 620px;
+    max-width: 72vw;
     aspect-ratio: 16 / 9;
     border: 1px solid var(--f2-c4);
     background: var(--f2-c1);
     overflow: hidden;
 }
-.f2-montada-tela img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.f2-montada-tela img,
+.f2-montada-tela video { display: block; width: 100%; height: 100%; object-fit: contain; background: #000; }
 .f2-montada-nome {
     max-width: 460px;
     text-align: center;
@@ -646,8 +697,8 @@ body.f2-bancada-vazia .f2-objeto[data-objeto="fonte"] svg {
     color: var(--f2-folha);
 }
 .f2-montada-ficha {
-    font-size: 10px;
-    letter-spacing: 0.16em;
+    font-size: 11.5px;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--f2-c5);
 }
@@ -735,7 +786,7 @@ body.f2-bancada-vazia .f2-objeto[data-objeto="fonte"] svg {
 .f2-corte-n {
     position: absolute;
     left: 6px; top: 5px;
-    font-size: 10px;
+    font-size: 11.5px;
     font-variant-numeric: tabular-nums;
     letter-spacing: 0.1em;
     color: #fff;
@@ -747,7 +798,7 @@ body.f2-bancada-vazia .f2-objeto[data-objeto="fonte"] svg {
     padding: 2px 5px;
     background: var(--f2-breu);
     font-variant-numeric: tabular-nums;
-    font-size: 10px;
+    font-size: 11.5px;
     color: var(--f2-folha);
 }
 
@@ -778,8 +829,8 @@ body.f2-bancada-vazia .f2-objeto[data-objeto="fonte"] svg {
     background: var(--f2-breu);
 }
 .f2-legenda-marca {
-    font-size: 10px;
-    letter-spacing: 0.16em;
+    font-size: 11.5px;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
     font-variant-numeric: tabular-nums;
     color: var(--f2-c5);
@@ -805,7 +856,7 @@ body.f2-bancada-vazia .f2-objeto[data-objeto="fonte"] svg {
    "isto é vermelho" o tempo todo, mesmo com a legenda calada. O vermelho só
    existe quando há motivo escrito nele. */
 .f2-legenda-aviso {
-    font-size: 10px;
+    font-size: 11.5px;
     letter-spacing: 0.1em;
     text-transform: uppercase;
     white-space: nowrap;
@@ -981,7 +1032,7 @@ body.f2-bancada-vazia .f2-objeto[data-objeto="fonte"] svg {
 .f2-frase.f2-virou { color: var(--f2-fosforo); }
 .f2-frase-hora {
     font-family: var(--f2-mono);
-    font-size: 10px;
+    font-size: 11.5px;
     font-variant-numeric: tabular-nums;
     color: var(--f2-c3);
     margin-right: 7px;
@@ -1017,7 +1068,7 @@ body.f2-bancada-vazia .f2-objeto[data-objeto="fonte"] svg {
     gap: 14px;
     padding: 9px 12px;
     border-bottom: 1px solid var(--f2-c3);
-    font-size: 11px;
+    font-size: 12.5px;
     letter-spacing: 0.06em;
     color: var(--f2-c5);
 }
@@ -1194,8 +1245,8 @@ body.f2-bancada-vazia .f2-objeto[data-objeto="fonte"] svg {
 
 .f2-secao {
     padding: 12px 14px 4px;
-    font-size: 10px;
-    letter-spacing: 0.2em;
+    font-size: 11.5px;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
     color: var(--f2-c4);
 }
@@ -1214,7 +1265,7 @@ body.f2-bancada-vazia .f2-objeto[data-objeto="fonte"] svg {
 }
 .f2-peca-linha:last-child { border-bottom: 0; }
 .f2-peca-nome {
-    letter-spacing: 0.14em;
+    letter-spacing: 0.09em;
     text-transform: uppercase;
     color: var(--f2-c5);
 }
@@ -1246,8 +1297,8 @@ body.f2-bancada-vazia .f2-objeto[data-objeto="fonte"] svg {
 }
 .f2-escolha-nome {
     padding-top: 7px;
-    font-size: 10px;
-    letter-spacing: 0.14em;
+    font-size: 11.5px;
+    letter-spacing: 0.09em;
     text-transform: uppercase;
     color: var(--f2-c5);
 }
@@ -1260,7 +1311,7 @@ body.f2-bancada-vazia .f2-objeto[data-objeto="fonte"] svg {
     border-radius: var(--f2-canto);
     color: var(--f2-c5);
     font: inherit;
-    font-size: 10.5px;
+    font-size: 12px;
     letter-spacing: 0.06em;
     padding: 0 10px;
     height: 26px;
@@ -1315,8 +1366,8 @@ body.f2-bancada-vazia .f2-objeto[data-objeto="fonte"] svg {
 
 .f2-registro-vazio {
     padding: 22px 12px;
-    font-size: 11px;
-    letter-spacing: 0.14em;
+    font-size: 12.5px;
+    letter-spacing: 0.09em;
     text-transform: uppercase;
     color: var(--f2-c4);
 }
@@ -1374,8 +1425,8 @@ body.f2-bancada-vazia .f2-objeto[data-objeto="fonte"] svg {
     justify-content: space-between;
     align-items: baseline;
     padding: 12px 14px 8px;
-    font-size: 10px;
-    letter-spacing: 0.2em;
+    font-size: 11.5px;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
     color: var(--f2-c4);
 }

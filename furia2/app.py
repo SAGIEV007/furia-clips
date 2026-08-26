@@ -45,13 +45,6 @@ PORTA = 5001
 # apagar a pasta inteira a qualquer momento e o programa refaz.
 CACHE = Path.home() / "FuriaClipsData" / "furia2" / "quadros"
 
-# Fontes que ele escolheu na janela do Windows nesta sessão. Um arquivo fora do
-# workspace só entra aqui depois de ele mesmo apontar para ele numa caixa de
-# diálogo do sistema — e some quando o programa fecha. É a única forma de
-# mostrar o quadro de um vídeo que não mora na pasta de trabalho sem abrir a
-# máquina inteira para leitura.
-DE_FORA = {}
-
 # Onde a rodada deixa a folha de decisões. É a mesma pasta que o Furia 1 já
 # usa, e ela fica FORA do repositório de propósito: a folha carrega a
 # transcrição do material, e transcrição de coisa não publicada não entra em
@@ -157,18 +150,20 @@ def api_fonte_lista():
     achados.sort(key=lambda f: f["modificado"], reverse=True)
     for ficha in achados:
         ficha.pop("modificado", None)
-    return jsonify({"fontes": achados, "de_fora": list(DE_FORA.values())})
+    return jsonify({"fontes": achados})
 
 
 def _resolver(chave):
-    """De uma chave da lista para um arquivo de verdade, sem sair do permitido."""
-    if chave in DE_FORA:
-        caminho = Path(DE_FORA[chave]["caminho"])
-    else:
-        try:
-            caminho = Path(safe_workspace_path(WORKSPACE_DIR, chave, allow_missing=False))
-        except (UnsafePathError, FileNotFoundError):
-            abort(404)
+    """De uma chave da lista para um arquivo de verdade, sem sair do permitido.
+
+    Toda fonte mora dentro da pasta de trabalho — o que vem de fora é importado
+    na hora de escolher. Isso deixa esta função com um caminho só, e um caminho
+    só é um caminho que não tem como divergir do que o motor aceita.
+    """
+    try:
+        caminho = Path(safe_workspace_path(WORKSPACE_DIR, chave, allow_missing=False))
+    except (UnsafePathError, FileNotFoundError):
+        abort(404)
     # Tem de ser ARQUIVO. Uma chave vazia resolve para a própria pasta de
     # trabalho, que existe — e daí o ffmpeg seria chamado em cima de uma pasta.
     if not caminho.is_file():
@@ -211,9 +206,85 @@ def api_fonte_quadro():
 # ── trazer material novo ────────────────────────────────────────────────────
 
 
+def _contar_para_a_tela(mensagem):
+    """Diz uma linha no mesmo canal que o motor usa.
+
+    A bancada já escuta esse canal, então o que for dito aqui aparece na faixa
+    de cima e no registro sem precisar de um segundo caminho. Rodando a bancada
+    sozinha, sem o motor, o canal não existe e a linha simplesmente não sai.
+    """
+    motor = sys.modules.get("app")
+    try:
+        motor.emit_progress(mensagem)
+    except (AttributeError, RuntimeError):
+        pass
+
+
+def _importar_para_a_pasta(origem):
+    """Traz o vídeo para dentro da pasta de trabalho.
+
+    Este é o passo que faltava, e ele é a causa de "moer" falhar: o motor só
+    aceita vídeo de dentro da pasta de trabalho — regra dele, e uma regra certa,
+    porque senão qualquer página aberta no navegador poderia mandar o programa
+    ler um arquivo qualquer do computador. Escolher na janela do Windows dá o
+    caminho, não a permissão.
+
+    A interface antiga resolvia isso mandando o arquivo pelo navegador. Aqui o
+    arquivo já está na mesma máquina, então copiar é mais rápido e mais honesto
+    que subir e baixar de volta.
+
+    Copiado em pedaços, contando quanto já foi: um debate de duas horas tem
+    gigabytes, e uma tela parada durante um minuto é uma tela que parece
+    travada.
+    """
+    destino_pasta = Path(WORKSPACE_DIR) / "uploads"
+    destino_pasta.mkdir(parents=True, exist_ok=True)
+    destino = destino_pasta / origem.name
+
+    tamanho = origem.stat().st_size
+    if destino.exists() and destino.stat().st_size == tamanho:
+        # Mesmo nome e mesmo tamanho: é o que ele já importou antes. Copiar de
+        # novo seria um minuto de espera para chegar ao mesmo arquivo.
+        _contar_para_a_tela(f"[Fonte] {origem.name} já estava na pasta de trabalho.")
+        return destino
+
+    _contar_para_a_tela(f"[Fonte] Importando {origem.name} ({tamanho / 1_048_576:.0f} MB)...")
+    PEDACO = 8 * 1024 * 1024
+    andado = 0
+    ultimo_aviso = 0
+    # Nome temporário: se a máquina desligar no meio, o que fica é um `.parcial`
+    # que ninguém confunde com vídeo bom — em vez de um mp4 pela metade na
+    # lista de fontes.
+    parcial = destino.with_suffix(destino.suffix + ".parcial")
+    try:
+        with open(origem, "rb") as entrada, open(parcial, "wb") as saida:
+            while True:
+                bloco = entrada.read(PEDACO)
+                if not bloco:
+                    break
+                saida.write(bloco)
+                andado += len(bloco)
+                por_cento = int(andado * 100 / tamanho) if tamanho else 100
+                if por_cento >= ultimo_aviso + 10:
+                    ultimo_aviso = por_cento
+                    _contar_para_a_tela(f"[Fonte] Importando {origem.name}: {por_cento}%")
+        parcial.replace(destino)
+    except OSError:
+        parcial.unlink(missing_ok=True)
+        raise
+    _contar_para_a_tela(f"[Fonte] {origem.name} está na pasta de trabalho.")
+    return destino
+
+
 @bancada.route("/api/fonte/escolher", methods=["POST"])
 def api_fonte_escolher():
-    """A janela do Windows. Ele nunca vai digitar um caminho."""
+    """A janela do Windows, e a importação logo em seguida.
+
+    Escolher e importar são um gesto só do ponto de vista dele: ele apontou
+    para o vídeo, e o que ele espera é que o vídeo esteja no programa. Deixar
+    o arquivo do lado de fora e só descobrir isso ao apertar "moer" é a falha
+    calada de sempre, com meia hora de atraso.
+    """
     try:
         escolhido = choose_path(mode="file", title="Escolher a fonte")
     except (DialogError, OSError, subprocess.SubprocessError) as erro:
@@ -224,12 +295,32 @@ def api_fonte_escolher():
     caminho = Path(escolhido).resolve()
     if caminho.suffix.lower() not in ALLOWED_EXTENSIONS:
         return jsonify({"ok": False, "erro": f"{caminho.suffix} não é vídeo"}), 400
+    if not caminho.is_file():
+        return jsonify({"ok": False, "erro": "esse arquivo não existe mais"}), 404
 
-    chave = "fora:" + uuid.uuid5(uuid.NAMESPACE_URL, str(caminho)).hex
-    ficha = _ficha(caminho, chave)
-    ficha["caminho"] = str(caminho)
-    DE_FORA[chave] = ficha
-    return jsonify({"ok": True, "desistiu": False, "fonte": ficha})
+    raiz = Path(WORKSPACE_DIR).resolve()
+    if raiz not in caminho.parents:
+        try:
+            caminho = _importar_para_a_pasta(caminho)
+        except OSError as erro:
+            return jsonify({"ok": False, "erro": f"não deu para importar: {str(erro)[:120]}"}), 500
+
+    # Já dentro da pasta de trabalho, a fonte é como qualquer outra: chave
+    # relativa, que é exatamente o que o motor aceita.
+    return jsonify({
+        "ok": True, "desistiu": False,
+        "fonte": _ficha(caminho, str(caminho.relative_to(raiz))),
+    })
+
+
+@bancada.route("/api/fonte/video")
+def api_fonte_video():
+    """A fonte para o navegador tocar.
+
+    `conditional=True` liga a resposta por faixa, que é o que deixa arrastar a
+    linha do tempo sem baixar o arquivo inteiro antes.
+    """
+    return send_file(_resolver(request.args.get("chave", "")), conditional=True, max_age=3600)
 
 
 @bancada.route("/api/fonte/ler-link", methods=["POST"])

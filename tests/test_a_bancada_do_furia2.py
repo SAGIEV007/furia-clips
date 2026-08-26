@@ -169,14 +169,21 @@ def test_a_tecla_tem_relevo_de_uma_linha_e_afunda():
 
 
 def test_a_doca_e_uma_peca_e_nao_uma_faixa_de_ponta_a_ponta():
-    """Faixa de ponta a ponta é barra de navegador. Aqui a doca é equipamento
-    em cima da mesa: emoldurada, solta da borda de baixo, com divisória."""
+    """Faixa de ponta a ponta é barra de navegador. A doca é equipamento em
+    cima da mesa: emoldurada, solta da borda de baixo, com divisória.
+
+    Quando a galáxia nasceu, a doca virou por um momento uma faixa preta de
+    ponta a ponta atrás das estrelas — e esta decisão, que já estava tomada e
+    escrita, quase se perdeu junto. A moldura agora é desenhada só em volta da
+    fileira, com as medidas vindas de quem posiciona as estrelas.
+    """
     folha = sem_comentario(css())
-    bloco = folha[folha.find(".f2-doca {"):]
+    bloco = folha[folha.find('.f2-menu[data-modo="doca"]::after {'):]
     bloco = bloco[:bloco.find("}")]
-    assert "justify-self: center" in bloco, "a doca voltou a atravessar a tela"
     assert "border: 1px solid" in bloco, "a doca perdeu a moldura"
-    assert "margin-bottom" in bloco, "a doca voltou a ser rodapé colado embaixo"
+    assert "var(--doca-w" in bloco, "a moldura voltou a atravessar a tela"
+    assert "var(--doca-b" in bloco, "a doca voltou a ser rodapé colado embaixo"
+    assert '.f2-menu[data-modo="doca"] .f2-objeto {' in folha
     assert "border-right: 1px solid" in folha, "sumiu a divisória entre os objetos"
 
 
@@ -298,10 +305,97 @@ def test_a_altura_da_faixa_e_da_doca_e_fixa():
 
 
 def test_a_bancada_vazia_diz_por_onde_comecar():
-    """Tela preta sem nada escrito não é austeridade: é abandono."""
-    pagina = html()
-    assert "bancada vazia" in pagina
-    assert "puxe a fonte da doca" in pagina
+    """Tela preta sem nada escrito não é austeridade: é abandono.
+
+    Antes da galáxia, quem dizia isso era uma caixa no meio da tela escrito
+    "bancada vazia". Agora quem ocupa o meio da tela é a galáxia, e a
+    orientação mora onde ela é executada: das seis estrelas, a única que
+    resolve uma bancada vazia é a que respira.
+
+    A caixa saiu junto — ela nunca mais apareceria, e marcação que não aparece
+    é marcação que ninguém percebe estar quebrada.
+    """
+    assert 'class="f2-vazio"' not in html(), (
+        "a caixa vazia voltou, e ela agora ficaria escondida atrás da galáxia"
+    )
     assert 'body.f2-bancada-vazia .f2-objeto[data-objeto="fonte"]' in css(), (
         "o convite sumiu do lugar onde ele é executado"
     )
+
+
+# ── a galáxia ───────────────────────────────────────────────────────────────
+
+
+def galaxia():
+    return (RAIZ / "furia2" / "static" / "js" / "galaxia.js").read_text(encoding="utf-8")
+
+
+def test_o_menu_e_um_so_em_dois_estados():
+    """Ele pediu, sobre o Cipher: "uma galáxia brilhando e girando no centro e
+    que os itens nessa galáxia fossem os itens do menu".
+
+    Eu tinha lido o Cipher errado — peguei dele o preto e a regra da cor sob o
+    mouse e deixei de fora a composição viva no meio da tela, que não é
+    ilustração ao lado do menu: é o menu.
+
+    Duas listas de ferramentas seriam duas coisas para aprender. É a MESMA
+    peça: em repouso ela orbita no centro, com trabalho ela desce e vira
+    fileira.
+    """
+    pagina = html()
+    assert pagina.count('class="f2-objeto"') == len(OBJETOS), (
+        "as ferramentas foram duplicadas: viraram dois menus"
+    )
+    assert 'id="menu"' in pagina and 'data-modo="galaxia"' in pagina
+    codigo = galaxia()
+    assert 'function porNaOrbita()' in codigo
+    assert 'function porNaDoca()' in codigo
+
+
+def test_a_orbita_para_quando_ele_esta_trabalhando():
+    """Uma tela animando o dia inteiro num notebook é ventoinha ligada o dia
+    inteiro, e isso é um custo que o desenho não tem direito de cobrar dele."""
+    codigo = galaxia()
+    trecho = codigo[codigo.find("function vestir("):]
+    trecho = trecho[:trecho.find("\n    }")]
+    assert "parar()" in trecho
+    assert "porNaDoca()" in trecho
+    assert "window.furiaMenu?.(\"doca\")" in js(), "a bancada não avisa o menu quando entra trabalho"
+
+
+def test_a_galaxia_para_quando_a_mao_se_aproxima():
+    """Um menu que anda é um menu que se persegue.
+
+    O teste de navegador recusou o primeiro clique com "element is not
+    stable" — o item estava se movendo. E encostar não bastava: a camada do
+    menu não recebe mouse, então a órbita só parava depois que o mouse JÁ
+    estava em cima do alvo, que é tarde. O caminho até lá é justamente o
+    pedaço em que o alvo não pode andar.
+    """
+    codigo = galaxia()
+    assert 'window.addEventListener("pointermove"' in codigo
+    assert "segurando = dx * dx + dy * dy <= 1;" in codigo
+    assert "if (!segurando) fase +=" in codigo, (
+        "a fase voltou a ser calculada do relógio, e relógio não se segura"
+    )
+
+
+def test_a_aba_escondida_nao_gira_nada():
+    """Sem isto o navegador continua chamando o desenho de fundo e a máquina
+    esquenta com a tela apagada."""
+    codigo = galaxia()
+    assert 'document.addEventListener("visibilitychange"' in codigo
+    assert "if (document.hidden) parar();" in codigo
+
+
+def test_quem_pediu_menos_movimento_recebe_menos_movimento():
+    codigo = galaxia()
+    assert 'matchMedia("(prefers-reduced-motion: reduce)")' in codigo
+    assert "if (parado)" in codigo
+
+
+def test_a_estrela_do_outro_lado_da_orbita_continua_legivel():
+    """Uma estrela apagada demais do outro lado da órbita é um item de menu que
+    ele não lê."""
+    codigo = galaxia()
+    assert 'String(0.72 + frente * 0.28)' in codigo

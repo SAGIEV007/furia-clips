@@ -327,7 +327,7 @@
         (async function carregar() {
             const dados = await pedir("/api/fonte/lista");
             if (dados.ok === false) { conta.textContent = "não deu para ler a pasta"; dizer(dados.erro, true); return; }
-            pintar([...(dados.de_fora || []), ...(dados.fontes || [])]);
+            pintar(dados.fontes || []);
         })();
 
         corpo.querySelector("[data-abrir]").addEventListener("click", async (evento) => {
@@ -376,6 +376,7 @@
     function montarNaBancada(fonte) {
         fecharJanela("fonte");
         document.body.classList.remove("f2-bancada-vazia");
+        window.furiaMenu?.("doca");
         window.furiaEstado({ texto: "fonte na bancada" });
 
         const parede = document.getElementById("parede");
@@ -390,10 +391,18 @@
             <button class="f2-tecla" data-moer type="button">moer a fonte</button>`;
         montada.querySelector(".f2-montada-nome").textContent = fonte.nome;
 
-        const foto = new Image();
-        foto.alt = "";
-        foto.src = `/api/fonte/quadro?chave=${encodeURIComponent(fonte.chave)}`;
-        montada.querySelector(".f2-montada-tela").appendChild(foto);
+        /* O vídeo de verdade, e não um retrato dele. Antes daqui ficava só um
+           quadro parado, e a primeira coisa que ele quis fazer com a fonte na
+           bancada foi ASSISTIR — que é o gesto óbvio de um editor de vídeo e
+           que eu não tinha dado. */
+        const tela = document.createElement("video");
+        tela.controls = true;
+        tela.preload = "metadata";
+        tela.src = `/api/fonte/video?chave=${encodeURIComponent(fonte.chave)}`;
+        // O quadro entra como capa: o vídeo só desenha alguma coisa depois de
+        // carregar, e um retângulo preto por dois segundos parece defeito.
+        tela.poster = `/api/fonte/quadro?chave=${encodeURIComponent(fonte.chave)}`;
+        montada.querySelector(".f2-montada-tela").appendChild(tela);
 
         fonteNaBancada = fonte;
         anotar(`fonte na bancada: ${fonte.nome} (${relogioCurto(fonte.segundos)})`);
@@ -447,6 +456,9 @@
     function pintarAParede(dados) {
         cortesNaParede = dados.cortes || [];
         document.body.classList.remove("f2-bancada-vazia");
+        // Entrou trabalho: a galáxia desce e vira fileira, e o centro da tela
+        // passa a ser dos cortes.
+        window.furiaMenu?.("doca");
         parede.textContent = "";
 
         const mural = document.createElement("div");
@@ -1250,10 +1262,11 @@
     async function moer() {
         if (moendo) { window.furiaEstado({ texto: "já está moendo" }); return; }
         if (!fonteNaBancada) return;
-        // Caminho absoluto quando ele escolheu na janela do Windows; caminho de
-        // dentro da pasta de trabalho no resto dos casos. Quem decide o que é
-        // permitido é o motor, que já tinha essa regra.
-        const alvo = fonteNaBancada.caminho || fonteNaBancada.chave;
+        // Sempre um caminho de dentro da pasta de trabalho: o que veio de fora
+        // já foi importado na hora de escolher. Antes daqui saía o caminho
+        // absoluto do computador dele, e o motor recusava — era essa a causa
+        // de "moer" falhar sem explicar por quê.
+        const alvo = fonteNaBancada.chave;
 
         moendo = true;
         cortesNaParede = [];
@@ -1330,7 +1343,6 @@
             <div class="f2-secao">o que muda o corte</div>
             <div data-escolhas></div>
             <div class="f2-talho-pe">
-                <button class="f2-tecla" data-antigo type="button">abrir os ajustes completos</button>
                 <span class="f2-recado" data-recado></span>
             </div>`;
 
@@ -1407,13 +1419,6 @@
             }
             onde.appendChild(linha);
         }
-
-        corpo.querySelector("[data-antigo]").addEventListener("click", () => {
-            // Os quarenta e cinco campos continuam existindo, na interface
-            // antiga, para o dia raro em que ele precisar de um deles. Tirar
-            // seria quebrar o que já funciona; trazer seria refazer a gaveta.
-            window.open("/", "_blank", "noopener");
-        });
 
         return corpo;
     }

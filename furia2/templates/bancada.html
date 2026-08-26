@@ -15,8 +15,10 @@
 <body class="f2-bancada-vazia">
 
 <!-- ══ A BANCADA ══════════════════════════════════════════════════════════
-     Três faixas: a fina de cima, a parede no meio (que é quase tudo) e a
-     doca embaixo. Nenhuma janela nasce aberta — o centro é sempre dos cortes.
+     A faixa fina de cima e a parede, que é todo o resto. O menu não é uma
+     terceira faixa: ele flutua por cima, porque em repouso ele ocupa o meio
+     da tela como galáxia e só depois desce para a fileira de baixo.
+     Nenhuma janela nasce aberta — o centro é sempre dos cortes.
      ═══════════════════════════════════════════════════════════════════════ -->
 <div class="f2-bancada">
 
@@ -62,36 +64,27 @@
          Aqui vão morar os cortes, cinzas, acendendo em cor sob o mouse.
          Enquanto não há nenhum, ela fica vazia de verdade. -->
     <main class="f2-parede" id="parede">
-        <div class="f2-vazio" id="vazio">
-            <!-- Uma régua de nada. Não é enfeite: é a escala da bancada, e é
-                 exatamente onde o mapa da fonte vai nascer na tela 5. -->
-            <svg class="f2-regua" width="460" height="30" viewBox="0 0 460 30"
-                 fill="none" aria-hidden="true" stroke="currentColor">
-                <path d="M0.5 21.5 H459.5" stroke-width="1"/>
-                <g stroke-width="1">
-                    <path d="M0.5 21.5 V9"/>   <path d="M46 21.5 V15"/>
-                    <path d="M92 21.5 V15"/>   <path d="M138 21.5 V15"/>
-                    <path d="M184 21.5 V15"/>  <path d="M230 21.5 V9"/>
-                    <path d="M276 21.5 V15"/>  <path d="M322 21.5 V15"/>
-                    <path d="M368 21.5 V15"/>  <path d="M414 21.5 V15"/>
-                    <path d="M459.5 21.5 V9"/>
-                </g>
-            </svg>
-            <div class="f2-vazio-linha">bancada vazia</div>
-            <!-- Uma linha só, no tom mais baixo que ainda se lê. A instrução
-                 de verdade mora no lugar onde ela é executada: o objeto
-                 "fonte", lá embaixo, é o único que respira em verde enquanto
-                 não houver material. -->
-            <div class="f2-vazio-dica">puxe a fonte da doca</div>
-        </div>
+        <!-- Em repouso a parede fica vazia mesmo: quem ocupa o meio da tela é a
+             galáxia, e a orientação mora na estrela que respira. Uma caixa
+             escrito "vazio" por cima dela seria dizer duas vezes. -->
+</div>
     </main>
 
-    <!-- ── a doca ────────────────────────────────────────────────────────
-         Prateleira, não menu. Cada objeto tem o nome escrito embaixo por
-         extenso — ícone sozinho é adivinhação, e ele não vai adivinhar
-         trezentas vezes por dia. Clicar sobe o objeto como janela.
-         Nenhum sobe sozinho. -->
-    <nav class="f2-doca" aria-label="ferramentas">
+</div>
+
+<!-- ══ O MENU ═════════════════════════════════════════════════════════════
+     Um menu só, em dois estados. Em repouso é uma GALÁXIA: as seis
+     ferramentas são estrelas numa órbita que gira devagar em volta de um
+     núcleo aceso, com pó girando junto. Assim que entra trabalho, as mesmas
+     seis estrelas descem e se alinham numa fileira embaixo, e a órbita para —
+     o centro passa a ser dos cortes.
+
+     Cada objeto tem o nome escrito por extenso, nos dois estados: ícone
+     sozinho é adivinhação, e ele não vai adivinhar trezentas vezes por dia.
+     ═══════════════════════════════════════════════════════════════════════ -->
+<div class="f2-menu" id="menu" data-modo="galaxia">
+    <canvas class="f2-poeira" id="poeira" aria-hidden="true"></canvas>
+    <nav class="f2-estrelas" aria-label="ferramentas">
 
         <button class="f2-objeto" data-objeto="fonte" aria-pressed="false">
             <!-- rolo de fita -->
@@ -164,6 +157,7 @@
      Rodando a bancada sozinha, sem o motor, ele simplesmente não existe e a
      tela continua de pé. -->
 <script src="/static/vendor/socket.io.min.js"></script>
+<script src="{{ url_for('bancada.static', filename='js/galaxia.js') }}"></script>
 <script src="{{ url_for('bancada.static', filename='js/bancada.js') }}"></script>
 </body>
 </html>

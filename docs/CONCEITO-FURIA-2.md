@@ -149,9 +149,24 @@ branco — e o vídeo dele.
   não fica se mexendo sozinha.** Aquilo é lindo num portfólio e é sabotagem num
   programa de trabalho — ele precisa achar de novo o corte que viu há dez
   segundos. Ordem estável, cor viva.
-- **A doca (embaixo).** Seis objetos desenhados com cara de equipamento de
-  ilha: um rolo de fita, uma lâmina de emenda, uma claquete, um medidor. Nome
-  escrito embaixo, por extenso, sempre. Clicou, o objeto sobe como janela.
+- **O menu, em dois estados.** *(Corrigido depois que ele viu a primeira
+  versão: eu tinha lido o Cipher como "preto e cor sob o mouse" e deixado de
+  fora a coisa que ele estava apontando — a composição viva no meio da tela,
+  que não é ilustração ao lado do menu, é o menu.)*
+
+  Em repouso, o menu é uma **galáxia**: um núcleo aceso, pó girando e as seis
+  ferramentas como estrelas numa órbita lenta. Assim que entra trabalho, as
+  mesmas seis estrelas descem, se alinham numa fileira emoldurada embaixo e a
+  órbita para — o centro passa a ser dos cortes.
+
+  A mesma peça nos dois estados, não dois menus. E duas regras de ofício: a
+  órbita **para quando a mão se aproxima**, porque alvo que anda é alvo que se
+  persegue; e ela **para de vez quando ele está trabalhando**, porque tela
+  animando o dia inteiro é ventoinha ligada o dia inteiro.
+
+  Os seis objetos têm cara de equipamento de ilha — um rolo de fita, uma lâmina
+  de emenda, uma claquete, um medidor — com o nome escrito por extenso nos dois
+  estados. Clicou, o objeto sobe como janela.
 - **As janelas.** Borda dura de um pixel, canto reto, sem sombra, × à esquerda,
   nome à direita. Arrastáveis, empilháveis, fecháveis. **Nenhuma delas nasce
   aberta.**

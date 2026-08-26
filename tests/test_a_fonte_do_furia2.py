@@ -143,15 +143,23 @@ def test_o_quadro_recusa_uma_pasta(cliente):
 
 def test_uma_fonte_de_fora_so_entra_pela_janela_do_windows(furia2):
     """Um arquivo fora da pasta de trabalho só vira fonte depois de ele mesmo
-    apontar para ele numa caixa de diálogo do sistema.
+    apontar para ele numa caixa de diálogo do sistema — e aí ele é IMPORTADO.
 
-    O registro é de memória e some quando o programa fecha: nunca vira uma
-    lista de caminhos gravada que alguém possa mandar ler depois.
+    Antes existia um registro de caminhos escolhidos, e a fonte de fora ficava
+    morando fora. Era isso que fazia "moer" falhar: o motor só aceita vídeo de
+    dentro da pasta de trabalho, e escolher na janela do Windows dá o caminho,
+    não a permissão. Com a importação, o registro deixou de ter razão de
+    existir — e sumiu, em vez de ficar de enfeite.
     """
-    assert furia2.DE_FORA == {} or all(k.startswith("fora:") for k in furia2.DE_FORA)
+    assert not hasattr(furia2, "DE_FORA"), (
+        "voltou o registro de caminhos de fora; toda fonte agora mora na pasta de trabalho"
+    )
     fonte = furia2.__dict__["api_fonte_escolher"]
     assert "choose_path" in fonte.__code__.co_names, (
         "a fonte de fora deixou de passar pela janela do Windows"
+    )
+    assert "_importar_para_a_pasta" in fonte.__code__.co_names, (
+        "a fonte escolhida voltou a ficar do lado de fora"
     )
 
 
