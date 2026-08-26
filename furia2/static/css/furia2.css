@@ -995,3 +995,182 @@ body.f2-bancada-vazia .f2-objeto[data-objeto="fonte"] svg {
     border-top: 1px solid var(--f2-c3);
 }
 .f2-talho-pe .f2-recado { margin-left: auto; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   O MAPA DA FONTE
+
+   A parede responde "quais cortes saíram". Este mapa existe para a outra
+   pergunta, a que nunca teve resposta: POR QUE aquele pedaço de quatro
+   minutos não deu corte nenhum.
+
+   O chão do mapa é a onda da fonte inteira — o material, não um desenho sobre
+   o material. Em cima dela, o que virou corte fica aceso e o resto fica no
+   escuro. Embaixo, os recusados: até agora eles só existiam como um número no
+   fim do relatório, e é neles que mora a resposta.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.f2-mapa { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+
+.f2-mapa-topo {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--f2-c3);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    color: var(--f2-c5);
+}
+.f2-mapa-fonte {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.f2-mapa-conta { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.f2-mapa-conta b { color: var(--f2-folha); font-weight: inherit; }
+
+.f2-mapa-corpo { position: relative; padding: 10px 12px 4px; }
+
+/* ── a régua ───────────────────────────────────────────────────────────── */
+
+.f2-regua-linha { position: relative; height: 16px; }
+.f2-marco {
+    position: absolute;
+    top: 0;
+    font-size: 9px;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.08em;
+    color: var(--f2-c4);
+    transform: translateX(-50%);
+    white-space: nowrap;
+}
+/* O primeiro e o último não podem sair da caixa. */
+.f2-marco.f2-primeiro { transform: none; }
+.f2-marco.f2-ultimo { transform: translateX(-100%); }
+
+/* ── a onda ────────────────────────────────────────────────────────────── */
+
+.f2-mapa-onda {
+    position: relative;
+    height: 118px;
+    border: 1px solid var(--f2-c3);
+    background: var(--f2-c1);
+}
+.f2-mapa-onda canvas { display: block; width: 100%; height: 100%; }
+
+/* As áreas de pegar ficam por cima da onda, invisíveis. O desenho é do
+   canvas; o mouse é do HTML. Assim o corte responde a teclado também. */
+.f2-mapa-corte {
+    position: absolute;
+    top: 0; bottom: 0;
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+    border: 0;
+    border-left: 1px solid transparent;
+    border-right: 1px solid transparent;
+    padding: 0;
+    cursor: pointer;
+}
+.f2-mapa-corte:hover, .f2-mapa-corte:focus-visible {
+    background: rgba(242, 239, 230, 0.09);
+    border-left-color: var(--f2-folha);
+    border-right-color: var(--f2-folha);
+    outline: none;
+}
+.f2-mapa-corte .f2-mapa-n {
+    position: absolute;
+    left: 3px; top: 2px;
+    font-size: 9px;
+    font-variant-numeric: tabular-nums;
+    color: #fff;
+    mix-blend-mode: difference;
+}
+
+/* ── os recusados ─────────────────────────────────────────────────────────
+   Uma faixa fina logo abaixo da onda, alinhada ao mesmo tempo. Cada marca é
+   um candidato que morreu naquele ponto da entrevista. */
+
+.f2-faixa-recusados {
+    position: relative;
+    height: 20px;
+    margin-top: 3px;
+}
+.f2-recusado {
+    position: absolute;
+    top: 6px;
+    height: 7px;
+    min-width: 3px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: var(--f2-c4);
+    border: 0;
+    /* O corte preto na direita. Sem ele, dois recusados vizinhos viram uma
+       barra só — foi o que apareceu na primeira foto: trinta e duas marcas
+       grudadas parecendo cinco faixas longas, e uma faixa longa mente sobre o
+       tamanho do que foi recusado ali. */
+    border-right: 1px solid var(--f2-breu);
+    padding: 0;
+    cursor: pointer;
+}
+.f2-recusado:hover, .f2-recusado:focus-visible {
+    background: var(--f2-folha);
+    height: 13px;
+    top: 3px;
+    outline: none;
+}
+/* O adiado não é a mesma coisa que o recusado: ele passou, mas pede o olho
+   dele. Marca vazada em vez de cheia. */
+/* Rotina fica no escuro; evidência fica acesa. Um recusado no meio de um
+   trecho que já deu corte é rotina. Um recusado dentro de um buraco de três
+   minutos é a explicação do buraco — e é para isso que este mapa existe. */
+.f2-recusado[data-vao="0"] { background: var(--f2-c3); }
+.f2-recusado[data-vao="1"] { background: var(--f2-c5); }
+.f2-recusado[data-vao="1"]:hover, .f2-recusado[data-vao="1"]:focus-visible {
+    background: var(--f2-folha);
+}
+
+.f2-recusado[data-tipo="adiado"] {
+    background: transparent;
+    box-shadow: inset 0 0 0 1px var(--f2-c5);
+}
+.f2-recusado[data-tipo="adiado"]:hover { box-shadow: inset 0 0 0 1px var(--f2-folha); }
+
+/* ── os vãos ──────────────────────────────────────────────────────────────
+   O pedaço da fonte que não virou nada. É a pergunta do editor desenhada:
+   um colchete com o tamanho do buraco escrito dentro. */
+
+.f2-faixa-vaos { position: relative; height: 22px; margin-top: 2px; }
+.f2-vao {
+    position: absolute;
+    top: 0;
+    height: 18px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+    border: 1px solid var(--f2-c3);
+    border-top: 0;
+    padding: 0;
+    cursor: pointer;
+    font: inherit;
+    font-size: 9px;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.08em;
+    color: var(--f2-c4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    white-space: nowrap;
+}
+.f2-vao:hover, .f2-vao:focus-visible {
+    border-color: var(--f2-c5);
+    color: var(--f2-folha);
+    outline: none;
+}
+
+/* A legenda do mapa é a mesma da parede, e de propósito: duas telas com o
+   mesmo gesto e o mesmo lugar de resposta. */
+.f2-mapa .f2-legenda { position: static; height: 46px; margin-top: auto; }

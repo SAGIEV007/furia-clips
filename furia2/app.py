@@ -565,6 +565,250 @@ def api_talho_guardar():
     return jsonify({"ok": True, "inicio": gravado_inicio, "fim": gravado_fim})
 
 
+# ── o mapa da fonte ─────────────────────────────────────────────────────────
+
+# Um vão só conta quando é grande o bastante para ele reparar. Abaixo de um
+# minuto, o intervalo entre dois cortes é respiração normal da entrevista; a
+# partir daí é um pedaço da fonte que não virou nada, e é sobre esse pedaço
+# que ele pergunta.
+VAO_MINIMO = 60.0
+
+# Os motivos da máquina são etiquetas em inglês. Ele não lê inglês e não tem
+# por que ler: quem escreve a etiqueta é o programa, e traduzir na hora de
+# mostrar é obrigação de quem escreveu. Sem isto o mapa diria
+# "touching_sibling_lost_to_better_candidate" para um editor de vídeo.
+MOTIVOS = {
+    "duplicate_overlap": "repetia material de um corte já escolhido",
+    "duplicate_similarity": "dizia quase a mesma coisa que outro corte",
+    "touching_sibling_lost_to_better_candidate": "encostava em outro trecho e perdeu",
+    "touching_sibling_lost_to_existing_candidate": "encostava em outro trecho e perdeu",
+    "already_exported_fingerprint": "já tinha sido exportado numa rodada anterior",
+    "not_evaluated": "não chegou a ser avaliado",
+}
+
+
+def _numero(valor, padrao=0.0):
+    """A folha guarda número às vezes como texto. Melhor tolerar aqui do que
+    deixar uma faixa inteira sumir do mapa por causa de uma aspa."""
+    try:
+        return float(valor)
+    except (TypeError, ValueError):
+        return padrao
+
+
+def _motivo_em_portugues(bruto):
+    etiqueta = str(bruto or "").strip()
+    return MOTIVOS.get(etiqueta, etiqueta.replace("_", " ") or "sem motivo registrado")
+
+
+def _qual_corte(cortes, comeco):
+    """De um segundo para um número de corte.
+
+    O vencedor é comparado com a borda que a MÁQUINA propôs, não com a que ele
+    ajustou depois: a disputa aconteceu antes de qualquer ajuste, e casar com a
+    borda de agora faria a resposta mudar sozinha quando ele arrastasse uma
+    alça no talho.
+    """
+    if comeco < 0:
+        return None
+    for i, bruto in enumerate(cortes):
+        if abs(_numero(bruto.get("start_s")) - comeco) <= 1.0:
+            return i + 1
+    # Perdeu para um candidato que também acabou não sendo entregue. Acontece,
+    # e dizer isso é mais honesto do que apontar para um corte que não existe.
+    return None
+
+
+def _juntar(intervalos):
+    """Une o que se encosta ou se sobrepõe."""
+    juntos = []
+    for inicio, fim in sorted(intervalos):
+        if juntos and inicio <= juntos[-1][1]:
+            juntos[-1][1] = max(juntos[-1][1], fim)
+        else:
+            juntos.append([inicio, fim])
+    return juntos
+
+
+def _vaos(entregues, duracao):
+    """Os pedaços da fonte que não viraram corte nenhum."""
+    vazios = []
+    ponteiro = 0.0
+    for inicio, fim in _juntar([(c["inicio"], c["fim"]) for c in entregues]):
+        if inicio - ponteiro >= VAO_MINIMO:
+            vazios.append([ponteiro, inicio])
+        ponteiro = max(ponteiro, fim)
+    if duracao - ponteiro >= VAO_MINIMO:
+        vazios.append([ponteiro, duracao])
+    return vazios
+
+
+@app.route("/api/mapa/onda")
+def api_mapa_onda():
+    """A onda da fonte INTEIRA, para servir de chão ao mapa.
+
+    Lida em pedaços de dois minutos e guardada em disco. Ler meia hora de áudio
+    de uma vez custa cento e treze megabytes de memória; uma entrevista de duas
+    horas, quase meio giga — e o mapa é uma janela que ele abre e fecha o dia
+    todo. Em pedaços, o pico de memória é o de um pedaço só, e da segunda vez
+    em diante o arquivo guardado responde na hora.
+    """
+    import numpy as np
+
+    from modules.speaker_id import read_pcm
+
+    dados, fonte = _folha_da_rodada()
+    if not dados or fonte is None:
+        abort(404)
+    duracao = _numero((dados.get("fonte") or {}).get("duracao_s"))
+    if duracao <= 0:
+        abort(404)
+    fatias = max(120, min(2000, int(_numero(request.args.get("fatias"), 900))))
+
+    CACHE.mkdir(parents=True, exist_ok=True)
+    assinatura = f"{fonte}|{fonte.stat().st_mtime_ns}|{fatias}|mapa"
+    guardado = CACHE / (uuid.uuid5(uuid.NAMESPACE_URL, assinatura).hex + ".json")
+    if guardado.exists():
+        try:
+            return jsonify(json.loads(guardado.read_text(encoding="utf-8")))
+        except (OSError, ValueError):
+            pass   # arquivo estragado: refaz em vez de quebrar a tela
+
+    PEDACO = 120.0
+    largura_s = duracao / fatias
+    picos = []
+    inicio = 0.0
+    try:
+        while inicio < duracao:
+            fim = min(duracao, inicio + PEDACO)
+            amostras = read_pcm(str(fonte), inicio, fim)
+            quantas = max(1, round((fim - inicio) / largura_s))
+            passo = max(1, amostras.size // quantas)
+            if amostras.size:
+                bloco = amostras[: passo * quantas].reshape(quantas, passo)
+                energia = np.sqrt((bloco.astype(np.float64) ** 2).mean(axis=1))
+                picos.extend(float(v) for v in np.sqrt(energia))
+            else:
+                picos.extend([0.0] * quantas)
+            inicio = fim
+    except (OSError, ValueError, subprocess.SubprocessError) as erro:
+        return jsonify({"ok": False, "erro": f"não deu para ler o áudio: {str(erro)[:120]}"}), 500
+
+    teto = max(picos) or 1.0
+    corpo = {
+        "ok": True,
+        "segundos": round(duracao, 2),
+        "picos": [round(v / teto, 4) for v in picos],
+    }
+    try:
+        guardado.write_text(json.dumps(corpo), encoding="utf-8")
+    except OSError:
+        pass   # sem poder guardar, ainda responde; só volta a calcular na próxima
+    return jsonify(corpo)
+
+
+@app.route("/api/mapa")
+def api_mapa():
+    """Onde a rodada cortou, onde recusou, e onde não achou nada.
+
+    A pergunta que este mapa existe para responder não é "onde estão os
+    cortes" — a parede já responde isso. É a outra: POR QUE aquele pedaço de
+    quatro minutos não deu corte nenhum. A resposta mora nos recusados, que
+    até agora só existiam como um número no fim do relatório.
+    """
+    dados, fonte = _folha_da_rodada()
+    if not dados:
+        return jsonify({"ok": True, "tem_rodada": False})
+
+    duracao = _numero((dados.get("fonte") or {}).get("duracao_s"))
+    cortes = dados.get("cortes_renderizados") or []
+
+    entregues = []
+    for i, bruto in enumerate(cortes):
+        inicio, fim, ajustado = _bordas(dados, i + 1)
+        entregues.append({
+            "n": i + 1,
+            "inicio": round(inicio, 2),
+            "fim": round(fim, 2),
+            "ajustado": ajustado,
+            "fala": " ".join(str(bruto.get("texto") or "").split())[:220],
+        })
+
+    diagnostico = (dados.get("selecao") or {}).get("diagnostico") or {}
+    recusados = []
+    for bruto in diagnostico.get("hard_negatives") or []:
+        inicio = _numero(bruto.get("start"))
+        fim = _numero(bruto.get("end"))
+        if fim <= inicio:
+            continue
+        vencedor = bruto.get("winner") if isinstance(bruto.get("winner"), dict) else {}
+        detalhes = bruto.get("details") if isinstance(bruto.get("details"), dict) else {}
+        recusados.append({
+            "inicio": round(inicio, 2),
+            "fim": round(fim, 2),
+            "motivo": _motivo_em_portugues(bruto.get("reason")),
+            "trecho": " ".join(str(bruto.get("text_preview") or "").split())[:160],
+            # Contra QUEM perdeu, e por quanto. Saber que um trecho foi
+            # recusado não resolve nada; saber que ele perdeu para o CORTE 03
+            # por 23 pontos resolve, porque aí ele abre o corte 03 e julga.
+            # A folha guarda o vencedor pelo segundo em que começa — número que
+            # não quer dizer nada para ele —, então aqui vira número de corte.
+            "perdeu_para": _qual_corte(cortes, _numero(vencedor.get("start"), -1)) if vencedor else None,
+            "por_quanto": round(_numero(detalhes.get("score_gap"), 0), 1) if detalhes else 0,
+        })
+
+    adiados = []
+    for bruto in dados.get("candidatos_adiados") or []:
+        inicio = _numero(bruto.get("start_s"))
+        fim = _numero(bruto.get("end_s"))
+        if fim <= inicio:
+            continue
+        adiados.append({
+            "inicio": round(inicio, 2),
+            "fim": round(fim, 2),
+            "motivo": " ".join(str(bruto.get("motivo_adiamento") or "").split())[:160],
+            "trecho": " ".join(str(bruto.get("texto") or "").split())[:160],
+        })
+
+    # Marcar quem morreu DENTRO de um vão. É a discriminação que faz esta tela
+    # valer: um recusado no meio de um trecho que já deu corte é rotina; um
+    # recusado dentro de um buraco de três minutos é a explicação do buraco.
+    faixas_vazias = _vaos(entregues, duracao)
+    for lista in (recusados, adiados):
+        for item in lista:
+            centro = (item["inicio"] + item["fim"]) / 2
+            item["num_vao"] = any(a <= centro <= b for a, b in faixas_vazias)
+
+    vazios = []
+    for inicio, fim in faixas_vazias:
+        # Quantos candidatos morreram dentro deste vão. É a diferença entre
+        # "aqui não tinha nada" e "aqui tinha três coisas e todas caíram".
+        dentro = sum(1 for r in recusados if inicio <= (r["inicio"] + r["fim"]) / 2 <= fim)
+        adiado_aqui = sum(1 for a in adiados if inicio <= (a["inicio"] + a["fim"]) / 2 <= fim)
+        vazios.append({
+            "inicio": round(inicio, 2),
+            "fim": round(fim, 2),
+            "recusados": dentro,
+            "adiados": adiado_aqui,
+        })
+
+    aproveitado = sum(fim - inicio for inicio, fim in _juntar([(c["inicio"], c["fim"]) for c in entregues]))
+    return jsonify({
+        "ok": True,
+        "tem_rodada": True,
+        "fonte": {
+            "nome": str((dados.get("fonte") or {}).get("arquivo") or ""),
+            "segundos": round(duracao, 2),
+            "tem_som": fonte is not None,
+        },
+        "entregues": entregues,
+        "recusados": recusados,
+        "adiados": adiados,
+        "vazios": vazios,
+        "aproveitado": round(aproveitado, 2),
+    })
+
+
 # ── a bancada ───────────────────────────────────────────────────────────────
 
 

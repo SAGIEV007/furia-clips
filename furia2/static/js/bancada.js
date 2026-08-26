@@ -876,6 +876,250 @@
         abrirJanela({ nome: "talho", largura: 880, altura: 480, corpo: montarOTalho(trecho) });
     };
 
+    /* ── o mapa da fonte ────────────────────────────────────────────────────
+
+       A parede responde "quais cortes saíram". Este mapa existe para a outra
+       pergunta, a que nunca teve resposta: POR QUE aquele pedaço de quatro
+       minutos não deu corte nenhum.
+
+       O chão é a onda da fonte inteira — o material, não um desenho sobre o
+       material. Em cima dela, o que virou corte fica aceso. Embaixo, os
+       recusados: até agora eles só existiam como um número no fim do
+       relatório, e é neles que mora a resposta. */
+
+    function montarOMapa(mapa) {
+        const corpo = document.createElement("div");
+        corpo.className = "f2-corpo f2-mapa";
+        corpo.innerHTML = `
+            <div class="f2-mapa-topo">
+                <span class="f2-mapa-fonte" data-fonte></span>
+                <span class="f2-mapa-conta" data-conta></span>
+            </div>
+            <div class="f2-mapa-corpo">
+                <div class="f2-regua-linha" data-regua></div>
+                <div class="f2-mapa-onda" data-caixa><canvas data-onda></canvas></div>
+                <div class="f2-faixa-recusados" data-recusados></div>
+                <div class="f2-faixa-vaos" data-vaos></div>
+            </div>
+            <div class="f2-legenda">
+                <span class="f2-legenda-marca" data-marca></span>
+                <span class="f2-legenda-fala f2-quieta" data-fala></span>
+                <span class="f2-legenda-aviso" data-aviso></span>
+            </div>`;
+
+        const dur = Math.max(1, mapa.fonte.segundos);
+        const emPorCento = (t) => `${Math.min(100, Math.max(0, (t / dur) * 100))}%`;
+
+        const caixa = corpo.querySelector("[data-caixa]");
+        const tela = corpo.querySelector("[data-onda]");
+        const marca = corpo.querySelector("[data-marca]");
+        const fala = corpo.querySelector("[data-fala]");
+        const aviso = corpo.querySelector("[data-aviso]");
+        let picos = null;
+
+        corpo.querySelector("[data-fonte]").textContent = mapa.fonte.nome;
+        const conta = corpo.querySelector("[data-conta]");
+        const parte = Math.round((mapa.aproveitado / dur) * 100);
+        conta.innerHTML = "";
+        const forte = document.createElement("b");
+        forte.textContent = relogioCurto(mapa.aproveitado);
+        // Não é enfeite de relatório: é a única linha da tela que responde
+        // "aproveitei quanto desta entrevista?", que é a conta que ele faz de
+        // cabeça toda vez e sempre erra.
+        conta.append(`${relogioCurto(dur)} de fonte  ·  `, forte, ` viraram corte (${parte}%)`);
+
+        /* ── a régua ──────────────────────────────────────────────────────── */
+
+        const regua = corpo.querySelector("[data-regua]");
+        // O passo acompanha a duração: numa entrevista de meia hora, marcar de
+        // minuto em minuto dá trinta números grudados e ilegíveis.
+        const passo = dur > 1500 ? 300 : dur > 600 ? 120 : 60;
+        for (let t = 0; t <= dur; t += passo) {
+            const m = document.createElement("span");
+            m.className = "f2-marco";
+            if (t === 0) m.classList.add("f2-primeiro");
+            m.style.left = emPorCento(t);
+            m.textContent = relogioCurto(t);
+            regua.appendChild(m);
+        }
+        const fimDaRegua = document.createElement("span");
+        fimDaRegua.className = "f2-marco f2-ultimo";
+        fimDaRegua.style.left = "100%";
+        fimDaRegua.textContent = relogioCurto(dur);
+        regua.appendChild(fimDaRegua);
+
+        /* ── a legenda ────────────────────────────────────────────────────── */
+
+        function emRepouso() {
+            marca.textContent = "";
+            aviso.textContent = "";
+            fala.classList.add("f2-quieta");
+            const partes = [`${mapa.entregues.length} cortes`];
+            if (mapa.vazios.length) partes.push(`${mapa.vazios.length} vãos sem corte`);
+            if (mapa.recusados.length) partes.push(`${mapa.recusados.length} recusados`);
+            if (mapa.adiados.length) partes.push(`${mapa.adiados.length} adiados`);
+            fala.textContent = partes.join("  ·  ");
+        }
+
+        function contar({ de, ate, rotulo, texto, ruim }) {
+            marca.innerHTML = "";
+            const b = document.createElement("b");
+            b.textContent = `${relogioCurto(de)} → ${relogioCurto(ate)}`;
+            marca.append(b, `   ${relogioCurto(ate - de)}`, rotulo ? `   ${rotulo}` : "");
+            fala.classList.toggle("f2-quieta", !texto);
+            fala.textContent = texto || "";
+            aviso.textContent = ruim || "";
+        }
+
+        /* ── os cortes entregues ──────────────────────────────────────────── */
+
+        for (const c of mapa.entregues) {
+            const alvo = document.createElement("button");
+            alvo.type = "button";
+            alvo.className = "f2-mapa-corte";
+            alvo.style.left = emPorCento(c.inicio);
+            alvo.style.width = emPorCento(c.fim - c.inicio);
+            alvo.innerHTML = `<span class="f2-mapa-n">${String(c.n).padStart(2, "0")}</span>`;
+            alvo.setAttribute("aria-label", `corte ${c.n}`);
+            const dizer = () => contar({
+                de: c.inicio, ate: c.fim,
+                rotulo: `corte ${String(c.n).padStart(2, "0")}${c.ajustado ? " · borda sua" : ""}`,
+                texto: c.fala,
+            });
+            alvo.addEventListener("mouseenter", dizer);
+            alvo.addEventListener("focus", dizer);
+            // Clicar no mapa leva ao talho daquele corte. É o caminho curto:
+            // ele vê o buraco, entende que o corte vizinho comeu o trecho, e
+            // abre o vizinho para mexer na borda sem passar pela parede.
+            alvo.addEventListener("click", () => {
+                escolhido = cortesNaParede.find((x) => x.n === c.n) || { n: c.n };
+                MONTADO.talho();
+            });
+            caixa.appendChild(alvo);
+        }
+
+        /* ── os recusados e os adiados ────────────────────────────────────── */
+
+        const faixa = corpo.querySelector("[data-recusados]");
+        function porMarca(item, tipo) {
+            const m = document.createElement("button");
+            m.type = "button";
+            m.className = "f2-recusado";
+            m.dataset.tipo = tipo;
+            // Aceso quando morreu dentro de um buraco: é esse que explica o
+            // buraco. Apagado quando morreu num trecho que já deu corte, que
+            // é rotina e não responde pergunta nenhuma.
+            m.dataset.vao = item.num_vao ? "1" : "0";
+            m.style.left = emPorCento(item.inicio);
+            m.style.width = emPorCento(item.fim - item.inicio);
+            m.setAttribute("aria-label", `${tipo} em ${relogioCurto(item.inicio)}`);
+            const contra = item.perdeu_para
+                ? `perdeu para o corte ${String(item.perdeu_para).padStart(2, "0")}`
+                  + (item.por_quanto ? ` por ${item.por_quanto} pontos` : " por pouco")
+                : "";
+            const dizer = () => contar({
+                de: item.inicio, ate: item.fim,
+                rotulo: tipo === "adiado" ? "adiado" : "recusado",
+                texto: item.trecho,
+                ruim: [item.motivo, contra].filter(Boolean).join("  ·  "),
+            });
+            m.addEventListener("mouseenter", dizer);
+            m.addEventListener("focus", dizer);
+            faixa.appendChild(m);
+        }
+        for (const r of mapa.recusados) porMarca(r, "recusado");
+        for (const a of mapa.adiados) porMarca(a, "adiado");
+
+        /* ── os vãos ──────────────────────────────────────────────────────── */
+
+        const faixaVaos = corpo.querySelector("[data-vaos]");
+        for (const v of mapa.vazios) {
+            const b = document.createElement("button");
+            b.type = "button";
+            b.className = "f2-vao";
+            b.style.left = emPorCento(v.inicio);
+            b.style.width = emPorCento(v.fim - v.inicio);
+            b.textContent = relogioCurto(v.fim - v.inicio);
+            b.setAttribute("aria-label", `vão de ${relogioCurto(v.fim - v.inicio)} sem corte`);
+            // A diferença entre "aqui não tinha nada" e "aqui tinha três
+            // coisas e todas caíram" é a resposta inteira desta tela.
+            const houve = [];
+            if (v.recusados) houve.push(`${v.recusados} recusado${v.recusados > 1 ? "s" : ""}`);
+            if (v.adiados) houve.push(`${v.adiados} adiado${v.adiados > 1 ? "s" : ""}`);
+            const dizer = () => contar({
+                de: v.inicio, ate: v.fim,
+                rotulo: "sem corte",
+                texto: houve.length
+                    ? `${houve.join(" e ")} aqui dentro — passe o mouse nas marcas abaixo`
+                    : "a máquina não propôs nada neste trecho",
+            });
+            b.addEventListener("mouseenter", dizer);
+            b.addEventListener("focus", dizer);
+            faixaVaos.appendChild(b);
+        }
+
+        /* ── a onda ───────────────────────────────────────────────────────── */
+
+        function desenhar() {
+            const largura = caixa.clientWidth;
+            const altura = caixa.clientHeight;
+            if (!largura || !altura) return;
+            const escala = window.devicePixelRatio || 1;
+            tela.width = Math.round(largura * escala);
+            tela.height = Math.round(altura * escala);
+            const ctx = tela.getContext("2d");
+            ctx.setTransform(escala, 0, 0, escala, 0, 0);
+            ctx.clearRect(0, 0, largura, altura);
+            if (!picos) return;
+
+            const raiz = getComputedStyle(document.documentElement);
+            const claro = raiz.getPropertyValue("--f2-folha").trim();
+            const escuro = raiz.getPropertyValue("--f2-c4").trim();
+            const meio = altura / 2;
+            const passoPx = largura / picos.length;
+
+            // Uma marca por fatia dizendo se aquele segundo virou corte. Fazer
+            // essa conta dentro do laço de desenho seria onze comparações por
+            // fatia — nove mil comparações a cada redesenho da janela.
+            const dentro = new Uint8Array(picos.length);
+            for (const c of mapa.entregues) {
+                const de = Math.max(0, Math.floor((c.inicio / dur) * picos.length));
+                const ate = Math.min(picos.length, Math.ceil((c.fim / dur) * picos.length));
+                dentro.fill(1, de, ate);
+            }
+
+            for (let i = 0; i < picos.length; i += 1) {
+                ctx.fillStyle = dentro[i] ? claro : escuro;
+                const h = Math.max(0.5, picos[i] * (altura * 0.46));
+                ctx.fillRect(i * passoPx, meio - h, Math.max(0.8, passoPx - 0.25), h * 2);
+            }
+        }
+
+        (async function buscarAOnda() {
+            if (!mapa.fonte.tem_som) return;
+            const onda = await pedir("/api/mapa/onda?fatias=900");
+            if (onda.ok === false) return;
+            picos = onda.picos;
+            desenhar();
+        })();
+
+        new ResizeObserver(desenhar).observe(caixa);
+        corpo.addEventListener("mouseleave", emRepouso);
+        emRepouso();
+        return corpo;
+    }
+
+    MONTADO.mapa = async function () {
+        const mapa = await pedir("/api/mapa");
+        if (mapa.ok === false || !mapa.tem_rodada) {
+            window.furiaEstado({ texto: "nenhuma rodada para mapear" });
+            SONS.falha();
+            return;
+        }
+        fecharJanela("mapa");
+        abrirJanela({ nome: "mapa", largura: 1080, altura: 312, corpo: montarOMapa(mapa) });
+    };
+
     /* ── a ignição ────────────────────────────────────────────────────────── */
 
     function acender() {
