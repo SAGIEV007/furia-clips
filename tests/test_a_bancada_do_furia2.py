@@ -132,7 +132,15 @@ def test_o_vermelho_nunca_e_decoracao_permanente():
     gravando, ter dado errado. Nunca a moldura.
     """
     folha = sem_comentario(css())
-    estados = (":hover", ":active", "f2-ruim", "f2-trabalhando", "f2-erro")
+    # Cada item desta lista é um ESTADO: alguma coisa que está acontecendo
+    # agora e que passa. `data-conferir="1"` entrou quando a parede nasceu —
+    # é o corte que pede o olho dele antes de ir para o ar, que é a razão de
+    # o vermelho existir. Acrescentar um marcador aqui é uma decisão, não uma
+    # formalidade: só entra o que for estado, nunca o que for enfeite.
+    estados = (
+        ":hover", ":active", "f2-ruim", "f2-trabalhando", "f2-erro",
+        'data-conferir="1"', ":not(:empty)",
+    )
     for bloco in folha.split("}"):
         if "--f2-sangue" not in bloco or "--f2-sangue:" in bloco:
             continue

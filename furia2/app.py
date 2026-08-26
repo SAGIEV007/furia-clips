@@ -11,6 +11,7 @@ dois abertos lado a lado, para comparar.
 """
 
 import json
+import os
 import subprocess
 import sys
 import uuid
@@ -42,6 +43,14 @@ CACHE = Path.home() / "FuriaClipsData" / "furia2" / "quadros"
 # mostrar o quadro de um vídeo que não mora na pasta de trabalho sem abrir a
 # máquina inteira para leitura.
 DE_FORA = {}
+
+# Onde a rodada deixa a folha de decisões. É a mesma pasta que o Furia 1 já
+# usa, e ela fica FORA do repositório de propósito: a folha carrega a
+# transcrição do material, e transcrição de coisa não publicada não entra em
+# pasta versionada.
+DIAGNOSTICOS = Path(
+    os.environ.get("FURIA_CLIPS_DATA_DIR") or (Path.home() / "FuriaClipsData")
+) / "diagnostics"
 
 app = Flask(
     __name__,
@@ -200,6 +209,126 @@ def api_fonte_ler_link():
         return jsonify({"ok": True, "fonte": probe_public_url(str(dados.get("link", "")).strip())})
     except SourceIngestError as erro:
         return jsonify({"ok": False, "erro": str(erro)}), 400
+
+
+# ── a parede: os cortes que saíram ──────────────────────────────────────────
+
+
+def _folha_da_rodada():
+    """A folha de decisões mais recente, e o vídeo de onde ela saiu.
+
+    Devolve `(dados, caminho_da_fonte_ou_None)`. A fonte é procurada pelo nome
+    que a própria folha guarda: quem cortou foi outra máquina — a dele — e o
+    nome do arquivo é a única ponte entre a decisão e a imagem.
+    """
+    if not DIAGNOSTICOS.is_dir():
+        return None, None
+    folhas = sorted(DIAGNOSTICOS.glob("selecao-*.json"), key=lambda p: p.stat().st_mtime, reverse=True)
+    if not folhas:
+        return None, None
+    try:
+        dados = json.loads(folhas[0].read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None, None
+
+    nome = str((dados.get("fonte") or {}).get("arquivo") or "")
+    fonte = None
+    if nome:
+        for achado in Path(WORKSPACE_DIR).rglob(nome):
+            if achado.is_file():
+                fonte = achado
+                break
+    return dados, fonte
+
+
+def _corte_para_a_tela(bruto, numero):
+    """O que a parede precisa de cada corte, e só isso.
+
+    A folha guarda vinte e quatro campos por corte. A parede mostra sete. Os
+    outros são do talho e do painel — mandar tudo para cá seria construir a
+    tentação de encher a tela com número que não muda decisão nenhuma.
+    """
+    inicio = float(bruto.get("start_s") or 0)
+    fim = float(bruto.get("end_s") or 0)
+    return {
+        "n": numero,
+        "inicio": round(inicio, 2),
+        "fim": round(fim, 2),
+        "duracao": round(float(bruto.get("duration_s") or max(0.0, fim - inicio)), 2),
+        # `review_required` é o único campo daqui que acende vermelho, e ele é
+        # a razão de o vermelho existir: é o corte que pede o olho dele antes
+        # de ir para o ar.
+        "conferir": bool(bruto.get("review_required")),
+        "motivos": [str(m) for m in (bruto.get("review_reasons") or [])][:4],
+        "fala": " ".join(str(bruto.get("texto") or "").split()),
+        "origem": str(bruto.get("origem") or ""),
+    }
+
+
+@app.route("/api/cortes/lista")
+def api_cortes_lista():
+    dados, fonte = _folha_da_rodada()
+    if not dados:
+        return jsonify({"ok": True, "tem_rodada": False, "cortes": []})
+
+    cortes = [_corte_para_a_tela(c, i + 1) for i, c in enumerate(dados.get("cortes_renderizados") or [])]
+    diagnostico = (dados.get("selecao") or {}).get("diagnostico") or {}
+    conferir = sum(1 for c in cortes if c["conferir"])
+
+    return jsonify({
+        "ok": True,
+        "tem_rodada": True,
+        "fonte": {
+            "nome": str((dados.get("fonte") or {}).get("arquivo") or ""),
+            "segundos": float((dados.get("fonte") or {}).get("duracao_s") or 0),
+            # Se o vídeo não está nesta máquina a parede continua de pé, só
+            # sem os quadros. A decisão é o que importa; a imagem é conforto.
+            "achada": fonte is not None,
+        },
+        "cortes": cortes,
+        "resumo": {
+            "entregues": len(cortes),
+            "conferir": conferir,
+            "descartados_por_sobreposicao": int(diagnostico.get("fallback_discarded_overlap") or 0),
+            "recusados": int(diagnostico.get("hard_negative_count") or 0),
+        },
+    })
+
+
+@app.route("/api/cortes/quadro")
+def api_cortes_quadro():
+    """O quadro de um corte, arrancado no comecinho dele.
+
+    Dois segundos depois do início, e não no início exato: o primeiro quadro de
+    um corte cai muitas vezes num piscar de olho ou numa troca de câmera, e um
+    mural de gente de olho fechado não ajuda a reconhecer nada.
+    """
+    dados, fonte = _folha_da_rodada()
+    if not dados or fonte is None:
+        abort(404)
+    try:
+        numero = int(request.args.get("n", "0"))
+    except ValueError:
+        abort(404)
+    cortes = dados.get("cortes_renderizados") or []
+    if not 1 <= numero <= len(cortes):
+        abort(404)
+
+    inicio = float(cortes[numero - 1].get("start_s") or 0)
+    CACHE.mkdir(parents=True, exist_ok=True)
+    assinatura = f"{fonte}|{fonte.stat().st_mtime_ns}|corte|{inicio:.2f}"
+    destino = CACHE / (uuid.uuid5(uuid.NAMESPACE_URL, assinatura).hex + ".jpg")
+
+    if not destino.exists():
+        subprocess.run(
+            ["ffmpeg", "-v", "error", "-ss", f"{inicio + 2:.2f}",
+             "-i", str(fonte), "-frames:v", "1", "-vf", "scale=480:-2",
+             "-q:v", "4", "-y", str(destino)],
+            capture_output=True, timeout=60, check=False,
+        )
+    if not destino.exists():
+        abort(404)
+    return send_file(destino, mimetype="image/jpeg", max_age=86400)
 
 
 # ── a bancada ───────────────────────────────────────────────────────────────

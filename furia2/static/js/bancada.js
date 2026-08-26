@@ -405,6 +405,162 @@
         SONS.feito();
     }
 
+    /* ── a parede de cortes ─────────────────────────────────────────────────
+
+       O coração do programa. A mecânica é a do Cipher, inteira: os cortes
+       ficam cinzas no breu, o que está sob o mouse ganha cor, e a informação
+       não mora embaixo de cada quadro — mora numa legenda única no pé da tela
+       que troca conforme o mouse anda.
+
+       Catorze quadros com quatro linhas embaixo de cada um são cinquenta e
+       seis linhas competindo. Catorze quadros e uma linha só é uma coisa para
+       ler por vez. */
+
+    const parede = document.getElementById("parede");
+    let cortesNaParede = [];
+    let escolhido = null;
+
+    function relogioCurto(segundos) {
+        const s = Math.max(0, Math.round(segundos || 0));
+        const h = Math.floor(s / 3600);
+        const m = String(Math.floor((s % 3600) / 60)).padStart(2, "0");
+        const r = String(s % 60).padStart(2, "0");
+        return h ? `${h}:${m}:${r}` : `${m}:${r}`;
+    }
+
+    async function abrirAParede() {
+        const dados = await pedir("/api/cortes/lista");
+        if (dados.ok === false || !dados.tem_rodada) {
+            window.furiaEstado({ texto: "nenhuma rodada ainda" });
+            return false;
+        }
+        pintarAParede(dados);
+        return true;
+    }
+    window.furiaAbrirParede = abrirAParede;
+
+    function porAFala(tela, corte) {
+        const trecho = document.createElement("span");
+        trecho.className = "f2-corte-fala";
+        trecho.textContent = corte.fala || "sem transcrição neste corte";
+        tela.insertBefore(trecho, tela.firstChild);
+    }
+
+    function pintarAParede(dados) {
+        cortesNaParede = dados.cortes || [];
+        document.body.classList.remove("f2-bancada-vazia");
+        parede.textContent = "";
+
+        const mural = document.createElement("div");
+        mural.className = "f2-mural-cortes";
+
+        const legenda = document.createElement("div");
+        legenda.className = "f2-legenda";
+        legenda.innerHTML = `
+            <span class="f2-legenda-marca" data-marca></span>
+            <span class="f2-legenda-fala f2-quieta" data-fala></span>
+            <span class="f2-legenda-aviso" data-aviso></span>`;
+        const marca = legenda.querySelector("[data-marca]");
+        const fala = legenda.querySelector("[data-fala]");
+        const aviso = legenda.querySelector("[data-aviso]");
+
+        const resumo = dados.resumo || {};
+        function emRepouso() {
+            marca.textContent = "";
+            aviso.textContent = "";
+            fala.classList.add("f2-quieta");
+            // Sem mouse em cima, a legenda conta a rodada inteira. É o número
+            // que ele quer ver de longe: quantos saíram e quantos pedem o
+            // olho dele.
+            const partes = [`${resumo.entregues} cortes`];
+            if (resumo.conferir) partes.push(`${resumo.conferir} pedem conferência`);
+            if (resumo.descartados_por_sobreposicao) {
+                partes.push(`${resumo.descartados_por_sobreposicao} descartados por sobreposição`);
+            }
+            if (resumo.recusados) partes.push(`${resumo.recusados} recusados`);
+            if (!dados.fonte?.achada) partes.push("vídeo da fonte não está nesta máquina");
+            fala.textContent = partes.join("  ·  ");
+        }
+
+        function contar(corte) {
+            marca.innerHTML = "";
+            marca.append(
+                `${String(corte.n).padStart(2, "0")}/${String(cortesNaParede.length).padStart(2, "0")}   `,
+            );
+            const b = document.createElement("b");
+            b.textContent = `${relogioCurto(corte.inicio)} → ${relogioCurto(corte.fim)}`;
+            marca.append(b, `   ${relogioCurto(corte.duracao)}`);
+            fala.classList.remove("f2-quieta");
+            fala.textContent = corte.fala || "sem transcrição neste corte";
+            // O motivo vem inteiro, escrito pela máquina em português. Não é
+            // um código para ele decifrar depois.
+            aviso.textContent = corte.conferir ? (corte.motivos[0] || "conferir antes de publicar") : "";
+        }
+
+        /* O traço vermelho na base do quadro só aparece quando ele SEPARA.
+           Nesta rodada os onze cortes pedem conferência, e marcar os onze
+           deixou a parede listrada de vermelho — papel de parede, não aviso.
+           Uma marca que está em tudo não aponta para nada, e queima a única
+           cor que ele lê sem pensar. Quando é a rodada inteira, quem conta é
+           a legenda do pé; quando são alguns, o traço mostra quais. */
+        const marcarUmAUm = resumo.conferir > 0 && resumo.conferir < cortesNaParede.length;
+
+        for (const corte of cortesNaParede) {
+            const quadro = document.createElement("button");
+            quadro.type = "button";
+            quadro.className = "f2-corte";
+            quadro.dataset.conferir = (corte.conferir && marcarUmAUm) ? "1" : "0";
+            quadro.setAttribute("aria-current", "false");
+            quadro.setAttribute(
+                "aria-label",
+                `corte ${corte.n}, de ${relogioCurto(corte.inicio)} a ${relogioCurto(corte.fim)}`,
+            );
+            quadro.innerHTML = `
+                <span class="f2-corte-tela">
+                    <span class="f2-corte-n">${String(corte.n).padStart(2, "0")}</span>
+                    <span class="f2-corte-tempo">${relogioCurto(corte.duracao)}</span>
+                </span>`;
+
+            /* Com o vídeo na máquina, o quadro é a imagem. Sem ele, o quadro
+               é a FALA — serifada, dentro do retângulo. Um mural de
+               retângulos pretos vazios parece um programa quebrado; a mesma
+               parede com o começo de cada fala continua sendo uma parede de
+               cortes que dá para ler. E a fala é dado de verdade: veio da
+               transcrição daquela rodada. */
+            const tela = quadro.querySelector(".f2-corte-tela");
+            if (dados.fonte?.achada) {
+                const foto = new Image();
+                foto.alt = "";
+                foto.src = `/api/cortes/quadro?n=${corte.n}`;
+                foto.onerror = () => { foto.remove(); porAFala(tela, corte); };
+                tela.insertBefore(foto, tela.firstChild);
+            } else {
+                porAFala(tela, corte);
+            }
+
+            quadro.addEventListener("mouseenter", () => contar(corte));
+            quadro.addEventListener("focus", () => contar(corte));
+            quadro.addEventListener("click", () => {
+                escolhido = corte;
+                mural.querySelectorAll(".f2-corte").forEach((c) => c.setAttribute("aria-current", "false"));
+                quadro.setAttribute("aria-current", "true");
+                SONS.tique();
+            });
+            mural.appendChild(quadro);
+        }
+
+        mural.addEventListener("mouseleave", emRepouso);
+        parede.append(mural, legenda);
+        emRepouso();
+
+        // A faixa de cima é estreita e o estado dela tem de caber numa
+        // olhada. O aviso de vídeo ausente é assunto da legenda do pé, que é
+        // onde ele já está olhando.
+        window.furiaEstado({ texto: `${cortesNaParede.length} cortes na parede` });
+    }
+
+    window.furiaCorteEscolhido = () => escolhido;
+
     /* ── a ignição ────────────────────────────────────────────────────────── */
 
     function acender() {
@@ -550,4 +706,17 @@
         try { sessionStorage.setItem("furia2.acesa", "1"); } catch (e) { /* janela anônima */ }
         acender();
     }
+
+    /* ── abrir na última rodada ─────────────────────────────────────────────
+       Se existe uma folha de decisões, a bancada abre já com os cortes dela.
+       O programa fechado ontem à noite reabre hoje no mesmo lugar — não numa
+       tela vazia perguntando o que ele quer fazer, que é uma pergunta que ele
+       já respondeu. */
+    (async function retomar() {
+        const respiro = document.createElement("div");
+        respiro.className = "f2-respiro";
+        parede.appendChild(respiro);
+        const achou = await abrirAParede();
+        if (!achou) respiro.remove();
+    })();
 })();
