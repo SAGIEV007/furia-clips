@@ -478,7 +478,11 @@
                 partes.push(`${resumo.descartados_por_sobreposicao} descartados por sobreposição`);
             }
             if (resumo.recusados) partes.push(`${resumo.recusados} recusados`);
-            if (!dados.fonte?.achada) partes.push("vídeo da fonte não está nesta máquina");
+            if (!dados.fonte?.tem_imagem) {
+                partes.push(dados.fonte?.tem_som
+                    ? "fonte só em áudio nesta máquina"
+                    : "vídeo da fonte não está nesta máquina");
+            }
             fala.textContent = partes.join("  ·  ");
         }
 
@@ -491,7 +495,11 @@
             b.textContent = `${relogioCurto(corte.inicio)} → ${relogioCurto(corte.fim)}`;
             marca.append(b, `   ${relogioCurto(corte.duracao)}`);
             fala.classList.remove("f2-quieta");
-            fala.textContent = corte.fala || "sem transcrição neste corte";
+            // Marcar o que ele mexeu: depois de ajustar seis bordas numa
+            // rodada, "qual eu já mexi?" é a pergunta seguinte, e ela não pode
+            // depender da memória dele.
+            const marcado = corte.ajustado ? "borda sua · " : "";
+            fala.textContent = marcado + (corte.fala || "sem transcrição neste corte");
             // O motivo vem inteiro, escrito pela máquina em português. Não é
             // um código para ele decifrar depois.
             aviso.textContent = corte.conferir ? (corte.motivos[0] || "conferir antes de publicar") : "";
@@ -528,7 +536,7 @@
                cortes que dá para ler. E a fala é dado de verdade: veio da
                transcrição daquela rodada. */
             const tela = quadro.querySelector(".f2-corte-tela");
-            if (dados.fonte?.achada) {
+            if (dados.fonte?.tem_imagem) {
                 const foto = new Image();
                 foto.alt = "";
                 foto.src = `/api/cortes/quadro?n=${corte.n}`;
@@ -560,6 +568,313 @@
     }
 
     window.furiaCorteEscolhido = () => escolhido;
+
+    /* ── o talho ────────────────────────────────────────────────────────────
+
+       A queixa do editor sobre o ajuste do Furia 1, nas palavras dele: "não
+       sabia o que eu estava medindo, não sabia onde era o início que eu queria
+       porque o próprio corte não permitia voltar, e eu sequer sabia se eram
+       segundos". Eram dois campos de número em segundos absolutos da fonte.
+
+       Som se edita olhando para o som. Aqui o número é consequência do
+       arrasto, e a janela mostra de propósito um pedaço de FORA do corte —
+       porque para escolher onde entrar é preciso ouvir a frase anterior. */
+
+    function relogioFino(s) {
+        const t = Math.max(0, s || 0);
+        const m = String(Math.floor(t / 60)).padStart(2, "0");
+        const r = (t % 60).toFixed(1).padStart(4, "0");
+        return `${m}:${r}`;
+    }
+
+    function montarOTalho(trecho) {
+        const corpo = document.createElement("div");
+        corpo.className = "f2-corpo f2-talho";
+        corpo.innerHTML = `
+            <div class="f2-talho-topo">
+                <span data-quem></span>
+                <span data-bordas></span>
+                <span class="f2-talho-mudou" data-mudou></span>
+            </div>
+            <div class="f2-onda">
+                <canvas data-onda></canvas>
+                <div class="f2-onda-fora" data-veu-esq></div>
+                <div class="f2-onda-fora" data-veu-dir></div>
+                <div class="f2-agulha" data-agulha></div>
+                <div class="f2-alca" data-alca="inicio"></div>
+                <div class="f2-alca" data-alca="fim"></div>
+            </div>
+            <div class="f2-frases" data-frases></div>
+            <div class="f2-talho-pe">
+                <button class="f2-tecla" data-ouvir="entrada" type="button">ouvir a entrada</button>
+                <button class="f2-tecla" data-ouvir="saida" type="button">ouvir a saída</button>
+                <button class="f2-tecla" data-voltar type="button">voltar ao proposto</button>
+                <button class="f2-tecla" data-guardar type="button">guardar</button>
+                <span class="f2-recado" data-recado></span>
+            </div>`;
+
+        const caixa = corpo.querySelector(".f2-onda");
+        const tela = corpo.querySelector("[data-onda]");
+        const veuEsq = corpo.querySelector("[data-veu-esq]");
+        const veuDir = corpo.querySelector("[data-veu-dir]");
+        const agulha = corpo.querySelector("[data-agulha]");
+        const alcas = {
+            inicio: corpo.querySelector('[data-alca="inicio"]'),
+            fim: corpo.querySelector('[data-alca="fim"]'),
+        };
+        const oQuem = corpo.querySelector("[data-quem]");
+        const asBordas = corpo.querySelector("[data-bordas]");
+        const oMudou = corpo.querySelector("[data-mudou]");
+        const asFrases = corpo.querySelector("[data-frases]");
+        const oRecado = corpo.querySelector("[data-recado]");
+
+        const janela = trecho.janela;
+        const vao = Math.max(0.001, janela.fim - janela.inicio);
+        let inicio = trecho.inicio;
+        let fim = trecho.fim;
+        let picos = null;
+
+        const emFracao = (t) => (t - janela.inicio) / vao;
+        const emTempo = (f) => janela.inicio + Math.min(1, Math.max(0, f)) * vao;
+
+        function dizer(texto, ruim) {
+            oRecado.textContent = texto;
+            oRecado.classList.toggle("f2-ruim", !!ruim);
+            if (ruim) SONS.falha();
+            window.clearTimeout(dizer.relogio);
+            dizer.relogio = window.setTimeout(() => { oRecado.textContent = ""; }, 6000);
+        }
+
+        /* ── o desenho ────────────────────────────────────────────────────── */
+
+        function desenhar() {
+            const largura = caixa.clientWidth;
+            const altura = caixa.clientHeight;
+            if (!largura || !altura) return;
+            // A tela de desenho segue a densidade do monitor. Sem isto, num
+            // notebook com escala de 125% a onda sai borrada — e onda borrada
+            // é exatamente a que não deixa ver onde a frase começa.
+            const escala = window.devicePixelRatio || 1;
+            tela.width = Math.round(largura * escala);
+            tela.height = Math.round(altura * escala);
+            const ctx = tela.getContext("2d");
+            ctx.setTransform(escala, 0, 0, escala, 0, 0);
+            ctx.clearRect(0, 0, largura, altura);
+
+            if (!picos) {
+                ctx.fillStyle = getComputedStyle(document.documentElement)
+                    .getPropertyValue("--f2-c4").trim();
+                ctx.font = "10px monospace";
+                ctx.fillText("lendo o som…", 12, altura / 2);
+                return;
+            }
+
+            const raiz = getComputedStyle(document.documentElement);
+            const meio = altura / 2;
+            const passo = largura / picos.length;
+            for (let i = 0; i < picos.length; i += 1) {
+                const x = i * passo;
+                const t = janela.inicio + (i / picos.length) * vao;
+                const dentro = t >= inicio && t <= fim;
+                ctx.fillStyle = raiz.getPropertyValue(dentro ? "--f2-folha" : "--f2-c4").trim();
+                // Meio pixel de piso: uma fatia muda tem de continuar sendo uma
+                // linha, senão o silêncio vira buraco e o desenho parece
+                // quebrado no meio de uma pausa.
+                const h = Math.max(0.5, picos[i] * (altura * 0.46));
+                ctx.fillRect(x, meio - h, Math.max(1, passo - 0.4), h * 2);
+            }
+        }
+
+        function pintarBordas() {
+            const a = Math.min(1, Math.max(0, emFracao(inicio)));
+            const b = Math.min(1, Math.max(0, emFracao(fim)));
+            alcas.inicio.style.left = `${a * 100}%`;
+            alcas.fim.style.left = `${b * 100}%`;
+            veuEsq.style.left = "0";
+            veuEsq.style.width = `${a * 100}%`;
+            veuDir.style.left = `${b * 100}%`;
+            veuDir.style.width = `${(1 - b) * 100}%`;
+
+            asBordas.innerHTML = "";
+            const forte = document.createElement("b");
+            forte.textContent = `${relogioFino(inicio)} → ${relogioFino(fim)}`;
+            // A duração no mesmo relógio das bordas. Ele pensa em minuto e
+            // segundo, não em "143.1s".
+            asBordas.append(forte, `   ${relogioFino(fim - inicio)}`);
+
+            const mexeu = Math.abs(inicio - trecho.proposto.inicio) > 0.05
+                || Math.abs(fim - trecho.proposto.fim) > 0.05;
+            oMudou.textContent = mexeu
+                ? `${(inicio - trecho.proposto.inicio >= 0 ? "+" : "")}${(inicio - trecho.proposto.inicio).toFixed(1)}s na entrada`
+                  + `   ${(fim - trecho.proposto.fim >= 0 ? "+" : "")}${(fim - trecho.proposto.fim).toFixed(1)}s na saída`
+                : "";
+            desenhar();
+            pintarFrases();
+        }
+
+        /* ── as frases ────────────────────────────────────────────────────── */
+
+        let dentroAntes = new Set();
+        function pintarFrases() {
+            const agora = new Set();
+            asFrases.querySelectorAll(".f2-frase").forEach((no, i) => {
+                const f = trecho.frases[i];
+                // Uma frase conta como dentro quando o miolo dela está dentro.
+                // Pelo começo, uma frase que o corte pega pela metade apareceria
+                // inteira; pelo fim, sumiria inteira. O miolo é o que decide se
+                // aquela fala vai ao ar de forma inteligível.
+                const centro = (f.t + f.fim) / 2;
+                const dentro = centro >= inicio && centro <= fim;
+                no.classList.toggle("f2-dentro", dentro);
+                if (dentro) agora.add(i);
+                if (dentro !== dentroAntes.has(i)) {
+                    no.classList.add("f2-virou");
+                    window.setTimeout(() => no.classList.remove("f2-virou"), 420);
+                }
+            });
+            dentroAntes = agora;
+        }
+
+        for (const f of trecho.frases) {
+            const linha = document.createElement("span");
+            linha.className = "f2-frase";
+            const hora = document.createElement("span");
+            hora.className = "f2-frase-hora";
+            hora.textContent = relogioFino(f.t).slice(0, 5);
+            linha.append(hora, document.createTextNode(f.texto));
+            asFrases.appendChild(linha);
+        }
+
+        /* ── arrastar ─────────────────────────────────────────────────────── */
+
+        for (const [qual, alca] of Object.entries(alcas)) {
+            alca.addEventListener("mousedown", (evento) => {
+                evento.preventDefault();
+                evento.stopPropagation();
+                alca.classList.add("f2-pegando");
+                const caixaOnda = caixa.getBoundingClientRect();
+
+                function mover(e) {
+                    const t = emTempo((e.clientX - caixaOnda.left) / caixaOnda.width);
+                    // Um segundo de folga entre as alças: elas nunca se cruzam,
+                    // e um corte de zero segundo não é um corte.
+                    if (qual === "inicio") inicio = Math.min(t, fim - 1);
+                    else fim = Math.max(t, inicio + 1);
+                    pintarBordas();
+                }
+                function largar() {
+                    alca.classList.remove("f2-pegando");
+                    window.removeEventListener("mousemove", mover);
+                    window.removeEventListener("mouseup", largar);
+                    SONS.tique();
+                }
+                window.addEventListener("mousemove", mover);
+                window.addEventListener("mouseup", largar);
+            });
+        }
+
+        /* ── ouvir ────────────────────────────────────────────────────────── */
+
+        let som = null;
+        let pararEm = 0;
+        function ouvir(de, ate) {
+            if (!trecho.tem_som) { dizer("o som da fonte não está nesta máquina", true); return; }
+            if (!som) {
+                som = new Audio(`/api/talho/som?t=${Date.now()}`);
+                som.addEventListener("timeupdate", () => {
+                    agulha.style.left = `${Math.min(100, Math.max(0, emFracao(som.currentTime) * 100))}%`;
+                    if (som.currentTime >= pararEm) { som.pause(); agulha.classList.remove("f2-tocando"); }
+                });
+                som.addEventListener("error", () => dizer("não deu para tocar o som da fonte", true));
+            }
+            pararEm = ate;
+            som.currentTime = Math.max(0, de);
+            agulha.classList.add("f2-tocando");
+            som.play().catch(() => dizer("o navegador recusou tocar; clique de novo", true));
+        }
+
+        corpo.querySelector('[data-ouvir="entrada"]').addEventListener("click", () => {
+            // Três segundos antes e quatro depois: é o gesto que ele repete
+            // cem vezes por dia — a frase anterior morrendo e a nova nascendo.
+            ouvir(inicio - 3, inicio + 4);
+        });
+        corpo.querySelector('[data-ouvir="saida"]').addEventListener("click", () => {
+            ouvir(fim - 4, fim + 3);
+        });
+
+        corpo.querySelector("[data-voltar]").addEventListener("click", () => {
+            inicio = trecho.proposto.inicio;
+            fim = trecho.proposto.fim;
+            pintarBordas();
+            dizer("de volta ao que a máquina propôs");
+        });
+
+        corpo.querySelector("[data-guardar]").addEventListener("click", async (evento) => {
+            const tecla = evento.currentTarget;
+            tecla.disabled = true;
+            const resposta = await pedir("/api/talho/guardar", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ n: trecho.n, inicio, fim }),
+            });
+            tecla.disabled = false;
+            if (resposta.ok === false) { dizer(resposta.erro, true); return; }
+
+            /* Quem manda no que apareceu na tela é o que VOLTOU do disco, não o
+               que eu mandei. O defeito mais caro do Furia 1 foi um ajuste que
+               respondia 200 e guardava o valor velho, e ninguém percebeu por
+               duas versões porque a tela nunca conferiu. */
+            inicio = resposta.inicio;
+            fim = resposta.fim;
+            trecho.proposto_guardado = true;
+            pintarBordas();
+            SONS.feito();
+            dizer(`guardado: ${relogioFino(inicio)} → ${relogioFino(fim)}`);
+            abrirAParede();
+        });
+
+        /* ── a onda chega ─────────────────────────────────────────────────── */
+
+        oQuem.textContent = `corte ${String(trecho.n).padStart(2, "0")} de ${trecho.de}`;
+        pintarBordas();
+
+        (async function buscarAOnda() {
+            if (!trecho.tem_som) { picos = []; desenhar(); dizer("o som da fonte não está nesta máquina"); return; }
+            const onda = await pedir(
+                `/api/talho/onda?n=${trecho.n}&inicio=${janela.inicio}&fim=${janela.fim}`,
+            );
+            if (onda.ok === false) { picos = []; desenhar(); dizer(onda.erro, true); return; }
+            picos = onda.picos;
+            desenhar();
+            if (onda.mudo) dizer("este trecho está mudo");
+        })();
+
+        // A janela pode ser arrastada e o navegador redimensionado; a onda é
+        // desenhada em pixels e precisa ser refeita nos dois casos.
+        new ResizeObserver(() => { pintarBordas(); }).observe(caixa);
+
+        return corpo;
+    }
+
+    MONTADO.talho = async function () {
+        const corte = escolhido || cortesNaParede[0];
+        if (!corte) {
+            window.furiaEstado({ texto: "escolha um corte na parede primeiro" });
+            SONS.falha();
+            return;
+        }
+        const trecho = await pedir(`/api/talho/trecho?n=${corte.n}`);
+        if (trecho.ok === false) {
+            window.furiaEstado({ texto: "não deu para abrir o talho" });
+            SONS.falha();
+            return;
+        }
+        // Fechar e reabrir: o talho é sempre do corte escolhido AGORA, e uma
+        // janela velha aberta de outro corte é a receita da confusão que fez
+        // o editor gravar o ajuste no corte errado.
+        fecharJanela("talho");
+        abrirJanela({ nome: "talho", largura: 880, altura: 480, corpo: montarOTalho(trecho) });
+    };
 
     /* ── a ignição ────────────────────────────────────────────────────────── */
 

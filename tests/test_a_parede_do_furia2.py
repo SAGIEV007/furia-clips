@@ -133,8 +133,8 @@ def test_a_folha_estragada_nao_derruba_a_bancada(montado):
     assert corpo["tem_rodada"] is False
 
 
-def test_a_parede_recebe_sete_campos_e_nao_vinte_e_quatro(montado):
-    """A folha guarda vinte e quatro campos por corte; a parede mostra sete.
+def test_a_parede_recebe_nove_campos_e_nao_vinte_e_quatro(montado):
+    """A folha guarda vinte e quatro campos por corte; a parede mostra nove.
 
     Os outros são do talho e do painel. Mandar tudo para a tela seria construir
     a tentação de encher a parede com número que não muda decisão nenhuma —
@@ -143,7 +143,8 @@ def test_a_parede_recebe_sete_campos_e_nao_vinte_e_quatro(montado):
     furia2, pasta = montado
     gravar(pasta, folha([corte(1, 10, 40)]))
     c = furia2.app.test_client().get("/api/cortes/lista").get_json()["cortes"][0]
-    assert set(c) == {"n", "inicio", "fim", "duracao", "conferir", "motivos", "fala", "origem"}
+    assert set(c) == {"n", "inicio", "fim", "duracao", "conferir", "motivos",
+                      "fala", "origem", "ajustado"}
     for pesado in ("transcricao", "score_breakdown", "fronteiras", "bloco_chub"):
         assert pesado not in c
 
@@ -172,7 +173,8 @@ def test_a_parede_fica_de_pe_sem_o_video_da_fonte(montado):
     gravar(pasta, folha([corte(1, 10, 40)], fonte="um video que nao existe.mp4"))
     corpo = furia2.app.test_client().get("/api/cortes/lista").get_json()
     assert corpo["tem_rodada"] is True
-    assert corpo["fonte"]["achada"] is False
+    assert corpo["fonte"]["tem_som"] is False
+    assert corpo["fonte"]["tem_imagem"] is False
     assert len(corpo["cortes"]) == 1
 
 

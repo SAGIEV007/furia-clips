@@ -860,3 +860,138 @@ body.f2-bancada-vazia .f2-objeto[data-objeto="fonte"] svg {
 }
 .f2-corte:hover .f2-corte-fala,
 .f2-corte:focus-visible .f2-corte-fala { color: var(--f2-folha); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   O TALHO — o ajuste fino da borda
+
+   A queixa do editor sobre o ajuste do Furia 1, nas palavras dele: "não sabia
+   o que eu estava medindo, não sabia onde era o início que eu queria porque o
+   próprio corte não permitia voltar, e eu sequer sabia se eram segundos".
+
+   Eram dois campos de número em segundos absolutos da fonte. Nada disso se
+   conserta com um rótulo melhor no campo: som se edita OLHANDO para o som.
+   Aqui o número é consequência do arrasto, não o controle. E a janela mostra
+   de propósito um pedaço de FORA do corte, porque a queixa central era não
+   conseguir voltar: para escolher onde entrar é preciso ouvir a frase
+   anterior.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.f2-talho { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+
+.f2-talho-topo {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--f2-c3);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.06em;
+    color: var(--f2-c5);
+}
+.f2-talho-topo b { color: var(--f2-folha); font-weight: inherit; }
+.f2-talho-topo .f2-talho-mudou { color: var(--f2-fosforo); }
+
+/* ── a onda ─────────────────────────────────────────────────────────────── */
+
+.f2-onda {
+    position: relative;
+    height: 132px;
+    margin: 12px;
+    border: 1px solid var(--f2-c3);
+    background: var(--f2-c1);
+    cursor: crosshair;
+}
+.f2-onda canvas { display: block; width: 100%; height: 100%; }
+
+/* O que está FORA do corte fica sob um véu. É como o olho separa, sem
+   precisar de legenda, o que vai ao ar do que é só contexto para ouvir. */
+.f2-onda-fora {
+    position: absolute;
+    top: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.62);
+    pointer-events: none;
+}
+
+/* A alça. Estreita no desenho e larga no toque: a linha tem 1 px porque
+   precisa ser precisa, e a área de pegar tem 15 porque o mouse não é. */
+.f2-alca {
+    position: absolute;
+    top: -1px; bottom: -1px;
+    width: 15px;
+    margin-left: -7px;
+    cursor: ew-resize;
+}
+.f2-alca::before {
+    content: "";
+    position: absolute;
+    left: 7px; top: 0; bottom: 0;
+    width: 1px;
+    background: var(--f2-folha);
+}
+.f2-alca::after {
+    content: "";
+    position: absolute;
+    left: 4px;
+    top: 50%;
+    width: 7px; height: 22px;
+    margin-top: -11px;
+    background: var(--f2-folha);
+    border-radius: 1px;
+}
+.f2-alca:hover::after, .f2-alca.f2-pegando::after { background: var(--f2-fosforo); }
+.f2-alca:hover::before, .f2-alca.f2-pegando::before { background: var(--f2-fosforo); }
+
+/* O cabeçote de leitura, enquanto toca. */
+.f2-agulha {
+    position: absolute;
+    top: 0; bottom: 0;
+    width: 1px;
+    background: var(--f2-fosforo);
+    pointer-events: none;
+    display: none;
+}
+.f2-agulha.f2-tocando { display: block; }
+
+/* ── as frases ────────────────────────────────────────────────────────────
+   A pergunta do ofício ao arrastar uma borda é sempre a mesma: qual frase eu
+   estou ganhando e qual eu estou perdendo. Aqui ela se responde sozinha —
+   a frase acende quando entra no corte e apaga quando sai. */
+
+.f2-frases {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    /* O véu de baixo: sem ele a última linha visível fica serrada contra a
+       barra dos botões e parece defeito de desenho. */
+    mask-image: linear-gradient(to bottom, #000 calc(100% - 18px), transparent 100%);
+    padding: 2px 12px 12px;
+    font-family: var(--f2-fala);
+    font-size: 13.5px;
+    line-height: 1.5;
+}
+.f2-frase {
+    display: block;
+    color: var(--f2-c4);
+    transition: color 0.2s var(--f2-passo);
+}
+.f2-frase.f2-dentro { color: var(--f2-folha); }
+/* A frase que acabou de entrar ou sair pelo arrasto: um instante em fósforo,
+   porque foi a máquina — o arrasto dele — que mudou o conteúdo do corte. */
+.f2-frase.f2-virou { color: var(--f2-fosforo); }
+.f2-frase-hora {
+    font-family: var(--f2-mono);
+    font-size: 10px;
+    font-variant-numeric: tabular-nums;
+    color: var(--f2-c3);
+    margin-right: 7px;
+}
+
+.f2-talho-pe {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 12px;
+    border-top: 1px solid var(--f2-c3);
+}
+.f2-talho-pe .f2-recado { margin-left: auto; }

@@ -75,6 +75,26 @@ def _segundos(caminho):
         return 0.0
 
 
+def _tem_imagem(caminho):
+    """O arquivo tem trilha de vídeo?
+
+    Achar a fonte não é o mesmo que ter imagem. Quando ele guardou só o áudio
+    de uma entrevista antiga, o talho e o mapa funcionam inteiros e o mural
+    não tem quadro nenhum — e pedir onze quadros de um mp3 dá onze erros no
+    registro por nada, que é exatamente o tipo de linha falsa que faz procurar
+    defeito onde não tem.
+    """
+    try:
+        saida = subprocess.run(
+            ["ffprobe", "-v", "error", "-select_streams", "v:0",
+             "-show_entries", "stream=codec_type", "-of", "csv=p=0", str(caminho)],
+            capture_output=True, text=True, timeout=20, check=False,
+        )
+        return "video" in (saida.stdout or "")
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
 def _ficha(caminho, chave):
     tamanho = caminho.stat().st_size if caminho.exists() else 0
     return {
@@ -238,23 +258,41 @@ def _folha_da_rodada():
             if achado.is_file():
                 fonte = achado
                 break
+        if fonte is None:
+            # O mesmo nome com outra extensão serve. O talho e o mapa só
+            # precisam do SOM: a onda, os tempos e a escuta saem do áudio. É
+            # comum ele guardar só o áudio de uma entrevista antiga — vídeo de
+            # meia hora ocupa disco, áudio de meia hora não — e nesse caso o
+            # ajuste fino continua funcionando inteiro, só sem os quadros.
+            haste = Path(nome).stem
+            for achado in Path(WORKSPACE_DIR).rglob(f"{haste}.*"):
+                if achado.is_file():
+                    fonte = achado
+                    break
     return dados, fonte
 
 
-def _corte_para_a_tela(bruto, numero):
+def _corte_para_a_tela(bruto, numero, inicio, fim, ajustado):
     """O que a parede precisa de cada corte, e só isso.
 
-    A folha guarda vinte e quatro campos por corte. A parede mostra sete. Os
+    A folha guarda vinte e quatro campos por corte. A parede mostra nove. Os
     outros são do talho e do painel — mandar tudo para cá seria construir a
     tentação de encher a tela com número que não muda decisão nenhuma.
+
+    `inicio` e `fim` chegam de fora, já resolvidos: se ele mexeu na borda no
+    talho, é a borda DELE que a parede mostra. A parede lendo direto da folha
+    foi o defeito mais caro do Furia 1 — o ajuste gravado que a tela continuava
+    ignorando.
     """
-    inicio = float(bruto.get("start_s") or 0)
-    fim = float(bruto.get("end_s") or 0)
     return {
         "n": numero,
         "inicio": round(inicio, 2),
         "fim": round(fim, 2),
-        "duracao": round(float(bruto.get("duration_s") or max(0.0, fim - inicio)), 2),
+        # A duração é a CONTA, nunca o campo `duration_s` da folha. Lendo o
+        # campo, um corte ajustado saía na parede com a borda nova e a duração
+        # velha — dois números na mesma linha discordando um do outro, que é
+        # a forma mais barata de fazer alguém desconfiar do programa inteiro.
+        "duracao": round(max(0.0, fim - inicio), 2),
         # `review_required` é o único campo daqui que acende vermelho, e ele é
         # a razão de o vermelho existir: é o corte que pede o olho dele antes
         # de ir para o ar.
@@ -262,6 +300,7 @@ def _corte_para_a_tela(bruto, numero):
         "motivos": [str(m) for m in (bruto.get("review_reasons") or [])][:4],
         "fala": " ".join(str(bruto.get("texto") or "").split()),
         "origem": str(bruto.get("origem") or ""),
+        "ajustado": bool(ajustado),
     }
 
 
@@ -271,7 +310,10 @@ def api_cortes_lista():
     if not dados:
         return jsonify({"ok": True, "tem_rodada": False, "cortes": []})
 
-    cortes = [_corte_para_a_tela(c, i + 1) for i, c in enumerate(dados.get("cortes_renderizados") or [])]
+    cortes = []
+    for i, c in enumerate(dados.get("cortes_renderizados") or []):
+        inicio, fim, ajustado = _bordas(dados, i + 1)
+        cortes.append(_corte_para_a_tela(c, i + 1, inicio, fim, ajustado))
     diagnostico = (dados.get("selecao") or {}).get("diagnostico") or {}
     conferir = sum(1 for c in cortes if c["conferir"])
 
@@ -281,9 +323,11 @@ def api_cortes_lista():
         "fonte": {
             "nome": str((dados.get("fonte") or {}).get("arquivo") or ""),
             "segundos": float((dados.get("fonte") or {}).get("duracao_s") or 0),
-            # Se o vídeo não está nesta máquina a parede continua de pé, só
-            # sem os quadros. A decisão é o que importa; a imagem é conforto.
-            "achada": fonte is not None,
+            # Duas coisas diferentes, e a parede precisa das duas separadas:
+            # sem som não há onda nem escuta no talho; sem imagem não há
+            # quadro no mural. A decisão é o que importa — a imagem é conforto.
+            "tem_som": fonte is not None,
+            "tem_imagem": fonte is not None and _tem_imagem(fonte),
         },
         "cortes": cortes,
         "resumo": {
@@ -314,7 +358,10 @@ def api_cortes_quadro():
     if not 1 <= numero <= len(cortes):
         abort(404)
 
-    inicio = float(cortes[numero - 1].get("start_s") or 0)
+    # A borda dele, não a da máquina: mexeu no começo, o quadro do mural muda
+    # junto. Um mural que continua mostrando o quadro velho depois do ajuste é
+    # a mesma falha calada de sempre, só que em imagem.
+    inicio, _fim, _ = _bordas(dados, numero)
     CACHE.mkdir(parents=True, exist_ok=True)
     assinatura = f"{fonte}|{fonte.stat().st_mtime_ns}|corte|{inicio:.2f}"
     destino = CACHE / (uuid.uuid5(uuid.NAMESPACE_URL, assinatura).hex + ".jpg")
@@ -329,6 +376,193 @@ def api_cortes_quadro():
     if not destino.exists():
         abort(404)
     return send_file(destino, mimetype="image/jpeg", max_age=86400)
+
+
+# ── o talho: o ajuste fino da borda ─────────────────────────────────────────
+
+# Onde ficam as bordas que ELE decidiu, por cima do que a máquina decidiu.
+# Arquivo simples e legível, ao lado da folha: a decisão dele é a mais cara do
+# programa inteiro e não pode morar só na memória de uma aba aberta.
+AJUSTES = Path.home() / "FuriaClipsData" / "furia2" / "ajustes.json"
+
+# Quanto de fora do corte a onda mostra. A queixa original dele sobre o ajuste
+# do Furia 1 foi não conseguir VOLTAR: para escolher onde entrar é preciso
+# ouvir a frase anterior. A margem é metade da duração do corte, entre 8 e 45
+# segundos — num corte de 30 s isso dá 15 s de cada lado; num de 3 min, 45.
+MARGEM_MIN, MARGEM_MAX = 8.0, 45.0
+
+
+def _ler_ajustes():
+    try:
+        return json.loads(AJUSTES.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+def _gravar_ajuste(chave, numero, inicio, fim):
+    tudo = _ler_ajustes()
+    tudo.setdefault(chave, {})[str(numero)] = {"inicio": round(inicio, 3), "fim": round(fim, 3)}
+    AJUSTES.parent.mkdir(parents=True, exist_ok=True)
+    AJUSTES.write_text(json.dumps(tudo, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _chave_da_folha(dados):
+    return f"{(dados.get('job_id') or '')}|{(dados.get('fonte') or {}).get('arquivo') or ''}"
+
+
+def _bordas(dados, numero):
+    """As bordas valendo agora: as dele se existirem, as da máquina se não.
+
+    A ordem importa e é a correção do defeito mais caro do Furia 1 — o ajuste
+    gravado que o programa continuava ignorando, devolvendo 200 e mostrando o
+    corte velho. Todo lugar que precisa de uma borda passa por aqui.
+    """
+    cortes = dados.get("cortes_renderizados") or []
+    bruto = cortes[numero - 1]
+    inicio = float(bruto.get("start_s") or 0)
+    fim = float(bruto.get("end_s") or 0)
+    dele = _ler_ajustes().get(_chave_da_folha(dados), {}).get(str(numero))
+    if dele:
+        return float(dele["inicio"]), float(dele["fim"]), True
+    return inicio, fim, False
+
+
+def _corte_pedido(dados):
+    try:
+        numero = int(request.args.get("n", "0"))
+    except ValueError:
+        abort(404)
+    if not 1 <= numero <= len(dados.get("cortes_renderizados") or []):
+        abort(404)
+    return numero
+
+
+@app.route("/api/talho/trecho")
+def api_talho_trecho():
+    """Tudo que o talho precisa de um corte, numa chamada só."""
+    dados, fonte = _folha_da_rodada()
+    if not dados:
+        abort(404)
+    numero = _corte_pedido(dados)
+    bruto = (dados.get("cortes_renderizados") or [])[numero - 1]
+    inicio, fim, ajustado = _bordas(dados, numero)
+
+    margem = min(MARGEM_MAX, max(MARGEM_MIN, (fim - inicio) / 2))
+    duracao_fonte = float((dados.get("fonte") or {}).get("duracao_s") or 0)
+    janela_ini = max(0.0, inicio - margem)
+    janela_fim = (min(duracao_fonte, fim + margem) if duracao_fonte else fim + margem)
+
+    return jsonify({
+        "ok": True,
+        "n": numero,
+        "de": len(dados.get("cortes_renderizados") or []),
+        "inicio": round(inicio, 3),
+        "fim": round(fim, 3),
+        # O que a máquina propôs, sempre junto: ele precisa poder comparar com
+        # a proposta e voltar para ela sem refazer a conta de cabeça.
+        "proposto": {"inicio": round(float(bruto.get("start_s") or 0), 3),
+                     "fim": round(float(bruto.get("end_s") or 0), 3)},
+        "ajustado": ajustado,
+        "janela": {"inicio": round(janela_ini, 3), "fim": round(janela_fim, 3)},
+        "tem_som": fonte is not None,
+        # As frases com hora. É com elas que ele vê, ao arrastar, qual frase
+        # está ganhando e qual está perdendo — que é a pergunta do ofício.
+        "frases": [
+            {"t": round(float(f.get("t") or 0), 2),
+             "fim": round(float(f.get("fim") or 0), 2),
+             "texto": str(f.get("texto") or "")}
+            for f in (bruto.get("transcricao") or [])
+        ],
+    })
+
+
+@app.route("/api/talho/onda")
+def api_talho_onda():
+    """A forma do som na janela pedida.
+
+    Vem inteira do Furia 1, onde já funciona: energia média em vez de pico
+    (com milhares de amostras por fatia o pico satura e desenha um bloco
+    retangular, inútil para achar onde a frase começa), e raiz de novo para
+    levantar o que é baixo, porque fala normal ocupa uma faixa estreita perto
+    do chão.
+    """
+    import numpy as np
+
+    from modules.speaker_id import read_pcm
+
+    dados, fonte = _folha_da_rodada()
+    if not dados or fonte is None:
+        abort(404)
+    try:
+        inicio = max(0.0, float(request.args.get("inicio", 0)))
+        fim = float(request.args.get("fim", 0))
+        fatias = max(60, min(1200, int(request.args.get("fatias", 520))))
+    except (TypeError, ValueError):
+        return jsonify({"ok": False, "erro": "intervalo inválido"}), 400
+    if fim <= inicio or fim - inicio > 1800:
+        return jsonify({"ok": False, "erro": "intervalo inválido"}), 400
+
+    try:
+        amostras = read_pcm(str(fonte), inicio, fim)
+    except (OSError, ValueError, subprocess.SubprocessError) as erro:
+        return jsonify({"ok": False, "erro": f"não deu para ler o áudio: {str(erro)[:120]}"}), 500
+    if amostras.size == 0:
+        return jsonify({"ok": True, "inicio": inicio, "fim": fim, "picos": [0.0] * fatias, "mudo": True})
+
+    largura = max(1, amostras.size // fatias)
+    aparadas = amostras[: largura * fatias].reshape(fatias, largura)
+    picos = np.sqrt((aparadas.astype(np.float64) ** 2).mean(axis=1))
+    picos = np.sqrt(picos)
+    teto = float(picos.max()) or 1.0
+    return jsonify({
+        "ok": True,
+        "inicio": inicio,
+        "fim": fim,
+        "picos": [round(float(v) / teto, 4) for v in picos],
+        "mudo": teto < 0.005,
+    })
+
+
+@app.route("/api/talho/som")
+def api_talho_som():
+    """A fonte inteira, para o navegador tocar e procurar dentro dela.
+
+    `conditional=True` liga a resposta por faixa: sem isso o navegador baixaria
+    meia hora de mídia para ouvir três segundos de borda.
+    """
+    _, fonte = _folha_da_rodada()
+    if fonte is None:
+        abort(404)
+    return send_file(fonte, conditional=True, max_age=3600)
+
+
+@app.route("/api/talho/guardar", methods=["POST"])
+def api_talho_guardar():
+    """Grava a borda que ELE decidiu — e devolve o que ficou gravado.
+
+    Devolver os valores relidos do disco não é formalidade: o defeito mais caro
+    do Furia 1 foi um ajuste que respondia 200 e guardava o valor velho, e
+    ninguém percebeu por duas versões porque a tela nunca conferiu. Aqui quem
+    responde é o arquivo, não a intenção.
+    """
+    dados, _ = _folha_da_rodada()
+    if not dados:
+        abort(404)
+    corpo = request.get_json(silent=True) or {}
+    try:
+        numero = int(corpo.get("n", 0))
+        inicio = float(corpo.get("inicio"))
+        fim = float(corpo.get("fim"))
+    except (TypeError, ValueError):
+        return jsonify({"ok": False, "erro": "valores inválidos"}), 400
+    if not 1 <= numero <= len(dados.get("cortes_renderizados") or []):
+        return jsonify({"ok": False, "erro": "corte inexistente"}), 404
+    if fim - inicio < 1.0:
+        return jsonify({"ok": False, "erro": "o corte ficaria com menos de um segundo"}), 400
+
+    _gravar_ajuste(_chave_da_folha(dados), numero, inicio, fim)
+    gravado_inicio, gravado_fim, _ = _bordas(dados, numero)
+    return jsonify({"ok": True, "inicio": gravado_inicio, "fim": gravado_fim})
 
 
 # ── a bancada ───────────────────────────────────────────────────────────────
