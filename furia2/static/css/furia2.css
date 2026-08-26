@@ -50,6 +50,23 @@
        Consolas vem em todo Windows; Cascadia Mono vem no 11. */
     --f2-mono: "Cascadia Mono", Consolas, "DejaVu Sans Mono", ui-monospace, monospace;
 
+    /* A segunda voz, e a única. Mono é a MÁQUINA falando: rótulo, número,
+       tempo, estado. Serifada é a PESSOA falando: o texto que saiu da boca do
+       entrevistado dentro de um corte.
+
+       Não é enfeite tipográfico — é a mesma lei da cor aplicada à letra. Ele
+       lê centenas de trechos de fala por dia, e fala em monoespaçada é fala
+       com cara de log de sistema. Georgia está em todo Windows desde sempre,
+       então continua abrindo sem internet. */
+    --f2-fala: Georgia, "Times New Roman", serif;
+
+    /* A curva do Cipher. O movimento sai rápido e chega devagar, como coisa
+       com peso parando. É o que separa "animação de aplicativo" de "matéria
+       assentando" — e custa uma linha. A DURAÇÃO dele, de um segundo e meio,
+       não vem: num portfólio a lentidão é luxo, aqui ele está caçando um corte
+       entre catorze e um segundo e meio de espera por quadro é tortura. */
+    --f2-passo: cubic-bezier(0.22, 0.61, 0.36, 1);
+
     --f2-faixa: 40px;
     --f2-doca: 90px;
 
@@ -545,7 +562,7 @@ body.f2-bancada-vazia .f2-objeto[data-objeto="fonte"] svg {
     /* Cinza em repouso. Não é filtro por estética: é o que faz a fonte sob o
        mouse ser a ÚNICA coisa colorida da tela, que é a lei da cor. */
     filter: grayscale(1) brightness(0.5) contrast(1.05);
-    transition: filter 0.18s;
+    transition: filter 0.28s var(--f2-passo);
 }
 .f2-quadro:hover .f2-quadro-tela img,
 .f2-quadro:focus-visible .f2-quadro-tela img { filter: none; }
