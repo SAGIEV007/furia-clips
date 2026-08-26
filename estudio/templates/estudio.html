@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Furia Studio — mesa de edição local</title>
+    <meta name="description" content="Mesa local para encontrar, revisar e exportar clips verticais.">
+    <!-- O ícone da aba vai escrito aqui dentro, não como arquivo: sem ele o
+         navegador pede um /favicon.ico que não existe e anota um erro a cada
+         abertura. Erro falso é caro — é o tipo de linha que faz procurar
+         defeito onde não tem. -->
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23f6d5d5'/%3E%3Crect x='3' y='3' width='10' height='10' fill='%23f5ce47' stroke='%23111' stroke-width='1'/%3E%3Ccircle cx='8' cy='8' r='2.4' fill='%23fa6a60'/%3E%3C/svg%3E">
+    <link rel="stylesheet" href="/estudio/app.css">
+</head>
+<body>
+    <div class="paper-noise" aria-hidden="true"></div>
+
+    <div class="boot-screen" id="bootScreen" aria-hidden="true">
+        <div class="boot-window">
+            <div class="window-bar"><span>FURIA STUDIO / STARTUP</span><span class="window-buttons"><i></i><i></i><i></i></span></div>
+            <div class="boot-body">
+                <img class="boot-art" src="/estudio/assets/studio-boot-art.jpg" alt="Ilustração retrô de uma janela de edição e uma televisão">
+                <div class="boot-copy"><strong>FURIA STUDIO</strong><span>local editing desk</span><small id="bootCaption">abrindo a mesa…</small></div>
+                <div class="boot-progress"><i id="bootProgress"></i></div>
+                <button class="boot-skip" id="bootSkip">Pular introdução <b>Enter</b></button>
+            </div>
+        </div>
+    </div>
+
+    <div class="desktop-shell">
+        <header class="system-bar">
+            <a class="system-brand" href="#overview" data-screen-link="overview" aria-label="Voltar à Mesa"><span class="brand-sun"><i></i><i></i><i></i></span><strong>FURIA STUDIO</strong><small>LOCAL / WINDOWS</small></a>
+            <div class="system-center"><span class="system-light"></span><span id="topContext">Mesa</span><b>/</b><span id="topSubcontext">Seu material de hoje</span></div>
+            <!-- O console fica aqui em cima, ao lado de importar, porque é o que
+                 ele olha ENQUANTO a máquina trabalha: precisa estar do lado do
+                 botão que começa o trabalho, não escondido num menu. A luz pisca
+                 sozinha quando tem coisa acontecendo. -->
+            <div class="system-actions"><button class="system-button" id="btnQuickImport" title="Importar vídeo">IMPORTAR <b>⌘O</b></button><button class="system-button" id="btnConsole" title="Console do motor">CONSOLE <b id="consoleLight">·</b></button><button class="system-icon" id="btnTopSettings" title="Ajustes">⌘</button><span class="system-clock" id="systemClock">PARADO</span></div>
+        </header>
+
+        <main class="desktop-workspace">
+            <section class="screen is-visible" id="screen-overview" data-screen="overview">
+                <div class="desk-topline"><span class="tiny-label">FURIA STUDIO / DESK 01</span><span class="desk-date">WED 26 AUG 2026 <b>LOCAL</b></span></div>
+                <div class="desk-stage">
+                    <div class="stage-sticker sticker-sun" aria-hidden="true"></div>
+                    <div class="stage-sticker sticker-tape" aria-hidden="true"></div>
+                    <div class="stage-note"><span>today's edit</span><strong>bring a good<br>moment home.</strong><i></i></div>
+
+                    <section class="window source-window floating-window">
+                        <div class="window-bar"><span>01 / SOURCE DESK</span><span class="window-buttons"><i></i><i></i></span></div>
+                        <div class="source-empty"><div class="source-art" aria-hidden="true"><img src="/estudio/assets/studio-object-sheet.jpg" alt=""></div><div class="source-copy"><span class="tiny-label">LOCAL FILE / VIDEO</span><h1>Traga uma fonte<br><em>para a mesa.</em></h1><p>O vídeo fica no seu workspace.<br>Nada sai desta máquina.</p><button class="button button-coral" id="btnHeroImport">Importar vídeo <span>↗</span></button></div></div>
+                        <div class="source-strip"><span>MP4 · MOV · MKV · WEBM</span><span>PROCESSAMENTO LOCAL</span><span>⌘ O</span></div>
+                    </section>
+
+                    <section class="window signal-window floating-window">
+                        <div class="window-bar"><span>02 / SIGNAL BOARD</span><span class="window-buttons"><i></i><i></i></span></div>
+                        <div class="signal-board" id="signalStage" aria-label="Quadro visual de projetos">
+                            <div class="signal-grid"></div><div class="signal-ring signal-ring-one"></div><div class="signal-ring signal-ring-two"></div><div class="signal-center"><span></span><i></i></div><div class="signal-nodes" id="signalNodes"></div>
+                            <div class="signal-readout signal-readout-top"><span>LOCAL BOARD</span><b id="signalNodeCount">0 SOURCES</b></div><div class="signal-readout signal-readout-bottom"><span>OPEN A SOURCE</span><b>CLICK A TILE</b></div>
+                        </div>
+                    </section>
+
+                    <section class="window queue-window floating-window">
+                        <div class="window-bar"><span>03 / WORK QUEUE</span><span class="window-status">LOCAL</span></div>
+                        <div class="queue-content"><div class="queue-line"><b>01</b><span>Importar</span><small>uma fonte longa</small><i>→</i></div><div class="queue-line"><b>02</b><span>Entender</span><small>transcrição e ritmo</small><i>→</i></div><div class="queue-line"><b>03</b><span>Encontrar</span><small>cortes explicáveis</small><i>→</i></div><div class="queue-line"><b>04</b><span>Revisar</span><small>aprovar e exportar</small><i>✓</i></div></div>
+                    </section>
+                </div>
+
+                <div class="studio-strip" id="overviewMetrics"><span class="strip-label">WORKSPACE / ATTENTION</span><button data-screen-link="projects"><b id="metricProjects">0</b><span>fontes</span></button><button data-screen-link="shortlist"><b id="metricReview">0</b><span>cortes para rever</span></button><button data-screen-link="review"><b id="metricApproved">0</b><span>aprovados</span></button><button data-screen-link="projects"><b id="metricExported">0</b><span>cortes no total</span></button><button class="strip-library" data-screen-link="projects">Abrir Biblioteca ↗</button></div>
+                <div class="recent-window window"><div class="window-bar"><span>04 / CONTACT SHEET</span><button class="window-bar-link" data-screen-link="projects">VER TODAS ↗</button></div><div id="recentProjects" class="recent-list"><div class="empty-state compact"><span class="empty-symbol">+</span><div><strong>Nenhuma fonte ainda.</strong><p>Importe um vídeo para começar a montar sua mesa.</p></div></div></div></div>
+            </section>
+
+            <section class="screen" id="screen-projects" data-screen="projects">
+                <div class="screen-heading library-heading"><div><span class="tiny-label">LOCAL FILE ROOM</span><h1>Biblioteca</h1><p>Suas fontes, organizadas como uma mesa de trabalho.</p></div><button class="button button-coral" id="btnProjectsImport">+ Nova fonte</button></div>
+                <div class="library-window window"><div class="window-bar"><span>LOCAL SOURCES</span><div class="window-bar-actions"><div class="filter-pills" id="projectFilters"><button class="filter-pill is-active" data-filter="all">Todas</button><button class="filter-pill" data-filter="processing">Em análise</button><button class="filter-pill" data-filter="ready_review">Revisão</button><button class="filter-pill" data-filter="empty">Sem fonte</button></div><button class="sort-button" id="btnSortProjects">Recentes ↓</button></div></div><div id="projectsGrid" class="projects-grid"><div class="empty-state"><span class="empty-symbol">+</span><h3>Sua primeira fonte começa aqui.</h3><p>Importe um vídeo para abrir um projeto local.</p></div></div></div>
+            </section>
+
+            <section class="screen" id="screen-project" data-screen="project">
+                <div class="project-crumb"><button class="link-button" data-screen-link="projects">← Biblioteca</button><div class="project-state" id="projectState">PRONTO</div></div>
+                <div class="screen-heading project-heading"><div><span class="tiny-label" id="projectKicker">PROJECT / SOURCE</span><h1 id="projectTitle">Projeto</h1><p id="projectMeta">Fonte aguardando importação</p></div><button class="button button-coral" id="btnProjectAnalyze" data-action="analyze">Analisar fonte <span>→</span></button></div>
+                <!-- "Blocos" entra aqui e não numa tela sua: bloco é sobre ESTA
+                     fonte — o que já foi cortado dela e o que ainda está inteiro.
+                     Uma tela separada obrigaria a escolher a fonte duas vezes. -->
+                <div class="project-tabs"><button class="project-tab is-active" data-project-tab="analyze">Entender</button><button class="project-tab" data-project-tab="shortlist">Cortes <em id="projectTabCount">0</em></button><button class="project-tab" data-project-tab="review">Revisão</button><button class="project-tab" data-project-tab="blocos">Blocos</button></div>
+                <div class="project-body" id="projectBody"></div>
+            </section>
+
+            <section class="screen" id="screen-shortlist" data-screen="shortlist">
+                <div class="screen-heading"><div><span class="tiny-label">CUTS / CURATION</span><h1>Cortes</h1><p>Momentos que já têm forma de clip.</p></div><div class="screen-side-note"><span>LOCAL RANKING</span><b>Não decide sozinho.</b></div></div>
+                <div class="cuts-layout"><div class="cuts-window window"><div class="window-bar"><span>SHORTLIST / <b id="shortlistCount">0 momentos</b></span><select id="shortlistSort" aria-label="Ordenar cortes"><option value="score">Maior oportunidade</option><option value="duration">Mais longos</option><option value="status">Estado</option></select></div><div id="shortlistGrid" class="shortlist-grid"><div class="empty-state"><span class="empty-symbol">✦</span><h3>Os cortes aparecem depois da análise.</h3><p>Abra um projeto e acenda o mapa local.</p></div></div></div><aside class="notes-window window"><div class="window-bar"><span>READ THE SIGNAL</span><span class="window-status">WHY</span></div><div class="notes-art" aria-hidden="true"></div><h2>O score é uma pista.</h2><p>Gancho, continuidade, energia e duração ajudam a ordenar. A decisão final continua sendo sua.</p><div class="signal-legend"><div><i class="legend-coral"></i><span>Hook</span><b>atenção inicial</b></div><div><i class="legend-cyan"></i><span>Clareza</span><b>ideia completa</b></div><div><i class="legend-sun"></i><span>Ritmo</span><b>fala contínua</b></div></div><div id="shortlistChubContext"></div></aside></div>
+            </section>
+
+            <section class="screen" id="screen-review" data-screen="review">
+                <div class="screen-heading"><div><span class="tiny-label">REVIEW / DECISION DESK</span><h1>Revisão</h1><p>Uma janela para decidir com contexto e cortar.</p></div><div class="review-progress"><span id="reviewProgressText">0 de 0 revisados</span><div><i id="reviewProgressBar"></i></div></div></div>
+                <div id="reviewWorkspace" class="review-workspace"><div class="empty-state"><span class="empty-symbol">◉</span><h3>Escolha um momento nos Cortes.</h3><p>O vídeo, o transcript e a decisão aparecem juntos aqui.</p></div></div>
+            </section>
+
+            <!-- ══ O PAINEL ═════════════════════════════════════════════════
+                 Tudo aqui é medição de FORA: desempenho de post publicado e
+                 bloco que uma pessoa revisou. Nenhum número deste painel é
+                 produzido pelo próprio Furia — um número que a ferramenta gera
+                 sobre o que a ferramenta fez não mede nada.
+                 ═══════════════════════════════════════════════════════════ -->
+            <section class="screen" id="screen-painel" data-screen="painel">
+                <div class="screen-heading"><div><span class="tiny-label">CAMPAIGN HUB / MEDIDO FORA</span><h1>Painel</h1><p>O que já foi publicado rendeu — não o que este programa achou.</p></div><div class="painel-picker"><select id="painelConta" aria-label="Conta"></select><select id="painelPlataforma" aria-label="Plataforma"><option value="instagram">Instagram</option><option value="facebook">Facebook</option><option value="tiktok">TikTok</option><option value="x">X</option></select></div></div>
+                <div id="painelCorpo" class="painel-corpo"><div class="empty-state"><span class="empty-symbol">◒</span><h3>Lendo o espelho do CHUB…</h3></div></div>
+            </section>
+
+            <!-- ══ OS AJUSTES ══════════════════════════════════════════════
+                 Ele não abre arquivo de configuração e não digita comando. Tudo
+                 que a máquina precisa saber tem que ter um campo aqui.
+                 ═══════════════════════════════════════════════════════════ -->
+            <section class="screen" id="screen-settings" data-screen="settings">
+                <div class="screen-heading"><div><span class="tiny-label">LOCAL / MÁQUINA</span><h1>Ajustes</h1><p>O que a máquina precisa saber para trabalhar do seu jeito.</p></div><button class="button button-coral" id="btnSaveSettings">Guardar <span>→</span></button></div>
+                <div id="settingsBody" class="settings-body"><div class="empty-state"><span class="empty-symbol">⌘</span><h3>Lendo os ajustes…</h3></div></div>
+            </section>
+        </main>
+
+        <nav class="dock" aria-label="Ferramentas do Studio"><button class="dock-item is-active" data-screen-link="overview"><span class="dock-icon dock-sun">◒</span><b>Mesa</b></button><button class="dock-item" data-screen-link="projects"><span class="dock-icon">▱</span><b>Biblioteca</b><em id="navProjectCount">0</em></button><button class="dock-item" data-screen-link="shortlist"><span class="dock-icon">✦</span><b>Cortes</b><em id="navReviewCount">0</em></button><button class="dock-item" data-screen-link="review"><span class="dock-icon">◉</span><b>Revisão</b></button><button class="dock-item" data-screen-link="painel"><span class="dock-icon">▤</span><b>Painel</b></button><button class="dock-item dock-settings" data-screen-link="settings"><span class="dock-icon">⌘</span><b>Ajustes</b></button></nav>
+    </div>
+
+    <input type="file" id="videoInput" accept="video/mp4,video/quicktime,video/x-matroska,video/webm,video/x-m4v" hidden>
+    <input type="file" id="transcriptInput" accept=".srt,.vtt,.txt,.json" hidden>
+    <input type="file" id="chubInput" accept="application/json,.json" hidden>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <!-- Trazer a fonte tem dois caminhos, e o primeiro é a janela do Windows:
+         o vídeo já está nesta máquina, então copiar de pasta para pasta é muito
+         mais rápido que mandar dois gigabytes pelo navegador e receber de
+         volta. Arrastar continua valendo para quando o arquivo veio de fora.
+
+         E ele é copiado PARA DENTRO da pasta de trabalho, sempre. Apontar para
+         o arquivo dá o caminho, não a permissão — o motor só lê o que está
+         dentro da pasta dele, e era exatamente isso que fazia "moer" falhar
+         sem dizer por quê. -->
+    <div class="modal-backdrop" id="importModal" hidden><div class="import-modal window" role="dialog" aria-modal="true" aria-labelledby="importTitle"><div class="window-bar"><span>NOVA FONTE</span><button class="modal-close" id="btnCloseImport" aria-label="Fechar">×</button></div><div class="import-body"><span class="tiny-label">FONTE / SÓ NESTA MÁQUINA</span><h2 id="importTitle">Traga uma fonte<br><em>para a mesa.</em></h2><p>O vídeo é copiado para a pasta de trabalho. Nada sai deste computador.</p><button class="button button-coral import-pick" id="btnPickNative">Procurar no computador <span>↗</span></button><label class="drop-zone" id="dropZone" for="videoInput"><span class="drop-orb">+</span><strong>ou arraste o vídeo aqui</strong><small>para arquivo que veio de fora</small><b>MP4 · MOV · MKV · WEBM</b></label><div class="import-footer"><span id="importFileName">Nenhum arquivo escolhido</span><button class="button" id="btnConfirmImport" disabled>Enviar pelo navegador <span>→</span></button></div><div class="import-progress" id="importProgress" hidden><i></i><span>copiando…</span></div></div></div></div>
+
+    <!-- ══ O CONSOLE ══════════════════════════════════════════════════════
+         O que a máquina está dizendo, ao vivo, na ordem em que ela diz. É a
+         peça que ele mais usa quando alguma coisa dá errado, porque é a única
+         que responde "o que está acontecendo agora" sem ele ter que abrir
+         pasta nenhuma. Nasce fechado e fica onde ele deixar.
+         ═══════════════════════════════════════════════════════════════════ -->
+    <div class="console-shell window" id="consoleShell" hidden>
+        <div class="window-bar console-bar"><span>MOTOR / CONSOLE</span><span class="console-bar-tools"><button type="button" id="btnConsoleCopy" title="Copiar tudo">COPIAR</button><button type="button" id="btnConsoleClear" title="Limpar a tela">LIMPAR</button><button type="button" id="btnConsoleClose" aria-label="Fechar">×</button></span></div>
+        <div class="console-lines" id="consoleLines" role="log" aria-live="polite" aria-label="Mensagens do motor"><p class="console-idle">A máquina está parada. Quando você mandar moer uma fonte, cada passo aparece aqui.</p></div>
+        <div class="console-foot"><label class="console-follow"><input type="checkbox" id="consoleFollow" checked><span>seguir o fim</span></label><button class="console-stop" id="btnCancelWork" hidden>Parar o trabalho</button><span id="consoleCount">0 linhas</span></div>
+    </div>
+
+    <!-- O canal por onde o motor conta o que está fazendo. Vem do próprio
+         programa, nunca da internet: a máquina dele trabalha desligada. -->
+    <script src="/static/vendor/socket.io.min.js"></script>
+    <script src="/estudio/app.js"></script>
+</body>
+</html>

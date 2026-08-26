@@ -221,7 +221,7 @@ def test_o_cartao_aparece_a_cada_corte_entregue():
         pagina = navegador.new_page(viewport={"width": 1366, "height": 768})
         erros = []
         pagina.on("pageerror", lambda e: erros.append(str(e)))
-        pagina.goto(f"http://127.0.0.1:{PORTA}/", wait_until="load")
+        pagina.goto(f"http://127.0.0.1:{PORTA}/classico", wait_until="load")
         time.sleep(1.2)
         pagina.evaluate("() => { state.clips = []; state.sourceDuration = %s; }" % FONTE_S)
 

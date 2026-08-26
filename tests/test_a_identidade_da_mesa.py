@@ -166,7 +166,7 @@ def test_a_mesa_esta_desenhada_na_tela():
         pagina = navegador.new_page(viewport={"width": 1366, "height": 768})
         erros = []
         pagina.on("pageerror", lambda e: erros.append(str(e)))
-        pagina.goto(f"http://127.0.0.1:{porta}/", wait_until="load")
+        pagina.goto(f"http://127.0.0.1:{porta}/classico", wait_until="load")
         time.sleep(1.8)
         visto = pagina.evaluate(
             """() => {

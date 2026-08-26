@@ -93,7 +93,9 @@ def servidor():
     alvo = lambda: aplicacao.app.run(port=PORTA, threaded=True, use_reloader=False)  # noqa: E731
     threading.Thread(target=alvo, daemon=True).start()
     time.sleep(2.5)
-    return f"http://127.0.0.1:{PORTA}/"
+    # A porta da frente agora é o estúdio; a interface que estes testes
+    # medem mora em /classico e continua inteira lá.
+    return f"http://127.0.0.1:{PORTA}/classico"
 
 
 @pytest.fixture(scope="module")

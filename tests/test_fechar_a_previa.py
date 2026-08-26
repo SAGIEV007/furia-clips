@@ -74,7 +74,7 @@ def pagina():
         aba = navegador.new_page(viewport={"width": 1366, "height": 768})
         erros = []
         aba.on("pageerror", lambda e: erros.append(str(e)))
-        aba.goto(f"http://127.0.0.1:{PORTA}/", wait_until="load")
+        aba.goto(f"http://127.0.0.1:{PORTA}/classico", wait_until="load")
         time.sleep(1.2)
         aba.erros = erros
         yield aba

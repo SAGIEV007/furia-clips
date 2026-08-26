@@ -115,7 +115,7 @@ def test_o_resumo_traz_a_borda_de_cada_corte_e_cabe_numa_mensagem():
         pagina = contexto.new_page()
         erros = []
         pagina.on("pageerror", lambda e: erros.append(str(e)))
-        pagina.goto(f"http://127.0.0.1:{porta}/", wait_until="load")
+        pagina.goto(f"http://127.0.0.1:{porta}/classico", wait_until="load")
         time.sleep(1.2)
         pagina.evaluate(
             """([cortes, descartados]) => {
@@ -170,7 +170,7 @@ def test_sem_corte_nenhum_o_resumo_avisa_em_vez_de_copiar_vazio():
     with playwright_api.sync_playwright() as p:
         navegador = p.chromium.launch(executable_path=_chromium())
         pagina = navegador.new_page(viewport={"width": 1366, "height": 768})
-        pagina.goto(f"http://127.0.0.1:{porta}/", wait_until="load")
+        pagina.goto(f"http://127.0.0.1:{porta}/classico", wait_until="load")
         time.sleep(1.2)
         pagina.evaluate("() => { state.clips = []; document.getElementById('btnGaveta').click(); }")
         time.sleep(0.3)

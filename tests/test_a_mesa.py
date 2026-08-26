@@ -96,7 +96,7 @@ def pagina_do_editor():
         pagina = navegador.new_page(viewport={"width": 1366, "height": 768})
         erros = []
         pagina.on("pageerror", lambda e: erros.append(str(e)))
-        pagina.goto(f"http://127.0.0.1:{PORTA}/", wait_until="load")
+        pagina.goto(f"http://127.0.0.1:{PORTA}/classico", wait_until="load")
         time.sleep(1.2)
         pagina.evaluate(
             """([cortes, descartados, duracao]) => {

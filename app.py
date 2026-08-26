@@ -168,22 +168,29 @@ _ALLOWED_CORS = [
 ]
 socketio = SocketIO(app, cors_allowed_origins=_ALLOWED_CORS, async_mode="threading")
 
-# ─── A bancada ───
+# ─── As frentes ───
 #
-# A interface nova entra aqui, como Blueprint, dentro do MESMO programa. Não é
-# um segundo servidor numa segunda porta: é a mesma máquina com outra frente.
+# As interfaces entram aqui, como Blueprints, dentro do MESMO programa. Não são
+# servidores separados em portas separadas: é a mesma máquina com outras
+# frentes. Transcrição, Gemini, CHUB, blocos, corte e render continuam
+# exatamente onde estavam, e toda frente fala com eles pelas mesmas rotas que a
+# interface antiga sempre usou.
 #
-# É o que faz a decisão do conceito — "sobrevive o motor e as três peças de
-# interface que já funcionavam; o resto da interface morre" — não significar
-# "o resto para de funcionar". Transcrição, Gemini, CHUB, blocos, corte e
-# render continuam exatamente onde estavam, e a bancada fala com eles pelas
-# mesmas rotas que a interface antiga sempre usou.
+#     /           o estúdio — a interface dele, a porta de entrada
+#     /2          a bancada
+#     /classico   a interface antiga, de pé e sem link para ela em lugar nenhum
 #
-#     /     a interface antiga, intacta
-#     /2    a bancada
+# A antiga sai da porta da frente porque ele foi claro sobre o que acontecia
+# quando ela reaparecia no meio do caminho: "quando fui em ajustes e ajustes
+# completos simplesmente abriu o furia antigo, PORQUE????". Um botão que
+# devolve para o lugar de onde ele pediu para sair é o programa admitindo que
+# não dá conta. Ela continua servida para não perder nada que ainda só existe
+# lá, mas ninguém é levado até ela.
+from estudio.app import estudio as _frente_estudio
 from furia2.app import bancada as _bancada_furia2
 
 app.register_blueprint(_bancada_furia2)
+app.register_blueprint(_frente_estudio)
 
 
 def _load_program_version():
@@ -2604,8 +2611,13 @@ def api_editorial_restore():
 
 # ─── Page Routes ───
 
-@app.route("/")
+@app.route("/classico")
 def index():
+    """A interface antiga. Continua inteira, e ninguém é mandado para cá.
+
+    A porta da frente agora é o estúdio. Esta rota existe para não perder o que
+    ainda só mora aqui — não para ser um caminho de volta.
+    """
     return render_template("index.html")
 
 
@@ -5326,10 +5338,29 @@ def api_process_complete():
         finally:
             _remove_temporary_processing_media(temporary_interval_path)
             _set_legacy_task("", active=False)
-    if current_task["active"]:
-        return jsonify({"error": "Ja existe um processamento em andamento"}), 409
+    # O processo completo era o único que não se registrava como tarefa ativa,
+    # e a própria função já contava com isso: o `finally` acima desliga um
+    # sinalizador que ninguém tinha ligado. Três consequências, todas caras:
+    #
+    #   · `emit_progress` correlaciona cada linha ao job por `current_task`.
+    #     Sem o vínculo, NENHUMA das linhas do processo completo virava
+    #     histórico — e o processo completo é justamente o que demora meia
+    #     hora. Recarregar a página no meio apagava a rodada inteira da vista.
+    #   · a trava de "já tem coisa rodando" nunca fechava aqui, então dois
+    #     processos completos podiam começar juntos e gravar cortes por cima
+    #     um do outro.
+    #   · o `finally` desligava o sinalizador de OUTRA operação que estivesse
+    #     rodando.
+    #
+    # A rota de corte já fazia certo, dentro da trava e com o id do job. Esta
+    # ficou para trás; agora faz igual.
+    with processing_lock:
+        if current_task["active"]:
+            return _busy_response()
+        _set_legacy_task("process_complete", active=True)
+        job = job_manager.submit("process_complete", task)
+        current_task["job_id"] = job["id"]
 
-    job = job_manager.submit("process_complete", task)
     return jsonify({
         "success": True,
         "message": "Processo completo iniciado",
