@@ -139,6 +139,272 @@
         });
     });
 
+    /* ── as janelas ─────────────────────────────────────────────────────────
+       Poolsuite: o que se abre é janela de verdade — arrasta, empilha, fecha.
+       O motivo não é nostalgia: num notebook de 1366×768 painel fixo é largura
+       perdida o dia inteiro, e janela é largura emprestada pelo tempo do uso. */
+
+    let alturaDaPilha = 200;
+    const abertas = {};
+
+    function abrirJanela({ nome, largura, altura, corpo }) {
+        if (abertas[nome]) { trazerParaFrente(abertas[nome]); return abertas[nome]; }
+
+        const janela = document.createElement("section");
+        janela.className = "f2-janela";
+        janela.dataset.janela = nome;
+        janela.style.width = `${largura}px`;
+        janela.style.height = `${altura}px`;
+        // Centrada na primeira vez, e presa dentro da tela: uma janela que
+        // nasce metade fora é uma janela que ele arrasta antes de usar.
+        janela.style.left = `${Math.max(8, Math.round((window.innerWidth - largura) / 2))}px`;
+        janela.style.top = `${Math.max(48, Math.round((window.innerHeight - altura) / 2))}px`;
+        janela.innerHTML = `
+            <header class="f2-titulo">
+                <button class="f2-fechar" type="button" title="Fechar">&times;</button>
+                <span class="f2-nome-janela">${nome}</span>
+            </header>`;
+        // O corpo vem pronto de quem chamou e entra direto: embrulhá-lo numa
+        // caixa a mais daria duas rolagens aninhadas na mesma janela.
+        janela.appendChild(corpo);
+        document.body.appendChild(janela);
+
+        janela.querySelector(".f2-fechar").addEventListener("click", () => fecharJanela(nome));
+        janela.addEventListener("mousedown", () => trazerParaFrente(janela));
+        arrastar(janela, janela.querySelector(".f2-titulo"));
+
+        abertas[nome] = janela;
+        marcarDoca(nome, true);
+        trazerParaFrente(janela);
+        SONS.tique();
+        return janela;
+    }
+
+    function fecharJanela(nome) {
+        abertas[nome]?.remove();
+        delete abertas[nome];
+        marcarDoca(nome, false);
+    }
+
+    function marcarDoca(nome, aberta) {
+        document.querySelector(`.f2-objeto[data-objeto="${nome}"]`)
+            ?.setAttribute("aria-pressed", aberta ? "true" : "false");
+    }
+
+    function trazerParaFrente(janela) {
+        document.querySelectorAll(".f2-janela").forEach((j) => j.classList.remove("f2-frente"));
+        janela.classList.add("f2-frente");
+        alturaDaPilha += 1;
+        janela.style.zIndex = String(alturaDaPilha);
+    }
+
+    function arrastar(janela, puxador) {
+        puxador.addEventListener("mousedown", (evento) => {
+            if (evento.target.closest(".f2-fechar")) return;
+            const caixa = janela.getBoundingClientRect();
+            const dx = evento.clientX - caixa.left;
+            const dy = evento.clientY - caixa.top;
+
+            function mover(e) {
+                // Presa na tela com uma folga: nunca some inteira, e o título
+                // nunca vai parar embaixo da faixa de cima.
+                const x = Math.min(window.innerWidth - 60, Math.max(60 - caixa.width, e.clientX - dx));
+                const y = Math.min(window.innerHeight - 40, Math.max(41, e.clientY - dy));
+                janela.style.left = `${Math.round(x)}px`;
+                janela.style.top = `${Math.round(y)}px`;
+            }
+            function largar() {
+                window.removeEventListener("mousemove", mover);
+                window.removeEventListener("mouseup", largar);
+            }
+            window.addEventListener("mousemove", mover);
+            window.addEventListener("mouseup", largar);
+            evento.preventDefault();
+        });
+    }
+
+    /* ── a janela da fonte ──────────────────────────────────────────────────
+
+       Três formas de trazer material, na ordem em que ele usa: o que já está
+       na máquina (quase sempre), um arquivo de outra pasta, e um link.
+
+       A escolha é por FOTO, não por nome. Nome de arquivo baixado do YouTube
+       tem cento e vinte caracteres e trinta deles começam igual; um quadro do
+       vídeo ele reconhece em meio segundo. É a regra do Cipher fazendo
+       trabalho: o mural fica cinza e só o que está sob o mouse ganha cor. */
+
+    function tempoCurto(segundos) {
+        const s = Math.round(segundos || 0);
+        if (!s) return "--:--";
+        const h = Math.floor(s / 3600);
+        const m = String(Math.floor((s % 3600) / 60)).padStart(2, "0");
+        const r = String(s % 60).padStart(2, "0");
+        return h ? `${h}:${m}:${r}` : `${m}:${r}`;
+    }
+
+    function horasDe(fontes) {
+        const total = fontes.reduce((soma, f) => soma + (f.segundos || 0), 0);
+        return total >= 3600
+            ? `${(total / 3600).toFixed(1)} h de material`
+            : `${Math.round(total / 60)} min de material`;
+    }
+
+    async function pedir(caminho, opcoes) {
+        const resposta = await fetch(caminho, opcoes);
+        const corpo = await resposta.json().catch(() => ({}));
+        // Um erro do servidor NUNCA pode virar silêncio aqui: quem chama
+        // sempre recebe alguma coisa com `ok` dentro para poder falar na tela.
+        if (!resposta.ok) return { ok: false, erro: corpo.erro || `falhou (${resposta.status})` };
+        return corpo;
+    }
+
+    function montarJanelaDaFonte() {
+        const corpo = document.createElement("div");
+        corpo.className = "f2-corpo";
+        corpo.innerHTML = `
+            <div class="f2-fonte-topo">
+                <button class="f2-tecla" data-abrir type="button">abrir do computador</button>
+                <input class="f2-campo" data-link type="text" spellcheck="false"
+                       placeholder="ou cole o link de um vídeo">
+                <button class="f2-tecla" data-ler type="button">ler</button>
+            </div>
+            <div class="f2-mural" data-mural></div>
+            <div class="f2-rodape">
+                <span data-conta>lendo a pasta de trabalho…</span>
+                <span class="f2-recado" data-recado></span>
+            </div>`;
+
+        const mural = corpo.querySelector("[data-mural]");
+        const conta = corpo.querySelector("[data-conta]");
+        const recado = corpo.querySelector("[data-recado]");
+
+        function dizer(texto, ruim) {
+            recado.textContent = texto;
+            recado.classList.toggle("f2-ruim", !!ruim);
+            if (ruim) SONS.falha();
+            window.clearTimeout(dizer.relogio);
+            dizer.relogio = window.setTimeout(() => { recado.textContent = ""; }, 6000);
+        }
+
+        function pintar(fontes) {
+            mural.textContent = "";
+            if (!fontes.length) {
+                conta.textContent = "nenhum vídeo na pasta de trabalho";
+                return;
+            }
+            conta.textContent = `${fontes.length} ${fontes.length === 1 ? "vídeo" : "vídeos"} · ${horasDe(fontes)}`;
+            for (const fonte of fontes) {
+                const quadro = document.createElement("button");
+                quadro.type = "button";
+                quadro.className = "f2-quadro";
+                quadro.title = fonte.nome;
+                quadro.innerHTML = `
+                    <span class="f2-quadro-tela">
+                        <span class="f2-quadro-tempo">${tempoCurto(fonte.segundos)}</span>
+                    </span>
+                    <span class="f2-quadro-nome"></span>`;
+                quadro.querySelector(".f2-quadro-nome").textContent = fonte.nome;
+
+                const tela = quadro.querySelector(".f2-quadro-tela");
+                const foto = new Image();
+                foto.alt = "";
+                foto.src = `/api/fonte/quadro?chave=${encodeURIComponent(fonte.chave)}`;
+                // Vídeo que o ffmpeg não abre continua na lista, e sem foto —
+                // porque um vídeo quebrado é exatamente o que ele precisa ver.
+                foto.onerror = () => {
+                    const aviso = document.createElement("span");
+                    aviso.className = "f2-quadro-sem";
+                    aviso.textContent = "sem quadro";
+                    tela.insertBefore(aviso, tela.firstChild);
+                };
+                tela.insertBefore(foto, tela.firstChild);
+
+                quadro.addEventListener("click", () => montarNaBancada(fonte));
+                mural.appendChild(quadro);
+            }
+        }
+
+        (async function carregar() {
+            const dados = await pedir("/api/fonte/lista");
+            if (dados.ok === false) { conta.textContent = "não deu para ler a pasta"; dizer(dados.erro, true); return; }
+            pintar([...(dados.de_fora || []), ...(dados.fontes || [])]);
+        })();
+
+        corpo.querySelector("[data-abrir]").addEventListener("click", async (evento) => {
+            const tecla = evento.currentTarget;
+            tecla.disabled = true;
+            const dados = await pedir("/api/fonte/escolher", { method: "POST" });
+            tecla.disabled = false;
+            if (dados.ok === false) { dizer(dados.erro, true); return; }
+            if (dados.desistiu) return;
+            montarNaBancada(dados.fonte);
+        });
+
+        async function lerOLink() {
+            const campo = corpo.querySelector("[data-link]");
+            const link = campo.value.trim();
+            if (!link) { campo.focus(); return; }
+            dizer("lendo o link…");
+            const dados = await pedir("/api/fonte/ler-link", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ link }),
+            });
+            if (dados.ok === false) { dizer(dados.erro, true); return; }
+            // Só a leitura do cabeçalho: baixar duas horas de entrevista para
+            // descobrir que era o vídeo errado é meia hora perdida.
+            const f = dados.fonte || {};
+            dizer(`${f.title || "vídeo"} — ${tempoCurto(f.duration)} — baixar entra com o motor`);
+        }
+        corpo.querySelector("[data-ler]").addEventListener("click", lerOLink);
+        corpo.querySelector("[data-link]").addEventListener("keydown", (e) => {
+            if (e.key === "Enter") lerOLink();
+        });
+
+        return corpo;
+    }
+
+    MONTADO.fonte = function () {
+        abrirJanela({ nome: "fonte", largura: 760, altura: 470, corpo: montarJanelaDaFonte() });
+    };
+
+    /* ── a fonte na bancada ─────────────────────────────────────────────────
+       Escolhida a fonte, a parede deixa de estar vazia. Um quadro só, colorido,
+       no meio do breu: é o único objeto da tela e é a coisa que ele vai
+       cortar. Depois dos cortes prontos, este lugar vira a parede deles. */
+
+    function montarNaBancada(fonte) {
+        fecharJanela("fonte");
+        document.body.classList.remove("f2-bancada-vazia");
+        window.furiaEstado({ texto: "fonte na bancada" });
+
+        const parede = document.getElementById("parede");
+        parede.textContent = "";
+
+        const montada = document.createElement("div");
+        montada.className = "f2-montada";
+        montada.innerHTML = `
+            <div class="f2-montada-tela"></div>
+            <div class="f2-montada-nome"></div>
+            <div class="f2-montada-ficha">${tempoCurto(fonte.segundos)} de fonte</div>
+            <button class="f2-tecla" data-moer type="button">moer a fonte</button>`;
+        montada.querySelector(".f2-montada-nome").textContent = fonte.nome;
+
+        const foto = new Image();
+        foto.alt = "";
+        foto.src = `/api/fonte/quadro?chave=${encodeURIComponent(fonte.chave)}`;
+        montada.querySelector(".f2-montada-tela").appendChild(foto);
+
+        montada.querySelector("[data-moer]").addEventListener("click", () => {
+            // O motor entra depois das telas. Enquanto não entra, o botão DIZ.
+            window.furiaEstado({ texto: "moer — o motor entra depois das telas" });
+            SONS.falha();
+        });
+
+        parede.appendChild(montada);
+        SONS.feito();
+    }
+
     /* ── a ignição ────────────────────────────────────────────────────────── */
 
     function acender() {
