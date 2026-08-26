@@ -51,7 +51,13 @@
     --f2-mono: "Cascadia Mono", Consolas, "DejaVu Sans Mono", ui-monospace, monospace;
 
     --f2-faixa: 40px;
-    --f2-doca: 78px;
+    --f2-doca: 90px;
+
+    /* Canto de 3 px. O desenho começou com canto reto — "é chapa, não cartão".
+       A referência do Poolsuite mede de 2 a 6 px, e ela está certa: um canto
+       mínimo faz a janela ler como PEÇA, e o canto perfeitamente reto lê como
+       retângulo de página. Três pixels é o menor valor que se percebe. */
+    --f2-canto: 3px;
 }
 
 * { box-sizing: border-box; }
@@ -194,22 +200,33 @@ body.f2-trabalhando .f2-olho {
 
 /* ── a doca ───────────────────────────────────────────────────────────────
    Poolsuite: objeto com o nome escrito embaixo, por extenso, sempre. Não é
-   aba, não é menu — é prateleira. */
+   aba, não é menu — é prateleira.
+
+   Ela era uma faixa de ponta a ponta, e faixa de ponta a ponta é barra de
+   navegador. Aqui é uma PEÇA: emoldurada, solta da borda de baixo, com
+   divisória entre um objeto e outro. Custa doze pixels de altura e é o que
+   faz a doca parecer equipamento em cima da mesa em vez de rodapé de site. */
 
 .f2-doca {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 4px;
-    border-top: 1px solid var(--f2-c3);
+    align-self: center;
+    justify-self: center;
+    margin-bottom: 12px;
+    border: 1px solid var(--f2-c4);
+    border-radius: var(--f2-canto);
     background: var(--f2-c1);
+    overflow: hidden;
 }
 
 .f2-objeto {
     -webkit-appearance: none;
     appearance: none;
-    background: transparent;
-    border: 1px solid transparent;
+    background: var(--f2-c1);
+    border: 0;
+    /* A divisória é o que dá a sensação de gaveta com repartições. */
+    border-right: 1px solid var(--f2-c3);
     color: var(--f2-c5);
     font: inherit;
     cursor: pointer;
@@ -217,9 +234,10 @@ body.f2-trabalhando .f2-olho {
     flex-direction: column;
     align-items: center;
     gap: 7px;
-    width: 92px;
-    padding: 9px 0 8px;
+    width: 88px;
+    padding: 8px 0 7px;
 }
+.f2-objeto:last-child { border-right: 0; }
 .f2-objeto svg { display: block; width: 26px; height: 26px; }
 .f2-objeto .f2-nome {
     font-size: 9.5px;
@@ -229,17 +247,17 @@ body.f2-trabalhando .f2-olho {
 
 .f2-objeto:hover,
 .f2-objeto:focus-visible {
-    border-color: var(--f2-c3);
+    background: var(--f2-c2);
     color: var(--f2-folha);
     outline: none;
 }
-.f2-objeto:active { background: var(--f2-c2); }
 
-/* Um objeto já na bancada fica com a borda acesa — assim ele sabe o que está
-   aberto sem contar janela. */
+/* Um objeto já na bancada fica aceso — assim ele sabe o que está aberto sem
+   contar janela. */
 .f2-objeto[aria-pressed="true"] {
-    border-color: var(--f2-c4);
+    background: var(--f2-c2);
     color: var(--f2-folha);
+    box-shadow: inset 0 -2px 0 var(--f2-c5);
 }
 
 /* O convite: com a bancada vazia, o único objeto que resolve isso respira.
@@ -373,7 +391,9 @@ body.f2-bancada-vazia .f2-objeto[data-objeto="fonte"] svg {
     flex-direction: column;
     background: var(--f2-breu);
     border: 1px solid var(--f2-c4);
-    /* Sem sombra e sem arredondar de propósito: é chapa, não cartão. */
+    border-radius: var(--f2-canto);
+    /* Sem sombra: sombra grande é cartão de biblioteca moderna. O que dá
+       corpo aqui é a borda e a listra do cabeçalho, não o borrão embaixo. */
 }
 /* A janela de cima ganha a borda acesa — é como ele sabe qual responde ao
    teclado quando há três abertas. */
@@ -386,7 +406,11 @@ body.f2-bancada-vazia .f2-objeto[data-objeto="fonte"] svg {
     height: 26px;
     padding: 0 8px 0 6px;
     border-bottom: 1px solid var(--f2-c3);
-    background: var(--f2-c1);
+    /* A listra fina de um pixel a cada quatro. É o cabeçalho de janela do
+       software antigo, e é o detalhe que separa "janela" de "div com borda".
+       Custa uma linha e não gasta cor nenhuma. */
+    background: repeating-linear-gradient(
+        0deg, var(--f2-c2) 0 3px, var(--f2-c1) 3px 4px);
     cursor: move;
     user-select: none;
 }
@@ -407,6 +431,7 @@ body.f2-bancada-vazia .f2-objeto[data-objeto="fonte"] svg {
     line-height: 1;
     width: 18px; height: 16px;
     padding: 0;
+    border-radius: 2px;
     cursor: pointer;
 }
 .f2-fechar:hover { border-color: var(--f2-sangue); color: var(--f2-sangue); }
@@ -424,11 +449,18 @@ body.f2-bancada-vazia .f2-objeto[data-objeto="fonte"] svg {
     border-bottom: 1px solid var(--f2-c3);
 }
 
+/* A tecla tem RELEVO. Uma linha embaixo e uma linha de luz em cima; ao
+   apertar, ela desce um pixel e perde a linha de baixo — o dedo sente que
+   afundou. É o mesmo mecanismo do botão do Poolsuite, feito com duas sombras
+   de um pixel e nenhum borrão. Sombra grande é cartão; linha é chapa. */
 .f2-tecla {
     -webkit-appearance: none;
     appearance: none;
-    background: transparent;
+    position: relative;
+    background: var(--f2-c1);
     border: 1px solid var(--f2-c4);
+    border-radius: var(--f2-canto);
+    box-shadow: 0 1px 0 var(--f2-c4), inset 0 1px 0 rgba(255, 255, 255, 0.07);
     color: var(--f2-folha);
     font: inherit;
     font-size: 10px;
@@ -439,15 +471,25 @@ body.f2-bancada-vazia .f2-objeto[data-objeto="fonte"] svg {
     cursor: pointer;
     white-space: nowrap;
 }
-.f2-tecla:hover { border-color: var(--f2-folha); }
-.f2-tecla:active { background: var(--f2-c2); }
-.f2-tecla[disabled] { color: var(--f2-c4); border-color: var(--f2-c3); cursor: default; }
+.f2-tecla:hover { background: var(--f2-c2); border-color: var(--f2-c5); }
+.f2-tecla:focus-visible { outline: none; border-color: var(--f2-folha); }
+.f2-tecla:active {
+    top: 1px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+.f2-tecla[disabled] {
+    color: var(--f2-c4);
+    border-color: var(--f2-c3);
+    box-shadow: none;
+    cursor: default;
+}
 
 .f2-campo {
     flex: 1;
     min-width: 0;
     background: var(--f2-c1);
     border: 1px solid var(--f2-c3);
+    border-radius: var(--f2-canto);
     color: var(--f2-folha);
     font: inherit;
     font-size: 12px;
@@ -493,6 +535,7 @@ body.f2-bancada-vazia .f2-objeto[data-objeto="fonte"] svg {
     aspect-ratio: 16 / 9;
     background: var(--f2-c1);
     border: 1px solid var(--f2-c3);
+    border-radius: 2px;
     overflow: hidden;
 }
 .f2-quadro-tela img {

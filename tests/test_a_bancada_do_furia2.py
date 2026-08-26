@@ -123,6 +123,54 @@ def test_a_faixa_de_cima_so_acende_quando_a_maquina_trabalha():
     assert re.search(r"\.f2-estado\s*\{[^}]*color:\s*var\(--f2-c5\)", folha, re.DOTALL)
 
 
+def test_o_vermelho_nunca_e_decoracao_permanente():
+    """A referência do Poolsuite pede uma borda pontilhada VERMELHA em volta da
+    tela inteira. Aqui isso seria destruição: o vermelho é o aviso de coisa
+    errada, e um aviso que fica aceso o dia todo deixa de ser aviso.
+
+    Toda regra que gasta vermelho tem de ser um estado — passar o mouse, estar
+    gravando, ter dado errado. Nunca a moldura.
+    """
+    folha = sem_comentario(css())
+    estados = (":hover", ":active", "f2-ruim", "f2-trabalhando", "f2-erro")
+    for bloco in folha.split("}"):
+        if "--f2-sangue" not in bloco or "--f2-sangue:" in bloco:
+            continue
+        seletor = bloco.split("{")[0].strip()
+        assert any(marca in seletor for marca in estados), (
+            f"'{seletor}' acende vermelho fora de um estado — vira decoração e "
+            "queima o único aviso que ele lê sem pensar"
+        )
+
+
+def test_a_tecla_tem_relevo_de_uma_linha_e_afunda():
+    """Da referência do Poolsuite, e é o melhor detalhe dela: uma linha embaixo
+    e uma linha de luz em cima; ao apertar, desce um pixel e perde a de baixo.
+    Sombra grande é cartão de biblioteca moderna; linha é chapa."""
+    folha = sem_comentario(css())
+    bloco = folha[folha.find(".f2-tecla {"):]
+    bloco = bloco[:bloco.find("}")]
+    assert "box-shadow: 0 1px 0" in bloco and "inset 0 1px 0" in bloco
+    apertada = folha[folha.find(".f2-tecla:active {"):]
+    apertada = apertada[:apertada.find("}")]
+    assert "top: 1px" in apertada, "a tecla parou de afundar"
+    assert "0 1px 0 var(--f2-c4)" not in apertada, (
+        "a tecla afunda mas continua com a linha de baixo; o relevo não some"
+    )
+
+
+def test_a_doca_e_uma_peca_e_nao_uma_faixa_de_ponta_a_ponta():
+    """Faixa de ponta a ponta é barra de navegador. Aqui a doca é equipamento
+    em cima da mesa: emoldurada, solta da borda de baixo, com divisória."""
+    folha = sem_comentario(css())
+    bloco = folha[folha.find(".f2-doca {"):]
+    bloco = bloco[:bloco.find("}")]
+    assert "justify-self: center" in bloco, "a doca voltou a atravessar a tela"
+    assert "border: 1px solid" in bloco, "a doca perdeu a moldura"
+    assert "margin-bottom" in bloco, "a doca voltou a ser rodapé colado embaixo"
+    assert "border-right: 1px solid" in folha, "sumiu a divisória entre os objetos"
+
+
 # ── lei 2 — ferramenta é objeto, não aba ────────────────────────────────────
 
 
