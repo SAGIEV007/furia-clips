@@ -133,6 +133,56 @@ def test_a_quota_esgotada_e_dita_em_voz_alta(contador, monkeypatch):
     ), f"a queda saiu sem explicar o motivo: {avisos}"
 
 
+def test_orcamento_global_interrompe_lotes_lentos(monkeypatch):
+    """Uma análise longa cai para o caminho local dentro do teto total."""
+    import modules.clip_selector as modulo
+
+    seletor = ClipSelector(max_clips=12, min_duration=20, max_duration=480)
+    seletor.GEMINI_BLOCKS_PER_REQUEST = 8
+    seletor.GEMINI_TOTAL_TIMEOUT_S = 180
+    blocos = _blocos(seletor, 24)
+    monkeypatch.setattr(seletor, "_build_transcript_blocks", lambda *a, **k: blocos)
+    relogio = [0.0]
+    chamadas = []
+
+    def monotonic():
+        return relogio[0]
+
+    def lote_lento(*args, **kwargs):
+        chamadas.append(kwargs["deadline"])
+        relogio[0] = 181.0
+        return None
+
+    monkeypatch.setattr(modulo.time, "monotonic", monotonic)
+    monkeypatch.setattr(seletor, "_gemini_lot", lote_lento)
+    avisos = []
+    resultado = seletor._select_with_gemini(
+        [s for b in blocos for s in b["sentences"]], [], "",
+        {"gemini_api_key": "x"},
+        lambda mensagem, nivel="info": avisos.append(mensagem),
+    )
+
+    assert resultado == []
+    assert len(chamadas) == 1
+    assert any("limite total" in mensagem.lower() for mensagem in avisos)
+
+
+def test_cancelamento_interrompe_gemini_antes_do_proximo_lote(monkeypatch):
+    """O botão Cancelar não deve ser convertido em falha comum de lote."""
+    from modules.job_manager import JobCancelled
+
+    seletor = ClipSelector(max_clips=12, min_duration=20, max_duration=480)
+    blocos = _blocos(seletor, 8)
+    monkeypatch.setattr(seletor, "_build_transcript_blocks", lambda *a, **k: blocos)
+
+    with pytest.raises(JobCancelled):
+        seletor._select_with_gemini(
+            [s for b in blocos for s in b["sentences"]], [], "",
+            {"gemini_api_key": "x"}, lambda *_: None,
+            cancel_check=lambda: (_ for _ in ()).throw(JobCancelled("cancelado")),
+        )
+
+
 def test_erro_comum_de_lote_nao_interrompe_os_outros(monkeypatch):
     """O controle: um lote que falha por outro motivo não cancela a corrida.
 

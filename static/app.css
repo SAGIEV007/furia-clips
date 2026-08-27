@@ -761,3 +761,240 @@ img { max-width: 100%; display: block; }
 
 .status-refresh { margin-top: 7px; font-size: 9px; }
 .status-refresh:disabled { opacity: .55; }
+
+
+/* Legibility pass: keep the Poolsuite character while making work surfaces readable. */
+:root {
+  --body: "Segoe UI", Arial, sans-serif;
+  --muted: #403a36;
+  --cyan-soft: #dff3f3;
+}
+
+body {
+  font-family: var(--body);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.system-center,
+.system-button,
+.system-icon,
+.system-clock,
+.window-bar,
+.window-status,
+.window-bar-link,
+.tiny-label,
+.button,
+.link-button,
+.desk-topline,
+.desk-date,
+.source-strip,
+.signal-readout,
+.studio-strip,
+.recent-copy small,
+.project-card-meta,
+.project-card-status,
+.project-state,
+.project-tab,
+.subhead-label,
+.status-chip,
+.transcript-search,
+.clip-card-top,
+.clip-time,
+.clip-signal,
+.reason-list span,
+.clip-open,
+.small-decision,
+.review-safe-label,
+.review-actions button,
+.review-muted,
+.field-label,
+.review-reason,
+.transcript-line time,
+.transcript-line p,
+.settings-fields label,
+.settings-section > label,
+.settings-fields input,
+.settings-fields select,
+.settings-fields textarea,
+.settings-section > label input,
+.settings-section > label select,
+.settings-section > label textarea,
+.label-help,
+.dependency-status strong,
+.dependency-status small,
+.chub-settings-actions > span,
+.console-summary,
+.console-line,
+.console-empty,
+.project-next-action small,
+.review-feedback-row label,
+.review-feedback-row select,
+.review-feedback-row small,
+.review-nav > button,
+.status-refresh {
+  font-family: var(--mono);
+}
+
+.system-center { font-size: 11px; }
+.system-button, .system-icon { font-size: 11px; }
+.system-clock { font-size: 10px; }
+.window-bar { min-height: 31px; font-size: 10px; }
+.window-status { font-size: 9px; }
+.window-bar-link { font-size: 10px; }
+.tiny-label { font-size: 9px; }
+.button { min-height: 38px; padding: 8px 13px; font-size: 12px; }
+.link-button { font-size: 12px; }
+
+.source-copy p,
+.screen-heading p,
+.understanding-copy,
+.empty-state p,
+.settings-body > p,
+.settings-section-heading p,
+.source-active-copy p,
+.seo-description,
+.seo-empty,
+.review-preview-tools small,
+.project-next-action small {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.stage-note span,
+.screen-side-note span,
+.project-card-meta,
+.project-card-status,
+.recent-copy small,
+.subhead-label,
+.status-chip,
+.signal-row,
+.clip-card-top,
+.clip-time,
+.clip-signal,
+.reason-list span,
+.review-safe-label,
+.field-label,
+.settings-fields label,
+.settings-section > label,
+.dependency-status strong,
+.dependency-status small,
+.chub-settings-actions > span {
+  font-size: 10px;
+}
+
+.source-strip,
+.signal-readout,
+.desk-topline,
+.desk-date,
+.project-state,
+.project-tab,
+.status-chip,
+.transcript-line time,
+.transcript-line p,
+.review-reason,
+.review-feedback-row select,
+.review-feedback-row small,
+.status-refresh {
+  line-height: 1.4;
+}
+
+.queue-line small,
+.review-muted,
+.chub-muted,
+.editorial-block small,
+.seo-proof small,
+.seo-description,
+.seo-empty,
+.project-card-status b,
+.source-active-copy p,
+.review-preview-tools small {
+  color: var(--muted);
+}
+.queue-line small,
+.review-muted,
+.chub-muted { font-size: 10px; }
+
+.project-card-meta,
+.project-card-status { font-size: 10px; }
+.project-tab { min-height: 36px; padding: 9px 12px; font-size: 11px; }
+.project-state { font-size: 10px; }
+
+.editor-stats span,
+.signal-row,
+.transcript-line time,
+.transcript-line p,
+.review-reason,
+.review-feedback-row small { font-size: 10px; }
+.editor-actions .button,
+.review-tools .button,
+.review-preview-tools .button { min-height: 33px; padding: 7px 10px; font-size: 10px; }
+
+.clip-card-top,
+.clip-time,
+.clip-signal { font-size: 10px; }
+.reason-list span { font-size: 9px; }
+.clip-open,
+.small-decision { font-size: 10px; }
+
+.recent-copy small,
+.dock-item b,
+.boot-copy small,
+.boot-skip,
+.drop-zone small,
+.drop-zone b { font-size: 9px; }
+
+.settings-fields label,
+.settings-section > label,
+.review-feedback-row label { font-size: 10px; }
+.settings-fields input,
+.settings-fields select,
+.settings-fields textarea,
+.settings-section > label input,
+.settings-section > label select,
+.settings-section > label textarea { font-size: 12px; min-height: 38px; }
+.settings-section > label input[type="checkbox"] { min-height: auto; width: 18px; height: 18px; }
+
+.console-summary { font-size: 10px; line-height: 1.45; }
+.console-line { font-size: 11px; line-height: 1.45; }
+.console-line time { color: #d5cdc6; font-size: 10px; }
+.console-line b { font-size: 10px; }
+.console-empty { font-size: 11px; }
+
+.chub-explainer,
+.chub-memory > p { font-size: 13px; line-height: 1.5; }
+.chub-memory-meta,
+.chub-hook-cloud span,
+.chub-example-list li { font-size: 11px; }
+.chub-example-list b { font-size: 11px; }
+
+.disagreement-panel { font-size: 11px; line-height: 1.45; }
+.disagreement-panel p { font-size: 12px; }
+.disagreement-panel small { font-size: 10px; }
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline-width: 3px;
+  outline-offset: 3px;
+}
+
+@media (max-width: 780px) {
+  body { font-size: 13px; }
+  .window-bar { font-size: 10px; }
+  .button { min-height: 40px; font-size: 11px; }
+  .console-line { grid-template-columns: 58px 76px minmax(0, 1fr); gap: 6px; font-size: 10px; }
+  .console-line b { font-size: 9px; }
+  .console-line time { font-size: 9px; }
+  .source-copy p,
+  .screen-heading p,
+  .understanding-copy,
+  .empty-state p,
+  .settings-body > p,
+  .settings-section-heading p,
+  .source-active-copy p { font-size: 12px; }
+  .review-actions button { min-height: 42px; font-size: 10px; }
+}

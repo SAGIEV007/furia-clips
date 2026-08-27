@@ -11,8 +11,8 @@ SCENE_DETECTION_TIMEOUT_SECONDS = max(
     10,
     int(os.environ.get("FURIA_SCENE_DETECTION_TIMEOUT_SECONDS", "120")),
 )
-RENDER_TIMEOUT_MIN_SECONDS = max(60, int(os.environ.get("FURIA_RENDER_TIMEOUT_MIN_SECONDS", "180")))
-RENDER_TIMEOUT_MAX_SECONDS = max(RENDER_TIMEOUT_MIN_SECONDS, int(os.environ.get("FURIA_RENDER_TIMEOUT_MAX_SECONDS", "900")))
+RENDER_TIMEOUT_MIN_SECONDS = max(45, int(os.environ.get("FURIA_RENDER_TIMEOUT_MIN_SECONDS", "90")))
+RENDER_TIMEOUT_MAX_SECONDS = max(RENDER_TIMEOUT_MIN_SECONDS, int(os.environ.get("FURIA_RENDER_TIMEOUT_MAX_SECONDS", "300")))
 RENDER_HEARTBEAT_SECONDS = max(5, int(os.environ.get("FURIA_RENDER_HEARTBEAT_SECONDS", "15")))
 from .media_validation import validate_media
 from .render_presets import get_preset, ffmpeg_video_filter
@@ -106,10 +106,10 @@ class VideoCutter:
             seconds = float(duration or 0)
         except (TypeError, ValueError):
             seconds = 0.0
-        # A 30-second 1080x1920 render normally finishes well below this budget,
-        # but a very slow Windows CPU must still get a finite escape hatch. The
-        # limit prevents the queue from looking frozen forever on one bad clip.
-        return max(RENDER_TIMEOUT_MIN_SECONDS, min(RENDER_TIMEOUT_MAX_SECONDS, 180.0 + seconds * 20.0))
+        # A short 1080x1920 render normally finishes well below this budget.
+        # Keep a bounded allowance for slow Windows CPUs, but never let one
+        # broken FFmpeg invocation hold the queue for the old 15-minute ceiling.
+        return max(RENDER_TIMEOUT_MIN_SECONDS, min(RENDER_TIMEOUT_MAX_SECONDS, 90.0 + seconds * 3.0))
 
     @staticmethod
     def _run_ffmpeg(command, cancel_check=None, emit_progress=None, progress_label="", timeout_seconds=None, heartbeat_prefix="Render"):
@@ -140,7 +140,8 @@ class VideoCutter:
                 if emit_progress and now - heartbeat_at >= RENDER_HEARTBEAT_SECONDS:
                     heartbeat_at = now
                     emit_progress(
-                        f"[{heartbeat_prefix}] {progress_label or 'Clip'} ainda em processamento ({elapsed:.0f}s); a fila continua protegida.",
+                        f"[{heartbeat_prefix}] {progress_label or 'Clip'} ainda em processamento ({elapsed:.0f}s); "
+                        "o job está sendo monitorado e será encerrado ao atingir o limite.",
                         "info",
                     )
                 time.sleep(0.2)

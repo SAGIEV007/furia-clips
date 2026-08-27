@@ -39,6 +39,19 @@ def test_ffmpeg_runner_kills_child_when_job_is_cancelled(monkeypatch):
     assert process.waited is True
 
 
+def test_ffmpeg_runner_kills_child_when_timeout_expires(monkeypatch):
+    process = _FakeProcess()
+    monkeypatch.setattr(subprocess, "Popen", lambda *args, **kwargs: process)
+    clock = iter([0.0, 91.0])
+    monkeypatch.setattr("modules.video_cutter.time.monotonic", lambda: next(clock))
+
+    with pytest.raises(TimeoutError):
+        VideoCutter._run_ffmpeg(["ffmpeg", "-version"], timeout_seconds=90)
+
+    assert process.killed is True
+    assert process.waited is True
+
+
 def test_scene_detection_kills_child_when_job_is_cancelled(monkeypatch):
     process = _FakeProcess()
     monkeypatch.setattr(subprocess, "Popen", lambda *args, **kwargs: process)

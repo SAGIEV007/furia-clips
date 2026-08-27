@@ -12,10 +12,13 @@ import re
 import math
 import unicodedata
 import requests
+import time
 from difflib import SequenceMatcher
 from collections import Counter
 
 from .political_profile import PROFILE_NAME, build_political_prompt_fragment
+from .cancellation import OperationCancelled
+from .job_manager import JobCancelled
 from .editorial_chapters import annotate_clip_with_chapters
 from .interview_turns import (
     classify_broadcast_boundary,
@@ -266,7 +269,7 @@ class ClipSelector:
 
     def select_clips(self, transcription, energy_profile=None, user_context="",
                      settings=None, emit_progress=None, scene_changes=None,
-                     video_layout=None):
+                     video_layout=None, cancel_check=None):
         settings = settings or {}
         self._campaign_hub_guided_filtered_by_speaker = 0
         self._campaign_hub_discovery_candidates = []
@@ -306,7 +309,8 @@ class ClipSelector:
         # Gemini só entra no fluxo automático quando a chave já existe.
         if ai_backend in ("auto", "gemini") and gemini_key:
             clips = self._select_with_gemini(
-                sentences, energy_profile, user_context, settings, emit_progress
+                sentences, energy_profile, user_context, settings, emit_progress,
+                cancel_check=cancel_check,
             )
             if clips:
                 self._selection_source = "gemini"
@@ -1033,9 +1037,12 @@ class ClipSelector:
     GEMINI_BLOCKS_PER_REQUEST = 8
     # A lot this size answers in well under a minute; the old ceiling was sized
     # for a prompt that no longer exists, and a slow answer is still an answer.
-    GEMINI_TIMEOUT_S = 240
+    GEMINI_TIMEOUT_S = 60
+    # Total budget for all Gemini lots in one analysis. When it expires, the
+    # local NLP path receives the partial result instead of waiting on retries.
+    GEMINI_TOTAL_TIMEOUT_S = 180
 
-    def _select_with_gemini(self, sentences, energy_profile, user_context, settings, emit_progress):
+    def _select_with_gemini(self, sentences, energy_profile, user_context, settings, emit_progress, cancel_check=None):
         """Select clips with Gemini, a few blocks at a time.
 
         Partial success is kept. A lot that fails no longer discards the lots
@@ -1068,13 +1075,35 @@ class ClipSelector:
             )
 
         selections, failed = [], 0
+        deadline = time.monotonic() + max(1.0, float(self.GEMINI_TOTAL_TIMEOUT_S))
         for position, lot in enumerate(lots, start=1):
+            if cancel_check:
+                cancel_check()
+            if time.monotonic() >= deadline:
+                failed += len(lots) - position + 1
+                if emit_progress:
+                    emit_progress(
+                        f"[Gemini] Limite total de {self.GEMINI_TOTAL_TIMEOUT_S:.0f}s atingido; "
+                        "seguindo pelo caminho local com os resultados parciais.",
+                        "warning",
+                    )
+                break
             if emit_progress:
                 emit_progress(f"[Gemini] Lote {position}/{len(lots)}...", "info")
             found = self._gemini_lot(
                 lot, sentences, transcript_blocks, system_prompt,
                 user_context, settings, api_key, emit_progress,
+                cancel_check=cancel_check, deadline=deadline,
             )
+            if found is self.TEMPO_ESGOTADO:
+                failed += len(lots) - position + 1
+                if emit_progress:
+                    emit_progress(
+                        f"[Gemini] Limite total de {self.GEMINI_TOTAL_TIMEOUT_S:.0f}s atingido; "
+                        "seguindo pelo caminho local com os resultados parciais.",
+                        "warning",
+                    )
+                break
             if found is self.QUOTA_ESGOTADA:
                 # Pedir os outros lotes é pedir de novo o que já foi negado. Numa
                 # fonte de 1h21 são dezenas de requisições condenadas antes de a
@@ -1162,7 +1191,7 @@ class ClipSelector:
         return blocks
 
     def _gemini_lot(self, blocks, sentences, all_blocks, system_prompt,
-                    user_context, settings, api_key, emit_progress):
+                    user_context, settings, api_key, emit_progress, cancel_check=None, deadline=None):
         """One request. ``None`` says this lot failed and the others still count."""
         user_prompt = self._build_gemini_prompt(
             blocks,
@@ -1190,6 +1219,15 @@ class ClipSelector:
 
         for model_name in models_to_try:
             for attempt in range(3):
+                if cancel_check:
+                    cancel_check()
+                if deadline is not None:
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        return self.TEMPO_ESGOTADO
+                    request_timeout = max(1.0, min(float(self.GEMINI_TIMEOUT_S), remaining))
+                else:
+                    request_timeout = float(self.GEMINI_TIMEOUT_S)
                 try:
                     if attempt > 0 and emit_progress:
                         emit_progress(f"[Gemini] Tentativa {attempt + 1} com {model_name}...", "info")
@@ -1205,14 +1243,20 @@ class ClipSelector:
                                 "maxOutputTokens": 16384,
                             },
                         },
-                        timeout=self.GEMINI_TIMEOUT_S,
+                        timeout=request_timeout,
                     )
 
                     if response.status_code == 503:
                         # Temporary overload — retry after delay
                         if emit_progress:
                             emit_progress(f"[Gemini] {model_name} sobrecarregado (503). Retentando em {5 * (attempt + 1)}s...", "warning")
-                        _time.sleep(5 * (attempt + 1))
+                        delay = float(5 * (attempt + 1))
+                        if deadline is not None:
+                            delay = min(delay, max(0.0, deadline - time.monotonic()))
+                        if delay:
+                            if cancel_check:
+                                cancel_check()
+                            _time.sleep(delay)
                         continue
 
                     if response.status_code == 429:
@@ -1296,20 +1340,27 @@ class ClipSelector:
                         emit_progress("[Gemini] Sem conexao com internet.", "warning")
                     return None
                 except requests.exceptions.Timeout:
-                    # O laço de tentativas existia e o timeout saía dele na
-                    # primeira falha, que é justamente quando tentar de novo
-                    # vale a pena: um lote lento não é um lote impossível.
                     if emit_progress:
                         emit_progress(
-                            f"[Gemini] Timeout com {model_name} (>{self.GEMINI_TIMEOUT_S}s) "
+                            f"[Gemini] Timeout com {model_name} (>{request_timeout:.0f}s) "
                             f"na tentativa {attempt + 1}/3.",
                             "warning",
                         )
                     last_error = "timeout"
+                    if deadline is not None and time.monotonic() >= deadline:
+                        return self.TEMPO_ESGOTADO
                     if attempt < 2:
-                        _time.sleep(2 * (attempt + 1))
+                        delay = float(2 * (attempt + 1))
+                        if deadline is not None:
+                            delay = min(delay, max(0.0, deadline - time.monotonic()))
+                        if delay:
+                            if cancel_check:
+                                cancel_check()
+                            _time.sleep(delay)
                         continue
                     break
+                except (OperationCancelled, JobCancelled):
+                    raise
                 except Exception as e:
                     if emit_progress:
                         emit_progress(f"[Gemini] Erro com {model_name}: {str(e)[:200]}", "warning")
@@ -1336,6 +1387,8 @@ class ClipSelector:
     # acabou. Um objeto próprio em vez de `None` porque as duas falhas pedem
     # respostas opostas: uma segue para o lote seguinte, a outra para a corrida.
     QUOTA_ESGOTADA = object()
+    # Sentinel for a per-analysis time budget; the caller falls back locally.
+    TEMPO_ESGOTADO = object()
 
     def _get_gemini_system_prompt(self, editorial_profile=PROFILE_NAME):
         political_fragment = ""

@@ -53,7 +53,15 @@ A origem persistida `manual_confirmed` agora recebe a mesma política de `manual
 | Modelo vazio ou inválido | O Studio usa um identificador seguro padrão compatível |
 | Falha, limite ou indisponibilidade online | O Console explica o fallback e a seleção local continua |
 
+O orçamento online do Gemini é finito por análise: cada requisição tem timeout de 60 segundos e a sequência completa de lotes tem teto de 180 segundos. Ao atingir esse teto, os resultados parciais são preservados e o Furia 1 continua pelo caminho local, sem insistir em lotes adicionais. O cancelamento do job também é verificado durante essa etapa.
+
 Chaves fornecidas para QA nunca devem ser incluídas em código, logs, documentos, diagnósticos ou commits. A chave temporária usada nesta validação foi mantida apenas na instância de teste e deve ser revogada; uma nova chave deve ser criada para uso real.
+
+## Demora observada no log de 27 de agosto
+
+No log analisado, a execução total observada foi de aproximadamente 17 minutos. Cerca de 11 minutos foram consumidos pela seleção Gemini em nove lotes, com repetidos retornos 503 de sobrecarga e retornos 429 de quota. Depois, o primeiro render permaneceu com heartbeat até pelo menos 333 segundos. A mensagem “a fila continua protegida” significava apenas que o Studio ainda mantinha o job e continuava responsivo; não significava que o FFmpeg estivesse saudável ou que aquela espera fosse aceitável.
+
+A correção posterior reduz os retries online a um orçamento máximo e reduz o teto padrão de cada render para 300 segundos, com limite proporcional configurável por variáveis de ambiente. Se o FFmpeg continuar preso até esse limite, o clip é encerrado como falha isolada, a fila segue para os demais e o Console mostra o motivo. Em Windows muito lento, o limite pode ser ajustado explicitamente, mas não deve ser confundido com uma garantia de que o vídeo será renderizado corretamente.
 
 ## Chub e snapshot
 

@@ -3914,6 +3914,7 @@ def api_cut_shorts():
                 emit_progress=emit_progress,
                 scene_changes=scene_changes,
                 video_layout=video_layout,
+                cancel_check=ctx.check_cancel,
             )
 
             selection_source = selector.get_selection_source()
@@ -5114,6 +5115,7 @@ def api_process_complete():
                 user_context=user_context,
                 settings=settings,
                 emit_progress=emit_progress,
+                cancel_check=ctx.check_cancel,
             )
             top_clips = _attach_multimodal_visual_observations(top_clips, multimodal_result)
             selection_source = selector.get_selection_source()
