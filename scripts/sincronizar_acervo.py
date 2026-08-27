@@ -4,7 +4,7 @@
 Uso, com o endereço do CHUB no ambiente (ele carrega a credencial, então nunca
 escreva num arquivo do projeto):
 
-    export FURIA_CHUB_MCP_URL='https://chub-api.missao.org.br/mcp/wk_...'
+    export FURIA_CHUB_MCP_URL='valor-fornecido-no-ambiente'
 
     python scripts/sincronizar_acervo.py --testar
     python scripts/sincronizar_acervo.py KpjvWf9SsWQ fZpyzDpnA2o
