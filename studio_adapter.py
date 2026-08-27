@@ -175,6 +175,15 @@ def register_studio_routes(flask_app, runtime):
         if not project or not project.get("source_video"):
             return jsonify({"error": "Importe um vídeo antes de transcrever."}), 400
         source = project["source_video"]
+        saved = runtime["get_transcription"](project_id) or {}
+        if saved.get("segments") and not bool(payload.get("force_whisper")):
+            def cached_task(ctx):
+                segments = list(saved.get("segments") or [])
+                ctx.update(stage="transcription_cached", progress=100, message="Transcript persistido reutilizado; Whisper não foi executado")
+                return {"artifacts": [{"type": "transcription_cached", "project_id": project_id, "segments": len(segments)}]}
+
+            job = runtime["job_manager"].submit("studio_transcribe_cached", cached_task, project_id=project_id)
+            return jsonify({"jobId": job["id"], "job_id": job["id"], "state": job.get("state", "queued"), "cached": True})
 
         def task(ctx):
             settings = runtime["get_all_settings"]()
@@ -211,7 +220,15 @@ def register_studio_routes(flask_app, runtime):
         if decision not in {"approved", "rejected", "needs_review"}:
             return jsonify({"error": "Decisão inválida."}), 400
         try:
-            runtime["save_clip_feedback"](clip_id, decision, note="Decisão registrada na Revisão do Studio.")
+            reason_code = str(payload.get("reason_code") or "").strip()[:48]
+            quality_tags = payload.get("quality_tags") if isinstance(payload.get("quality_tags"), list) else []
+            runtime["save_clip_feedback"](
+                clip_id,
+                decision,
+                note=str(payload.get("note") or "Decisão registrada na Revisão do Studio.")[:600],
+                reason_code=reason_code,
+                quality_tags=quality_tags[:12],
+            )
             row = runtime["get_clip"](clip_id)
             return jsonify(clip_payload(row))
         except ValueError as exc:
@@ -474,6 +491,8 @@ def _project_payload(project_id, runtime, safe_url, duration_fn, detail=False):
     status = str(project.get("status") or "pending")
     if raw_clips:
         status = "ready_review"
+    elif source and status == "completed":
+        status = "ready_no_results"
     elif source:
         status = "ready"
     else:
@@ -492,8 +511,8 @@ def _project_payload(project_id, runtime, safe_url, duration_fn, detail=False):
         "width": int(probe.get("width") or 0),
         "height": int(probe.get("height") or 0),
         "status": status,
-        "stage": f"{clip_count} momentos encontrados" if clip_count else ("Fonte importada" if source else "Aguardando uma fonte"),
-        "progress": 100 if clip_count else 0,
+        "stage": f"{clip_count} momentos encontrados" if clip_count else ("Análise concluída; nenhum corte pronto" if status == "ready_no_results" else "Fonte importada" if source else "Aguardando uma fonte"),
+        "progress": 100 if clip_count or status == "ready_no_results" else 0,
         "candidateCount": clip_count,
         "approvedCount": approved_count,
         "reviewCount": review_count,

@@ -85,7 +85,7 @@ class JobManager:
         # A local app restart has no workers for jobs left in-flight by the
         # previous process. Recover only inactive running jobs; queued jobs
         # remain recoverable for the caller to resubmit explicitly.
-        self.reconcile_stale(max_age_seconds=60)
+        self.reconcile_stale(max_age_seconds=0)
 
     def _connect(self):
         connection = sqlite3.connect(self.db_path, timeout=30)
@@ -468,14 +468,14 @@ class JobManager:
         return [self._row_to_dict(row) for row in rows]
 
     def reconcile_stale(self, max_age_seconds: float = 12 * 60 * 60) -> list[dict]:
-        """Mark orphaned jobs as failed after a conservative inactivity window.
+        """Mark orphaned jobs as failed after the configured inactivity window.
 
         A process restart can leave a SQLite job in ``running`` even though no
-        worker exists anymore. Only jobs whose ``updated_at`` is older than the
-        configured window are recovered; active long-running jobs keep their
-        state because progress/heartbeat updates refresh that timestamp.
+        worker exists anymore. The application startup passes ``0`` because a
+        newly created manager has no worker for an old row; callers performing a
+        live health check may pass a positive window to preserve recent activity.
         """
-        cutoff = datetime.now(timezone.utc).timestamp() - max(60.0, float(max_age_seconds))
+        cutoff = datetime.now(timezone.utc).timestamp() - max(0.0, float(max_age_seconds))
         connection = self._connect()
         rows = connection.execute(
             "SELECT id, updated_at FROM jobs WHERE state IN ('running', 'cancel_requested')"

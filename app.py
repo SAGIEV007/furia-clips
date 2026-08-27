@@ -4055,6 +4055,7 @@ def api_cut_shorts():
                 video_layout=video_layout,
                 layout_plans=layout_plans,
                 on_clip_ready=entregar_corte,
+                cancel_check=ctx.check_cancel,
             )
             render_rejections = list(editorial_gate_rejections)
             render_rejections.extend(getattr(cutter, "last_rejections", []))
@@ -4075,6 +4076,8 @@ def api_cut_shorts():
                 for i, res in enumerate(results)
             ]
 
+            if active_project_id:
+                update_project_status(active_project_id, "completed")
             emit_status("cut_complete", {
                 "clips": clip_results,
                 "selection_source": selection_source,
@@ -5119,6 +5122,7 @@ def api_process_complete():
                 output_dir=output_dir if output_dir else None,
                 video_layout=video_layout,
                 layout_plans=layout_plans,
+                cancel_check=ctx.check_cancel,
             )
             ctx.update(stage="rendering", progress=72, message=f"{len(results)} clips renderizados")
             ctx.check_cancel()

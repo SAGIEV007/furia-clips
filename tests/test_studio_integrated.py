@@ -6,6 +6,8 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 HTML = (ROOT / "templates" / "index.html").read_text(encoding="utf-8")
 JS = (ROOT / "static" / "app.js").read_text(encoding="utf-8")
+BAT = (ROOT / "run.bat").read_text(encoding="utf-8")
+CUTTER = (ROOT / "modules" / "video_cutter.py").read_text(encoding="utf-8")
 
 
 def test_poolsuite_surface_is_the_single_frontend():
@@ -33,7 +35,8 @@ def test_studio_interactions_have_real_targets():
         'function openSettings',
         'function renderSeoPreview',
         'data-action="use-headline"',
-        'HEADLINE / CAPTIONS FIRST',
+                    'HEADLINE / BASE NA LEGENDA',
+
         'activeProjectId',
         'furia-active-project',
         'renderSourceDesk',
@@ -46,8 +49,32 @@ def test_studio_interactions_have_real_targets():
         'reviewCount',
         'A análise terminou sem encontrar cortes prontos.',
         'Nenhum corte pronto nesta execução.',
+        'function nextProjectAction',
+        'id="projectNextAction"',
+        'function scheduleQueuePoll',
+        'queuePollBusy',
+                    'MEMÓRIA DE CAMPANHA',
+            'btnCancelJob',
+            'cancelCurrentJob',
+            'review-feedback-reason',
+            'reason_code',
+            'projectsRequest',
+            'loading="lazy"',
+            'Corte anterior',
+            'ready_no_results',
+            'btnRefreshStatus',
+            'data-force-reanalysis',
+            'cancel_check',
+
     ):
-        assert fragment in HTML or fragment in JS
+        assert fragment in HTML or fragment in JS or fragment in CUTTER
+
+
+def test_launcher_uses_one_configurable_port_and_url():
+    assert 'set "FURIA_URL=http://127.0.0.1:%FURIA_PORT%"' in BAT
+    assert "-LocalPort %FURIA_PORT%" in BAT
+    assert '-Url "%FURIA_URL%"' in BAT
+    assert "3001" not in BAT.replace('set "FURIA_PORT=3001"', "")
 
 
 def test_adapter_routes_are_registered_once():

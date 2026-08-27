@@ -57,6 +57,7 @@ def _make_runtime(tmp_path):
     conn.commit()
     conn.close()
     transcriptions = {}
+    feedback_calls = []
 
     def get_db():
         connection = sqlite3.connect(db_path)
@@ -104,9 +105,10 @@ def _make_runtime(tmp_path):
     def save_clip_adjustment(clip_id, adjustment, note=""):
         return adjustment
 
-    def save_clip_feedback(clip_id, action, note="", **_kwargs):
+    def save_clip_feedback(clip_id, action, note="", **kwargs):
         if not get_clip(clip_id):
             raise ValueError("Clip não encontrado")
+        feedback_calls.append({"clip_id": clip_id, "action": action, "note": note, **kwargs})
         with get_db() as connection:
             connection.execute("UPDATE clips SET review_status = ?, status = ? WHERE id = ?", (action, action, clip_id))
             connection.commit()
@@ -152,6 +154,7 @@ def _make_runtime(tmp_path):
         "_check_ai_status": lambda _settings: {"status": "offline", "backend": "auto", "mode": "nlp", "connected": False, "model": "llama3.2:3b"},
         "PROGRAM_VERSION": "6.61",
         "PROGRAM_REVISION": "test",
+        "feedback_calls": feedback_calls,
     }
     return runtime, get_db, create_project
 
@@ -170,6 +173,52 @@ def test_studio_status_exposes_capabilities_without_secrets(tmp_path):
     assert payload["ai"]["gemini_configured"] is False
     assert "gemini_api_key" not in payload
     assert payload["ffmpeg"]["available"] in {True, False}
+
+
+def test_decision_forwards_rejection_reason(tmp_path):
+    runtime, get_db, create_project = _make_runtime(tmp_path)
+    flask_app = Flask(__name__)
+    flask_app.add_url_rule("/api/projects", endpoint="api_list_projects", view_func=lambda: jsonify([]), methods=["GET"])
+    flask_app.add_url_rule("/api/projects/<int:project_id>", endpoint="api_get_project", view_func=lambda project_id: jsonify({}), methods=["GET"])
+    studio_adapter.register_studio_routes(flask_app, runtime)
+    project_id = create_project("Feedback", "")
+    with get_db() as connection:
+        cursor = connection.execute(
+            "INSERT INTO clips (project_id, start_time, end_time, duration, transcript) VALUES (?, ?, ?, ?, ?)",
+            (project_id, 1.0, 5.0, 4.0, "Trecho para revisar."),
+        )
+        connection.commit()
+        clip_id = cursor.lastrowid
+    response = flask_app.test_client().post(
+        f"/api/clips/{clip_id}/decision",
+        json={"decision": "rejected", "reason_code": "sem_payoff", "note": "Falta a conclusão."},
+    )
+    assert response.status_code == 200
+    assert runtime["feedback_calls"][-1]["reason_code"] == "sem_payoff"
+    assert runtime["feedback_calls"][-1]["note"] == "Falta a conclusão."
+
+
+def test_transcribe_route_reuses_saved_transcript_without_whisper(tmp_path):
+    runtime, _get_db, create_project = _make_runtime(tmp_path)
+    captured = {}
+
+    class CapturingJobs:
+        def submit(self, job_type, task, **kwargs):
+            captured.update({"job_type": job_type, "task": task, "kwargs": kwargs})
+            return {"id": "cached-transcript-job", "state": "queued"}
+
+    runtime["job_manager"] = CapturingJobs()
+    flask_app = Flask(__name__)
+    flask_app.add_url_rule("/api/projects", endpoint="api_list_projects", view_func=lambda: jsonify([]), methods=["GET"])
+    flask_app.add_url_rule("/api/projects/<int:project_id>", endpoint="api_get_project", view_func=lambda project_id: jsonify({}), methods=["GET"])
+    studio_adapter.register_studio_routes(flask_app, runtime)
+    project_id = create_project("Transcript cache", str(tmp_path / "source.mp4"))
+    runtime["save_transcription"](project_id, [{"start": 0, "end": 2, "text": "texto persistido"}], "texto persistido", "pt", "manual_confirmed")
+
+    response = flask_app.test_client().post(f"/api/projects/{project_id}/transcribe", json={})
+    assert response.status_code == 200
+    assert response.get_json()["cached"] is True
+    assert captured["job_type"] == "studio_transcribe_cached"
 
 
 def test_normalize_official_chub_mirror():

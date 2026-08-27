@@ -7,13 +7,14 @@ cd /d "%~dp0"
 chcp 65001 >nul
 set "FURIA_HOST=127.0.0.1"
 set "FURIA_PORT=3001"
+set "FURIA_URL=http://127.0.0.1:%FURIA_PORT%"
 if not defined FURIA_CLIPS_DATA_DIR set "FURIA_CLIPS_DATA_DIR=%USERPROFILE%\FuriaStudioData"
 if not defined FURIA_WORKSPACE set "FURIA_WORKSPACE=%FURIA_CLIPS_DATA_DIR%\workspace"
 
 REM Nunca abrir uma segunda janela/aba se o Studio já estiver em execução.
-powershell.exe -NoProfile -Command "if (Get-NetTCPConnection -LocalPort 3001 -State Listen -ErrorAction SilentlyContinue) { exit 1 } else { exit 0 }"
+powershell.exe -NoProfile -Command "if (Get-NetTCPConnection -LocalPort %FURIA_PORT% -State Listen -ErrorAction SilentlyContinue) { exit 1 } else { exit 0 }"
 if errorlevel 1 (
-    echo Furia Studio ja esta em execucao em http://127.0.0.1:3001
+    echo Furia Studio ja esta em execucao em %FURIA_URL%
     call :log "Instancia existente detectada; nenhuma segunda aba foi aberta."
     exit /b 0
 )
@@ -102,12 +103,14 @@ echo    Iniciando Furia Studio...
 
 echo ==================================================
 echo.
-echo [Furia Studio] Acesse: http://localhost:3001
+echo [Furia Studio] Acesse: %FURIA_URL%
+
 echo [Furia Studio] Para parar: feche esta janela ou Ctrl+C
 echo [Furia Studio] Log do launcher: %RUN_LOG%
 echo.
 
-start "" powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "%~dp0scripts\open_browser_windows.ps1" -Url "http://127.0.0.1:3001" -TimeoutSeconds 120 -LogFile "%RUN_LOG%"
+start "" powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "%~dp0scripts\open_browser_windows.ps1" -Url "%FURIA_URL%" -TimeoutSeconds 120 -LogFile "%RUN_LOG%"
+
 "%~dp0venv\Scripts\python.exe" app.py
 
 set "APP_CODE=!ERRORLEVEL!"

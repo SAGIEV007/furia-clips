@@ -18,7 +18,9 @@ class WindowsBootstrapTests(unittest.TestCase):
         self.assertIn('show_log', launcher)
         self.assertIn('run-latest.log', launcher)
         self.assertIn('open_browser_windows.ps1', launcher)
-        self.assertIn('127.0.0.1:3001', launcher)
+        self.assertIn('set "FURIA_HOST=127.0.0.1"', launcher)
+        self.assertIn('set "FURIA_PORT=3001"', launcher)
+        self.assertIn('set "FURIA_URL=http://127.0.0.1:%FURIA_PORT%"', launcher)
         self.assertIn('-TimeoutSeconds 120', launcher)
 
     def test_bootstrap_has_python_and_ffmpeg_routes(self):

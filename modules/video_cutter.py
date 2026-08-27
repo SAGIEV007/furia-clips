@@ -3,6 +3,7 @@ import os
 import re
 import unicodedata
 import subprocess
+import time
 from config import EXPORT_DIR
 
 
@@ -75,6 +76,30 @@ class VideoCutter:
             return float(duration) if duration else None
         except Exception:
             return None
+
+    @staticmethod
+    def _run_ffmpeg(command, cancel_check=None):
+        """Run FFmpeg while allowing a local job to stop it cooperatively."""
+        process = subprocess.Popen(
+            command,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+        try:
+            while process.poll() is None:
+                if cancel_check:
+                    cancel_check()
+                time.sleep(0.2)
+            stderr = process.stderr.read() if process.stderr else ""
+            return subprocess.CompletedProcess(command, process.returncode, "", stderr)
+        except Exception:
+            if process.poll() is None:
+                process.kill()
+            process.wait(timeout=10)
+            raise
 
     def detect_scenes(self, video_path, threshold=27.0, emit_progress=None, timeout=None):
         """Detect scene changes without allowing ffmpeg to take down a job.
@@ -209,7 +234,8 @@ class VideoCutter:
         return candidates
 
     def cut_clip(self, video_path, start_time, end_time, output_path,
-                 vertical=True, emit_progress=None, video_layout=None, preset=None):
+                 vertical=True, emit_progress=None, video_layout=None, preset=None,
+                 cancel_check=None):
         if emit_progress:
             emit_progress(f"Cortando clip {start_time:.1f}s - {end_time:.1f}s...")
 
@@ -235,7 +261,7 @@ class VideoCutter:
             output_path
         ])
 
-        result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
+        result = self._run_ffmpeg(cmd, cancel_check=cancel_check)
 
         if result.returncode != 0:
             if emit_progress:
@@ -251,7 +277,8 @@ class VideoCutter:
         return output_path
 
     def cut_clip_with_face_tracking(self, video_path, start_time, end_time,
-                                     output_path, face_positions=None, emit_progress=None, preset=None):
+                                     output_path, face_positions=None, emit_progress=None, preset=None,
+                                     cancel_check=None):
         if emit_progress:
             emit_progress(f"Cortando clip com face tracking {start_time:.1f}s - {end_time:.1f}s...")
 
@@ -262,7 +289,7 @@ class VideoCutter:
             (s for s in info.get("streams", []) if s["codec_type"] == "video"), None
         )
         if not video_stream:
-            return self.cut_clip(video_path, start_time, end_time, output_path, True, emit_progress)
+            return self.cut_clip(video_path, start_time, end_time, output_path, True, emit_progress, cancel_check=cancel_check)
 
         orig_w = int(video_stream["width"])
         orig_h = int(video_stream["height"])
@@ -292,12 +319,12 @@ class VideoCutter:
             output_path
         ]
 
-        result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
+        result = self._run_ffmpeg(cmd, cancel_check=cancel_check)
 
         if result.returncode != 0:
             if emit_progress:
                 emit_progress(f"Erro ao cortar com face tracking: {result.stderr[-300:]}")
-            return self.cut_clip(video_path, start_time, end_time, output_path, True, emit_progress)
+            return self.cut_clip(video_path, start_time, end_time, output_path, True, emit_progress, cancel_check=cancel_check)
 
         if not self._validate_rendered_output(output_path, duration, emit_progress):
             return None
@@ -326,7 +353,7 @@ class VideoCutter:
     def batch_cut(self, video_path, cuts, project_name, use_face_tracking=False,
                   face_positions_map=None, emit_progress=None, output_dir=None,
                   video_layout=None, preset=None, original_aspect_indices=None,
-                  layout_plans=None, on_clip_ready=None):
+                  layout_plans=None, on_clip_ready=None, cancel_check=None):
         """Corta os trechos escolhidos, um por um.
 
         `on_clip_ready` recebe cada corte assim que ele passa na validação, em
@@ -357,6 +384,8 @@ class VideoCutter:
         results = []
 
         for i, cut in enumerate(cuts):
+            if cancel_check:
+                cancel_check()
             rank = i + 1
             # Use AI-generated title if available, otherwise generate from text
             clip_title = cut.get("title", "")
@@ -385,7 +414,7 @@ class VideoCutter:
             if can_reframe:
                 result = self.cut_clip_with_face_tracking(
                     video_path, padded_start, padded_end,
-                    output_path, face_pos, emit_progress, active_preset
+                    output_path, face_pos, emit_progress, active_preset, cancel_check=cancel_check
                 )
                 framing_mode = "face_tracking"
                 framing_reason = "facetracking aplicado com posição facial detectada"
@@ -393,7 +422,7 @@ class VideoCutter:
                 result = self.cut_clip(
                     video_path, padded_start, padded_end,
                     output_path, vertical=False, emit_progress=emit_progress,
-                    video_layout=video_layout, preset=active_preset
+                    video_layout=video_layout, preset=active_preset, cancel_check=cancel_check
                 )
                 framing_mode = "original_16_9"
                 framing_reason = (layout_plan or {}).get("reason") or "composição original preservada por segurança"
@@ -403,7 +432,7 @@ class VideoCutter:
                 result = self.cut_clip(
                     video_path, padded_start, padded_end,
                     output_path, vertical=True, emit_progress=emit_progress,
-                    video_layout=video_layout, preset=active_preset
+                    video_layout=video_layout, preset=active_preset, cancel_check=cancel_check
                 )
                 framing_mode = "center_crop"
                 framing_reason = "crop centralizado; facetracking não aplicado ou não disponível"

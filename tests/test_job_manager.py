@@ -91,6 +91,18 @@ class JobManagerTests(unittest.TestCase):
         finally:
             recovered.shutdown()
 
+    def test_new_manager_recovers_recent_running_job_as_orphan(self):
+        created = self.manager.create("recent-orphan")
+        self.manager.update(created["id"], state="running", stage="rendering", progress=15)
+        recovered = JobManager(self.db_path, max_workers=1)
+        try:
+            final = recovered.get(created["id"])
+            self.assertEqual(final["state"], "failed")
+            self.assertEqual(final["stage"], "stale_recovered")
+            self.assertEqual(final["error"], "stale_job_recovered")
+        finally:
+            recovered.shutdown()
+
     def test_new_manager_recovers_inactive_running_job(self):
         created = self.manager.create("orphaned-on-startup")
         self.manager.update(created["id"], state="running", stage="rendering", progress=15)
