@@ -34,6 +34,16 @@ def test_studio_interactions_have_real_targets():
         'function renderSeoPreview',
         'data-action="use-headline"',
         'HEADLINE / CAPTIONS FIRST',
+        'activeProjectId',
+        'furia-active-project',
+        'renderSourceDesk',
+        'console-drawer',
+        'refreshStudioStatus',
+        'force_whisper',
+        'Conectar memória do Campaign Hub',
+        'class="review-snap"',
+        'snap_to_transcript',
+        'reviewCount',
     ):
         assert fragment in HTML or fragment in JS
 
@@ -50,6 +60,7 @@ def test_adapter_routes_are_registered_once():
     assert ("/api/clips/<int:clip_id>/title", "studio_title", ("POST",)) in rules
     assert ("/api/projects/<int:project_id>/seo", "studio_seo", ("POST",)) in rules
     assert ("/api/clips/<int:clip_id>/export", "studio_export", ("POST",)) in rules
+    assert ("/api/studio/status", "studio_status", ("GET",)) in rules
 
 
 def test_adapter_does_not_load_furia2_namespace():

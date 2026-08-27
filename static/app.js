@@ -1,12 +1,22 @@
 (() => {
   "use strict";
 
-  const state = { projects: [], activeProject: null, activeClipId: null, screen: "overview", projectTab: "analyze", filter: "all", sort: "score", busy: false, exporting: new Set() };
+  const state = { projects: [], activeProject: null, activeProjectId: null, activeClipId: null, activeJobId: null, screen: "overview", projectTab: "analyze", filter: "all", sort: "score", projectSort: "recent", busy: false, exporting: new Set(), currentJobId: null, consoleLines: [], consoleSeen: new Set(), consoleOpen: false, consoleDismissed: false, consoleJobId: null, settings: {}, studioStatus: null };
   try {
     state.filter = localStorage.getItem("furia-filter") || state.filter;
     state.sort = localStorage.getItem("furia-sort") || state.sort;
+    state.projectSort = localStorage.getItem("furia-project-sort") || state.projectSort;
     state.projectTab = localStorage.getItem("furia-project-tab") || state.projectTab;
+    state.activeProjectId = localStorage.getItem("furia-active-project") || null;
+    state.consoleOpen = localStorage.getItem("furia-console-open") === "1";
   } catch (_) {}
+  function rememberActiveProject(projectId) {
+    state.activeProjectId = projectId == null ? null : String(projectId);
+    try {
+      if (state.activeProjectId) localStorage.setItem("furia-active-project", state.activeProjectId);
+      else localStorage.removeItem("furia-active-project");
+    } catch (_) {}
+  }
   const $ = (selector, scope = document) => scope.querySelector(selector);
   const $$ = (selector, scope = document) => [...scope.querySelectorAll(selector)];
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -156,6 +166,72 @@
     return `${Math.floor(value / 60)}:${Math.floor(value % 60).toString().padStart(2, "0")}`;
   }
 
+  function setConsoleOpen(open) {
+    state.consoleOpen = Boolean(open);
+    const drawer = $("#consoleDrawer");
+    drawer?.classList.toggle("is-open", state.consoleOpen);
+    $("#consoleIndicator")?.classList.toggle("is-active", state.consoleOpen);
+    try { localStorage.setItem("furia-console-open", state.consoleOpen ? "1" : "0"); } catch (_) {}
+    if (state.consoleOpen && !state.consoleLines.length && !state.consoleDismissed) hydrateConsoleFromLatestJob();
+  }
+
+  function renderConsole() {
+    const target = $("#consoleLines");
+    if (!target) return;
+    target.innerHTML = state.consoleLines.length ? state.consoleLines.slice(-120).map((line) => `<div class="console-line console-${escapeHtml(line.level || "info")}"><time>${escapeHtml(line.time || "")}</time><b>${escapeHtml(line.stage || "LOCAL")}</b><span>${escapeHtml(line.message || "")}</span></div>`).join("") : `<div class="console-empty">Quando você iniciar uma ação, cada etapa ficará registrada aqui.</div>`;
+    target.scrollTop = target.scrollHeight;
+    const last = state.consoleLines[state.consoleLines.length - 1];
+    if (last) $("#consoleSummary").textContent = last.message || "Execução local em andamento.";
+  }
+
+  function appendConsole(message, level = "info", stage = "local", key = "") {
+    const text = String(message || "").trim();
+    if (!text) return;
+    const identity = key || `${stage}:${level}:${text}`;
+    if (state.consoleSeen.has(identity)) return;
+    state.consoleSeen.add(identity);
+    state.consoleDismissed = false;
+    state.consoleLines.push({ message: text, level, stage: String(stage || "local").toUpperCase(), time: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) });
+    if (state.consoleLines.length > 160) state.consoleLines = state.consoleLines.slice(-160);
+    setConsoleOpen(true);
+    renderConsole();
+  }
+
+  function clearConsole() {
+    state.consoleLines = [];
+    state.consoleSeen = new Set();
+    state.consoleDismissed = true;
+    renderConsole();
+    $("#consoleTitle").textContent = "Nenhuma tarefa selecionada";
+    $("#consoleSummary").textContent = "As etapas do Whisper, Furia 1, captions e exportação aparecem aqui.";
+  }
+
+  function renderDependencyStatus(targetId, good, title, detail) {
+    const target = $(`#${targetId}`);
+    if (!target) return;
+    target.classList.toggle("is-good", Boolean(good));
+    target.classList.toggle("is-warn", !good);
+    target.innerHTML = `<span class="status-dot"></span><div><strong>${escapeHtml(title)}</strong><small>${escapeHtml(detail)}</small></div>`;
+  }
+
+  async function refreshStudioStatus() {
+    try {
+      const status = await api("/api/studio/status");
+      state.studioStatus = status;
+      const whisper = status.whisper || {};
+      const whisperEngines = [whisper.faster_whisper_installed ? "faster-whisper" : "", whisper.openai_whisper_installed ? "openai-whisper" : ""].filter(Boolean);
+      renderDependencyStatus("whisperStatus", whisper.available, whisper.available ? "Whisper local disponível" : "Whisper local não instalado", whisper.available ? `${whisperEngines.join(" + ")} · modelo ${whisper.model} · dispositivo ${whisper.device}` : "Instale o Whisper no bootstrap do Windows ou use uma legenda pronta.");
+      const ai = status.ai || {};
+      const geminiReady = ai.mode === "gemini" && ai.connected;
+      const geminiConfigured = Boolean(ai.gemini_configured);
+      renderDependencyStatus("geminiStatus", geminiReady || geminiConfigured, geminiReady ? `Gemini conectado · ${ai.model || "modelo configurado"}` : geminiConfigured ? "Chave Gemini configurada; conexão não confirmada" : "Gemini opcional — nenhuma chave configurada", geminiReady ? "O Studio pode usar Gemini e mantém fallback local." : geminiConfigured ? "A chave está salva localmente; falha de rede não bloqueia o Furia 1." : "Sem chave, a análise segue com Ollama ou sinais locais.");
+      return status;
+    } catch (error) {
+      appendConsole(`Não foi possível consultar o status das dependências: ${error.message}`, "warning", "status");
+      return null;
+    }
+  }
+
   function formatTime(seconds = 0) {
     const value = Number(seconds) || 0;
     return `${Math.floor(value / 60)}:${Math.floor(value % 60).toString().padStart(2, "0")}`;
@@ -185,14 +261,20 @@
 
   function renderChubMemory(chub, compact = false) {
     if (!chub?.available) {
-      return `<section class="chub-memory is-empty"><div class="chub-memory-head"><span class="tiny-label">CAMPAIGN MEMORY</span><span class="chub-status">OPCIONAL</span></div><p>Use um snapshot do chub para lembrar hooks e referências de desempenho sem alterar o score local.</p><button class="button button-cyan" data-action="import-chub">Importar snapshot</button></section>`;
+      return `<section class="chub-memory is-empty"><div class="chub-memory-head"><span class="tiny-label">CAMPAIGN HUB / MEMÓRIA</span><span class="chub-status">OPCIONAL</span></div><p>Conecte um arquivo JSON exportado do Campaign Hub para consultar referências históricas de hooks. Isso não é necessário para trabalhar e não altera o score local.</p><button class="button button-cyan" data-action="import-chub" title="Selecionar um JSON exportado do Campaign Hub">Conectar memória do Campaign Hub</button></section>`;
     }
     const topPosts = (chub.topPosts || []).slice(0, compact ? 2 : 3);
     const hooks = (chub.hooks || []).slice(0, compact ? 4 : 6);
     const platformLabel = (chub.platforms || []).join(" · ") || "escopo não informado";
     const examples = topPosts.map((post) => `<li><span>${escapeHtml(post.hook || post.tags?.[0] || "criativo histórico")}</span><b>${formatRatio(post.settledRatio ?? post.ratio)}</b></li>`).join("");
-    const hookLabels = hooks.map((hook) => `<span>${escapeHtml(hook.label || "hook")}${hook.medianRatio != null ? ` <b>${formatRatio(hook.medianRatio)}</b>` : ""}</span>`).join("");
-    return `<section class="chub-memory"><div class="chub-memory-head"><span class="tiny-label">CAMPAIGN MEMORY</span><span class="chub-head-actions"><span class="chub-account">${escapeHtml(chub.channel)}</span><button class="chub-clear" data-action="clear-chub" title="Desconectar snapshot">×</button></span></div><p class="chub-explainer">Referência histórica da conta. Não é previsão e não altera o score técnico deste corte.</p><div class="chub-memory-meta"><span>${escapeHtml(platformLabel)}</span><span>${chub.fetchedAt ? `atualizado ${escapeHtml(chub.fetchedAt.slice(0, 10))}` : "data não informada"}</span></div>${hookLabels ? `<div class="chub-hook-cloud">${hookLabels}</div>` : ""}${examples ? `<ul class="chub-example-list">${examples}</ul>` : `<p class="chub-muted">Snapshot conectado, mas sem exemplos resumidos.</p>`}</section>`;
+    const hookLabels = hooks.map((hook) => {
+      const label = hook.label || hook.family || hook.hook || "família de hook";
+      const ratio = hook.medianRatio ?? hook.median;
+      const observations = hook.observations ?? hook.n;
+      return `<span>${escapeHtml(label)}${ratio != null ? ` <b>${formatRatio(ratio)}</b>` : ""}${observations != null ? ` <small>n=${escapeHtml(observations)}</small>` : ""}</span>`;
+    }).join("");
+    const exampleSummary = examples || (hooks.length ? `<p class="chub-muted">${hooks.length} referências agregadas de hooks; use-as como contexto histórico, não como previsão.</p>` : `<p class="chub-muted">Snapshot conectado, sem exemplos resumidos.</p>`);
+    return `<section class="chub-memory"><div class="chub-memory-head"><span class="tiny-label">CAMPAIGN MEMORY</span><span class="chub-head-actions"><span class="chub-account">${escapeHtml(chub.channel)}</span><button class="chub-clear" data-action="clear-chub" title="Desconectar snapshot">×</button></span></div><p class="chub-explainer">Referência histórica da conta. Não é previsão e não altera o score técnico deste corte.</p><div class="chub-memory-meta"><span>${escapeHtml(platformLabel)}</span><span>${chub.fetchedAt ? `atualizado ${escapeHtml(chub.fetchedAt.slice(0, 10))}` : "data não informada"}</span></div>${hookLabels ? `<div class="chub-hook-cloud">${hookLabels}</div>` : ""}${examples ? `<ul class="chub-example-list">${examples}</ul>` : exampleSummary}</section>`;
   }
 
   function navigate(screen) {
@@ -201,6 +283,7 @@
       return;
     }
     state.screen = screen;
+    document.body.classList.toggle("console-in-project", screen === "project");
     $$(".screen").forEach((item) => item.classList.toggle("is-visible", item.dataset.screen === screen));
     $$("[data-screen-link]").forEach((item) => item.classList.toggle("is-active", item.dataset.screenLink === screen));
     const labels = { overview: ["Mesa", "Seu material de hoje"], projects: ["Biblioteca", "Suas fontes locais"], project: ["Projeto", state.activeProject?.name || "Fonte"], shortlist: ["Cortes", "Momentos com oportunidade"], review: ["Revisão", "Decisões com contexto"] };
@@ -223,10 +306,12 @@
 
   async function loadContextProject() {
     if (state.activeProject) return state.activeProject;
-    const candidate = state.projects.find((project) => Number(project.candidateCount) > 0);
+    const remembered = state.activeProjectId && state.projects.find((project) => String(project.id) === String(state.activeProjectId));
+    const candidate = remembered || state.projects.find((project) => Number(project.candidateCount) > 0) || state.projects[0];
     if (!candidate) return null;
     try {
       state.activeProject = await api(`/api/projects/${candidate.id}`);
+      rememberActiveProject(state.activeProject.id);
       state.activeClipId = state.activeProject.clips?.[0]?.id || null;
       return state.activeProject;
     } catch (error) { toast(error.message, "error"); return null; }
@@ -260,7 +345,27 @@
     const target = $("#projectsGrid");
     let projects = [...state.projects];
     if (state.filter !== "all") projects = projects.filter((project) => project.status === state.filter);
+    if (state.projectSort === "name") projects.sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "pt-BR"));
+    else if (state.projectSort === "status") projects.sort((a, b) => String(a.status || "").localeCompare(String(b.status || "")) || String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")));
+    else projects.sort((a, b) => String(b.updatedAt || b.createdAt || "").localeCompare(String(a.updatedAt || a.createdAt || "")));
     target.innerHTML = projects.length ? projects.map(projectCard).join("") : `<div class="empty-state"><span class="empty-symbol">+</span><h3>${state.projects.length ? "Nenhuma fonte neste filtro." : "Sua primeira fonte começa aqui."}</h3><p>${state.projects.length ? "Escolha outro estado para continuar." : "Importe um vídeo para abrir um projeto local."}</p></div>`;
+    attachDynamicActions(target);
+  }
+
+  function renderSourceDesk() {
+    const target = $("#sourceDeskContent");
+    if (!target) return;
+    const project = state.activeProject;
+    if (!project?.filename) {
+      target.className = "source-empty";
+      target.innerHTML = `<div class="source-art" aria-hidden="true"><img src="/static/assets/studio-object-sheet.png" alt=""></div><div class="source-copy"><span class="tiny-label">LOCAL FILE / VIDEO</span><h1>Traga uma fonte<br><em>para a mesa.</em></h1><p>O vídeo fica no seu workspace.<br>Nada sai desta máquina.</p><button class="button button-coral" id="btnHeroImport">Importar vídeo <span>↗</span></button></div>`;
+      $("#btnHeroImport")?.addEventListener("click", openImport);
+      return;
+    }
+    target.className = "source-active";
+    const transcriptLabel = project.transcriptCount ? `${project.transcriptCount} blocos` : "transcrição pendente";
+    const cutLabel = project.candidateCount ? `${project.candidateCount} cortes` : "nenhum corte ainda";
+    target.innerHTML = `<div class="source-active-preview">${project.videoUrl ? `<video controls preload="metadata" src="${project.videoUrl}" aria-label="Prévia de ${escapeAttribute(project.name)}"></video>` : `<div class="video-placeholder"><span>◉</span>Prévia indisponível</div>`}</div><div class="source-active-copy"><span class="tiny-label">FONTE ATIVA / LOCAL</span><h1>${escapeHtml(project.name)}</h1><p>${escapeHtml(project.filename)}<br>${formatDuration(project.duration)} · ${escapeHtml(transcriptLabel)} · ${escapeHtml(cutLabel)}</p><div class="source-active-actions"><button class="button button-coral" data-action="open-project">Abrir projeto <span>→</span></button><button class="button" data-action="open-project-analyze">${project.candidateCount ? "Revisar cortes" : "Continuar preparação"}</button></div></div>`;
     attachDynamicActions(target);
   }
 
@@ -269,6 +374,7 @@
     renderProjects();
     renderMetrics(state.metrics || {});
     renderSignal();
+    renderSourceDesk();
     refreshQueue();
   }
 
@@ -279,29 +385,58 @@
       const payload = await api("/api/jobs?limit=6");
       const jobs = payload.jobs || [];
       target.innerHTML = jobs.length ? jobs.map((job, index) => `<div class="queue-line"><b>${String(index + 1).padStart(2, "0")}</b><span>${escapeHtml(job.type || "job local")}</span><small>${escapeHtml(job.message || job.stage || job.state || "aguardando")}</small><i>${job.state === "completed" ? "✓" : job.state === "failed" ? "!" : `${Number(job.progress || 0)}%`}</i></div>`).join("") : `<div class="queue-empty"><span>◒</span><p>Nenhuma tarefa em andamento.<br>A mesa está pronta para a próxima fonte.</p></div>`;
+      if (state.consoleOpen && !state.consoleLines.length && !state.consoleDismissed) hydrateConsoleFromLatestJob(jobs[0]);
     } catch (_) {
       target.innerHTML = `<div class="queue-empty"><span>…</span><p>Fila local indisponível no momento.</p></div>`;
     }
+  }
+
+  async function hydrateConsoleFromLatestJob(latest = null) {
+    if (state.consoleLines.length || state.consoleDismissed) return;
+    try {
+      if (!latest) latest = (await api("/api/jobs?limit=1")).jobs?.[0];
+      if (!latest || state.consoleJobId === latest.id) return;
+      state.consoleJobId = latest.id;
+      state.currentJobId = latest.id;
+      $("#consoleTitle").textContent = `${latest.type || "Tarefa local"} · ${latest.state || "fila"}`;
+      const eventPayload = await api(`/api/jobs/${latest.id}/events?limit=120`).catch(() => ({ events: [] }));
+      const events = eventPayload.events || [];
+      events.forEach((event) => appendConsole(event.message, event.level || "info", event.stage || latest.stage || "job", `${latest.id}:${event.sequence}`));
+      if (latest.error && !events.some((event) => event.message === latest.error)) appendConsole(latest.error, "error", latest.stage || "job", `${latest.id}:error`);
+      if (latest.state === "completed" && !events.some((event) => /job concluído|tarefa concluída/i.test(String(event.message || "")))) appendConsole(latest.message || "Tarefa concluída.", "success", latest.stage || "job", `${latest.id}:completed`);
+    } catch (_) {}
   }
 
   async function loadProjects() {
     try {
       const payload = await api("/api/projects");
       state.projects = Array.isArray(payload) ? payload : (payload.projects || []);
+      if (state.activeProjectId && !state.projects.some((project) => String(project.id) === String(state.activeProjectId))) {
+        rememberActiveProject(null);
+        state.activeProject = null;
+      }
+      if (state.activeProject && !state.projects.some((project) => String(project.id) === String(state.activeProject.id))) {
+        state.activeProject = null;
+      }
       const clips = state.projects.reduce((total, project) => total + Number(project.candidateCount || 0), 0);
       const approved = state.projects.reduce((total, project) => total + Number(project.approvedCount || 0), 0);
       const exported = state.projects.reduce((total, project) => total + Number(project.exportedCount || 0), 0);
+      const review = state.projects.reduce((total, project) => total + Number(project.reviewCount ?? Math.max(0, Number(project.candidateCount || 0) - Number(project.approvedCount || 0))), 0);
       state.metrics = payload.metrics || {
         projects: state.projects.length,
         processing: state.projects.filter((project) => ["processing", "pending"].includes(project.status)).length,
-        review: clips - approved - exported,
+        review: Math.max(0, review),
         approved,
         exported,
       };
       refreshOverview();
       if (state.activeProject) {
         state.activeProject = await api(`/api/projects/${state.activeProject.id}`);
+        rememberActiveProject(state.activeProject.id);
         renderProjectScreen();
+      } else if (state.projects.length) {
+        await loadContextProject();
+        refreshOverview();
       }
     } catch (error) { toast(error.message, "error"); }
   }
@@ -309,6 +444,7 @@
   async function openProject(id) {
     try {
       state.activeProject = await api(`/api/projects/${id}`);
+      rememberActiveProject(state.activeProject.id);
       state.projectTab = "analyze";
       state.activeClipId = state.activeProject.clips?.[0]?.id || null;
       renderProjectScreen();
@@ -336,12 +472,15 @@
   function renderAnalyze(project) {
     const analysis = project.analysis || {};
     const transcript = project.transcript || [];
-    const analyzing = project.status === "processing";
-    return `<div class="editor-grid"><section class="window editor-window"><div class="window-bar"><span>01 / SOURCE PLAYER</span><span class="window-status">${statusLabel(project.status)}</span></div><div class="editor-window-body"><div class="window-subhead"><span class="subhead-label">SOURCE / PREVIEW</span><span class="status-chip">${project.filename ? "LOCAL FILE" : "EMPTY"}</span></div><div class="video-frame">${project.videoUrl ? `<video controls preload="metadata" src="${project.videoUrl}"></video>` : `<div class="video-placeholder"><span>+</span>Importe uma fonte para ver a prévia.</div>`}</div><div class="editor-stats"><div class="editor-stat"><b>${formatDuration(project.duration)}</b><span>DURAÇÃO</span></div><div class="editor-stat"><b>${analysis.active_ranges || "—"}</b><span>ZONAS ATIVAS</span></div><div class="editor-stat"><b>${project.candidateCount || 0}</b><span>CORTES</span></div></div></div></section><section class="window editor-window"><div class="window-bar"><span>02 / UNDERSTAND</span><span class="window-status">LOCAL</span></div><div class="editor-window-body"><p class="understanding-copy">A fonte é lida por ritmo e continuidade antes de qualquer corte. O transcript pode ser anexado ou gerado localmente quando o Whisper estiver instalado.</p><div class="signal-list"><div class="signal-row"><span>Ritmo</span><i style="--signal:${analysis.active_ranges ? "72%" : "8%"};--signal-color:var(--cyan)"></i><b>${analysis.active_ranges ? "mapeado" : "aguardando"}</b></div><div class="signal-row"><span>Transcript</span><i style="--signal:${transcript.length ? "92%" : "5%"};--signal-color:var(--coral)"></i><b>${transcript.length ? `${transcript.length} blocos` : "opcional"}</b></div><div class="signal-row"><span>Cortes</span><i style="--signal:${project.candidateCount ? "86%" : "5%"};--signal-color:var(--sun)"></i><b>${project.candidateCount ? "prontos" : "vazios"}</b></div></div>${renderChubMemory(project.chub, true)}<div class="editor-actions"><button class="button" data-action="attach-transcript">Adicionar transcript</button><button class="button" data-action="transcribe" ${analyzing ? "disabled" : ""}>Whisper local</button><button class="button button-coral" data-action="analyze" ${analyzing ? "disabled" : ""}>${analyzing ? "Analisando…" : "Analisar fonte"} <span>→</span></button></div></div></section><section class="window editor-window transcript-window"><div class="window-bar"><span>03 / TRANSCRIPT</span><button class="window-bar-link" data-action="attach-transcript">IMPORTAR SRT / VTT / TXT</button></div><div class="editor-window-body">${transcript.length ? `<div class="transcript-tools"><span class="tiny-label">WORDS / SEARCH & SEEK</span><input class="transcript-search" type="search" placeholder="Buscar na fala…" aria-label="Buscar na transcrição"></div><div class="transcript-snippet">${transcript.slice(0, 24).map((segment) => `<div class="transcript-line" data-seek="${segment.start}" tabindex="0" role="button"><time>${formatTime(segment.start)}</time><p>${escapeHtml(segment.text)}</p></div>`).join("")}</div>` : `<div class="transcript-empty"><span>⌁</span><div><strong>Uma superfície de leitura, não uma caixa preta.</strong><p>Anexe uma transcrição para revisar as palavras junto do vídeo.</p></div></div>`}</div></section></div>`;
+    const transcription = project.transcription || {};
+    const analyzing = project.status === "processing" || state.busy;
+    const transcriptSource = transcription.source || (transcript.length ? "arquivo local" : "aguardando");
+    const transcriptLabel = transcript.length ? `${transcript.length} blocos · ${transcriptSource}` : "Ainda não gerada";
+    return `<div class="editor-grid"><section class="window editor-window"><div class="window-bar"><span>01 / VÍDEO DE ORIGEM</span><span class="window-status">${statusLabel(project.status)}</span></div><div class="editor-window-body"><div class="window-subhead"><span class="subhead-label">FONTE LOCAL / PRÉVIA</span><span class="status-chip">${project.filename ? "ARQUIVO COPIADO" : "SEM FONTE"}</span></div><div class="video-frame">${project.videoUrl ? `<video controls preload="metadata" src="${project.videoUrl}" aria-label="Prévia de ${escapeAttribute(project.name)}"></video>` : `<div class="video-placeholder"><span>+</span>Importe uma fonte para ver a prévia.</div>`}</div><div class="editor-stats"><div class="editor-stat"><b>${formatDuration(project.duration)}</b><span>DURAÇÃO</span></div><div class="editor-stat"><b>${analysis.active_ranges || "—"}</b><span>SINAIS LOCAIS</span></div><div class="editor-stat"><b>${project.candidateCount || 0}</b><span>CORTES</span></div></div></div></section><section class="window editor-window"><div class="window-bar"><span>02 / PREPARAR E ENCONTRAR</span><span class="window-status">FURIA 1</span></div><div class="editor-window-body"><p class="understanding-copy"><strong>Fluxo recomendado:</strong> primeiro transforme a fala em uma transcrição, depois deixe o Furia 1 formar o pool de candidatos. Cada ação mostra o progresso no Console.</p><div class="workflow-steps"><div class="workflow-step"><b>1</b><span>Transcrição</span><small>${escapeHtml(transcriptLabel)}</small></div><div class="workflow-step"><b>2</b><span>Leitura editorial</span><small>${project.candidateCount ? "pool pronto" : "após a transcrição"}</small></div><div class="workflow-step"><b>3</b><span>Revisão humana</span><small>${project.candidateCount ? "abrir Cortes" : "aguardando"}</small></div></div><div class="signal-list"><div class="signal-row"><span>Ritmo</span><i style="--signal:${analysis.active_ranges ? "72%" : "8%"};--signal-color:var(--cyan)"></i><b>${analysis.active_ranges ? "mapeado" : "aguardando"}</b></div><div class="signal-row"><span>Transcript</span><i style="--signal:${transcript.length ? "92%" : "5%"};--signal-color:var(--coral)"></i><b>${transcript.length ? "pronto" : "pendente"}</b></div><div class="signal-row"><span>Cortes</span><i style="--signal:${project.candidateCount ? "86%" : "5%"};--signal-color:var(--sun)"></i><b>${project.candidateCount ? "prontos" : "pendentes"}</b></div></div>${renderChubMemory(project.chub, true)}<div class="editor-actions"><button class="button" data-action="attach-transcript" title="Use um arquivo SRT, VTT ou TXT já existente">Usar transcript pronto</button><button class="button button-cyan" data-action="transcribe" ${analyzing ? "disabled" : ""} title="Transcrever a fonte com Whisper local">${analyzing ? "Whisper em execução…" : "Executar Whisper local"}</button><button class="button button-coral" data-action="analyze" ${analyzing ? "disabled" : ""} title="Formar e ranquear candidatos com o motor Furia 1">${analyzing ? "Análise em execução…" : "Encontrar cortes — Furia 1"} <span>→</span></button></div></div></section><section class="window editor-window transcript-window"><div class="window-bar"><span>03 / TEXTO COM TIMESTAMPS</span><button class="window-bar-link" data-action="attach-transcript">IMPORTAR SRT / VTT / TXT</button></div><div class="editor-window-body">${transcript.length ? `<div class="transcript-tools"><span class="tiny-label">BUSCAR E IR PARA O VÍDEO</span><input class="transcript-search" type="search" placeholder="Buscar na fala…" aria-label="Buscar na transcrição"></div><div class="transcript-snippet">${transcript.slice(0, 24).map((segment) => `<div class="transcript-line" data-seek="${segment.start}" tabindex="0" role="button"><time>${formatTime(segment.start)}</time><p>${escapeHtml(segment.text)}</p></div>`).join("")}</div>` : `<div class="transcript-empty"><span>⌁</span><div><strong>Nenhum texto carregado ainda.</strong><p>Escolha “Executar Whisper local” ou use um arquivo SRT, VTT ou TXT. O botão não fica silencioso: cada etapa aparece no Console.</p></div></div>`}</div></section></div>`;
   }
 
   function renderShortlist(clips) {
-    if (!clips.length) return `<div class="project-shortlist-layout"><div class="empty-state"><span class="empty-symbol">✦</span><h3>Os cortes aparecem depois da análise.</h3><p>Execute a análise para encontrar momentos com oportunidade.</p><button class="button button-coral" data-action="analyze">Analisar fonte <span>→</span></button></div>${renderChubMemory(state.activeProject?.chub, true)}</div>`;
+    if (!clips.length) return `<div class="project-shortlist-layout"><div class="empty-state"><span class="empty-symbol">✦</span><h3>Os cortes aparecem depois da leitura da fonte.</h3><p>O Furia 1 primeiro forma um pool amplo de candidatos; depois você revisa, ajusta e aprova os momentos.</p><button class="button button-coral" data-action="analyze" title="Formar e ranquear candidatos com o motor Furia 1">Encontrar cortes — Furia 1 <span>→</span></button></div>${renderChubMemory(state.activeProject?.chub, true)}</div>`;
     return `<div class="project-shortlist-layout"><div class="shortlist-grid">${sortedClips(clips).map(clipCard).join("")}</div>${renderChubMemory(state.activeProject?.chub, true)}</div>`;
   }
 
@@ -385,13 +524,14 @@
     const exportLabel = isExporting ? "Renderizando…" : clip.status === "exported" ? "Exportado" : canExport ? "Exportar 9:16" : "Aprovar primeiro";
     const startPercent = Math.max(0, Math.min(100, clip.start / duration * 100));
     const endPercent = Math.max(startPercent, Math.min(100, clip.end / duration * 100));
-    return `<div class="review-grid"><section class="window review-stage"><div class="window-bar"><span>01 / CLIP REVIEW</span><span class="window-status">${clipStatusLabel(clip.status)}</span></div><div class="review-stage-body"><div class="review-frame">${video}${captions}<div class="review-safe-label">9:16 / SAFE AREA</div></div><div class="review-controls"><div class="review-timeline" data-duration="${duration}" style="--range-start:${startPercent}%;--range-end:${endPercent}%"><i class="review-range-fill"></i><input class="range-handle range-start" type="range" min="0" max="${duration}" step="0.01" value="${clip.start}" data-clip-id="${clip.id}" aria-label="Início do clip"><input class="range-handle range-end" type="range" min="0" max="${duration}" step="0.01" value="${clip.end}" data-clip-id="${clip.id}" aria-label="Fim do clip"></div><div class="review-range-readout"><b>IN <span class="review-start-readout">${formatTime(clip.start)}</span></b><b>OUT <span class="review-end-readout">${formatTime(clip.end)}</span></b><span>${formatDuration(clip.duration)} selecionados</span></div><div class="review-preview-tools"><button class="button button-cyan" data-action="play-clip" data-clip-id="${clip.id}">Reproduzir corte <span>▶</span></button><label class="loop-toggle"><input type="checkbox" class="review-loop" data-clip-id="${clip.id}"><span>loop da seleção</span></label><small>Arraste os marcadores para ajustar o intervalo.</small></div></div><div class="review-actions"><button class="reject-action" data-action="decision" data-decision="rejected" data-clip-id="${clip.id}">Rejeitar</button><button class="adjust-action" data-action="open-shortlist">Voltar aos Cortes</button><button class="approve-action" data-action="decision" data-decision="approved" data-clip-id="${clip.id}">Aprovar <span>→</span></button><button class="export-action" data-action="export" data-clip-id="${clip.id}" ${canExport ? "" : "disabled"}>${exportLabel} <span>↗</span></button></div></div></section><aside class="window review-inspector"><div class="window-bar"><span>02 / DECISION NOTE</span><span class="window-status">SCORE ${clip.score}</span></div><div class="review-inspector-body"><h3>${escapeHtml(clip.title)}</h3><p class="review-muted">${formatTime(clip.start)} — ${formatTime(clip.end)} · ${formatDuration(clip.duration)}</p>${renderChubMemory(project.chub, true)}${renderEditorialBlock(clip.editorialBlock)}<div class="review-tools"><button class="button button-sun" data-action="seo" data-clip-id="${clip.id}">Gerar SEO local</button><div class="seo-preview" id="seo-${clip.id}"><span class="seo-empty">Título, descrição e hashtags entram aqui.</span></div></div><label class="field-label" for="reviewTitle">Headline sugerida</label><input class="review-title-input" id="reviewTitle" data-clip-id="${clip.id}" value="${escapeAttribute(clip.title)}"><div class="review-signal-block"><span class="tiny-label">WHY IT MADE THE CUT</span>${(clip.reasons || []).map((reason, index) => `<div class="review-reason"><i class="reason-dot ${["pink", "cyan", "yellow"][index % 3]}"></i><span>${escapeHtml(reason)}</span><b>${index === 0 ? "forte" : "presente"}</b></div>`).join("")}</div><div class="review-transcript"><div class="transcript-tools"><span class="tiny-label">WORDS / SEARCH & SEEK</span><input class="transcript-search" type="search" placeholder="Buscar na fala…" aria-label="Buscar na fala"></div>${transcript.length ? transcript.map((segment) => `<p data-seek="${segment.start}" tabindex="0" role="button"><time>${formatTime(segment.start)}</time>${escapeHtml(segment.text)}</p>`).join("") : `<p class="review-muted">Anexe uma transcrição para revisar o texto em sincronia.</p>`}</div></div></aside></div>`;
+    return `<div class="review-grid"><section class="window review-stage"><div class="window-bar"><span>01 / CLIP REVIEW</span><span class="window-status">${clipStatusLabel(clip.status)}</span></div><div class="review-stage-body"><div class="review-frame">${video}${captions}<div class="review-safe-label">9:16 / SAFE AREA</div></div><div class="review-controls"><div class="review-timeline" data-duration="${duration}" style="--range-start:${startPercent}%;--range-end:${endPercent}%"><i class="review-range-fill"></i><input class="range-handle range-start" type="range" min="0" max="${duration}" step="0.01" value="${clip.start}" data-clip-id="${clip.id}" aria-label="Início do clip"><input class="range-handle range-end" type="range" min="0" max="${duration}" step="0.01" value="${clip.end}" data-clip-id="${clip.id}" aria-label="Fim do clip"></div><div class="review-range-readout"><b>IN <span class="review-start-readout">${formatTime(clip.start)}</span></b><b>OUT <span class="review-end-readout">${formatTime(clip.end)}</span></b><span>${formatDuration(clip.duration)} selecionados</span></div><div class="review-preview-tools"><button class="button button-cyan" data-action="play-clip" data-clip-id="${clip.id}">Reproduzir corte <span>▶</span></button><label class="loop-toggle"><input type="checkbox" class="review-loop" data-clip-id="${clip.id}"><span>loop da seleção</span></label><label class="loop-toggle"><input type="checkbox" class="review-snap" data-clip-id="${clip.id}"><span>alinhar às bordas da fala</span></label><small>Arraste os marcadores para ajustar o intervalo.</small></div></div><div class="review-actions"><button class="reject-action" data-action="decision" data-decision="rejected" data-clip-id="${clip.id}">Rejeitar</button><button class="adjust-action" data-action="open-shortlist">Voltar aos Cortes</button><button class="approve-action" data-action="decision" data-decision="approved" data-clip-id="${clip.id}">Aprovar <span>→</span></button><button class="export-action" data-action="export" data-clip-id="${clip.id}" ${canExport ? "" : "disabled"}>${exportLabel} <span>↗</span></button></div></div></section><aside class="window review-inspector"><div class="window-bar"><span>02 / DECISION NOTE</span><span class="window-status">SCORE ${clip.score}</span></div><div class="review-inspector-body"><h3>${escapeHtml(clip.title)}</h3><p class="review-muted">${formatTime(clip.start)} — ${formatTime(clip.end)} · ${formatDuration(clip.duration)}</p>${renderChubMemory(project.chub, true)}${renderEditorialBlock(clip.editorialBlock)}<div class="review-tools"><button class="button button-sun" data-action="seo" data-clip-id="${clip.id}">Gerar SEO local</button><div class="seo-preview" id="seo-${clip.id}"><span class="seo-empty">Título, descrição e hashtags entram aqui.</span></div></div><label class="field-label" for="reviewTitle">Headline sugerida</label><input class="review-title-input" id="reviewTitle" data-clip-id="${clip.id}" value="${escapeAttribute(clip.title)}"><div class="review-signal-block"><span class="tiny-label">WHY IT MADE THE CUT</span>${(clip.reasons || []).map((reason, index) => `<div class="review-reason"><i class="reason-dot ${["pink", "cyan", "yellow"][index % 3]}"></i><span>${escapeHtml(reason)}</span><b>${index === 0 ? "forte" : "presente"}</b></div>`).join("")}</div><div class="review-transcript"><div class="transcript-tools"><span class="tiny-label">WORDS / SEARCH & SEEK</span><input class="transcript-search" type="search" placeholder="Buscar na fala…" aria-label="Buscar na fala"></div>${transcript.length ? transcript.map((segment) => `<p data-seek="${segment.start}" tabindex="0" role="button"><time>${formatTime(segment.start)}</time>${escapeHtml(segment.text)}</p>`).join("") : `<p class="review-muted">Anexe uma transcrição para revisar o texto em sincronia.</p>`}</div></div></aside></div>`;
   }
 
   function bindReviewControls(scope) {
     const timeline = $(".review-timeline", scope);
     const startInput = $(".range-start", scope);
     const endInput = $(".range-end", scope);
+    const snapInput = $(".review-snap", scope);
     if (timeline && startInput && endInput && !timeline.dataset.bound) {
       timeline.dataset.bound = "1";
       const syncRange = () => {
@@ -412,7 +552,7 @@
       };
       [startInput, endInput].forEach((input) => {
         input.addEventListener("input", syncRange);
-        input.addEventListener("change", () => persistClipRange(input.dataset.clipId, Number(startInput.value), Number(endInput.value)));
+        input.addEventListener("change", () => persistClipRange(input.dataset.clipId, Number(startInput.value), Number(endInput.value), Boolean(snapInput?.checked)));
       });
       syncRange();
     }
@@ -437,10 +577,10 @@
     }
   }
 
-  async function persistClipRange(clipId, start, end) {
+  async function persistClipRange(clipId, start, end, snapToTranscript = false) {
     if (end - start < 1) { toast("O clip precisa ter pelo menos 1 segundo.", "error"); return; }
     try {
-      const clip = await api(`/api/clips/${clipId}/range`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ start, end }) });
+      const clip = await api(`/api/clips/${clipId}/range`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ start, end, snap_to_transcript: snapToTranscript }) });
       const local = state.activeProject?.clips?.find((item) => item.id === clipId);
       if (local) Object.assign(local, clip);
       state.activeClipId = clipId;
@@ -506,9 +646,11 @@
     if (action === "analyze") return analyzeActiveProject();
     if (action === "transcribe") return transcribeActiveProject();
     if (action === "attach-transcript") return $("#transcriptInput").click();
-    if (action === "import-chub") return $("#chubInput").click();
+    if (action === "import-chub") { if (!state.activeProject) await loadContextProject(); if (!state.activeProject) { toast("Importe uma fonte antes de anexar a memória do Chub.", "error"); return; } return $("#chubInput").click(); }
     if (action === "clear-chub") return clearChubContext();
     if (action === "go-projects") return navigate("projects");
+    if (action === "open-project") { if (state.activeProject) { state.projectTab = "analyze"; renderProjectScreen(); navigate("project"); } else navigate("projects"); return; }
+    if (action === "open-project-analyze") { if (state.activeProject) { state.projectTab = state.activeProject.candidateCount ? "shortlist" : "analyze"; renderProjectScreen(); navigate("project"); } else navigate("projects"); return; }
     if (action === "open-review") { state.activeClipId = data.clipId; state.projectTab = "review"; renderProjectScreen(); navigate("project"); return; }
     if (action === "open-shortlist") { state.projectTab = "shortlist"; renderProjectScreen(); navigate("project"); return; }
     if (action === "decision") return decideClip(data.clipId, data.decision);
@@ -524,41 +666,56 @@
       const progress = await api(`/api/jobs/${jobId}`);
       const status = progress.status || progress.state || "queued";
       if (state.activeProject && $("#projectState")) $("#projectState").textContent = status === "running" ? `${progress.progress || 0}%` : (progress.message || progress.stage || status);
-      if (["completed", "done"].includes(status)) return progress;
-      if (["failed", "error", "cancelled"].includes(status)) throw new Error(progress.error || progress.message || "A operação local falhou.");
+      try {
+        const eventPayload = await api(`/api/jobs/${jobId}/events?limit=120`);
+        (eventPayload.events || []).forEach((event) => appendConsole(event.message, event.level || "info", event.stage || progress.stage || "job", `${jobId}:${event.sequence}`));
+      } catch (_) {}
+      if (["completed", "done"].includes(status)) { appendConsole(progress.message || "Tarefa concluída.", "success", progress.stage || "job", `${jobId}:completed`); return progress; }
+      if (["failed", "error", "cancelled"].includes(status)) { const message = progress.error || progress.message || "A operação local falhou."; appendConsole(message, "error", progress.stage || "job", `${jobId}:failed`); const failure = new Error(message); failure.consoleLogged = true; throw failure; }
     }
   }
 
   async function analyzeActiveProject() {
-    if (!state.activeProject?.filename) { toast("Importe um vídeo antes de analisar.", "error"); return; }
-    if (state.busy) return;
+    if (!state.activeProject?.filename) { toast("Importe um vídeo antes de analisar.", "error"); appendConsole("Análise não iniciada: nenhuma fonte foi importada.", "warning", "análise"); return; }
+    if (state.busy) { toast("Já existe uma tarefa em andamento. Acompanhe pelo Console."); setConsoleOpen(true); return; }
     state.busy = true;
+    state.currentJobId = null;
+    $("#consoleTitle").textContent = `Análise: ${state.activeProject.name}`;
+    appendConsole(`Iniciando análise editorial da fonte ${state.activeProject.name}.`, "info", "análise", `analysis-start:${state.activeProject.id}:${Date.now()}`);
     try {
       const job = await api("/api/process/cut", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ project_id: state.activeProject.id, video_path: state.activeProject.sourceVideo, face_tracking: false, audit_mode: "standard", preferred_format: "vertical_916" }) });
+      state.currentJobId = job.jobId;
+      appendConsole("Job criado. O Furia 1 vai transcrever, formar o pool e ranquear os candidatos.", "info", "fila", `${job.jobId}:created`);
       toast("O Studio está lendo a fonte…");
       await pollJob(job.jobId);
       state.activeProject = await api(`/api/projects/${state.activeProject.id}`);
       state.activeClipId = state.activeProject.clips?.[0]?.id || null;
       state.projectTab = "shortlist";
       toast(`${state.activeProject.clips.length} cortes encontrados.`, "success");
+      appendConsole(`${state.activeProject.clips.length} cortes disponíveis para revisão humana.`, "success", "análise", `${job.jobId}:result`);
       renderProjectScreen();
       await loadProjects();
-    } catch (error) { toast(error.message, "error"); }
+    } catch (error) { if (!error.consoleLogged) appendConsole(error.message, "error", "análise", `analysis-error:${state.currentJobId || Date.now()}`); toast(error.message, "error"); }
     finally { state.busy = false; }
   }
 
   async function transcribeActiveProject() {
-    if (!state.activeProject?.filename) { toast("Importe um vídeo antes de transcrever.", "error"); return; }
-    if (state.busy) return;
+    if (!state.activeProject?.filename) { toast("Importe um vídeo antes de transcrever.", "error"); appendConsole("Whisper não iniciado: nenhuma fonte foi importada.", "warning", "whisper"); return; }
+    if (state.busy) { toast("Já existe uma tarefa em andamento. Acompanhe pelo Console."); setConsoleOpen(true); return; }
     state.busy = true;
+    $("#consoleTitle").textContent = `Whisper: ${state.activeProject.name}`;
+    appendConsole("Whisper local solicitado manualmente. O vídeo permanece no workspace.", "info", "whisper", `whisper-start:${state.activeProject.id}:${Date.now()}`);
     try {
-      const job = await api(`/api/projects/${state.activeProject.id}/transcribe`, { method: "POST" });
-      toast("Whisper local está preparando o transcript…");
+      const job = await api(`/api/projects/${state.activeProject.id}/transcribe`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ force_whisper: true }) });
+      state.currentJobId = job.jobId;
+      appendConsole("Job criado. Acompanhe abaixo o engine efetivamente usado e o progresso por chunks.", "info", "fila", `${job.jobId}:created`);
+      toast("Whisper local está preparando a transcrição…");
       await pollJob(job.jobId, 900);
       state.activeProject = await api(`/api/projects/${state.activeProject.id}`);
-      toast("Transcript pronto para revisão.", "success");
+      toast("Transcrição do Whisper pronta para revisão.", "success");
       renderProjectScreen();
-    } catch (error) { toast(error.message, "error"); }
+      refreshOverview();
+    } catch (error) { if (!error.consoleLogged) appendConsole(error.message, "error", "whisper", `whisper-error:${state.currentJobId || Date.now()}`); toast(error.message, "error"); }
     finally { state.busy = false; }
   }
 
@@ -579,16 +736,19 @@
     if (state.exporting.has(clipId)) return;
     state.exporting.add(clipId);
     renderReviewScreen();
+    $("#consoleTitle").textContent = `Exportação: corte ${clipId}`;
+    appendConsole(`Iniciando exportação vertical do corte ${clipId}.`, "info", "export", `export-start:${clipId}:${Date.now()}`);
     try {
       const job = await api(`/api/clips/${clipId}/export`, { method: "POST" });
-      toast("Renderizando clip vertical…");
+      state.currentJobId = job.jobId;
+      toast("Renderizando corte vertical…");
       await pollJob(job.jobId, 800);
       state.activeProject = await api(`/api/projects/${state.activeProject.id}`);
       toast("Export pronto na pasta local.", "success");
       renderProjectScreen();
       renderReviewScreen();
       await loadProjects();
-    } catch (error) { toast(error.message, "error"); }
+    } catch (error) { if (!error.consoleLogged) appendConsole(error.message, "error", "export", `export-error:${clipId}:${Date.now()}`); toast(error.message, "error"); }
     finally { state.exporting.delete(clipId); renderReviewScreen(); }
   }
 
@@ -651,10 +811,15 @@
   }
 
   async function attachChub(file) {
-    if (!file || !state.activeProject) return;
+    if (!file) return;
+    if (!state.activeProject) await loadContextProject();
+    if (!state.activeProject) { toast("Importe uma fonte antes de anexar a memória do Chub.", "error"); return; }
     try {
       const payload = JSON.parse(await file.text());
       state.activeProject = await api(`/api/projects/${state.activeProject.id}/chub-context`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      rememberActiveProject(state.activeProject.id);
+      $("#settingsChubStatus").textContent = `Snapshot conectado: ${state.activeProject.chub.channel}.`;
+      appendConsole(`Memória opcional do Campaign Hub conectada ao projeto ${state.activeProject.name}.`, "success", "chub", `chub:${state.activeProject.id}:${Date.now()}`);
       toast(`Memória chub conectada à conta ${state.activeProject.chub.channel}.`, "success");
       renderProjectScreen();
       renderGlobalShortlist();
@@ -667,6 +832,8 @@
     if (!state.activeProject) return;
     try {
       state.activeProject = await api(`/api/projects/${state.activeProject.id}/chub-context`, { method: "DELETE" });
+      $("#settingsChubStatus").textContent = "Nenhum snapshot selecionado neste projeto.";
+      appendConsole("Memória do Campaign Hub desconectada; o projeto continua funcionando offline.", "success", "chub", `chub-clear:${state.activeProject.id}:${Date.now()}`);
       toast("Memória chub desconectada deste projeto.", "success");
       renderProjectScreen();
       renderGlobalShortlist();
@@ -683,19 +850,31 @@
     modal.hidden = false;
     try {
       const settings = await api("/api/settings");
+      state.settings = settings;
       $("#settingTranscriptionSource").value = settings.transcription_source || "auto";
+      $("#settingAiBackend").value = settings.ai_backend || "auto";
+      $("#settingGeminiModel").value = settings.gemini_model || "gemini-2.5-flash";
+      $("#settingGeminiApiKey").value = "";
+      $("#settingGeminiApiKey").placeholder = settings.gemini_api_key_configured ? "Chave já configurada — deixe vazio para manter" : "Cole sua chave aqui (fica fora do código)";
       $("#settingCutDuration").value = settings.cut_duration || 45;
       $("#settingSubtitleStyle").value = settings.subtitle_style || "word_by_word";
       $("#settingChannelContext").value = settings.channel_context || "";
+      $("#settingsChubStatus").textContent = state.activeProject?.chub?.available ? `Snapshot conectado: ${state.activeProject.chub.channel}.` : "Nenhum snapshot selecionado neste projeto.";
+      await refreshStudioStatus();
     } catch (error) { toast(error.message, "error"); }
   }
   function closeSettings() { $("#settingsModal").hidden = true; }
   async function saveSettings() {
     try {
-      await api("/api/settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ transcription_source: $("#settingTranscriptionSource").value, cut_duration: Number($("#settingCutDuration").value) || 45, subtitle_style: $("#settingSubtitleStyle").value, channel_context: $("#settingChannelContext").value }) });
+      const payload = { transcription_source: $("#settingTranscriptionSource").value, ai_backend: $("#settingAiBackend").value, gemini_model: $("#settingGeminiModel").value.trim() || "gemini-2.5-flash", cut_duration: Number($("#settingCutDuration").value) || 45, subtitle_style: $("#settingSubtitleStyle").value, channel_context: $("#settingChannelContext").value };
+      const geminiKey = $("#settingGeminiApiKey").value.trim();
+      if (geminiKey) payload.gemini_api_key = geminiKey;
+      await api("/api/settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      state.settings = { ...state.settings, ...payload, gemini_api_key_configured: Boolean(geminiKey || state.settings.gemini_api_key_configured) };
       closeSettings();
+      appendConsole(`Ajustes aplicados: transcrição ${payload.transcription_source}; análise ${payload.ai_backend}.`, "success", "settings", `settings:${Date.now()}`);
       toast("Ajustes salvos na base local do Studio.", "success");
-    } catch (error) { toast(error.message, "error"); }
+    } catch (error) { appendConsole(error.message, "error", "settings", `settings-error:${Date.now()}`); toast(error.message, "error"); }
   }
   function escapeHtml(value) { return String(value ?? "").replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[char])); }
   function escapeAttribute(value) { return escapeHtml(value).replace(/\n/g, " "); }
@@ -788,6 +967,9 @@
     $("#transcriptInput")?.addEventListener("change", (event) => { attachTranscript(event.target.files?.[0]); event.target.value = ""; });
     $("#chubInput")?.addEventListener("change", (event) => { attachChub(event.target.files?.[0]); event.target.value = ""; });
     $("#btnTopSettings")?.addEventListener("click", openSettings);
+    $("#btnToggleConsole")?.addEventListener("click", () => setConsoleOpen(!state.consoleOpen));
+    $("#btnCloseConsole")?.addEventListener("click", () => setConsoleOpen(false));
+    $("#btnClearConsole")?.addEventListener("click", clearConsole);
     $("#btnCloseSettings")?.addEventListener("click", closeSettings);
     $("#btnCloseSettingsSecondary")?.addEventListener("click", closeSettings);
     $("#btnSaveSettings")?.addEventListener("click", saveSettings);
@@ -797,14 +979,18 @@
     $("#dropZone")?.addEventListener("drop", (event) => { event.preventDefault(); $("#dropZone").classList.remove("is-dragging"); const file = event.dataTransfer.files?.[0]; if (file) { const input = $("#videoInput"); const transfer = new DataTransfer(); transfer.items.add(file); input.files = transfer.files; input.dispatchEvent(new Event("change")); } });
     $("#projectFilters")?.addEventListener("click", (event) => { const button = event.target.closest("[data-filter]"); if (!button) return; state.filter = button.dataset.filter; try { localStorage.setItem("furia-filter", state.filter); } catch (_) {}; $$(".filter-pill").forEach((item) => item.classList.toggle("is-active", item === button)); renderProjects(); });
     $("#shortlistSort")?.addEventListener("change", (event) => { state.sort = event.target.value; try { localStorage.setItem("furia-sort", state.sort); } catch (_) {}; renderGlobalShortlist(); });
+    $("#btnSortProjects")?.addEventListener("click", (event) => { const modes = ["recent", "name", "status"]; state.projectSort = modes[(modes.indexOf(state.projectSort) + 1) % modes.length]; const labels = { recent: "Recentes ↓", name: "Nome A–Z", status: "Estado" }; event.currentTarget.textContent = labels[state.projectSort]; try { localStorage.setItem("furia-project-sort", state.projectSort); } catch (_) {}; renderProjects(); });
     $(".project-tabs")?.addEventListener("click", (event) => { const tab = event.target.closest("[data-project-tab]"); if (!tab) return; state.projectTab = tab.dataset.projectTab; renderProjectScreen(); });
     $("#importModal")?.addEventListener("click", (event) => { if (event.target.id === "importModal") closeImport(); });
     document.addEventListener("keydown", (event) => { if (event.key === "Escape") closeImport(); if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "o") { event.preventDefault(); openImport(); } });
     initBoot();
     initSignal();
     initWindowManager(document);
+    setConsoleOpen(state.consoleOpen);
+    renderConsole();
     loadProjects();
     refreshQueue();
+    refreshStudioStatus();
     window.setInterval(refreshQueue, 2500);
   }
 

@@ -6,9 +6,11 @@ surface while keeping one Flask process and one database.
 """
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
 import re
+import shutil
 import sqlite3
 import subprocess
 import tempfile
@@ -126,8 +128,46 @@ def register_studio_routes(flask_app, runtime):
         except (UnicodeDecodeError, TypeError, ValueError) as exc:
             return jsonify({"error": f"Transcrição inválida: {exc}"}), 400
 
+    @flask_app.get("/api/studio/status", endpoint="studio_status")
+    def studio_status():
+        settings = runtime["get_all_settings"]()
+        ai_checker = runtime.get("_check_ai_status")
+        try:
+            ai = ai_checker(settings) if ai_checker else {"status": "unknown", "backend": settings.get("ai_backend", "auto")}
+        except Exception as exc:
+            ai = {"status": "error", "backend": settings.get("ai_backend", "auto"), "error": str(exc)[:180]}
+        try:
+            whisper_fast = importlib.util.find_spec("faster_whisper") is not None
+        except (ImportError, ValueError):
+            whisper_fast = False
+        try:
+            whisper_openai = importlib.util.find_spec("whisper") is not None
+        except (ImportError, ValueError):
+            whisper_openai = False
+        return jsonify({
+            "program_version": runtime.get("PROGRAM_VERSION", ""),
+            "program_revision": runtime.get("PROGRAM_REVISION", ""),
+            "ai": {
+                **ai,
+                "gemini_configured": bool(str(settings.get("gemini_api_key", "") or "").strip()),
+                "ollama_url": str(settings.get("ollama_url", "") or ""),
+                "ollama_model": str(settings.get("ollama_model", "") or ""),
+            },
+            "whisper": {
+                "configured_source": str(settings.get("transcription_source", "auto") or "auto"),
+                "model": str(settings.get("whisper_model", "small") or "small"),
+                "faster_whisper_installed": whisper_fast,
+                "openai_whisper_installed": whisper_openai,
+                "available": whisper_fast or whisper_openai,
+                "device": str(settings.get("whisper_device", "auto") or "auto"),
+            },
+            "ffmpeg": {"available": bool(shutil.which("ffmpeg")), "ffprobe_available": bool(shutil.which("ffprobe"))},
+            "chub": {"optional": True, "attached_to_project": False},
+        })
+
     @flask_app.route("/api/projects/<int:project_id>/transcribe", methods=["POST"], endpoint="studio_transcribe")
     def studio_transcribe(project_id):
+        payload = request.get_json(silent=True) or {}
         project = runtime["get_project"](project_id)
         if not project or not project.get("source_video"):
             return jsonify({"error": "Importe um vídeo antes de transcrever."}), 400
@@ -135,6 +175,9 @@ def register_studio_routes(flask_app, runtime):
 
         def task(ctx):
             settings = runtime["get_all_settings"]()
+            if bool(payload.get("force_whisper")):
+                settings = {**settings, "transcription_source": "whisper"}
+                ctx.update(stage="transcribing", message="Whisper local selecionado manualmente")
             result = runtime["_transcribe_video_automatically"](
                 source,
                 settings,
@@ -190,6 +233,8 @@ def register_studio_routes(flask_app, runtime):
             "end": float(row.get("end_time") or 0),
             "duration": float(row.get("duration") or 0),
         }
+        snap_value = payload.get("snap_to_transcript", False)
+        snap_to_transcript = str(snap_value).strip().lower() in {"1", "true", "yes", "on"}
         try:
             adjusted = runtime["adjust_clip_bounds"](
                 candidate,
@@ -198,6 +243,7 @@ def register_studio_routes(flask_app, runtime):
                 transcript_segments=transcript.get("segments", []),
                 duration=duration or None,
                 min_duration=1.0,
+                snap_tolerance=2.0 if snap_to_transcript else 0.0,
             )
             runtime["save_clip_adjustment"](clip_id, adjusted, note="Intervalo ajustado na janela de Revisão.")
             with db() as conn:
@@ -407,6 +453,7 @@ def _project_payload(project_id, runtime, safe_url, duration_fn, detail=False):
     clips = [_clip_payload(item, runtime, duration_fn) for item in raw_clips] if detail else []
     approved_count = sum(1 for item in raw_clips if str(item.get("review_status") or "") == "approved" or (str(item.get("file_path") or "") and os.path.isfile(str(item.get("file_path")))))
     exported_count = sum(1 for item in raw_clips if str(item.get("file_path") or "") and os.path.isfile(str(item.get("file_path"))))
+    review_count = sum(1 for item in raw_clips if str(item.get("review_status") or "pending") not in {"approved", "rejected"})
     result = {
         "id": project["id"],
         "name": project.get("name") or "Projeto local",
@@ -420,6 +467,7 @@ def _project_payload(project_id, runtime, safe_url, duration_fn, detail=False):
         "progress": 100 if clip_count else 0,
         "candidateCount": clip_count,
         "approvedCount": approved_count,
+        "reviewCount": review_count,
         "exportedCount": exported_count,
         "thumbnail": next((clip.get("thumbnail") for clip in clips if clip.get("thumbnail")), safe_url(_thumbnail_for_project(source, runtime))),
         "videoUrl": safe_url(source),
@@ -564,8 +612,45 @@ def _title_from_transcript(raw):
 
 
 def _normalize_chub(payload):
-    if not isinstance(payload, dict) or str(payload.get("source") or "").lower() != "campaign-hub":
-        raise ValueError("O snapshot precisa declarar source=campaign-hub.")
+    if not isinstance(payload, dict):
+        raise ValueError("Selecione um JSON de contexto do Campaign Hub.")
+    # The official local mirror is an aggregate export. It has no single
+    # `source=campaign-hub` record, so adapt its bounded historical aggregates
+    # into the same read-only context shape used by the project attachment.
+    if str(payload.get("schema") or "").lower() == "espelho-chub-v1":
+        channel = str(payload.get("default_account") or "@renansantosmbl").strip()
+        if channel not in ALLOWED_CHANNELS:
+            channel = "@renansantosmbl"
+        hooks = []
+        for item in payload.get("ganchos", []) if isinstance(payload.get("ganchos"), list) else []:
+            if not isinstance(item, dict) or str(item.get("conta") or "").strip() not in {"", channel}:
+                continue
+            hooks.append({
+                "channel": item.get("conta") or channel,
+                "platform": item.get("plataforma", ""),
+                "family": item.get("familia", ""),
+                "observations": item.get("n", 0),
+                "median": item.get("mediana"),
+                "p90": item.get("p90"),
+            })
+        platforms = []
+        for item in hooks:
+            platform = str(item.get("platform") or "").strip()
+            if platform and platform not in platforms:
+                platforms.append(platform)
+        return {
+            "schemaVersion": "espelho-chub-v1",
+            "source": "campaign-hub",
+            "fetchedAt": str(payload.get("gerado_em") or "")[:60],
+            "channel": channel,
+            "scope": {"platforms": platforms[:8], "metric": "aggregate_reference", "windowDays": None},
+            "topPosts": [],
+            "hooks": hooks[:50],
+            "cohorts": [],
+            "references": [{"source": "espelho-chub-v1", "origin": payload.get("origem", "")}],
+        }
+    if str(payload.get("source") or "").lower() != "campaign-hub":
+        raise ValueError("JSON não reconhecido. Use um contexto com source=campaign-hub ou o espelho agregado schema=espelho-chub-v1.")
     channel = str(payload.get("channel") or "").strip()
     if channel not in ALLOWED_CHANNELS:
         raise ValueError("Conta chub desconhecida.")

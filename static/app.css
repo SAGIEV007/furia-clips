@@ -633,3 +633,67 @@ img { max-width: 100%; display: block; }
 .seo-description { margin: 7px 0 4px; color: #5f5853; font-size: 9px; line-height: 1.35; }
 .seo-hashtags { color: var(--coral); font-size: 9px; line-height: 1.35; }
 .seo-empty { color: #5f5853; font-size: 9px; }
+
+/* Operability layer: status and execution are visible without opening another app. */
+.system-console-button { position: relative; }
+.system-console-button b { color: var(--coral); font-size: 10px; }
+.system-console-button b.is-active { color: #1c9c70; }
+.console-drawer { position: fixed; z-index: 70; right: 18px; bottom: 88px; display: none; width: min(760px, calc(100vw - 36px)); max-height: min(310px, 42vh); flex-direction: column; border: 1px solid var(--ink); background: var(--cream); box-shadow: 5px 5px 0 var(--ink); transform: rotate(.15deg); }
+.console-drawer.is-open { display: flex; }
+.console-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 10px; border-bottom: 1px solid var(--ink); background: var(--sun); }
+.console-head strong { display: block; margin-top: 3px; font-family: var(--display); font-size: 19px; line-height: .9; font-weight: 400; }
+.console-head-actions { display: flex; gap: 5px; }
+.console-head-actions .button { min-height: 26px; padding: 4px 7px; font-size: 8px; }
+.console-summary { padding: 7px 10px; border-bottom: 1px dotted var(--ink); color: #5f5853; font-size: 8px; line-height: 1.3; }
+.console-lines { min-height: 74px; overflow: auto; padding: 5px 10px 9px; background: #171515; color: #f8f1e8; font-family: var(--mono); }
+.console-line { display: grid; grid-template-columns: 63px 92px minmax(0, 1fr); gap: 8px; align-items: baseline; padding: 3px 0; border-bottom: 1px dotted rgba(255,255,255,.13); font-size: 9px; line-height: 1.35; }
+.console-line time { color: #aaa29b; }
+.console-line b { color: var(--cyan); font-size: 8px; }
+.console-line.console-success b { color: #72e0ae; }
+.console-line.console-warning b { color: var(--sun); }
+.console-line.console-error b { color: #ff8d7e; }
+.console-empty { padding: 17px 0; color: #aaa29b; font-size: 9px; }
+.source-active { display: grid; grid-template-columns: minmax(210px, .95fr) 1fr; gap: 15px; align-items: center; min-height: 320px; padding: 14px; background: var(--cream-light); }
+.source-active-preview { min-height: 250px; border: 1px solid var(--ink); background: #1b1717; overflow: hidden; }
+.source-active-preview video { display: block; width: 100%; height: 100%; min-height: 250px; object-fit: contain; background: #1b1717; }
+.source-active-copy { min-width: 0; }
+.source-active-copy h1 { margin: 10px 0 8px; font-family: var(--display); font-size: clamp(35px, 5vw, 58px); line-height: .85; letter-spacing: -.07em; font-weight: 400; overflow-wrap: anywhere; }
+.source-active-copy p { margin: 0; color: #5f5853; font-size: 9px; line-height: 1.45; overflow-wrap: anywhere; }
+.source-active-actions { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 17px; }
+.source-active-actions .button { min-height: 34px; }
+.settings-modal { max-height: calc(100vh - 28px); overflow: auto; }
+.settings-intro { color: #5f5853; }
+.settings-section { margin-top: 17px; padding-top: 13px; border-top: 1px dotted var(--ink); }
+.settings-section-heading { display: flex; gap: 9px; align-items: start; margin-bottom: 10px; }
+.settings-step { display: grid; place-items: center; flex: 0 0 auto; width: 24px; height: 24px; border: 1px solid var(--ink); background: var(--coral); font: 700 9px/1 var(--mono); }
+.settings-section-heading h3 { margin: 0; font-family: var(--display); font-size: 23px; line-height: .9; font-weight: 400; }
+.settings-section-heading p { margin: 4px 0 0; color: #5f5853; font-size: 9px; line-height: 1.35; }
+.settings-section > label { display: grid; gap: 5px; margin-top: 9px; font: 700 8px/1.2 var(--mono); text-transform: uppercase; }
+.settings-section > label input, .settings-section > label select, .settings-section > label textarea { width: 100%; border: 1px solid var(--ink); border-radius: 0; padding: 8px; background: var(--cream-light); color: var(--ink); font: 10px/1.25 var(--mono); }
+.settings-section > label textarea { min-height: 72px; resize: vertical; }
+.label-help { color: var(--coral); font-weight: 400; text-transform: none; }
+.dependency-status { display: flex; align-items: flex-start; gap: 8px; margin-top: 10px; padding: 8px; border: 1px dashed var(--ink); background: #fff5e4; }
+.dependency-status.is-good { background: #e4f5e9; }
+.dependency-status .status-dot { flex: 0 0 auto; width: 10px; height: 10px; margin-top: 2px; border: 1px solid var(--ink); border-radius: 50%; background: var(--sun); }
+.dependency-status.is-good .status-dot { background: #36b978; }
+.dependency-status strong, .dependency-status small { display: block; }
+.dependency-status strong { font: 700 9px/1.2 var(--mono); }
+.dependency-status small { margin-top: 3px; color: #5f5853; font-size: 8px; line-height: 1.35; }
+.chub-settings-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.chub-settings-actions > span { color: #5f5853; font-size: 8px; line-height: 1.3; }
+@media (max-width: 780px) {
+  .console-drawer { right: 10px; bottom: 70px; width: calc(100vw - 20px); max-height: 280px; transform: none; }
+  .console-line { grid-template-columns: 52px 68px minmax(0, 1fr); gap: 5px; font-size: 8px; }
+  .console-line b { font-size: 7px; }
+  .source-active { grid-template-columns: 1fr; min-height: 0; padding: 11px; }
+  .source-active-preview, .source-active-preview video { min-height: 185px; }
+  .source-active-copy h1 { font-size: 43px; }
+  .source-active-actions { margin-top: 12px; }
+}
+
+/* On a project screen the log is part of the desk flow, never an overlay over editing controls. */
+.console-in-project .console-drawer { position: relative; right: auto; bottom: auto; width: min(980px, calc(100% - 28px)); max-height: 310px; margin: 18px auto 12px; transform: rotate(.15deg); }
+.console-in-project .console-drawer.is-open { display: flex; }
+@media (max-width: 780px) {
+  .console-in-project .console-drawer { width: calc(100% - 20px); margin: 14px auto 8px; transform: none; }
+}

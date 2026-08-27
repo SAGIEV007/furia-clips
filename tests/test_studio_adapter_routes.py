@@ -90,7 +90,7 @@ def _make_runtime(tmp_path):
     def save_transcription(project_id, segments, full_text, language, source, provenance=None):
         transcriptions[project_id] = {"segments": segments, "full_text": full_text, "language": language, "source": source}
 
-    def adjust_clip_bounds(candidate, start, end, transcript_segments=None, duration=None, min_duration=1.0):
+    def adjust_clip_bounds(candidate, start, end, transcript_segments=None, duration=None, min_duration=1.0, snap_tolerance=2.0):
         if end <= start or end - start < min_duration:
             raise ValueError("intervalo positivo")
         return {"start": round(float(start), 3), "end": round(float(end), 3), "duration": round(float(end - start), 3)}
@@ -141,8 +141,38 @@ def _make_runtime(tmp_path):
         "PERSISTENT_DATA_DIR": str(tmp_path),
         "unique_storage_name": lambda filename, extension=None: filename,
         "job_manager": type("FakeJobs", (), {"submit": lambda self, *_args, **_kwargs: {"id": "fake-export-job", "state": "queued"}})(),
+        "get_all_settings": lambda: {"ai_backend": "auto", "gemini_api_key": "", "ollama_url": "http://localhost:11434", "ollama_model": "llama3.2:3b", "transcription_source": "auto", "whisper_model": "small", "whisper_device": "auto"},
+        "_check_ai_status": lambda _settings: {"status": "offline", "backend": "auto", "mode": "nlp", "connected": False, "model": "llama3.2:3b"},
+        "PROGRAM_VERSION": "6.61",
+        "PROGRAM_REVISION": "test",
     }
     return runtime, get_db, create_project
+
+
+def test_studio_status_exposes_capabilities_without_secrets(tmp_path):
+    runtime, _get_db, _create_project = _make_runtime(tmp_path)
+    flask_app = Flask(__name__)
+    flask_app.add_url_rule("/api/projects", endpoint="api_list_projects", view_func=lambda: jsonify([]), methods=["GET"])
+    flask_app.add_url_rule("/api/projects/<int:project_id>", endpoint="api_get_project", view_func=lambda project_id: jsonify({}), methods=["GET"])
+    studio_adapter.register_studio_routes(flask_app, runtime)
+    response = flask_app.test_client().get("/api/studio/status")
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert isinstance(payload["whisper"]["available"], bool)
+    assert payload["whisper"]["configured_source"] == "auto"
+    assert payload["ai"]["gemini_configured"] is False
+    assert "gemini_api_key" not in payload
+    assert payload["ffmpeg"]["available"] in {True, False}
+
+
+def test_normalize_official_chub_mirror():
+    mirror = json.loads((Path(__file__).parents[1] / "data" / "espelho_chub.json").read_text(encoding="utf-8"))
+    normalized = studio_adapter._normalize_chub(mirror)
+    assert normalized["source"] == "campaign-hub"
+    assert normalized["schemaVersion"] == "espelho-chub-v1"
+    assert normalized["channel"] == "@renansantosmbl"
+    assert normalized["hooks"]
+    assert normalized["scope"]["metric"] == "aggregate_reference"
 
 
 def test_adapter_routes_round_trip_without_private_media(tmp_path, monkeypatch):
@@ -164,6 +194,7 @@ def test_adapter_routes_round_trip_without_private_media(tmp_path, monkeypatch):
     )
     assert imported.status_code == 200
     assert imported.get_json()["filename"] == "debate.mp4"
+    assert imported.get_json()["reviewCount"] == 0
 
     srt = "1\n00:00:00,000 --> 00:00:04,000\nA proposta reduz o desperdício.\n\n2\n00:00:04,000 --> 00:00:09,000\nQual é o próximo passo?\n"
     transcript = client.post(
@@ -184,11 +215,15 @@ def test_adapter_routes_round_trip_without_private_media(tmp_path, monkeypatch):
 
     changed = client.post(f"/api/clips/{clip_id}/range", json={"start": 1.5, "end": 7.5})
     assert changed.status_code == 200
+    assert changed.get_json()["start"] == 1.5
+    assert changed.get_json()["end"] == 7.5
     assert changed.get_json()["reviewStatus"] == "needs_review"
     assert changed.get_json()["exportUrl"] == ""
     approved = client.post(f"/api/clips/{clip_id}/decision", json={"decision": "approved"})
     assert approved.status_code == 200
     assert approved.get_json()["reviewStatus"] == "approved"
+    aggregate = studio_adapter._project_payload(project_id, runtime, lambda _path: "", lambda _path: 30.0, detail=False)
+    assert aggregate["reviewCount"] == 0
 
     monkeypatch.setattr(
         "modules.headline_studio.generate_artwork_copy",

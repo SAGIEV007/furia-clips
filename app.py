@@ -3443,6 +3443,20 @@ def api_cut_shorts():
             manual_supplied = _manual_transcript_was_supplied(data)
             manual_duration = None if processing_interval.get("active") else video_duration
             transcription = _transcription_from_request(data, duration=manual_duration)
+            if not transcription and active_project_id and not _coerce_bool(data.get("force_transcription"), default=False):
+                try:
+                    saved_transcription = get_transcription(active_project_id) or {}
+                except Exception:
+                    saved_transcription = {}
+                if saved_transcription.get("segments"):
+                    transcription = dict(saved_transcription)
+                    segments = list(transcription.get("segments") or [])
+                    transcription.setdefault("segment_count", len(segments))
+                    transcription.setdefault("full_text", " ".join(str(segment.get("text", "") or "").strip() for segment in segments).strip())
+                    transcription.setdefault("language", settings.get("language", "pt"))
+                    transcription.setdefault("source", transcription.get("model_used") or "manual_confirmed")
+                    transcription.setdefault("provenance", {"source": "saved_project_transcript", "local_only": True})
+                    emit_progress("[Transcrição] Usando o transcript já salvo neste projeto; Whisper não será executado novamente.", "info")
             multimodal_result = None
             selected_transcription_mode = _transcription_source_mode(settings)
             if not transcription and selected_transcription_mode in {"whisper", "public_subtitle"}:
