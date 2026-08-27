@@ -328,6 +328,11 @@
     const topPosts = (chub.topPosts || []).slice(0, compact ? 2 : 3);
     const hooks = (chub.hooks || []).slice(0, compact ? 4 : 6);
     const platformLabel = (chub.platforms || []).join(" · ") || "escopo não informado";
+    const recordCounts = chub.recordCounts || {};
+    const blocksCount = Number(recordCounts.blocks || 0);
+    const provenanceLabel = blocksCount
+        ? `${blocksCount} blocos referenciados`
+        : (chub.schemaVersion ? `snapshot ${chub.schemaVersion}` : "proveniência agregada");
     const examples = topPosts.map((post) => `<li><span>${escapeHtml(post.hook || post.tags?.[0] || "criativo histórico")}</span><b>${formatRatio(post.settledRatio ?? post.ratio)}</b></li>`).join("");
     const hookLabels = hooks.map((hook) => {
       const label = hook.label || hook.family || hook.hook || "família de hook";
@@ -336,7 +341,7 @@
       return `<span>${escapeHtml(label)}${ratio != null ? ` <b>${formatRatio(ratio)}</b>` : ""}${observations != null ? ` <small>n=${escapeHtml(observations)}</small>` : ""}</span>`;
     }).join("");
     const exampleSummary = examples || (hooks.length ? `<p class="chub-muted">${hooks.length} referências agregadas de hooks; use-as como contexto histórico, não como previsão.</p>` : `<p class="chub-muted">Snapshot conectado, sem exemplos resumidos.</p>`);
-    return `<section class="chub-memory"><div class="chub-memory-head"><span class="tiny-label">MEMÓRIA DE CAMPANHA</span><span class="chub-head-actions"><span class="chub-account">${escapeHtml(chub.channel)}</span><button class="chub-clear" data-action="clear-chub" title="Desconectar snapshot">×</button></span></div><p class="chub-explainer">Referência histórica da conta. Não é previsão e não altera o score técnico deste corte.</p><div class="chub-memory-meta"><span>${escapeHtml(platformLabel)}</span><span>${chub.fetchedAt ? `atualizado ${escapeHtml(chub.fetchedAt.slice(0, 10))}` : "data não informada"}</span></div>${hookLabels ? `<div class="chub-hook-cloud">${hookLabels}</div>` : ""}${examples ? `<ul class="chub-example-list">${examples}</ul>` : exampleSummary}</section>`;
+    return `<section class="chub-memory"><div class="chub-memory-head"><span class="tiny-label">MEMÓRIA DE CAMPANHA</span><span class="chub-head-actions"><span class="chub-account">${escapeHtml(chub.channel)}</span><button class="chub-clear" data-action="clear-chub" title="Desconectar snapshot">×</button></span></div><p class="chub-explainer">Referência histórica da conta. Não é previsão e não altera o score técnico deste corte.</p><div class="chub-memory-meta"><span>${escapeHtml(platformLabel)}</span><span>${chub.fetchedAt ? `atualizado ${escapeHtml(chub.fetchedAt.slice(0, 10))}` : "data não informada"}</span><span>${escapeHtml(provenanceLabel)}</span><span>somente leitura</span></div>${hookLabels ? `<div class="chub-hook-cloud">${hookLabels}</div>` : ""}${examples ? `<ul class="chub-example-list">${examples}</ul>` : exampleSummary}</section>`;
   }
 
   function navigate(screen) {

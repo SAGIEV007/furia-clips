@@ -662,6 +662,57 @@ def _title_from_transcript(raw):
 def _normalize_chub(payload):
     if not isinstance(payload, dict):
         raise ValueError("Selecione um JSON de contexto do Campaign Hub.")
+
+    # Official profile snapshots carry account-scoped aggregates rather than the
+    # compact Studio shape. Adapt only bounded editorial metadata: never copy raw
+    # transcripts, blocks or metrics into the project attachment.
+    if isinstance(payload.get("accounts"), dict):
+        default_account = str(payload.get("default_account") or "@renansantosmbl").strip()
+        channel = default_account if default_account in ALLOWED_CHANNELS else "@renansantosmbl"
+        account_data = payload.get("accounts", {}).get(channel, {})
+        if not isinstance(account_data, dict):
+            account_data = {}
+        hooks = []
+        raw_hooks = account_data.get("hook_observations") or account_data.get("hook_priors") or []
+        if isinstance(raw_hooks, list):
+            for item in raw_hooks[:100]:
+                if not isinstance(item, dict):
+                    continue
+                hook = str(item.get("hook") or item.get("family") or "").strip()
+                if not hook:
+                    continue
+                hooks.append({
+                    "label": hook[:80],
+                    "family": hook[:80],
+                    "observations": item.get("observations", item.get("n")),
+                    "medianRatio": item.get("median_ratio", item.get("mean_ratio", item.get("median"))),
+                    "p90": item.get("p90"),
+                })
+        records = payload.get("records") if isinstance(payload.get("records"), dict) else {}
+        raw_posts = records.get("posts", []) if isinstance(records.get("posts"), list) else []
+        top_posts = [item for item in raw_posts[:50] if isinstance(item, dict)]
+        platforms = []
+        for item in (account_data.get("platforms") or [account_data.get("platform")]):
+            value = str(item or "").strip()
+            if value and value not in platforms:
+                platforms.append(value)
+        sync = payload.get("sync") if isinstance(payload.get("sync"), dict) else {}
+        return {
+            "schemaVersion": str(payload.get("schema_version") or payload.get("version") or "1.0")[:20],
+            "source": "campaign-hub",
+            "fetchedAt": str(payload.get("collected_at") or sync.get("last_sync_at") or "")[:60],
+            "channel": channel,
+            "scope": {"platforms": platforms[:8], "metric": "aggregate_reference", "windowDays": None},
+            "topPosts": top_posts,
+            "hooks": hooks[:50],
+            "cohorts": [item for item in (account_data.get("cohorts") or [])[:25] if isinstance(item, dict)],
+            "references": [{"source": "campaign-hub-profile", "syncStatus": str(sync.get("status") or "ready")[:40]}],
+            "recordCounts": payload.get("record_counts") if isinstance(payload.get("record_counts"), dict) else {},
+            "accounts": sorted(str(key) for key in payload.get("accounts", {}) if str(key) in ALLOWED_CHANNELS),
+            "readOnly": True,
+            "scoreTechnical": False,
+        }
+
     # The official local mirror is an aggregate export. It has no single
     # `source=campaign-hub` record, so adapt its bounded historical aggregates
     # into the same read-only context shape used by the project attachment.
@@ -696,6 +747,9 @@ def _normalize_chub(payload):
             "hooks": hooks[:50],
             "cohorts": [],
             "references": [{"source": "espelho-chub-v1", "origin": payload.get("origem", "")}],
+            "accounts": [channel],
+            "readOnly": True,
+            "scoreTechnical": False,
         }
     if str(payload.get("source") or "").lower() != "campaign-hub":
         raise ValueError("JSON não reconhecido. Use um contexto com source=campaign-hub ou o espelho agregado schema=espelho-chub-v1.")
@@ -717,6 +771,10 @@ def _normalize_chub(payload):
         "hooks": payload.get("hooks", [])[:50] if isinstance(payload.get("hooks"), list) else [],
         "cohorts": payload.get("cohorts", [])[:25] if isinstance(payload.get("cohorts"), list) else [],
         "references": payload.get("references", [])[:50] if isinstance(payload.get("references"), list) else [],
+        "recordCounts": payload.get("recordCounts", {}) if isinstance(payload.get("recordCounts"), dict) else {},
+        "accounts": [channel],
+        "readOnly": True,
+        "scoreTechnical": False,
     }
 
 
@@ -728,12 +786,17 @@ def _chub_summary(context):
         "available": True,
         "channel": context.get("channel", ""),
         "fetchedAt": context.get("fetchedAt", ""),
+        "schemaVersion": context.get("schemaVersion", ""),
         "platforms": scope.get("platforms", []),
         "metric": scope.get("metric", "settled_ratio"),
         "windowDays": scope.get("windowDays"),
         "topPosts": context.get("topPosts", [])[:3],
         "hooks": context.get("hooks", [])[:5],
         "cohorts": context.get("cohorts", [])[:3],
+        "recordCounts": context.get("recordCounts", {}) if isinstance(context.get("recordCounts"), dict) else {},
+        "accounts": context.get("accounts", [context.get("channel", "")]),
+        "readOnly": True,
+        "scoreTechnical": False,
     }
 
 

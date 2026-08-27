@@ -349,3 +349,54 @@ def test_adapter_routes_round_trip_without_private_media(tmp_path, monkeypatch):
     export = client.post(f"/api/clips/{clip_id}/export")
     assert export.status_code == 200
     assert export.get_json()["jobId"] == "fake-export-job"
+
+
+def test_normalize_chub_accepts_official_account_snapshot_as_read_only_context():
+    payload = {
+        "version": "2",
+        "schema_version": "campaign-hub-profile-v2",
+        "default_account": "@renansantosmbl",
+        "collected_at": "2026-08-27T16:48:53Z",
+        "accounts": {
+            "@renansantosmbl": {
+                "platforms": ["instagram", "facebook", "tiktok", "x"],
+                "hook_priors": [{"hook": "tese-provocativa", "observations": 6, "mean_ratio": 1.2}],
+                "cohorts": [{"query": "segurança pública", "n": 4}],
+            },
+            "@renansantosreserva": {"hook_priors": [{"hook": "outro", "observations": 3, "mean_ratio": 0.9}]},
+        },
+        "records": {
+            "posts": [{"id": "post-1", "title": "Exemplo histórico", "metrics": {"views": 10}}],
+            "transcripts": [{"full_text": "não deve ser copiado para o contexto"}],
+        },
+        "record_counts": {"posts": 1, "transcripts": 1},
+        "sync": {"status": "ready", "last_sync_at": "2026-08-27T16:48:53Z"},
+    }
+    normalized = studio_adapter._normalize_chub(payload)
+    assert normalized["channel"] == "@renansantosmbl"
+    assert normalized["readOnly"] is True
+    assert normalized["scoreTechnical"] is False
+    assert normalized["accounts"] == ["@renansantosmbl", "@renansantosreserva"]
+    assert normalized["recordCounts"]["transcripts"] == 1
+    assert normalized["hooks"][0]["family"] == "tese-provocativa"
+    assert normalized["topPosts"][0]["id"] == "post-1"
+    assert "transcripts" not in normalized
+
+
+def test_chub_summary_exposes_provenance_without_exposing_raw_memory():
+    summary = studio_adapter._chub_summary({
+        "source": "campaign-hub",
+        "schemaVersion": "2",
+        "channel": "@renansantosmbl",
+        "fetchedAt": "2026-08-27T16:48:53Z",
+        "scope": {"platforms": ["instagram"], "metric": "aggregate_reference"},
+        "recordCounts": {"blocks": 19},
+        "accounts": ["@renansantosmbl"],
+        "readOnly": True,
+        "scoreTechnical": False,
+    })
+    assert summary["available"] is True
+    assert summary["schemaVersion"] == "2"
+    assert summary["recordCounts"]["blocks"] == 19
+    assert summary["readOnly"] is True
+    assert summary["scoreTechnical"] is False
