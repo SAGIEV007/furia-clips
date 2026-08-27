@@ -62,3 +62,34 @@ def test_faster_whisper_downgrades_when_cuda_float16_is_unavailable(monkeypatch)
     assert any(device == "cuda" and compute == "float16" for device, compute in attempts)
     assert any(device == "cpu" for device, _ in attempts)
     assert any("configuração segura" in message for message, _ in events)
+
+
+def test_openai_whisper_long_source_uses_absolute_chunk_timestamps(monkeypatch):
+    calls = []
+    extracted = []
+
+    class FakeWhisperModel:
+        def transcribe(self, audio_path, **kwargs):
+            calls.append((audio_path, kwargs.copy()))
+            start = len(calls) - 1
+            return {
+                "segments": [{"id": 0, "start": 0, "end": 2, "text": f"fala {start}", "words": []}],
+                "text": f"fala {start}",
+                "language": "pt",
+            }
+
+    transcriber = Transcriber()
+    transcriber.device = "cpu"
+    transcriber.model = FakeWhisperModel()
+    monkeypatch.setattr(transcriber, "_probe_duration", lambda _: 650.0)
+    monkeypatch.setattr(transcriber, "_extract_audio_chunk", lambda _, start, end: extracted.append((start, end)) or f"chunk-{start}.wav")
+
+    result = transcriber._transcribe_openai_whisper("long-video.mp4")
+
+    assert result["chunked"] is True
+    assert result["chunk_count"] == 3
+    assert extracted == [(0.0, 300.0), (300.0, 600.0), (600.0, 650.0)]
+    assert [item[0] for item in calls] == ["chunk-0.0.wav", "chunk-300.0.wav", "chunk-600.0.wav"]
+    assert [segment["start"] for segment in result["segments"]] == [0.0, 300.0, 600.0]
+    assert all(item[1]["condition_on_previous_text"] is False for item in calls)
+    assert result["segment_count"] == 3

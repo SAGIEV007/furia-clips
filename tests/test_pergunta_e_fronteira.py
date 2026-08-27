@@ -232,3 +232,30 @@ def test_perguntas_vizinhas_nao_se_anulam():
     aberturas = [c["text"].strip() for c in clips]
     assert any(t.startswith("Candidato, quais os compromissos") for t in aberturas), aberturas
     assert any(t.startswith("Renan, o senhor pretende manter") for t in aberturas), aberturas
+
+
+def test_pergunta_retorica_do_mesmo_locutor_nao_fragmenta_o_argumento_anterior():
+    seletor = ClipSelector(target_duration=45, max_clips=20, min_duration=8)
+    sentencas = [
+        {"start": 0.0, "end": 20.0, "text": "A proposta reduz o desperdício e entrega uma resposta prática para o eleitor.", "speaker": "guest"},
+        {"start": 20.0, "end": 27.0, "text": "E quem não quer um país mais seguro?", "speaker": "guest"},
+        {"start": 27.0, "end": 50.0, "text": "É exatamente por isso que o plano combina prevenção, polícia e oportunidade.", "speaker": "guest"},
+        {"start": 51.0, "end": 60.0, "text": "Qual é o próximo passo para colocar isso de pé?", "speaker": "interviewer"},
+        {"start": 60.0, "end": 84.0, "text": "O próximo passo é aprovar a medida e começar a execução neste ano.", "speaker": "guest"},
+    ]
+    bloco = {
+        "start": 0.0,
+        "end": 84.0,
+        "duration": 84.0,
+        "text": " ".join(item["text"] for item in sentencas),
+        "sentences": sentencas,
+        "speakers": ["guest", "interviewer"],
+        "speaker": "",
+        "speaker_turn_valid": True,
+    }
+    clips = seletor._build_clips_from_scored_blocks([(bloco, 70.0)])
+    assert len(clips) == 2
+    assert "quem não quer um país mais seguro" in clips[0]["text"].lower()
+    assert "qual é o próximo passo" in clips[1]["text"].lower()
+    assert clips[0]["end"] == 50.0
+    assert clips[1]["start"] == 51.0

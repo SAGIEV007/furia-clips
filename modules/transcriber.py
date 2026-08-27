@@ -4,6 +4,8 @@ import hashlib
 import time
 import subprocess
 import shutil
+import gc
+import tempfile
 import re as _re
 
 CACHE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "workspace", "cache")
@@ -32,7 +34,13 @@ def _normalize_for_echo(text):
 
 
 class Transcriber:
-    # A janela do `initial_prompt` do Whisper é curta. São 337 entradas no
+    # O openai-whisper carrega o áudio inteiro em uma matriz float32. Em uma
+    # entrevista de 45 minutos isso cria um pico desnecessário; a transcrição
+    # longa usa janelas independentes e mantém somente os segmentos JSON.
+    LONG_SOURCE_CHUNK_SECONDS = 300.0
+
+    # A janela do `initial_prompt` do Whisper é curta.
+    # São 337 entradas no
     # léxico: enfiar todas trocaria um erro de nome por um reconhecedor pior no
     # vídeo inteiro.
     VOCABULARY_PROMPT_MAX_CHARS = 380
@@ -478,6 +486,12 @@ class Transcriber:
     def _transcribe_openai_whisper(self, audio_path, emit_progress=None, cancel_check=None):
         if cancel_check:
             cancel_check()
+        duration = self._probe_duration(audio_path)
+        if duration and duration >= self.LONG_SOURCE_CHUNK_SECONDS * 2:
+            return self._transcribe_openai_whisper_chunked(
+                audio_path, duration, emit_progress, cancel_check
+            )
+
         # O openai-whisper usa fp16=True por padrão, mas CPU não oferece suporte
         # eficiente a esse tipo. O fallback precisa fixar fp16=False fora de CUDA.
         result = self.model.transcribe(
@@ -492,13 +506,123 @@ class Transcriber:
             initial_prompt=self._vocabulary_prompt() or None,
             fp16=self.device == "cuda",
         )
+        return self._normalize_openai_result(result, cancel_check)
 
+    def _transcribe_openai_whisper_chunked(self, audio_path, duration, emit_progress=None, cancel_check=None):
+        """Transcreve uma fonte longa em janelas de áudio independentes.
+
+        ``clip_timestamps`` devolve timestamps absolutos, portanto o restante do
+        Furia 1 continua navegando, gerando captions e selecionando cortes na
+        mesma linha do tempo. Cada janela libera a matriz de áudio antes da
+        próxima, evitando o OOM observado na entrevista de 44,5 minutos.
+        """
+        segments = []
+        full_text_parts = []
+        chunk_count = max(1, int((duration + self.LONG_SOURCE_CHUNK_SECONDS - 1) // self.LONG_SOURCE_CHUNK_SECONDS))
+        prompt = self._vocabulary_prompt() or None
+        for chunk_index in range(chunk_count):
+            if cancel_check:
+                cancel_check()
+            start = chunk_index * self.LONG_SOURCE_CHUNK_SECONDS
+            end = min(float(duration), start + self.LONG_SOURCE_CHUNK_SECONDS)
+            if emit_progress:
+                emit_progress(
+                    f"Transcrevendo janela {chunk_index + 1}/{chunk_count} "
+                    f"({start / 60:.1f}–{end / 60:.1f} min)..."
+                )
+            chunk_path = self._extract_audio_chunk(audio_path, start, end)
+            try:
+                result = self.model.transcribe(
+                    chunk_path,
+                    language=self.language,
+                    task="transcribe",
+                    verbose=False,
+                    word_timestamps=self.word_timestamps,
+                    initial_prompt=prompt if chunk_index == 0 else None,
+                    condition_on_previous_text=False,
+                    fp16=self.device == "cuda",
+                )
+                normalized = self._normalize_openai_result(result, cancel_check)
+                for seg in normalized["segments"]:
+                    # The temporary audio begins at ``start``; move every
+                    # segment/word back onto the source timeline before the
+                    # temporary file is discarded.
+                    seg["start"] = round(float(seg["start"]) + start, 3)
+                    seg["end"] = round(float(seg["end"]) + start, 3)
+                    for word in seg.get("words") or []:
+                        word["start"] = round(float(word["start"]) + start, 3)
+                        word["end"] = round(float(word["end"]) + start, 3)
+                    # Whisper can return a blank boundary segment. It is not
+                    # useful to captions or candidate generation and can become
+                    # a duplicate if a future decoder adds overlap around this
+                    # seam.
+                    if str(seg.get("text") or "").strip():
+                        segments.append(seg)
+                full_text_parts.append(normalized["full_text"])
+                del result, normalized
+                gc.collect()
+            finally:
+                try:
+                    os.unlink(chunk_path)
+                except OSError:
+                    pass
+        for index, segment in enumerate(segments):
+            segment["id"] = index
+        return {
+            "segments": segments,
+            "segment_count": len(segments),
+            "full_text": " ".join(part for part in full_text_parts if part).strip(),
+            "language": self.language,
+            "chunked": True,
+            "chunk_count": chunk_count,
+        }
+
+    def _extract_audio_chunk(self, audio_path, start, end):
+        """Extract one bounded PCM window so Whisper never loads the full source."""
+        duration = max(0.1, float(end) - float(start))
+        handle = tempfile.NamedTemporaryFile(prefix="furia-whisper-", suffix=".wav", dir=CACHE_DIR, delete=False)
+        chunk_path = handle.name
+        handle.close()
+        ffmpeg = shutil.which("ffmpeg")
+        if not ffmpeg:
+            raise RuntimeError("FFmpeg é necessário para transcrever fontes longas em janelas de memória segura.")
+        command = [
+            ffmpeg, "-nostdin", "-loglevel", "error", "-y",
+            "-ss", f"{float(start):.3f}", "-i", audio_path,
+            "-t", f"{duration:.3f}", "-vn", "-ac", "1", "-ar", "16000",
+            "-f", "wav", chunk_path,
+        ]
+        try:
+            result = subprocess.run(
+                command,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=max(180, int(duration * 3)),
+            )
+        except (OSError, subprocess.SubprocessError) as exc:
+            try:
+                os.unlink(chunk_path)
+            except OSError:
+                pass
+            raise RuntimeError(f"Não foi possível extrair uma janela de áudio: {exc}") from exc
+        if result.returncode != 0:
+            try:
+                os.unlink(chunk_path)
+            except OSError:
+                pass
+            detail = (result.stderr or "").strip()[-400:]
+            raise RuntimeError(f"FFmpeg falhou ao extrair janela de áudio: {detail}")
+        return chunk_path
+
+    def _normalize_openai_result(self, result, cancel_check=None):
         segments = []
         for seg in result.get("segments", []):
             if cancel_check:
                 cancel_check()
             segment_data = {
-                "id": seg["id"],
+                "id": len(segments),
                 "start": round(seg["start"], 3),
                 "end": round(seg["end"], 3),
                 "text": seg["text"].strip(),
@@ -511,11 +635,9 @@ class Transcriber:
                     "end": round(word_info["end"], 3),
                 })
             segments.append(segment_data)
-
-        full_text = result.get("text", "").strip()
         return {
             "segments": segments,
             "segment_count": len(segments),
-            "full_text": full_text,
+            "full_text": result.get("text", "").strip(),
             "language": result.get("language", self.language),
         }

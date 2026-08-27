@@ -8,6 +8,7 @@ chcp 65001 >nul
 set "FURIA_HOST=127.0.0.1"
 set "FURIA_PORT=3001"
 if not defined FURIA_CLIPS_DATA_DIR set "FURIA_CLIPS_DATA_DIR=%USERPROFILE%\FuriaStudioData"
+if not defined FURIA_WORKSPACE set "FURIA_WORKSPACE=%FURIA_CLIPS_DATA_DIR%\workspace"
 
 REM Nunca abrir uma segunda janela/aba se o Studio já estiver em execução.
 powershell.exe -NoProfile -Command "if (Get-NetTCPConnection -LocalPort 3001 -State Listen -ErrorAction SilentlyContinue) { exit 1 } else { exit 0 }"

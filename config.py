@@ -4,7 +4,7 @@ import sqlite3
 from datetime import datetime, timezone
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-WORKSPACE_DIR = os.path.join(BASE_DIR, "workspace")
+WORKSPACE_DIR = os.path.abspath(os.path.expanduser(os.environ.get("FURIA_WORKSPACE", "") or os.path.join(BASE_DIR, "workspace")))
 UPLOAD_DIR = os.path.join(WORKSPACE_DIR, "uploads")
 PROCESSED_DIR = os.path.join(WORKSPACE_DIR, "processed")
 EXPORT_DIR = os.path.join(WORKSPACE_DIR, "exports")

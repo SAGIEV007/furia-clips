@@ -209,3 +209,76 @@ def test_vizinhos_sem_pergunta_no_meio_continuam_virando_um_so():
         "sem troca de locutor na junta, dois candidatos colados são a mesma "
         "resposta partida em dois"
     )
+
+
+def test_fecho_do_corte_nao_consume_a_pergunta_que_abre_o_proximo():
+    """Uma resposta fechada não pode marcar a pergunta seguinte como usada."""
+    seletor = ClipSelector(target_duration=45, max_clips=20, min_duration=8)
+    pergunta = _PERGUNTAS[0]
+    blocos = [
+        {
+            "start": 0.0, "end": 22.0, "duration": 22.0,
+            "text": "A resposta fecha esta ideia com clareza e apresenta dados concretos para o eleitor compreender o ponto.",
+            "sentences": _sentencas([(0.0, 22.0, "A resposta fecha esta ideia com clareza e apresenta dados concretos para o eleitor compreender o ponto.")]),
+            "speakers": ["guest"], "speaker": "guest", "speaker_turn_valid": True,
+        },
+        {
+            "start": 22.0, "end": 32.0, "duration": 10.0,
+            "text": pergunta,
+            "sentences": _sentencas([(22.0, 32.0, pergunta)]),
+            "speakers": ["interviewer"], "speaker": "interviewer", "speaker_turn_valid": True,
+        },
+        {
+            "start": 32.0, "end": 57.0, "duration": 25.0,
+            "text": "A minha proposta é reduzir o desperdício, proteger o orçamento e entregar uma resposta prática ainda no primeiro ano.",
+            "sentences": _sentencas([(32.0, 57.0, "A minha proposta é reduzir o desperdício, proteger o orçamento e entregar uma resposta prática ainda no primeiro ano.")]),
+            "speakers": ["guest"], "speaker": "guest", "speaker_turn_valid": True,
+        },
+    ]
+    clips = seletor._build_clips_from_scored_blocks([(bloco, 70.0) for bloco in blocos])
+    assert len(clips) == 2, "a pergunta seguinte precisa continuar sendo uma unidade selecionável"
+    assert "qual é exatamente" not in clips[0]["text"].lower()
+    assert "qual é exatamente" in clips[1]["text"].lower()
+    assert clips[0]["end"] <= 22.0
+    assert clips[1]["start"] == 22.0
+
+
+def test_pergunta_pontuada_sem_vocabulario_do_entrevistador_tambem_e_reutilizavel():
+    """Whisper pode perder o vocativo; a pontuação ainda preserva a oportunidade."""
+    seletor = ClipSelector(target_duration=45, max_clips=20, min_duration=8)
+    blocos = [{
+        "start": 0.0, "end": 58.0, "duration": 58.0,
+        "text": "A resposta explica o argumento com dados concretos para o público entender. Você acha que isso é possível? A proposta é praticável, cabe no orçamento e começa ainda neste ano.",
+        "sentences": _sentencas([
+            (0.0, 22.0, "A resposta explica o argumento com dados concretos para o público entender."),
+            (22.0, 32.0, "Você acha que isso é possível?"),
+            (32.0, 58.0, "A proposta é praticável, cabe no orçamento e começa ainda neste ano."),
+        ]),
+        "speakers": [], "speaker": "", "speaker_turn_valid": True,
+    }]
+    clips = seletor._build_clips_from_scored_blocks([(blocos[0], 70.0)])
+    assert len(clips) == 2
+    assert "você acha que isso é possível" not in clips[0]["text"].lower()
+    assert "você acha que isso é possível" in clips[1]["text"].lower()
+
+
+def test_janela_aninhada_com_mesma_abertura_nao_duplica_corte_longo():
+    seletor = ClipSelector(target_duration=45, max_clips=20, min_duration=8)
+    candidatos = [
+        {"start": 100.0, "end": 155.0, "duration": 55.0, "viral_score": 88, "text": "A tese completa com a conclusão."},
+        {"start": 100.0, "end": 260.0, "duration": 160.0, "viral_score": 72, "text": "A tese completa com a conclusão e contexto posterior."},
+    ]
+    mantidos = seletor._remove_overlaps(candidatos)
+    assert len(mantidos) == 1
+    assert mantidos[0]["end"] == 155.0
+
+
+def test_janela_aninhada_com_mesma_saida_nao_duplica_corte_curto():
+    seletor = ClipSelector(target_duration=45, max_clips=20, min_duration=8)
+    candidatos = [
+        {"start": 100.0, "end": 200.0, "duration": 100.0, "viral_score": 72, "text": "Contexto longo da mesma ideia."},
+        {"start": 145.0, "end": 200.0, "duration": 55.0, "viral_score": 88, "text": "Fecho forte da mesma ideia."},
+    ]
+    mantidos = seletor._remove_overlaps(candidatos)
+    assert len(mantidos) == 1
+    assert mantidos[0]["start"] == 145.0

@@ -11,6 +11,8 @@ aprovação possível. ``PERSISTENT_EXPORTS_DIR`` já existia e já era criado; 
 escrevia nele.
 """
 
+import os
+
 import config
 
 
@@ -41,6 +43,9 @@ def test_o_banco_de_aprendizado_fica_fora():
     assert _fora_do_checkout(config.DB_PATH)
 
 
-def test_a_pasta_de_trabalho_pode_ficar_dentro():
-    """Upload e arquivo intermediário são descartáveis: nascem de novo a cada job."""
-    assert not _fora_do_checkout(config.UPLOAD_DIR)
+def test_a_pasta_de_trabalho_segue_o_workspace_configuravel():
+    """Uploads e intermediários são descartáveis, dentro ou fora conforme o launcher."""
+    assert config.UPLOAD_DIR == os.path.join(config.WORKSPACE_DIR, "uploads")
+    assert config.PROCESSED_DIR == os.path.join(config.WORKSPACE_DIR, "processed")
+    if os.environ.get("FURIA_WORKSPACE"):
+        assert _fora_do_checkout(config.UPLOAD_DIR)

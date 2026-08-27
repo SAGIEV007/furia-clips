@@ -403,9 +403,10 @@ def _project_payload(project_id, runtime, safe_url, duration_fn, detail=False):
         status = "ready"
     else:
         status = "empty"
-    clips = [_clip_payload(item, runtime, duration_fn) for item in raw_clips]
-    approved_count = sum(1 for clip in clips if clip.get("status") in {"approved", "exported"})
-    exported_count = sum(1 for clip in clips if clip.get("status") == "exported")
+    clip_count = len(raw_clips)
+    clips = [_clip_payload(item, runtime, duration_fn) for item in raw_clips] if detail else []
+    approved_count = sum(1 for item in raw_clips if str(item.get("review_status") or "") == "approved" or (str(item.get("file_path") or "") and os.path.isfile(str(item.get("file_path")))))
+    exported_count = sum(1 for item in raw_clips if str(item.get("file_path") or "") and os.path.isfile(str(item.get("file_path"))))
     result = {
         "id": project["id"],
         "name": project.get("name") or "Projeto local",
@@ -415,9 +416,9 @@ def _project_payload(project_id, runtime, safe_url, duration_fn, detail=False):
         "width": int(probe.get("width") or 0),
         "height": int(probe.get("height") or 0),
         "status": status,
-        "stage": f"{len(clips)} momentos encontrados" if clips else ("Fonte importada" if source else "Aguardando uma fonte"),
-        "progress": 100 if clips else 0,
-        "candidateCount": len(clips),
+        "stage": f"{clip_count} momentos encontrados" if clip_count else ("Fonte importada" if source else "Aguardando uma fonte"),
+        "progress": 100 if clip_count else 0,
+        "candidateCount": clip_count,
         "approvedCount": approved_count,
         "exportedCount": exported_count,
         "thumbnail": next((clip.get("thumbnail") for clip in clips if clip.get("thumbnail")), safe_url(_thumbnail_for_project(source, runtime))),
@@ -431,7 +432,7 @@ def _project_payload(project_id, runtime, safe_url, duration_fn, detail=False):
     if detail:
         result["transcript"] = transcription.get("segments", [])
         result["transcription"] = transcription
-        result["analysis"] = {"candidate_count": len(clips), "method": "Furia 1 editorial engine + local persistence", "confidence": "explainable"}
+        result["analysis"] = {"candidate_count": clip_count, "method": "Furia 1 editorial engine + local persistence", "confidence": "explainable"}
         result["chubContext"] = meta.get("chub_context") or {}
     return result
 

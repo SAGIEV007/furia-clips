@@ -31,6 +31,9 @@ def test_studio_interactions_have_real_targets():
         'function renderEditorialBlock',
         'function refreshQueue',
         'function openSettings',
+        'function renderSeoPreview',
+        'data-action="use-headline"',
+        'HEADLINE / CAPTIONS FIRST',
     ):
         assert fragment in HTML or fragment in JS
 
@@ -43,6 +46,9 @@ def test_adapter_routes_are_registered_once():
     assert ("/api/projects/<int:project_id>/chub-context", "studio_chub_attach", ("POST",)) in rules
     assert ("/api/projects/<int:project_id>/chub-context", "studio_chub_clear", ("DELETE",)) in rules
     assert ("/api/clips/<int:clip_id>/range", "studio_range", ("POST",)) in rules
+    assert ("/api/clips/<int:clip_id>/decision", "studio_decision", ("POST",)) in rules
+    assert ("/api/clips/<int:clip_id>/title", "studio_title", ("POST",)) in rules
+    assert ("/api/projects/<int:project_id>/seo", "studio_seo", ("POST",)) in rules
     assert ("/api/clips/<int:clip_id>/export", "studio_export", ("POST",)) in rules
 
 

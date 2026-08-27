@@ -4220,7 +4220,117 @@ Retorne APENAS o JSON.
         """
         clips = []
         used_indices = set()
+        reusable_question_blocks = 0
 
+        def explicit_speaker(sentence):
+            """Return a speaker label only when the transcript actually has one."""
+            if not isinstance(sentence, dict):
+                return ""
+            direct = str(sentence.get("speaker") or sentence.get("speaker_label") or "").strip().lower()
+            if direct:
+                return direct
+            speakers = sentence.get("speakers")
+            if isinstance(speakers, (list, tuple, set)) and len(speakers) == 1:
+                return str(next(iter(speakers)) or "").strip().lower()
+            return ""
+
+        def is_rhetorical_question(text):
+            """Recognize short rhetorical tails without suppressing real Q&A."""
+            normalized = unicodedata.normalize("NFKD", str(text or "")).encode("ascii", "ignore").decode("ascii").lower()
+            normalized = re.sub(r"[^a-z0-9? ]+", " ", normalized)
+            normalized = " ".join(normalized.replace("?", " ? ").split()).strip()
+            return bool(
+                re.match(r"^(e )?(quem nao|sabe quem nao)\b", normalized)
+                or re.match(r"^(por que|porque) \?(?:\s|$)", normalized)
+                or re.match(r"^(e )?e verdade( isso)? \?(?:\s|$)", normalized)
+                or re.match(r"^(hein|ne|nao e|certo|entendeu) \?(?:\s|$)", normalized)
+                or re.match(r"^direita ou esquerda \?(?:\s|$)", normalized)
+            )
+
+        unique_sentences = {}
+        for block, _score in scored_blocks:
+            for sentence in (block.get("sentences") or []):
+                key = (
+                    round(float(sentence.get("start", 0) or 0), 3),
+                    round(float(sentence.get("end", 0) or 0), 3),
+                    str(sentence.get("text") or "").strip(),
+                )
+                unique_sentences[key] = sentence
+        all_sentences = list(unique_sentences.values())
+        source_span = max((float(item.get("end", 0) or 0) for item in all_sentences), default=0.0)
+        detected_turns = detect_interviewer_turns(all_sentences)
+        allow_interview_question_recall = (
+            (editorial_context is None and len(scored_blocks) == 1)
+            or looks_like_an_interview(detected_turns, source_span)
+        )
+        def is_boundary_sentence(sentence, previous_sentence=None):
+            text = str(sentence.get("text") or "")
+            question = "?" in text or is_a_whole_question(text)
+            speaker = explicit_speaker(sentence)
+            previous_speaker = explicit_speaker(previous_sentence)
+            same_known_speaker = bool(speaker and previous_speaker and speaker == previous_speaker)
+            if same_known_speaker:
+                return False
+            if not question or is_rhetorical_question(text):
+                return False
+            # Interviews need recall even when Whisper dropped the vocative;
+            # outside a detected Q&A, thematic block segmentation is safer than
+            # treating every interrogative phrase in a monologue as a seam.
+            return bool(allow_interview_question_recall)
+
+        def split_question_boundaries(scored):
+            """Expose interviewer questions hidden inside a long scored block.
+
+            The Furia 1 block segmenter is intentionally conservative and may put
+            an answer, the next question, and the beginning of its answer in one
+            scored block. Reserving that whole block for the first winner made the
+            next question impossible to discover. Split only at a clear question
+            sentence; all other scoring metadata is retained, and the normal
+            overlap pass remains the final authority on redundancy.
+            """
+            expanded = []
+            for block, score in scored:
+                sentences = sorted(block.get("sentences") or [], key=lambda item: float(item.get("start", 0) or 0))
+                boundaries = [index for index, sentence in enumerate(sentences[1:], start=1) if is_boundary_sentence(sentence, sentences[index - 1])]
+                if not boundaries:
+                    expanded.append((block, score))
+                    continue
+                starts = [0] + boundaries
+                for position, start_index in enumerate(starts):
+                    end_index = (starts[position + 1] - 1) if position + 1 < len(starts) else len(sentences) - 1
+                    subset = sentences[start_index:end_index + 1]
+                    if not subset:
+                        continue
+                    piece = dict(block)
+                    piece["sentences"] = subset
+                    piece["start"] = float(subset[0].get("start", block.get("start", 0)) or 0)
+                    piece["end"] = float(subset[-1].get("end", block.get("end", 0)) or 0)
+                    piece["duration"] = max(0.0, piece["end"] - piece["start"])
+                    piece["text"] = " ".join(str(item.get("text") or "").strip() for item in subset).strip()
+                    piece["question_boundary_piece"] = start_index in boundaries
+                    expanded.append((piece, score))
+            return expanded
+
+        def contains_question_boundary(block):
+            """A question at a block edge is reusable evidence, not consumed inventory.
+
+            Blocks are a discovery unit, not a global reservation. If a winning
+            window ends on an interviewer question, that question must remain
+            available to seed the next answer. The later overlap/similarity pass
+            still decides whether the resulting proposal is genuinely redundant.
+            A question mark is intentionally enough here: noisy captions may omit
+            speaker labels, and losing a valid question is worse than carrying one
+            extra review candidate.
+            """
+            sentences = (block or {}).get("sentences") or []
+            if len(sentences) > 1:
+                return any(is_boundary_sentence(sentence, sentences[index - 1]) for index, sentence in enumerate(sentences[1:], start=1))
+            text = str((block or {}).get("text") or "")
+            if not allow_interview_question_recall:
+                return False
+            return is_a_whole_question(text) and not is_rhetorical_question(text)
+
+        scored_blocks = split_question_boundaries(scored_blocks)
         sorted_by_score = sorted(enumerate(scored_blocks), key=lambda x: x[1][1], reverse=True)
 
         for start_idx, (start_block, start_score) in sorted_by_score:
@@ -4321,6 +4431,10 @@ Retorne APENAS o JSON.
                 continue
 
             for idx in range(start_idx, clip_end_idx + 1):
+                block = scored_blocks[idx][0]
+                if contains_question_boundary(block):
+                    reusable_question_blocks += 1
+                    continue
                 used_indices.add(idx)
 
             clip_text = " ".join(b["text"] for b in clip_blocks)
@@ -4426,6 +4540,9 @@ Retorne APENAS o JSON.
                 "duration_preference": self._duration_label(clip_duration, {"flow": flow_grade}),
             })
 
+        diagnostics = getattr(self, "_candidate_diagnostics", None)
+        if reusable_question_blocks and isinstance(diagnostics, dict):
+            diagnostics["reusable_question_blocks"] = reusable_question_blocks
         return clips
 
     def _generate_simple_title(self, text):
@@ -4537,10 +4654,75 @@ Retorne APENAS o JSON.
             reverse=True,
         )
         selected = []
+        def potential(item):
+            return float(item.get("editorial_potential_score", item.get("viral_score", 0)) or 0)
+
         for clip in ordered:
             duplicate = False
             duplicate_reason = ""
             existing = None
+
+            # Duas janelas que começam na mesma fala não são duas aberturas
+            # editoriais. A extensão longa pode conter material novo, mas quando
+            # passa muito do teto preferencial ela é um contêiner da mesma ideia,
+            # não um segundo corte. O teste é simétrico para que a ordem do score
+            # não deixe o aninhamento escapar.
+            clip_start = float(clip.get("start", 0) or 0)
+            clip_end = float(clip.get("end", 0) or 0)
+            clip_duration = max(0.0, clip_end - clip_start)
+            for previous in list(selected):
+                previous_start = float(previous.get("start", 0) or 0)
+                previous_end = float(previous.get("end", 0) or 0)
+                previous_duration = max(0.0, previous_end - previous_start)
+                same_start = abs(clip_start - previous_start) <= 0.75
+                same_end = abs(clip_end - previous_end) <= 0.75
+                if not (same_start or same_end):
+                    continue
+                nested = (
+                    clip_end <= previous_end + 0.5
+                    or previous_end <= clip_end + 0.5
+                )
+                if not nested:
+                    continue
+                if clip_end > previous_end + 0.5:
+                    if same_start and (clip_duration > self.preferred_max_duration * 1.5 or potential(clip) <= potential(previous)):
+                        duplicate = True
+                        duplicate_reason = "same_opening"
+                        existing = previous
+                        break
+                elif previous_end > clip_end + 0.5:
+                    if same_start and (previous_duration > self.preferred_max_duration * 1.5 or potential(clip) >= potential(previous)):
+                        selected.remove(previous)
+                    elif same_end and potential(clip) < potential(previous):
+                        duplicate = True
+                        duplicate_reason = "same_closing"
+                        existing = previous
+                        break
+                else:
+                    # Same opening or same closing with equal endpoint: keep
+                    # the shorter/higher-potential editorial alternative.
+                    if potential(clip) >= potential(previous) or previous_duration > self.preferred_max_duration * 1.5:
+                        selected.remove(previous)
+                    else:
+                        duplicate = True
+                        duplicate_reason = "same_closing" if same_end else "same_opening"
+                        existing = previous
+                        break
+            if duplicate:
+                if str(clip.get("candidate_origin") or "") == "local_fallback":
+                    self._candidate_diagnostics["fallback_discarded_count"] = int(
+                        self._candidate_diagnostics.get("fallback_discarded_count", 0) or 0
+                    ) + 1
+                    self._candidate_diagnostics["fallback_discarded_overlap"] = int(
+                        self._candidate_diagnostics.get("fallback_discarded_overlap", 0) or 0
+                    ) + 1
+                self._record_hard_negative(
+                    clip, f"duplicate_{duplicate_reason or 'same_opening'}", winner=existing
+                )
+                self._registrar_descarte_por_sobreposicao(
+                    clip, existing, duplicate_reason, 1.0, inedito_s=0.0
+                )
+                continue
 
             # ── a pergunta certa ────────────────────────────────────────────
             # A regra antiga era "quanto este candidato divide com aquele?", e
