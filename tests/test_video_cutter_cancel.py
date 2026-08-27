@@ -37,3 +37,18 @@ def test_ffmpeg_runner_kills_child_when_job_is_cancelled(monkeypatch):
 
     assert process.killed is True
     assert process.waited is True
+
+
+def test_scene_detection_kills_child_when_job_is_cancelled(monkeypatch):
+    process = _FakeProcess()
+    monkeypatch.setattr(subprocess, "Popen", lambda *args, **kwargs: process)
+    monkeypatch.setattr(VideoCutter, "_probe_duration_seconds", staticmethod(lambda _path: 5.0))
+
+    with pytest.raises(OperationCancelled):
+        VideoCutter().detect_scenes(
+            "video.mp4",
+            cancel_check=lambda: (_ for _ in ()).throw(OperationCancelled("cancelado")),
+        )
+
+    assert process.killed is True
+    assert process.waited is True

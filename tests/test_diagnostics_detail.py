@@ -10,7 +10,7 @@ its edges came to be where they are, now travel with the decision.
 import json
 
 import modules.editorial_benchmark as editorial_benchmark
-from app import _clip_transcript, _write_selection_diagnostics
+from app import _candidate_rejection_summary, _clip_transcript, _write_selection_diagnostics
 
 
 SEGMENTS = [
@@ -43,6 +43,27 @@ def test_each_line_carries_its_own_time():
 def test_a_clip_with_no_transcript_is_not_an_error():
     assert _clip_transcript(None, 0.0, 10.0) == []
     assert _clip_transcript([{"start": "x", "end": None, "text": "ruído"}], 0.0, 10.0) == []
+
+
+def test_zero_result_summary_uses_selector_diagnostics():
+    count, summary = _candidate_rejection_summary(
+        [],
+        {
+            "primary_count": 5,
+            "final_count": 0,
+            "reason": "short_source",
+            "hard_negatives": [
+                {"reason": "duplicate_same_closing"},
+                {"reason": "already_exported_fingerprint"},
+            ],
+        },
+    )
+
+    assert count == 5
+    assert "duplicate_same_closing (1)" in summary
+    assert "already_exported_fingerprint (1)" in summary
+    assert "short_source (1)" in summary
+    assert "não registrados" not in summary
 
 
 def test_selection_diagnostics_materialize_hard_negative_benchmark(tmp_path, monkeypatch):

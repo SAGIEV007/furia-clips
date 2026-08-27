@@ -41,6 +41,7 @@ def _make_runtime(tmp_path):
             editorial_key TEXT DEFAULT '',
             review_status TEXT DEFAULT 'pending',
             status TEXT DEFAULT 'pending',
+            export_path TEXT DEFAULT '',
             suggested_titles TEXT DEFAULT '[]',
             suggested_tags TEXT DEFAULT '[]',
             suggested_description TEXT DEFAULT '',
@@ -361,6 +362,10 @@ def test_adapter_routes_round_trip_without_private_media(tmp_path, monkeypatch):
     assert approved.get_json()["reviewStatus"] == "approved"
     aggregate = studio_adapter._project_payload(project_id, runtime, lambda _path: "", lambda _path: 30.0, detail=False)
     assert aggregate["reviewCount"] == 0
+    assert aggregate["exportedCount"] == 0
+    approved_detail = studio_adapter._project_payload(project_id, runtime, lambda _path: "", lambda _path: 30.0, detail=True)
+    assert approved_detail["clips"][0]["status"] == "approved"
+    assert approved_detail["clips"][0]["exportUrl"] == ""
 
     monkeypatch.setattr(
         "modules.headline_studio.generate_artwork_copy",

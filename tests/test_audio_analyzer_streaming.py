@@ -72,3 +72,16 @@ def test_analyze_energy_kills_ffmpeg_when_cancelled(monkeypatch):
 
     assert process.killed is True
     assert process.waited is True
+
+
+def test_analyze_energy_skips_missing_audio_without_failing(tmp_path, monkeypatch):
+    source = tmp_path / "silent.mp4"
+    source.write_bytes(b"fixture")
+    monkeypatch.setattr(AudioAnalyzer, "_has_audio_stream", lambda self, path: False)
+
+    events = []
+    profile = AudioAnalyzer().analyze_energy(str(source), emit_progress=events.append)
+
+    assert profile == []
+    assert any("não possui faixa de áudio" in message for message in events)
+    assert events[-1] == "Analise de energia completa: 0 janelas"

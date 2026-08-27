@@ -281,6 +281,12 @@ def test_followup_video_analysis_is_opt_in_after_canonical_transcript():
         {"source": "manual"}, {"gemini_manual_video_analysis": True}
     ) is True
     assert app_module._should_allow_followup_video_analysis(
+        {"source": "manual_confirmed"}, {"gemini_api_key": "configured"}
+    ) is False
+    assert app_module._should_allow_followup_video_analysis(
+        {"source": "manual_confirmed"}, {"gemini_manual_video_analysis": True}
+    ) is True
+    assert app_module._should_allow_followup_video_analysis(
         {"source": "public_subtitles"}, {"gemini_video_analysis_with_transcript": True}
     ) is True
 

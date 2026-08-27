@@ -382,8 +382,8 @@ def _announce_acervo_source(settings, video_path):
         )
     else:
         emit_progress(
-            "[Espelho CHUB] Nenhum espelho encontrado; o Furia vai ranquear sem a "
-            "memória de desempenho. Rode: chub.bat --espelho",
+            "[Espelho CHUB] Memória opcional não instalada; o Furia vai ranquear "
+            "sem ela. Isso não impede transcrição, cortes ou exportação.",
             "warning",
         )
 
@@ -405,15 +405,16 @@ def _announce_acervo_source(settings, video_path):
     if not youtube_id:
         nome = os.path.basename(str(video_path or "")) or "este arquivo"
         emit_progress(
-            f"[Acervo] Desligado nesta fonte: não há id do YouTube no nome de '{nome}', "
-            f"então o Furia não tem como saber qual vídeo do Acervo procurar. "
-            f"Vincule com: chub.bat --vincular \"{nome}\" ID_DO_YOUTUBE",
-            "warning",
+            f"[Acervo opcional] Nenhum snapshot foi aplicado a '{nome}': não há "
+            "identificador de vídeo reconhecível. O Furia continuará normalmente "
+            "com a fonte, a transcrição e os sinais locais.",
+            "info",
         )
         return
     emit_progress(
-        f"[Acervo] Vídeo reconhecido ({youtube_id}), mas nenhum bloco baixado para ele. "
-        f"Baixe com: chub.bat {youtube_id} — por enquanto o Furia vai ler o vídeo sozinho.",
+        f"[Acervo opcional] Vídeo reconhecido ({youtube_id}), mas nenhum bloco "
+        "autorizado foi importado. O Furia vai ler o vídeo sozinho; isso não "
+        "altera a pontuação técnica nem bloqueia a edição.",
         "info",
     )
 
@@ -1649,7 +1650,7 @@ def _should_allow_followup_video_analysis(transcription, settings):
     """
     source = str((transcription or {}).get("source", "") or "").strip().lower()
     settings = settings or {}
-    if source == "manual":
+    if source in {"manual", "manual_confirmed"}:
         return bool(settings.get("gemini_manual_video_analysis", False))
     return bool(settings.get("gemini_video_analysis_with_transcript", False))
 
@@ -1665,6 +1666,35 @@ def _enrich_editorial_context(video_path, settings, editorial_context, user_cont
     else:
         emit_progress("[Gemini] Análise multimodal indisponível; usando transcrição e sinais locais.", "info")
     return editorial_context
+
+
+def _candidate_rejection_summary(render_rejections=None, candidate_diagnostics=None):
+    """Return a bounded, human-readable summary for a zero-result selection."""
+    render_rejections = list(render_rejections or [])
+    candidate_diagnostics = candidate_diagnostics or {}
+    diagnostic_rejections = list(candidate_diagnostics.get("hard_negatives") or [])
+    diagnostic_reasons = [
+        item.get("reason")
+        for item in diagnostic_rejections
+        if isinstance(item, dict) and item.get("reason")
+    ]
+    selection_reason = candidate_diagnostics.get("reason")
+    if selection_reason:
+        diagnostic_reasons.append(selection_reason)
+    reason_values = [
+        str(rejection.get("reason") or "sem motivo registrado").split(";")[0].strip()
+        for rejection in render_rejections
+    ] + [str(reason).split(";")[0].strip() for reason in diagnostic_reasons]
+    motivos = Counter(reason for reason in reason_values if reason)
+    resumo = "; ".join(f"{motivo} ({quantos})" for motivo, quantos in motivos.most_common(4))
+    primary_count = int(candidate_diagnostics.get("primary_count") or 0)
+    final_count = int(candidate_diagnostics.get("final_count") or 0)
+    discarded_count = max(
+        len(render_rejections),
+        primary_count - final_count,
+        len(diagnostic_rejections) + (1 if selection_reason else 0),
+    )
+    return discarded_count, resumo or "não registrados"
 
 
 @app.route("/api/jobs", methods=["GET"])
@@ -3820,7 +3850,13 @@ def api_cut_shorts():
             try:
                 from modules.video_cutter import VideoCutter as SceneDetector
                 scene_det = SceneDetector()
-                scene_changes = scene_det.detect_scenes(video_path, emit_progress=emit_progress)
+                scene_changes = scene_det.detect_scenes(
+                    video_path,
+                    emit_progress=emit_progress,
+                    cancel_check=ctx.check_cancel,
+                )
+            except (JobCancelled, OperationCancelled):
+                raise
             except Exception as e:
                 emit_progress(f"Deteccao de cena indisponivel: {str(e)}", "warning")
 
@@ -4247,14 +4283,16 @@ def api_cut_shorts():
                     message = "Nenhum clip válido foi entregue; os arquivos rejeitados foram removidos."
                     message += f" Diagnóstico: {'; '.join(erros_de_render)[:320]}"
                 else:
-                    motivos = Counter(
-                        str(rejection.get("reason") or "sem motivo registrado").split(";")[0].strip()
-                        for rejection in render_rejections
+                    # Alguns gates acontecem dentro do selector/ranker antes de
+                    # `editorial_gate_rejections` existir. O diagnóstico já tem a
+                    # resposta em `hard_negatives` e `reason`.
+                    discarded_count, resumo = _candidate_rejection_summary(
+                        render_rejections,
+                        candidate_diagnostics,
                     )
-                    resumo = "; ".join(f"{motivo} ({quantos})" for motivo, quantos in motivos.most_common(4))
                     message = (
                         f"Os cortes foram encontrados, mas nenhum passou pelos portões de revisão: "
-                        f"{len(render_rejections)} candidato(s) adiados. Motivos: {resumo or 'não registrados'}."
+                        f"{discarded_count} candidato(s) adiados. Motivos: {resumo}."
                     )
                 emit_progress(message, "error")
             return {
@@ -4927,7 +4965,7 @@ def api_process_complete():
                     cancel_check=ctx.check_cancel,
                 )
                 transcription = _transcription_from_gemini_result(multimodal_result, settings.get("language", "pt"))
-            if transcription and transcription.get("source") == "manual":
+            if transcription and transcription.get("source") in {"manual", "manual_confirmed"}:
                 emit_progress(f"[Transcrição manual] {transcription['segment_count']} segmentos importados; Whisper não será executado.", "success")
             elif transcription and transcription.get("source") == "gemini_video":
                 emit_progress(f"[Gemini] {transcription['segment_count']} segmentos obtidos da análise multimodal; Whisper não será executado.", "success")
@@ -4959,7 +4997,7 @@ def api_process_complete():
             _realign_offset_transcription(transcription, video_duration, emit_progress)
             coverage = _transcription_coverage_report(transcription, video_duration)
             transcription["coverage"] = coverage
-            if coverage["status"] == "mismatch_suspected" and transcription.get("source") == "manual":
+            if coverage["status"] == "mismatch_suspected" and transcription.get("source") in {"manual", "manual_confirmed"}:
                 if processing_interval.get("active"):
                     raise ValueError(
                         "A transcrição manual excede a duração do intervalo selecionado. "
@@ -5011,10 +5049,7 @@ def api_process_complete():
             editorial_context = _enrich_editorial_context(
                 video_path, settings, editorial_context, user_context, emit_progress,
                 multimodal=multimodal_result,
-                allow_video_analysis=not (
-                    transcription.get("source") == "manual"
-                    and not settings.get("gemini_manual_video_analysis", False)
-                ),
+                allow_video_analysis=_should_allow_followup_video_analysis(transcription, settings),
             )
             settings["editorial_context"] = editorial_context
             source_boundary = interval_source_boundary(processing_interval)

@@ -311,7 +311,7 @@ def register_studio_routes(flask_app, runtime):
             runtime["save_clip_adjustment"](clip_id, adjusted, note="Intervalo ajustado na janela de Revisão.")
             with db() as conn:
                 conn.execute(
-                    "UPDATE clips SET start_time = ?, end_time = ?, duration = ?, file_path = '', status = 'pending', review_status = 'needs_review' WHERE id = ?",
+                    "UPDATE clips SET start_time = ?, end_time = ?, duration = ?, file_path = '', export_path = '', status = 'pending', review_status = 'needs_review' WHERE id = ?",
                     (adjusted["start"], adjusted["end"], adjusted["duration"], clip_id),
                 )
             return jsonify(clip_payload(runtime["get_clip"](clip_id)))
@@ -431,7 +431,7 @@ def register_studio_routes(flask_app, runtime):
                     if captioned_result and os.path.isfile(captioned_result):
                         os.replace(captioned_result, rendered)
             with db() as conn:
-                conn.execute("UPDATE clips SET file_path = ?, status = 'completed' WHERE id = ?", (rendered, clip_id))
+                conn.execute("UPDATE clips SET export_path = ?, status = 'completed' WHERE id = ?", (rendered, clip_id))
             ctx.update(stage="completed", progress=100, message="Export vertical pronto")
             return {"artifacts": [{"type": "export", "clip_id": clip_id, "path": rendered}]}
 
@@ -543,7 +543,7 @@ def _project_payload(project_id, runtime, safe_url, duration_fn, detail=False):
     clip_count = len(raw_clips)
     clips = [_clip_payload(item, runtime, duration_fn) for item in raw_clips] if detail else []
     approved_count = sum(1 for item in raw_clips if str(item.get("review_status") or "") == "approved")
-    exported_count = sum(1 for item in raw_clips if str(item.get("review_status") or "") == "approved" and str(item.get("file_path") or "") and os.path.isfile(str(item.get("file_path"))))
+    exported_count = sum(1 for item in raw_clips if str(item.get("review_status") or "") == "approved" and str(item.get("export_path") or "") and os.path.isfile(str(item.get("export_path"))))
     review_count = sum(1 for item in raw_clips if str(item.get("review_status") or "pending") not in {"approved", "rejected"})
     result = {
         "id": project["id"],
@@ -596,7 +596,7 @@ def _clip_payload(row, runtime, duration_fn):
         reasons = ["gancho editorial", "fala contínua", "sinais locais"]
     review = str(row.get("review_status") or "pending")
     status = {"pending": "suggested", "needs_review": "suggested", "approved": "approved", "rejected": "rejected"}.get(review, "suggested")
-    export_path = row.get("file_path") or ""
+    export_path = row.get("export_path") or ""
     if export_path and os.path.isfile(str(export_path)) and review == "approved":
         status = "exported"
     thumb = row.get("thumbnail_path") or ""

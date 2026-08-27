@@ -43,7 +43,7 @@ def test_studio_interactions_have_real_targets():
         'console-drawer',
         'refreshStudioStatus',
         'force_whisper',
-        'Conectar memória do Campaign Hub',
+        'Tenho um JSON do Chub',
         'class="review-snap"',
         'snap_to_transcript',
         'reviewCount',

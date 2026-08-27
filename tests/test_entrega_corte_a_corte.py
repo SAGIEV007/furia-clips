@@ -32,6 +32,7 @@ ouvindo, a lista final tem de sair igual.
 """
 
 import pytest
+from pathlib import Path
 
 from modules.video_cutter import VideoCutter
 
@@ -258,3 +259,33 @@ def test_o_cartao_aparece_a_cada_corte_entregue():
     assert "3 cortes" in resumo, resumo
     assert len(registro) == 3, f"o registro não contou as entregas: {registro}"
     assert "Corte 1 de 3" in registro[0], registro[0]
+
+
+def test_um_render_falho_nao_trava_os_proximos_cortes(cortador, tmp_path):
+    """Um timeout/erro de FFmpeg precisa virar rejeição local, não job infinito."""
+    chamadas = []
+
+    def falhar_primeiro(video_path, inicio, fim, saida, *args, **kwargs):
+        chamadas.append(inicio)
+        if len(chamadas) == 1:
+            raise TimeoutError("FFmpeg excedeu o limite")
+        Path(saida).write_bytes(b"fake")
+        return str(saida)
+
+    cortador.cut_clip = falhar_primeiro
+    resultados = _cortar(
+        cortador,
+        tmp_path,
+        on_clip_ready=lambda corte, i, total: None,
+    )
+    assert len(resultados) == 2
+    assert [item["start"] for item in resultados] == [100.0, 200.0]
+    assert any("FFmpeg excedeu" in item["errors"][0] for item in cortador.last_rejections)
+
+
+def test_timeout_de_render_e_limitado_e_configuravel():
+    curto = VideoCutter._render_timeout_seconds(30)
+    longo = VideoCutter._render_timeout_seconds(3600)
+    assert curto < longo or curto == longo
+    assert 60 <= curto <= 900
+    assert 60 <= longo <= 900

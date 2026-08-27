@@ -11,6 +11,26 @@ class AudioAnalyzer:
     def __init__(self):
         self.sample_rate = 16000
 
+    def _has_audio_stream(self, video_path):
+        """Return whether the source has an audio stream, or None if unknown."""
+        if not os.path.isfile(video_path):
+            # Keep unit-test doubles and not-yet-materialized paths on the
+            # streaming path; a real source is probed before opening FFmpeg.
+            return None
+        probe = subprocess.run(
+            [
+                "ffprobe", "-v", "error", "-select_streams", "a:0",
+                "-show_entries", "stream=index", "-of", "csv=p=0", video_path,
+            ],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+        if probe.returncode != 0:
+            return None
+        return bool(probe.stdout.strip())
+
     def extract_audio(self, video_path):
         tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
         tmp.close()
@@ -32,6 +52,13 @@ class AudioAnalyzer:
         """
         if emit_progress:
             emit_progress("Analisando energia do audio em streaming; a fonte não será enviada ao Gemini...")
+
+        has_audio = self._has_audio_stream(video_path)
+        if has_audio is False:
+            if emit_progress:
+                emit_progress("A fonte não possui faixa de áudio; seguindo sem sinal de energia.")
+                emit_progress("Analise de energia completa: 0 janelas")
+            return []
 
         window_size = max(1, int(window_seconds * self.sample_rate))
         bytes_per_window = window_size * 2

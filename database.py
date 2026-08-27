@@ -138,6 +138,7 @@ def init_db():
             editorial_key TEXT,
             review_status TEXT DEFAULT 'pending',
             status TEXT DEFAULT 'pending',
+            export_path TEXT DEFAULT '',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (project_id) REFERENCES projects(id)
         );
@@ -244,6 +245,7 @@ def init_db():
         "editorial_score_version": "ALTER TABLE clips ADD COLUMN editorial_score_version TEXT",
         "editorial_key": "ALTER TABLE clips ADD COLUMN editorial_key TEXT",
         "review_status": "ALTER TABLE clips ADD COLUMN review_status TEXT DEFAULT 'pending'",
+        "export_path": "ALTER TABLE clips ADD COLUMN export_path TEXT DEFAULT ''",
     }
     transcription_columns = {
         row["name"] for row in cursor.execute("PRAGMA table_info(transcriptions)").fetchall()
@@ -766,7 +768,7 @@ def save_clip(project_id, file_path, start_time, end_time, duration,
     if existing:
         clip_id = existing["id"]
         conn.execute(
-            """UPDATE clips SET file_path = ?, start_time = ?, end_time = ?, duration = ?,
+            """UPDATE clips SET file_path = ?, export_path = '', start_time = ?, end_time = ?, duration = ?,
                viral_score = ?, has_hook = ?, emotional_intensity = ?, transcript = ? WHERE id = ?""",
             (file_path, start_time, end_time, duration, viral_score, int(has_hook), emotional_intensity, transcript, clip_id),
         )
