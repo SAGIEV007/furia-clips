@@ -1,9 +1,21 @@
 @echo off
 setlocal EnableExtensions EnableDelayedExpansion
-title Furia Clips - Corte. Ranqueie. Domine.
+title Furia Studio - local editing desk
+
 color 0E
 cd /d "%~dp0"
 chcp 65001 >nul
+set "FURIA_HOST=127.0.0.1"
+set "FURIA_PORT=3001"
+if not defined FURIA_CLIPS_DATA_DIR set "FURIA_CLIPS_DATA_DIR=%USERPROFILE%\FuriaStudioData"
+
+REM Nunca abrir uma segunda janela/aba se o Studio já estiver em execução.
+powershell.exe -NoProfile -Command "if (Get-NetTCPConnection -LocalPort 3001 -State Listen -ErrorAction SilentlyContinue) { exit 1 } else { exit 0 }"
+if errorlevel 1 (
+    echo Furia Studio ja esta em execucao em http://127.0.0.1:3001
+    call :log "Instancia existente detectada; nenhuma segunda aba foi aberta."
+    exit /b 0
+)
 
 set "RUNTIME_DIR=%~dp0.runtime"
 
@@ -13,7 +25,7 @@ set "PYTHON_EXE="
 set "FFMPEG_DIR="
 set "FFPROBE_EXE="
 if not exist "%LOG_DIR%" mkdir "%LOG_DIR%" >nul 2>&1
-call :log "Launcher iniciado. Pasta: %~dp0"
+call :log "Furia Studio launcher iniciado. Pasta: %~dp0"
 
 if exist "%RUNTIME_DIR%\python_path.txt" for /f "usebackq delims=" %%P in ("%RUNTIME_DIR%\python_path.txt") do if not defined PYTHON_EXE set "PYTHON_EXE=%%P"
 if exist "%RUNTIME_DIR%\ffmpeg_path.txt" for /f "usebackq delims=" %%F in ("%RUNTIME_DIR%\ffmpeg_path.txt") do if not defined FFMPEG_DIR set "FFMPEG_DIR=%%F"
@@ -85,12 +97,13 @@ set "PATH=%~dp0venv\Scripts;%PATH%"
 call :log "Ambiente virtual validado. Iniciando aplicacao."
 
 echo ==================================================
-echo    Iniciando Furia Clips...
+echo    Iniciando Furia Studio...
+
 echo ==================================================
 echo.
-echo [Furia Clips] Acesse: http://localhost:3001
-echo [Furia Clips] Para parar: feche esta janela ou Ctrl+C
-echo [Furia Clips] Log do launcher: %RUN_LOG%
+echo [Furia Studio] Acesse: http://localhost:3001
+echo [Furia Studio] Para parar: feche esta janela ou Ctrl+C
+echo [Furia Studio] Log do launcher: %RUN_LOG%
 echo.
 
 start "" powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "%~dp0scripts\open_browser_windows.ps1" -Url "http://127.0.0.1:3001" -TimeoutSeconds 120 -LogFile "%RUN_LOG%"
@@ -103,7 +116,7 @@ if not "!APP_CODE!"=="0" goto :app_failed
 call :log "Launcher encerrado normalmente."
 echo.
 echo ==================================================
-echo    Furia Clips encerrado.
+echo    Furia Studio encerrado.
 echo ==================================================
 echo.
 exit /b 0

@@ -82,7 +82,7 @@ from config import (
     EXPORT_DIR, THUMBNAIL_DIR, ALLOWED_EXTENSIONS, MAX_UPLOAD_SIZE, DB_PATH, PERSISTENT_DATA_DIR, PERSISTENT_TRANSCRIPTS_DIR
 )
 from database import (
-    init_db, get_all_settings, get_setting, set_setting,
+    init_db, get_db, get_all_settings, get_setting, set_setting,
     create_project, get_project, get_all_projects, update_project_status, update_project_processing_context,
     save_clip, get_clip, get_clips, update_clip_seo, update_clip_thumbnail,
     get_existing_clip_fingerprints, save_transcription, get_transcription, log_action, source_signature,
@@ -5594,9 +5594,16 @@ def _human_size(size_bytes):
     return f"{size:.1f} {units[i]}"
 
 
-# --- Main ---
+# --- Poolsuite Studio integration ---
+# A single adapter maps the Furia 1 engine to the local Studio surface.
+# No second Flask application or Furia 2 namespace is loaded.
+from studio_adapter import register_studio_routes
 
+register_studio_routes(app, globals())
+
+# --- Main ---
 if __name__ == "__main__":
+
     init_db()
     _sync_env_key_to_db()
 
@@ -5604,7 +5611,7 @@ if __name__ == "__main__":
     settings = get_all_settings()
     ai_status = _check_ai_status(settings)
     print("\n" + "=" * 50)
-    print("   FURIA CLIPS - Corte. Ranqueie. Domine.")
+    print("      FURIA STUDIO - Local editing desk.")
     print(f"   [Versão] {PROGRAM_VERSION} · revisão {PROGRAM_REVISION}")
     print("=" * 50)
     backend = ai_status.get("backend", "gemini")
@@ -5621,6 +5628,6 @@ if __name__ == "__main__":
         print("   [IA] Gemini Online indisponível; fallback NLP/Whisper local ativo.")
     host = os.environ.get("FURIA_HOST", "127.0.0.1")
     port = int(os.environ.get("FURIA_PORT", "3001"))
-    print(f"   Acesse: http://{host}:{port}")
+    print(f"   Furia Studio: http://{host}:{port}")
     print("=" * 50 + "\n")
     socketio.run(app, host=host, port=port, debug=False, allow_unsafe_werkzeug=True)
