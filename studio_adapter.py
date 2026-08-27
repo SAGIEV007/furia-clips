@@ -193,7 +193,7 @@ def register_studio_routes(flask_app, runtime):
             result = runtime["_transcribe_video_automatically"](
                 source,
                 settings,
-                lambda message, level="info": ctx.update(stage="transcribing", message=str(message)[:500]),
+                lambda message, level="info": ctx.update(stage="transcribing", message=str(message)[:500], level=level),
                 cancel_check=ctx.check_cancel,
             )
             if not result or not result.get("segments"):
@@ -410,7 +410,18 @@ def register_studio_routes(flask_app, runtime):
             from modules.video_cutter import VideoCutter
             cutter = VideoCutter(method="intelligent", target_duration=max(1, end - start), preset="shorts")
             ctx.update(stage="rendering", progress=15, message="Renderizando formato vertical")
-            rendered = cutter.cut_clip(source, start, end, output, vertical=True, emit_progress=lambda message: ctx.update(message=str(message)[:500], stage="rendering"))
+            def render_progress(message, level="info"):
+                ctx.update(message=str(message)[:500], stage="rendering", level=level)
+
+            rendered = cutter.cut_clip(
+                source,
+                start,
+                end,
+                output,
+                vertical=True,
+                emit_progress=render_progress,
+                cancel_check=ctx.check_cancel,
+            )
             if not rendered:
                 raise RuntimeError("O FFmpeg não conseguiu renderizar o corte vertical.")
             transcription = runtime["get_transcription"](row["project_id"]) or {}

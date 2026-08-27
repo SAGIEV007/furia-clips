@@ -26,6 +26,7 @@ class AudioAnalyzer:
             text=True,
             encoding="utf-8",
             errors="replace",
+            timeout=10,
         )
         if probe.returncode != 0:
             return None
@@ -35,12 +36,32 @@ class AudioAnalyzer:
         tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
         tmp.close()
         cmd = [
-            "ffmpeg", "-y", "-i", video_path,
+            "ffmpeg", "-nostdin", "-v", "error", "-i", video_path,
             "-vn", "-acodec", "pcm_s16le",
             "-ar", str(self.sample_rate), "-ac", "1",
             tmp.name
         ]
-        subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
+        try:
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=300,
+            )
+        except subprocess.TimeoutExpired as exc:
+            try:
+                os.unlink(tmp.name)
+            except OSError:
+                pass
+            raise RuntimeError("A extração de áudio excedeu o limite de 300s.") from exc
+        if result.returncode != 0:
+            try:
+                os.unlink(tmp.name)
+            except OSError:
+                pass
+            raise RuntimeError(result.stderr.strip() or f"ffmpeg encerrou com código {result.returncode}")
         return tmp.name
 
     def analyze_energy(self, video_path, window_seconds=1.0, emit_progress=None, cancel_check=None):
@@ -63,7 +84,7 @@ class AudioAnalyzer:
         window_size = max(1, int(window_seconds * self.sample_rate))
         bytes_per_window = window_size * 2
         command = [
-            "ffmpeg", "-v", "error", "-i", video_path,
+            "ffmpeg", "-nostdin", "-v", "error", "-i", video_path,
             "-vn", "-f", "s16le", "-acodec", "pcm_s16le",
             "-ar", str(self.sample_rate), "-ac", "1", "pipe:1",
         ]
@@ -74,7 +95,9 @@ class AudioAnalyzer:
         )
         energy_profile = []
         carry = b""
-        read_size = max(bytes_per_window, 256 * 1024)
+        # Leituras menores tornam o botão Cancelar responsivo mesmo quando o
+        # FFmpeg demora a entregar o próximo bloco de PCM.
+        read_size = max(4096, min(bytes_per_window, 64 * 1024))
         try:
             while True:
                 if cancel_check and cancel_check():

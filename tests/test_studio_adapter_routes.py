@@ -255,6 +255,61 @@ def test_transcribe_route_reuses_saved_transcript_without_whisper(tmp_path):
     assert captured["job_type"] == "studio_transcribe_cached"
 
 
+def test_export_task_forwards_cancel_and_progress_level(tmp_path, monkeypatch):
+    runtime, get_db, create_project = _make_runtime(tmp_path)
+    captured = {}
+
+    class CapturingJobs:
+        def submit(self, job_type, task, **kwargs):
+            captured.update({"job_type": job_type, "task": task, "kwargs": kwargs})
+            return {"id": "export-job", "state": "queued"}
+
+    runtime["job_manager"] = CapturingJobs()
+    flask_app = Flask(__name__)
+    flask_app.add_url_rule("/api/projects", endpoint="api_list_projects", view_func=lambda: jsonify([]), methods=["GET"])
+    flask_app.add_url_rule("/api/projects/<int:project_id>", endpoint="api_get_project", view_func=lambda project_id: jsonify({}), methods=["GET"])
+    studio_adapter.register_studio_routes(flask_app, runtime)
+    project_id = create_project("Export callback", str(tmp_path / "source.mp4"))
+    with get_db() as connection:
+        cursor = connection.execute(
+            "INSERT INTO clips (project_id, file_path, start_time, end_time, duration, review_status) VALUES (?, ?, ?, ?, ?, ?)",
+            (project_id, "", 2.0, 8.0, 6.0, "approved"),
+        )
+        connection.commit()
+        clip_id = cursor.lastrowid
+
+    from modules.video_cutter import VideoCutter
+
+    def fake_cut(self, video_path, start_time, end_time, output_path, **kwargs):
+        captured["cut_kwargs"] = kwargs
+        kwargs["emit_progress"]("heartbeat", "warning")
+        kwargs["cancel_check"]()
+        return output_path
+
+    monkeypatch.setattr(VideoCutter, "cut_clip", fake_cut)
+    response = flask_app.test_client().post(f"/api/clips/{clip_id}/export")
+    assert response.status_code == 200
+
+    class FakeContext:
+        def __init__(self):
+            self.updates = []
+            self.checks = 0
+
+        def update(self, **payload):
+            self.updates.append(payload)
+
+        def check_cancel(self):
+            self.checks += 1
+
+    context = FakeContext()
+    result = captured["task"](context)
+    assert result["artifacts"][0]["clip_id"] == clip_id
+    assert captured["cut_kwargs"]["cancel_check"] == context.check_cancel
+    assert captured["cut_kwargs"]["emit_progress"] is not None
+    assert any(item.get("level") == "warning" for item in context.updates)
+    assert context.checks == 1
+
+
 def test_normalize_official_chub_mirror():
     mirror = json.loads((Path(__file__).parents[1] / "data" / "espelho_chub.json").read_text(encoding="utf-8"))
     normalized = studio_adapter._normalize_chub(mirror)

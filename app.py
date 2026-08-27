@@ -4547,7 +4547,13 @@ def api_generate_subtitles():
             gen.generate_srt(segments, srt_path)
 
             output_path = os.path.join(PROCESSED_DIR, f"{base}_legendado.mp4")
-            result = gen.burn_subtitles(video_path, ass_path, output_path, emit_progress=emit_progress)
+            result = gen.burn_subtitles(
+                video_path,
+                ass_path,
+                output_path,
+                emit_progress=emit_progress,
+                cancel_check=ctx.check_cancel,
+            )
 
             if result:
                 emit_status("subtitles_complete", {
@@ -5327,7 +5333,13 @@ def api_process_complete():
                         clip_segments, ass_path, preset["width"], preset["height"]
                     )
                     subtitled_path = base_clip + "_leg.mp4"
-                    sub_result = sub_gen.burn_subtitles(res["path"], ass_path, subtitled_path, emit_progress)
+                    sub_result = sub_gen.burn_subtitles(
+                        res["path"],
+                        ass_path,
+                        subtitled_path,
+                        emit_progress=emit_progress,
+                        cancel_check=ctx.check_cancel,
+                    )
                     if sub_result:
                         res["subtitled_path"] = subtitled_path
 
@@ -5693,8 +5705,9 @@ def _check_ai_status(settings):
     if ai_backend in ("auto", "gemini") and api_key:
         try:
             resp = requests.get(
-                f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}",
-                timeout=5
+                "https://generativelanguage.googleapis.com/v1beta/models",
+                headers={"x-goog-api-key": api_key},
+                timeout=5,
             )
             if resp.status_code == 200:
                 return {

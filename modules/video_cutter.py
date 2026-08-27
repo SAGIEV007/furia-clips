@@ -3,6 +3,7 @@ import os
 import re
 import unicodedata
 import subprocess
+import tempfile
 import time
 from config import EXPORT_DIR
 
@@ -11,8 +12,8 @@ SCENE_DETECTION_TIMEOUT_SECONDS = max(
     10,
     int(os.environ.get("FURIA_SCENE_DETECTION_TIMEOUT_SECONDS", "120")),
 )
-RENDER_TIMEOUT_MIN_SECONDS = max(45, int(os.environ.get("FURIA_RENDER_TIMEOUT_MIN_SECONDS", "90")))
-RENDER_TIMEOUT_MAX_SECONDS = max(RENDER_TIMEOUT_MIN_SECONDS, int(os.environ.get("FURIA_RENDER_TIMEOUT_MAX_SECONDS", "300")))
+RENDER_TIMEOUT_MIN_SECONDS = min(300, max(90, int(os.environ.get("FURIA_RENDER_TIMEOUT_MIN_SECONDS", "90"))))
+RENDER_TIMEOUT_MAX_SECONDS = min(300, max(RENDER_TIMEOUT_MIN_SECONDS, int(os.environ.get("FURIA_RENDER_TIMEOUT_MAX_SECONDS", "300"))))
 RENDER_HEARTBEAT_SECONDS = max(5, int(os.environ.get("FURIA_RENDER_HEARTBEAT_SECONDS", "15")))
 from .media_validation import validate_media
 from .render_presets import get_preset, ffmpeg_video_filter
@@ -38,8 +39,9 @@ class VideoCutter:
                 text=True,
                 encoding="utf-8",
                 errors="replace",
+                timeout=10,
             )
-        except OSError:
+        except (OSError, subprocess.TimeoutExpired):
             return None
         if result.returncode != 0:
             return None
@@ -80,7 +82,14 @@ class VideoCutter:
             "-show_format", "-show_streams",
             video_path
         ]
-        result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=20,
+        )
         if result.returncode != 0:
             raise RuntimeError((result.stderr or "ffprobe falhou").strip()[-500:])
         return json.loads(result.stdout or "{}")
@@ -114,14 +123,19 @@ class VideoCutter:
     @staticmethod
     def _run_ffmpeg(command, cancel_check=None, emit_progress=None, progress_label="", timeout_seconds=None, heartbeat_prefix="Render"):
         """Run FFmpeg with cooperative cancel, heartbeat and a finite timeout."""
-        process = subprocess.Popen(
-            command,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.PIPE,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-        )
+        stderr_buffer = tempfile.TemporaryFile(mode="w+", encoding="utf-8")
+        try:
+            process = subprocess.Popen(
+                command,
+                stdout=subprocess.DEVNULL,
+                stderr=stderr_buffer,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+            )
+        except Exception:
+            stderr_buffer.close()
+            raise
         started = time.monotonic()
         heartbeat_at = started
         try:
@@ -145,13 +159,16 @@ class VideoCutter:
                         "info",
                     )
                 time.sleep(0.2)
-            stderr = process.stderr.read() if process.stderr else ""
+            stderr_buffer.seek(0)
+            stderr = stderr_buffer.read()
             return subprocess.CompletedProcess(command, process.returncode, "", stderr)
         except Exception:
             if process.poll() is None:
                 process.kill()
             process.wait(timeout=10)
             raise
+        finally:
+            stderr_buffer.close()
 
     def detect_scenes(self, video_path, threshold=27.0, emit_progress=None, timeout=None, cancel_check=None):
         """Detect scene changes without allowing ffmpeg to take down a job.

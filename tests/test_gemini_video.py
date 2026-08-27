@@ -85,3 +85,101 @@ def test_gemini_prompt_keeps_renan_profile_when_focus_is_explicit():
     prompt = GeminiVideoAnalyzer._build_prompt({"focus": "renan_santos"}, "")
     assert "Renan Santos/MBL" in prompt
     assert "confirme a identidade no vídeo" in prompt
+
+
+def test_gemini_proxy_and_total_budgets_are_finite_and_proportional():
+    assert GeminiVideoAnalyzer._proxy_timeout(5 * 60) >= GeminiVideoAnalyzer.PROXY_TIMEOUT_MIN_S
+    assert GeminiVideoAnalyzer._proxy_timeout(2 * 60 * 60) <= GeminiVideoAnalyzer.PROXY_TIMEOUT_MAX_S
+    assert GeminiVideoAnalyzer._multimodal_total_timeout(10 * 60) < GeminiVideoAnalyzer._multimodal_total_timeout(60 * 60)
+    assert GeminiVideoAnalyzer._multimodal_total_timeout(8 * 60 * 60) == GeminiVideoAnalyzer.MULTIMODAL_TOTAL_MAX_S
+
+
+def test_gemini_activation_timeout_is_bounded(monkeypatch):
+    from types import SimpleNamespace
+    import modules.gemini_video as gemini_module
+    from modules.gemini_video import GeminiVideoError
+
+    analyzer = GeminiVideoAnalyzer("configured")
+    calls = []
+
+    class FakeSession:
+        def get(self, endpoint, timeout):
+            calls.append((endpoint, timeout))
+            return SimpleNamespace(status_code=200, json=lambda: {"state": "PROCESSING"})
+
+    analyzer.session = FakeSession()
+    clock = [100.0]
+    monkeypatch.setattr(gemini_module.time, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(gemini_module.time, "sleep", lambda seconds: clock.__setitem__(0, clock[0] + seconds))
+
+    try:
+        analyzer._wait_until_active("files/1", timeout_seconds=2)
+    except GeminiVideoError as exc:
+        assert "Tempo limite de 2s" in str(exc)
+    else:
+        raise AssertionError("a espera de ativação não respeitou o limite")
+
+    assert calls and all(timeout <= 2 for _, timeout in calls)
+
+
+def test_gemini_activation_propagates_cancel(monkeypatch):
+    import modules.gemini_video as gemini_module
+    from modules.cancellation import OperationCancelled
+
+    analyzer = GeminiVideoAnalyzer("configured")
+    monkeypatch.setattr(gemini_module.time, "monotonic", lambda: 100.0)
+
+    def cancel():
+        raise OperationCancelled()
+
+    try:
+        analyzer._wait_until_active("files/1", cancel_check=cancel, timeout_seconds=60)
+    except OperationCancelled:
+        pass
+    else:
+        raise AssertionError("o cancelamento foi engolido durante a ativação")
+
+
+def test_gemini_generation_does_not_call_api_after_deadline(monkeypatch):
+    import modules.gemini_video as gemini_module
+    from modules.gemini_video import GeminiVideoError
+
+    analyzer = GeminiVideoAnalyzer("configured")
+    calls = []
+
+    class FakeSession:
+        def post(self, *args, **kwargs):
+            calls.append(kwargs)
+            raise AssertionError("API chamada depois do deadline")
+
+    analyzer.session = FakeSession()
+    monkeypatch.setattr(gemini_module.time, "monotonic", lambda: 100.0)
+
+    try:
+        analyzer._generate_content({}, deadline=99.0)
+    except GeminiVideoError as exc:
+        assert "limite total" in str(exc)
+    else:
+        raise AssertionError("o deadline expirado não foi reportado")
+    assert calls == []
+
+
+def test_gemini_proxy_does_not_start_ffmpeg_after_deadline(monkeypatch):
+    from pathlib import Path
+    import modules.gemini_video as gemini_module
+    from modules.gemini_video import GeminiVideoError
+
+    analyzer = GeminiVideoAnalyzer("configured")
+    monkeypatch.setattr(gemini_module.time, "monotonic", lambda: 100.0)
+    monkeypatch.setattr(gemini_module.GeminiVideoAnalyzer, "_check_budget", classmethod(lambda cls, deadline: (_ for _ in ()).throw(GeminiVideoError("limite total"))))
+
+    def should_not_run(*args, **kwargs):
+        raise AssertionError("FFmpeg iniciado após o deadline")
+
+    monkeypatch.setattr("modules.video_cutter.VideoCutter._run_ffmpeg", should_not_run)
+    try:
+        analyzer._prepare_analysis_media(Path("source.mp4"), duration_seconds=60, deadline=99.0)
+    except GeminiVideoError as exc:
+        assert "limite total" in str(exc)
+    else:
+        raise AssertionError("o proxy ignorou o deadline")

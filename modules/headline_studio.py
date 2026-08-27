@@ -702,6 +702,7 @@ def generate_artwork_copy(
     emit_progress=None,
     editorial_learning: dict[str, Any] | None = None,
     segments: list[dict[str, Any]] | None = None,
+    cancel_check=None,
     speaker_name: str = "",
     speaker_level: str = "",
 ) -> dict[str, Any]:
@@ -782,7 +783,21 @@ def generate_artwork_copy(
             "No máximo 3 alternativas por formato. O destaque tem de aparecer dentro da frase."
         )
         try:
-            raw_response = ai_backend.generate(prompt, system, emit_progress)
+            if cancel_check:
+                cancel_check()
+            try:
+                raw_response = ai_backend.generate(
+                    prompt, system, emit_progress, cancel_check=cancel_check
+                )
+            except TypeError as exc:
+                # Doubles e integrações antigas do Furia 1 podem aceitar só os
+                # três argumentos históricos; mantenha a compatibilidade sem
+                # esconder TypeErrors reais do provedor.
+                if "cancel_check" not in str(exc):
+                    raise
+                raw_response = ai_backend.generate(prompt, system, emit_progress)
+            if cancel_check:
+                cancel_check()
             refined = _extract_json(raw_response)
             if refined:
                 before_source = result.get("generation_source")

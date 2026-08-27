@@ -748,6 +748,12 @@ img { max-width: 100%; display: block; }
 
 .console-cancel:not(:disabled) { background: var(--coral-soft); }
 .console-cancel:disabled { opacity: .45; }
+.console-resume:not([hidden]) { background: var(--cyan); }
+.console-resume:disabled { opacity: .55; }
+@media (max-width: 440px) {
+  .console-head-actions { flex-wrap: wrap; justify-content: flex-end; }
+  .console-head-actions .button { min-height: 30px; }
+}
 
 
 .review-nav { display: inline-flex; align-items: center; gap: 4px; min-width: 0; }
@@ -998,3 +1004,115 @@ textarea:focus-visible {
   .source-active-copy p { font-size: 12px; }
   .review-actions button { min-height: 42px; font-size: 10px; }
 }
+
+
+/* Responsive production pass: preserve the Poolsuite composition without sacrificing reading or touch. */
+@media (max-width: 780px) {
+  .desktop-shell { padding: 0 10px calc(108px + env(safe-area-inset-bottom)); }
+  .system-bar {
+    height: auto;
+    min-height: 48px;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "brand actions" "center center";
+    gap: 5px 8px;
+    padding: 6px 0;
+  }
+  .system-brand { grid-area: brand; }
+  .system-center { grid-area: center; justify-self: start; max-width: 100%; white-space: normal; line-height: 1.2; }
+  .system-actions { grid-area: actions; gap: 5px; }
+  .system-button, .system-icon { min-height: 40px; }
+  .system-clock { display: none; }
+  .desk-topline { margin-top: 14px; padding: 0 2px; flex-wrap: wrap; gap: 6px 12px; }
+  .desk-stage { min-height: 0; display: grid; gap: 14px; padding: 0 4px; }
+  .desk-stage::before { height: 19%; opacity: .08; background-size: 620px auto; }
+  .floating-window,
+  .source-window,
+  .signal-window,
+  .queue-window {
+    position: relative;
+    inset: auto;
+    top: auto;
+    right: auto;
+    bottom: auto;
+    left: auto;
+    width: auto;
+    min-height: 0;
+    transform: none;
+  }
+  .source-window { order: 1; }
+  .signal-window { order: 2; }
+  .queue-window { order: 3; }
+  .source-empty { grid-template-columns: 1fr; min-height: 0; }
+  .source-art, .source-art img { min-height: 190px; }
+  .signal-board { height: 300px; }
+  .queue-line { min-height: 66px; }
+  .studio-strip { overflow-x: auto; margin-top: 0; }
+  .strip-label { flex: 0 0 110px; width: auto; }
+  .studio-strip button { flex: 0 0 150px; min-height: 64px; }
+  .recent-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .screen-heading { min-height: 0; flex-direction: column; align-items: flex-start; margin: 14px auto 12px; gap: 12px; }
+  .screen-heading h1 { font-size: clamp(48px, 14vw, 78px); line-height: .84; }
+  .screen-side-note { width: 100%; transform: none; }
+  .project-crumb { margin-top: 14px; flex-wrap: wrap; gap: 8px; }
+  .project-heading h1 { font-size: clamp(48px, 14vw, 84px); line-height: .84; }
+  .project-tabs { overflow-x: auto; align-items: stretch; padding-bottom: 1px; }
+  .project-tab { min-height: 44px; padding: 11px 13px; }
+  .cuts-layout { grid-template-columns: 1fr; }
+  .clip-card { grid-template-columns: 112px minmax(0, 1fr); gap: 10px; }
+  .clip-thumb { min-height: 100px; }
+  .clip-actions { grid-column: 1 / -1; flex-direction: row; align-items: stretch; justify-content: flex-start; }
+  .clip-actions .clip-open, .clip-actions .small-decision { min-height: 44px; }
+  .clip-actions .small-decision { width: 44px; height: 44px; }
+  .review-frame, .review-frame video { min-height: min(62vh, 360px); }
+  .review-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .review-actions button,
+  .review-tools .button,
+  .review-preview-tools .button { min-height: 44px; }
+  .console-drawer { bottom: calc(70px + env(safe-area-inset-bottom)); max-height: min(50vh, 420px); }
+  .console-line { grid-template-columns: 58px 76px minmax(0, 1fr); gap: 6px; }
+  .console-line span { min-width: 0; overflow-wrap: anywhere; }
+  .modal-backdrop { align-items: start; overflow: auto; padding: 8px; }
+  .settings-modal { width: 100%; max-height: calc(100dvh - 16px); transform: none; }
+  .settings-body { padding: 16px; }
+}
+
+@media (max-width: 440px) {
+  .desktop-shell { padding-left: 7px; padding-right: 7px; }
+  .system-brand strong { font-size: 12px; }
+  .system-brand small { font-size: 6px; }
+  .system-center { font-size: 9px; }
+  .desk-stage { padding: 0; }
+  .source-empty { padding: 12px; }
+  .source-art, .source-art img { min-height: 150px; }
+  .signal-board { height: 245px; }
+  .studio-strip { margin-left: -7px; margin-right: -7px; }
+  .studio-strip .strip-library { flex-basis: 108px; }
+  .recent-list { grid-template-columns: 1fr; }
+  .recent-row { min-height: 75px; }
+  .screen-heading h1 { font-size: clamp(44px, 16vw, 68px); }
+  .project-heading h1 { font-size: clamp(44px, 16vw, 72px); }
+  .clip-card { grid-template-columns: 1fr; }
+  .clip-thumb { min-height: 180px; }
+  .clip-actions { grid-column: auto; }
+  .review-actions { grid-template-columns: 1fr; }
+  .console-drawer { left: 6px; right: 6px; width: auto; max-height: 62vh; }
+  .console-line { grid-template-columns: 54px 66px minmax(0, 1fr); font-size: 10px; }
+  .console-line time { font-size: 9px; }
+  .console-line b { font-size: 9px; overflow-wrap: anywhere; }
+  .import-footer { flex-direction: column; align-items: stretch; }
+  .import-footer > span { white-space: normal; overflow-wrap: anywhere; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: .001ms !important;
+  }
+}
+
+.seo-proof,
+.seo-loading { display: block; }
+.seo-loading { margin-bottom: 7px; padding: 6px 8px; border: 1px dashed var(--ink); background: var(--sun); font: 700 10px/1.35 var(--mono); }
+[aria-busy="true"] { cursor: progress; }

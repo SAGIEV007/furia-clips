@@ -40,9 +40,20 @@ class GeminiVideoAnalyzer:
 
         if cancel_check:
             cancel_check()
-        analysis_path, analysis_meta = self._prepare_analysis_media(path, emit_progress, cancel_check)
-        espera = self._analysis_timeout(analysis_meta.get("original_duration_seconds") or 0)
+        duration = self._probe_duration(path)
+        total_timeout = self._multimodal_total_timeout(duration)
+        deadline = time.monotonic() + total_timeout
+        analysis_path, analysis_meta = self._prepare_analysis_media(
+            path,
+            emit_progress,
+            cancel_check,
+            deadline=deadline,
+            duration_seconds=duration,
+        )
+        self._check_budget(deadline)
+        espera = min(self._analysis_timeout(analysis_meta.get("original_duration_seconds") or 0), self._remaining_budget(deadline))
         analysis_meta["network_timeout_seconds"] = espera
+        analysis_meta["total_timeout_seconds"] = total_timeout
         try:
             mime_type = mimetypes.guess_type(analysis_path.name)[0] or "video/mp4"
             if emit_progress:
@@ -51,8 +62,21 @@ class GeminiVideoAnalyzer:
                     f"(espera de até {espera // 60} min, proporcional à duração da fonte)...",
                     "info",
                 )
-            file_info = self._upload_file(analysis_path, mime_type, emit_progress, cancel_check, timeout=espera)
-            self._wait_until_active(file_info.get("name", ""), emit_progress, cancel_check)
+            self._check_budget(deadline)
+            file_info = self._upload_file(
+                analysis_path,
+                mime_type,
+                emit_progress,
+                cancel_check,
+                timeout=min(espera, self._remaining_budget(deadline)),
+            )
+            self._check_budget(deadline)
+            self._wait_until_active(
+                file_info.get("name", ""),
+                emit_progress,
+                cancel_check,
+                timeout_seconds=min(self.ACTIVE_WAIT_MAX_S, self._remaining_budget(deadline)),
+            )
 
             prompt_context = dict(editorial_context or {})
             prompt_context["analysis_input"] = analysis_meta
@@ -70,7 +94,14 @@ class GeminiVideoAnalyzer:
                     "responseMimeType": "application/json",
                 },
             }
-            response = self._generate_content(request_payload, emit_progress, cancel_check, timeout=espera)
+            self._check_budget(deadline)
+            response = self._generate_content(
+                request_payload,
+                emit_progress,
+                cancel_check,
+                timeout=min(espera, self._remaining_budget(deadline)),
+                deadline=deadline,
+            )
             if response.status_code != 200:
                 raise GeminiVideoError(f"Gemini retornou HTTP {response.status_code}: {self._error_text(response)}")
             payload = response.json()
@@ -144,8 +175,15 @@ class GeminiVideoAnalyzer:
     #
     # Gastar quinze minutos preparando e três esperando é a proporção errada.
     ANALYSIS_TIMEOUT_MIN_S = 180
-    ANALYSIS_TIMEOUT_MAX_S = 1500
+    ANALYSIS_TIMEOUT_MAX_S = 900
     ANALYSIS_TIMEOUT_PER_MINUTE_S = 12
+    PROXY_TIMEOUT_MIN_S = 90
+    PROXY_TIMEOUT_MAX_S = 600
+    PROXY_TIMEOUT_PER_MINUTE_S = 3
+    ACTIVE_WAIT_MAX_S = 600
+    MULTIMODAL_TOTAL_MIN_S = 180
+    MULTIMODAL_TOTAL_MAX_S = 600
+    MULTIMODAL_TOTAL_PER_MINUTE_S = 6
 
     @classmethod
     def _analysis_timeout(cls, duration_seconds: float) -> int:
@@ -154,8 +192,29 @@ class GeminiVideoAnalyzer:
         return int(min(cls.ANALYSIS_TIMEOUT_MAX_S, max(cls.ANALYSIS_TIMEOUT_MIN_S, estimado)))
 
     @classmethod
-    def _prepare_analysis_media(cls, path: Path, emit_progress=None, cancel_check=None):
-        duration = cls._probe_duration(path)
+    def _proxy_timeout(cls, duration_seconds: float) -> int:
+        minutos = max(0.0, float(duration_seconds or 0.0)) / 60.0
+        estimado = cls.PROXY_TIMEOUT_MIN_S + minutos * cls.PROXY_TIMEOUT_PER_MINUTE_S
+        return int(min(cls.PROXY_TIMEOUT_MAX_S, max(cls.PROXY_TIMEOUT_MIN_S, estimado)))
+
+    @classmethod
+    def _multimodal_total_timeout(cls, duration_seconds: float) -> int:
+        minutos = max(0.0, float(duration_seconds or 0.0)) / 60.0
+        estimado = cls.MULTIMODAL_TOTAL_MIN_S + minutos * cls.MULTIMODAL_TOTAL_PER_MINUTE_S
+        return int(min(cls.MULTIMODAL_TOTAL_MAX_S, max(cls.MULTIMODAL_TOTAL_MIN_S, estimado)))
+
+    @staticmethod
+    def _remaining_budget(deadline: float) -> int:
+        return max(0, int(deadline - time.monotonic()))
+
+    @classmethod
+    def _check_budget(cls, deadline: float) -> None:
+        if cls._remaining_budget(deadline) <= 0:
+            raise GeminiVideoError("O limite total da análise multimodal foi atingido; seguindo com evidências locais.")
+
+    @classmethod
+    def _prepare_analysis_media(cls, path: Path, emit_progress=None, cancel_check=None, deadline=None, duration_seconds=None):
+        duration = cls._probe_duration(path) if duration_seconds is None else max(0.0, float(duration_seconds or 0.0))
         profile = cls._proxy_profile(duration)
         descriptor = {
             "used_proxy": True,
@@ -183,33 +242,33 @@ class GeminiVideoAnalyzer:
             "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", profile["audio_bitrate"],
             "-ac", "1", "-ar", "16000", "-movflags", "+faststart", str(proxy),
         ]
-        process = None
         try:
-            process = subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
-            while process.poll() is None:
-                if cancel_check:
-                    try:
-                        cancel_check()
-                    except Exception:
-                        process.kill()
-                        process.wait(timeout=10)
-                        raise
-                time.sleep(0.5)
-            stderr = process.stderr.read() if process.stderr else ""
-            if process.returncode != 0:
-                raise GeminiVideoError(f"Não foi possível compactar a cópia para análise: {stderr[-240:]}")
+            if deadline is not None:
+                cls._check_budget(deadline)
+            from .video_cutter import VideoCutter
+
+            result = VideoCutter._run_ffmpeg(
+                command,
+                cancel_check=cancel_check,
+                emit_progress=emit_progress,
+                progress_label="Compactação multimodal",
+                timeout_seconds=min(
+                    cls._proxy_timeout(duration),
+                    max(1, cls._remaining_budget(deadline)) if deadline is not None else cls._proxy_timeout(duration),
+                ),
+                heartbeat_prefix="Gemini",
+            )
+            if result.returncode != 0:
+                raise GeminiVideoError(f"Não foi possível compactar a cópia para análise: {(result.stderr or '')[-240:]}")
             return proxy, descriptor
         except FileNotFoundError as exc:
             proxy.unlink(missing_ok=True)
             raise GeminiVideoError("FFmpeg é necessário para preparar a cópia compactada do Gemini.") from exc
         except Exception:
-            if process is not None and process.poll() is None:
-                process.kill()
-                process.wait(timeout=10)
             proxy.unlink(missing_ok=True)
             raise
 
-    def _generate_content(self, request_payload: dict, emit_progress=None, cancel_check=None, timeout: int | None = None):
+    def _generate_content(self, request_payload: dict, emit_progress=None, cancel_check=None, timeout: int | None = None, deadline: float | None = None):
         """Retry only transient API failures; the video upload is not repeated."""
         endpoint = f"{self.base_url}/v1beta/models/{self.model}:generateContent"
         retryable = {408, 429, 500, 502, 503, 504}
@@ -218,8 +277,16 @@ class GeminiVideoAnalyzer:
         for attempt in range(1, max_attempts + 1):
             if cancel_check:
                 cancel_check()
+            if deadline is not None:
+                remaining = self._remaining_budget(deadline)
+                if remaining <= 0:
+                    raise GeminiVideoError("O limite total da análise multimodal foi atingido; seguindo com evidências locais.")
+            else:
+                remaining = None
             response = self.session.post(
-                endpoint, json=request_payload, timeout=timeout or self.ANALYSIS_TIMEOUT_MIN_S
+                endpoint,
+                json=request_payload,
+                timeout=min(timeout or self.ANALYSIS_TIMEOUT_MIN_S, remaining) if remaining is not None else (timeout or self.ANALYSIS_TIMEOUT_MIN_S),
             )
             last_response = response
             if response.status_code == 200:
@@ -232,7 +299,10 @@ class GeminiVideoAnalyzer:
                     f"{attempt + 1}/{max_attempts} com backoff...",
                     "warning",
                 )
-            self._sleep_with_cancel(min(2 ** (attempt - 1), 8) + random.uniform(0.0, 0.5), cancel_check)
+            backoff = min(2 ** (attempt - 1), 8) + random.uniform(0.0, 0.5)
+            if deadline is not None:
+                backoff = min(backoff, max(0, self._remaining_budget(deadline)))
+            self._sleep_with_cancel(backoff, cancel_check)
         raise GeminiVideoError(
             f"Gemini retornou HTTP {last_response.status_code}: {self._error_text(last_response)}"
         )
@@ -262,7 +332,7 @@ class GeminiVideoAnalyzer:
                 "Content-Type": "application/json",
             },
             json={"file": {"display_name": path.name}},
-            timeout=60,
+            timeout=min(60, max(1, int(timeout or self.ANALYSIS_TIMEOUT_MIN_S))),
         )
         if start.status_code not in {200, 201}:
             raise GeminiVideoError(f"Falha ao iniciar upload: HTTP {start.status_code}")
@@ -292,13 +362,20 @@ class GeminiVideoAnalyzer:
             emit_progress("[Gemini] Upload concluído; aguardando processamento do arquivo...", "info")
         return upload.json().get("file", upload.json())
 
-    def _wait_until_active(self, file_name: str, emit_progress=None, cancel_check=None) -> None:
+    def _wait_until_active(self, file_name: str, emit_progress=None, cancel_check=None, timeout_seconds=None) -> None:
         if not file_name:
             raise GeminiVideoError("Gemini não informou o identificador do arquivo")
-        for attempt in range(180):
+        if timeout_seconds is None:
+            timeout = self.ACTIVE_WAIT_MAX_S
+        else:
+            timeout = min(self.ACTIVE_WAIT_MAX_S, max(1, int(timeout_seconds)))
+        deadline = time.monotonic() + timeout
+        attempt = 0
+        while time.monotonic() < deadline:
             if cancel_check:
                 cancel_check()
-            result = self.session.get(f"{self.base_url}/v1beta/{file_name}", timeout=30)
+            remaining = max(1, int(deadline - time.monotonic()))
+            result = self.session.get(f"{self.base_url}/v1beta/{file_name}", timeout=min(30, remaining))
             if result.status_code != 200:
                 raise GeminiVideoError(f"Falha ao consultar arquivo: HTTP {result.status_code}")
             payload = result.json()
@@ -308,9 +385,10 @@ class GeminiVideoAnalyzer:
             if state == "FAILED":
                 raise GeminiVideoError("Gemini falhou ao processar o vídeo")
             if emit_progress and attempt % 6 == 0:
-                emit_progress(f"[Gemini] Processando vídeo online ({attempt * 5}s)...", "info")
-            self._sleep_with_cancel(5, cancel_check)
-        raise GeminiVideoError("Tempo limite aguardando processamento do vídeo no Gemini")
+                emit_progress(f"[Gemini] Processando vídeo online (limite {timeout}s)...", "info")
+            attempt += 1
+            self._sleep_with_cancel(min(5, max(0, deadline - time.monotonic())), cancel_check)
+        raise GeminiVideoError(f"Tempo limite de {timeout}s aguardando processamento do vídeo no Gemini")
 
     @staticmethod
     def _build_prompt(editorial_context: dict, user_context: str) -> str:

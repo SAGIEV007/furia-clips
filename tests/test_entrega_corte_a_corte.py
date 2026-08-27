@@ -287,5 +287,5 @@ def test_timeout_de_render_e_limitado_e_configuravel():
     curto = VideoCutter._render_timeout_seconds(30)
     longo = VideoCutter._render_timeout_seconds(3600)
     assert curto < longo or curto == longo
-    assert 60 <= curto <= 900
-    assert 60 <= longo <= 900
+    assert 90 <= curto <= 300
+    assert 90 <= longo <= 300

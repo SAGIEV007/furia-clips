@@ -51,3 +51,35 @@ def test_legenda_sem_locutor_ainda_gera_headline_sem_atribuicao():
     assert all(item["eyebrow"] for item in suggestions)
     assert result["review_flags"]["speaker_unconfirmed"] is True
     assert result["review_flags"]["no_quote_found"] is False
+
+
+def test_gemini_aux_respeita_modelo_e_timeout_configurados(monkeypatch):
+    import sys
+    from types import ModuleType, SimpleNamespace
+
+    google = ModuleType("google")
+    google.__path__ = []
+    genai = ModuleType("google.generativeai")
+    captured = {}
+
+    def configure(**kwargs):
+        captured["key"] = kwargs["api_key"]
+
+    class FakeModel:
+        def __init__(self, model_name):
+            captured["model"] = model_name
+
+        def generate_content(self, prompt, request_options=None):
+            captured["prompt"] = prompt
+            captured["request_options"] = request_options
+            return SimpleNamespace(text="resposta")
+
+    genai.configure = configure
+    genai.GenerativeModel = FakeModel
+    monkeypatch.setitem(sys.modules, "google", google)
+    monkeypatch.setitem(sys.modules, "google.generativeai", genai)
+
+    backend = AIBackend("gemini", {"gemini_api_key": "test", "gemini_model": "modelo-teste", "gemini_aux_timeout_seconds": 37})
+    assert backend.generate("p", "s") == "resposta"
+    assert captured["model"] == "modelo-teste"
+    assert captured["request_options"] == {"timeout": 37}

@@ -2,6 +2,8 @@ import json
 import requests
 import os
 
+from .cancellation import OperationCancelled
+
 
 class AIBackend:
     def __init__(self, backend="ollama", settings=None):
@@ -10,7 +12,7 @@ class AIBackend:
         self.last_provider = ""
         self.last_error = ""
 
-    def generate(self, prompt, system_prompt="", emit_progress=None):
+    def generate(self, prompt, system_prompt="", emit_progress=None, cancel_check=None):
         """Generate with the selected provider, resolving ``auto`` explicitly.
 
         ``auto`` used to fall through to an empty fallback response, even when a
@@ -22,12 +24,16 @@ class AIBackend:
         """
         self.last_provider = ""
         self.last_error = ""
+        if cancel_check:
+            cancel_check()
         if self.backend == "auto":
             gemini_key = str(self.settings.get("gemini_api_key", "") or "").strip()
             if gemini_key:
-                response = self._generate_gemini(prompt, system_prompt, emit_progress)
+                response = self._generate_gemini(prompt, system_prompt, emit_progress, cancel_check)
                 if response:
                     return response
+            if cancel_check:
+                cancel_check()
             response = self._generate_ollama(prompt, system_prompt, emit_progress)
             if response:
                 return response
@@ -37,7 +43,7 @@ class AIBackend:
         if self.backend == "claude":
             return self._generate_claude(prompt, system_prompt, emit_progress)
         if self.backend == "gemini":
-            return self._generate_gemini(prompt, system_prompt, emit_progress)
+            return self._generate_gemini(prompt, system_prompt, emit_progress, cancel_check)
         return self._generate_fallback(prompt)
 
     def _generate_ollama(self, prompt, system_prompt, emit_progress=None):
@@ -101,7 +107,7 @@ class AIBackend:
                 emit_progress(f"Erro Claude: {str(e)}")
             return self._generate_fallback(prompt)
 
-    def _generate_gemini(self, prompt, system_prompt, emit_progress=None):
+    def _generate_gemini(self, prompt, system_prompt, emit_progress=None, cancel_check=None):
         api_key = self.settings.get("gemini_api_key", "")
         if not api_key:
             if emit_progress:
@@ -113,12 +119,20 @@ class AIBackend:
 
         try:
             import google.generativeai as genai
+            if cancel_check:
+                cancel_check()
             genai.configure(api_key=api_key)
-            model = genai.GenerativeModel("gemini-2.5-flash")
+            model_name = str(self.settings.get("gemini_model") or "gemini-2.5-flash").strip()
+            model = genai.GenerativeModel(model_name)
             full_prompt = f"{system_prompt}\n\n{prompt}" if system_prompt else prompt
-            response = model.generate_content(full_prompt)
+            timeout = max(15, min(120, int(self.settings.get("gemini_aux_timeout_seconds", 60) or 60)))
+            response = model.generate_content(full_prompt, request_options={"timeout": timeout})
+            if cancel_check:
+                cancel_check()
             self.last_provider = "gemini"
             return response.text
+        except OperationCancelled:
+            raise
         except Exception as e:
             self.last_error = f"Erro Gemini: {e}"
             if emit_progress:
@@ -129,7 +143,7 @@ class AIBackend:
         self.last_provider = self.last_provider or "local"
         return ""
 
-    def generate_seo_content(self, transcript, channel_context="", emit_progress=None):
+    def generate_seo_content(self, transcript, channel_context="", emit_progress=None, cancel_check=None):
         system_prompt = f"""Voce e um especialista em SEO para YouTube, TikTok e Instagram.
 Contexto do canal: {channel_context}
 Responda SEMPRE em portugues brasileiro.
@@ -152,7 +166,7 @@ Gere um JSON com esta estrutura exata:
 
 Retorne APENAS o JSON, sem texto adicional."""
 
-        response = self.generate(prompt, system_prompt, emit_progress)
+        response = self.generate(prompt, system_prompt, emit_progress, cancel_check=cancel_check)
 
         try:
             json_str = response.strip()

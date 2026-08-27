@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const state = { projects: [], activeProject: null, activeProjectId: null, activeClipId: null, activeJobId: null, screen: "overview", projectTab: "analyze", filter: "all", sort: "score", projectSort: "recent", busy: false, busyAction: "", exporting: new Set(), currentJobId: null, cancelRequested: false, jobPollToken: 0, queuePollTimer: null, queuePollBusy: false, queuePollFailures: 0, projectsRequest: null, consoleLines: [], consoleSeen: new Set(), consoleOpen: false, consoleDismissed: false, consoleJobId: null, settings: {}, studioStatus: null };
+  const state = { projects: [], activeProject: null, activeProjectId: null, activeClipId: null, activeJobId: null, screen: "overview", projectTab: "analyze", filter: "all", sort: "score", projectSort: "recent", busy: false, busyAction: "", exporting: new Set(), actionLocks: new Set(), currentJobId: null, jobDetached: false, cancelRequested: false, jobPollToken: 0, queuePollTimer: null, queuePollBusy: false, queuePollFailures: 0, projectsRequest: null, consoleLines: [], consoleSeen: new Set(), consoleOpen: false, consoleDismissed: false, consoleJobId: null, settings: {}, studioStatus: null };
   try {
     state.filter = localStorage.getItem("furia-filter") || state.filter;
     state.sort = localStorage.getItem("furia-sort") || state.sort;
@@ -146,10 +146,27 @@
   });
 
   async function api(url, options = {}) {
-    const response = await fetch(url, options);
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(payload.error || `Não foi possível concluir a operação (${response.status}).`);
-    return payload;
+    const { timeoutMs = 30000, signal: externalSignal, timeoutMessage = "", ...requestOptions } = options;
+    const controller = new AbortController();
+    const timeout = Math.max(1000, Number(timeoutMs) || 30000);
+    const timer = window.setTimeout(() => controller.abort(), timeout);
+    const relayAbort = () => controller.abort(externalSignal.reason);
+    if (externalSignal?.aborted) controller.abort(externalSignal.reason);
+    else externalSignal?.addEventListener("abort", relayAbort, { once: true });
+    try {
+      const response = await fetch(url, { ...requestOptions, signal: controller.signal });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || `Não foi possível concluir a operação (${response.status}).`);
+      return payload;
+    } catch (error) {
+      if (error?.name === "AbortError") {
+        throw new Error(timeoutMessage || `O Studio não recebeu resposta em ${Math.round(timeout / 1000)}s.`);
+      }
+      throw error;
+    } finally {
+      window.clearTimeout(timer);
+      externalSignal?.removeEventListener("abort", relayAbort);
+    }
   }
 
   function toast(message, kind = "default") {
@@ -186,6 +203,12 @@
     if (cancelButton) {
       cancelButton.disabled = !state.currentJobId || state.cancelRequested;
       cancelButton.textContent = state.cancelRequested ? "Cancelando…" : "Cancelar job";
+    }
+    const resumeButton = $("#btnResumeJob");
+    if (resumeButton) {
+      resumeButton.hidden = !state.jobDetached || !state.currentJobId;
+      resumeButton.disabled = Boolean(state.busy || state.cancelRequested);
+      resumeButton.textContent = state.busy ? "Reconectando…" : "Retomar acompanhamento";
     }
   }
 
@@ -280,7 +303,7 @@
 
   function nextProjectAction(project) {
     if (!project?.filename) return { step: "01 / FONTE", title: "Importe um vídeo para começar.", detail: "A fonte será copiada para o workspace local antes de qualquer análise.", action: "import", label: "Importar vídeo" };
-    if (state.busy || state.exporting.size || project.status === "processing") return { step: "EM ANDAMENTO", title: "O Studio está trabalhando.", detail: "Acompanhe a etapa atual no Console; não é necessário clicar novamente.", action: "console", label: "Abrir Console" };
+    if (state.busy || state.exporting.size || project.status === "processing" || state.jobDetached) return { step: state.jobDetached ? "CONEXÃO" : "EM ANDAMENTO", title: state.jobDetached ? "O job continua protegido no servidor." : "O Studio está trabalhando.", detail: state.jobDetached ? "A conexão caiu, mas nenhuma nova análise deve começar. Retome o acompanhamento pelo Console." : "Acompanhe a etapa atual no Console; não é necessário clicar novamente.", action: state.jobDetached ? "resume-job" : "console", label: state.jobDetached ? "Retomar acompanhamento" : "Abrir Console" };
     const hasTranscript = Boolean(project.transcriptCount || project.transcript?.length || project.transcription?.segment_count);
     if (!hasTranscript) return { step: "02 / TRANSCRIÇÃO", title: "Transforme a fala em texto.", detail: "Use um transcript pronto ou execute o Whisper local para liberar a leitura editorial.", action: "transcribe", label: "Executar Whisper local" };
     if (!Number(project.candidateCount || 0)) {
@@ -303,7 +326,7 @@
       button.dataset.forceReanalysis = next.forceReanalysis ? "true" : "false";
       button.appendChild(Object.assign(document.createElement("span"), { textContent: next.action === "console" ? "●" : "→" }));
       button.title = next.detail;
-      button.disabled = Boolean((state.busy || state.exporting.size) && next.action !== "console");
+      button.disabled = Boolean((state.busy || state.exporting.size) && !["console", "resume-job"].includes(next.action));
     }
   }
 
@@ -490,6 +513,7 @@
       state.consoleJobId = latest.id;
       const activeState = ["queued", "running", "cancel_requested"].includes(String(latest.state || ""));
       state.currentJobId = activeState ? latest.id : null;
+      state.jobDetached = activeState;
       state.cancelRequested = false;
       $("#consoleTitle").textContent = `${latest.type || "Tarefa local"} · ${latest.state || "fila"}`;
       const eventPayload = await api(`/api/jobs/${latest.id}/events?limit=120`).catch(() => ({ events: [] }));
@@ -562,8 +586,8 @@
     try { localStorage.setItem("furia-project-tab", state.projectTab); } catch (_) {}
     renderProjectNextAction(project);
     const target = $("#projectBody");
-    if (target) target.setAttribute("aria-busy", state.busy ? "true" : "false");
-    document.body.classList.toggle("studio-busy", Boolean(state.busy || state.exporting.size));
+    if (target) target.setAttribute("aria-busy", (state.busy || state.jobDetached || project.status === "processing") ? "true" : "false");
+    document.body.classList.toggle("studio-busy", Boolean(state.busy || state.jobDetached || state.exporting.size || project.status === "processing"));
     if (state.projectTab === "analyze") target.innerHTML = renderAnalyze(project);
     if (state.projectTab === "shortlist") target.innerHTML = renderShortlist(project.clips || []);
     if (state.projectTab === "review") target.innerHTML = renderReview(project);
@@ -574,7 +598,7 @@
     const analysis = project.analysis || {};
     const transcript = project.transcript || [];
     const transcription = project.transcription || {};
-    const busy = Boolean(state.busy);
+    const busy = Boolean(state.busy || state.jobDetached || project.status === "processing");
     const analyzing = state.busyAction === "analyze";
     const transcribing = state.busyAction === "transcribe";
     const transcriptSource = transcription.source || (transcript.length ? "arquivo local" : "aguardando");
@@ -636,7 +660,7 @@
     const exportLabel = isExporting ? "Renderizando na pasta local…" : clip.status === "exported" ? "Exportado na pasta local" : canExport ? "Exportar 9:16" : "Aprovar primeiro";
     const startPercent = Math.max(0, Math.min(100, clip.start / duration * 100));
     const endPercent = Math.max(startPercent, Math.min(100, clip.end / duration * 100));
-    return `<div class="review-grid"><section class="window review-stage"><div class="window-bar"><span>01 / REVISÃO DO CORTE · ${clipIndex + 1}/${project.clips.length}</span><div class="review-nav"><button type="button" data-action="open-review" data-clip-id="${previousClip?.id || ""}" ${previousClip ? "" : "disabled"} aria-label="Corte anterior">←</button><button type="button" data-action="open-review" data-clip-id="${nextClip?.id || ""}" ${nextClip ? "" : "disabled"} aria-label="Próximo corte">→</button><span class="window-status">${clipStatusLabel(clip.status)}</span></div></div><div class="review-stage-body"><div class="review-frame">${video}${captions}<div class="review-safe-label">9:16 / ÁREA SEGURA</div></div><div class="review-controls"><div class="review-timeline" data-duration="${duration}" style="--range-start:${startPercent}%;--range-end:${endPercent}%"><i class="review-range-fill"></i><input class="range-handle range-start" type="range" min="0" max="${duration}" step="0.01" value="${clip.start}" data-clip-id="${clip.id}" aria-label="Início do clip"><input class="range-handle range-end" type="range" min="0" max="${duration}" step="0.01" value="${clip.end}" data-clip-id="${clip.id}" aria-label="Fim do clip"></div><div class="review-range-readout"><b>IN <span class="review-start-readout">${formatTime(clip.start)}</span></b><b>OUT <span class="review-end-readout">${formatTime(clip.end)}</span></b><span>${formatDuration(clip.duration)} selecionados</span></div><div class="review-preview-tools"><button class="button button-cyan" data-action="play-clip" data-clip-id="${clip.id}">Reproduzir corte <span>▶</span></button><label class="loop-toggle"><input type="checkbox" class="review-loop" data-clip-id="${clip.id}"><span>loop da seleção</span></label><label class="loop-toggle"><input type="checkbox" class="review-snap" data-clip-id="${clip.id}"><span>alinhar às bordas da fala</span></label><small>Arraste os marcadores para ajustar o intervalo.</small></div></div><div class="review-feedback-row"><label for="reviewFeedbackReason">Se rejeitar, registre o motivo<select class="review-feedback-reason" id="reviewFeedbackReason"><option value="">Selecionar motivo opcional</option><option value="sem_contexto">Contexto incompleto</option><option value="sem_payoff">Sem conclusão</option><option value="audio_ruim">Áudio ou fala ruim</option><option value="duplicado">Duplicado de outro momento</option><option value="fora_do_foco">Fora do foco editorial</option><option value="corte_fraco">Potencial insuficiente</option><option value="outro">Outro</option></select></label><small>O motivo ajuda a calibrar o ranking depois de reunir decisões suficientes.</small></div><div class="review-actions"><button class="reject-action" data-action="decision" data-decision="rejected" data-clip-id="${clip.id}">Rejeitar</button><button class="adjust-action" data-action="open-shortlist">Voltar aos Cortes</button><button class="approve-action" data-action="decision" data-decision="approved" data-clip-id="${clip.id}">Aprovar <span>→</span></button><button class="export-action" data-action="export" data-clip-id="${clip.id}" ${canExport ? "" : "disabled"}>${exportLabel}</button></div></div></section><aside class="window review-inspector"><div class="window-bar"><span>02 / NOTA DE DECISÃO</span><span class="window-status">SCORE ${clip.score}</span></div><div class="review-inspector-body"><h3>${escapeHtml(clip.title)}</h3><p class="review-muted">${formatTime(clip.start)} — ${formatTime(clip.end)} · ${formatDuration(clip.duration)}</p>${renderChubMemory(project.chub, true)}<div id="disagreementMatrix" class="disagreement-panel"><span class="tiny-label">MATRIZ DE DISCORDÂNCIA</span><p>As decisões humanas desta sessão aparecerão aqui.</p></div>${renderEditorialBlock(clip.editorialBlock)}<div class="review-tools"><button class="button button-sun" data-action="seo" data-clip-id="${clip.id}">Gerar SEO local</button><div class="seo-preview" id="seo-${clip.id}"><span class="seo-empty">Título, descrição e hashtags entram aqui.</span></div></div><label class="field-label" for="reviewTitle">Headline sugerida</label><input class="review-title-input" id="reviewTitle" data-clip-id="${clip.id}" value="${escapeAttribute(clip.title)}"><div class="review-signal-block"><span class="tiny-label">POR QUE ENTROU</span>${(clip.reasons || []).map((reason, index) => `<div class="review-reason"><i class="reason-dot ${["pink", "cyan", "yellow"][index % 3]}"></i><span>${escapeHtml(reason)}</span><b>${index === 0 ? "forte" : "presente"}</b></div>`).join("")}</div><div class="review-transcript"><div class="transcript-tools"><span class="tiny-label">TEXTO / BUSCAR E IR</span><input class="transcript-search" type="search" placeholder="Buscar na fala…" aria-label="Buscar na fala"></div>${transcript.length ? transcript.map((segment) => `<p data-seek="${segment.start}" tabindex="0" role="button"><time>${formatTime(segment.start)}</time>${escapeHtml(segment.text)}</p>`).join("") : `<p class="review-muted">Anexe uma transcrição para revisar o texto em sincronia.</p>`}</div></div></aside></div>`;
+    return `<div class="review-grid"><section class="window review-stage"><div class="window-bar"><span>01 / REVISÃO DO CORTE · ${clipIndex + 1}/${project.clips.length}</span><div class="review-nav"><button type="button" data-action="open-review" data-clip-id="${previousClip?.id || ""}" ${previousClip ? "" : "disabled"} aria-label="Corte anterior">←</button><button type="button" data-action="open-review" data-clip-id="${nextClip?.id || ""}" ${nextClip ? "" : "disabled"} aria-label="Próximo corte">→</button><span class="window-status">${clipStatusLabel(clip.status)}</span></div></div><div class="review-stage-body"><div class="review-frame">${video}${captions}<div class="review-safe-label">9:16 / ÁREA SEGURA</div></div><div class="review-controls"><div class="review-timeline" data-duration="${duration}" style="--range-start:${startPercent}%;--range-end:${endPercent}%"><i class="review-range-fill"></i><input class="range-handle range-start" type="range" min="0" max="${duration}" step="0.01" value="${clip.start}" data-clip-id="${clip.id}" aria-label="Início do clip"><input class="range-handle range-end" type="range" min="0" max="${duration}" step="0.01" value="${clip.end}" data-clip-id="${clip.id}" aria-label="Fim do clip"></div><div class="review-range-readout"><b>IN <span class="review-start-readout">${formatTime(clip.start)}</span></b><b>OUT <span class="review-end-readout">${formatTime(clip.end)}</span></b><span>${formatDuration(clip.duration)} selecionados</span></div><div class="review-preview-tools"><button class="button button-cyan" data-action="play-clip" data-clip-id="${clip.id}">Reproduzir corte <span>▶</span></button><label class="loop-toggle"><input type="checkbox" class="review-loop" data-clip-id="${clip.id}"><span>loop da seleção</span></label><label class="loop-toggle"><input type="checkbox" class="review-snap" data-clip-id="${clip.id}"><span>alinhar às bordas da fala</span></label><small>Arraste os marcadores para ajustar o intervalo.</small></div></div><div class="review-feedback-row"><label for="reviewFeedbackReason">Se rejeitar, registre o motivo<select class="review-feedback-reason" id="reviewFeedbackReason"><option value="">Selecionar motivo opcional</option><option value="sem_contexto">Contexto incompleto</option><option value="sem_payoff">Sem conclusão</option><option value="audio_ruim">Áudio ou fala ruim</option><option value="duplicado">Duplicado de outro momento</option><option value="fora_do_foco">Fora do foco editorial</option><option value="corte_fraco">Potencial insuficiente</option><option value="outro">Outro</option></select></label><small>O motivo ajuda a calibrar o ranking depois de reunir decisões suficientes.</small></div><div class="review-actions"><button class="reject-action" data-action="decision" data-decision="rejected" data-clip-id="${clip.id}">Rejeitar</button><button class="adjust-action" data-action="open-shortlist">Voltar aos Cortes</button><button class="approve-action" data-action="decision" data-decision="approved" data-clip-id="${clip.id}">Aprovar <span>→</span></button><button class="export-action" data-action="export" data-clip-id="${clip.id}" ${canExport ? "" : "disabled"}>${exportLabel}</button></div></div></section><aside class="window review-inspector"><div class="window-bar"><span>02 / NOTA DE DECISÃO</span><span class="window-status">SCORE ${clip.score}</span></div><div class="review-inspector-body"><h3>${escapeHtml(clip.title)}</h3><p class="review-muted">${formatTime(clip.start)} — ${formatTime(clip.end)} · ${formatDuration(clip.duration)}</p>${renderChubMemory(project.chub, true)}<div id="disagreementMatrix" class="disagreement-panel"><span class="tiny-label">MATRIZ DE DISCORDÂNCIA</span><p>As decisões humanas desta sessão aparecerão aqui.</p></div>${renderEditorialBlock(clip.editorialBlock)}<div class="review-tools"><button class="button button-sun" data-action="seo" data-clip-id="${clip.id}">Gerar SEO local</button><div class="seo-preview" id="seo-${clip.id}" aria-live="polite"><span class="seo-empty">Título, descrição e hashtags entram aqui.</span></div></div><label class="field-label" for="reviewTitle">Headline sugerida</label><input class="review-title-input" id="reviewTitle" data-clip-id="${clip.id}" value="${escapeAttribute(clip.title)}"><div class="review-signal-block"><span class="tiny-label">POR QUE ENTROU</span>${(clip.reasons || []).map((reason, index) => `<div class="review-reason"><i class="reason-dot ${["pink", "cyan", "yellow"][index % 3]}"></i><span>${escapeHtml(reason)}</span><b>${index === 0 ? "forte" : "presente"}</b></div>`).join("")}</div><div class="review-transcript"><div class="transcript-tools"><span class="tiny-label">TEXTO / BUSCAR E IR</span><input class="transcript-search" type="search" placeholder="Buscar na fala…" aria-label="Buscar na fala"></div>${transcript.length ? transcript.map((segment) => `<p data-seek="${segment.start}" tabindex="0" role="button"><time>${formatTime(segment.start)}</time>${escapeHtml(segment.text)}</p>`).join("") : `<p class="review-muted">Anexe uma transcrição para revisar o texto em sincronia.</p>`}</div></div></aside></div>`;
   }
 
   function bindReviewControls(scope) {
@@ -750,8 +774,16 @@
   }
 
   function attachDynamicActions(scope = document) {
-    $$(`[data-project-id]`, scope).forEach((element) => element.addEventListener("click", () => openProject(element.dataset.projectId)));
-    $$(`[data-action]`, scope).forEach((element) => element.addEventListener("click", () => performAction(element.dataset.action, element.dataset)));
+    $$(`[data-project-id]`, scope).forEach((element) => {
+      if (element.dataset.projectBound) return;
+      element.dataset.projectBound = "1";
+      element.addEventListener("click", () => openProject(element.dataset.projectId));
+    });
+    $$(`[data-action]`, scope).forEach((element) => {
+      if (element.dataset.actionBound) return;
+      element.dataset.actionBound = "1";
+      element.addEventListener("click", () => performAction(element.dataset.action, element.dataset));
+    });
     const titleInput = $("#reviewTitle", scope);
     if (titleInput && !titleInput.dataset.bound) {
       titleInput.dataset.bound = "1";
@@ -784,6 +816,7 @@
   async function performAction(action, data = {}) {
     if (action === "import") return openImport();
     if (action === "console") return setConsoleOpen(true);
+    if (action === "resume-job") return resumeDetachedJob();
     if (action === "analyze") return analyzeActiveProject(String(data.forceReanalysis || "").toLowerCase() === "true");
     if (action === "transcribe") return transcribeActiveProject();
     if (action === "attach-transcript") return $("#transcriptInput").click();
@@ -806,19 +839,68 @@
 
   async function pollJob(jobId, interval = 600) {
     const token = ++state.jobPollToken;
+    let networkFailures = 0;
+    let disconnectedAt = 0;
     while (token === state.jobPollToken) {
       await sleep(interval);
-      const progress = await api(`/api/jobs/${jobId}`);
-      const status = progress.status || progress.state || "queued";
-      if (state.activeProject && $("#projectState")) $("#projectState").textContent = status === "running" ? `${progress.progress || 0}%` : (progress.message || progress.stage || status);
       try {
-        const eventPayload = await api(`/api/jobs/${jobId}/events?limit=120`);
-        (eventPayload.events || []).forEach((event) => appendConsole(event.message, event.level || "info", event.stage || progress.stage || "job", `${jobId}:${event.sequence}`));
-      } catch (_) {}
-      if (["completed", "done"].includes(status)) { state.currentJobId = null; state.cancelRequested = false; appendConsole(progress.message || "Tarefa concluída.", "success", progress.stage || "job", `${jobId}:completed`); renderConsole(); scheduleQueuePoll(0); return progress; }
-      if (["failed", "error", "cancelled"].includes(status)) { state.currentJobId = null; state.cancelRequested = false; appendConsole(progress.error || progress.message || "A operação local falhou.", status === "cancelled" ? "warning" : "error", progress.stage || "job", `${jobId}:failed`); renderConsole(); scheduleQueuePoll(0); const failure = new Error(progress.error || progress.message || "A operação local falhou."); failure.consoleLogged = true; throw failure; }
+        const progress = await api(`/api/jobs/${jobId}`, { timeoutMs: 15000, timeoutMessage: "O acompanhamento não respondeu; o job pode continuar no servidor e será tentado novamente." });
+        networkFailures = 0;
+        disconnectedAt = 0;
+        const status = progress.status || progress.state || "queued";
+        if (state.activeProject && $("#projectState")) $("#projectState").textContent = status === "running" ? `${progress.progress || 0}%` : (progress.message || progress.stage || status);
+        try {
+          const eventPayload = await api(`/api/jobs/${jobId}/events?limit=120`, { timeoutMs: 15000, timeoutMessage: "Os eventos não responderam; o job pode continuar e o Console tentará novamente." });
+          (eventPayload.events || []).forEach((event) => appendConsole(event.message, event.level || "info", event.stage || progress.stage || "job", `${jobId}:${event.sequence}`));
+        } catch (_) {}
+        if (["completed", "done"].includes(status)) { state.currentJobId = null; state.jobDetached = false; state.cancelRequested = false; appendConsole(progress.message || "Tarefa concluída.", "success", progress.stage || "job", `${jobId}:completed`); renderConsole(); scheduleQueuePoll(0); return progress; }
+        if (["failed", "error", "cancelled"].includes(status)) { state.currentJobId = null; state.jobDetached = false; state.cancelRequested = false; appendConsole(progress.error || progress.message || "A operação local falhou.", status === "cancelled" ? "warning" : "error", progress.stage || "job", `${jobId}:failed`); renderConsole(); scheduleQueuePoll(0); const failure = new Error(progress.error || progress.message || "A operação local falhou."); failure.consoleLogged = true; throw failure; }
+      } catch (error) {
+        if (error?.consoleLogged) throw error;
+        networkFailures += 1;
+        disconnectedAt ||= Date.now();
+        appendConsole(`Conexão temporariamente indisponível; tentando acompanhar o job (${networkFailures}/6).`, "warning", "fila", `${jobId}:poll-network:${networkFailures}`);
+        if (networkFailures >= 6 || Date.now() - disconnectedAt >= 120000) {
+          state.currentJobId = jobId;
+          state.jobDetached = true;
+          renderConsole();
+          throw new Error("A conexão com o Studio foi interrompida. O job pode continuar no servidor; retome o acompanhamento pelo Console antes de iniciar outra ação.");
+        }
+        await sleep(Math.min(12000, interval * (2 ** Math.min(networkFailures, 4))));
+      }
     }
     throw new Error("O acompanhamento da tarefa foi interrompido; abra o Console para verificar o estado.");
+  }
+
+  async function resumeDetachedJob() {
+    const jobId = state.currentJobId;
+    if (!jobId || !state.jobDetached || state.busy) return;
+    state.busy = true;
+    state.busyAction = "reconnect";
+    state.jobDetached = false;
+    setConsoleOpen(true);
+    appendConsole(`Retomando acompanhamento do job ${jobId}.`, "info", "fila", `${jobId}:resume`);
+    renderProjectScreen();
+    try {
+      await pollJob(jobId, 600);
+      if (state.activeProject) {
+        state.activeProject = await api(`/api/projects/${state.activeProject.id}`);
+        state.activeClipId = state.activeProject.clips?.[0]?.id || state.activeClipId;
+        state.projectTab = state.activeProject.clips?.length ? "shortlist" : "analyze";
+        renderProjectScreen();
+      }
+      toast("Acompanhamento retomado e job finalizado.", "success");
+    } catch (error) {
+      if (!error.consoleLogged) appendConsole(error.message, "error", "fila", `${jobId}:resume-error`);
+      toast(error.message, "error");
+    } finally {
+      state.busy = false;
+      state.busyAction = "";
+      if (state.currentJobId !== null) state.jobDetached = true;
+      renderProjectScreen();
+      renderConsole();
+      scheduleQueuePoll(0);
+    }
   }
 
   async function analyzeActiveProject(forceReanalysis = false) {
@@ -830,10 +912,11 @@
       appendConsole("Análise não repetida: este projeto já possui candidatos persistidos. Use Reanalisar quando quiser recalcular.", "info", "análise", `analysis-skip:${state.activeProject.id}:${Date.now()}`);
       return;
     }
-    if (state.busy) { toast("Já existe uma tarefa em andamento. Acompanhe pelo Console."); setConsoleOpen(true); return; }
+    if (state.busy || state.jobDetached || state.activeProject?.status === "processing") { toast(state.jobDetached || state.activeProject?.status === "processing" ? "O job anterior ainda está ativo. Retome o acompanhamento pelo Console." : "Já existe uma tarefa em andamento. Acompanhe pelo Console."); setConsoleOpen(true); return; }
     state.busy = true;
     state.busyAction = "analyze";
     state.currentJobId = null;
+    state.jobDetached = false;
     setConsoleOpen(true);
     $("#consoleTitle").textContent = `Análise: ${state.activeProject.name}`;
     renderProjectScreen();
@@ -867,9 +950,10 @@
 
   async function transcribeActiveProject() {
     if (!state.activeProject?.filename) { toast("Importe um vídeo antes de transcrever.", "error"); appendConsole("Whisper não iniciado: nenhuma fonte foi importada.", "warning", "whisper"); return; }
-    if (state.busy) { toast("Já existe uma tarefa em andamento. Acompanhe pelo Console."); setConsoleOpen(true); return; }
+    if (state.busy || state.jobDetached || state.activeProject?.status === "processing") { toast(state.jobDetached || state.activeProject?.status === "processing" ? "O job anterior ainda está ativo. Retome o acompanhamento pelo Console." : "Já existe uma tarefa em andamento. Acompanhe pelo Console."); setConsoleOpen(true); return; }
     state.busy = true;
     state.busyAction = "transcribe";
+    state.jobDetached = false;
     setConsoleOpen(true);
     $("#consoleTitle").textContent = `Whisper: ${state.activeProject.name}`;
     renderProjectScreen();
@@ -893,6 +977,9 @@
   }
 
   async function decideClip(clipId, decision, reasonCode = "") {
+    const lockKey = `decision:${clipId}`;
+    if (state.actionLocks.has(lockKey)) return;
+    state.actionLocks.add(lockKey);
     try {
       await api(`/api/clips/${clipId}/decision`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ decision, reason_code: reasonCode || "" }) });
       state.activeProject = await api(`/api/projects/${state.activeProject.id}`);
@@ -903,6 +990,7 @@
       renderReviewScreen();
       await loadProjects();
     } catch (error) { toast(error.message, "error"); }
+    finally { state.actionLocks.delete(lockKey); }
   }
 
   async function exportClip(clipId) {
@@ -945,12 +1033,22 @@
   }
 
   async function generateSeo(clipId) {
+    const lockKey = `seo:${clipId}`;
+    if (state.actionLocks.has(lockKey)) return;
+    state.actionLocks.add(lockKey);
+    const target = $(`#seo-${clipId}`);
+    if (target) { target.setAttribute("aria-busy", "true"); target.insertAdjacentHTML("afterbegin", '<span class="seo-loading">Gerando sugestões locais…</span>'); }
     try {
       const seo = await api(`/api/projects/${state.activeProject.id}/seo`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clip_id: clipId }) });
       const target = $(`#seo-${clipId}`);
       if (target) { target.innerHTML = renderSeoPreview(seo, clipId); attachDynamicActions(target); }
       toast("Três headlines locais geradas a partir das captions.", "success");
     } catch (error) { toast(error.message, "error"); }
+    finally {
+      state.actionLocks.delete(lockKey);
+      const current = $(`#seo-${clipId}`);
+      if (current) current.removeAttribute("aria-busy");
+    }
   }
 
   async function confirmImport() {
@@ -963,7 +1061,7 @@
       const project = await api("/api/projects", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: file.name.replace(/\.[^.]+$/, "") }) });
       const form = new FormData();
       form.append("video", file);
-      state.activeProject = await api(`/api/projects/${project.id}/import`, { method: "POST", body: form });
+      state.activeProject = await api(`/api/projects/${project.id}/import`, { method: "POST", body: form, timeoutMs: 15 * 60 * 1000 });
       state.activeClipId = null;
       $("#importModal").hidden = true;
       $("#videoInput").value = "";
@@ -978,22 +1076,29 @@
 
   async function attachTranscript(file) {
     if (!file || !state.activeProject) return;
+    const lockKey = `transcript:${state.activeProject.id}`;
+    if (state.actionLocks.has(lockKey)) return;
+    state.actionLocks.add(lockKey);
     const form = new FormData();
     form.append("transcript", file);
     try {
-      state.activeProject = await api(`/api/projects/${state.activeProject.id}/transcript`, { method: "POST", body: form });
+      state.activeProject = await api(`/api/projects/${state.activeProject.id}/transcript`, { method: "POST", body: form, timeoutMs: 5 * 60 * 1000 });
       toast("Transcript anexado ao projeto.", "success");
       renderProjectScreen();
     } catch (error) { toast(error.message, "error"); }
+    finally { state.actionLocks.delete(lockKey); }
   }
 
   async function attachChub(file) {
     if (!file) return;
     if (!state.activeProject) await loadContextProject();
     if (!state.activeProject) { toast("Importe uma fonte antes de anexar a memória do Chub.", "error"); return; }
+    const lockKey = `chub:${state.activeProject.id}`;
+    if (state.actionLocks.has(lockKey)) return;
+    state.actionLocks.add(lockKey);
     try {
       const payload = JSON.parse(await file.text());
-      state.activeProject = await api(`/api/projects/${state.activeProject.id}/chub-context`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      state.activeProject = await api(`/api/projects/${state.activeProject.id}/chub-context`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload), timeoutMs: 60000 });
       rememberActiveProject(state.activeProject.id);
       $("#settingsChubStatus").textContent = `Snapshot conectado: ${state.activeProject.chub.channel}.`;
       appendConsole(`Memória opcional do Campaign Hub conectada ao projeto ${state.activeProject.name}.`, "success", "chub", `chub:${state.activeProject.id}:${Date.now()}`);
@@ -1003,12 +1108,16 @@
       renderReviewScreen();
       await loadProjects();
     } catch (error) { toast(error.message || "O snapshot chub não pôde ser importado.", "error"); }
+    finally { state.actionLocks.delete(lockKey); }
   }
 
   async function clearChubContext() {
     if (!state.activeProject) return;
+    const lockKey = `chub:${state.activeProject.id}`;
+    if (state.actionLocks.has(lockKey)) return;
+    state.actionLocks.add(lockKey);
     try {
-      state.activeProject = await api(`/api/projects/${state.activeProject.id}/chub-context`, { method: "DELETE" });
+      state.activeProject = await api(`/api/projects/${state.activeProject.id}/chub-context`, { method: "DELETE", timeoutMs: 60000 });
       $("#settingsChubStatus").textContent = "Nenhum snapshot selecionado neste projeto.";
       appendConsole("Memória do Campaign Hub desconectada; o projeto continua funcionando offline.", "success", "chub", `chub-clear:${state.activeProject.id}:${Date.now()}`);
       toast("Memória chub desconectada deste projeto.", "success");
@@ -1017,6 +1126,7 @@
       renderReviewScreen();
       await loadProjects();
     } catch (error) { toast(error.message, "error"); }
+    finally { state.actionLocks.delete(lockKey); }
   }
 
   function openImport() { $("#importModal").hidden = false; $("#dropZone")?.focus(); }
@@ -1088,6 +1198,15 @@
     window.addEventListener("keydown", (event) => { if (event.key === "Enter" && !finished) finish(); }, { once: true });
   }
 
+  let signalLayoutFrame = 0;
+  function scheduleSignalLayout() {
+    if (signalLayoutFrame) return;
+    signalLayoutFrame = window.requestAnimationFrame(() => {
+      signalLayoutFrame = 0;
+      layoutSignal();
+    });
+  }
+
   function initSignal() {
     const stage = $("#signalStage");
     if (!stage) return;
@@ -1096,10 +1215,10 @@
       stage.style.setProperty("--mouse-x", ((event.clientX - rect.left) / rect.width - .5).toFixed(3));
       stage.style.setProperty("--mouse-y", ((event.clientY - rect.top) / rect.height - .5).toFixed(3));
       stage.classList.add("is-exploring");
-      layoutSignal();
-    });
-    stage.addEventListener("pointerleave", () => { stage.style.setProperty("--mouse-x", "0"); stage.style.setProperty("--mouse-y", "0"); stage.classList.remove("is-exploring"); layoutSignal(); });
-    window.addEventListener("resize", layoutSignal);
+      scheduleSignalLayout();
+    }, { passive: true });
+    stage.addEventListener("pointerleave", () => { stage.style.setProperty("--mouse-x", "0"); stage.style.setProperty("--mouse-y", "0"); stage.classList.remove("is-exploring"); scheduleSignalLayout(); });
+    window.addEventListener("resize", scheduleSignalLayout, { passive: true });
   }
 
   function renderSignal() {
@@ -1149,6 +1268,7 @@
     $("#btnCloseConsole")?.addEventListener("click", () => setConsoleOpen(false));
     $("#btnClearConsole")?.addEventListener("click", clearConsole);
     $("#btnCancelJob")?.addEventListener("click", cancelCurrentJob);
+    $("#btnResumeJob")?.addEventListener("click", resumeDetachedJob);
     $("#btnRefreshStatus")?.addEventListener("click", refreshStatusFromUi);
     $("#btnCloseSettings")?.addEventListener("click", closeSettings);
     $("#btnCloseSettingsSecondary")?.addEventListener("click", closeSettings);
@@ -1162,7 +1282,16 @@
     $("#btnSortProjects")?.addEventListener("click", (event) => { const modes = ["recent", "name", "status"]; state.projectSort = modes[(modes.indexOf(state.projectSort) + 1) % modes.length]; const labels = { recent: "Recentes ↓", name: "Nome A–Z", status: "Estado" }; event.currentTarget.textContent = labels[state.projectSort]; try { localStorage.setItem("furia-project-sort", state.projectSort); } catch (_) {}; renderProjects(); });
     $(".project-tabs")?.addEventListener("click", (event) => { const tab = event.target.closest("[data-project-tab]"); if (!tab) return; state.projectTab = tab.dataset.projectTab; renderProjectScreen(); });
     $("#importModal")?.addEventListener("click", (event) => { if (event.target.id === "importModal") closeImport(); });
-    document.addEventListener("keydown", (event) => { if (event.key === "Escape") closeImport(); if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "o") { event.preventDefault(); openImport(); } });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        if (!$("#settingsModal")?.hidden) closeSettings();
+        else if (!$("#importModal")?.hidden) closeImport();
+      }
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "o" && !/input|textarea|select/i.test(event.target?.tagName || "")) {
+        event.preventDefault();
+        openImport();
+      }
+    });
     initBoot();
     initSignal();
     initWindowManager(document);

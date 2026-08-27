@@ -530,7 +530,20 @@ class Transcriber:
                     f"Transcrevendo janela {chunk_index + 1}/{chunk_count} "
                     f"({start / 60:.1f}–{end / 60:.1f} min)..."
                 )
-            chunk_path = self._extract_audio_chunk(audio_path, start, end)
+            if cancel_check is None:
+                chunk_path = self._extract_audio_chunk(audio_path, start, end)
+            else:
+                try:
+                    chunk_path = self._extract_audio_chunk(
+                        audio_path, start, end, cancel_check=cancel_check
+                    )
+                except TypeError as exc:
+                    # Doubles/plugins from the original Furia 1 may not yet expose
+                    # the optional cooperative-cancellation keyword. Do not turn
+                    # that compatibility gap into a transcription failure.
+                    if "cancel_check" not in str(exc):
+                        raise
+                    chunk_path = self._extract_audio_chunk(audio_path, start, end)
             try:
                 result = self.model.transcribe(
                     chunk_path,
@@ -577,7 +590,7 @@ class Transcriber:
             "chunk_count": chunk_count,
         }
 
-    def _extract_audio_chunk(self, audio_path, start, end):
+    def _extract_audio_chunk(self, audio_path, start, end, cancel_check=None):
         """Extract one bounded PCM window so Whisper never loads the full source."""
         duration = max(0.1, float(end) - float(start))
         handle = tempfile.NamedTemporaryFile(prefix="furia-whisper-", suffix=".wav", dir=CACHE_DIR, delete=False)
@@ -593,15 +606,16 @@ class Transcriber:
             "-f", "wav", chunk_path,
         ]
         try:
-            result = subprocess.run(
+            from .video_cutter import VideoCutter
+
+            result = VideoCutter._run_ffmpeg(
                 command,
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                timeout=max(180, int(duration * 3)),
+                cancel_check=cancel_check,
+                progress_label=f"janela Whisper {start:.0f}s–{end:.0f}s",
+                timeout_seconds=max(180, int(duration * 3)),
+                heartbeat_prefix="Whisper",
             )
-        except (OSError, subprocess.SubprocessError) as exc:
+        except (OSError, subprocess.SubprocessError, TimeoutError) as exc:
             try:
                 os.unlink(chunk_path)
             except OSError:

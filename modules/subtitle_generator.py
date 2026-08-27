@@ -7,6 +7,9 @@ from config import PROCESSED_DIR
 from .render_presets import get_preset
 
 
+SUBTITLE_RENDER_TIMEOUT_SECONDS = min(300, max(90, int(os.environ.get("FURIA_SUBTITLE_RENDER_TIMEOUT_SECONDS", "300"))))
+
+
 POLITICAL_IMPACT_WORDS = {
     "absurdo", "urgente", "ilegal", "corrupcao", "stf", "moraes", "lula",
     "bolsonaro", "crime", "homicidio", "imposto", "proposta", "vitoria",
@@ -119,7 +122,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             lines += f"Dialogue: 0,{start},{end},Default,,0,0,0,,{text}\n"
         return lines
 
-    def burn_subtitles(self, video_path, ass_path, output_path=None, emit_progress=None):
+    def burn_subtitles(self, video_path, ass_path, output_path=None, emit_progress=None, cancel_check=None, timeout_seconds=None):
         if output_path is None:
             base = os.path.splitext(os.path.basename(video_path))[0]
             output_path = os.path.join(PROCESSED_DIR, f"{base}_legendado.mp4")
@@ -139,15 +142,37 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             output_path
         ]
 
-        result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
+        try:
+            from .video_cutter import VideoCutter
+
+            result = VideoCutter._run_ffmpeg(
+                cmd,
+                cancel_check=cancel_check,
+                emit_progress=emit_progress,
+                progress_label="Queima de legendas",
+                timeout_seconds=timeout_seconds or SUBTITLE_RENDER_TIMEOUT_SECONDS,
+                heartbeat_prefix="Captions",
+            )
+        except Exception:
+            try:
+                if os.path.exists(output_path):
+                    os.remove(output_path)
+            except OSError:
+                pass
+            raise
 
         if result.returncode != 0:
             if emit_progress:
-                emit_progress(f"Erro ao queimar legendas: {result.stderr[-300:]}")
+                emit_progress(f"Erro ao queimar legendas: {(result.stderr or '')[-300:]}", "error")
+            try:
+                if os.path.exists(output_path):
+                    os.remove(output_path)
+            except OSError:
+                pass
             return None
 
         if emit_progress:
-            emit_progress(f"Legendas queimadas com sucesso: {os.path.basename(output_path)}")
+            emit_progress(f"Legendas queimadas com sucesso: {os.path.basename(output_path)}", "success")
 
         return output_path
 

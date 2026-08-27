@@ -163,6 +163,28 @@ class AppSmokeTests(unittest.TestCase):
         self.assertEqual(status["backend"], "auto")
         self.assertIn("NLP local", status["mode_label"])
 
+    def test_gemini_status_keeps_key_out_of_query_string(self):
+        calls = []
+
+        class Response:
+            status_code = 200
+
+        def fake_get(url, **kwargs):
+            calls.append((url, kwargs))
+            return Response()
+
+        with patch.object(furia_app.requests, "get", side_effect=fake_get):
+            status = furia_app._check_ai_status({
+                "ai_backend": "gemini",
+                "gemini_api_key": "secret-for-test",
+                "ollama_url": "http://127.0.0.1:11434",
+            })
+
+        self.assertEqual(status["mode"], "gemini")
+        self.assertEqual(len(calls), 1)
+        self.assertNotIn("secret-for-test", calls[0][0])
+        self.assertEqual(calls[0][1]["headers"]["x-goog-api-key"], "secret-for-test")
+
 
 if __name__ == "__main__":
     unittest.main()
