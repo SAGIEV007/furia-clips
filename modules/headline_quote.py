@@ -71,6 +71,41 @@ _FUNCTION_WORDS = {
 # Aberturas que denunciam pedaço de conversa, não começo de afirmação.
 _WEAK_OPENERS = {"ah", "eh", "oh", "opa", "po", "ne", "ta", "ué", "ue", "hein", "olha"}
 
+# Inícios que podem ser verdadeiros dentro do discurso, mas dependem da frase
+# anterior quando são promovidos sozinhos a headline. Não são remoções do
+# transcript: apenas impedem que uma unidade de pausa seja apresentada como uma
+# citação autossuficiente.
+_CONTEXT_FRAGMENT_RE = re.compile(
+    r"^(?:portanto|ou seja|ao mesmo tempo|para permitir|e\s+(?:a|o|as|os|um|uma)|"
+    r"porque\s+(?:o|a|os|as|ele|ela|isso|esse|essa))\b",
+    re.IGNORECASE,
+)
+
+# Erros recorrentes de concordância em ASR português. A citação não pode ser
+# silenciosamente corrigida; ela precisa ser descartada ou marcada para áudio.
+_POSSIBLE_ASR_AGREEMENT_RE = re.compile(
+    # Não generalizar para qualquer palavra terminada em s/a/o: "está nos
+    # assistindo" é perfeitamente válido. O vocabulário abaixo cobre formas
+    # adjetivais/participiais que aparecem com frequência no ASR e cuja flexão
+    # pode ser conferida sem inventar uma correção.
+    r"\b(?:e|foi|esta|era|sera)\s+(?:tomados|tomadas|feitos|feitas|"
+    r"dominados|dominadas|ocupados|ocupadas|fechados|fechadas)\b|"
+    r"\b(?:sao|foram|estao|eram)\s+(?:tomado|tomada|feito|feita|"
+    r"dominado|dominada|ocupado|ocupada|fechado|fechada)\b",
+    re.IGNORECASE,
+)
+
+def headline_fragment_reason(text: str) -> str:
+    """Return a stable reason when a quote is unsafe as a standalone headline."""
+    folded = normalize(str(text or "").strip())
+    if not folded:
+        return "texto vazio"
+    if _CONTEXT_FRAGMENT_RE.search(folded):
+        return "começa como continuação da frase anterior"
+    if _POSSIBLE_ASR_AGREEMENT_RE.search(folded):
+        return "possível erro de concordância da transcrição; conferir no áudio"
+    return ""
+
 # Cortesia e protocolo. Não é headline, é o programa começando ou acabando.
 _PLEASANTRY = (
     "bem-vindo", "bem vindo", "boa noite", "bom dia", "boa tarde", "obrigado",
@@ -319,7 +354,30 @@ def units_from_pauses(segments: list[dict[str, Any]] | None) -> list[dict[str, A
         elif palavras >= UNIT_MAX_WORDS:
             fechar("linha de legenda")
     fechar("pausa" if not unidades else "linha de legenda")
-    return unidades
+
+    # Uma pausa curta não deve transformar uma oração dependente em headline
+    # isolada. Quando a próxima unidade é a continuação imediata e ainda cabe no
+    # limite de unidade, reconstituímos a frase para preservar a tese completa.
+    # Se não couber, o filtro continua recusando o fragmento, sem truncá-lo.
+    reparadas: list[dict[str, Any]] = []
+    for unidade in unidades:
+        if reparadas:
+            anterior = reparadas[-1]
+            anterior_texto = str(anterior.get("text") or "")
+            intervalo = float(unidade.get("start", 0) or 0) - float(anterior.get("end", 0) or 0)
+            combinado = f"{anterior_texto} {str(unidade.get('text') or '').strip()}".strip()
+            if (
+                headline_fragment_reason(anterior_texto)
+                and intervalo <= 1.2
+                and len(combinado.split()) <= UNIT_MAX_WORDS
+            ):
+                anterior["text"] = combinado
+                anterior["end"] = unidade.get("end", anterior.get("end"))
+                anterior["boundary_source"] = "repaired_pause"
+                anterior["pieces"] = [*(anterior.get("pieces") or []), *(unidade.get("pieces") or [])]
+                continue
+        reparadas.append(unidade)
+    return reparadas
 
 
 def sentences_from_segments(segments: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
@@ -393,6 +451,10 @@ def _disqualify(text: str, cased: bool, punctuated: bool = True) -> str:
 
     if any(term in folded for term in _PLEASANTRY):
         return "cortesia ou protocolo do programa"
+
+    fragment_reason = headline_fragment_reason(stripped)
+    if fragment_reason:
+        return fragment_reason
 
     if _ROLEPLAY_MARKER.search(stripped):
         return "fala encenada na voz de outra pessoa"

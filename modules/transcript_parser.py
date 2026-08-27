@@ -114,6 +114,42 @@ def _deduplicate_progressive_segments(segments: Iterable[dict]) -> list[dict]:
     return cleaned
 
 
+TIMELINE_RESET_TOLERANCE_S = 2.0
+
+
+def _timeline_review(segments: Iterable[dict]) -> dict:
+    """Report backwards jumps in the imported clock without changing the media axis.
+
+    SRT exports made from a finished cut sometimes concatenate blocks and restart
+    the clock. Sorting those cues is useful for text extraction, but the editor
+    must know that the resulting source interval is not a single continuous take.
+    """
+    previous_start = None
+    resets = []
+    for index, item in enumerate(segments or []):
+        try:
+            current_start = float(item.get("start"))
+        except (AttributeError, TypeError, ValueError):
+            continue
+        if previous_start is not None and current_start < previous_start - TIMELINE_RESET_TOLERANCE_S:
+            resets.append({
+                "segment_index": index,
+                "previous_start": round(previous_start, 3),
+                "current_start": round(current_start, 3),
+                "backward_jump_seconds": round(previous_start - current_start, 3),
+            })
+        previous_start = current_start
+    return {
+        "status": "discontinuous" if resets else "continuous_or_unknown",
+        "reset_count": len(resets),
+        "timestamp_resets": resets,
+        "message": (
+            "O arquivo contém blocos com o relógio reiniciado; confira a fonte antes de usar timestamps como intervalo único."
+            if resets else "Nenhum reset grande de timestamp foi detectado."
+        ),
+    }
+
+
 def _normalize(segments: Iterable[dict], duration: float | None = None) -> list[dict]:
     ordered = sorted(
         [s for s in segments if s.get("text") and s.get("start") is not None],
@@ -164,10 +200,15 @@ def parse_transcript_text(text: str, duration: float | None = None) -> dict:
     else:
         segments = _parse_timestamp_lines(raw)
 
+    timeline_review = _timeline_review(segments)
     normalized = _normalize(_deduplicate_progressive_segments(segments), duration=duration)
     if not normalized:
         raise ValueError("Nenhum segmento com timestamp reconhecível foi encontrado")
     review = _revise(normalized)
+    review["timeline_status"] = timeline_review["status"]
+    review["timestamp_resets"] = timeline_review["timestamp_resets"]
+    review["timestamp_reset_count"] = timeline_review["reset_count"]
+    review["timeline_message"] = timeline_review["message"]
     return {
         "segments": normalized,
         "full_text": " ".join(segment["text"] for segment in normalized),
@@ -265,6 +306,7 @@ def detect_format(raw: str) -> str:
 
 
 def normalize_segment_payload(segments: Iterable[dict], duration: float | None = None) -> dict:
+    timeline_review = _timeline_review(segments)
     normalized = _normalize(_deduplicate_progressive_segments(segments), duration=duration)
     if not normalized:
         raise ValueError("Nenhum segmento válido foi informado")
@@ -274,6 +316,12 @@ def normalize_segment_payload(segments: Iterable[dict], duration: float | None =
         "source": "manual",
         "format": "json",
         "segment_count": len(normalized),
+        "revisao_legenda": {
+            "timeline_status": timeline_review["status"],
+            "timestamp_resets": timeline_review["timestamp_resets"],
+            "timestamp_reset_count": timeline_review["reset_count"],
+            "timeline_message": timeline_review["message"],
+        },
     }
 
 

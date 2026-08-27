@@ -4241,6 +4241,11 @@ function renderArtworkHeadline(suggestion, format, clipIndex = null) {
     const inicio = suggestion.source_interval && suggestion.source_interval.start_s;
     const marca = Number.isFinite(inicio) ? formatTimecode(inicio) : "";
     const fora = suggestion.within_preferred_limit === false;
+    const review = suggestion.headline_review || {};
+    const reviewFlags = Array.isArray(review.flags) ? review.flags : [];
+    const reviewBadge = review.needs_audio_check
+        ? `<span class="artwork-review-chip warning" title="${escapeAttribute(review.message || "Confira esta opção no áudio.")}"><span class="material-icons-round">headset</span>${reviewFlags.includes("source_fragment") ? "frase dependente: conferir áudio" : "conferir no áudio"}</span>`
+        : `<span class="artwork-review-chip safe"><span class="material-icons-round">verified</span>intervalo de origem conferido pelo texto</span>`;
 
     const trocas = alternativas.length > 1
         ? `<div class="artwork-hook-swap">${alternativas.map(item => `
@@ -4263,6 +4268,7 @@ function renderArtworkHeadline(suggestion, format, clipIndex = null) {
                 <span>${Number(suggestion.character_count || headline.length)} car${fora ? " · acima do ideal" : ""}</span>
                 ${marca ? `<span>${marca}</span>` : ""}
             </span>
+            ${reviewBadge}
             <div>${artworkCopyButton(headline, "Copiar headline")}${artworkFeedbackButton(format, headline, clipIndex)}</div>
         </div>
     </article>`;
@@ -4292,6 +4298,7 @@ function renderHeadlineStudioResults(studio, options = {}) {
         flags.needs_fact_review ? '<span class="artwork-review-chip"><span class="material-icons-round">fact_check</span>revisar afirmação factual</span>' : "",
         flags.needs_legal_review ? '<span class="artwork-review-chip legal"><span class="material-icons-round">gavel</span>revisar formulação jurídica</span>' : "",
         flags.source_not_punctuated ? '<span class="artwork-review-chip warning"><span class="material-icons-round">graphic_eq</span>a legenda não pontua: a leitura saiu das pausas, confira no áudio</span>' : "",
+        flags.timestamp_discontinuity ? `<span class="artwork-review-chip warning"><span class="material-icons-round">timeline</span>timeline reiniciada em ${Number(flags.timestamp_discontinuity_count || 1)} bloco(s): confira a fonte</span>` : "",
         flags.speaker_unconfirmed ? '<span class="artwork-review-chip warning"><span class="material-icons-round">person_off</span>ninguém confirmou quem fala: a arte sai sem atribuição</span>' : "",
     ].filter(Boolean).join("");
     const selectedFormat = studio.generated_format || recommended;
@@ -4880,6 +4887,8 @@ function applySettings() {
     }
     if (s.gemini_api_key) document.getElementById("settingGeminiKey").value = s.gemini_api_key;
     if (s.gemini_model) document.getElementById("settingGeminiModel").value = s.gemini_model;
+    const manualVideoAnalysis = document.getElementById("settingGeminiManualVideoAnalysis");
+    if (manualVideoAnalysis) manualVideoAnalysis.checked = Boolean(s.gemini_manual_video_analysis);
     if (s.claude_api_key) document.getElementById("settingClaudeKey").value = s.claude_api_key;
     if (s.output_dir) {
         state.outputDir = s.output_dir;
@@ -4962,6 +4971,7 @@ document.getElementById("btnSaveSettings").addEventListener("click", async () =>
         ai_backend: document.getElementById("settingAiBackend").value,
         ollama_model: document.getElementById("settingOllamaModel").value,
         gemini_model: document.getElementById("settingGeminiModel").value.trim(),
+        gemini_manual_video_analysis: Boolean(document.getElementById("settingGeminiManualVideoAnalysis")?.checked),
                     // Campo vazio preserva a chave local já configurada; nunca envia um placeholder mascarado.
             ...(typedGeminiKey ? { gemini_api_key: typedGeminiKey } : {}),
 

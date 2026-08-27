@@ -24,6 +24,7 @@ from typing import Any
 
 from modules.headline_quote import (
     Speaker,
+    headline_fragment_reason,
     sentences_from_segments,
     sentences_from_text,
 )
@@ -166,6 +167,7 @@ def _coerce_text(transcript: str) -> tuple[str, dict[str, Any], list[dict[str, A
             "format": parsed.get("format", "timestamped"),
             "segment_count": parsed.get("segment_count", 0),
             "timestamped": True,
+            "timeline_review": parsed.get("revisao_legenda", {}),
         }, list(parsed.get("segments") or [])
     except ValueError:
         # Finished edits often arrive as a clean text export without timestamps.
@@ -273,6 +275,60 @@ def _format_from_learning(editorial_learning: dict[str, Any] | None) -> tuple[st
     return "", 0, ""
 
 
+def _headline_review(
+    text: str,
+    *,
+    mode: str = "resumo",
+    start_s: float | None = None,
+    end_s: float | None = None,
+) -> dict[str, Any]:
+    """Explain whether an artwork line is safe to publish without audio review.
+
+    This is a review signal, not a truth detector. A summary may be rewritten, but
+    it still needs a self-contained source span; a quotation must be checked against
+    the audio when its boundary came from ASR pauses or its wording looks noisy.
+    """
+    headline = " ".join(str(text or "").split())
+    body = headline
+    if mode in {"atribuicao", "citacao"}:
+        match = re.search(r"[“\"]([^”\"]+)[”\"]", headline)
+        if match:
+            body = match.group(1)
+    fragment_reason = headline_fragment_reason(body)
+    flags: list[str] = []
+    if fragment_reason:
+        flags.append("source_fragment")
+    if start_s is None or end_s is None:
+        flags.append("missing_source_interval")
+    needs_audio_check = bool(fragment_reason) or start_s is None or end_s is None
+    if fragment_reason and "concordância" in fragment_reason:
+        flags.append("possible_asr_error")
+    if not headline:
+        flags.append("empty_headline")
+    if "possible_asr_error" in flags:
+        confidence = 0.2
+    elif "source_fragment" in flags:
+        confidence = 0.35
+    elif "missing_source_interval" in flags:
+        confidence = 0.55
+    else:
+        confidence = 0.8
+    return {
+        "status": "review" if flags else "ready",
+        "self_contained": "source_fragment" not in flags,
+        "needs_audio_check": needs_audio_check,
+        "flags": flags,
+        "fragment_reason": fragment_reason,
+        "source_quality": "timestamped" if start_s is not None and end_s is not None else "unanchored",
+        "confidence": confidence,
+        "message": (
+            "Confira esta opção no áudio antes de publicar."
+            if needs_audio_check
+            else "A opção tem um intervalo de origem e não foi detectado fragmento textual."
+        ),
+    }
+
+
 def _suggestion_from_headline(built: dict[str, Any], format_id: str) -> dict[str, Any]:
     """Uma sugestão de arte no contrato que a interface já lê.
 
@@ -306,6 +362,12 @@ def _suggestion_from_headline(built: dict[str, Any], format_id: str) -> dict[str
         # mantém o invariante do NORTE de pé sem engessar a arte.
         "mode": built.get("mode", "resumo"),
         "source_interval": {"start_s": built.get("start_s"), "end_s": built.get("end_s")},
+        "headline_review": _headline_review(
+            headline,
+            mode=str(built.get("mode", "resumo") or "resumo"),
+            start_s=built.get("start_s"),
+            end_s=built.get("end_s"),
+        ),
         "within_preferred_limit": len(headline) <= int(profile["headline_limit"]),
     }
 
@@ -506,8 +568,18 @@ def _headline_fidelity_report(formats: dict[str, Any], source_text: str) -> dict
     ungrounded = 0
     quoted = 0
     quoted_verified = 0
+    self_contained = 0
+    audio_review = 0
+    fragment_review = 0
     for _format_id, item in suggestions:
         headline = str(item.get("headline") or "")
+        review = item.get("headline_review") if isinstance(item.get("headline_review"), dict) else {}
+        if review.get("self_contained") is True:
+            self_contained += 1
+        if review.get("needs_audio_check") is True:
+            audio_review += 1
+        if "source_fragment" in (review.get("flags") or []):
+            fragment_review += 1
         if _headline_invents_nothing(headline, source_text):
             grounded += 1
         else:
@@ -524,7 +596,10 @@ def _headline_fidelity_report(formats: dict[str, Any], source_text: str) -> dict
         "ungrounded_count": ungrounded,
         "quote_count": quoted,
         "quoted_verbatim_count": quoted_verified,
-        "review_required": bool(ungrounded or quoted != quoted_verified),
+        "self_contained_count": self_contained,
+        "audio_review_count": audio_review,
+        "fragment_review_count": fragment_review,
+        "review_required": bool(ungrounded or quoted != quoted_verified or audio_review),
         "message": (
             "Todas as sugestões passaram pelo filtro lexical conservador; revise a precisão factual antes de publicar."
             if not (ungrounded or quoted != quoted_verified)
@@ -570,6 +645,15 @@ def _merge_ai_suggestions(
             headline = " ".join(str(item.get("headline", "")).split())
             if len(headline.split()) < 4 or len(headline) > 120:
                 continue
+            mode = str(item.get("mode", "resumo") or "resumo")
+            quality = _headline_review(
+                headline,
+                mode=mode,
+                start_s=item.get("start_s"),
+                end_s=item.get("end_s"),
+            )
+            if "source_fragment" in (quality.get("flags") or []):
+                continue
             if not _headline_invents_nothing(headline, source_text):
                 continue
             gancho = _compact(str(item.get("eyebrow", "")), int(profile["eyebrow_limit"])).upper()
@@ -589,7 +673,9 @@ def _merge_ai_suggestions(
                 "accent": "red_on_white" if destaque else "white",
                 "character_count": len(headline),
                 "word_count": len(headline.split()),
-                "mode": item.get("mode", "resumo"),
+                "mode": mode,
+                "source_interval": {"start_s": item.get("start_s"), "end_s": item.get("end_s")},
+                "headline_review": quality,
                 "within_preferred_limit": len(headline) <= int(profile["headline_limit"]),
             })
         # As citações literais do caminho local ficam, para o editor comparar a
@@ -643,6 +729,12 @@ def generate_artwork_copy(
         "word_count": len(text.split()),
         "excerpt": _compact(text, 280),
     }
+    timeline_review = transcript_meta.get("timeline_review") or {}
+    timestamp_resets = timeline_review.get("timestamp_resets") or []
+    if timestamp_resets:
+        result["review_flags"]["timestamp_discontinuity"] = True
+        result["review_flags"]["timestamp_discontinuity_count"] = len(timestamp_resets)
+        result["timeline_review"] = timeline_review
     result["mini_context"] = context
     result["ai_refinement"] = {
         "requested": ai_backend is not None,

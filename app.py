@@ -1529,6 +1529,114 @@ def _attach_multimodal_visual_observations(clips, multimodal):
     return clips
 
 
+def _attach_multimodal_editorial_review(clips, multimodal):
+    """Attach bounded audiovisual evidence without auto-approving a clip.
+
+    Gemini's interpretation is a second pair of eyes, not a truth oracle. It can
+    say that a window appears to contain a question, an answer or overlap, but the
+    transcript, source identity and human review remain authoritative. Nothing in
+    this helper changes ``score`` or silently removes a candidate.
+    """
+    if not isinstance(multimodal, dict):
+        return clips
+    identity_status = str(multimodal.get("source_identity_status", "unverified") or "unverified").lower()
+    try:
+        identity_confidence = max(0.0, min(1.0, float(multimodal.get("source_identity_confidence", 0) or 0)))
+    except (TypeError, ValueError):
+        identity_confidence = 0.0
+    qa_moments = multimodal.get("qa_moments") if isinstance(multimodal.get("qa_moments"), list) else []
+    signals = multimodal.get("audio_visual_signals") if isinstance(multimodal.get("audio_visual_signals"), list) else []
+
+    for clip in clips or []:
+        try:
+            clip_start = float(clip.get("start", 0) or 0)
+            clip_end = float(clip.get("end", clip_start) or clip_start)
+        except (TypeError, ValueError):
+            continue
+        evidence = []
+        for moment in qa_moments:
+            if not isinstance(moment, dict):
+                continue
+            start = _timestamp_value(moment.get("start"))
+            end = _timestamp_value(moment.get("end"))
+            if start is None or end is None or end <= start:
+                continue
+            overlap = max(0.0, min(clip_end, end) - max(clip_start, start))
+            if overlap <= 0:
+                continue
+            try:
+                confidence = max(0.0, min(1.0, float(moment.get("confidence", 0) or 0)))
+            except (TypeError, ValueError):
+                confidence = 0.0
+            evidence.append({
+                "start": round(start, 3),
+                "end": round(end, 3),
+                "overlap_seconds": round(overlap, 3),
+                "confidence": confidence,
+                "question_present": bool(moment.get("question_present")),
+                "answer_present": bool(moment.get("answer_present")),
+                "renan_focus": bool(moment.get("renan_focus")),
+                "overlap_suspected": bool(moment.get("overlap_suspected")),
+                "reason": str(moment.get("reason") or "")[:240],
+            })
+        evidence.sort(key=lambda item: (item["overlap_seconds"] * max(item["confidence"], 0.25), item["overlap_seconds"]), reverse=True)
+        evidence = evidence[:5]
+        review_flags = []
+        if identity_status == "mismatch":
+            review_flags.append("source_identity_mismatch")
+        elif identity_status != "validated" or identity_confidence < 0.65:
+            review_flags.append("source_identity_unverified")
+        if any(item["overlap_suspected"] for item in evidence):
+            review_flags.append("audio_visual_overlap_suspected")
+        if any(item["question_present"] and not item["answer_present"] for item in evidence):
+            review_flags.append("multimodal_question_only_suspected")
+        if any(not item["renan_focus"] for item in evidence):
+            review_flags.append("multimodal_subject_uncertain")
+
+        overlapping_signals = []
+        for signal in signals:
+            if not isinstance(signal, dict):
+                continue
+            start = _timestamp_value(signal.get("start"))
+            end = _timestamp_value(signal.get("end"))
+            if start is None or end is None or end <= start:
+                continue
+            overlap = max(0.0, min(clip_end, end) - max(clip_start, start))
+            if overlap <= 0:
+                continue
+            overlapping_signals.append({
+                "signal": str(signal.get("signal") or "")[:80],
+                "note": str(signal.get("note") or "")[:240],
+                "overlap_seconds": round(overlap, 3),
+            })
+        if any(str(item.get("signal") or "").lower() in {"mudanca_de_bloco", "música", "musica"} for item in overlapping_signals):
+            review_flags.append("audiovisual_block_change")
+        if identity_status == "mismatch":
+            status = "rejected_as_evidence"
+            message = "A análise audiovisual foi recusada porque a identidade da fonte não bateu."
+        elif review_flags:
+            status = "review"
+            message = "A análise audiovisual encontrou sinais auxiliares; confira o corte no player."
+        elif evidence or overlapping_signals:
+            status = "supporting"
+            message = "Sinais audiovisuais auxiliares disponíveis; a decisão continua humana."
+        else:
+            status = "no_overlap"
+            message = "Nenhuma observação audiovisual coincidente com este intervalo."
+        clip["multimodal_editorial_review"] = {
+            "contract_version": "multimodal-review-v1",
+            "status": status,
+            "review_required": bool(review_flags),
+            "identity_status": identity_status,
+            "identity_confidence": identity_confidence,
+            "flags": sorted(set(review_flags)),
+            "qa_evidence": evidence,
+            "audio_visual_signals": overlapping_signals[:5],
+            "message": message,
+        }
+    return clips
+
+
 def _should_allow_followup_video_analysis(transcription, settings):
     """Return whether an explicit second multimodal pass is allowed.
 
@@ -3825,6 +3933,10 @@ def api_cut_shorts():
                 user_context=user_context,
                 energy_profile=energy_profile,
             )
+            multimodal_evidence = (settings.get("editorial_context") or {}).get("multimodal") or multimodal_result
+            if multimodal_evidence:
+                top_clips = _attach_multimodal_editorial_review(top_clips, multimodal_evidence)
+                emit_progress("[Gemini] Evidência audiovisual auxiliar anexada aos candidatos; decisão continua humana.", "info")
             top_clips, editorial_gate_rejections = _defer_context_incomplete_candidates(top_clips)
             candidate_diagnostics["render_deferred_context_count"] = sum(
                 1 for item in editorial_gate_rejections if "contexto autossuficiente" in item.get("reason", "")
@@ -5004,6 +5116,10 @@ def api_process_complete():
                 user_context=user_context,
                 energy_profile=energy_profile,
             )
+            multimodal_evidence = (settings.get("editorial_context") or {}).get("multimodal") or multimodal_result
+            if multimodal_evidence:
+                top_clips = _attach_multimodal_editorial_review(top_clips, multimodal_evidence)
+                emit_progress("[Gemini] Evidência audiovisual auxiliar anexada aos candidatos; decisão continua humana.", "info")
             top_clips = _annotate_speakers(top_clips, video_path, video_duration, emit_progress)
             top_clips, speaker_rejections = _defer_speaker_conflicts(top_clips)
             candidate_diagnostics["speaker_gate_deferred_count"] = len(speaker_rejections)
