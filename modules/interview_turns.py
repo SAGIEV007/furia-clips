@@ -41,7 +41,7 @@ _ADDRESS = (
     # opened a clip there, undoing the guard that had just moved it past the
     # presentation. The vocative form is picked up by ``addresses_the_guest``.
     " o senhor ", " ao senhor ", " do senhor ", " pro senhor ", " para o senhor ",
-    " senhor ", " deputado ", " governador ", " presidente eleito",
+    " senhor ", " dos senhores ", " deputado ", " governador ", " presidente eleito",
     " seu plano", " seu programa", " seu governo", " sua proposta", " suas propostas",
     " no seu livro", " as suas ", " os seus ", " sua candidatura",
 )
@@ -62,6 +62,46 @@ _SHIFT = (
     " seguindo nessa", " continuar nesse tema", " nosso tempo", " outro tema",
     " proximo tema", " boa noite", " ultima pergunta", " para terminar",
 )
+
+# Intervalos são uma fronteira de transmissão, não uma pergunta nem uma resposta.
+# O detector exige vocabulário de chamada/retorno, em vez de marcar toda menção
+# genérica à palavra "intervalo" como pausa editorial.
+_BROADCAST_BREAK_START_RE = re.compile(
+    r"\b(?:vamos|faremos|vamos fazer|vamos para|vamos ao|vamos a)\b"
+    r"[^.!?]{0,70}\bintervalo\b"
+    r"|\bintervalo\b[^.!?]{0,70}\b(?:voltamos|volta)\b"
+)
+_BROADCAST_RETURN_RE = re.compile(
+    r"\b(?:estamos|a gente está|a gente esta)\s+de volta\b"
+    r"|\b(?:a gente|nós|nos)\s+volt(?:a|amos)\b[^.!?]{0,32}"
+    r"|\bvoltamos\b"
+    r"|\b(?:após|apos|depois do|depois desse|depois deste)\s+intervalo\b"
+)
+
+
+def classify_broadcast_boundary(text: str) -> str | None:
+    """Classify an explicit broadcast break/return, or return ``None``.
+
+    The positive vocabulary is intentionally narrow. A sentence such as
+    "o intervalo entre duas sessões" is not enough; a call to pause or a clear
+    return announcement is required. When one sentence contains both sides of
+    the handoff, ``break_start_and_return`` keeps it hard-boundary.
+    """
+    normalized = _normalize(text)
+    is_start = bool(_BROADCAST_BREAK_START_RE.search(normalized))
+    is_return = bool(_BROADCAST_RETURN_RE.search(normalized))
+    if is_start and is_return:
+        return "break_start_and_return"
+    if is_start:
+        return "break_start"
+    if is_return:
+        return "return"
+    return None
+
+
+def is_broadcast_break_sentence(text: str) -> bool:
+    """Whether a transcript sentence explicitly announces a break or return."""
+    return classify_broadcast_boundary(text) is not None
 
 # Below this a turn is an interruption inside the answer, not a new question:
 # "Senhor manter então para a extrema pobreza até fazer a transição." The guest
@@ -172,12 +212,25 @@ def detect_interviewer_turns(sentences: list[dict[str, Any]]) -> list[dict[str, 
     if not ordered:
         return []
 
-    flagged = [index for index, item in enumerate(ordered) if is_interviewer_sentence(item["text"])]
+    flagged = [
+        index for index, item in enumerate(ordered)
+        if is_interviewer_sentence(item["text"])
+        or classify_broadcast_boundary(item["text"]) is not None
+    ]
     if not flagged:
         return []
 
     groups: list[list[int]] = []
     for index in flagged:
+        current_has_broadcast = bool(groups) and any(
+            classify_broadcast_boundary(ordered[position]["text"]) is not None
+            for position in groups[-1]
+        )
+        item_has_broadcast = classify_broadcast_boundary(ordered[index]["text"]) is not None
+        # A break always starts a new turn instead of being merged into the
+        # preceding question merely because the clock gap is short. Its own
+        # return sentence may join the same hard-boundary turn.
+        joins_broadcast = current_has_broadcast and item_has_broadcast
         near_in_order = bool(groups) and index - groups[-1][-1] <= _TURN_GAP_SENTENCES
         # Proximity in the transcript is not proximity in time. On a source
         # transcribed in long segments, two questions five minutes apart can sit
@@ -187,7 +240,21 @@ def detect_interviewer_turns(sentences: list[dict[str, Any]]) -> list[dict[str, 
             float(ordered[index].get("start", 0) or 0)
             - float(ordered[groups[-1][-1]].get("end", 0) or 0)
         ) <= _TURN_GAP_SECONDS
-        if near_in_order and near_in_time:
+        between = ordered[groups[-1][-1] + 1:index] if groups else []
+        # A new flagged question after a substantive guest sentence is a new
+        # interviewer turn. Very short fragments remain eligible as a split
+        # question or acknowledgement, which is important for coarse captions.
+        substantive_answer_between = any(
+            classify_broadcast_boundary(str(item.get("text") or "")) is None
+            and not is_interviewer_sentence(str(item.get("text") or ""))
+            and len(str(item.get("text") or "").split()) > 6
+            for item in between
+        )
+        if joins_broadcast or (
+            near_in_order and near_in_time
+            and not current_has_broadcast and not item_has_broadcast
+            and not substantive_answer_between
+        ):
             groups[-1].append(index)
         else:
             groups.append([index])
@@ -195,9 +262,14 @@ def detect_interviewer_turns(sentences: list[dict[str, Any]]) -> list[dict[str, 
     turns: list[dict[str, Any]] = []
     for group in groups:
         first, last = group[0], group[-1]
-        # The turn usually spills one sentence past the last flagged one, where
-        # the actual question mark lands.
-        tail = min(len(ordered) - 1, last + 1)
+        broadcast_items = [
+            classify_broadcast_boundary(ordered[i]["text"]) for i in group
+        ]
+        has_broadcast = any(item is not None for item in broadcast_items)
+        # A normal question may spill one sentence past its last flagged line,
+        # where the question mark lands. A broadcast turn must not absorb the
+        # first editorial question after the return.
+        tail = last if has_broadcast else min(len(ordered) - 1, last + 1)
         spoken = " ".join(str(ordered[i].get("text") or "") for i in range(first, last + 1))
         text = " ".join(str(ordered[i].get("text") or "") for i in range(first, tail + 1))
         # Only the sentences actually recognised as the interviewer's count
@@ -209,20 +281,36 @@ def detect_interviewer_turns(sentences: list[dict[str, Any]]) -> list[dict[str, 
         # Measured on what the interviewer actually said, never on the tail
         # sentence — that one is usually the guest already answering, and its
         # punctuation would speak for a turn it does not belong to.
-        question = is_a_whole_question(spoken)
+        question = is_a_whole_question(spoken) if not has_broadcast else False
+        break_start = any(
+            item in {"break_start", "break_start_and_return"}
+            for item in broadcast_items
+        )
+        returned = any(
+            item in {"return", "break_start_and_return"}
+            for item in broadcast_items
+        )
         turns.append({
             "start_s": round(float(ordered[first].get("start", 0) or 0), 3),
             "end_s": round(float(ordered[tail].get("end", 0) or 0), 3),
+            # ``end_s`` may include the first guest sentence used as a
+            # punctuation tail. Keep the actual flagged-speaker end separate
+            # for answer-length and interruption diagnostics.
+            "question_end_s": round(float(ordered[last].get("end", 0) or 0), 3),
             "words": words,
-            "changes_subject": shift,
+            "changes_subject": bool(shift or has_broadcast),
             "asks_a_whole_question": question,
             # A whole question opens a block however short it is; only an
             # incomplete aside is an interruption a cut may run through.
-            "interjection": words <= INTERJECTION_MAX_WORDS and not shift and not question,
+            "interjection": words <= INTERJECTION_MAX_WORDS and not shift and not question and not has_broadcast,
             # A long question is still the same subject being pressed. Only an
             # explicit change of subject closes a block: measured on a sabatina,
             # counting long follow-ups as boundaries cut two good clips in half.
-            "major": shift,
+            "major": bool(shift or has_broadcast),
+            "broadcast_break": break_start,
+            "broadcast_return": returned,
+            "hard_boundary": bool(has_broadcast),
+            "broadcast_boundary_kind": "break" if break_start else ("return" if returned else None),
             "text": text[:220],
             "provenance": "furia_interview_turns",
         })

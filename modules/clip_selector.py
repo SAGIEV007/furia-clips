@@ -18,6 +18,7 @@ from collections import Counter
 from .political_profile import PROFILE_NAME, build_political_prompt_fragment
 from .editorial_chapters import annotate_clip_with_chapters
 from .interview_turns import (
+    classify_broadcast_boundary,
     detect_interviewer_turns,
     first_address_to_guest,
     is_a_whole_question,
@@ -147,6 +148,20 @@ class ClipSelector:
     # considered closed. Fewer than this and the viewer still gets no payoff.
     MIN_ANSWER_WORDS = 12
 
+    # A question-only candidate may show the first syllables of an answer and
+    # still not be an editorially self-contained clip. This larger threshold is
+    # diagnostic/defer-only; it does not replace the local QA bridge threshold.
+    MIN_SUBSTANTIAL_ANSWER_WORDS = 20
+
+    # A hard broadcast boundary is never crossed, even when the candidate's
+    # original window was long enough to absorb both sides of a break.
+    BROADCAST_BOUNDARY_PAD_S = 0.35
+
+    # A response that follows a noisy interviewer handover may need to open on
+    # its first stable, self-directed explanation rather than on the aside. This
+    # is a minimum shift guard, not a timestamp rule.
+    MIN_STABILIZED_OPENING_SHIFT_S = 20.0
+
     # Teto do alongamento que fecha uma pergunta. Ele não tinha teto próprio: o
     # único limite era a duração técnica de dez minutos, e numa coletiva real
     # isso esticou um corte em 157 segundos. Mostrar que a resposta começou é o
@@ -244,6 +259,8 @@ class ClipSelector:
             "descartados_por_sobreposicao": [],
             "hard_negatives": [],
             "hard_negative_count": 0,
+            "candidate_relationships": [],
+            "broadcast_break_count": 0,
             "reason": "not_evaluated",
         }
 
@@ -461,6 +478,11 @@ class ClipSelector:
         # corte que termina em "segundo ponto:", com o raciocínio pela metade.
         clips = self._trim_trailing_announcement(clips, sentences, emit_progress)
 
+        # Record the remaining editorial risks after all deterministic boundary
+        # repairs. Question-only windows are deferred by the render gate; an
+        # interrupted answer remains available for human review.
+        clips = self._evaluate_interview_boundaries(clips, sentences, emit_progress)
+
         # If the canonical transcript has word timestamps, sharpen the repaired
         # seams without changing candidate discovery or ranking. Missing word
         # timestamps are a normal no-op and remain visible in diagnostics.
@@ -593,6 +615,26 @@ class ClipSelector:
     def get_candidate_diagnostics(self):
         """Return explainable candidate-volume diagnostics for the review UI."""
         return dict(self._candidate_diagnostics)
+
+    def _record_candidate_relationship(self, candidate, related, relation, reason=""):
+        """Keep a bounded, diagnostic-only relation between candidate windows."""
+        if not isinstance(candidate, dict) or not isinstance(related, dict):
+            return
+        relationships = self._candidate_diagnostics.setdefault("candidate_relationships", [])
+        if len(relationships) >= 80:
+            return
+        relationships.append({
+            "relation": str(relation or "related")[:40],
+            "reason": str(reason or "")[:80],
+            "candidate": {
+                "start": round(float(candidate.get("start", 0) or 0), 3),
+                "end": round(float(candidate.get("end", 0) or 0), 3),
+            },
+            "related": {
+                "start": round(float(related.get("start", 0) or 0), 3),
+                "end": round(float(related.get("end", 0) or 0), 3),
+            },
+        })
 
     def _record_hard_negative(self, clip, reason, *, winner=None, details=None):
         """Keep bounded near-misses for later human calibration.
@@ -1650,6 +1692,13 @@ Retorne APENAS o JSON.
         # one-turn-per-five-minutes. There the blocks fell back to the stopwatch,
         # and the question ended up glued to the tail of the previous answer.
         seams = {turn["start_s"] for turn in turns if turn.get("asks_a_whole_question")}
+        # A chamada/retorno é uma costura em ambas as extremidades: o bloco da
+        # vinheta não deve juntar-se nem à resposta anterior nem à pergunta após
+        # o retorno.
+        for turn in turns:
+            if turn.get("hard_boundary"):
+                seams.add(float(turn["start_s"]))
+                seams.add(float(turn["end_s"]))
 
         # E, antes de qualquer adivinhação: a marca que o arquivo já traz. O
         # YouTube e o tactiq escrevem ">>" onde o locutor troca, e a transcrição
@@ -1811,19 +1860,25 @@ Retorne APENAS o JSON.
                 )
                 dropped += 1
                 if better:
+                    self._record_candidate_relationship(
+                        previous, clip, "continuation_of", "touching_sibling"
+                    )
                     self._record_hard_negative(
                         previous,
                         "touching_sibling_lost_to_better_candidate",
                         winner=clip,
-                        details={"score_gap": round(current_score - previous_score, 2)},
+                        details={"score_gap": round(current_score - previous_score, 2), "relation": "continuation_of"},
                     )
                     kept[-1] = clip
                 else:
+                    self._record_candidate_relationship(
+                        clip, previous, "continuation_of", "touching_sibling"
+                    )
                     self._record_hard_negative(
                         clip,
                         "touching_sibling_lost_to_existing_candidate",
                         winner=previous,
-                        details={"score_gap": round(previous_score - current_score, 2)},
+                        details={"score_gap": round(previous_score - current_score, 2), "relation": "continuation_of"},
                     )
                 continue
             kept.append(clip)
@@ -2463,6 +2518,8 @@ Retorne APENAS o JSON.
                 # emendando material que não é a resposta daquela pergunta.
                 if sentence_start > new_end + 3.0:
                     break
+                if classify_broadcast_boundary(str(sentence.get("text") or "")) is not None:
+                    break
                 # E o alongamento precisa de teto próprio. O único limite era a
                 # duração máxima técnica, de dez minutos: numa coletiva real isso
                 # esticou um corte em 157 segundos. Mostrar que a resposta começou
@@ -2486,6 +2543,229 @@ Retorne APENAS o JSON.
                         "para incluir o começo da resposta.",
                         "info",
                     )
+        return clips
+
+    @staticmethod
+    def _add_review_reason(clip, code, message=None):
+        """Attach a stable review code without erasing existing explanations."""
+        if not isinstance(clip, dict):
+            return
+        codes = clip.get("review_reason_codes")
+        if not isinstance(codes, list):
+            codes = []
+        if code not in codes:
+            codes.append(str(code)[:80])
+        clip["review_reason_codes"] = codes[:12]
+        clip["review_required"] = True
+        if message:
+            reasons = clip.get("review_reasons")
+            if not isinstance(reasons, list):
+                reasons = []
+            if message not in reasons:
+                reasons.append(message)
+            clip["review_reasons"] = reasons[:12]
+
+    @staticmethod
+    def _broadcast_turns(sentences):
+        """Return hard transmission boundaries detected in the transcript."""
+        return [
+            turn for turn in detect_interviewer_turns(sentences or [])
+            if turn.get("hard_boundary")
+        ]
+
+    @classmethod
+    def _broadcast_boundary_between(cls, start, end, boundaries):
+        """Return a hard break overlapping ``start``–``end``, if one exists."""
+        for turn in boundaries or []:
+            boundary_start = float(turn.get("start_s", 0) or 0)
+            boundary_end = float(turn.get("end_s", boundary_start) or boundary_start)
+            if end > boundary_start + cls.BROADCAST_BOUNDARY_PAD_S and start < boundary_end - cls.BROADCAST_BOUNDARY_PAD_S:
+                return turn
+        return None
+
+    @staticmethod
+    def _first_sentence_after_boundary(sentences, boundary_end):
+        """Find the first transcript sentence after a return announcement."""
+        ordered = sorted(sentences or [], key=lambda item: float(item.get("start", 0) or 0))
+        for item in ordered:
+            start = float(item.get("start", 0) or 0)
+            if start + 0.25 < boundary_end:
+                continue
+            if classify_broadcast_boundary(str(item.get("text") or "")) is not None:
+                continue
+            return start
+        return None
+
+    @staticmethod
+    def _is_stabilized_response_opener(text):
+        """Recognize a generic verbal cue that the guest starts answering."""
+        normalized = " ".join(str(text or "").lower().split())
+        return bool(re.search(
+            r"\b(?:vou|vamos|a gente vai|eu vou)\b[^.!?]{0,44}"
+            r"\b(?:dar um exemplo|responder|explicar|mostrar|por partes|um a um|de um a um)\b"
+            r"|\b(?:primeiro|segundo|terceiro)\s+(?:ponto|exemplo|caso)\b",
+            normalized,
+        ))
+
+    @classmethod
+    def _stabilized_response_start(cls, sentences, after_s, before_s, minimum_start_s=None):
+        """Find a semantic response opener after repeated interviewer noise."""
+        ordered = sorted(sentences or [], key=lambda item: float(item.get("start", 0) or 0))
+        for item in ordered:
+            start = float(item.get("start", 0) or 0)
+            if start < after_s - 0.25 or start >= before_s:
+                continue
+            text = str(item.get("text") or "")
+            if classify_broadcast_boundary(text) is not None or is_interviewer_sentence(text):
+                continue
+            if cls._is_stabilized_response_opener(text):
+                normalized = " ".join(text.lower().split())
+                marker_positions = [
+                    normalized.find(marker)
+                    for marker in (
+                        "dar um exemplo", "responder", "explicar", "mostrar",
+                        "por partes", "um a um", "de um a um",
+                    )
+                    if normalized.find(marker) >= 0
+                ]
+                # "Por exemplo? ... eu vou dar um exemplo" is still the
+                # interrupted handover, not a stable opening. A cue with no
+                # question before it is the first self-directed explanation.
+                if marker_positions and "?" in normalized[:min(marker_positions)]:
+                    continue
+                if minimum_start_s is not None and start - minimum_start_s < cls.MIN_STABILIZED_OPENING_SHIFT_S:
+                    continue
+                return start
+        return None
+
+    def _evaluate_interview_boundaries(self, clips, sentences, emit_progress=None):
+        """Annotate question-only openings and unfinished/interrupted endings.
+
+        This is deliberately a review/defer pass, not a new ranking model. It
+        distinguishes a question at the start from a response that follows it,
+        and distinguishes an answer cut just before a new question from one cut
+        inside an interruption. A teaser mode is not enabled by default, so a
+        question-only candidate is deferred rather than rendered as a clip.
+        """
+        if not clips or not sentences:
+            return clips
+        turns = detect_interviewer_turns(sentences)
+        if not turns:
+            return clips
+
+        changed = 0
+        for clip in clips:
+            start = float(clip.get("start", 0) or 0)
+            end = float(clip.get("end", start) or start)
+            if end <= start:
+                continue
+            boundaries = [turn for turn in turns if turn.get("hard_boundary")]
+            crossed = self._broadcast_boundary_between(start, end, boundaries)
+            if crossed:
+                clip["contains_broadcast_break"] = True
+                self._add_review_reason(
+                    clip,
+                    "broadcast_break",
+                    "a janela ainda toca uma chamada ou retorno de intervalo",
+                )
+                changed += 1
+
+            visible_turns = [
+                turn for turn in turns
+                if not turn.get("hard_boundary")
+                and turn["start_s"] < end + 0.35
+                and turn["end_s"] > start - 0.35
+            ]
+            first_turn = visible_turns[0] if visible_turns else None
+            opening_sentence = next(
+                (
+                    sentence for sentence in sorted(
+                        sentences, key=lambda item: float(item.get("start", 0) or 0)
+                    )
+                    if abs(float(sentence.get("start", 0) or 0) - start) <= 0.75
+                ),
+                None,
+            )
+            opening_is_interviewer = bool(
+                opening_sentence
+                and is_interviewer_sentence(str(opening_sentence.get("text") or ""))
+            )
+            starts_with_question = bool(
+                first_turn
+                and first_turn["start_s"] <= start + 0.75
+                and (
+                    first_turn.get("asks_a_whole_question")
+                    or opening_is_interviewer
+                )
+            )
+            if starts_with_question:
+                last_question = first_turn
+                answer_words = 0
+                answer_start = None
+                question_end = float(last_question.get("question_end_s", last_question.get("end_s", 0)) or 0)
+                for sentence in sorted(sentences, key=lambda item: float(item.get("start", 0) or 0)):
+                    sentence_start = float(sentence.get("start", 0) or 0)
+                    sentence_end = float(sentence.get("end", sentence_start) or sentence_start)
+                    if sentence_end <= question_end or sentence_start >= end:
+                        continue
+                    if classify_broadcast_boundary(str(sentence.get("text") or "")) is not None:
+                        continue
+                    if is_interviewer_sentence(str(sentence.get("text") or "")):
+                        continue
+                    if answer_start is None:
+                        answer_start = sentence_start
+                    answer_words += len(str(sentence.get("text") or "").split())
+                clip["starts_with_interviewer_question"] = True
+                clip["answer_words_after_last_question"] = answer_words
+                clip["question_answer_substantial"] = answer_words >= self.MIN_SUBSTANTIAL_ANSWER_WORDS
+                clip["question_answer_complete"] = bool(
+                    clip.get("question_answer_complete") and answer_words >= self.MIN_ANSWER_WORDS
+                )
+                if answer_start is not None:
+                    clip["answer_start_after_question_s"] = round(answer_start, 3)
+                if answer_words < self.MIN_SUBSTANTIAL_ANSWER_WORDS:
+                    clip["starts_with_question_only"] = True
+                    clip["context_complete"] = False
+                    self._add_review_reason(
+                        clip,
+                        "starts_with_question_only",
+                        "a pergunta abre a janela, mas a resposta ainda não tem extensão substancial",
+                    )
+                    changed += 1
+
+            ending_turn = next(
+                (
+                    turn for turn in reversed(visible_turns)
+                    if turn["start_s"] < end - 0.35 < turn["end_s"] + 0.35
+                ),
+                None,
+            )
+            if ending_turn:
+                clip["ends_at_interviewer_turn"] = True
+                new_turn_inside_window = ending_turn["start_s"] > start + 0.75
+                interrupted = bool(ending_turn.get("interjection") or new_turn_inside_window)
+                code = "ending_interruption" if interrupted else "ends_at_interviewer_turn"
+                if interrupted:
+                    clip["ending_interruption"] = True
+                    clip["payoff_complete"] = False
+                    self._add_review_reason(
+                        clip,
+                        code,
+                        "o corte termina dentro de uma intervenção/pergunta nova antes do desfecho",
+                    )
+                else:
+                    self._add_review_reason(
+                        clip,
+                        code,
+                        "o corte termina dentro da retomada do entrevistador; confirme o fechamento no vídeo",
+                    )
+                changed += 1
+
+        if changed and emit_progress:
+            emit_progress(
+                f"[Fronteiras] {changed} candidato(s) receberam sinal de pergunta, intervalo ou interrupção para revisão.",
+                "info",
+            )
         return clips
 
     def _align_to_interview_turns(self, clips, sentences, emit_progress=None):
@@ -2514,13 +2794,16 @@ Retorne APENAS o JSON.
 
         turns = detect_interviewer_turns(sentences)
         span = max((float(item.get("end", 0) or 0) for item in sentences), default=0.0)
-        if not looks_like_an_interview(turns, span):
+        if not looks_like_an_interview(turns, span) and not any(
+            turn.get("hard_boundary") for turn in turns
+        ):
             return clips
 
         # A clip may end where the interviewer speaks — but not on an aside the
         # guest talks straight through, or it stops in the middle of the answer.
         seams = [turn["start_s"] for turn in turns if not turn["interjection"]]
         majors = [turn["start_s"] for turn in turns if turn["major"]]
+        broadcast_boundaries = [turn for turn in turns if turn.get("hard_boundary")]
         if not seams:
             return clips
 
@@ -2528,6 +2811,7 @@ Retorne APENAS o JSON.
             "interview_turns": len(turns),
             "interview_seams": len(seams),
             "interview_major_turns": len(majors),
+            "broadcast_break_count": len(broadcast_boundaries),
         })
 
         # Before the interviewer first addresses the guest, the broadcast is
@@ -2554,7 +2838,60 @@ Retorne APENAS o JSON.
                 kept.append(clip)
                 continue
             original_start, original_end = start, end
+            viable = max(self.min_duration, (original_end - original_start) * 0.5)
+            crossed_broadcast = None
+            candidate_dropped = False
 
+            # A break is not an ordinary major question. It is a region with no
+            # editorial answer, and a candidate must remain entirely on one side
+            # of it. If the original window starts in the call/vinheta, prefer the
+            # first real question after the return; if it starts before the call,
+            # keep the pre-break answer and trim its tail at the hard boundary.
+            for boundary in broadcast_boundaries:
+                boundary_start = float(boundary.get("start_s", 0) or 0)
+                boundary_end = float(boundary.get("end_s", boundary_start) or boundary_start)
+                if end <= boundary_start + self.BROADCAST_BOUNDARY_PAD_S:
+                    continue
+                if start >= boundary_end - self.BROADCAST_BOUNDARY_PAD_S:
+                    continue
+                crossed_broadcast = boundary
+                after_return = self._first_sentence_after_boundary(sentences, boundary_end)
+                if start < boundary_start - self.BROADCAST_BOUNDARY_PAD_S:
+                    end = min(end, boundary_start)
+                    side = "before_break"
+                else:
+                    if after_return is None:
+                        self._record_hard_negative(
+                            clip,
+                            "broadcast_break",
+                            details={"boundary_start": round(boundary_start, 3), "boundary_end": round(boundary_end, 3)},
+                        )
+                        dropped += 1
+                        candidate_dropped = True
+                        break
+                    start = max(start, after_return)
+                    side = "after_return"
+                if end - start < viable or end - start < self.min_duration:
+                    self._record_hard_negative(
+                        clip,
+                        "broadcast_break",
+                        details={
+                            "boundary_start": round(boundary_start, 3),
+                            "boundary_end": round(boundary_end, 3),
+                            "side": side,
+                            "remaining_duration": round(max(0.0, end - start), 3),
+                        },
+                    )
+                    dropped += 1
+                    candidate_dropped = True
+                    crossed_broadcast = None
+                    break
+            if candidate_dropped:
+                continue
+            if crossed_broadcast is not None:
+                self._candidate_diagnostics["broadcast_break_candidates_adjusted"] = int(
+                    self._candidate_diagnostics.get("broadcast_break_candidates_adjusted", 0) or 0
+                ) + 1
             if start < content_start - 0.5:
                 if end - content_start < max(self.min_duration, (end - start) * 0.5):
                     dropped += 1
@@ -2582,17 +2919,70 @@ Retorne APENAS o JSON.
             # carrying the tail of the previous answer — the "it started in the
             # middle of a sentence" complaint. There is no clip in those seconds,
             # so the clip starts at the question instead.
+            # If the window opens exactly on a short interviewer aside, do not
+            # publish the noisy handover as the hook. Advance to the first stable
+            # response cue only when it is materially later and leaves a viable
+            # answer. This is intentionally language-pattern based, never a
+            # timestamp for the Renan source.
+            entry_interjection = next(
+                (
+                    turn for turn in turns
+                    if turn.get("interjection")
+                    and turn["start_s"] - 0.75 <= start < turn["end_s"] + 0.25
+                ),
+                None,
+            )
+            stabilized_opening = False
+            if entry_interjection:
+                stable = self._stabilized_response_start(
+                    sentences,
+                    float(entry_interjection.get("end_s", start) or start),
+                    end,
+                    minimum_start_s=start,
+                )
+                if stable is not None and stable - start >= self.MIN_STABILIZED_OPENING_SHIFT_S:
+                    if end - stable >= self.min_duration:
+                        start = stable
+                        clip["opening_stabilized_after_interruption_s"] = round(
+                            stable - original_start, 3
+                        )
+                        clip["opening_source"] = "resposta estabilizada após intervenção"
+                        stabilized_opening = True
+                        self._candidate_diagnostics["stabilized_openings"] = int(
+                            self._candidate_diagnostics.get("stabilized_openings", 0) or 0
+                        ) + 1
+
             ahead = [seam for seam in majors if start < seam < start + self.min_duration]
             if ahead:
                 start = ahead[0]
 
-            # A subject change inside the window is not negotiable: the clip ends
-            # there even if that costs it the slot.
-            # Half of what the selector asked for. Below it the window is no
-            # longer the idea that was chosen, it is a leftover.
-            viable = max(self.min_duration, (original_end - original_start) * 0.5)
+            # Once a noisy aside has been replaced by a stable answer opener,
+            # the next identified whole question is a clean end for this answer.
+            # This trims the tail without claiming that the preceding answer was
+            # complete or deleting the next question's reusable inventory.
+            if stabilized_opening:
+                next_follow_up = next(
+                    (
+                        turn["start_s"] for turn in turns
+                        if not turn.get("hard_boundary")
+                        and turn.get("asks_a_whole_question")
+                        and turn["start_s"] >= start + self.min_duration
+                        and turn["start_s"] < end - 1.0
+                    ),
+                    None,
+                )
+                if next_follow_up is not None and next_follow_up - start >= self.min_duration:
+                    end = next_follow_up
+                    clip["ending_follow_up_boundary_s"] = round(next_follow_up, 3)
 
-            crossed = [seam for seam in majors if start + 1.0 < seam < end - 1.0]
+            # A subject change inside the window is not negotiable: the clip ends
+            # there even if that costs it the slot. A hard broadcast region was
+            # handled above and must not be reconsidered as an ordinary question.
+            crossed = [
+                seam for seam in majors
+                if start + 1.0 < seam < end - 1.0
+                and not any(abs(seam - float(boundary.get("start_s", 0) or 0)) < 0.05 for boundary in broadcast_boundaries)
+            ]
             if crossed:
                 # What is left of a window cut back at a change of subject is a
                 # stub: the idea it was chosen for lives on the other side of the
@@ -2630,7 +3020,14 @@ Retorne APENAS o JSON.
                 "start_shift_s": round(start - original_start, 2),
                 "end_shift_s": round(end - original_end, 2),
                 "crossed_subject_change": bool(crossed),
+                "crossed_broadcast_break": bool(crossed_broadcast),
             }
+            if crossed_broadcast:
+                self._add_review_reason(
+                    clip,
+                    "broadcast_break",
+                    "a borda foi ajustada para não atravessar uma chamada/retorno de intervalo",
+                )
             rebuilt = self._text_between(sentences, start, end)
             if rebuilt:
                 clip["text"] = rebuilt
@@ -3119,7 +3516,14 @@ Retorne APENAS o JSON.
                 if target == 0:
                     break
                 previous = ordered[target - 1]
-                if starts[target] - float(previous.get("end", 0) or 0) >= self.OPENING_PAUSE_S:
+                # Do not rewind across a broadcast gap. The return is a new
+                # editorial segment, even when the transcript has no silence.
+                crosses_broadcast = any(
+                    float(previous.get("end", 0) or 0) <= float(boundary.get("start_s", 0) or 0) + self.BROADCAST_BOUNDARY_PAD_S
+                    and float(item.get("start", 0) or 0) >= float(boundary.get("end_s", 0) or 0) - self.BROADCAST_BOUNDARY_PAD_S
+                    for boundary in self._broadcast_turns(ordered)
+                )
+                if crosses_broadcast or starts[target] - float(previous.get("end", 0) or 0) >= self.OPENING_PAUSE_S:
                     break
                 target -= 1
 
@@ -4676,6 +5080,19 @@ Retorne APENAS o JSON.
                 previous_duration = max(0.0, previous_end - previous_start)
                 same_start = abs(clip_start - previous_start) <= 0.75
                 same_end = abs(clip_end - previous_end) <= 0.75
+                clip_stabilized = bool(clip.get("opening_source") == "resposta estabilizada após intervenção")
+                previous_stabilized = bool(previous.get("opening_source") == "resposta estabilizada após intervenção")
+                if same_end and clip_stabilized != previous_stabilized:
+                    if clip_stabilized:
+                        self._record_candidate_relationship(
+                            previous, clip, "alternative_of", "stabilized_opening_preferred"
+                        )
+                        selected.remove(previous)
+                    else:
+                        duplicate = True
+                        duplicate_reason = "same_closing"
+                        existing = previous
+                    break
                 if not (same_start or same_end):
                     continue
                 nested = (
@@ -4716,8 +5133,14 @@ Retorne APENAS o JSON.
                     self._candidate_diagnostics["fallback_discarded_overlap"] = int(
                         self._candidate_diagnostics.get("fallback_discarded_overlap", 0) or 0
                     ) + 1
+                relation = "alternative_of" if duplicate_reason in {"same_opening", "same_closing"} else None
+                if relation and existing is not None:
+                    self._record_candidate_relationship(clip, existing, relation, duplicate_reason)
                 self._record_hard_negative(
-                    clip, f"duplicate_{duplicate_reason or 'same_opening'}", winner=existing
+                    clip,
+                    f"duplicate_{duplicate_reason or 'same_opening'}",
+                    winner=existing,
+                    details={"relation": relation} if relation else None,
                 )
                 self._registrar_descarte_por_sobreposicao(
                     clip, existing, duplicate_reason, 1.0, inedito_s=0.0

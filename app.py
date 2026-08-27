@@ -843,6 +843,8 @@ def _defer_context_incomplete_candidates(candidates):
             "starts_mid_sentence",
             "starts_with_context_reference",
             "question_requires_answer",
+            "starts_with_question_only",
+            "contains_broadcast_break",
             "payoff_weak_ending",
             "overlap_suspected",
             "timing_ambiguous",
@@ -868,6 +870,10 @@ def _defer_context_incomplete_candidates(candidates):
                 reasons.append("início possivelmente no meio da frase")
             if candidate.get("starts_with_context_reference"):
                 reasons.append("referência contextual sem antecedente recuperado")
+            if candidate.get("starts_with_question_only"):
+                reasons.append("pergunta de jornalista sem resposta substancial")
+            if candidate.get("contains_broadcast_break"):
+                reasons.append("chamada ou retorno de intervalo dentro da janela")
         if hard_technical_review:
             reasons.append("revisão técnica editorial obrigatória")
             reasons.extend(str(reason) for reason in technical_reasons if str(reason).strip())
