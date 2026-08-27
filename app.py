@@ -135,8 +135,11 @@ from modules.editorial_learning_store import (
     save_headline_generation,
     save_headline_decision,
     save_clip_decision,
+    save_disagreement_record,
+    load_disagreement_records,
     write_session_manifest,
 )
+from modules.editorial_disagreement import build_disagreement_record, summarize_records
 from modules.repository_sync import (
     RepositorySyncError,
     get_repository_status,
@@ -4084,10 +4087,13 @@ def api_cut_shorts():
                     0,
                     res.get("text", "")
                 )
+                persisted_factors = dict(clip_data.get("factors") or {})
+                if isinstance(clip_data.get("multimodal_editorial_review"), dict):
+                    persisted_factors["_multimodal_editorial_review"] = clip_data["multimodal_editorial_review"]
                 update_clip_editorial_score(
                     clip_id_by_index[i],
                     clip_data.get("editorial_potential_score", clip_data.get("viral_score", 0)),
-                    clip_data.get("factors", {}),
+                    persisted_factors,
                     clip_data.get("confidence", 0),
                     clip_data.get("editorial_score_version", "v1-explainable"),
                     review_flags=clip_data.get("review_flags", {}),
@@ -5296,10 +5302,13 @@ def api_process_complete():
                     res.get("text", "")
                 )
                 res["clip_id"] = clip_id
+                persisted_factors = dict(clip_data.get("factors") or {})
+                if isinstance(clip_data.get("multimodal_editorial_review"), dict):
+                    persisted_factors["_multimodal_editorial_review"] = clip_data["multimodal_editorial_review"]
                 update_clip_editorial_score(
                     clip_id,
                     clip_data.get("editorial_potential_score", clip_data.get("viral_score", 0)),
-                    clip_data.get("factors", {}),
+                    persisted_factors,
                     clip_data.get("confidence", 0),
                     clip_data.get("editorial_score_version", "v1-explainable"),
                     review_flags=clip_data.get("review_flags", {}),

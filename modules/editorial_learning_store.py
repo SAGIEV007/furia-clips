@@ -148,6 +148,52 @@ def save_clip_decision(
     return _append_jsonl(folder / "clip_decisions.jsonl", payload)
 
 
+def save_disagreement_record(
+    record: dict[str, Any],
+    *,
+    project_id=None,
+    clip_id=None,
+    root: str | os.PathLike[str] | None = None,
+) -> str:
+    """Append a sanitized disagreement record outside the repository."""
+    folder = session_dir(project_id, root=root)
+    payload = {
+        "recorded_at": datetime.now(timezone.utc).isoformat(),
+        "project_id": project_id,
+        "clip_id": clip_id,
+        "disagreement": record if isinstance(record, dict) else {},
+    }
+    return _append_jsonl(folder / "disagreement_matrix.jsonl", payload)
+
+
+def load_disagreement_records(
+    project_id=None,
+    *,
+    root: str | os.PathLike[str] | None = None,
+    limit: int = 200,
+) -> list[dict[str, Any]]:
+    """Read only the bounded matrix entries for one local project."""
+    folder = session_dir(project_id, root=root)
+    path = folder / "disagreement_matrix.jsonl"
+    if not path.is_file():
+        return []
+    try:
+        max_items = max(1, min(int(limit), 500))
+    except (TypeError, ValueError):
+        max_items = 200
+    result: list[dict[str, Any]] = []
+    with path.open("r", encoding="utf-8") as handle:
+        for line in handle:
+            try:
+                payload = json.loads(line)
+            except (TypeError, ValueError, json.JSONDecodeError):
+                continue
+            record = payload.get("disagreement") if isinstance(payload, dict) else None
+            if isinstance(record, dict):
+                result.append(record)
+    return result[-max_items:]
+
+
 def write_session_manifest(
     *,
     project_id=None,

@@ -6,6 +6,8 @@ from pathlib import Path
 from flask import Flask, jsonify
 
 import studio_adapter
+from modules.editorial_disagreement import build_disagreement_record, summarize_records
+from modules.editorial_learning_store import load_disagreement_records, save_disagreement_record
 
 
 def _make_runtime(tmp_path):
@@ -155,6 +157,10 @@ def _make_runtime(tmp_path):
         "PROGRAM_VERSION": "6.61",
         "PROGRAM_REVISION": "test",
         "feedback_calls": feedback_calls,
+        "build_disagreement_record": build_disagreement_record,
+        "save_disagreement_record": lambda record, project_id=None, clip_id=None: save_disagreement_record(record, project_id=project_id, clip_id=clip_id, root=tmp_path / "editorial-sessions"),
+        "load_disagreement_records": lambda project_id=None, limit=200: load_disagreement_records(project_id=project_id, limit=limit, root=tmp_path / "editorial-sessions"),
+        "summarize_records": summarize_records,
     }
     return runtime, get_db, create_project
 
@@ -196,6 +202,33 @@ def test_decision_forwards_rejection_reason(tmp_path):
     assert response.status_code == 200
     assert runtime["feedback_calls"][-1]["reason_code"] == "sem_payoff"
     assert runtime["feedback_calls"][-1]["note"] == "Falta a conclusão."
+
+
+def test_studio_decision_writes_and_reads_disagreement_matrix(tmp_path):
+    runtime, get_db, create_project = _make_runtime(tmp_path)
+    flask_app = Flask(__name__)
+    flask_app.add_url_rule("/api/projects", endpoint="api_list_projects", view_func=lambda: jsonify([]), methods=["GET"])
+    flask_app.add_url_rule("/api/projects/<int:project_id>", endpoint="api_get_project", view_func=lambda project_id: jsonify({}), methods=["GET"])
+    studio_adapter.register_studio_routes(flask_app, runtime)
+    project_id = create_project("Matriz", "")
+    with get_db() as connection:
+        cursor = connection.execute(
+            "INSERT INTO clips (project_id, start_time, end_time, duration, viral_score, score_factors, review_status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (project_id, 2.0, 9.0, 7.0, 88, json.dumps({"flow": 90, "_review_flags": {"context_complete": False}}), "pending"),
+        )
+        connection.commit()
+        clip_id = cursor.lastrowid
+    client = flask_app.test_client()
+    response = client.post(f"/api/clips/{clip_id}/decision", json={"decision": "approved", "reason_code": "excellent_context"})
+    assert response.status_code == 200
+    assert response.get_json()["disagreement"]["saved"] is True
+    matrix = client.get(f"/api/editorial/disagreements?project_id={project_id}")
+    assert matrix.status_code == 200
+    payload = matrix.get_json()
+    assert payload["summary"]["count"] == 1
+    assert payload["summary"]["discordance_counts"]["warning_human_approved"] == 1
+    assert payload["records"][0]["human"]["reason_code"] == "excellent_context"
+    assert payload["read_only"] is True
 
 
 def test_transcribe_route_reuses_saved_transcript_without_whisper(tmp_path):

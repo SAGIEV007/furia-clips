@@ -220,19 +220,62 @@ def register_studio_routes(flask_app, runtime):
         if decision not in {"approved", "rejected", "needs_review"}:
             return jsonify({"error": "Decisão inválida."}), 400
         try:
+            row = runtime["get_clip"](clip_id)
+            if not row:
+                return jsonify({"error": "Clip não encontrado."}), 404
             reason_code = str(payload.get("reason_code") or "").strip()[:48]
             quality_tags = payload.get("quality_tags") if isinstance(payload.get("quality_tags"), list) else []
+            note = str(payload.get("note") or "Decisão registrada na Revisão do Studio.")[:600]
             runtime["save_clip_feedback"](
                 clip_id,
                 decision,
-                note=str(payload.get("note") or "Decisão registrada na Revisão do Studio.")[:600],
+                note=note,
                 reason_code=reason_code,
                 quality_tags=quality_tags[:12],
             )
-            row = runtime["get_clip"](clip_id)
-            return jsonify(clip_payload(row))
+            matrix_saved = False
+            builder = runtime.get("build_disagreement_record")
+            saver = runtime.get("save_disagreement_record")
+            if builder and saver:
+                try:
+                    project_id = row.get("project_id")
+                    chub = _chub_summary(_get_meta(runtime, project_id).get("chub_context"))
+                    record = builder(
+                        row,
+                        {"action": decision, "reason_code": reason_code, "quality_tags": quality_tags, "note": note},
+                        project_context=chub,
+                    )
+                    saver(record, project_id=project_id, clip_id=clip_id)
+                    matrix_saved = True
+                except Exception as storage_error:
+                    # A matrix is auxiliary; a failure must never block the human decision.
+                    flask_app.logger.warning("Não foi possível registrar a matriz de discordância: %s", storage_error)
+            result = clip_payload(runtime["get_clip"](clip_id) or row)
+            result["disagreement"] = {"saved": matrix_saved, "schema_version": "editorial-disagreement-v1"}
+            return jsonify(result)
         except ValueError as exc:
             return jsonify({"error": str(exc)}), 400
+
+    @flask_app.route("/api/editorial/disagreements", methods=["GET"], endpoint="studio_disagreements")
+    def studio_disagreements():
+        loader = runtime.get("load_disagreement_records")
+        if not loader:
+            return jsonify({"records": [], "summary": {"status": "unavailable"}})
+        try:
+            project_id = request.args.get("project_id", type=int)
+            clip_id = request.args.get("clip_id", type=int)
+            limit = min(500, max(1, int(request.args.get("limit", 200))))
+        except (TypeError, ValueError):
+            return jsonify({"error": "Parâmetros de matriz inválidos."}), 400
+        records = loader(project_id=project_id, limit=limit) if project_id is not None else []
+        if clip_id is not None:
+            records = [
+                item for item in records
+                if isinstance(item.get("clip"), dict) and str(item["clip"].get("clip_id")) == str(clip_id)
+            ]
+        summarizer = runtime.get("summarize_records")
+        summary = summarizer(records, limit=limit) if summarizer else {"status": "unavailable"}
+        return jsonify({"records": records, "summary": summary, "read_only": True})
 
     @flask_app.route("/api/clips/<int:clip_id>/range", methods=["POST"], endpoint="studio_range")
     def studio_range(clip_id):

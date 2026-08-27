@@ -528,6 +528,14 @@ img { max-width: 100%; display: block; }
 .chub-clear { width: 18px; height: 18px; padding: 0; border: 1px solid var(--ink); background: var(--cream-light); box-shadow: 1px 1px 0 var(--ink); font: 700 13px/14px var(--mono); }
 .chub-clear:hover { background: var(--coral); }
 
+/* Editorial disagreement matrix: descriptive audit, never a score badge. */
+.disagreement-panel { margin: 12px 0 14px; padding: 10px; border: 1px solid var(--ink); background: rgba(255,255,255,.58); font: 600 10px/1.35 var(--mono); text-transform: uppercase; }
+.disagreement-panel p { margin: 6px 0; color: var(--muted, #555); font: 600 11px/1.35 var(--mono); text-transform: none; }
+.disagreement-panel small { display: block; margin-top: 5px; color: var(--ink); font: 700 9px/1.35 var(--mono); }
+.disagreement-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.disagreement-status { padding: 3px 5px; border: 1px solid var(--ink); background: var(--sun); font-size: 8px; }
+.disagreement-current { padding: 5px 6px; border-left: 3px solid var(--cyan); background: var(--cream); font-size: 9px; }
+
 
 /* Clip review controls: a physical editing strip, not a decorative timeline. */
 .review-controls { margin-top: 10px; padding: 9px; border: 1px solid var(--ink); background: var(--cream); }
