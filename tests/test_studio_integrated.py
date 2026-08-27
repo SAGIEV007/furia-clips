@@ -44,6 +44,8 @@ def test_studio_interactions_have_real_targets():
         'class="review-snap"',
         'snap_to_transcript',
         'reviewCount',
+        'A análise terminou sem encontrar cortes prontos.',
+        'Nenhum corte pronto nesta execução.',
     ):
         assert fragment in HTML or fragment in JS
 

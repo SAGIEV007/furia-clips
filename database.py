@@ -1122,6 +1122,38 @@ def save_transcription(
     return tid
 
 
+def reset_project_source_state(project_id):
+    """Remove editorial artifacts that belong to the source being replaced."""
+    conn = get_db()
+    try:
+        clip_ids = [row["id"] for row in conn.execute("SELECT id FROM clips WHERE project_id = ?", (project_id,)).fetchall()]
+        if clip_ids:
+            placeholders = ",".join("?" for _ in clip_ids)
+            for table in ("clip_feedback", "headline_feedback"):
+                conn.execute(f"DELETE FROM {table} WHERE clip_id IN ({placeholders})", clip_ids)
+        conn.execute("DELETE FROM clips WHERE project_id = ?", (project_id,))
+        conn.execute("DELETE FROM transcriptions WHERE project_id = ?", (project_id,))
+        project_columns = {row["name"] for row in conn.execute("PRAGMA table_info(projects)").fetchall()}
+        resets = {
+            "source_signature": "",
+            "processing_identity": "",
+            "source_start": None,
+            "source_end": None,
+            "processing_interval": "{}",
+            "transcription_provenance": "{}",
+            "transcript_digest": "",
+        }
+        assignments = [(column, value) for column, value in resets.items() if column in project_columns]
+        if assignments:
+            conn.execute(
+                "UPDATE projects SET " + ", ".join(f"{column} = ?" for column, _ in assignments) + " WHERE id = ?",
+                [value for _, value in assignments] + [project_id],
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def get_transcription(project_id):
     conn = get_db()
     row = conn.execute(

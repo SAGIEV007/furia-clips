@@ -689,10 +689,16 @@
       toast("O Studio está lendo a fonte…");
       await pollJob(job.jobId);
       state.activeProject = await api(`/api/projects/${state.activeProject.id}`);
+      const clipCount = state.activeProject.clips?.length || 0;
       state.activeClipId = state.activeProject.clips?.[0]?.id || null;
-      state.projectTab = "shortlist";
-      toast(`${state.activeProject.clips.length} cortes encontrados.`, "success");
-      appendConsole(`${state.activeProject.clips.length} cortes disponíveis para revisão humana.`, "success", "análise", `${job.jobId}:result`);
+      state.projectTab = clipCount ? "shortlist" : "analyze";
+      if (clipCount) {
+        toast(`${clipCount} cortes encontrados.`, "success");
+        appendConsole(`${clipCount} cortes disponíveis para revisão humana.`, "success", "análise", `${job.jobId}:result`);
+      } else {
+        toast("A análise terminou sem encontrar cortes prontos.", "default");
+        appendConsole("Nenhum corte pronto nesta execução. Confira a transcrição, a duração da fonte e tente ajustar o contexto editorial.", "warning", "análise", `${job.jobId}:no-cuts`);
+      }
       renderProjectScreen();
       await loadProjects();
     } catch (error) { if (!error.consoleLogged) appendConsole(error.message, "error", "análise", `analysis-error:${state.currentJobId || Date.now()}`); toast(error.message, "error"); }

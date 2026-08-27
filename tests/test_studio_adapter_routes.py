@@ -90,6 +90,12 @@ def _make_runtime(tmp_path):
     def save_transcription(project_id, segments, full_text, language, source, provenance=None):
         transcriptions[project_id] = {"segments": segments, "full_text": full_text, "language": language, "source": source}
 
+    def reset_project_source_state(project_id):
+        transcriptions.pop(project_id, None)
+        with get_db() as connection:
+            connection.execute("DELETE FROM clips WHERE project_id = ?", (project_id,))
+            connection.commit()
+
     def adjust_clip_bounds(candidate, start, end, transcript_segments=None, duration=None, min_duration=1.0, snap_tolerance=2.0):
         if end <= start or end - start < min_duration:
             raise ValueError("intervalo positivo")
@@ -123,6 +129,7 @@ def _make_runtime(tmp_path):
         "get_clip": get_clip,
         "create_project": create_project,
         "save_transcription": save_transcription,
+        "reset_project_source_state": reset_project_source_state,
         "get_transcription": lambda project_id: transcriptions.get(project_id, {}),
         "parse_transcript_text": studio_adapter.__dict__.get("parse_transcript_text") or __import__("modules.transcript_parser", fromlist=["parse_transcript_text"]).parse_transcript_text,
         "adjust_clip_bounds": adjust_clip_bounds,
@@ -175,6 +182,45 @@ def test_normalize_official_chub_mirror():
     assert normalized["scope"]["metric"] == "aggregate_reference"
 
 
+def test_reimport_clears_source_specific_state(tmp_path):
+    runtime, get_db, _create_project = _make_runtime(tmp_path)
+    flask_app = Flask(__name__)
+    flask_app.add_url_rule("/api/projects", endpoint="api_list_projects", view_func=lambda: jsonify([]), methods=["GET"])
+    flask_app.add_url_rule("/api/projects/<int:project_id>", endpoint="api_get_project", view_func=lambda project_id: jsonify({}), methods=["GET"])
+    studio_adapter.register_studio_routes(flask_app, runtime)
+    client = flask_app.test_client()
+    project_id = client.post("/api/projects", json={"name": "Troca de fonte"}).get_json()["id"]
+    first = client.post(
+        f"/api/projects/{project_id}/import",
+        data={"video": (io.BytesIO(b"first"), "first.mp4")},
+        content_type="multipart/form-data",
+    )
+    assert first.status_code == 200
+    srt = "1\n00:00:00,000 --> 00:00:04,000\nTranscript antigo.\n"
+    assert client.post(
+        f"/api/projects/{project_id}/transcript",
+        data={"transcript": (io.BytesIO(srt.encode("utf-8")), "old.srt")},
+        content_type="multipart/form-data",
+    ).status_code == 200
+    with get_db() as connection:
+        connection.execute(
+            "INSERT INTO clips (project_id, start_time, end_time, duration, transcript) VALUES (?, ?, ?, ?, ?)",
+            (project_id, 1.0, 3.0, 2.0, "Transcript antigo."),
+        )
+        connection.commit()
+    second = client.post(
+        f"/api/projects/{project_id}/import",
+        data={"video": (io.BytesIO(b"second"), "second.mp4")},
+        content_type="multipart/form-data",
+    )
+    assert second.status_code == 200
+    payload = second.get_json()
+    assert payload["filename"] == "second.mp4"
+    assert payload["transcriptCount"] == 0
+    assert payload["candidateCount"] == 0
+    assert payload["clips"] == []
+
+
 def test_adapter_routes_round_trip_without_private_media(tmp_path, monkeypatch):
     runtime, get_db, create_project = _make_runtime(tmp_path)
     flask_app = Flask(__name__)
@@ -212,6 +258,15 @@ def test_adapter_routes_round_trip_without_private_media(tmp_path, monkeypatch):
         )
         connection.commit()
         clip_id = cursor.lastrowid
+    rendered_path = tmp_path / "preliminary-render.mp4"
+    rendered_path.write_bytes(b"rendered")
+    with get_db() as connection:
+        connection.execute("UPDATE clips SET file_path = ? WHERE id = ?", (str(rendered_path), clip_id))
+        connection.commit()
+    pending_aggregate = studio_adapter._project_payload(project_id, runtime, lambda _path: "", lambda _path: 30.0, detail=False)
+    assert pending_aggregate["approvedCount"] == 0
+    assert pending_aggregate["exportedCount"] == 0
+    assert pending_aggregate["reviewCount"] == 1
 
     changed = client.post(f"/api/clips/{clip_id}/range", json={"start": 1.5, "end": 7.5})
     assert changed.status_code == 200

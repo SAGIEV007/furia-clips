@@ -91,6 +91,24 @@ class JobManagerTests(unittest.TestCase):
         finally:
             recovered.shutdown()
 
+    def test_new_manager_recovers_inactive_running_job(self):
+        created = self.manager.create("orphaned-on-startup")
+        self.manager.update(created["id"], state="running", stage="rendering", progress=15)
+        old_timestamp = datetime.fromtimestamp(time.time() - 3600, timezone.utc).isoformat()
+        connection = sqlite3.connect(self.db_path)
+        connection.execute("UPDATE jobs SET updated_at = ? WHERE id = ?", (old_timestamp, created["id"]))
+        connection.commit()
+        connection.close()
+
+        recovered = JobManager(self.db_path, max_workers=1)
+        try:
+            final = recovered.get(created["id"])
+            self.assertEqual(final["state"], "failed")
+            self.assertEqual(final["stage"], "stale_recovered")
+            self.assertEqual(final["error"], "stale_job_recovered")
+        finally:
+            recovered.shutdown()
+
     def test_reconcile_stale_running_job_marks_it_failed(self):
         created = self.manager.create("orphaned")
         self.manager.update(created["id"], state="running", stage="analysis", progress=40)

@@ -82,6 +82,10 @@ class JobManager:
         self._futures: Dict[str, Future] = {}
         self._lock = threading.RLock()
         self._init_db()
+        # A local app restart has no workers for jobs left in-flight by the
+        # previous process. Recover only inactive running jobs; queued jobs
+        # remain recoverable for the caller to resubmit explicitly.
+        self.reconcile_stale(max_age_seconds=60)
 
     def _connect(self):
         connection = sqlite3.connect(self.db_path, timeout=30)

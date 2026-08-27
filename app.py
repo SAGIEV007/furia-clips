@@ -85,7 +85,9 @@ from database import (
     init_db, get_db, get_all_settings, get_setting, set_setting,
     create_project, get_project, get_all_projects, update_project_status, update_project_processing_context,
     save_clip, get_clip, get_clips, update_clip_seo, update_clip_thumbnail,
-    get_existing_clip_fingerprints, save_transcription, get_transcription, log_action, source_signature,
+    get_existing_clip_fingerprints, save_transcription, get_transcription,
+    reset_project_source_state, log_action, source_signature,
+
     update_clip_editorial_score, save_clip_feedback, get_clip_feedback,
     update_clip_review_status, save_clip_adjustment, get_feedback_calibration, get_daily_editorial_progress,
     save_headline_feedback, get_headline_feedback_summary, get_headline_learning_preferences,

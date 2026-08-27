@@ -93,6 +93,9 @@ def register_studio_routes(flask_app, runtime):
             except OSError:
                 pass
             return jsonify({"error": "Não foi possível ler a duração do vídeo com FFprobe."}), 422
+        old_source = str(project.get("source_video") or "").strip()
+        if old_source:
+            _reset_source_state(runtime, project_id)
         with db() as conn:
             conn.execute(
                 "UPDATE projects SET name = ?, source_video = ?, status = 'pending', updated_at = ? WHERE id = ?",
@@ -401,6 +404,32 @@ def _ensure_meta_table(runtime):
         conn.close()
 
 
+def _reset_source_state(runtime, project_id):
+    """Invalidate source-specific state before replacing a project video."""
+    reset = runtime.get("reset_project_source_state")
+    if callable(reset):
+        reset(project_id)
+        return
+    conn = runtime["get_db"]()
+    try:
+        tables = {row["name"] for row in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'").fetchall()}
+        clip_ids = []
+        if "clips" in tables:
+            clip_ids = [row["id"] for row in conn.execute("SELECT id FROM clips WHERE project_id = ?", (project_id,)).fetchall()]
+        if clip_ids:
+            placeholders = ",".join("?" for _ in clip_ids)
+            for table in ("clip_feedback", "headline_feedback"):
+                if table in tables:
+                    conn.execute(f"DELETE FROM {table} WHERE clip_id IN ({placeholders})", clip_ids)
+        if "clips" in tables:
+            conn.execute("DELETE FROM clips WHERE project_id = ?", (project_id,))
+        if "transcriptions" in tables:
+            conn.execute("DELETE FROM transcriptions WHERE project_id = ?", (project_id,))
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def _save_meta(conn, project_id, updates):
     row = conn.execute("SELECT payload FROM studio_project_meta WHERE project_id = ?", (project_id,)).fetchone()
     payload = {}
@@ -451,8 +480,8 @@ def _project_payload(project_id, runtime, safe_url, duration_fn, detail=False):
         status = "empty"
     clip_count = len(raw_clips)
     clips = [_clip_payload(item, runtime, duration_fn) for item in raw_clips] if detail else []
-    approved_count = sum(1 for item in raw_clips if str(item.get("review_status") or "") == "approved" or (str(item.get("file_path") or "") and os.path.isfile(str(item.get("file_path")))))
-    exported_count = sum(1 for item in raw_clips if str(item.get("file_path") or "") and os.path.isfile(str(item.get("file_path"))))
+    approved_count = sum(1 for item in raw_clips if str(item.get("review_status") or "") == "approved")
+    exported_count = sum(1 for item in raw_clips if str(item.get("review_status") or "") == "approved" and str(item.get("file_path") or "") and os.path.isfile(str(item.get("file_path"))))
     review_count = sum(1 for item in raw_clips if str(item.get("review_status") or "pending") not in {"approved", "rejected"})
     result = {
         "id": project["id"],
