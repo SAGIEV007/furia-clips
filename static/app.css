@@ -1116,3 +1116,222 @@ textarea:focus-visible {
 .seo-loading { display: block; }
 .seo-loading { margin-bottom: 7px; padding: 6px 8px; border: 1px dashed var(--ink); background: var(--sun); font: 700 10px/1.35 var(--mono); }
 [aria-busy="true"] { cursor: progress; }
+
+/* Cycle 3 — usability guardrails: keep the retro paper language, but make the
+   working surfaces calm, readable and usable at keyboard/touch distances. */
+:root {
+  --ink-soft: #2d2825;
+  --focus-ink: #8f302a;
+}
+
+body {
+  color: var(--ink-soft);
+  text-rendering: optimizeLegibility;
+}
+
+button,
+input,
+select,
+textarea {
+  line-height: 1.35;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid var(--focus-ink);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 2px var(--cream-light);
+}
+
+.button,
+.system-button,
+.system-icon,
+.sort-button,
+.filter-pill,
+.project-tab,
+.clip-open,
+.small-decision,
+.review-actions button,
+.review-nav > button,
+.modal-close,
+.dock-item,
+.window-tray-item {
+  min-height: 40px;
+}
+
+.modal-close {
+  min-width: 34px;
+  padding: 6px 9px;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.settings-modal,
+.import-modal {
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.settings-body,
+.import-body {
+  color: var(--ink-soft);
+}
+
+.settings-fields input,
+.settings-fields select,
+.settings-fields textarea,
+.settings-section > label input,
+.settings-section > label select,
+.settings-section > label textarea,
+.transcript-search,
+#shortlistSort {
+  border-color: var(--ink-soft);
+  background: var(--cream-light);
+}
+
+.settings-fields input::placeholder,
+.settings-section > label input::placeholder,
+textarea::placeholder {
+  color: #5a514c;
+  opacity: 1;
+}
+
+.console-head-actions {
+  flex-wrap: wrap;
+}
+
+.console-line span,
+.console-line time,
+.console-line b,
+.project-card-title,
+.clip-content h3,
+.transcript-line p {
+  overflow-wrap: anywhere;
+}
+
+.empty-state {
+  min-height: 170px;
+  padding: 28px 18px;
+}
+
+.empty-state h3,
+.empty-state p {
+  max-width: 48ch;
+}
+
+@media (max-width: 780px) {
+  .desktop-shell {
+    padding-bottom: calc(124px + env(safe-area-inset-bottom));
+  }
+
+  .system-actions {
+    align-items: stretch;
+  }
+
+  .system-button,
+  .system-icon {
+    min-height: 42px;
+  }
+
+  .window-bar {
+    min-height: 38px;
+    padding: 7px 9px;
+  }
+
+  .window-bar-actions,
+  .console-head-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .console-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .console-head-actions .button {
+    flex: 1 1 auto;
+  }
+
+  .settings-modal,
+  .import-modal {
+    max-height: calc(100dvh - 16px);
+  }
+
+  .settings-section > label,
+  .settings-fields label {
+    gap: 7px;
+  }
+
+  .settings-section > label input,
+  .settings-section > label select,
+  .settings-section > label textarea,
+  .settings-fields input,
+  .settings-fields select,
+  .settings-fields textarea {
+    min-height: 42px;
+  }
+
+  .project-tabs {
+    scrollbar-width: thin;
+  }
+
+  .project-tab,
+  .filter-pill,
+  .sort-button {
+    min-height: 42px;
+  }
+
+  .empty-state {
+    min-height: 150px;
+    padding: 24px 14px;
+  }
+}
+
+@media (max-width: 440px) {
+  .system-actions {
+    gap: 4px;
+  }
+
+  .system-button {
+    padding-inline: 8px;
+    font-size: 10px;
+  }
+
+  .system-button b {
+    display: none;
+  }
+
+  .system-icon {
+    min-width: 42px;
+  }
+
+  .window-bar {
+    font-size: 10px;
+  }
+
+  .window-bar-actions {
+    align-items: stretch;
+  }
+
+  .filter-pills {
+    display: flex;
+    max-width: 100%;
+    overflow-x: auto;
+    padding-bottom: 2px;
+  }
+
+  .filter-pill,
+  .sort-button {
+    flex: 0 0 auto;
+  }
+
+  .console-head-actions .button {
+    min-width: 0;
+    padding-inline: 8px;
+  }
+}

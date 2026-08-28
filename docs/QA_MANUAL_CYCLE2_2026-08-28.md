@@ -35,3 +35,7 @@ A suíte focada em gates, fronteiras, divisão de segmentos, turnos de entrevist
 ## Regressão de integrações opcionais
 
 A suíte de Chub, memória histórica, vínculo de Acervo, batching e revisão Gemini, quota, espera, multimodalidade e backend auxiliar passou com **81 testes aprovados**. O resultado confirma o contrato esperado: Furia 1 local permanece o caminho canônico; Chub e Gemini continuam auxiliares e opt-in.
+
+## Verificação visual após o passe de legibilidade
+
+A Mesa recarregou corretamente após a atualização de CSS. Os controles Importar, Console, Ajustes, navegação inferior, contadores, estado vazio e janelas de trabalho continuam presentes em uma única instância. O layout desktop não apresentou quebra visível; as regras responsivas e os alvos de toque foram ampliados sem alterar o contrato do backend.
