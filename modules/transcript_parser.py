@@ -200,6 +200,7 @@ def parse_transcript_text(text: str, duration: float | None = None) -> dict:
     else:
         segments = _parse_timestamp_lines(raw)
 
+    segments, clock_offset = _shift_absolute_clock_if_needed(segments, duration)
     timeline_review = _timeline_review(segments)
     normalized = _normalize(_deduplicate_progressive_segments(segments), duration=duration)
     if not normalized:
@@ -209,6 +210,7 @@ def parse_transcript_text(text: str, duration: float | None = None) -> dict:
     review["timestamp_resets"] = timeline_review["timestamp_resets"]
     review["timestamp_reset_count"] = timeline_review["reset_count"]
     review["timeline_message"] = timeline_review["message"]
+    review["absolute_clock_offset_seconds"] = round(clock_offset, 3) if clock_offset else 0.0
     return {
         "segments": normalized,
         "full_text": " ".join(segment["text"] for segment in normalized),
@@ -252,6 +254,26 @@ def _parse_timestamp_lines(raw: str) -> list[dict]:
         if text:
             segments.append({"start": parse_timestamp(match.group("stamp")), "text": text})
 
+    # Tactiq exports can put the timestamp on its own line, followed by a
+    # speaker label and wrapped speech. Prefer these explicit blocks before
+    # falling back to inline timestamp discovery, because speech may mention
+    # clock-like values that are not segment boundaries.
+    timestamp_lines = []
+    raw_lines = raw.split("\n")
+    for line_index, line in enumerate(raw_lines):
+        match = TIMESTAMP_RE.match(line.strip())
+        if match:
+            timestamp_lines.append((line_index, match))
+    if len(timestamp_lines) > len(segments):
+        block_segments = []
+        for index, (line_index, match) in enumerate(timestamp_lines):
+            next_line = timestamp_lines[index + 1][0] if index + 1 < len(timestamp_lines) else len(raw_lines)
+            text = " ".join(item.strip() for item in raw_lines[line_index + 1:next_line] if item.strip()).strip()
+            if text:
+                block_segments.append({"start": parse_timestamp(match.group("stamp")), "text": text})
+        if len(block_segments) > len(segments):
+            segments = block_segments
+
     # Tactiq and copied captions sometimes arrive as one wrapped paragraph,
     # with timestamps inline instead of one timestamp per line.
     if len(segments) <= 1:
@@ -269,6 +291,45 @@ def _parse_timestamp_lines(raw: str) -> list[dict]:
             if len(inline_segments) > len(segments):
                 segments = inline_segments
     return segments
+
+
+def _shift_absolute_clock_if_needed(segments: list[dict], duration: float | None) -> tuple[list[dict], float]:
+    """Shift a recording clock only when it clearly exceeds the video timeline.
+
+    Some copied Tactiq transcripts use wall-clock timestamps (for example,
+    18:37:54) rather than offsets from the video start. We only correct this
+    when the format is plainly out of range and the span itself fits the video;
+    ordinary long videos whose content starts after one hour remain untouched.
+    """
+    if not segments or duration is None or duration <= 0:
+        return segments, 0.0
+    starts = [float(item.get("start", 0) or 0) for item in segments]
+    first = starts[0]
+    leading_last = first
+    for start in starts[1:]:
+        if start + 2.0 < leading_last:
+            break
+        leading_last = max(leading_last, start)
+    last = leading_last
+    span = last - first
+    looks_like_wall_clock = (
+        first >= 3600.0
+        and last > max(duration * 1.5, duration + 300.0)
+        and span <= max(duration * 1.25, 120.0)
+    )
+    if not looks_like_wall_clock:
+        return segments, 0.0
+    shifted = []
+    for item in segments:
+        raw_start = float(item.get("start", 0) or 0)
+        if raw_start < first - 2.0 or raw_start > last + 5.0:
+            continue
+        copy = dict(item)
+        copy["start"] = max(0.0, float(item.get("start", 0) or 0) - first)
+        if item.get("end") is not None:
+            copy["end"] = max(copy["start"], float(item.get("end", copy["start"]) or copy["start"]) - first)
+        shifted.append(copy)
+    return shifted, first
 
 
 def _parse_ranges(raw: str) -> list[dict]:
