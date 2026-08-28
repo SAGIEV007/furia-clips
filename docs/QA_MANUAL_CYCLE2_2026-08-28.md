@@ -39,3 +39,7 @@ A suíte de Chub, memória histórica, vínculo de Acervo, batching e revisão G
 ## Verificação visual após o passe de legibilidade
 
 A Mesa recarregou corretamente após a atualização de CSS. Os controles Importar, Console, Ajustes, navegação inferior, contadores, estado vazio e janelas de trabalho continuam presentes em uma única instância. O layout desktop não apresentou quebra visível; as regras responsivas e os alvos de toque foram ampliados sem alterar o contrato do backend.
+
+## Suíte completa após o ciclo
+
+A execução completa passou com **880 testes aprovados**, **27 ignorados** e **2 falhas esperadas (xfail)**, em 17,74 segundos. `git diff --check` também passou. Não foram adicionados dados privados, mídia, transcripts ou credenciais.
