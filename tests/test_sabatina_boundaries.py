@@ -194,3 +194,36 @@ def test_interrupted_answer_remains_renderable_for_human_review_when_context_is_
     assert deferred == []
     assert renderable == [candidate]
     assert candidate["review_required"] is True
+
+
+def test_fragmented_follow_up_question_is_not_left_at_the_end_of_a_clip():
+    """A new interviewer question must not enter the tail of the previous answer."""
+    selector = ClipSelector(min_duration=15, max_duration=180)
+    sentences = _talk([
+        (2096.78, 2098.78, "Candidato, eu gostaria de falar sobre direito ao voto."),
+        (2098.78, 2100.78, "Você não teria direito, por exemplo, ao voto?"),
+        (2100.78, 2104.78, "Se eu concorda com essa ideia, se eleito, o senhor promoveria alguma medida"),
+        (2104.78, 2108.78, "para restringir o direito ao voto do cidadão?"),
+        (2108.78, 2110.78, "Não, é sua opinião dele."),
+        (2110.78, 2115.18, "Eu nem sabia da opinião, mas se ele falou isso, é a opinião dele."),
+        (2115.18, 2117.18, "E por que Orlando Lima tem uma participação?"),
+        (2117.18, 2119.85, "tão destacada no seu programa de governo?"),
+        (2119.85, 2121.85, "Porque ele é um grande pesquisador."),
+        (2204.55, 2208.55, "O senhor respondeu à pergunta. Agora vamos falar de economia."),
+        (2208.55, 2212.55, "A dívida pública está hoje em 32% do PIB."),
+        (2212.55, 2220.55, "Para que percentual do PIB o senhor se compromete a trazer essa dívida?"),
+        (2220.55, 2230.55, "Nós vamos adotar medidas responsáveis e reduzir a trajetória da dívida."),
+        (2230.55, 2236.55, "Candidato, agora vamos falar sobre saúde pública."),
+        (2236.55, 2248.55, "Nós vamos ampliar o atendimento e melhorar a gestão."),
+        (2255.55, 2261.55, "Candidato, qual é a sua prioridade para educação?"),
+        (2261.55, 2274.55, "A prioridade é investir na base e acompanhar os resultados."),
+        (2280.55, 2286.55, "Candidato, para terminar, qual mensagem o senhor deixa?"),
+        (2286.55, 2298.55, "A mensagem é que o Brasil pode recuperar sua capacidade de planejamento."),
+    ])
+    clips = selector._align_to_interview_turns(
+        [{"start": 2096.78, "end": 2117.18, "text": "..."}], sentences
+    )
+    assert len(clips) == 1
+    assert clips[0]["end"] <= 2115.18
+    assert clips[0]["end"] - clips[0]["start"] >= selector.min_duration
+    assert clips[0]["turn_aligned"]["end_shift_s"] < 0

@@ -607,6 +607,17 @@ def _clip_payload(row, runtime, duration_fn):
         reasons = ["gancho editorial", "fala contínua", "sinais locais"]
     review = str(row.get("review_status") or "pending")
     status = {"pending": "suggested", "needs_review": "suggested", "approved": "approved", "rejected": "rejected"}.get(review, "suggested")
+    review_flags = row.get("review_flags") if isinstance(row.get("review_flags"), dict) else _json_object(row.get("review_flags"))
+    if not review_flags and isinstance(factors.get("_review_flags"), dict):
+        review_flags = dict(factors.get("_review_flags") or {})
+    review_codes = [str(item).strip()[:80] for item in _json_list(review_flags.get("review_reason_codes")) if str(item).strip()]
+    review_reasons = [str(item).strip()[:240] for item in _json_list(review_flags.get("review_reasons")) if str(item).strip()]
+    starts_with_question_only = bool(row.get("starts_with_question_only") or review_flags.get("starts_with_question_only"))
+    ending_interruption = bool(row.get("ending_interruption") or review_flags.get("ending_interruption"))
+    if starts_with_question_only and "starts_with_question_only" not in review_codes:
+        review_codes.append("starts_with_question_only")
+    if ending_interruption and "ending_interruption" not in review_codes:
+        review_codes.append("ending_interruption")
     export_path = row.get("export_path") or ""
     if export_path and os.path.isfile(str(export_path)) and review == "approved":
         status = "exported"
@@ -649,6 +660,17 @@ def _clip_payload(row, runtime, duration_fn):
         "sourceVideo": source,
         "scoreFactors": factors,
         "confidence": float(row.get("score_confidence") or 0),
+        "reviewFlags": review_flags,
+        "review_flags": review_flags,
+        "reviewReasonCodes": review_codes[:12],
+        "review_reason_codes": review_codes[:12],
+        "reviewReasons": review_reasons[:12],
+        "review_reasons": review_reasons[:12],
+        "startsWithQuestionOnly": starts_with_question_only,
+        "starts_with_question_only": starts_with_question_only,
+        "endingInterruption": ending_interruption,
+        "ending_interruption": ending_interruption,
+        "reviewRequired": review != "approved" or bool(review_codes),
         "editorialKey": row.get("editorial_key") or "",
         "editorialBlock": block,
     }

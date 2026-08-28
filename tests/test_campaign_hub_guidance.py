@@ -87,14 +87,33 @@ def test_public_selector_marks_guided_origin_and_keeps_provenance():
         settings={
             "campaign_hub_snapshot": _snapshot(),
             "campaign_hub_account": "@renansantosmbl",
+            "campaign_hub_guided_selection": True,
             "editorial_context": {},
         },
     )
-
     guided = [clip for clip in clips if clip.get("source") == "campaign_hub_guided"]
     assert guided
     assert guided[0]["candidate_origin"] == "campaign_hub_guided"
     assert guided[0]["campaign_hub"]["provenance"]["highlight_id"] == "highlight-1"
+
+
+def test_public_selector_keeps_chub_as_descriptive_memory_by_default():
+    selector = ClipSelector(min_duration=8, max_duration=180, max_clips=5)
+    clips = selector.select_clips(
+        {"segments": _sentences()},
+        settings={
+            "campaign_hub_snapshot": _snapshot(),
+            "campaign_hub_account": "@renansantosmbl",
+            "editorial_context": {},
+        },
+    )
+    assert clips
+    assert all(clip.get("source") != "campaign_hub_guided" for clip in clips)
+    diagnostics = selector.get_candidate_diagnostics()
+    assert diagnostics["campaign_hub_discovery_count"] == 1
+    assert diagnostics["campaign_hub_publishable_guided_count"] == 0
+    assert diagnostics["campaign_hub_guided_selection_enabled"] is False
+
 
 
 def test_real_campaign_hub_block_shape_becomes_auditable_seeds():

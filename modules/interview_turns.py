@@ -212,10 +212,37 @@ def detect_interviewer_turns(sentences: list[dict[str, Any]]) -> list[dict[str, 
     if not ordered:
         return []
 
+    def likely_question_continuation(index: int) -> bool:
+        """Recognize an unlabelled question when a nearby line confirms the interviewer.
+
+        Imported captions often split one interviewer question into several short
+        lines. A line such as ``ao voto do cidadão?`` has no vocative by itself,
+        while the next line may contain ``seu programa`` and clearly identify the
+        same interviewer turn. Guest rhetorical questions are not promoted unless
+        a nearby sentence supplies that independent interviewer evidence.
+        """
+        text = str(ordered[index].get("text") or "")
+        if not is_a_whole_question(text):
+            return False
+        current_end = float(ordered[index].get("end", 0) or 0)
+        for following in ordered[index + 1:index + 4]:
+            following_start = float(following.get("start", 0) or 0)
+            if following_start - current_end > _TURN_GAP_SECONDS:
+                break
+            following_text = str(following.get("text") or "")
+            if classify_broadcast_boundary(following_text) is not None:
+                break
+            if is_interviewer_sentence(following_text):
+                return True
+            if len(following_text.split()) > 6 and not is_a_whole_question(following_text):
+                break
+        return False
+
     flagged = [
         index for index, item in enumerate(ordered)
         if is_interviewer_sentence(item["text"])
         or classify_broadcast_boundary(item["text"]) is not None
+        or likely_question_continuation(index)
     ]
     if not flagged:
         return []
@@ -272,6 +299,23 @@ def detect_interviewer_turns(sentences: list[dict[str, Any]]) -> list[dict[str, 
         tail = last if has_broadcast else min(len(ordered) - 1, last + 1)
         spoken = " ".join(str(ordered[i].get("text") or "") for i in range(first, last + 1))
         text = " ".join(str(ordered[i].get("text") or "") for i in range(first, tail + 1))
+        # A question can occupy several caption lines after the last line that
+        # carries a lexical interviewer marker. Extend only an already flagged
+        # interviewer group, and only until its next question mark; a normal
+        # guest answer after a complete question is therefore left untouched.
+        question_tail = last
+        if not has_broadcast and any(is_interviewer_sentence(ordered[i]["text"]) for i in group):
+            probe = last
+            joined = spoken
+            while "?" not in joined and probe < len(ordered) - 1 and probe - last < 3:
+                probe += 1
+                probe_text = str(ordered[probe].get("text") or "")
+                if classify_broadcast_boundary(probe_text) is not None:
+                    break
+                joined = f"{joined} {probe_text}".strip()
+                if "?" in joined:
+                    question_tail = probe
+                    break
         # Only the sentences actually recognised as the interviewer's count
         # towards the length: the sentence after them is usually the guest
         # already answering, and including it inflates every short aside into a
@@ -281,7 +325,10 @@ def detect_interviewer_turns(sentences: list[dict[str, Any]]) -> list[dict[str, 
         # Measured on what the interviewer actually said, never on the tail
         # sentence — that one is usually the guest already answering, and its
         # punctuation would speak for a turn it does not belong to.
-        question = is_a_whole_question(spoken) if not has_broadcast else False
+        question = (
+            (is_a_whole_question(spoken) or is_a_whole_question(text))
+            if not has_broadcast else False
+        )
         break_start = any(
             item in {"break_start", "break_start_and_return"}
             for item in broadcast_items
@@ -296,7 +343,9 @@ def detect_interviewer_turns(sentences: list[dict[str, Any]]) -> list[dict[str, 
             # ``end_s`` may include the first guest sentence used as a
             # punctuation tail. Keep the actual flagged-speaker end separate
             # for answer-length and interruption diagnostics.
-            "question_end_s": round(float(ordered[last].get("end", 0) or 0), 3),
+            "question_end_s": round(float(
+                ordered[question_tail if question and question_tail > last else last].get("end", 0) or 0
+            ), 3),
             "words": words,
             "changes_subject": bool(shift or has_broadcast),
             "asks_a_whole_question": question,

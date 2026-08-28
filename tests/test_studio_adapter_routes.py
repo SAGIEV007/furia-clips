@@ -493,3 +493,28 @@ def test_chub_summary_exposes_provenance_without_exposing_raw_memory():
     assert summary["recordCounts"]["blocks"] == 19
     assert summary["readOnly"] is True
     assert summary["scoreTechnical"] is False
+
+
+def test_clip_payload_exposes_boundary_review_flags_without_changing_score(tmp_path):
+    runtime, get_db, create_project = _make_runtime(tmp_path)
+    project_id = create_project("Flags editoriais", str(tmp_path / "source.mp4"))
+    flags = {
+        "starts_with_question_only": True,
+        "ending_interruption": True,
+        "review_reason_codes": ["starts_with_question_only", "ending_interruption"],
+        "review_reasons": ["pergunta sem resposta substancial", "final dentro de intervenção"],
+    }
+    with get_db() as connection:
+        connection.execute(
+            "INSERT INTO clips (project_id, start_time, end_time, duration, viral_score, score_factors) VALUES (?, ?, ?, ?, ?, ?)",
+            (project_id, 2.0, 18.0, 16.0, 77, json.dumps({"hook": 88, "_review_flags": flags})),
+        )
+        connection.commit()
+    payload = studio_adapter._project_payload(project_id, runtime, lambda _path: "", lambda _path: 30.0, detail=True)
+    clip = payload["clips"][0]
+    assert clip["score"] == 77
+    assert clip["startsWithQuestionOnly"] is True
+    assert clip["endingInterruption"] is True
+    assert clip["reviewReasonCodes"] == ["starts_with_question_only", "ending_interruption"]
+    assert clip["reviewReasons"] == ["pergunta sem resposta substancial", "final dentro de intervenção"]
+    assert clip["reviewFlags"]["starts_with_question_only"] is True

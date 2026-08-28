@@ -29,6 +29,7 @@ def test_gemini_prompt_marks_editor_transcript_as_canonical():
     assert "TRANSCRIÇÃO CANÔNICA FORNECIDA PELO EDITOR" in prompt
     assert "Não tenham medo" in prompt
     assert "não substitua a timeline" in prompt
+    assert prompt.count("[00:08:10.000] Não tenham medo.") == 1
 
 
 def test_gemini_video_analyzer_extracts_non_thought_text():
@@ -182,4 +183,23 @@ def test_gemini_proxy_does_not_start_ffmpeg_after_deadline(monkeypatch):
     except GeminiVideoError as exc:
         assert "limite total" in str(exc)
     else:
-        raise AssertionError("o proxy ignorou o deadline")
+        raise AssertionError("o deadline ignorou o limite")
+
+
+def test_gemini_recovers_only_complete_top_level_fields_from_truncated_json():
+    text = '{"source_identity":{"status":"validated","confidence":0.9},"global_description":"entrevista","focus_windows":[{"start":"00:10"'
+    parsed = GeminiVideoAnalyzer._parse_complete_top_level_fields(text)
+    assert parsed == {
+        "source_identity": {"status": "validated", "confidence": 0.9},
+        "global_description": "entrevista",
+    }
+
+
+def test_gemini_does_not_recover_non_json_truncation():
+    import json
+    try:
+        GeminiVideoAnalyzer._parse_complete_top_level_fields("resposta incompleta")
+    except json.JSONDecodeError:
+        pass
+    else:
+        raise AssertionError("texto sem propriedades JSON não deveria ser recuperado")

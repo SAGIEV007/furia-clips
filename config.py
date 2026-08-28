@@ -168,6 +168,9 @@ DEFAULT_SETTINGS = {
     "editorial_profile": "renan_santos_politics",
     "editorial_profile_label": "Cortes politicos — Renan Santos/MBL",
     "campaign_hub_account": "@renansantosmbl",
+    # O snapshot histórico explica e desempata; propostas do Acervo só entram
+    # no pool quando o editor opta explicitamente por isso.
+    "campaign_hub_guided_selection": False,
     "editorial_focus": "auto",
     "gemini_manual_video_analysis": False,
     "political_audio_policy": "voice_and_ambience",

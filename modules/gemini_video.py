@@ -69,6 +69,7 @@ class GeminiVideoAnalyzer:
                 emit_progress,
                 cancel_check,
                 timeout=min(espera, self._remaining_budget(deadline)),
+                deadline=deadline,
             )
             self._check_budget(deadline)
             self._wait_until_active(
@@ -90,7 +91,7 @@ class GeminiVideoAnalyzer:
                 }],
                 "generationConfig": {
                     "temperature": 0.2,
-                    "maxOutputTokens": 8192,
+                    "maxOutputTokens": 4096,
                     "responseMimeType": "application/json",
                 },
             }
@@ -108,14 +109,27 @@ class GeminiVideoAnalyzer:
             text = self._extract_text(payload)
             if not text:
                 raise GeminiVideoError("Gemini não retornou conteúdo multimodal")
+            parsed = None
+            partial_response = False
+            cleaned_text = self._strip_fence(text)
             try:
-                parsed = json.loads(text)
-            except json.JSONDecodeError:
-                parsed = json.loads(self._strip_fence(text))
+                parsed = json.loads(cleaned_text)
+            except json.JSONDecodeError as strict_error:
+                try:
+                    parsed = self._parse_complete_top_level_fields(cleaned_text)
+                    partial_response = True
+                    if emit_progress:
+                        emit_progress(
+                            "[Gemini] Resposta JSON truncada; somente campos completos serão usados como evidência auxiliar.",
+                            "warning",
+                        )
+                except json.JSONDecodeError:
+                    raise strict_error
             if not isinstance(parsed, dict):
                 raise GeminiVideoError("Resposta multimodal fora do formato esperado")
             parsed["source"] = "gemini_video"
             parsed["model"] = self.model
+            parsed["partial_response"] = partial_response
             parsed["analysis_input"] = analysis_meta
             identity = parsed.get("source_identity") if isinstance(parsed.get("source_identity"), dict) else {}
             raw_status = str(identity.get("status") or "unverified").strip().lower()
@@ -204,8 +218,8 @@ class GeminiVideoAnalyzer:
         return int(min(cls.MULTIMODAL_TOTAL_MAX_S, max(cls.MULTIMODAL_TOTAL_MIN_S, estimado)))
 
     @staticmethod
-    def _remaining_budget(deadline: float) -> int:
-        return max(0, int(deadline - time.monotonic()))
+    def _remaining_budget(deadline: float) -> float:
+        return max(0.0, deadline - time.monotonic())
 
     @classmethod
     def _check_budget(cls, deadline: float) -> None:
@@ -254,7 +268,7 @@ class GeminiVideoAnalyzer:
                 progress_label="Compactação multimodal",
                 timeout_seconds=min(
                     cls._proxy_timeout(duration),
-                    max(1, cls._remaining_budget(deadline)) if deadline is not None else cls._proxy_timeout(duration),
+                    max(0.1, cls._remaining_budget(deadline)) if deadline is not None else cls._proxy_timeout(duration),
                 ),
                 heartbeat_prefix="Gemini",
             )
@@ -286,7 +300,7 @@ class GeminiVideoAnalyzer:
             response = self.session.post(
                 endpoint,
                 json=request_payload,
-                timeout=min(timeout or self.ANALYSIS_TIMEOUT_MIN_S, remaining) if remaining is not None else (timeout or self.ANALYSIS_TIMEOUT_MIN_S),
+                timeout=min(float(timeout or self.ANALYSIS_TIMEOUT_MIN_S), remaining) if remaining is not None else float(timeout or self.ANALYSIS_TIMEOUT_MIN_S),
             )
             last_response = response
             if response.status_code == 200:
@@ -301,7 +315,7 @@ class GeminiVideoAnalyzer:
                 )
             backoff = min(2 ** (attempt - 1), 8) + random.uniform(0.0, 0.5)
             if deadline is not None:
-                backoff = min(backoff, max(0, self._remaining_budget(deadline)))
+                backoff = min(backoff, max(0.0, self._remaining_budget(deadline)))
             self._sleep_with_cancel(backoff, cancel_check)
         raise GeminiVideoError(
             f"Gemini retornou HTTP {last_response.status_code}: {self._error_text(last_response)}"
@@ -318,10 +332,15 @@ class GeminiVideoAnalyzer:
                 return
             time.sleep(min(0.5, remaining))
 
-    def _upload_file(self, path: Path, mime_type: str, emit_progress=None, cancel_check=None, timeout: int | None = None) -> dict:
+    def _upload_file(self, path: Path, mime_type: str, emit_progress=None, cancel_check=None, timeout: int | None = None, deadline: float | None = None) -> dict:
         if cancel_check:
             cancel_check()
+        if deadline is not None:
+            self._check_budget(deadline)
         size = path.stat().st_size
+        start_timeout = float(timeout or self.ANALYSIS_TIMEOUT_MIN_S)
+        if deadline is not None:
+            start_timeout = min(start_timeout, self._remaining_budget(deadline))
         start = self.session.post(
             f"{self.base_url}/upload/v1beta/files",
             headers={
@@ -332,7 +351,7 @@ class GeminiVideoAnalyzer:
                 "Content-Type": "application/json",
             },
             json={"file": {"display_name": path.name}},
-            timeout=min(60, max(1, int(timeout or self.ANALYSIS_TIMEOUT_MIN_S))),
+            timeout=min(60.0, max(0.1, start_timeout)),
         )
         if start.status_code not in {200, 201}:
             raise GeminiVideoError(f"Falha ao iniciar upload: HTTP {start.status_code}")
@@ -342,6 +361,11 @@ class GeminiVideoAnalyzer:
 
         if cancel_check:
             cancel_check()
+        if deadline is not None:
+            self._check_budget(deadline)
+        upload_timeout = float(timeout or self.ANALYSIS_TIMEOUT_MIN_S)
+        if deadline is not None:
+            upload_timeout = min(upload_timeout, self._remaining_budget(deadline))
         with path.open("rb") as handle:
             upload = self.session.post(
                 upload_url,
@@ -352,10 +376,12 @@ class GeminiVideoAnalyzer:
                     "Content-Type": mime_type,
                 },
                 data=handle,
-                timeout=timeout or self.ANALYSIS_TIMEOUT_MIN_S,
+                timeout=max(0.1, upload_timeout),
             )
         if cancel_check:
             cancel_check()
+        if deadline is not None:
+            self._check_budget(deadline)
         if upload.status_code not in {200, 201}:
             raise GeminiVideoError(f"Falha ao enviar vídeo: HTTP {upload.status_code}")
         if emit_progress:
@@ -368,14 +394,14 @@ class GeminiVideoAnalyzer:
         if timeout_seconds is None:
             timeout = self.ACTIVE_WAIT_MAX_S
         else:
-            timeout = min(self.ACTIVE_WAIT_MAX_S, max(1, int(timeout_seconds)))
+            timeout = min(self.ACTIVE_WAIT_MAX_S, max(0.1, float(timeout_seconds)))
         deadline = time.monotonic() + timeout
         attempt = 0
         while time.monotonic() < deadline:
             if cancel_check:
                 cancel_check()
-            remaining = max(1, int(deadline - time.monotonic()))
-            result = self.session.get(f"{self.base_url}/v1beta/{file_name}", timeout=min(30, remaining))
+            remaining = max(0.1, deadline - time.monotonic())
+            result = self.session.get(f"{self.base_url}/v1beta/{file_name}", timeout=min(30.0, remaining))
             if result.status_code != 200:
                 raise GeminiVideoError(f"Falha ao consultar arquivo: HTTP {result.status_code}")
             payload = result.json()
@@ -388,7 +414,8 @@ class GeminiVideoAnalyzer:
                 emit_progress(f"[Gemini] Processando vídeo online (limite {timeout}s)...", "info")
             attempt += 1
             self._sleep_with_cancel(min(5, max(0, deadline - time.monotonic())), cancel_check)
-        raise GeminiVideoError(f"Tempo limite de {timeout}s aguardando processamento do vídeo no Gemini")
+        timeout_label = int(timeout) if float(timeout).is_integer() else round(timeout, 1)
+        raise GeminiVideoError(f"Tempo limite de {timeout_label}s aguardando processamento do vídeo no Gemini")
 
     @staticmethod
     def _build_prompt(editorial_context: dict, user_context: str) -> str:
@@ -406,6 +433,8 @@ class GeminiVideoAnalyzer:
         )
         transcript_reference = str(editorial_context.get("transcript_reference", "") or "").strip()
         analysis_input = editorial_context.get("analysis_input") if isinstance(editorial_context.get("analysis_input"), dict) else {}
+        prompt_context = dict(editorial_context)
+        prompt_context.pop("transcript_reference", None)
         transcript_block = (
             "\nTRANSCRIÇÃO CANÔNICA FORNECIDA PELO EDITOR:\n"
             f"{transcript_reference}\n"
@@ -413,13 +442,13 @@ class GeminiVideoAnalyzer:
             if transcript_reference else ""
         )
         return f"""Você é um analista audiovisual e {role}.
-Analise o vídeo inteiro usando áudio e imagem, sem inventar fatos externos. O objetivo é preparar uma etapa posterior de corte, não escrever legendas.
+Analise o vídeo inteiro usando áudio e imagem, sem inventar fatos externos. O objetivo é preparar uma etapa posterior de corte, não escrever legendas. A seleção e o score continuam sendo do Furia 1; sua resposta é somente evidência auxiliar.
 
 Identidade esperada da fonte e do foco editorial:
 {json.dumps({'source_file_name': editorial_context.get('source_file_name', ''), 'expected_focus': editorial_context.get('focus', 'generic_political')}, ensure_ascii=False)}
 
 Contexto determinístico já extraído da transcrição:
-{json.dumps(editorial_context, ensure_ascii=False)[:12000]}
+{json.dumps(prompt_context, ensure_ascii=False)[:12000]}
 
 Instrução opcional do editor:
 {user_context or default_instruction}
@@ -431,7 +460,7 @@ Entregue apenas JSON neste formato:
 {{
   "source_identity": {{"status": "validated|mismatch|unverified", "observed_title_or_program": "...", "primary_subject": "...", "evidence": "...", "confidence": 0.0}},
   "global_description": "descrição objetiva do programa, entrevista e assuntos",
-  "transcript_segments": [{{"start": "MM:SS", "end": "MM:SS", "text": "fala literal ou fiel ao áudio", "speaker": "Renan|mediador|convidado|desconhecido", "is_question": false}}],
+  "transcript_segments": [],
   "focus_windows": [{{"start": "MM:SS", "end": "MM:SS", "reason": "...", "confidence": 0.0}}],
   "speaker_observations": [{{"window": "MM:SS-MM:SS", "speaker_role": "Renan|mediador|convidado|desconhecido", "evidence": "...", "confidence": 0.0}}],
   "qa_moments": [{{"start": "MM:SS", "end": "MM:SS", "question_present": true, "answer_present": true, "renan_focus": true, "overlap_suspected": false, "reason": "...", "confidence": 0.0}}],
@@ -441,7 +470,7 @@ Entregue apenas JSON neste formato:
   "analysis_confidence": 0.0
 }}
 
-Timestamps devem usar MM:SS. Gere segmentos suficientes para a seleção editorial, sem inventar falas. Não afirme reconhecimento perfeito de voz. Marque como desconhecido quando houver dúvida. Preserve a pergunta quando ela for necessária para entender a resposta. Antes de usar qualquer observação visual como evidência, compare o programa e o sujeito observados com a identidade esperada; se não puder confirmar, use source_identity.status=unverified. Se identificar fonte incompatível, use mismatch e não trate o restante como evidência de treinamento.
+Timestamps devem usar MM:SS. Não repita a transcrição integral nem gere transcript_segments: a transcrição canônica já foi fornecida ao Furia local. Concentre a resposta em focus_windows, speaker_observations, qa_moments, audio_visual_signals e visual_observations, com poucas janelas realmente úteis. Não invente falas ou timestamps. Não afirme reconhecimento perfeito de voz. Marque como desconhecido quando houver dúvida. Preserve a pergunta apenas dentro de qa_moments quando ela for necessária para entender a resposta. Antes de usar qualquer observação visual como evidência, compare o programa e o sujeito observados com a identidade esperada; se não puder confirmar, use source_identity.status=unverified. Se identificar fonte incompatível, use mismatch e não trate o restante como evidência de treinamento.
 
 Para visual_observations, registre apenas sinais realmente visíveis no intervalo: painel de headline incorporado, post social/fake tweet, montagem/arte composta, split-screen, evidência externa ou palco. Não use o texto da transcrição como prova visual. Quando houver dúvida, use visual_format=desconhecido e confidence baixa. Composição com post, reação, entrevistado ou palco deve ser preservada; não recomende crop centrado em uma única face nesses casos."""
 
@@ -462,6 +491,57 @@ Para visual_observations, registre apenas sinais realmente visíveis no interval
             if value.rstrip().endswith("```"):
                 value = value.rstrip()[:-3]
         return value.strip()
+
+    @staticmethod
+    def _parse_complete_top_level_fields(text: str) -> dict:
+        """Recover only complete top-level JSON properties from a truncated object.
+
+        This parser never guesses a value: if a property value is incomplete, it
+        stops and returns the properties already decoded by ``JSONDecoder``.
+        """
+        value = str(text or "").strip()
+        start = value.find("{")
+        if start < 0:
+            raise json.JSONDecodeError("JSON object not found", value, 0)
+        decoder = json.JSONDecoder()
+        position = start + 1
+        parsed = {}
+        while True:
+            while position < len(value) and value[position].isspace():
+                position += 1
+            if position >= len(value):
+                break
+            if value[position] == "}":
+                return parsed
+            if value[position] != '"':
+                break
+            try:
+                key, position = decoder.raw_decode(value, position)
+            except json.JSONDecodeError:
+                break
+            while position < len(value) and value[position].isspace():
+                position += 1
+            if position >= len(value) or value[position] != ":":
+                break
+            position += 1
+            while position < len(value) and value[position].isspace():
+                position += 1
+            try:
+                item, position = decoder.raw_decode(value, position)
+            except json.JSONDecodeError:
+                break
+            parsed[str(key)] = item
+            while position < len(value) and value[position].isspace():
+                position += 1
+            if position < len(value) and value[position] == ",":
+                position += 1
+                continue
+            if position < len(value) and value[position] == "}":
+                return parsed
+            break
+        if parsed:
+            return parsed
+        raise json.JSONDecodeError("No complete JSON properties", value, start)
 
     @staticmethod
     def _error_text(response) -> str:

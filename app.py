@@ -1139,7 +1139,7 @@ def _manual_transcript_was_supplied(data):
     return isinstance(segments, list) and bool(segments)
 
 
-def _transcript_reference_for_multimodal(transcription, max_chars=48000):
+def _transcript_reference_for_multimodal(transcription, max_chars=24000):
     """Build a bounded timestamped reference; local selection still uses all text."""
     if not isinstance(transcription, dict):
         return ""
@@ -1655,10 +1655,17 @@ def _should_allow_followup_video_analysis(transcription, settings):
     return bool(settings.get("gemini_video_analysis_with_transcript", False))
 
 
-def _enrich_editorial_context(video_path, settings, editorial_context, user_context, emit_progress, multimodal=None, allow_video_analysis=True):
+def _enrich_editorial_context(video_path, settings, editorial_context, user_context, emit_progress, multimodal=None, allow_video_analysis=True, cancel_check=None):
     """Use Gemini multimodal analysis as optional enrichment, never as a hard dependency."""
     if multimodal is None and allow_video_analysis:
-        multimodal = _run_gemini_video_analysis(video_path, settings, editorial_context, user_context, emit_progress)
+        multimodal = _run_gemini_video_analysis(
+            video_path,
+            settings,
+            editorial_context,
+            user_context,
+            emit_progress,
+            cancel_check=cancel_check,
+        )
     if multimodal:
         return {**editorial_context, "multimodal": multimodal}
     if not allow_video_analysis:
@@ -3783,6 +3790,7 @@ def api_cut_shorts():
                 video_path, settings, editorial_context, user_context, emit_progress,
                 multimodal=multimodal_result,
                 allow_video_analysis=allow_followup_video_analysis,
+                cancel_check=ctx.check_cancel,
             )
             settings["editorial_context"] = editorial_context
             # The authorized snapshot stays in memory for this job; selection must
@@ -4427,6 +4435,7 @@ def api_analyze_editorial_context():
             progress,
             multimodal=multimodal_result,
             allow_video_analysis=False,
+            cancel_check=ctx.check_cancel,
         )
         if not multimodal_result or not analyze_video:
             try:
@@ -5057,6 +5066,7 @@ def api_process_complete():
                 video_path, settings, editorial_context, user_context, emit_progress,
                 multimodal=multimodal_result,
                 allow_video_analysis=_should_allow_followup_video_analysis(transcription, settings),
+                cancel_check=ctx.check_cancel,
             )
             settings["editorial_context"] = editorial_context
             source_boundary = interval_source_boundary(processing_interval)

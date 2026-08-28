@@ -37,7 +37,7 @@ O endereço público de Garimpo redirecionou para login. A auditoria só pôde v
 
 A primeira prioridade foi impedir que uma operação longa pareça infinita ou deixe o processo em estado indefinido. O runner compartilhado do FFmpeg faz polling, heartbeat, cancelamento cooperativo, coleta segura de `stderr` em arquivo temporário e cleanup. O teto padrão de render passou a ser derivado da duração, com **mínimo de 90 s e máximo de 300 s**; variáveis de ambiente também são limitadas para não reintroduzir o teto histórico de quinze minutos.
 
-A seleção textual do Gemini agora trabalha em lotes de até oito blocos, com timeout de 60 s por requisição, retries curtos e teto global de **180 s**. Quota 429 interrompe os lotes condenados e permite fallback local; falhas 503/timeout não descartam resultados parciais. A análise multimodal é separada: o orçamento total fica entre **180 s e 600 s**, cobrindo sondagem, proxy FFmpeg, handshake/upload, ativação do arquivo e geração de conteúdo. O deadline não pode ser ultrapassado por piso artificial de espera ou chamada adicional.
+A seleção textual do Gemini agora trabalha em lotes de até oito blocos, com timeout de 60 s por requisição, retries curtos e teto global de **180 s**. Quota 429 interrompe os lotes condenados e permite fallback local; falhas 503/timeout não descartam resultados parciais. A análise multimodal é separada: o orçamento total fica entre **180 s e 600 s**, cobrindo sondagem, proxy FFmpeg, handshake/upload, ativação do arquivo e geração de conteúdo. No vídeo crítico de aproximadamente 44 minutos, a compactação do proxy levou cerca de 91 s, o upload cerca de 1,2 s e a espera/processamento remoto cerca de 171 s adicionais; a resposta ainda chegou em JSON truncado. O gargalo é preparar e processar uma fonte longa, não enviar o arquivo original pela rede. O deadline não pode ser ultrapassado por piso artificial de espera ou chamada adicional.
 
 O cliente agora diferencia uma falha transitória de polling de um erro definitivo. Depois de seis falhas ou 120 s desconectado, mantém o `currentJobId`, marca o job como desacoplado, bloqueia nova análise/transcrição e oferece **Retomar acompanhamento** no Console. Na recarga, um job `queued`, `running` ou `cancel_requested` é reidratado do servidor; a UI não inicia automaticamente uma segunda execução.
 
@@ -55,6 +55,8 @@ O frontend passou a usar `AbortController` para requests, timeout por operação
 | Proxy multimodal | 90–600 s proporcional à fonte | cancelamento e remoção do proxy |
 | Gemini multimodal | 180–600 s total | evidência auxiliar ou fallback local |
 | Render/captions | 90–300 s | erro explícito e saída parcial removida |
+
+A recomendação operacional para fontes longas é manter **NLP local/Furia 1** como caminho padrão e oferecer a revisão audiovisual Gemini como ação explícita, cancelável e limitada. O multimodal não deve ser iniciado automaticamente junto com cada renderização quando a transcrição manual já está disponível: na medição crítica, ele adicionou vários minutos e quase não alterou o conjunto final de cortes.
 
 ## 6. Implementações P1 — UX, responsividade e acessibilidade
 
@@ -85,7 +87,7 @@ A referência de acessibilidade é WCAG 2.2: contraste mínimo de 4,5:1 para tex
 
 Gemini só é usado quando configurado pelo editor. A chave não aparece em código, logs, documentação, URL ou resposta de settings; o diagnóstico agora envia a credencial somente no header `x-goog-api-key`, nunca em query string. Qualquer chave colada em conversa ou log deve ser **revogada e recriada** antes de uso continuado.
 
-O snapshot Chub é uma memória editorial auxiliar, instalada localmente e read-only. Ele pode fornecer referências históricas de hooks, temas e nomes, mas não altera `ViralRanker`, não muda o score técnico, não é previsão e não é consultado por clip. Garimpo protegido não deve ser contornado; uma futura integração precisa de autorização explícita e escopo read-only.
+O snapshot Chub é uma memória editorial auxiliar, instalada localmente e read-only. Ele pode fornecer referências históricas de hooks, temas e nomes para explicação e desempate editorial limitado, mas não altera o score técnico, não é previsão e não é consultado por clip. Propostas temporais guiadas pelo Acervo ficam desativadas por padrão e só entram no pool mediante `campaign_hub_guided_selection` explicitamente ativado pelo editor. Garimpo protegido não deve ser contornado; uma futura integração precisa de autorização explícita e escopo read-only.
 
 ## 8. Roadmap P2–P3
 

@@ -349,20 +349,23 @@ class ClipSelector:
             settings,
             emit_progress=emit_progress,
         )
+        guided_selection_enabled = bool(settings.get("campaign_hub_guided_selection", False))
+        discovered_guided_clips = list(guided_clips or [])
+        publishable_guided_clips = list(discovered_guided_clips)
         self._campaign_hub_discovery_candidates = [
             self._campaign_hub_discovery_record(clip, "eligible")
-            for clip in (guided_clips or [])
+            for clip in discovered_guided_clips
         ]
-        if guided_clips and self._speaker_identity_required:
-            original_guided_count = len(guided_clips)
-            guided_clips = [
-                clip for clip in guided_clips
+        if discovered_guided_clips and self._speaker_identity_required:
+            original_guided_count = len(discovered_guided_clips)
+            publishable_guided_clips = [
+                clip for clip in discovered_guided_clips
                 if (clip.get("campaign_hub") or {}).get("renan_speaking") is True
             ]
-            self._campaign_hub_guided_filtered_by_speaker = original_guided_count - len(guided_clips)
+            self._campaign_hub_guided_filtered_by_speaker = original_guided_count - len(publishable_guided_clips)
             publishable_ids = {
                 str((clip.get("campaign_hub") or {}).get("seed_id") or "")
-                for clip in guided_clips
+                for clip in publishable_guided_clips
             }
             for record in self._campaign_hub_discovery_candidates:
                 if str(record.get("seed_id") or "") not in publishable_ids:
@@ -376,18 +379,24 @@ class ClipSelector:
                 )
         self._campaign_hub_publishable_candidates = [
             self._campaign_hub_discovery_record(clip, "publishable_pool")
-            for clip in (guided_clips or [])
-        ]
-        if guided_clips:
+            for clip in publishable_guided_clips
+        ] if guided_selection_enabled else []
+        if publishable_guided_clips and guided_selection_enabled:
             legacy_clips = list(clips or [])
-            clips = guided_clips + legacy_clips
+            clips = publishable_guided_clips + legacy_clips
             self._selection_source = "campaign_hub_guided"
             if emit_progress:
                 emit_progress(
-                    f"[Campaign Hub] {len(guided_clips)} proposta(s) guiada(s) adicionada(s) antes do ranking; "
+                    f"[Campaign Hub] {len(publishable_guided_clips)} proposta(s) guiada(s) adicionada(s) antes do ranking; "
                     "as propostas permanecem sujeitas aos gates e à revisão editorial.",
                     "info",
                 )
+        elif discovered_guided_clips and emit_progress:
+            emit_progress(
+                f"[Campaign Hub] {len(discovered_guided_clips)} referência(s) históricas disponíveis apenas para explicação; "
+                "a seleção e o score continuam exclusivamente no Furia 1 local.",
+                "info",
+            )
 
         expected_count = self._expected_candidate_count(sentences)
         primary_clips = list(clips or [])
@@ -408,6 +417,7 @@ class ClipSelector:
             "campaign_hub_discovery_count": len(getattr(self, "_campaign_hub_discovery_candidates", []) or []),
             "campaign_hub_discovery_candidates": list(getattr(self, "_campaign_hub_discovery_candidates", []) or []),
             "campaign_hub_publishable_guided_count": len(getattr(self, "_campaign_hub_publishable_candidates", []) or []),
+            "campaign_hub_guided_selection_enabled": bool(settings.get("campaign_hub_guided_selection", False)),
             "campaign_hub_publishable_candidates": list(getattr(self, "_campaign_hub_publishable_candidates", []) or []),
             "final_candidates": [],
             "word_boundary_segments_available": False,
@@ -2846,7 +2856,9 @@ Retorne APENAS o JSON.
             return clips
 
         turns = detect_interviewer_turns(sentences)
-        span = max((float(item.get("end", 0) or 0) for item in sentences), default=0.0)
+        starts = [float(item.get("start", 0) or 0) for item in sentences if item.get("start") is not None]
+        ends = [float(item.get("end", 0) or 0) for item in sentences if item.get("end") is not None]
+        span = max(0.0, max(ends, default=0.0) - min(starts, default=0.0))
         if not looks_like_an_interview(turns, span) and not any(
             turn.get("hard_boundary") for turn in turns
         ):
