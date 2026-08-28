@@ -27,3 +27,7 @@ Achado de UX: os estados vazios são compreensíveis, mas há repetição de jan
 ## Teste manual de Console e retorno
 
 O Console foi recolhido na tela de Cortes sem erro. O retorno à Mesa funcionou normalmente; o estado vazio continuou consistente e nenhuma nova aba foi aberta. O fluxo básico de navegação Mesa → Biblioteca → Cortes → Mesa está funcional no QA local.
+
+## Regressão automatizada da calibração
+
+A suíte focada em gates, fronteiras, divisão de segmentos, turnos de entrevista, perguntas, fechamento do raciocínio, volume de candidatos, pool e palavras temporais passou com **96 testes aprovados**. A execução foi feita com `PYTHONPATH=.` e não utilizou mídia privada.
