@@ -39,6 +39,12 @@ def test_hidden_upload_controls_and_dialogs_have_accessible_names():
     assert 'role="dialog" aria-modal="true"' in INDEX_HTML
 
 
+def test_remembered_project_is_hydrated_outside_compact_project_list():
+    assert "const candidateId = candidate?.id || state.activeProjectId" in APP_JS
+    assert "api(`/api/projects/${candidateId}`)" in APP_JS
+    assert "The project endpoint may return a compact/recent list" in APP_JS
+
+
 def test_responsive_and_console_recovery_styles_are_present():
     assert "min-width: 320px" in APP_CSS
     assert "@media (max-width: 780px)" in APP_CSS

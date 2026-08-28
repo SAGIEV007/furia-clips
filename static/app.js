@@ -398,13 +398,18 @@
     if (state.activeProject) return state.activeProject;
     const remembered = state.activeProjectId && state.projects.find((project) => String(project.id) === String(state.activeProjectId));
     const candidate = remembered || state.projects.find((project) => Number(project.candidateCount) > 0) || state.projects[0];
-    if (!candidate) return null;
+    const candidateId = candidate?.id || state.activeProjectId;
+    if (!candidateId) return null;
     try {
-      state.activeProject = await api(`/api/projects/${candidate.id}`);
+      state.activeProject = await api(`/api/projects/${candidateId}`);
       rememberActiveProject(state.activeProject.id);
       state.activeClipId = state.activeProject.clips?.[0]?.id || null;
       return state.activeProject;
-    } catch (error) { toast(error.message, "error"); return null; }
+    } catch (error) {
+      if (state.activeProjectId && /404|não encontrado|nao encontrado/i.test(String(error.message || ""))) rememberActiveProject(null);
+      toast(error.message, "error");
+      return null;
+    }
   }
 
   function renderMetrics(metrics = {}) {
@@ -530,10 +535,9 @@
       try {
         const payload = await api("/api/projects");
         state.projects = Array.isArray(payload) ? payload : (payload.projects || []);
-        if (state.activeProjectId && !state.projects.some((project) => String(project.id) === String(state.activeProjectId))) {
-          rememberActiveProject(null);
-          state.activeProject = null;
-        }
+        // The project endpoint may return a compact/recent list. Keep the
+        // remembered id and hydrate it directly instead of making the source
+        // disappear just because it is outside that summary page.
         if (state.activeProject && !state.projects.some((project) => String(project.id) === String(state.activeProject.id))) {
           state.activeProject = null;
         }
