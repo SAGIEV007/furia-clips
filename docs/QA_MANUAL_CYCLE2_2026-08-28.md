@@ -31,3 +31,7 @@ O Console foi recolhido na tela de Cortes sem erro. O retorno à Mesa funcionou 
 ## Regressão automatizada da calibração
 
 A suíte focada em gates, fronteiras, divisão de segmentos, turnos de entrevista, perguntas, fechamento do raciocínio, volume de candidatos, pool e palavras temporais passou com **96 testes aprovados**. A execução foi feita com `PYTHONPATH=.` e não utilizou mídia privada.
+
+## Regressão de integrações opcionais
+
+A suíte de Chub, memória histórica, vínculo de Acervo, batching e revisão Gemini, quota, espera, multimodalidade e backend auxiliar passou com **81 testes aprovados**. O resultado confirma o contrato esperado: Furia 1 local permanece o caminho canônico; Chub e Gemini continuam auxiliares e opt-in.
