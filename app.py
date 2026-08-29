@@ -121,7 +121,7 @@ from modules.native_dialogs import DialogError, choose_path, open_local_path
 from modules.transcript_parser import parse_transcript_text, normalize_segment_payload, parse_timestamp
 from modules.clip_adjustments import adjust_clip_bounds
 from modules.editorial_block import build_editorial_block
-from modules.performance_metrics import normalize_snapshot, metric_labels
+from modules.performance_metrics import normalize_snapshot, metric_labels, summarize_snapshots
 import logging
 import os
 from datetime import datetime
@@ -3729,6 +3729,28 @@ def api_performance_summary():
         "filters": {key: value for key, value in filters.items() if value is not None},
         "summary": get_performance_summary(**filters),
         "snapshots": get_performance_snapshots(limit=50, **filters),
+    })
+
+
+@app.route("/api/performance/dashboard", methods=["GET"])
+def api_performance_dashboard():
+    format_id = request.args.get("format_id", "")
+    platform = request.args.get("platform", "")
+    observation_window = request.args.get("observation_window", "")
+    region = request.args.get("region", "")
+    filters = {
+        "format_id": format_id or None,
+        "platform": platform or None,
+        "observation_window": observation_window or None,
+        "region": region or None,
+    }
+    snapshots = get_performance_snapshots(limit=200, **filters)
+    summary = summarize_snapshots(snapshots)
+    return jsonify({
+        "success": True,
+        "filters": {key: value for key, value in filters.items() if value is not None},
+        "dashboard": summary,
+        "snapshots": snapshots[:50],
     })
 
 

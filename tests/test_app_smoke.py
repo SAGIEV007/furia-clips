@@ -838,3 +838,40 @@ def test_adjustment_framing_inference_defaults_to_safe_original_composition():
     assert furia_app._infer_adjustment_preserve_original_aspect({
         "framing": {"mode": "unknown", "tracking_applied": False},
     }) is False
+
+
+
+
+def test_performance_dashboard_endpoint_uses_summarize_snapshots(monkeypatch, tmp_path):
+    monkeypatch.setattr(database, "DB_PATH", str(tmp_path / "perf.sqlite"))
+    database.init_db()
+
+    database.save_performance_snapshot({
+        "content_key": "smoke-dashboard-1",
+        "platform": "instagram",
+        "format_id": "vertical_916",
+        "account_key": "@renansantosmbl",
+        "observation_window": "today",
+        "region": "brasil",
+        "published_at": "2026-08-14T10:00:00-03:00",
+        "collected_at": "2026-08-14T12:00:00-03:00",
+        "views": 5000,
+        "likes": 400,
+        "comments": 50,
+        "shares": 25,
+        "saves": 25,
+        "ranking_position": 1,
+        "xp": 100,
+        "collection_state": "observed",
+        "source": "manual_or_authorized_export",
+    })
+    client = furia_app.app.test_client()
+    response = client.get("/api/performance/dashboard?platform=instagram&observation_window=today")
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["success"] is True
+    assert "dashboard" in payload
+    assert payload["dashboard"]["count"] == 1
+    assert payload["dashboard"]["total_views"] == 5000
+    assert payload["dashboard"]["top_platform"] == "instagram"
+    assert payload["dashboard"]["top_format"] == "vertical_916"
