@@ -181,21 +181,92 @@ _console_handler.setFormatter(logging.Formatter(
 _furia_logger.addHandler(_file_handler)
 _furia_logger.addHandler(_console_handler)
 
+_job_context = threading.local()
 
-def log_info(message: str) -> None:
+
+def set_job_context(*, job_id=None, operation=None, source_video=None):
+    _job_context.job_id = job_id
+    _job_context.operation = operation
+    _job_context.source_video = source_video
+
+
+def clear_job_context():
+    _job_context.job_id = None
+    _job_context.operation = None
+    _job_context.source_video = None
+
+
+def _job_meta():
+    job_id = getattr(_job_context, "job_id", None)
+    operation = getattr(_job_context, "operation", None)
+    source_video = getattr(_job_context, "source_video", None)
+    parts = []
+    if job_id:
+        parts.append(f"job={job_id}")
+    if operation:
+        parts.append(f"op={operation}")
+    if source_video:
+        parts.append(f"src={os.path.basename(source_video)}")
+    return " ".join(parts) if parts else ""
+
+
+def _format_stage(stage, extra=""):
+    meta = _job_meta()
+    suffix = f" | {extra}" if extra else ""
+    return f"[{stage}] {meta}{suffix}"
+
+
+def log_info(message: str, *, stage: str = "") -> None:
+    if stage:
+        message = _format_stage(stage, message)
     _furia_logger.info(message)
 
 
-def log_warning(message: str) -> None:
+def log_warning(message: str, *, stage: str = "") -> None:
+    if stage:
+        message = _format_stage(stage, message)
     _furia_logger.warning(message)
 
 
-def log_error(message: str) -> None:
-    _furia_logger.error(message)
+def log_error(message: str, *, stage: str = "", exc_info: bool = False) -> None:
+    if stage:
+        message = _format_stage(stage, message)
+    _furia_logger.error(message, exc_info=exc_info)
 
 
-def log_debug(message: str) -> None:
+def log_debug(message: str, *, stage: str = "") -> None:
+    if stage:
+        message = _format_stage(stage, message)
     _furia_logger.debug(message)
+
+
+class StageTimer:
+    def __init__(self, name, job_id=None, operation=None, source_video=None):
+        self.name = name
+        self.job_id = job_id
+        self.operation = operation
+        self.source_video = source_video
+        self.start = None
+
+    def __enter__(self):
+        self.start = datetime.now()
+        log_info(f"INICIO stage={self.name}", stage=self.name)
+        set_job_context(job_id=self.job_id, operation=self.operation, source_video=self.source_video)
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        elapsed = (datetime.now() - self.start).total_seconds() if self.start else None
+        meta = _job_meta()
+        if exc_type:
+            log_error(
+                f"FALHA stage={self.name} elapsed={elapsed:.2f}s {meta}",
+                stage=self.name,
+                exc_info=True,
+            )
+        else:
+            log_info(f"FIM stage={self.name} elapsed={elapsed:.2f}s {meta}", stage=self.name)
+        clear_job_context()
+        return False
 
 # User-friendly error messages (Portuguese)
 ERROR_MESSAGES = {

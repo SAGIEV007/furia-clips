@@ -1486,6 +1486,12 @@ Retorne APENAS o JSON.
             and not topic_boundary
             and speaker_turn_valid is not False
         )
+        # Allow strong CTA/mobilization openings even when they start mid-sentence.
+        if not context_complete and payoff_complete and len(words) >= 12 and not topic_boundary:
+            cta_signals = {"eleitores", "brasileiros", "missão", "candidatos", "número", "olhem", "escolham", "voto", "votar", "apoie", "compartilhe", "siga", "partido", "campanha", "vencer", "derrotar"}
+            text_words = {w.lower().strip(".,!?;:") for w in words if w}
+            if text_words & cta_signals:
+                context_complete = True
         return {
             "starts_mid_sentence": starts_mid_sentence,
             "starts_with_context_reference": starts_with_context_reference,
