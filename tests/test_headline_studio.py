@@ -806,3 +806,13 @@ def test_break_headline_max_lines_respected():
     text = " ".join(["palavra"] * 20)
     lines = _break_headline(text, max_lines=3, ideal_line_chars=22)
     assert len(lines) <= 3
+
+
+def test_compact_claim_strips_leading_conjunction_but_preserves_articles():
+    from modules.headline_studio import _compact_claim
+
+    assert _compact_claim("E a resposta é ampliar o atendimento básico") == "a resposta é ampliar o atendimento básico"
+    assert _compact_claim("Mas o imposto precisa ser explicado") == "o imposto precisa ser explicado"
+    assert _compact_claim("Porque a conta não fecha sem rever despesas") == "a conta não fecha sem rever despesas"
+    assert _compact_claim("A proposta melhora o atendimento básico") == "A proposta melhora o atendimento básico"
+    assert _compact_claim("O Estado precisa decidir") == "O Estado precisa decidir"

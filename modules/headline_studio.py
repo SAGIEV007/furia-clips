@@ -107,6 +107,10 @@ CLAIM_TRAILING_STOPWORDS = {
     "a", "as", "o", "os", "um", "uma", "uns", "umas", "e", "ou", "de", "do", "da", "dos", "das",
     "em", "no", "na", "nos", "nas", "por", "para", "com", "sem", "que", "se",
 }
+CLAIM_LEADING_STOPWORDS = {
+    "e", "ou", "mas", "porem", "porque", "logo", "portanto", "entao", "se", "quando",
+    "que", "como", "embora", "desde", "assim", "pois", "todavia",
+}
 FIRST_PERSON_TOKENS = {"eu", "meu", "minha", "meus", "minhas", "comigo", "nosso", "nossa", "nossos", "nossas"}
 
 
@@ -143,6 +147,8 @@ def _compact_claim(value: str, limit: int = 64) -> str:
     words = claim.split()
     while len(words) > 3 and normalize(words[-1]) in CLAIM_TRAILING_STOPWORDS:
         words.pop()
+    while words and normalize(words[0]) in CLAIM_LEADING_STOPWORDS and len(words) > 2:
+        words.pop(0)
     return " ".join(words)
 
 
