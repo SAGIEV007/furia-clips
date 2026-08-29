@@ -162,3 +162,45 @@ def metric_labels(snapshot: dict[str, Any]) -> list[str]:
     if snapshot.get("collection_state"):
         labels.append(f"coleta: {snapshot['collection_state']}")
     return labels
+
+
+def summarize_snapshots(snapshots: list[dict[str, Any]]) -> dict[str, Any]:
+    """Aggregate a list of normalized snapshots into dashboard-ready summary stats."""
+    if not snapshots:
+        return {
+            "count": 0,
+            "total_views": 0,
+            "avg_engagement_rate": 0.0,
+            "avg_velocity": 0.0,
+            "top_format": "unknown",
+            "top_platform": "other",
+        }
+    formats: dict[str, int] = {}
+    platforms: dict[str, int] = {}
+    total_views = 0
+    engagement_sum = 0.0
+    velocity_sum = 0.0
+    engagement_count = 0
+    velocity_count = 0
+    for snap in snapshots:
+        fmt = str(snap.get("format_id") or "unknown")
+        plat = str(snap.get("platform") or "other")
+        formats[fmt] = formats.get(fmt, 0) + 1
+        platforms[plat] = platforms.get(plat, 0) + 1
+        total_views += int(snap.get("views") or 0)
+        er = snap.get("engagement_rate")
+        if er is not None:
+            engagement_sum += float(er)
+            engagement_count += 1
+        vel = snap.get("view_velocity_per_hour")
+        if vel is not None:
+            velocity_sum += float(vel)
+            velocity_count += 1
+    return {
+        "count": len(snapshots),
+        "total_views": total_views,
+        "avg_engagement_rate": round(engagement_sum / engagement_count, 6) if engagement_count else 0.0,
+        "avg_velocity": round(velocity_sum / velocity_count, 3) if velocity_count else 0.0,
+        "top_format": max(formats, key=lambda k: formats[k]) if formats else "unknown",
+        "top_platform": max(platforms, key=lambda k: platforms[k]) if platforms else "other",
+    }

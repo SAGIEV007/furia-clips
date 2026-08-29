@@ -50,3 +50,70 @@ def test_cohort_score_is_relative_and_explains_components():
     assert result["basis"] == "supplied_cohort"
     assert result["score"] == 100.0
     assert result["components"]["engagement_percentile"] == 100.0
+
+
+from modules.performance_metrics import summarize_snapshots
+
+
+def test_summarize_snapshots_empty_list():
+    result = summarize_snapshots([])
+    assert result["count"] == 0
+    assert result["total_views"] == 0
+    assert result["avg_engagement_rate"] == 0.0
+    assert result["avg_velocity"] == 0.0
+    assert result["top_format"] == "unknown"
+    assert result["top_platform"] == "other"
+
+
+def test_summarize_snapshots_aggregates_views_and_averages():
+    snapshots = [
+        {
+            "content_key": "a",
+            "platform": "instagram",
+            "format_id": "vertical_916",
+            "views": 1000,
+            "engagement_rate": 0.05,
+            "view_velocity_per_hour": 50.0,
+        },
+        {
+            "content_key": "b",
+            "platform": "youtube",
+            "format_id": "square_alfinetei",
+            "views": 2000,
+            "engagement_rate": 0.10,
+            "view_velocity_per_hour": 100.0,
+        },
+        {
+            "content_key": "c",
+            "platform": "instagram",
+            "format_id": "vertical_916",
+            "views": 3000,
+            "engagement_rate": None,
+            "view_velocity_per_hour": 75.0,
+        },
+    ]
+    result = summarize_snapshots(snapshots)
+    assert result["count"] == 3
+    assert result["total_views"] == 6000
+    assert result["avg_engagement_rate"] == 0.075
+    assert result["avg_velocity"] == 75.0
+    assert result["top_format"] == "vertical_916"
+    assert result["top_platform"] == "instagram"
+
+
+def test_summarize_snapshots_handles_missing_optional_metrics():
+    snapshots = [
+        {
+            "content_key": "x",
+            "platform": "tiktok",
+            "format_id": "fake_tweet",
+            "views": 500,
+        }
+    ]
+    result = summarize_snapshots(snapshots)
+    assert result["count"] == 1
+    assert result["total_views"] == 500
+    assert result["avg_engagement_rate"] == 0.0
+    assert result["avg_velocity"] == 0.0
+    assert result["top_format"] == "fake_tweet"
+    assert result["top_platform"] == "tiktok"
