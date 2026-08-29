@@ -20,6 +20,8 @@ class Transcriber:
         self.compute_type = "int8"
         self.model = None
         self._engine = "cache"
+        self._cache_hits = 0
+        self._cache_misses = 0
         os.makedirs(CACHE_DIR, exist_ok=True)
 
     def _detect_device(self):
@@ -48,9 +50,11 @@ class Transcriber:
                     data = json.load(f)
                 if emit_progress:
                     emit_progress("Transcricao carregada do cache (instantaneo)!")
+                self._cache_hits += 1
                 return data
             except (json.JSONDecodeError, IOError):
                 pass
+        self._cache_misses += 1
         return None
 
     def _save_to_cache(self, audio_path, result):
@@ -164,6 +168,18 @@ class Transcriber:
                 shutil.copy2(audio_path, safe_path)
             return safe_path
         return audio_path
+
+
+    def get_cache_stats(self):
+        from .transcriber_cache_utils import get_cache_stats
+        stats = get_cache_stats()
+        stats['session_hits'] = self._cache_hits
+        stats['session_misses'] = self._cache_misses
+        return stats
+
+    def prune_cache(self, max_age_days=7, max_entries=200):
+        from .transcriber_cache_utils import prune_cache
+        return prune_cache(max_age_days=max_age_days, max_entries=max_entries)
 
     def transcribe(self, audio_path, emit_progress=None, cancel_check=None):
         if cancel_check:
