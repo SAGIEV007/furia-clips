@@ -17,8 +17,8 @@ from collections import Counter
 from .political_profile import PROFILE_NAME, build_political_prompt_fragment
 from .editorial_chapters import annotate_clip_with_chapters
 
-PREFERRED_MAX_DURATION = 180.0
-TECHNICAL_MAX_DURATION = 600.0
+PREFERRED_MAX_DURATION = 90.0
+TECHNICAL_MAX_DURATION = 150.0
 
 
 def _safe_float(value, default=0.0):
@@ -79,7 +79,7 @@ class ClipSelector:
         self,
         target_duration=45,
         max_clips=15,
-        min_duration=8,
+        min_duration=25,
         max_duration=TECHNICAL_MAX_DURATION,
         preferred_max_duration=PREFERRED_MAX_DURATION,
     ):

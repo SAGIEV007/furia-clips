@@ -264,9 +264,12 @@ class ClipSelectionTests(unittest.TestCase):
 
     def test_default_duration_policy_is_short_first_with_soft_ceiling(self):
         selector = ClipSelector()
-        self.assertEqual(selector.min_duration, 8)
-        self.assertEqual(selector.preferred_max_duration, 180.0)
-        self.assertGreater(selector.max_duration, selector.preferred_max_duration)
+        # Professional calibration: min_duration raised from 8s to 25s
+        self.assertEqual(selector.min_duration, 25)
+        # Professional calibration: preferred max aligned to research (Reels 90s max)
+        self.assertEqual(selector.preferred_max_duration, 90.0)
+        # Technical ceiling above preferred max for edge cases
+        self.assertEqual(selector.max_duration, 150.0)
         self.assertGreater(selector._duration_score(25), selector._duration_score(210))
 
     def test_gemini_prompt_does_not_impose_fixed_duration_range(self):
