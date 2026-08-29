@@ -78,7 +78,7 @@ class ClipSelector:
     def __init__(
         self,
         target_duration=45,
-        max_clips=81,
+        max_clips=15,
         min_duration=8,
         max_duration=TECHNICAL_MAX_DURATION,
         preferred_max_duration=PREFERRED_MAX_DURATION,
@@ -296,7 +296,7 @@ class ClipSelector:
         return dict(self._candidate_diagnostics)
 
     def _expected_candidate_count(self, sentences):
-        """Estimate a review pool size aligned to the 81-clip Opus+ benchmark."""
+        """Estimate a review pool size without turning the daily goal into a quota."""
         if not sentences:
             return 0
         try:
@@ -305,11 +305,9 @@ class ClipSelector:
             span = 0.0
         if span < 120 or len(sentences) < 8:
             return 0
-        # Benchmark ratio: ~81 clips for 8381s => ~1 clip per 103s
-        duration_based = int(span // 103) + 6
+        duration_based = int(span // 240) + 6
         structure_based = int(len(sentences) // 18) + 6
-        expected = min(max(duration_based, structure_based, 3), self.max_clips)
-        return max(3, expected)
+        return min(max(3, duration_based, structure_based), max(3, min(self.max_clips, 36)))
 
     def _extract_context_keywords(self, user_context):
         """Extract meaningful keywords from user context for display."""
@@ -1471,7 +1469,18 @@ Retorne APENAS o JSON.
         if len(tail) >= 2 and " ".join(tail[-2:]) in WEAK_PAYOFF_ENDINGS_PT:
             weak_payoff_ending = True
         cliffhanger = any(pattern in normalized[-220:] for pattern in ("em breve", "depois eu", "na proxima", "fique ligado", "vou mostrar"))
-        payoff_complete = bool(ends_closed and not cliffhanger and not weak_payoff_ending)
+        # Relax weak_payoff_ending when a strong period appears before the weak
+        # conjunction (e.g. "texto completo. Então."), so completed thoughts are
+        # not penalized just because the final word is a discourse connector.
+        has_strong_period_before_weak = False
+        if weak_payoff_ending and tail:
+            last_weak_word = tail[-1]
+            weak_word_idx = normalized.rfind(last_weak_word)
+            if weak_word_idx > 0:
+                text_before_weak = normalized[:weak_word_idx]
+                if any(ch in text_before_weak for ch in (".", "!", "?")):
+                    has_strong_period_before_weak = True
+        payoff_complete = bool(ends_closed and not cliffhanger and (not weak_payoff_ending or has_strong_period_before_weak))
         overlap_suspected = _coerce_flag(metadata.get("overlap_suspected"))
         timing_ambiguous = _coerce_flag(metadata.get("timing_ambiguous"))
         topic_boundary = _coerce_flag(metadata.get("topic_boundary")) or _coerce_flag(metadata.get("topic_change_detected"))
@@ -1482,14 +1491,13 @@ Retorne APENAS o JSON.
             not starts_mid_sentence
             and not starts_with_context_reference
             and payoff_complete
-            and len(words) >= 12
+            and len(words) >= 8
             and not overlap_suspected
             and not timing_ambiguous
-            and not topic_boundary
             and speaker_turn_valid is not False
         )
         # Allow strong CTA/mobilization openings even when they start mid-sentence.
-        if not context_complete and payoff_complete and len(words) >= 12 and not topic_boundary:
+        if not context_complete and payoff_complete and len(words) >= 8:
             cta_signals = {"eleitores", "brasileiros", "missão", "candidatos", "número", "olhem", "escolham", "voto", "votar", "apoie", "compartilhe", "siga", "partido", "campanha", "vencer", "derrotar"}
             text_words = {w.lower().strip(".,!?;:") for w in words if w}
             if text_words & cta_signals:
@@ -2110,11 +2118,11 @@ Retorne APENAS o JSON.
                 overlap = self._calculate_overlap(new_clip, old_clip)
                 text_similarity = self._text_similarity(clip.get("text", ""), old.get("text", ""))
                 contextually_distinct = self._previous_contextually_distinct(clip, old)
-                boundary_match = abs(new_start - old_start) <= 4.0 and abs(new_end - old_end) <= 6.0
-                overlap_duplicate = overlap >= 0.45 and not contextually_distinct
+                boundary_match = abs(new_start - old_start) <= 2.0 and abs(new_end - old_end) <= 4.0
+                overlap_duplicate = overlap >= 0.30 and not contextually_distinct
                 boundary_duplicate = boundary_match and not contextually_distinct
                 repeated_by_similarity = (
-                    text_similarity >= 0.86
+                    text_similarity >= 0.92
                     and abs(new_start - old_start) <= 30.0
                     and not contextually_distinct
                 )
@@ -2167,14 +2175,19 @@ Retorne APENAS o JSON.
             for existing in selected:
                 overlap = self._calculate_overlap(clip, existing)
                 text_similarity = self._text_similarity(clip.get("text", ""), existing.get("text", ""))
-                if overlap > 0.30:
+                existing_start = float(existing.get("start", 0) or 0)
+                existing_end = float(existing.get("end", 0) or 0)
+                # Allow touching/adjacent siblings so nearby independent moments survive.
+                if (existing_end <= start <= existing_end + 0.5) or (end <= existing_start <= end + 0.5):
+                    continue
+                if overlap > 0.25:
                     duplicate = True
                     duplicate_reason = "overlap"
                     break
                 # Repeated wording in adjacent candidate windows is usually a
                 # rolling-caption duplicate. Require high lexical and sequence
                 # similarity so short common political phrases survive.
-                if text_similarity >= 0.90:
+                if text_similarity >= 0.92:
                     duplicate = True
                     duplicate_reason = "similarity"
                     break

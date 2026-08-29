@@ -448,7 +448,9 @@ class ClipSelectionTests(unittest.TestCase):
         self.assertTrue(flags["topic_boundary"])
         self.assertTrue(flags["needs_topic_review"])
         self.assertIn("mudança de tópico", flags["topic_review_reason"])
-        self.assertFalse(flags["context_complete"])
+        # topic_boundary is preserved as a review signal, but it no longer
+        # blocks context_complete so touching siblings can still render.
+        self.assertTrue(flags["context_complete"])
 
     def test_payoff_gate_rejects_linguistically_open_ending(self):
         weak = self.selector._editorial_flags(
