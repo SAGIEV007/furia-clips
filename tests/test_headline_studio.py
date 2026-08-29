@@ -1,6 +1,7 @@
 import json
 
 from modules.headline_studio import (
+    _break_headline,
     FORMAT_SQUARE,
     FORMAT_TWEET,
     FORMAT_VERTICAL,
@@ -778,3 +779,30 @@ def test_distant_brazil_mention_does_not_authorize_local_country_claim():
     )
     headlines = [item["headline"] for item in result["formats"][FORMAT_SQUARE]["suggestions"]]
     assert all("O BRASIL COBRA" not in headline for headline in headlines)
+
+
+def test_break_headline_empty_and_short():
+    assert _break_headline("") == []
+    assert _break_headline("uma") == ["uma"]
+    assert _break_headline("uma duas") == ["uma duas"]
+    assert _break_headline("uma duas tres") == ["uma duas tres"]
+
+
+def test_break_headline_balanced_lines():
+    text = " ".join(["palavra"] * 12)
+    lines = _break_headline(text, max_lines=2, ideal_line_chars=22)
+    assert len(lines) == 2
+    assert all(len(line.split()) >= 1 for line in lines)
+
+
+def test_break_headline_single_long_word():
+    text = " ".join(["a"] * 2 + ["supercalifragilisticexpialidocious"])
+    lines = _break_headline(text, max_lines=3, ideal_line_chars=22)
+    assert len(lines) <= 3
+    assert "supercalifragilisticexpialidocious" in " ".join(lines)
+
+
+def test_break_headline_max_lines_respected():
+    text = " ".join(["palavra"] * 20)
+    lines = _break_headline(text, max_lines=3, ideal_line_chars=22)
+    assert len(lines) <= 3
