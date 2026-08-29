@@ -78,7 +78,7 @@ class ClipSelector:
     def __init__(
         self,
         target_duration=45,
-        max_clips=15,
+        max_clips=81,
         min_duration=8,
         max_duration=TECHNICAL_MAX_DURATION,
         preferred_max_duration=PREFERRED_MAX_DURATION,
@@ -296,7 +296,7 @@ class ClipSelector:
         return dict(self._candidate_diagnostics)
 
     def _expected_candidate_count(self, sentences):
-        """Estimate a review pool size without turning the daily goal into a quota."""
+        """Estimate a review pool size aligned to the 81-clip Opus+ benchmark."""
         if not sentences:
             return 0
         try:
@@ -305,9 +305,11 @@ class ClipSelector:
             span = 0.0
         if span < 120 or len(sentences) < 8:
             return 0
-        duration_based = int(span // 240) + 6
+        # Benchmark ratio: ~81 clips for 8381s => ~1 clip per 103s
+        duration_based = int(span // 103) + 6
         structure_based = int(len(sentences) // 18) + 6
-        return min(max(3, duration_based, structure_based), max(3, min(self.max_clips, 36)))
+        expected = min(max(duration_based, structure_based, 3), self.max_clips)
+        return max(3, expected)
 
     def _extract_context_keywords(self, user_context):
         """Extract meaningful keywords from user context for display."""
