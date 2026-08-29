@@ -3056,9 +3056,7 @@ def api_cut_shorts():
                 energy_profile=energy_profile,
             )
             pre_gate_count = len(top_clips)
-            print("[PRE-GATE-DEBUG]", json.dumps({"pre_gate_count": pre_gate_count}, ensure_ascii=False))
             top_clips, editorial_gate_rejections = _defer_context_incomplete_candidates(top_clips)
-            print("[POST-GATE-DEBUG]", json.dumps({"post_gate_count": len(top_clips), "deferred_count": len(editorial_gate_rejections)}, ensure_ascii=False))
             candidate_diagnostics["pre_render_candidate_count"] = pre_gate_count
             candidate_diagnostics["renderable_candidate_count"] = len(top_clips)
             candidate_diagnostics["editorial_gate_deferred_count"] = len(editorial_gate_rejections)
@@ -3175,13 +3173,6 @@ def api_cut_shorts():
             candidate_diagnostics["top_clips_len"] = len(top_clips)
             candidate_diagnostics["results_len"] = len(results)
             candidate_diagnostics["rejections_len"] = len(getattr(cutter, "last_rejections", []))
-            print("[RENDER-DEBUG]", json.dumps({
-                "top_clips_len": len(top_clips),
-                "results_len": len(results),
-                "rejections_len": len(getattr(cutter, "last_rejections", [])),
-                "first_rejection": getattr(cutter, "last_rejections", [])[:1],
-                "top_first": top_clips[:1],
-            }, ensure_ascii=False))
             if top_clips and not results and render_rejections:
                 candidate_diagnostics["reason"] = "render_failed_after_selection"
             elif results and len(results) < len(top_clips) and render_rejections:
@@ -4162,9 +4153,7 @@ def api_process_complete():
                 energy_profile=energy_profile,
             )
             pre_gate_count = len(top_clips)
-            print("[PRE-GATE-DEBUG]", json.dumps({"pre_gate_count": pre_gate_count}, ensure_ascii=False))
             top_clips, editorial_gate_rejections = _defer_context_incomplete_candidates(top_clips)
-            print("[POST-GATE-DEBUG]", json.dumps({"post_gate_count": len(top_clips), "deferred_count": len(editorial_gate_rejections)}, ensure_ascii=False))
             candidate_diagnostics["pre_render_candidate_count"] = pre_gate_count
             candidate_diagnostics["renderable_candidate_count"] = len(top_clips)
             candidate_diagnostics["editorial_gate_deferred_count"] = len(editorial_gate_rejections)
