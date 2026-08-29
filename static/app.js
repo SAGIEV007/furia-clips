@@ -2751,6 +2751,32 @@ function renderPerformanceSummary(summary = {}) {
     target.innerHTML = `<div class="performance-metric"><span>Conteúdos</span><strong>${formatNumber(summary.contents)}</strong></div><div class="performance-metric"><span>Snapshots</span><strong>${formatNumber(summary.snapshots)}</strong></div><div class="performance-metric"><span>Views observadas</span><strong>${formatNumber(summary.views)}</strong></div><div class="performance-metric"><span>Engajamento informado</span><strong>${escapeHtml(engagement)}</strong></div><div class="performance-metric"><span>Velocidade média</span><strong>${escapeHtml(velocity)}</strong></div>`;
 }
 
+async function loadPerformanceDashboard() {
+    const status = document.getElementById("performanceDashboardStatus");
+    const summary = document.getElementById("performanceDashboardSummary");
+    if (!status || !summary) return;
+    try {
+        const response = await fetch("/api/performance/dashboard");
+        const data = await parseJsonResponse(response, "Dashboard de performance");
+        if (!response.ok || !data.success) throw new Error(data.error || "não foi possível carregar o dashboard");
+        const dash = data.dashboard || {};
+        const formatNumber = (value) => new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 }).format(Number(value || 0));
+        const engagement = dash.avg_engagement_rate == null ? "—" : `${(Number(dash.avg_engagement_rate) * 100).toFixed(2).replace(".", ",")}%`;
+        const velocity = dash.avg_velocity == null ? "—" : `${formatNumber(dash.avg_velocity)}/h`;
+        summary.innerHTML = `
+            <div class="performance-metric"><span>Conteúdos</span><strong>${formatNumber(dash.count)}</strong></div>
+            <div class="performance-metric"><span>Views totais</span><strong>${formatNumber(dash.total_views)}</strong></div>
+            <div class="performance-metric"><span>Engajamento médio</span><strong>${escapeHtml(engagement)}</strong></div>
+            <div class="performance-metric"><span>Velocidade média</span><strong>${escapeHtml(velocity)}</strong></div>
+            <div class="performance-metric"><span>Formato top</span><strong>${escapeHtml(dash.top_format || "—")}</strong></div>
+            <div class="performance-metric"><span>Plataforma top</span><strong>${escapeHtml(dash.top_platform || "—")}</strong></div>
+        `;
+        status.textContent = data.filters && Object.keys(data.filters).length ? "Dashboard filtrado atualizado." : "Dashboard local atualizado.";
+    } catch (error) {
+        status.textContent = `Dashboard indisponível: ${error.message}`;
+    }
+}
+
 async function loadPerformanceMetrics() {
     try {
         const params = new URLSearchParams();
@@ -2807,7 +2833,10 @@ performanceToggle?.addEventListener("click", async () => {
     if (performanceBody) performanceBody.hidden = !willOpen;
     performanceToggle.setAttribute("aria-expanded", String(willOpen));
     performanceToggle.innerHTML = `<span class="material-icons-round">${willOpen ? "expand_less" : "expand_more"}</span> ${willOpen ? "Fechar histórico" : "Abrir histórico"}`;
-    if (willOpen) await loadPerformanceMetrics();
+    if (willOpen) {
+        await loadPerformanceMetrics();
+        await loadPerformanceDashboard();
+    }
 });
 document.getElementById("btnSavePerformanceMetrics")?.addEventListener("click", savePerformanceMetrics);
 document.getElementById("btnRefreshPerformanceMetrics")?.addEventListener("click", loadPerformanceMetrics);
