@@ -522,7 +522,7 @@ class VideoCutter:
                 result = self.cut_clip(
                     video_path, padded_start, padded_end,
                     output_path, vertical=False, emit_progress=emit_progress,
-                    video_layout=video_layout, preset=active_preset,
+                    video_layout="center", preset=active_preset,
                     cancel_check=cancel_check,
                 )
                 framing_mode = "original_16_9"

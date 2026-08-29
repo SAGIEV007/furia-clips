@@ -623,29 +623,47 @@ def _defer_context_incomplete_candidates(candidates):
         technical_status = candidate.get("technical_gate_status") or review_flags.get("technical_gate_status")
         technical_reasons = candidate.get("technical_gate_reasons") or review_flags.get("technical_gate_reasons") or []
         context_incomplete = "context_complete" in candidate and not _coerce_bool(candidate.get("context_complete"), default=True)
+        payoff_complete = _coerce_bool(candidate.get("payoff_complete"), default=True)
         technical_review = str(technical_status or "").strip().lower() in {"review", "review_required", "blocked"}
-        if not context_incomplete and not technical_review:
-            renderable.append(candidate)
-            continue
 
-        reasons = []
         if context_incomplete:
+            reasons = []
             reasons.append("contexto autossuficiente não confirmado")
             if _coerce_bool(candidate.get("starts_mid_sentence")):
                 reasons.append("início possivelmente no meio da frase")
             if _coerce_bool(candidate.get("starts_with_context_reference")):
                 reasons.append("referência contextual sem antecedente recuperado")
-        if technical_review:
-            reasons.append("revisão técnica editorial obrigatória")
+            if technical_review:
+                reasons.append("revisão técnica editorial obrigatória")
+                reasons.extend(str(reason) for reason in technical_reasons if str(reason).strip())
+            deferred.append({
+                "start": candidate.get("start", candidate.get("start_time")),
+                "end": candidate.get("end", candidate.get("end_time")),
+                "duration": candidate.get("duration"),
+                "reason": "; ".join(dict.fromkeys(reasons)),
+                "errors": ["; ".join(dict.fromkeys(reasons))],
+                "review_flags": review_flags,
+            })
+            continue
+
+        if technical_review and not payoff_complete:
+            reasons = ["revisão técnica editorial obrigatória", "payoff ou fechamento não confirmado"]
             reasons.extend(str(reason) for reason in technical_reasons if str(reason).strip())
-        deferred.append({
-            "start": candidate.get("start", candidate.get("start_time")),
-            "end": candidate.get("end", candidate.get("end_time")),
-            "duration": candidate.get("duration"),
-            "reason": "; ".join(dict.fromkeys(reasons)),
-            "errors": ["; ".join(dict.fromkeys(reasons))],
-            "review_flags": review_flags,
-        })
+            deferred.append({
+                "start": candidate.get("start", candidate.get("start_time")),
+                "end": candidate.get("end", candidate.get("end_time")),
+                "duration": candidate.get("duration"),
+                "reason": "; ".join(dict.fromkeys(reasons)),
+                "errors": ["; ".join(dict.fromkeys(reasons))],
+                "review_flags": review_flags,
+            })
+            continue
+
+        if technical_review:
+            candidate["post_render_review_required"] = True
+            candidate["post_review_reasons"] = list(technical_reasons)
+
+        renderable.append(candidate)
     return renderable, deferred
 
 
