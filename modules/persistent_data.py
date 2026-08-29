@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import sqlite3
 import stat
 import tempfile
@@ -266,7 +267,7 @@ def restore_editorial_backup(archive_path: str):
             destination_path.parent.mkdir(parents=True, exist_ok=True)
             replacement = destination_path.with_suffix(".restore.sqlite3")
             _sqlite_snapshot(candidate, str(replacement))
-            os.replace(replacement, destination_path)
+            shutil.move(str(replacement), str(destination_path))
 
             transcript_root = Path(PERSISTENT_TRANSCRIPTS_DIR).resolve()
             transcript_root.mkdir(parents=True, exist_ok=True)

@@ -1,5 +1,6 @@
 import sys
 import os
+import sys
 import tempfile
 import unittest
 
@@ -24,8 +25,9 @@ class BatchQueueTests(unittest.TestCase):
             self.assertEqual(items[0].relative_path, "first.mp4")
             self.assertEqual(len(items[0].content_hash), 64)
 
-    def test_manifest_is_reproducible_and_skips_external_symlink(self):
     @unittest.skipUnless(hasattr(os, "symlink") and os.name == "posix", "Symlinks require admin on Windows")
+    @unittest.skipUnless(hasattr(os, "symlink") and os.name == "posix", "Symlinks require admin on Windows")
+    def test_manifest_is_reproducible_and_skips_external_symlink(self):
         with tempfile.TemporaryDirectory() as root, tempfile.TemporaryDirectory() as outside:
             video = os.path.join(root, "nested.mp4")
             external = os.path.join(outside, "external.mp4")

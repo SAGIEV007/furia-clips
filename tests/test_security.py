@@ -1,5 +1,5 @@
-import sys
 import os
+import sys
 import tempfile
 import unittest
 
@@ -30,8 +30,8 @@ class SecurityTests(unittest.TestCase):
         self.assertNotEqual(first, second)
         self.assertTrue(first.endswith(".mp4"))
 
-    def test_rejects_symlink_pointing_outside(self):
     @unittest.skipUnless(hasattr(os, "symlink") and os.name == "posix", "Symlinks require admin on Windows")
+    def test_rejects_symlink_pointing_outside(self):
         with tempfile.TemporaryDirectory() as root, tempfile.TemporaryDirectory() as outside:
             link = os.path.join(root, "link")
             os.symlink(outside, link)
