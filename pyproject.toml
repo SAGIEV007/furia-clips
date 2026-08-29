@@ -1,0 +1,9 @@
+[project]
+name = "furia-clips"
+version = "0.1.0"
+description = "Fúria clips pipeline"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+addopts = "-q"

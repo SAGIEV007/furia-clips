@@ -39,6 +39,30 @@ _PERSISTENT_ENV_PATH = os.environ.get("FURIA_CLIPS_ENV_FILE") or os.path.join(
     os.path.abspath(os.path.expanduser(_PERSISTENT_ROOT)), "config", "local.env"
 )
 _ENV_PATHS = [_PERSISTENT_ENV_PATH, _PROJECT_ENV_PATH]
+
+
+def _auto_fetch_chub_snapshot() -> None:
+    """On startup, fetch a fresh Chub MCP snapshot if no local snapshot exists."""
+    try:
+        snapshot_path = os.path.join(
+            os.path.abspath(os.path.expanduser(_PERSISTENT_ROOT)),
+            "campaign_hub",
+            "profile.json",
+        )
+        if os.path.exists(snapshot_path) and os.path.getsize(snapshot_path) > 0:
+            return
+        from modules.chub_mcp import fetch_snapshot
+        account = os.environ.get("CHUB_MCP_ACCOUNT", "@renansantosmbl")
+        snapshot = fetch_snapshot(account=account)
+        if snapshot:
+            os.makedirs(os.path.dirname(snapshot_path), exist_ok=True)
+            with open(snapshot_path, "w", encoding="utf-8") as handle:
+                json.dump(snapshot, handle, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+
+
+_auto_fetch_chub_snapshot()
 try:
     from dotenv import load_dotenv
     for _env_path in _ENV_PATHS:
@@ -98,6 +122,10 @@ from modules.transcript_parser import parse_transcript_text, normalize_segment_p
 from modules.clip_adjustments import adjust_clip_bounds
 from modules.editorial_block import build_editorial_block
 from modules.performance_metrics import normalize_snapshot, metric_labels
+import logging
+import os
+from datetime import datetime
+from logging.handlers import RotatingFileHandler
 from modules.transcript_archive import archive_transcription, list_archived_transcriptions, validate_transcription
 from modules.editorial_search import search_cached_campaign_hub
 from modules.source_ingest import (
@@ -124,6 +152,50 @@ from modules.repository_sync import (
     restore_feedback_snapshot,
     update_from_github,
 )
+
+# ---------------------------------------------------------------------------
+# Logging setup — tudo que o Fúria faz é registrado em disco
+# ---------------------------------------------------------------------------
+_LOG_DIR = os.path.join(PERSISTENT_DATA_DIR, "logs")
+os.makedirs(_LOG_DIR, exist_ok=True)
+_LOG_PATH = os.path.join(_LOG_DIR, "furia.log")
+
+_furia_logger = logging.getLogger("furia")
+_furia_logger.setLevel(logging.DEBUG)
+_furia_logger.propagate = False
+
+_file_handler = RotatingFileHandler(
+    _LOG_PATH, maxBytes=10 * 1024 * 1024, backupCount=20, encoding="utf-8"
+)
+_file_handler.setLevel(logging.DEBUG)
+_file_handler.setFormatter(logging.Formatter(
+    "%(asctime)s | %(levelname)s | %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
+))
+
+_console_handler = logging.StreamHandler()
+_console_handler.setLevel(logging.INFO)
+_console_handler.setFormatter(logging.Formatter(
+    "%(asctime)s | %(levelname)s | %(message)s", datefmt="%H:%M:%S"
+))
+
+_furia_logger.addHandler(_file_handler)
+_furia_logger.addHandler(_console_handler)
+
+
+def log_info(message: str) -> None:
+    _furia_logger.info(message)
+
+
+def log_warning(message: str) -> None:
+    _furia_logger.warning(message)
+
+
+def log_error(message: str) -> None:
+    _furia_logger.error(message)
+
+
+def log_debug(message: str) -> None:
+    _furia_logger.debug(message)
 
 # User-friendly error messages (Portuguese)
 ERROR_MESSAGES = {
@@ -1995,6 +2067,7 @@ def api_upload_file():
     filename = unique_storage_name(file.filename, extension=ext)
     filepath = os.path.join(dest_path, filename)
     file.save(filepath)
+    log_info(f"Upload: {file.filename} -> {filepath} ({os.path.getsize(filepath)} bytes)")
 
     return jsonify({
         "success": True,
@@ -2812,11 +2885,63 @@ def api_cut_shorts():
                     "info",
                 )
             else:
-                emit_progress(
-                    f"[Campaign Hub] Snapshot offline não aplicado (status: {campaign_hub_status.get('status', 'missing')}); "
-                    "ranking segue sem prior histórico e continua usando os sinais do vídeo.",
-                    "warning",
-                )
+                # Try live MCP fallback before giving up on Campaign Hub context.
+                try:
+                    from modules.chub_mcp import enrich_campaign_priors, enrich_context_for_query
+                    account = campaign_hub_account or settings.get("campaign_hub_account", "@renansantosmbl")
+                    live_priors = enrich_campaign_priors(account=account, limit=5)
+                    live_context = enrich_context_for_query(
+                        query=str(data.get("query") or data.get("manual_transcript") or "")[:500],
+                        account=account,
+                    )
+                    if live_priors or live_context:
+                        campaign_hub_snapshot = {
+                            "default_account": account,
+                            "accounts": {
+                                account: {
+                                    "hook_observations": [],
+                                    "acervo_blocks": [],
+                                    "acervo_pauta": [],
+                                    "audience_priors": live_context.get("chub_semantic", {}),
+                                    "performance": live_priors.get("chub_top_posts", {}),
+                                }
+                            },
+                            "meta": {
+                                "source": "chub_mcp_live_fallback",
+                                "fetched_at": datetime.utcnow().isoformat() + "Z",
+                            },
+                        }
+                        top_clips = attach_acervo_context(
+                            top_clips,
+                            campaign_hub_snapshot,
+                            account=account,
+                            source_id=source_context_id,
+                            audience_segment=str(settings.get("audience_segment") or ""),
+                        )
+                        top_clips = merge_acervo_seed_candidates(
+                            top_clips,
+                            campaign_hub_snapshot,
+                            account=account,
+                            source_id=source_context_id,
+                            max_seeds=int(settings.get("campaign_hub_seed_limit", 8) or 8),
+                        )
+                        emit_progress(
+                            "[Campaign Hub] Snapshot offline indisponível; "
+                            "contexto do Chub MCP aplicado como fallback em tempo real.",
+                            "info",
+                        )
+                    else:
+                        emit_progress(
+                            f"[Campaign Hub] Snapshot offline não aplicado (status: {campaign_hub_status.get('status', 'missing')}); "
+                            "ranking segue sem prior histórico e continua usando os sinais do vídeo.",
+                            "warning",
+                        )
+                except Exception as exc:
+                    emit_progress(
+                        f"[Campaign Hub] Fallback MCP indisponível: {str(exc)[:160]}; "
+                        "ranking segue sem enriquecimento externo.",
+                        "warning",
+                    )
             if feedback_calibration.get("eligible"):
                 emit_progress(
                     f"[Feedback editorial] Calibração aplicada com {feedback_calibration['sample_size']} decisões finais.",
@@ -4552,9 +4677,29 @@ if __name__ == "__main__":
     init_db()
     _sync_env_key_to_db()
 
+    # Startup logging
+    log_info("=" * 50)
+    log_info(f"FURIA CLIPS v{PROGRAM_VERSION} r{PROGRAM_REVISION} iniciando")
+    log_info(f"Persist root: {_PERSISTENT_ROOT}")
+    log_info(f"Log file: {_LOG_PATH}")
+
+    # Log Chub snapshot status
+    try:
+        from modules.campaign_hub import snapshot_status
+        snap = snapshot_status(os.path.join(_PERSISTENT_ROOT, "campaign_hub", "profile.json"))
+        if snap.get("available"):
+            log_info(f"Chub snapshot carregado: {snap.get('total_hook_observations', 0)} hooks, "
+                     f"{snap.get('total_acervo_blocks', 0)} blocks, "
+                     f"{snap.get('total_pauta_candidates', 0)} pautas")
+        else:
+            log_warning(f"Chub snapshot indisponível: {snap.get('status', 'missing')}")
+    except Exception as exc:
+        log_warning(f"Chub snapshot check falhou: {str(exc)[:180]}")
+
     # Startup AI check
     settings = get_all_settings()
     ai_status = _check_ai_status(settings)
+    log_info("AI backend: " + ai_status.get("backend", "unknown") + " | mode=" + ai_status.get("mode", "unknown"))
     print("\n" + "=" * 50)
     print("   FURIA CLIPS - Corte. Ranqueie. Domine.")
     print("=" * 50)
@@ -4573,5 +4718,6 @@ if __name__ == "__main__":
     host = os.environ.get("FURIA_HOST", "127.0.0.1")
     port = int(os.environ.get("FURIA_PORT", "3001"))
     print(f"   Acesse: http://{host}:{port}")
+    print(f"   Logs: {_LOG_PATH}")
     print("=" * 50 + "\n")
     socketio.run(app, host=host, port=port, debug=False, allow_unsafe_werkzeug=True)
