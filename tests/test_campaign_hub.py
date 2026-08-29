@@ -725,3 +725,68 @@ def test_merge_acervo_seed_candidates_prioritizes_self_contained_and_dense_block
     assert len(merged) == 1
     assert merged[0]["title"] == "Bloco mais completo"
     assert merged[0]["acervo_seed"]["self_contained_rank"] == 96
+
+
+def test_chub_prior_score_adjustment_scales_with_confidence():
+    text = "Vamos mudar a gestão pública. A tese é clara e termina com uma solução."
+    low_snapshot = normalize_snapshot({
+        "accounts": {
+            "@renansantosmbl": {
+                "hook_observations": [
+                    {"hook": "tese-provocativa", "ratio": 3.0},
+                    {"hook": "tese-provocativa", "ratio": 3.5},
+                    {"hook": "tese-provocativa", "ratio": 4.0},
+                    {"hook": "news-peg", "ratio": 1.0},
+                    {"hook": "news-peg", "ratio": 1.1},
+                    {"hook": "news-peg", "ratio": 1.2},
+                    {"hook": "news-peg", "ratio": 1.3},
+                    {"hook": "news-peg", "ratio": 1.4},
+                    {"hook": "news-peg", "ratio": 1.5},
+                    {"hook": "news-peg", "ratio": 1.6},
+                ],
+            }
+        }
+    })
+    high_snapshot = normalize_snapshot({
+        "accounts": {
+            "@renansantosmbl": {
+                "hook_observations": [
+                    {"hook": "tese-provocativa", "ratio": 3.0},
+                    {"hook": "tese-provocativa", "ratio": 3.2},
+                    {"hook": "tese-provocativa", "ratio": 3.4},
+                    {"hook": "tese-provocativa", "ratio": 3.6},
+                    {"hook": "tese-provocativa", "ratio": 3.8},
+                    {"hook": "tese-provocativa", "ratio": 4.0},
+                    {"hook": "tese-provocativa", "ratio": 4.2},
+                    {"hook": "tese-provocativa", "ratio": 4.4},
+                    {"hook": "tese-provocativa", "ratio": 4.6},
+                    {"hook": "tese-provocativa", "ratio": 4.8},
+                    {"hook": "news-peg", "ratio": 1.0},
+                    {"hook": "news-peg", "ratio": 1.1},
+                    {"hook": "news-peg", "ratio": 1.2},
+                    {"hook": "news-peg", "ratio": 1.3},
+                    {"hook": "news-peg", "ratio": 1.4},
+                    {"hook": "news-peg", "ratio": 1.5},
+                    {"hook": "news-peg", "ratio": 1.6},
+                    {"hook": "news-peg", "ratio": 1.7},
+                    {"hook": "news-peg", "ratio": 1.8},
+                    {"hook": "news-peg", "ratio": 1.9},
+                ],
+            }
+        }
+    })
+    clip = {"start": 0, "end": 35, "duration": 35, "text": text}
+    low_ranker = EditorialRanker(
+        campaign_hub_snapshot=low_snapshot,
+        campaign_hub_account="@renansantosmbl",
+    )
+    high_ranker = EditorialRanker(
+        campaign_hub_snapshot=high_snapshot,
+        campaign_hub_account="@renansantosmbl",
+    )
+    result_low = low_ranker.score_clip(clip)
+    result_high = high_ranker.score_clip(clip)
+    assert result_low["campaign_hub_prior"]["available"] is True
+    assert result_high["campaign_hub_prior"]["available"] is True
+    assert result_high["campaign_hub_prior"]["confidence"] > result_low["campaign_hub_prior"]["confidence"]
+    assert result_high["editorial_potential_score"] > result_low["editorial_potential_score"]

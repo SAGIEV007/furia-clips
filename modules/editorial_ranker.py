@@ -441,8 +441,11 @@ class EditorialRanker:
             if _coerce_flag(clip.get("chapter_crosses_boundary")) and not _coerce_flag(clip.get("qa_bridge")):
                 score -= 2
         if campaign_hub_prior["available"]:
-            # Post-publication evidence is intentionally bounded to +/- 2 points.
-            score += int(round((campaign_hub_prior["observed_signal"] - 50.0) * 0.12))
+            # Post-publication evidence is bounded; stronger priors move the score
+            # up to +/- 4 points so meaningful samples actually influence ranking.
+            confidence = max(0.0, min(1.0, campaign_hub_prior.get("confidence", 0.0) or 0.0))
+            weight = 0.12 + 0.38 * confidence
+            score += int(round((campaign_hub_prior["observed_signal"] - 50.0) * weight))
         if acervo_alignment.get("available"):
             # A same-source QA-gated block is a small context prior, not a cut command.
             score += int(round(max(-1.0, min(1.0, (acervo_alignment.get("signal", 50.0) - 50.0) * 0.12))))
