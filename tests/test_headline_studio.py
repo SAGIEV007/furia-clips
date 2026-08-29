@@ -816,3 +816,5 @@ def test_compact_claim_strips_leading_conjunction_but_preserves_articles():
     assert _compact_claim("Porque a conta não fecha sem rever despesas") == "a conta não fecha sem rever despesas"
     assert _compact_claim("A proposta melhora o atendimento básico") == "A proposta melhora o atendimento básico"
     assert _compact_claim("O Estado precisa decidir") == "O Estado precisa decidir"
+    # Multiple leading connectors should be stripped as long as meaning is preserved
+    assert _compact_claim("E Mas o projeto avança") == "o projeto avança"
