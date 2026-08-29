@@ -1321,6 +1321,20 @@ def api_get_job(job_id):
     job = job_manager.get(job_id)
     if not job:
         return jsonify({"error": "Job não encontrado"}), 404
+    rendered_count = 0
+    render_rejection_count = 0
+    try:
+        for artifact in job.get("artifacts") or []:
+            if not isinstance(artifact, dict):
+                continue
+            if artifact.get("type") == "candidate_diagnostics":
+                rendered_count = int(artifact.get("rendered_count") or 0)
+                render_rejection_count = int(artifact.get("render_rejection_count") or 0)
+    except (TypeError, ValueError):
+        rendered_count = 0
+        render_rejection_count = 0
+    job.setdefault("rendered_count", rendered_count)
+    job.setdefault("failed_render_count", render_rejection_count)
     return jsonify(job)
 
 
@@ -2916,11 +2930,9 @@ def api_cut_shorts():
                 scene_changes=scene_changes,
                 video_layout=video_layout,
             )
-            print("[SELECT-DEBUG]", json.dumps({"top_clips_len": len(top_clips), "diagnostics": selector.get_candidate_diagnostics()}, ensure_ascii=False))
             if multimodal_result is not None:
                 top_clips = _attach_multimodal_visual_observations(top_clips, multimodal_result)
                 emit_progress("[Evidência visual] Momentos não verbais foram anexados apenas para revisão; ranking e gates permanecem independentes.", "info")
-            print("[POST-MULTIMODAL-DEBUG]", json.dumps({"top_clips_len": len(top_clips)}, ensure_ascii=False))
             selection_source = selector.get_selection_source()
 
             candidate_diagnostics = selector.get_candidate_diagnostics()
