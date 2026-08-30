@@ -23,3 +23,18 @@ def test_dashboard_smoke_returns_200():
         for snap in snapshots:
             assert "platform" in snap
             assert "format_id" in snap
+
+
+def test_performance_summary_smoke_returns_200():
+    client = furia_app.test_client()
+    response = client.get("/api/performance/summary")
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload is not None
+    assert payload.get("success") is True
+    assert "summary" in payload
+    summary = payload["summary"] or {}
+    assert "contents" in summary
+    assert "snapshots" in summary
+    assert "views" in summary
+    assert "latest" in summary
