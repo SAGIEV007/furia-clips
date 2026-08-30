@@ -529,7 +529,7 @@ class ClipSelectionTests(unittest.TestCase):
         self.assertTrue(any("via NLP local" in message for message in messages))
         self.assertFalse(any("NLP basico" in message for message in messages))
 
-    @patch("modules.clip_selector.requests.post")
+    @patch("modules.clip_selector._http_session.post")
     def test_gemini_selector_uses_configured_model(self, post):
         post.return_value.status_code = 403
         sentences = self.selector._build_sentences([
@@ -553,7 +553,7 @@ class ClipSelectionTests(unittest.TestCase):
         )
 
 
-    @patch("modules.clip_selector.requests.post")
+    @patch("modules.clip_selector._http_session.post")
     def test_gemini_quota_message_explains_local_fallback(self, post):
         post.return_value.status_code = 429
         post.return_value.json.return_value = {"error": {"message": "quota exhausted"}}

@@ -19,6 +19,14 @@ from .political_profile import PROFILE_NAME, build_political_prompt_fragment
 from .editorial_chapters import annotate_clip_with_chapters
 from .safe_types import safe_float, coerce_bool
 
+# Shared HTTP session with connection pooling for Gemini/Ollama API calls.
+# Reusing connections avoids a full TCP/TLS handshake on every request.
+_http_session = requests.Session()
+_http_session.headers.update({"Content-Type": "application/json"})
+_adapter = requests.adapters.HTTPAdapter(max_retries=3, pool_connections=10, pool_maxsize=10)
+_http_session.mount("https://", _adapter)
+_http_session.mount("http://", _adapter)
+
 PREFERRED_MAX_DURATION = 90.0
 TECHNICAL_MAX_DURATION = 150.0
 MIN_DURATION = 25.0
@@ -537,7 +545,7 @@ class ClipSelector:
                     if attempt > 0 and emit_progress:
                         emit_progress(f"[Gemini] Tentativa {attempt + 1} com {model_name}...", "info")
 
-                    response = requests.post(
+                    response = _http_session.post(
                         f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent",
                         headers={"x-goog-api-key": api_key, "Content-Type": "application/json"},
                         json={
@@ -789,7 +797,7 @@ Retorne APENAS o array JSON. Nenhum texto antes ou depois."""
         # Fail fast when Ollama is not reachable instead of spending seconds
         # in a long request timeout per chunk.
         try:
-            requests.get(f"{ollama_url}/api/tags", timeout=2)
+            _http_session.get(f"{ollama_url}/api/tags", timeout=2)
         except requests.exceptions.RequestException:
             if emit_progress:
                 emit_progress("[Ollama] Servidor indisponível; seguindo sem IA local.")
@@ -815,7 +823,7 @@ Retorne APENAS o array JSON. Nenhum texto antes ou depois."""
                 )
 
             try:
-                response = requests.post(
+                response = _http_session.post(
                     f"{ollama_url}/api/generate",
                     json={
                         "model": ollama_model,
