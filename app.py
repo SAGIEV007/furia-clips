@@ -2327,6 +2327,44 @@ def api_youtube_download():
         return jsonify({"success": False, "error": str(exc)}), 400
 
 
+
+@app.route("/api/youtube/import", methods=["POST"])
+def api_youtube_import():
+    data = request.get_json(silent=True) or {}
+    url = str(data.get("url", "")).strip()
+    if not url:
+        return jsonify({"success": False, "error": "URL obrigatoria"}), 400
+
+    settings = get_all_settings()
+    try:
+        destination = _resolve_source_destination(data.get("destination_dir"), settings)
+    except OSError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
+
+    try:
+        result = download_youtube_video(
+            url=url,
+            destination=destination,
+            max_height=int(data.get("max_height", 1080)),
+        )
+    except (YouTubeImportError, ValueError) as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
+
+    result_path = os.path.abspath(result["path"])
+    metadata = fetch_youtube_metadata(url)
+    project_name = metadata.get("title") or result.get("title") or os.path.basename(result_path)
+    project_id = create_project(project_name, result_path)
+
+    return jsonify({
+        "success": True,
+        "project_id": project_id,
+        "path": result_path,
+        "metadata": metadata,
+        "source_id": result.get("source_id"),
+    })
+
+
+
 def _format_source_import_progress(update):
     """Present yt-dlp multi-stream progress without implying a single global percent."""
     status = update.get("status")

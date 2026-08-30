@@ -973,6 +973,30 @@ class YouTubeApiSmokeTests(unittest.TestCase):
 
 
 
+
+    def test_youtube_import_creates_project(self):
+        fake_result = {"path": "/tmp/fake_yt.mp4", "title": "Fake YT", "source_id": "dQw4w9WgXcQ"}
+        fake_metadata = {
+            "video_id": "dQw4w9WgXcQ",
+            "title": "Fake YT",
+            "uploader": "Fake Channel",
+            "duration": 120.0,
+        }
+        with patch("app.download_youtube_video", return_value=fake_result) as mock_dl,              patch("app.fetch_youtube_metadata", return_value=fake_metadata) as mock_md,              patch("app.create_project", return_value=42) as mock_create:
+            response = self.client.post(
+                "/api/youtube/import",
+                json={"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "destination_dir": "/tmp"},
+            )
+            assert response.status_code == 200
+            payload = response.get_json()
+            assert payload["success"] is True
+            assert payload["project_id"] == 42
+            assert payload["source_id"] == "dQw4w9WgXcQ"
+            assert payload["metadata"]["title"] == "Fake YT"
+            mock_dl.assert_called_once()
+            mock_md.assert_called_once()
+            mock_create.assert_called_once()
+
     def test_health_endpoint_returns_ok(self):
         response = self.client.get("/health")
         assert response.status_code == 200
