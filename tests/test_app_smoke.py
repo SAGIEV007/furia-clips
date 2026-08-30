@@ -1024,3 +1024,56 @@ class YouTubeApiSmokeTests(unittest.TestCase):
         payload = response.get_json()
         assert payload["success"] is False
         assert "URL do YouTube não reconhecida" in payload["error"]
+    def test_youtube_import_accepts_shorts_url(self):
+        fake_result = {
+            "path": "/tmp/shorts.mp4",
+            "title": "Shorts Video",
+            "source_id": "dQw4w9WgXcQ",
+        }
+        fake_metadata = {
+            "video_id": "dQw4w9WgXcQ",
+            "title": "Shorts Video",
+            "uploader": "Fake Channel",
+            "duration": 60.0,
+        }
+        with patch("app.download_youtube_video", return_value=fake_result) as mock_dl,              patch("app.fetch_youtube_metadata", return_value=fake_metadata) as mock_md,              patch("app.create_project", return_value=42) as mock_create:
+            response = self.client.post(
+                "/api/youtube/import",
+                json={"url": "https://www.youtube.com/shorts/dQw4w9WgXcQ", "destination_dir": "/tmp"},
+            )
+            assert response.status_code == 200
+            payload = response.get_json()
+            assert payload["success"] is True
+            assert payload["project_id"] == 42
+            assert payload["source_id"] == "dQw4w9WgXcQ"
+            assert payload["metadata"]["title"] == "Shorts Video"
+            mock_dl.assert_called_once()
+            mock_md.assert_called_once()
+            mock_create.assert_called_once()
+
+    def test_youtube_import_accepts_live_url(self):
+        fake_result = {
+            "path": "/tmp/live.mp4",
+            "title": "Live Stream",
+            "source_id": "dQw4w9WgXcQ",
+        }
+        fake_metadata = {
+            "video_id": "dQw4w9WgXcQ",
+            "title": "Live Stream",
+            "uploader": "Fake Channel",
+            "duration": 3600.0,
+        }
+        with patch("app.download_youtube_video", return_value=fake_result) as mock_dl,              patch("app.fetch_youtube_metadata", return_value=fake_metadata) as mock_md,              patch("app.create_project", return_value=42) as mock_create:
+            response = self.client.post(
+                "/api/youtube/import",
+                json={"url": "https://www.youtube.com/live/dQw4w9WgXcQ", "destination_dir": "/tmp"},
+            )
+            assert response.status_code == 200
+            payload = response.get_json()
+            assert payload["success"] is True
+            assert payload["project_id"] == 42
+            assert payload["source_id"] == "dQw4w9WgXcQ"
+            assert payload["metadata"]["title"] == "Live Stream"
+            mock_dl.assert_called_once()
+            mock_md.assert_called_once()
+            mock_create.assert_called_once()
