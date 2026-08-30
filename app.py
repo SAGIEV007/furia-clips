@@ -3037,8 +3037,9 @@ def api_cut_shorts():
             selector = ClipSelector(
                 target_duration=settings.get("cut_duration", 45),
                 max_clips=coverage_plan["adaptive_max_clips"],
-                min_duration=20,
-                max_duration=180,
+                min_duration=25,
+                max_duration=150,
+                preferred_max_duration=90,
             )
             top_clips = selector.select_clips(
                 transcription,
@@ -4263,8 +4264,9 @@ def api_process_complete():
             selector = ClipSelector(
                 target_duration=settings.get("cut_duration", 45),
                 max_clips=coverage_plan["adaptive_max_clips"],
-                min_duration=20,
-                max_duration=180,
+                min_duration=25,
+                max_duration=150,
+                preferred_max_duration=90,
             )
             top_clips = selector.select_clips(
                 transcription,

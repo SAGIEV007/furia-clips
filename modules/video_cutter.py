@@ -6,6 +6,8 @@ import subprocess
 import math
 import time
 import hashlib
+import concurrent.futures
+import threading
 from functools import lru_cache
 from config import EXPORT_DIR
 from .media_validation import validate_media
@@ -19,13 +21,15 @@ class VideoCutter:
         self.preset = get_preset(preset) if isinstance(preset, str) else (preset or get_preset("shorts"))
         self.last_rejections = []
         self._ffprobe_cache = {}
+        self._render_lock = threading.RLock()
 
     def _record_render_rejection(self, output_path, errors, warnings=None):
-        self.last_rejections.append({
-            "path": output_path,
-            "errors": [str(error)[:500] for error in (errors or [])],
-            "warnings": [str(warning)[:500] for warning in (warnings or [])],
-        })
+        with self._render_lock:
+            self.last_rejections.append({
+                "path": output_path,
+                "errors": [str(error)[:500] for error in (errors or [])],
+                "warnings": [str(warning)[:500] for warning in (warnings or [])],
+            })
 
     def _validate_rendered_output(
         self,
@@ -78,8 +82,9 @@ class VideoCutter:
 
     def get_video_info(self, video_path):
         cache_key = self._ffprobe_cache_key(video_path)
-        if cache_key in self._ffprobe_cache:
-            return self._ffprobe_cache[cache_key]
+        with self._render_lock:
+            if cache_key in self._ffprobe_cache:
+                return self._ffprobe_cache[cache_key]
 
         cmd = [
             "ffprobe", "-v", "quiet",
@@ -92,7 +97,8 @@ class VideoCutter:
             raise RuntimeError((result.stderr or "ffprobe falhou").strip()[-500:])
 
         info = json.loads(result.stdout or "{}")
-        self._ffprobe_cache[cache_key] = info
+        with self._render_lock:
+            self._ffprobe_cache[cache_key] = info
         return info
 
     def clear_ffprobe_cache(self):
@@ -461,22 +467,26 @@ class VideoCutter:
         if source_duration is not None and (not math.isfinite(source_duration) or source_duration <= 0):
             source_duration = None
 
-        for i, cut in enumerate(cuts):
+        # Thread-safe helpers for parallel clip rendering.
+        progress_lock = threading.Lock()
+        indices_lock = threading.Lock()
+
+        def _safe_emit(message, level="info"):
+            if emit_progress is not None:
+                with progress_lock:
+                    emit_progress(message, level)
+
+        def _render_one(i, cut):
             rank = i + 1
-            # Use AI-generated title if available, otherwise generate from text
             clip_title = cut.get("title", "")
             if not clip_title:
                 clip_title = self._generate_clip_title(cut.get("text", ""))
-
             safe_title = self._sanitize_filename(clip_title)
             output_name = f"{rank}. {safe_title}.mp4"
             output_path = os.path.join(export_dir, output_name)
 
-            if emit_progress:
-                emit_progress(f"Cortando clip {rank}/{len(cuts)}: {safe_title}...")
+            _safe_emit(f"Cortando clip {rank}/{len(cuts)}: {safe_title}...")
 
-            # Apply padding for natural-sounding clips only after validating the
-            # candidate itself. Padding must never rescue an invalid interval.
             try:
                 raw_start = float(cut["start"])
                 raw_end = float(cut["end"])
@@ -488,16 +498,12 @@ class VideoCutter:
                 or raw_end <= raw_start
             ):
                 self._record_render_rejection(output_path, ["limites de intervalo inválidos"])
-                if emit_progress:
-                    emit_progress(
-                        f"[Render] Intervalo {rank} possui limites inválidos; ignorado.",
-                        "warning",
-                    )
-                continue
+                _safe_emit(
+                    f"[Render] Intervalo {rank} possui limites inválidos; ignorado.",
+                    "warning",
+                )
+                return None
 
-            # Word-timestamp refinement already includes a conservative 120 ms
-            # speech margin. Do not add the legacy padding again, otherwise the
-            # final render would partially undo the selector's boundary work.
             boundary_refinement = cut.get("boundary_refinement") if isinstance(cut.get("boundary_refinement"), dict) else {}
             refined_boundaries = boundary_refinement.get("applied") is True
             if refined_boundaries:
@@ -505,7 +511,6 @@ class VideoCutter:
                 padded_end = raw_end
                 render_boundary_policy = "word_timestamps_preserved"
             else:
-                # Legacy candidates keep the historical safety padding.
                 padded_start = max(0.0, raw_start - 0.3)
                 padded_end = raw_end + 0.8
                 render_boundary_policy = "legacy_safety_padding"
@@ -514,54 +519,68 @@ class VideoCutter:
                 padded_end = min(padded_end, source_duration)
             if padded_end <= padded_start:
                 self._record_render_rejection(output_path, ["duração não positiva após limitar à fonte"])
-                if emit_progress:
-                    emit_progress(
-                        f"[Render] Intervalo {rank} não possui duração positiva após limitar à fonte; ignorado.",
-                        "warning",
-                    )
-                continue
+                _safe_emit(
+                    f"[Render] Intervalo {rank} não possui duração positiva após limitar à fonte; ignorado.",
+                    "warning",
+                )
+                return None
 
             layout_plan = layout_plans.get(i) if isinstance(layout_plans, dict) else None
             if layout_plan and (
                 layout_plan.get("reframe_allowed") is False
                 or layout_plan.get("review_required") is True
             ):
-                original_aspect_indices.add(i)
+                with indices_lock:
+                    original_aspect_indices.add(i)
 
             face_pos = face_positions_map.get(i, None) if face_positions_map else None
             can_reframe = use_face_tracking and bool(face_pos) and i not in original_aspect_indices
             framing_reason = ""
             if can_reframe:
-                result = self.cut_clip_with_face_tracking(
-                    video_path, padded_start, padded_end,
-                    output_path, face_pos, emit_progress, active_preset,
-                    cancel_check=cancel_check,
-                )
+                try:
+                    result = self.cut_clip_with_face_tracking(
+                        video_path, padded_start, padded_end,
+                        output_path, face_pos, _safe_emit, active_preset,
+                        cancel_check=cancel_check,
+                    )
+                except Exception as exc:
+                    _safe_emit(f"[Render] Falha no facetracking para clip {rank}: {exc}", "error")
+                    return None
                 framing_mode = "face_tracking"
                 framing_reason = "facetracking aplicado com posição facial detectada"
             elif i in original_aspect_indices:
-                result = self.cut_clip(
-                    video_path, padded_start, padded_end,
-                    output_path, vertical=False, emit_progress=emit_progress,
-                    video_layout="center", preset=active_preset,
-                    cancel_check=cancel_check,
-                )
+                try:
+                    result = self.cut_clip(
+                        video_path, padded_start, padded_end,
+                        output_path, vertical=False, emit_progress=_safe_emit,
+                        video_layout="center", preset=active_preset,
+                        cancel_check=cancel_check,
+                    )
+                except Exception as exc:
+                    _safe_emit(f"[Render] Falha no corte original para clip {rank}: {exc}", "error")
+                    return None
                 framing_mode = "original_16_9"
                 framing_reason = (layout_plan or {}).get("reason") or "composição original preservada por segurança"
-                if emit_progress:
-                    emit_progress(f"[Layout] Clip {rank}: {framing_reason} Saída na proporção original.", "info")
+                _safe_emit(f"[Layout] Clip {rank}: {framing_reason} Saída na proporção original.", "info")
             else:
-                result = self.cut_clip(
-                    video_path, padded_start, padded_end,
-                    output_path, vertical=True, emit_progress=emit_progress,
-                    video_layout=video_layout, preset=active_preset,
-                    cancel_check=cancel_check,
-                )
+                try:
+                    result = self.cut_clip(
+                        video_path, padded_start, padded_end,
+                        output_path, vertical=True, emit_progress=_safe_emit,
+                        video_layout=video_layout, preset=active_preset,
+                        cancel_check=cancel_check,
+                    )
+                except Exception as exc:
+                    _safe_emit(f"[Render] Falha no corte vertical para clip {rank}: {exc}", "error")
+                    return None
                 framing_mode = "center_crop"
                 framing_reason = "crop centralizado; facetracking não aplicado ou não disponível"
 
             if cancel_check:
-                cancel_check()
+                try:
+                    cancel_check()
+                except Exception:
+                    return None
             if result:
                 render_vertical = framing_mode != "original_16_9"
                 validation = validate_media(
@@ -575,14 +594,13 @@ class VideoCutter:
                 )
                 if not validation.valid:
                     self._record_render_rejection(result, validation.errors, validation.warnings)
-                    if emit_progress:
-                        emit_progress(
-                            f"Validação falhou para {os.path.basename(result)}: "
-                            + "; ".join(validation.errors),
-                            "error",
-                        )
-                    continue
-                results.append({
+                    _safe_emit(
+                        f"Validação falhou para {os.path.basename(result)}: "
+                        + "; ".join(validation.errors),
+                        "error",
+                    )
+                    return None
+                return {
                     "index": i,
                     "path": output_path,
                     "start": cut["start"],
@@ -608,11 +626,32 @@ class VideoCutter:
                     "validation": validation.as_dict(),
                     "preset": active_preset["aspect"] if render_vertical else "original_16:9",
                     "layout_plan": dict(layout_plan) if isinstance(layout_plan, dict) else None,
-                })
+                }
+            return None
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+            futures = []
+            for i, cut in enumerate(cuts):
+                if cancel_check:
+                    try:
+                        cancel_check()
+                    except Exception:
+                        break
+                futures.append(executor.submit(_render_one, i, cut))
+
+            for future in concurrent.futures.as_completed(futures):
+                try:
+                    result = future.result()
+                    if result is not None:
+                        results.append(result)
+                except Exception as exc:
+                    _safe_emit(f"[Render] Erro em worker de corte: {exc}", "error")
+
+        results.sort(key=lambda r: r["index"])
 
         if emit_progress:
-            emit_progress(f"Corte completo: {len(results)}/{len(cuts)} clips gerados")
-            emit_progress(f"Clips salvos em: {export_dir}", "success")
+            _safe_emit(f"Corte completo: {len(results)}/{len(cuts)} clips gerados")
+            _safe_emit(f"Clips salvos em: {export_dir}", "success")
 
         return results
 
