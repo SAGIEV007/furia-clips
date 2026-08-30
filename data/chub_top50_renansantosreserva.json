@@ -1,1070 +1,1073 @@
-[
-  {
-    "channel": "@renansantosreserva",
-    "urls": [
-      "https://www.facebook.com/reel/1537505555091913/",
-      "https://www.instagram.com/reel/Db_4A6IDX1O/"
-    ],
-    "platforms": [
-      "facebook",
-      "instagram"
-    ],
-    "perPlatform": {
-      "facebook": 4450,
-      "instagram": 19.06161500191351
+{
+  "metric": "ratio",
+  "rows": [
+    {
+      "channel": "@renansantosreserva",
+      "urls": [
+        "https://www.facebook.com/reel/1537505555091913/",
+        "https://www.instagram.com/reel/Db_4A6IDX1O/"
+      ],
+      "platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "perPlatform": {
+        "facebook": 4450,
+        "instagram": 19.06161500191351
+      },
+      "publishedAt": "2026-08-13",
+      "ratio": 4450,
+      "settledRatio": 4450,
+      "hook": "desafio-ao-espectador",
+      "tags": [],
+      "caption": "Renan Santos não era apoiado só pelos jovens? Pelo visto isso tá mudando.\n\n#RenanSantos #Política #PartidoMissão #Eleições2026 #RenanPreside"
     },
-    "publishedAt": "2026-08-13",
-    "ratio": 4450,
-    "settledRatio": 4450,
-    "hook": "desafio-ao-espectador",
-    "tags": [],
-    "caption": "Renan Santos não era apoiado só pelos jovens? Pelo visto isso tá mudando.\n\n#RenanSantos #Política #PartidoMissão #Eleições2026 #RenanPreside"
-  },
-  {
-    "channel": "@renansantosreserva",
-    "urls": [
-      "https://www.facebook.com/reel/1747226313194102/",
-      "https://www.instagram.com/reel/Db-zC7Hj8d1/",
-      "https://www.facebook.com/reel/1445808847484708/"
-    ],
-    "platforms": [
-      "facebook",
-      "instagram",
-      "facebook"
-    ],
-    "perPlatform": {
-      "facebook": 0,
-      "instagram": 4.684972328650489
+    {
+      "channel": "@renansantosreserva",
+      "urls": [
+        "https://www.facebook.com/reel/1747226313194102/",
+        "https://www.instagram.com/reel/Db-zC7Hj8d1/",
+        "https://www.facebook.com/reel/1445808847484708/"
+      ],
+      "platforms": [
+        "facebook",
+        "instagram",
+        "facebook"
+      ],
+      "perPlatform": {
+        "facebook": 0,
+        "instagram": 4.684972328650489
+      },
+      "publishedAt": "2026-08-13",
+      "ratio": 679,
+      "settledRatio": 679,
+      "hook": "acusacao-direta",
+      "tags": [],
+      "caption": "O que dizer de alguém que engana seus próprios seguidores para benefício próprio? Essa é a favelizaçõa mental do Brasil.\n\n#RenanSantos #Polí"
     },
-    "publishedAt": "2026-08-13",
-    "ratio": 679,
-    "settledRatio": 679,
-    "hook": "acusacao-direta",
-    "tags": [],
-    "caption": "O que dizer de alguém que engana seus próprios seguidores para benefício próprio? Essa é a favelizaçõa mental do Brasil.\n\n#RenanSantos #Polí"
-  },
-  {
-    "channel": "@renansantosreserva",
-    "urls": [
-      "https://www.facebook.com/reel/2523012838213092/",
-      "https://www.instagram.com/reel/Db8wfUyFHiV/"
-    ],
-    "platforms": [
-      "facebook",
-      "instagram"
-    ],
-    "perPlatform": {
-      "facebook": 623,
-      "instagram": 16.68027210884354
+    {
+      "channel": "@renansantosreserva",
+      "urls": [
+        "https://www.facebook.com/reel/2523012838213092/",
+        "https://www.instagram.com/reel/Db8wfUyFHiV/"
+      ],
+      "platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "perPlatform": {
+        "facebook": 623,
+        "instagram": 16.68027210884354
+      },
+      "publishedAt": "2026-08-12",
+      "ratio": 623,
+      "settledRatio": 623,
+      "hook": "outro",
+      "tags": [],
+      "caption": "Ué, será que esse jornalista mudou de ideia sobre o Renan Santos? 🤔\n\n#Eleições2026 #Política #PartidoMissão #RenanSantos #eleições"
     },
-    "publishedAt": "2026-08-12",
-    "ratio": 623,
-    "settledRatio": 623,
-    "hook": "outro",
-    "tags": [],
-    "caption": "Ué, será que esse jornalista mudou de ideia sobre o Renan Santos? 🤔\n\n#Eleições2026 #Política #PartidoMissão #RenanSantos #eleições"
-  },
-  {
-    "channel": "@renansantosreserva",
-    "urls": [
-      "https://www.facebook.com/reel/1085891267340137/",
-      "https://www.instagram.com/reel/Db8tEDiD0eD/"
-    ],
-    "platforms": [
-      "facebook",
-      "instagram"
-    ],
-    "perPlatform": {
-      "facebook": 556,
-      "instagram": 3.334936282760279
+    {
+      "channel": "@renansantosreserva",
+      "urls": [
+        "https://www.facebook.com/reel/1085891267340137/",
+        "https://www.instagram.com/reel/Db8tEDiD0eD/"
+      ],
+      "platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "perPlatform": {
+        "facebook": 556,
+        "instagram": 3.334936282760279
+      },
+      "publishedAt": "2026-08-12",
+      "ratio": 556,
+      "settledRatio": 556,
+      "hook": "tese-provocativa",
+      "tags": [],
+      "caption": "Piada! O sistema está tentando esconder o que as redes sociais não escondem, Renan Santos está GIGANTE e crescendo cada vez mais.\n\n#Eleições"
     },
-    "publishedAt": "2026-08-12",
-    "ratio": 556,
-    "settledRatio": 556,
-    "hook": "tese-provocativa",
-    "tags": [],
-    "caption": "Piada! O sistema está tentando esconder o que as redes sociais não escondem, Renan Santos está GIGANTE e crescendo cada vez mais.\n\n#Eleições"
-  },
-  {
-    "channel": "@renansantosreserva",
-    "urls": [
-      "https://www.facebook.com/reel/1880011992959803/",
-      "https://www.instagram.com/reel/Db9PagNj1QQ/"
-    ],
-    "platforms": [
-      "facebook",
-      "instagram"
-    ],
-    "perPlatform": {
-      "facebook": 556,
-      "instagram": 1.9464446444644465
+    {
+      "channel": "@renansantosreserva",
+      "urls": [
+        "https://www.facebook.com/reel/1880011992959803/",
+        "https://www.instagram.com/reel/Db9PagNj1QQ/"
+      ],
+      "platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "perPlatform": {
+        "facebook": 556,
+        "instagram": 1.9464446444644465
+      },
+      "publishedAt": "2026-08-12",
+      "ratio": 556,
+      "settledRatio": 556,
+      "hook": "acusacao-direta",
+      "tags": [],
+      "caption": "Renan Santos afirma que o Brasil precisa ter sua própria Bomba Atômica e jornalistas ficam chocado!\n\n#RenanSantos #Política #PartidoMissão #"
     },
-    "publishedAt": "2026-08-12",
-    "ratio": 556,
-    "settledRatio": 556,
-    "hook": "acusacao-direta",
-    "tags": [],
-    "caption": "Renan Santos afirma que o Brasil precisa ter sua própria Bomba Atômica e jornalistas ficam chocado!\n\n#RenanSantos #Política #PartidoMissão #"
-  },
-  {
-    "channel": "@renansantosreserva",
-    "urls": [
-      "https://www.facebook.com/reel/2928232284182349/",
-      "https://www.instagram.com/reel/Db5igt8mGe8/"
-    ],
-    "platforms": [
-      "facebook",
-      "instagram"
-    ],
-    "perPlatform": {
-      "facebook": 373,
-      "instagram": 1
+    {
+      "channel": "@renansantosreserva",
+      "urls": [
+        "https://www.facebook.com/reel/2928232284182349/",
+        "https://www.instagram.com/reel/Db5igt8mGe8/"
+      ],
+      "platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "perPlatform": {
+        "facebook": 373,
+        "instagram": 1
+      },
+      "publishedAt": "2026-08-11",
+      "ratio": 373,
+      "settledRatio": 373,
+      "hook": "tese-provocativa",
+      "tags": [],
+      "caption": "Renan Santos revela qual o principal problema da política brasileira.\n\n#RenanSantos #PartidoMissão #eleições2026 #política #direita"
     },
-    "publishedAt": "2026-08-11",
-    "ratio": 373,
-    "settledRatio": 373,
-    "hook": "tese-provocativa",
-    "tags": [],
-    "caption": "Renan Santos revela qual o principal problema da política brasileira.\n\n#RenanSantos #PartidoMissão #eleições2026 #política #direita"
-  },
-  {
-    "channel": "@renansantosreserva",
-    "urls": [
-      "https://www.facebook.com/reel/1050772797881122/",
-      "https://www.instagram.com/reel/Db-2Y0OFNtr/"
-    ],
-    "platforms": [
-      "facebook",
-      "instagram"
-    ],
-    "perPlatform": {
-      "facebook": 352,
-      "instagram": 1.9748829289059173
+    {
+      "channel": "@renansantosreserva",
+      "urls": [
+        "https://www.facebook.com/reel/1050772797881122/",
+        "https://www.instagram.com/reel/Db-2Y0OFNtr/"
+      ],
+      "platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "perPlatform": {
+        "facebook": 352,
+        "instagram": 1.9748829289059173
+      },
+      "publishedAt": "2026-08-13",
+      "ratio": 352,
+      "settledRatio": 352,
+      "hook": "curiosity-gap",
+      "tags": [],
+      "caption": "A Missão é inevitável e o futoro é glorioso!\n\n#RenanSantos #Política #PartidoMissão #Eleições2026 #Presidente"
     },
-    "publishedAt": "2026-08-13",
-    "ratio": 352,
-    "settledRatio": 352,
-    "hook": "curiosity-gap",
-    "tags": [],
-    "caption": "A Missão é inevitável e o futoro é glorioso!\n\n#RenanSantos #Política #PartidoMissão #Eleições2026 #Presidente"
-  },
-  {
-    "channel": "@renansantosreserva",
-    "urls": [
-      "https://www.facebook.com/reel/1603403818091169/",
-      "https://www.instagram.com/reel/Db8HTYzgTGZ/",
-      "https://www.facebook.com/reel/1038377982418272/"
-    ],
-    "platforms": [
-      "facebook",
-      "instagram",
-      "facebook"
-    ],
-    "perPlatform": {
-      "facebook": 0,
-      "instagram": 1.8509257032940611
+    {
+      "channel": "@renansantosreserva",
+      "urls": [
+        "https://www.facebook.com/reel/1603403818091169/",
+        "https://www.instagram.com/reel/Db8HTYzgTGZ/",
+        "https://www.facebook.com/reel/1038377982418272/"
+      ],
+      "platforms": [
+        "facebook",
+        "instagram",
+        "facebook"
+      ],
+      "perPlatform": {
+        "facebook": 0,
+        "instagram": 1.8509257032940611
+      },
+      "publishedAt": "2026-08-12",
+      "ratio": 351,
+      "settledRatio": 351,
+      "hook": "revelacao-de-local",
+      "tags": [],
+      "caption": "O escândalo do Banco Master não para de crescer, e as investigações passam por dentro da Igreja da Lagoinha. Pastor preso, apontado como ope"
     },
-    "publishedAt": "2026-08-12",
-    "ratio": 351,
-    "settledRatio": 351,
-    "hook": "revelacao-de-local",
-    "tags": [],
-    "caption": "O escândalo do Banco Master não para de crescer, e as investigações passam por dentro da Igreja da Lagoinha. Pastor preso, apontado como ope"
-  },
-  {
-    "channel": "@renansantosreserva",
-    "urls": [
-      "https://www.facebook.com/reel/1729543501663686/",
-      "https://www.instagram.com/reel/DcBg61QE06m/"
-    ],
-    "platforms": [
-      "facebook",
-      "instagram"
-    ],
-    "perPlatform": {
-      "facebook": 308.5,
-      "instagram": 1.2123995407577497
+    {
+      "channel": "@renansantosreserva",
+      "urls": [
+        "https://www.facebook.com/reel/1729543501663686/",
+        "https://www.instagram.com/reel/DcBg61QE06m/"
+      ],
+      "platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "perPlatform": {
+        "facebook": 308.5,
+        "instagram": 1.2123995407577497
+      },
+      "publishedAt": "2026-08-14",
+      "ratio": 308.5,
+      "settledRatio": 308.5,
+      "hook": "tese-provocativa",
+      "tags": [],
+      "caption": "É isso que vocês podem esperar se tiver mais 4 anos de governo Lula.\n\n#PartidoMissão #RenanSantos #Política #Eleições2026 #Lula"
     },
-    "publishedAt": "2026-08-14",
-    "ratio": 308.5,
-    "settledRatio": 308.5,
-    "hook": "tese-provocativa",
-    "tags": [],
-    "caption": "É isso que vocês podem esperar se tiver mais 4 anos de governo Lula.\n\n#PartidoMissão #RenanSantos #Política #Eleições2026 #Lula"
-  },
-  {
-    "channel": "@renansantosreserva",
-    "urls": [
-      "https://www.facebook.com/reel/2506043723216583/",
-      "https://www.instagram.com/reel/Db9ImrRjMh4/"
-    ],
-    "platforms": [
-      "facebook",
-      "instagram"
-    ],
-    "perPlatform": {
-      "facebook": 298,
-      "instagram": 3.8494863778472532
+    {
+      "channel": "@renansantosreserva",
+      "urls": [
+        "https://www.facebook.com/reel/2506043723216583/",
+        "https://www.instagram.com/reel/Db9ImrRjMh4/"
+      ],
+      "platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "perPlatform": {
+        "facebook": 298,
+        "instagram": 3.8494863778472532
+      },
+      "publishedAt": "2026-08-12",
+      "ratio": 298,
+      "settledRatio": 298,
+      "hook": null,
+      "tags": [],
+      "caption": "Por essa ninguém esperava! Renan Santos defendeu Mano Brown e falou a verdade sobre Oruam, que muita gente não tem coragem de admitir.\n\n#Ren"
     },
-    "publishedAt": "2026-08-12",
-    "ratio": 298,
-    "settledRatio": 298,
-    "hook": null,
-    "tags": [],
-    "caption": "Por essa ninguém esperava! Renan Santos defendeu Mano Brown e falou a verdade sobre Oruam, que muita gente não tem coragem de admitir.\n\n#Ren"
-  },
-  {
-    "channel": "@renansantosreserva",
-    "urls": [
-      "https://www.facebook.com/reel/901563345898996/",
-      "https://www.instagram.com/reel/Db6Zhcqggof/"
-    ],
-    "platforms": [
-      "facebook",
-      "instagram"
-    ],
-    "perPlatform": {
-      "facebook": 212,
-      "instagram": 0.8369201339072214
+    {
+      "channel": "@renansantosreserva",
+      "urls": [
+        "https://www.facebook.com/reel/901563345898996/",
+        "https://www.instagram.com/reel/Db6Zhcqggof/"
+      ],
+      "platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "perPlatform": {
+        "facebook": 212,
+        "instagram": 0.8369201339072214
+      },
+      "publishedAt": "2026-08-11",
+      "ratio": 212,
+      "settledRatio": 212,
+      "hook": "tese-provocativa",
+      "tags": [],
+      "caption": "Renan Santos repercute sobre o crescimento do Partido Missão em todos os lugares do Brasil.\n\n#PartidoMissão #RenanSantos #eleições2026 #Dire"
     },
-    "publishedAt": "2026-08-11",
-    "ratio": 212,
-    "settledRatio": 212,
-    "hook": "tese-provocativa",
-    "tags": [],
-    "caption": "Renan Santos repercute sobre o crescimento do Partido Missão em todos os lugares do Brasil.\n\n#PartidoMissão #RenanSantos #eleições2026 #Dire"
-  },
-  {
-    "channel": "@renansantosreserva",
-    "urls": [
-      "https://www.facebook.com/reel/995129970174660/",
-      "https://www.instagram.com/reel/DbtvTprD-Wc/"
-    ],
-    "platforms": [
-      "facebook",
-      "instagram"
-    ],
-    "perPlatform": {
-      "facebook": 104.55,
-      "instagram": 4.3464018571060095
+    {
+      "channel": "@renansantosreserva",
+      "urls": [
+        "https://www.facebook.com/reel/995129970174660/",
+        "https://www.instagram.com/reel/DbtvTprD-Wc/"
+      ],
+      "platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "perPlatform": {
+        "facebook": 104.55,
+        "instagram": 4.3464018571060095
+      },
+      "publishedAt": "2026-08-06",
+      "ratio": 104.55,
+      "settledRatio": 104.55,
+      "hook": "tese-provocativa",
+      "tags": [],
+      "caption": "Será que é por isso?\n\n#RenanSantos #Política #Eleições2026"
     },
-    "publishedAt": "2026-08-06",
-    "ratio": 104.55,
-    "settledRatio": 104.55,
-    "hook": "tese-provocativa",
-    "tags": [],
-    "caption": "Será que é por isso?\n\n#RenanSantos #Política #Eleições2026"
-  },
-  {
-    "channel": "@renansantosreserva",
-    "urls": [
-      "https://www.facebook.com/reel/1559538925647398/",
-      "https://www.instagram.com/reel/Db-lPQYDcns/"
-    ],
-    "platforms": [
-      "facebook",
-      "instagram"
-    ],
-    "perPlatform": {
-      "facebook": 96,
-      "instagram": 0.23297057638049173
+    {
+      "channel": "@renansantosreserva",
+      "urls": [
+        "https://www.facebook.com/reel/1559538925647398/",
+        "https://www.instagram.com/reel/Db-lPQYDcns/"
+      ],
+      "platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "perPlatform": {
+        "facebook": 96,
+        "instagram": 0.23297057638049173
+      },
+      "publishedAt": "2026-08-13",
+      "ratio": 96,
+      "settledRatio": 96,
+      "hook": "tese-provocativa",
+      "tags": [],
+      "caption": "Renan Santos afirmou que não acha que deve haver liberdade de expressão para traficantes divulgarem facções, como no caso do Oruam.\n\n#RenanS"
     },
-    "publishedAt": "2026-08-13",
-    "ratio": 96,
-    "settledRatio": 96,
-    "hook": "tese-provocativa",
-    "tags": [],
-    "caption": "Renan Santos afirmou que não acha que deve haver liberdade de expressão para traficantes divulgarem facções, como no caso do Oruam.\n\n#RenanS"
-  },
-  {
-    "channel": "@renansantosreserva",
-    "urls": [
-      "https://www.facebook.com/reel/1626696132302939/",
-      "https://www.instagram.com/reel/DcBsa3VBIrr/"
-    ],
-    "platforms": [
-      "facebook",
-      "instagram"
-    ],
-    "perPlatform": {
-      "facebook": 82,
-      "instagram": 3.8618446230386527
+    {
+      "channel": "@renansantosreserva",
+      "urls": [
+        "https://www.facebook.com/reel/1626696132302939/",
+        "https://www.instagram.com/reel/DcBsa3VBIrr/"
+      ],
+      "platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "perPlatform": {
+        "facebook": 82,
+        "instagram": 3.8618446230386527
+      },
+      "publishedAt": "2026-08-14",
+      "ratio": 82,
+      "settledRatio": 82,
+      "hook": "tese-provocativa",
+      "tags": [],
+      "caption": "Alguém entendeu ai o que ela quis dizer? 🤔\n\n#renansantos #política #eleições2026 #partidomissão #renanpresidente"
     },
-    "publishedAt": "2026-08-14",
-    "ratio": 82,
-    "settledRatio": 82,
-    "hook": "tese-provocativa",
-    "tags": [],
-    "caption": "Alguém entendeu ai o que ela quis dizer? 🤔\n\n#renansantos #política #eleições2026 #partidomissão #renanpresidente"
-  },
-  {
-    "channel": "@renansantosreserva",
-    "urls": [
-      "https://www.facebook.com/reel/4335907436657611/",
-      "https://www.instagram.com/reel/Db_mfm5ihyd/"
-    ],
-    "platforms": [
-      "facebook",
-      "instagram"
-    ],
-    "perPlatform": {
-      "facebook": 64,
-      "instagram": 1.4010479645304312
+    {
+      "channel": "@renansantosreserva",
+      "urls": [
+        "https://www.facebook.com/reel/4335907436657611/",
+        "https://www.instagram.com/reel/Db_mfm5ihyd/"
+      ],
+      "platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "perPlatform": {
+        "facebook": 64,
+        "instagram": 1.4010479645304312
+      },
+      "publishedAt": "2026-08-13",
+      "ratio": 64,
+      "settledRatio": 64,
+      "hook": "outro",
+      "tags": [],
+      "caption": "Renan Santos expõe as ongs internacionas que prejudicam o Brasil e financiam nosso atraso.\n\n#RenanSantos #Política #PartidoMissão #Eleições2"
     },
-    "publishedAt": "2026-08-13",
-    "ratio": 64,
-    "settledRatio": 64,
-    "hook": "outro",
-    "tags": [],
-    "caption": "Renan Santos expõe as ongs internacionas que prejudicam o Brasil e financiam nosso atraso.\n\n#RenanSantos #Política #PartidoMissão #Eleições2"
-  },
-  {
-    "channel": "@renansantosreserva",
-    "urls": [
-      "https://www.facebook.com/reel/27545693755131394/",
-      "https://www.instagram.com/reel/Db-vmablNST/"
-    ],
-    "platforms": [
-      "facebook",
-      "instagram"
-    ],
-    "perPlatform": {
-      "facebook": 59,
-      "instagram": 0.18782748891575976
+    {
+      "channel": "@renansantosreserva",
+      "urls": [
+        "https://www.facebook.com/reel/27545693755131394/",
+        "https://www.instagram.com/reel/Db-vmablNST/"
+      ],
+      "platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "perPlatform": {
+        "facebook": 59,
+        "instagram": 0.18782748891575976
+      },
+      "publishedAt": "2026-08-13",
+      "ratio": 59,
+      "settledRatio": 59,
+      "hook": "tese-provocativa",
+      "tags": [],
+      "caption": "Renan Santos afirma: estupr*dor deveria ter perna de morte!\n\n#RenanSantos #Política #PartidoMissão #Eleições2026 #Presidente"
     },
-    "publishedAt": "2026-08-13",
-    "ratio": 59,
-    "settledRatio": 59,
-    "hook": "tese-provocativa",
-    "tags": [],
-    "caption": "Renan Santos afirma: estupr*dor deveria ter perna de morte!\n\n#RenanSantos #Política #PartidoMissão #Eleições2026 #Presidente"
-  },
-  {
-    "channel": "@renansantosreserva",
-    "urls": [
-      "https://www.facebook.com/reel/2934711926866308/",
-      "https://www.instagram.com/reel/Db8OMPkDRrP/"
-    ],
-    "platforms": [
-      "facebook",
-      "instagram"
-    ],
-    "perPlatform": {
-      "facebook": 56,
-      "instagram": 0.3413510747185261
+    {
+      "channel": "@renansantosreserva",
+      "urls": [
+        "https://www.facebook.com/reel/2934711926866308/",
+        "https://www.instagram.com/reel/Db8OMPkDRrP/"
+      ],
+      "platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "perPlatform": {
+        "facebook": 56,
+        "instagram": 0.3413510747185261
+      },
+      "publishedAt": "2026-08-12",
+      "ratio": 56,
+      "settledRatio": 56,
+      "hook": "tese-provocativa",
+      "tags": [],
+      "caption": "Renan Santos dispara: o Brasil odeia um traidor, mas ama traição.\n\n#Eleições2026 #Política #PartidoMissão #RenanSantos #eleições"
     },
-    "publishedAt": "2026-08-12",
-    "ratio": 56,
-    "settledRatio": 56,
-    "hook": "tese-provocativa",
-    "tags": [],
-    "caption": "Renan Santos dispara: o Brasil odeia um traidor, mas ama traição.\n\n#Eleições2026 #Política #PartidoMissão #RenanSantos #eleições"
-  },
-  {
-    "channel": "@renansantosreserva",
-    "urls": [
-      "https://www.facebook.com/reel/1061785012874457/",
-      "https://www.instagram.com/reel/Db-osYalMSO/",
-      "https://www.facebook.com/reel/1526582268741667/"
-    ],
-    "platforms": [
-      "facebook",
-      "instagram",
-      "facebook"
-    ],
-    "perPlatform": {
-      "facebook": 0,
-      "instagram": 0.4183796856106409
+    {
+      "channel": "@renansantosreserva",
+      "urls": [
+        "https://www.facebook.com/reel/1061785012874457/",
+        "https://www.instagram.com/reel/Db-osYalMSO/",
+        "https://www.facebook.com/reel/1526582268741667/"
+      ],
+      "platforms": [
+        "facebook",
+        "instagram",
+        "facebook"
+      ],
+      "perPlatform": {
+        "facebook": 0,
+        "instagram": 0.4183796856106409
+      },
+      "publishedAt": "2026-08-13",
+      "ratio": 55,
+      "settledRatio": 55,
+      "hook": "curiosity-gap",
+      "tags": [],
+      "caption": "Renan Santos revelou trauma familiar envolvendo o sequestro de sua própria mãe e como isso influênciou sua proposta do \"prendeu, matou\".\n\n#R"
     },
-    "publishedAt": "2026-08-13",
-    "ratio": 55,
-    "settledRatio": 55,
-    "hook": "curiosity-gap",
-    "tags": [],
-    "caption": "Renan Santos revelou trauma familiar envolvendo o sequestro de sua própria mãe e como isso influênciou sua proposta do \"prendeu, matou\".\n\n#R"
-  },
-  {
-    "channel": "@renansantosreserva",
-    "urls": [
-      "https://www.facebook.com/reel/1398779892217394/",
-      "https://www.instagram.com/reel/Db6LvuNjoFQ/"
-    ],
-    "platforms": [
-      "facebook",
-      "instagram"
-    ],
-    "perPlatform": {
-      "facebook": 52,
-      "instagram": 0.7914873266379723
+    {
+      "channel": "@renansantosreserva",
+      "urls": [
+        "https://www.facebook.com/reel/1398779892217394/",
+        "https://www.instagram.com/reel/Db6LvuNjoFQ/"
+      ],
+      "platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "perPlatform": {
+        "facebook": 52,
+        "instagram": 0.7914873266379723
+      },
+      "publishedAt": "2026-08-11",
+      "ratio": 52,
+      "settledRatio": 52,
+      "hook": "tese-provocativa",
+      "tags": [],
+      "caption": "Entenda como vai funciona o Direito Penal do Inimigo, proposta de Renan Santos para combater o crime organizado no Brasil com mão de ferro.\n"
     },
-    "publishedAt": "2026-08-11",
-    "ratio": 52,
-    "settledRatio": 52,
-    "hook": "tese-provocativa",
-    "tags": [],
-    "caption": "Entenda como vai funciona o Direito Penal do Inimigo, proposta de Renan Santos para combater o crime organizado no Brasil com mão de ferro.\n"
-  },
-  {
-    "channel": "@renansantosreserva",
-    "urls": [
-      "https://www.facebook.com/reel/2121004668510371/",
-      "https://www.instagram.com/reel/Db-sMHngOCH/",
-      "https://www.facebook.com/reel/1076216311409871/"
-    ],
-    "platforms": [
-      "facebook",
-      "instagram",
-      "facebook"
-    ],
-    "perPlatform": {
-      "facebook": 0,
-      "instagram": 0.3978234582829504
+    {
+      "channel": "@renansantosreserva",
+      "urls": [
+        "https://www.facebook.com/reel/2121004668510371/",
+        "https://www.instagram.com/reel/Db-sMHngOCH/",
+        "https://www.facebook.com/reel/1076216311409871/"
+      ],
+      "platforms": [
+        "facebook",
+        "instagram",
+        "facebook"
+      ],
+      "perPlatform": {
+        "facebook": 0,
+        "instagram": 0.3978234582829504
+      },
+      "publishedAt": "2026-08-13",
+      "ratio": 48,
+      "settledRatio": 48,
+      "hook": "tese-provocativa",
+      "tags": [],
+      "caption": "Renan Santos, candidato à Presidência da República, revela como surgiu o polêmico slogan: \"prendeu, matou\".\n\n#RenanSantos #Política #Partido"
     },
-    "publishedAt": "2026-08-13",
-    "ratio": 48,
-    "settledRatio": 48,
-    "hook": "tese-provocativa",
-    "tags": [],
-    "caption": "Renan Santos, candidato à Presidência da República, revela como surgiu o polêmico slogan: \"prendeu, matou\".\n\n#RenanSantos #Política #Partido"
-  },
-  {
-    "channel": "@renansantosreserva",
-    "urls": [
-      "https://www.facebook.com/reel/1562199748685825/",
-      "https://www.instagram.com/reel/DbZWxzODie_/"
-    ],
-    "platforms": [
-      "facebook",
-      "instagram"
-    ],
-    "perPlatform": {
-      "facebook": 47.07142857142857,
-      "instagram": 2.661215387474447
+    {
+      "channel": "@renansantosreserva",
+      "urls": [
+        "https://www.facebook.com/reel/1562199748685825/",
+        "https://www.instagram.com/reel/DbZWxzODie_/"
+      ],
+      "platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "perPlatform": {
+        "facebook": 47.07142857142857,
+        "instagram": 2.661215387474447
+      },
+      "publishedAt": "2026-07-29",
+      "ratio": 47.07142857142857,
+      "settledRatio": 47.07142857142857,
+      "hook": "callback",
+      "tags": [],
+      "caption": "Nikolas Ferreira é um deputado federal ou só um influencer? \n\n#Política #missão #renansantos #direita #nikolas"
     },
-    "publishedAt": "2026-07-29",
-    "ratio": 47.07142857142857,
-    "settledRatio": 47.07142857142857,
-    "hook": "callback",
-    "tags": [],
-    "caption": "Nikolas Ferreira é um deputado federal ou só um influencer? \n\n#Política #missão #renansantos #direita #nikolas"
-  },
-  {
-    "channel": "@renansantosreserva",
-    "urls": [
-      "https://www.facebook.com/reel/4480926538842888/",
-      "https://www.instagram.com/reel/Db_OfZDjKMW/",
-      "https://www.facebook.com/reel/1551716419126386/"
-    ],
-    "platforms": [
-      "facebook",
-      "instagram",
-      "facebook"
-    ],
-    "perPlatform": {
-      "facebook": 0,
-      "instagram": 6.472390165255945
+    {
+      "channel": "@renansantosreserva",
+      "urls": [
+        "https://www.facebook.com/reel/4480926538842888/",
+        "https://www.instagram.com/reel/Db_OfZDjKMW/",
+        "https://www.facebook.com/reel/1551716419126386/"
+      ],
+      "platforms": [
+        "facebook",
+        "instagram",
+        "facebook"
+      ],
+      "perPlatform": {
+        "facebook": 0,
+        "instagram": 6.472390165255945
+      },
+      "publishedAt": "2026-08-13",
+      "ratio": 47,
+      "settledRatio": 47,
+      "hook": "tese-provocativa",
+      "tags": [],
+      "caption": "Renan Santos foi questionado de forma dura por um seguidor do podcast 3 irmãos e respondeu sem titubear.\n\n#RenanSantos #Política #PartidoMis"
     },
-    "publishedAt": "2026-08-13",
-    "ratio": 47,
-    "settledRatio": 47,
-    "hook": "tese-provocativa",
-    "tags": [],
-    "caption": "Renan Santos foi questionado de forma dura por um seguidor do podcast 3 irmãos e respondeu sem titubear.\n\n#RenanSantos #Política #PartidoMis"
-  },
-  {
-    "channel": "@renansantosreserva",
-    "urls": [
-      "https://www.facebook.com/reel/1079178288389336/",
-      "https://www.instagram.com/reel/Db0Y9DRj7jm/"
-    ],
-    "platforms": [
-      "facebook",
-      "instagram"
-    ],
-    "perPlatform": {
-      "facebook": 44.888888888888886,
-      "instagram": 1.1300225733634313
+    {
+      "channel": "@renansantosreserva",
+      "urls": [
+        "https://www.facebook.com/reel/1079178288389336/",
+        "https://www.instagram.com/reel/Db0Y9DRj7jm/"
+      ],
+      "platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "perPlatform": {
+        "facebook": 44.888888888888886,
+        "instagram": 1.1300225733634313
+      },
+      "publishedAt": "2026-08-09",
+      "ratio": 44.888888888888886,
+      "settledRatio": 44.888888888888886,
+      "hook": "tese-provocativa",
+      "tags": [],
+      "caption": "Renan Santos explica como evitará que novos desastres ambietais impactem o Sul do Brasil.\n\n#RenanSantos #Eleições2026 #Política #partidomiss"
     },
-    "publishedAt": "2026-08-09",
-    "ratio": 44.888888888888886,
-    "settledRatio": 44.888888888888886,
-    "hook": "tese-provocativa",
-    "tags": [],
-    "caption": "Renan Santos explica como evitará que novos desastres ambietais impactem o Sul do Brasil.\n\n#RenanSantos #Eleições2026 #Política #partidomiss"
-  },
-  {
-    "channel": "@renansantosreserva",
-    "urls": [
-      "https://www.facebook.com/reel/1503038968504763/",
-      "https://www.instagram.com/reel/DbdPEnPx8Vn/"
-    ],
-    "platforms": [
-      "facebook",
-      "instagram"
-    ],
-    "perPlatform": {
-      "facebook": 40.857142857142854,
-      "instagram": 1.9667902899527985
+    {
+      "channel": "@renansantosreserva",
+      "urls": [
+        "https://www.facebook.com/reel/1503038968504763/",
+        "https://www.instagram.com/reel/DbdPEnPx8Vn/"
+      ],
+      "platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "perPlatform": {
+        "facebook": 40.857142857142854,
+        "instagram": 1.9667902899527985
+      },
+      "publishedAt": "2026-07-31",
+      "ratio": 40.857142857142854,
+      "settledRatio": 40.857142857142854,
+      "hook": "outro",
+      "tags": [],
+      "caption": "Vem aí um grande jingle 👍🏻"
     },
-    "publishedAt": "2026-07-31",
-    "ratio": 40.857142857142854,
-    "settledRatio": 40.857142857142854,
-    "hook": "outro",
-    "tags": [],
-    "caption": "Vem aí um grande jingle 👍🏻"
-  },
-  {
-    "channel": "@renansantosreserva",
-    "urls": [
-      "https://www.facebook.com/reel/1073775835543756/",
-      "https://www.instagram.com/reel/DbYiVWdCWZE/"
-    ],
-    "platforms": [
-      "facebook",
-      "instagram"
-    ],
-    "perPlatform": {
-      "facebook": 34.07142857142857,
-      "instagram": 0.40085485969150714
+    {
+      "channel": "@renansantosreserva",
+      "urls": [
+        "https://www.facebook.com/reel/1073775835543756/",
+        "https://www.instagram.com/reel/DbYiVWdCWZE/"
+      ],
+      "platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "perPlatform": {
+        "facebook": 34.07142857142857,
+        "instagram": 0.40085485969150714
+      },
+      "publishedAt": "2026-07-29",
+      "ratio": 34.07142857142857,
+      "settledRatio": 34.07142857142857,
+      "hook": "acusacao-direta",
+      "tags": [
+        "bolsonaro-direita",
+        "eleicao-candidatura"
+      ],
+      "caption": "Flávio Bolsonaro tentou desqualificar Renan Santos pelo diploma. A resposta veio no mérito. No vídeo, Renan lembra que formação acadêmica nu"
     },
-    "publishedAt": "2026-07-29",
-    "ratio": 34.07142857142857,
-    "settledRatio": 34.07142857142857,
-    "hook": "acusacao-direta",
-    "tags": [
-      "bolsonaro-direita",
-      "eleicao-candidatura"
-    ],
-    "caption": "Flávio Bolsonaro tentou desqualificar Renan Santos pelo diploma. A resposta veio no mérito. No vídeo, Renan lembra que formação acadêmica nu"
-  },
-  {
-    "channel": "@renansantosreserva",
-    "urls": [
-      "https://www.facebook.com/reel/1404653411571989/",
-      "https://www.instagram.com/reel/DbzJbLpDROS/"
-    ],
-    "platforms": [
-      "facebook",
-      "instagram"
-    ],
-    "perPlatform": {
-      "facebook": 32.63461538461539,
-      "instagram": 1.8917641764176418
+    {
+      "channel": "@renansantosreserva",
+      "urls": [
+        "https://www.facebook.com/reel/1404653411571989/",
+        "https://www.instagram.com/reel/DbzJbLpDROS/"
+      ],
+      "platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "perPlatform": {
+        "facebook": 32.63461538461539,
+        "instagram": 1.8917641764176418
+      },
+      "publishedAt": "2026-08-09",
+      "ratio": 32.63461538461539,
+      "settledRatio": 32.63461538461539,
+      "hook": "acusacao-direta",
+      "tags": [],
+      "caption": "Renan Santos faz discurso duro sobre o ex juiz Sérgio Moro. Depois de se tornar símbolo do combate a corrupção, se aliou aos que prometeu de"
     },
-    "publishedAt": "2026-08-09",
-    "ratio": 32.63461538461539,
-    "settledRatio": 32.63461538461539,
-    "hook": "acusacao-direta",
-    "tags": [],
-    "caption": "Renan Santos faz discurso duro sobre o ex juiz Sérgio Moro. Depois de se tornar símbolo do combate a corrupção, se aliou aos que prometeu de"
-  },
-  {
-    "channel": "@renansantosreserva",
-    "urls": [
-      "https://www.facebook.com/reel/3351760181662153/",
-      "https://www.instagram.com/reel/Db0tfrqDSpp/"
-    ],
-    "platforms": [
-      "facebook",
-      "instagram"
-    ],
-    "perPlatform": {
-      "facebook": 30.823529411764707,
-      "instagram": 3.0083718244803697
+    {
+      "channel": "@renansantosreserva",
+      "urls": [
+        "https://www.facebook.com/reel/3351760181662153/",
+        "https://www.instagram.com/reel/Db0tfrqDSpp/"
+      ],
+      "platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "perPlatform": {
+        "facebook": 30.823529411764707,
+        "instagram": 3.0083718244803697
+      },
+      "publishedAt": "2026-08-09",
+      "ratio": 30.823529411764707,
+      "settledRatio": 30.823529411764707,
+      "hook": "tese-provocativa",
+      "tags": [],
+      "caption": "Um recado de Renan Santos para a militância!\n\n#Política #RenanSantos #partidomissão #Eleições2026 #LivroAmarelo"
     },
-    "publishedAt": "2026-08-09",
-    "ratio": 30.823529411764707,
-    "settledRatio": 30.823529411764707,
-    "hook": "tese-provocativa",
-    "tags": [],
-    "caption": "Um recado de Renan Santos para a militância!\n\n#Política #RenanSantos #partidomissão #Eleições2026 #LivroAmarelo"
-  },
-  {
-    "channel": "@renansantosreserva",
-    "urls": [
-      "https://www.facebook.com/reel/2243856209784485/",
-      "https://www.facebook.com/reel/1040633955503198/",
-      "https://www.instagram.com/reel/Db8poKJlvCV/",
-      "https://www.instagram.com/reel/Db8z8CrEcsx/"
-    ],
-    "platforms": [
-      "facebook",
-      "facebook",
-      "instagram",
-      "instagram"
-    ],
-    "perPlatform": {
-      "facebook": 2,
-      "instagram": 0.022331397945511387
+    {
+      "channel": "@renansantosreserva",
+      "urls": [
+        "https://www.facebook.com/reel/2243856209784485/",
+        "https://www.facebook.com/reel/1040633955503198/",
+        "https://www.instagram.com/reel/Db8poKJlvCV/",
+        "https://www.instagram.com/reel/Db8z8CrEcsx/"
+      ],
+      "platforms": [
+        "facebook",
+        "facebook",
+        "instagram",
+        "instagram"
+      ],
+      "perPlatform": {
+        "facebook": 2,
+        "instagram": 0.022331397945511387
+      },
+      "publishedAt": "2026-08-12",
+      "ratio": 30,
+      "settledRatio": 30,
+      "hook": "tese-provocativa",
+      "tags": [],
+      "caption": "Renan Santos defende a redução dos poderes do STF. Concorda com essa ideia?\n\n#Eleições2026 #Política #PartidoMissão #RenanSantos #eleições"
     },
-    "publishedAt": "2026-08-12",
-    "ratio": 30,
-    "settledRatio": 30,
-    "hook": "tese-provocativa",
-    "tags": [],
-    "caption": "Renan Santos defende a redução dos poderes do STF. Concorda com essa ideia?\n\n#Eleições2026 #Política #PartidoMissão #RenanSantos #eleições"
-  },
-  {
-    "channel": "@renansantosreserva",
-    "urls": [
-      "https://www.facebook.com/reel/1303956654945447/",
-      "https://www.instagram.com/reel/Db_Ax9tmcFu/"
-    ],
-    "platforms": [
-      "facebook",
-      "instagram"
-    ],
-    "perPlatform": {
-      "facebook": 29,
-      "instagram": 0.24393358876117496
+    {
+      "channel": "@renansantosreserva",
+      "urls": [
+        "https://www.facebook.com/reel/1303956654945447/",
+        "https://www.instagram.com/reel/Db_Ax9tmcFu/"
+      ],
+      "platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "perPlatform": {
+        "facebook": 29,
+        "instagram": 0.24393358876117496
+      },
+      "publishedAt": "2026-08-13",
+      "ratio": 29,
+      "settledRatio": 29,
+      "hook": "callback",
+      "tags": [],
+      "caption": "Parece que falar a verdade se tornou algo polêmico no Brasil. Nesse vídeo Renan Santos afirma que a escola tem que ser um ambiente de ordem!"
     },
-    "publishedAt": "2026-08-13",
-    "ratio": 29,
-    "settledRatio": 29,
-    "hook": "callback",
-    "tags": [],
-    "caption": "Parece que falar a verdade se tornou algo polêmico no Brasil. Nesse vídeo Renan Santos afirma que a escola tem que ser um ambiente de ordem!"
-  },
-  {
-    "channel": "@renansantosreserva",
-    "urls": [
-      "https://www.facebook.com/reel/2041847543361750/",
-      "https://www.instagram.com/reel/Db8Kw4qCjKp/"
-    ],
-    "platforms": [
-      "facebook",
-      "instagram"
-    ],
-    "perPlatform": {
-      "facebook": 27,
-      "instagram": 1.3454452405322415
+    {
+      "channel": "@renansantosreserva",
+      "urls": [
+        "https://www.facebook.com/reel/2041847543361750/",
+        "https://www.instagram.com/reel/Db8Kw4qCjKp/"
+      ],
+      "platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "perPlatform": {
+        "facebook": 27,
+        "instagram": 1.3454452405322415
+      },
+      "publishedAt": "2026-08-12",
+      "ratio": 27,
+      "settledRatio": 27,
+      "hook": "outro",
+      "tags": [],
+      "caption": "Renan Santos tirou a cueca? 🤨\n\n#PartidoMissão #RenanSantos  #Eleições2026 #Política"
     },
-    "publishedAt": "2026-08-12",
-    "ratio": 27,
-    "settledRatio": 27,
-    "hook": "outro",
-    "tags": [],
-    "caption": "Renan Santos tirou a cueca? 🤨\n\n#PartidoMissão #RenanSantos  #Eleições2026 #Política"
-  },
-  {
-    "channel": "@renansantosreserva",
-    "urls": [
-      "https://www.facebook.com/reel/1735156357552120/",
-      "https://www.instagram.com/reel/Db02ymngr7T/"
-    ],
-    "platforms": [
-      "facebook",
-      "instagram"
-    ],
-    "perPlatform": {
-      "facebook": 25.363636363636363,
-      "instagram": 0.42112656271948307
+    {
+      "channel": "@renansantosreserva",
+      "urls": [
+        "https://www.facebook.com/reel/1735156357552120/",
+        "https://www.instagram.com/reel/Db02ymngr7T/"
+      ],
+      "platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "perPlatform": {
+        "facebook": 25.363636363636363,
+        "instagram": 0.42112656271948307
+      },
+      "publishedAt": "2026-08-09",
+      "ratio": 25.363636363636363,
+      "settledRatio": 25.363636363636363,
+      "hook": "acusacao-direta",
+      "tags": [
+        "corrupcao"
+      ],
+      "caption": "Sergio Moro, aquele que um dia foi considerado por muitos um herói, trocou o combate a corrupção, por 11 milhões de reais em fundo eleitoral"
     },
-    "publishedAt": "2026-08-09",
-    "ratio": 25.363636363636363,
-    "settledRatio": 25.363636363636363,
-    "hook": "acusacao-direta",
-    "tags": [
-      "corrupcao"
-    ],
-    "caption": "Sergio Moro, aquele que um dia foi considerado por muitos um herói, trocou o combate a corrupção, por 11 milhões de reais em fundo eleitoral"
-  },
-  {
-    "channel": "@renansantosreserva",
-    "urls": [
-      "https://www.facebook.com/reel/1235555798711945/",
-      "https://www.instagram.com/reel/Db8YehFDpqa/",
-      "https://www.facebook.com/reel/1061811216604151/"
-    ],
-    "platforms": [
-      "facebook",
-      "instagram",
-      "facebook"
-    ],
-    "perPlatform": {
-      "facebook": 0,
-      "instagram": 0.27840327533265097
+    {
+      "channel": "@renansantosreserva",
+      "urls": [
+        "https://www.facebook.com/reel/1235555798711945/",
+        "https://www.instagram.com/reel/Db8YehFDpqa/",
+        "https://www.facebook.com/reel/1061811216604151/"
+      ],
+      "platforms": [
+        "facebook",
+        "instagram",
+        "facebook"
+      ],
+      "perPlatform": {
+        "facebook": 0,
+        "instagram": 0.27840327533265097
+      },
+      "publishedAt": "2026-08-12",
+      "ratio": 23,
+      "settledRatio": 23,
+      "hook": "outro",
+      "tags": [],
+      "caption": "Renan Santos aprende a ser um pantaneiro! Será que tá aprovado?\n\n#Eleições2026 #Política #PartidoMissão #RenanSantos #eleições"
     },
-    "publishedAt": "2026-08-12",
-    "ratio": 23,
-    "settledRatio": 23,
-    "hook": "outro",
-    "tags": [],
-    "caption": "Renan Santos aprende a ser um pantaneiro! Será que tá aprovado?\n\n#Eleições2026 #Política #PartidoMissão #RenanSantos #eleições"
-  },
-  {
-    "channel": "@renansantosreserva",
-    "urls": [
-      "https://www.facebook.com/reel/1050959634496717/",
-      "https://www.instagram.com/reel/Db8Rp_1ihdj/"
-    ],
-    "platforms": [
-      "facebook",
-      "instagram"
-    ],
-    "perPlatform": {
-      "facebook": 22,
-      "instagram": 0.7497441146366428
+    {
+      "channel": "@renansantosreserva",
+      "urls": [
+        "https://www.facebook.com/reel/1050959634496717/",
+        "https://www.instagram.com/reel/Db8Rp_1ihdj/"
+      ],
+      "platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "perPlatform": {
+        "facebook": 22,
+        "instagram": 0.7497441146366428
+      },
+      "publishedAt": "2026-08-12",
+      "ratio": 22,
+      "settledRatio": 22,
+      "hook": "desafio-ao-espectador",
+      "tags": [],
+      "caption": "Renan Santos revela como foi a escolha para ele ser candidato a presidente pelo Partido Missão.\n\n#Eleições2026 #Política #PartidoMissão #Ren"
     },
-    "publishedAt": "2026-08-12",
-    "ratio": 22,
-    "settledRatio": 22,
-    "hook": "desafio-ao-espectador",
-    "tags": [],
-    "caption": "Renan Santos revela como foi a escolha para ele ser candidato a presidente pelo Partido Missão.\n\n#Eleições2026 #Política #PartidoMissão #Ren"
-  },
-  {
-    "channel": "@renansantosreserva",
-    "urls": [
-      "https://www.facebook.com/reel/1050040204315154/",
-      "https://www.instagram.com/reel/DcCRcOax76O/"
-    ],
-    "platforms": [
-      "facebook",
-      "instagram"
-    ],
-    "perPlatform": {
-      "facebook": 20,
-      "instagram": 7.2195963429360015
+    {
+      "channel": "@renansantosreserva",
+      "urls": [
+        "https://www.facebook.com/reel/1050040204315154/",
+        "https://www.instagram.com/reel/DcCRcOax76O/"
+      ],
+      "platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "perPlatform": {
+        "facebook": 20,
+        "instagram": 7.2195963429360015
+      },
+      "publishedAt": "2026-08-14",
+      "ratio": 20,
+      "settledRatio": 20,
+      "hook": "tese-provocativa",
+      "tags": [],
+      "caption": "Renan Santos quer unir a direita?\n\n#RenanSantos #PartidoMissão #direita #política"
     },
-    "publishedAt": "2026-08-14",
-    "ratio": 20,
-    "settledRatio": 20,
-    "hook": "tese-provocativa",
-    "tags": [],
-    "caption": "Renan Santos quer unir a direita?\n\n#RenanSantos #PartidoMissão #direita #política"
-  },
-  {
-    "channel": "@renansantosreserva",
-    "urls": [
-      "https://www.instagram.com/reel/DbwazR4ke9u/",
-      "https://www.facebook.com/reel/924392814057574/",
-      "https://www.facebook.com/reel/2241433506696825/"
-    ],
-    "platforms": [
-      "instagram",
-      "facebook",
-      "facebook"
-    ],
-    "perPlatform": {
-      "facebook": 0,
-      "instagram": 18.74353539635439
+    {
+      "channel": "@renansantosreserva",
+      "urls": [
+        "https://www.instagram.com/reel/DbwazR4ke9u/",
+        "https://www.facebook.com/reel/924392814057574/",
+        "https://www.facebook.com/reel/2241433506696825/"
+      ],
+      "platforms": [
+        "instagram",
+        "facebook",
+        "facebook"
+      ],
+      "perPlatform": {
+        "facebook": 0,
+        "instagram": 18.74353539635439
+      },
+      "publishedAt": "2026-08-07",
+      "ratio": 18.74353539635439,
+      "settledRatio": 18.74353539635439,
+      "hook": "tese-provocativa",
+      "tags": [],
+      "caption": "Renan Santos, candidato à presidência, desafiou PCC e Comando Vermelho. Esse cara é maluco?\n\n#RenanSantos #Política #Eleições2026 #Missão #e"
     },
-    "publishedAt": "2026-08-07",
-    "ratio": 18.74353539635439,
-    "settledRatio": 18.74353539635439,
-    "hook": "tese-provocativa",
-    "tags": [],
-    "caption": "Renan Santos, candidato à presidência, desafiou PCC e Comando Vermelho. Esse cara é maluco?\n\n#RenanSantos #Política #Eleições2026 #Missão #e"
-  },
-  {
-    "channel": "@renansantosreserva",
-    "urls": [
-      "https://www.facebook.com/reel/2064792454923076/",
-      "https://www.instagram.com/reel/DbWK-1PExO0/"
-    ],
-    "platforms": [
-      "facebook",
-      "instagram"
-    ],
-    "perPlatform": {
-      "facebook": 18.642857142857142,
-      "instagram": 0.6933655454376509
+    {
+      "channel": "@renansantosreserva",
+      "urls": [
+        "https://www.facebook.com/reel/2064792454923076/",
+        "https://www.instagram.com/reel/DbWK-1PExO0/"
+      ],
+      "platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "perPlatform": {
+        "facebook": 18.642857142857142,
+        "instagram": 0.6933655454376509
+      },
+      "publishedAt": "2026-07-28",
+      "ratio": 18.642857142857142,
+      "settledRatio": 18.642857142857142,
+      "hook": "acusacao-direta",
+      "tags": [
+        "bolsonaro-direita",
+        "stf-moraes"
+      ],
+      "caption": "\"Unir a direita\" virou mantra — mas unir com quem, e a que custo? No vídeo, Renan Santos vai na contramão do discurso fácil: para ele, não e"
     },
-    "publishedAt": "2026-07-28",
-    "ratio": 18.642857142857142,
-    "settledRatio": 18.642857142857142,
-    "hook": "acusacao-direta",
-    "tags": [
-      "bolsonaro-direita",
-      "stf-moraes"
-    ],
-    "caption": "\"Unir a direita\" virou mantra — mas unir com quem, e a que custo? No vídeo, Renan Santos vai na contramão do discurso fácil: para ele, não e"
-  },
-  {
-    "channel": "@renansantosreserva",
-    "urls": [
-      "https://www.facebook.com/reel/1441936960690359/",
-      "https://www.instagram.com/reel/Db6nPLxiu_Z/",
-      "https://www.facebook.com/reel/1616451183444983/"
-    ],
-    "platforms": [
-      "facebook",
-      "instagram",
-      "facebook"
-    ],
-    "perPlatform": {
-      "facebook": 0,
-      "instagram": 0.37551020408163266
+    {
+      "channel": "@renansantosreserva",
+      "urls": [
+        "https://www.facebook.com/reel/1441936960690359/",
+        "https://www.instagram.com/reel/Db6nPLxiu_Z/",
+        "https://www.facebook.com/reel/1616451183444983/"
+      ],
+      "platforms": [
+        "facebook",
+        "instagram",
+        "facebook"
+      ],
+      "perPlatform": {
+        "facebook": 0,
+        "instagram": 0.37551020408163266
+      },
+      "publishedAt": "2026-08-11",
+      "ratio": 17,
+      "settledRatio": 17,
+      "hook": "acusacao-direta",
+      "tags": [],
+      "caption": "Renan Santos revela imagem que expões o verdadeiro \"sistema\" da política. Aqueles que fingem ser inimigos, na verdade estão todos juntos nos"
     },
-    "publishedAt": "2026-08-11",
-    "ratio": 17,
-    "settledRatio": 17,
-    "hook": "acusacao-direta",
-    "tags": [],
-    "caption": "Renan Santos revela imagem que expões o verdadeiro \"sistema\" da política. Aqueles que fingem ser inimigos, na verdade estão todos juntos nos"
-  },
-  {
-    "channel": "@renansantosreserva",
-    "urls": [
-      "https://www.facebook.com/reel/1713089693448046/",
-      "https://www.instagram.com/reel/Db_F8qvE_Z_/"
-    ],
-    "platforms": [
-      "facebook",
-      "instagram"
-    ],
-    "perPlatform": {
-      "facebook": 16,
-      "instagram": 8.339293316304811
+    {
+      "channel": "@renansantosreserva",
+      "urls": [
+        "https://www.facebook.com/reel/1713089693448046/",
+        "https://www.instagram.com/reel/Db_F8qvE_Z_/"
+      ],
+      "platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "perPlatform": {
+        "facebook": 16,
+        "instagram": 8.339293316304811
+      },
+      "publishedAt": "2026-08-13",
+      "ratio": 16,
+      "settledRatio": 16,
+      "hook": "curiosity-gap",
+      "tags": [],
+      "caption": "Levar essa esperança para uma mãe e para as próximas gerações, é para isso que O Livro Amarelo foi criado. Apresentar os problemas do nosso "
     },
-    "publishedAt": "2026-08-13",
-    "ratio": 16,
-    "settledRatio": 16,
-    "hook": "curiosity-gap",
-    "tags": [],
-    "caption": "Levar essa esperança para uma mãe e para as próximas gerações, é para isso que O Livro Amarelo foi criado. Apresentar os problemas do nosso "
-  },
-  {
-    "channel": "@renansantosreserva",
-    "urls": [
-      "https://www.instagram.com/reel/DaxYynsRH9B/"
-    ],
-    "platforms": [
-      "instagram"
-    ],
-    "perPlatform": {
-      "instagram": 15.652119309262167
+    {
+      "channel": "@renansantosreserva",
+      "urls": [
+        "https://www.instagram.com/reel/DaxYynsRH9B/"
+      ],
+      "platforms": [
+        "instagram"
+      ],
+      "perPlatform": {
+        "instagram": 15.652119309262167
+      },
+      "publishedAt": "2026-07-14",
+      "ratio": 15.652119309262167,
+      "settledRatio": 15.652119309262167,
+      "hook": "acusacao-direta",
+      "tags": [],
+      "caption": "Você é a favor de pena de morte?"
     },
-    "publishedAt": "2026-07-14",
-    "ratio": 15.652119309262167,
-    "settledRatio": 15.652119309262167,
-    "hook": "acusacao-direta",
-    "tags": [],
-    "caption": "Você é a favor de pena de morte?"
-  },
-  {
-    "channel": "@renansantosreserva",
-    "urls": [
-      "https://www.facebook.com/reel/1776556233352274/",
-      "https://www.instagram.com/reel/Dba2tEDmRNa/"
-    ],
-    "platforms": [
-      "facebook",
-      "instagram"
-    ],
-    "perPlatform": {
-      "facebook": 14.142857142857142,
-      "instagram": 1.076295019504672
+    {
+      "channel": "@renansantosreserva",
+      "urls": [
+        "https://www.facebook.com/reel/1776556233352274/",
+        "https://www.instagram.com/reel/Dba2tEDmRNa/"
+      ],
+      "platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "perPlatform": {
+        "facebook": 14.142857142857142,
+        "instagram": 1.076295019504672
+      },
+      "publishedAt": "2026-07-30",
+      "ratio": 14.142857142857142,
+      "settledRatio": 14.142857142857142,
+      "hook": "acusacao-direta",
+      "tags": [],
+      "caption": "As notícias falam por si: os candidatos estão fugindo do debate. E Renan Santos sabe por quê. No vídeo, ele comenta o medo generalizado de e"
     },
-    "publishedAt": "2026-07-30",
-    "ratio": 14.142857142857142,
-    "settledRatio": 14.142857142857142,
-    "hook": "acusacao-direta",
-    "tags": [],
-    "caption": "As notícias falam por si: os candidatos estão fugindo do debate. E Renan Santos sabe por quê. No vídeo, ele comenta o medo generalizado de e"
-  },
-  {
-    "channel": "@renansantosreserva",
-    "urls": [
-      "https://www.facebook.com/reel/1057758006622534/",
-      "https://www.instagram.com/reel/DcCcDUwRkEL/"
-    ],
-    "platforms": [
-      "facebook",
-      "instagram"
-    ],
-    "perPlatform": {
-      "facebook": 14,
-      "instagram": 0.6101641414141414
+    {
+      "channel": "@renansantosreserva",
+      "urls": [
+        "https://www.facebook.com/reel/1057758006622534/",
+        "https://www.instagram.com/reel/DcCcDUwRkEL/"
+      ],
+      "platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "perPlatform": {
+        "facebook": 14,
+        "instagram": 0.6101641414141414
+      },
+      "publishedAt": "2026-08-14",
+      "ratio": 14,
+      "settledRatio": 14,
+      "hook": "tese-provocativa",
+      "tags": [],
+      "caption": "Renan Santos diz que Kim Kataguiri será um \"super ministro\" em seu governo e que não depende de grandes anúncios, pois o Partido Missão tem "
     },
-    "publishedAt": "2026-08-14",
-    "ratio": 14,
-    "settledRatio": 14,
-    "hook": "tese-provocativa",
-    "tags": [],
-    "caption": "Renan Santos diz que Kim Kataguiri será um \"super ministro\" em seu governo e que não depende de grandes anúncios, pois o Partido Missão tem "
-  },
-  {
-    "channel": "@renansantosreserva",
-    "urls": [
-      "https://www.instagram.com/reel/DbGf7qgx4_3/"
-    ],
-    "platforms": [
-      "instagram"
-    ],
-    "perPlatform": {
-      "instagram": 12.900521460088248
+    {
+      "channel": "@renansantosreserva",
+      "urls": [
+        "https://www.instagram.com/reel/DbGf7qgx4_3/"
+      ],
+      "platforms": [
+        "instagram"
+      ],
+      "perPlatform": {
+        "instagram": 12.900521460088248
+      },
+      "publishedAt": "2026-07-22",
+      "ratio": 12.900521460088248,
+      "settledRatio": 12.900521460088248,
+      "hook": null,
+      "tags": [],
+      "caption": "🤟🏻🤟🏻"
     },
-    "publishedAt": "2026-07-22",
-    "ratio": 12.900521460088248,
-    "settledRatio": 12.900521460088248,
-    "hook": null,
-    "tags": [],
-    "caption": "🤟🏻🤟🏻"
-  },
-  {
-    "channel": "@renansantosreserva",
-    "urls": [
-      "https://www.facebook.com/reel/1321665236417594/",
-      "https://www.instagram.com/reel/Db1CJeugbpD/"
-    ],
-    "platforms": [
-      "facebook",
-      "instagram"
-    ],
-    "perPlatform": {
-      "facebook": 11.181818181818182,
-      "instagram": 0.5489535047057171
+    {
+      "channel": "@renansantosreserva",
+      "urls": [
+        "https://www.facebook.com/reel/1321665236417594/",
+        "https://www.instagram.com/reel/Db1CJeugbpD/"
+      ],
+      "platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "perPlatform": {
+        "facebook": 11.181818181818182,
+        "instagram": 0.5489535047057171
+      },
+      "publishedAt": "2026-08-09",
+      "ratio": 11.181818181818182,
+      "settledRatio": 11.181818181818182,
+      "hook": "acusacao-direta",
+      "tags": [
+        "eleicao-candidatura"
+      ],
+      "caption": "Nosso caminho será mais difícil, mas o futuro será glorioso!\n\n#RenanSantos #partidomissão #Política #Eleições2026 #eleições"
     },
-    "publishedAt": "2026-08-09",
-    "ratio": 11.181818181818182,
-    "settledRatio": 11.181818181818182,
-    "hook": "acusacao-direta",
-    "tags": [
-      "eleicao-candidatura"
-    ],
-    "caption": "Nosso caminho será mais difícil, mas o futuro será glorioso!\n\n#RenanSantos #partidomissão #Política #Eleições2026 #eleições"
-  },
-  {
-    "channel": "@renansantosreserva",
-    "urls": [
-      "https://www.facebook.com/reel/1044312775161770/",
-      "https://www.instagram.com/reel/Db8VCcGD04V/"
-    ],
-    "platforms": [
-      "facebook",
-      "instagram"
-    ],
-    "perPlatform": {
-      "facebook": 11,
-      "instagram": 0.2164790174002047
+    {
+      "channel": "@renansantosreserva",
+      "urls": [
+        "https://www.facebook.com/reel/1044312775161770/",
+        "https://www.instagram.com/reel/Db8VCcGD04V/"
+      ],
+      "platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "perPlatform": {
+        "facebook": 11,
+        "instagram": 0.2164790174002047
+      },
+      "publishedAt": "2026-08-12",
+      "ratio": 11,
+      "settledRatio": 11,
+      "hook": "revelacao-de-local",
+      "tags": [],
+      "caption": "Renan Santos enfrente desafio e atravessa rio com jacarés!\n\n#Eleições2026 #Política #PartidoMissão #RenanSantos #eleições"
     },
-    "publishedAt": "2026-08-12",
-    "ratio": 11,
-    "settledRatio": 11,
-    "hook": "revelacao-de-local",
-    "tags": [],
-    "caption": "Renan Santos enfrente desafio e atravessa rio com jacarés!\n\n#Eleições2026 #Política #PartidoMissão #RenanSantos #eleições"
-  },
-  {
-    "channel": "@renansantosreserva",
-    "urls": [
-      "https://www.facebook.com/reel/2261068028041177/",
-      "https://www.instagram.com/reel/Db5wQ_lD02D/"
-    ],
-    "platforms": [
-      "facebook",
-      "instagram"
-    ],
-    "perPlatform": {
-      "facebook": 11,
-      "instagram": 2.1319942611190816
+    {
+      "channel": "@renansantosreserva",
+      "urls": [
+        "https://www.facebook.com/reel/2261068028041177/",
+        "https://www.instagram.com/reel/Db5wQ_lD02D/"
+      ],
+      "platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "perPlatform": {
+        "facebook": 11,
+        "instagram": 2.1319942611190816
+      },
+      "publishedAt": "2026-08-11",
+      "ratio": 11,
+      "settledRatio": 11,
+      "hook": "curiosity-gap",
+      "tags": [],
+      "caption": "Renan Santos revela ameaças que tem sofrido após anunciar ato no Largo São Francisco, em frente a Faculdade de Direito da USP.\n\n#RenanSantos"
     },
-    "publishedAt": "2026-08-11",
-    "ratio": 11,
-    "settledRatio": 11,
-    "hook": "curiosity-gap",
-    "tags": [],
-    "caption": "Renan Santos revela ameaças que tem sofrido após anunciar ato no Largo São Francisco, em frente a Faculdade de Direito da USP.\n\n#RenanSantos"
-  },
-  {
-    "channel": "@renansantosreserva",
-    "urls": [
-      "https://www.facebook.com/reel/1069476232169614/",
-      "https://www.instagram.com/reel/DcBdVrHElHR/"
-    ],
-    "platforms": [
-      "facebook",
-      "instagram"
-    ],
-    "perPlatform": {
-      "facebook": 10,
-      "instagram": 0.4521175123998474
+    {
+      "channel": "@renansantosreserva",
+      "urls": [
+        "https://www.facebook.com/reel/1069476232169614/",
+        "https://www.instagram.com/reel/DcBdVrHElHR/"
+      ],
+      "platforms": [
+        "facebook",
+        "instagram"
+      ],
+      "perPlatform": {
+        "facebook": 10,
+        "instagram": 0.4521175123998474
+      },
+      "publishedAt": "2026-08-14",
+      "ratio": 10,
+      "settledRatio": 10,
+      "hook": "news-peg",
+      "tags": [],
+      "caption": "Isso tem que acabar! Além de já ter uma ficha extensa de crimes, ainda foi liberado nessa maldita \"saidinha\" e voltou a cometer atrocidades."
     },
-    "publishedAt": "2026-08-14",
-    "ratio": 10,
-    "settledRatio": 10,
-    "hook": "news-peg",
-    "tags": [],
-    "caption": "Isso tem que acabar! Além de já ter uma ficha extensa de crimes, ainda foi liberado nessa maldita \"saidinha\" e voltou a cometer atrocidades."
-  },
-  {
-    "channel": "@renansantosreserva",
-    "urls": [
-      "https://www.instagram.com/reel/DbBLG-oxeLR/"
-    ],
-    "platforms": [
-      "instagram"
-    ],
-    "perPlatform": {
-      "instagram": 9.959113406498817
+    {
+      "channel": "@renansantosreserva",
+      "urls": [
+        "https://www.instagram.com/reel/DbBLG-oxeLR/"
+      ],
+      "platforms": [
+        "instagram"
+      ],
+      "perPlatform": {
+        "instagram": 9.959113406498817
+      },
+      "publishedAt": "2026-07-20",
+      "ratio": 9.959113406498817,
+      "settledRatio": 9.959113406498817,
+      "hook": "tese-provocativa",
+      "tags": [],
+      "caption": "É oficial!"
     },
-    "publishedAt": "2026-07-20",
-    "ratio": 9.959113406498817,
-    "settledRatio": 9.959113406498817,
-    "hook": "tese-provocativa",
-    "tags": [],
-    "caption": "É oficial!"
-  },
-  {
-    "channel": "@renansantosreserva",
-    "urls": [
-      "https://www.instagram.com/reel/DbcDO76j833/",
-      "https://www.facebook.com/reel/1512958870149532/"
-    ],
-    "platforms": [
-      "instagram",
-      "facebook"
-    ],
-    "perPlatform": {
-      "facebook": 0.1951219512195122,
-      "instagram": 9.955803058428357
+    {
+      "channel": "@renansantosreserva",
+      "urls": [
+        "https://www.instagram.com/reel/DbcDO76j833/",
+        "https://www.facebook.com/reel/1512958870149532/"
+      ],
+      "platforms": [
+        "instagram",
+        "facebook"
+      ],
+      "perPlatform": {
+        "facebook": 0.1951219512195122,
+        "instagram": 9.955803058428357
+      },
+      "publishedAt": "2026-07-31",
+      "ratio": 9.955803058428357,
+      "settledRatio": 9.955803058428357,
+      "hook": "acusacao-direta",
+      "tags": [],
+      "caption": "O presidente da República está avaliando não ir aos debates. Leia de novo: o candidato à reeleição, com toda a máquina e todo o tempo de TV,"
     },
-    "publishedAt": "2026-07-31",
-    "ratio": 9.955803058428357,
-    "settledRatio": 9.955803058428357,
-    "hook": "acusacao-direta",
-    "tags": [],
-    "caption": "O presidente da República está avaliando não ir aos debates. Leia de novo: o candidato à reeleição, com toda a máquina e todo o tempo de TV,"
-  },
-  {
-    "channel": "@renansantosreserva",
-    "urls": [
-      "https://www.instagram.com/reel/DavR3flxmMp/"
-    ],
-    "platforms": [
-      "instagram"
-    ],
-    "perPlatform": {
-      "instagram": 9.937519623233909
+    {
+      "channel": "@renansantosreserva",
+      "urls": [
+        "https://www.instagram.com/reel/DavR3flxmMp/"
+      ],
+      "platforms": [
+        "instagram"
+      ],
+      "perPlatform": {
+        "instagram": 9.937519623233909
+      },
+      "publishedAt": "2026-07-13",
+      "ratio": 9.937519623233909,
+      "settledRatio": 9.937519623233909,
+      "hook": "tese-provocativa",
+      "tags": [],
+      "caption": "Quem é Renan Santos? \nSiga @asafe.pe"
     },
-    "publishedAt": "2026-07-13",
-    "ratio": 9.937519623233909,
-    "settledRatio": 9.937519623233909,
-    "hook": "tese-provocativa",
-    "tags": [],
-    "caption": "Quem é Renan Santos? \nSiga @asafe.pe"
-  },
-  {
-    "channel": "@renansantosreserva",
-    "urls": [
-      "https://www.instagram.com/reel/Db8b6GmjXwl/",
-      "https://www.facebook.com/reel/1742758957055539/"
-    ],
-    "platforms": [
-      "instagram",
-      "facebook"
-    ],
-    "perPlatform": {
-      "facebook": 1,
-      "instagram": 9.374324671983535
-    },
-    "publishedAt": "2026-08-12",
-    "ratio": 9.374324671983535,
-    "settledRatio": 9.374324671983535,
-    "hook": "outro",
-    "tags": [],
-    "caption": "Votaria nesse agroboy? O nome dele é Renan Santos!\n\n#Eleições2026 #Política #PartidoMissão #RenanSantos #agroboy"
-  }
-]
+    {
+      "channel": "@renansantosreserva",
+      "urls": [
+        "https://www.instagram.com/reel/Db8b6GmjXwl/",
+        "https://www.facebook.com/reel/1742758957055539/"
+      ],
+      "platforms": [
+        "instagram",
+        "facebook"
+      ],
+      "perPlatform": {
+        "facebook": 1,
+        "instagram": 9.374324671983535
+      },
+      "publishedAt": "2026-08-12",
+      "ratio": 9.374324671983535,
+      "settledRatio": 9.374324671983535,
+      "hook": "outro",
+      "tags": [],
+      "caption": "Votaria nesse agroboy? O nome dele é Renan Santos!\n\n#Eleições2026 #Política #PartidoMissão #RenanSantos #agroboy"
+    }
+  ]
+}
