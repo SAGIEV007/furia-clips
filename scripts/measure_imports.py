@@ -2,7 +2,11 @@
 """Quick import-time profiler for Fúria modules."""
 import time
 import sys
+import os
 import importlib
+
+# Ensure project root is importable
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 TARGETS = [
     "modules.clip_selector",
