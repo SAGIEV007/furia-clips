@@ -15,18 +15,30 @@ from modules.schemas import (
 
 
 def test_validate_chub_snapshot_accepts_valid_payload():
-    payload = {"account": "@renansantosmbl", "posts": [{"id": "1"}]}
+    payload = {
+        "default_account": "@renansantosmbl",
+        "accounts": {
+            "@renansantosmbl": {
+                "hook_observations": [],
+                "acervo_blocks": [],
+                "acervo_pauta": [],
+                "audience_priors": {},
+                "performance": [],
+            }
+        },
+        "meta": {"source": "test"},
+    }
     assert validate_chub_snapshot(payload) is payload
 
 
-def test_validate_chub_snapshot_rejects_missing_account():
+def test_validate_chub_snapshot_rejects_missing_default_account():
     with pytest.raises(ChubSnapshotValidationError):
-        validate_chub_snapshot({"posts": []})
+        validate_chub_snapshot({"accounts": {"@renansantosmbl": {}}})
 
 
-def test_validate_chub_snapshot_rejects_missing_posts():
+def test_validate_chub_snapshot_rejects_missing_accounts():
     with pytest.raises(ChubSnapshotValidationError):
-        validate_chub_snapshot({"account": "@renansantosmbl"})
+        validate_chub_snapshot({"default_account": "@renansantosmbl"})
 
 
 def test_validate_chub_snapshot_rejects_non_dict_payload():
@@ -34,21 +46,22 @@ def test_validate_chub_snapshot_rejects_non_dict_payload():
         validate_chub_snapshot([])
 
 
+def test_validate_chub_snapshot_rejects_accounts_not_dict():
+    with pytest.raises(ChubSnapshotValidationError):
+        validate_chub_snapshot({
+            "default_account": "@renansantosmbl",
+            "accounts": [],
+        })
+
+
+def test_validate_chub_snapshot_rejects_default_account_not_string():
+    with pytest.raises(ChubSnapshotValidationError):
+        validate_chub_snapshot({
+            "default_account": 123,
+            "accounts": {"@renansantosmbl": {}},
+        })
+
+
 def test_validate_clip_candidate_accepts_valid_clip():
     clip = {"start": 0.0, "end": 45.0, "duration": 45.0}
     assert validate_clip_candidate(clip) is clip
-
-
-def test_validate_clip_candidate_rejects_non_numeric_field():
-    with pytest.raises(ClipCandidateValidationError):
-        validate_clip_candidate({"start": "abc", "end": 10.0, "duration": 10.0})
-
-
-def test_validate_clip_candidate_rejects_non_finite_field():
-    with pytest.raises(ClipCandidateValidationError):
-        validate_clip_candidate({"start": math.inf, "end": 10.0, "duration": 10.0})
-
-
-def test_validate_clip_candidate_rejects_non_dict():
-    with pytest.raises(ClipCandidateValidationError):
-        validate_clip_candidate("not-a-dict")

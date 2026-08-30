@@ -26,14 +26,16 @@ def validate_chub_snapshot(payload: object) -> dict:
     """
     if not isinstance(payload, dict):
         raise ChubSnapshotValidationError("Snapshot must be a JSON object.")
-    missing = {"account", "posts"}
+    missing = {"default_account", "accounts"}
     if not missing.issubset(payload):
         missing_fields = sorted(missing - payload.keys())
         raise ChubSnapshotValidationError(
             f"Snapshot missing required fields: {missing_fields}"
         )
-    if not isinstance(payload.get("posts"), list):
-        raise ChubSnapshotValidationError("Snapshot field 'posts' must be a list.")
+    if not isinstance(payload.get("accounts"), dict):
+        raise ChubSnapshotValidationError("Snapshot field 'accounts' must be a dict.")
+    if not isinstance(payload.get("default_account"), str):
+        raise ChubSnapshotValidationError("Snapshot field 'default_account' must be a string.")
     return payload
 
 

@@ -97,6 +97,7 @@ class ClipSelector:
         min_duration=25,
         max_duration=TECHNICAL_MAX_DURATION,
         preferred_max_duration=PREFERRED_MAX_DURATION,
+        debug_snapshot_path=None,
     ):
         # ``target_duration`` remains for backward compatibility, but is only a
         # soft stopping hint. Context and sentence completion always win.
@@ -105,6 +106,7 @@ class ClipSelector:
         self.min_duration = min_duration
         self.max_duration = max_duration
         self.preferred_max_duration = preferred_max_duration
+        self.debug_snapshot_path = debug_snapshot_path
         self._candidate_diagnostics = {
             "expected_count": 0,
             "primary_count": 0,
@@ -303,6 +305,17 @@ class ClipSelector:
             source_labels = {"gemini": "Gemini Flash", "llm": "Ollama", "nlp": "NLP local"}
             source_label = source_labels.get(self._selection_source, "NLP local")
             emit_progress(f"Selecionados {len(clips)} clips de partes diferentes do video (via {source_label})")
+
+        if self.debug_snapshot_path:
+            try:
+                os.makedirs(os.path.dirname(self.debug_snapshot_path) or ".", exist_ok=True)
+                with open(self.debug_snapshot_path, "w", encoding="utf-8") as handle:
+                    json.dump({
+                        "diagnostics": self._candidate_diagnostics,
+                        "clips": clips,
+                    }, handle, ensure_ascii=False, indent=2)
+            except OSError:
+                pass
 
         return clips
 
