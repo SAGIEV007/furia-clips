@@ -3549,6 +3549,9 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 .performance-metric { display: flex; flex-direction: column; gap: 3px; padding: 9px; border: 1px solid rgba(105, 184, 214, .16); border-radius: 9px; background: rgba(105, 184, 214, .05); }
 .performance-metric span { color: #7f8f9b; font-size: 9px; }
 .performance-metric strong { color: #dcecf2; font-size: 13px; }
+.performance-breakdown-table { width: 100%; margin-top: 10px; border-collapse: collapse; font-size: 11px; color: #b8c8d4; }
+.performance-breakdown-table th { text-align: left; color: #8d9ca7; font-weight: 750; padding: 6px 4px; border-bottom: 1px solid rgba(105, 184, 214, .18); }
+.performance-breakdown-table td { padding: 5px 4px; border-bottom: 1px solid rgba(105, 184, 214, .08); }
 @media (max-width: 840px) { .performance-metrics-grid { grid-template-columns: 1fr; } }
 
 

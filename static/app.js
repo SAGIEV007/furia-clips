@@ -2771,6 +2771,30 @@ async function loadPerformanceDashboard() {
             <div class="performance-metric"><span>Formato top</span><strong>${escapeHtml(dash.top_format || "—")}</strong></div>
             <div class="performance-metric"><span>Plataforma top</span><strong>${escapeHtml(dash.top_platform || "—")}</strong></div>
         `;
+        const snapshots = Array.isArray(data.snapshots) ? data.snapshots : [];
+        if (snapshots.length) {
+            const platforms = {};
+            const formats = {};
+            snapshots.forEach((snap) => {
+                const p = String(snap.platform || 'other');
+                const f = String(snap.format_id || 'unknown');
+                platforms[p] = (platforms[p] || 0) + 1;
+                formats[f] = (formats[f] || 0) + 1;
+            });
+            const rows = [...new Set([...Object.keys(platforms), ...Object.keys(formats)])].sort().map((key) => `
+                <tr>
+                    <td>${escapeHtml(key)}</td>
+                    <td>${formatNumber(platforms[key] || 0)}</td>
+                    <td>${formatNumber(formats[key] || 0)}</td>
+                </tr>
+            `).join('');
+            summary.innerHTML += `
+                <table class="performance-breakdown-table">
+                    <thead><tr><th>Chave</th><th>Plataforma</th><th>Formato</th></tr></thead>
+                    <tbody>${rows}</tbody>
+                </table>
+            `;
+        }
         status.textContent = data.filters && Object.keys(data.filters).length ? "Dashboard filtrado atualizado." : "Dashboard local atualizado.";
     } catch (error) {
         status.textContent = `Dashboard indisponível: ${error.message}`;
