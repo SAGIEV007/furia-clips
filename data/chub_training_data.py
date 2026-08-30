@@ -152,3 +152,15 @@ CAPTION_PATTERNS = [
     "Call-to-action implícito (pergunta/desafio)",
     "Emojis estratégicos (🤔)",
 ]
+
+# Hook multipliers derived from Chub engagement data
+# Used by modules.clip_selector for viral_score weighting
+CHUB_HOOK_MULTIPLIERS = {
+    "desafio-ao-espectador": 1.50,
+    "acusacao-direta": 1.35,
+    "tese-provocativa": 1.30,
+    "revelacao-de-local": 1.25,
+    "news-peg": 1.20,
+    "outro": 1.10,
+    "curiosity-gap": 1.05,
+}

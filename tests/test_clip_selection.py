@@ -855,3 +855,35 @@ def test_ranker_marks_punctuated_open_tail_as_open_and_less_complete():
     assert ranker._completeness("A resposta depende de.", "open") < ranker._completeness(
         "A resposta depende de todos.", "closed_statement"
     )
+
+def test_chub_hook_multipliers_boost_viral_score():
+    selector = ClipSelector(target_duration=20, max_clips=5, min_duration=5, max_duration=30)
+    all_blocks = [
+        {"index": 0, "start": 0.0, "end": 5.0, "duration": 5.0, "text": "Desafio direto ao espectador."},
+        {"index": 1, "start": 5.2, "end": 12.0, "duration": 6.8, "text": "A resposta é clara."},
+    ]
+    response = (
+        '[{"blocks": [0, 1], "title": "Desafio", "reason": "teste", '
+        '"hook": "B", "flow": "B", "value": "B", "energy": "B", '
+        '"editorial_family": "desafio-ao-espectador"}]'
+    )
+    clips = selector._parse_llm_response(response, [], all_blocks, 0, source="gemini")
+
+    assert clips
+    assert clips[0]["viral_score"] == 61
+    assert clips[0]["editorial_family"] == "desafio-ao-espectador"
+
+def test_chub_hook_multipliers_fallback_unknown_family():
+    selector = ClipSelector(target_duration=20, max_clips=5, min_duration=5, max_duration=30)
+    all_blocks = [
+        {"index": 0, "start": 0.0, "end": 5.0, "duration": 5.0, "text": "Texto generico."},
+    ]
+    response = (
+        '[{"blocks": [0], "title": "Generico", "reason": "teste", '
+        '"hook": "B", "flow": "B", "value": "B", "energy": "B", '
+        '"editorial_family": "familia-inexistente"}]'
+    )
+    clips = selector._parse_llm_response(response, [], all_blocks, 0, source="gemini")
+
+    assert clips
+    assert clips[0]["viral_score"] == 55

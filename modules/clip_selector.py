@@ -14,6 +14,7 @@ import requests
 from difflib import SequenceMatcher
 from collections import Counter
 
+from data.chub_training_data import CHUB_HOOK_MULTIPLIERS
 from .political_profile import PROFILE_NAME, build_political_prompt_fragment
 from .editorial_chapters import annotate_clip_with_chapters
 
@@ -1130,17 +1131,8 @@ Retorne APENAS o JSON.
             energy_score = grade_to_score.get(sel.get("energy", "B"), 55)
 
             # Chub-trained hook multipliers (based on real engagement data)
-            # Source: chub_top_posts metric=ratio, @renansantosmbl + @renansantosreserva
             hook_type = sel.get("editorial_family", "")
-            chub_multipliers = {
-                "desafio-ao-espectador": 1.50,  # 4450x reserva, 99x main
-                "acusacao-direta": 1.35,        # 679x reserva, 63x main
-                "tese-provocativa": 1.30,       # 556x reserva, 76x main
-                "revelacao-de-local": 1.25,     # 351x reserva, 146x main
-                "news-peg": 1.20,               # 104x main
-                "outro": 1.10,                  # 623x reserva (closing only)
-                "curiosity-gap": 1.05,          # 352x reserva (lower priority)
-            }
+            chub_multipliers = CHUB_HOOK_MULTIPLIERS
             chub_mult = chub_multipliers.get(hook_type, 1.0)
 
             # Weighted: flow (context completeness) gets highest weight
