@@ -894,3 +894,16 @@ class YouTubeApiSmokeTests(unittest.TestCase):
         assert response.status_code == 400
         payload = response.get_json()
         assert payload["success"] is False
+
+    def test_youtube_probe_accepts_valid_url(self):
+        response = self.client.post(
+            "/api/youtube/probe",
+            json={"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"},
+        )
+        assert response.status_code == 200
+        payload = response.get_json()
+        assert payload["success"] is True
+        source = payload["source"]
+        assert source["platform"] == "youtube"
+        assert source["source_video_id"] == "dQw4w9WgXcQ"
+        assert "source_title" in source
