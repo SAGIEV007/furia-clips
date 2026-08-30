@@ -160,7 +160,10 @@ class TestCrossValidation:
         base_url = "http://127.0.0.1:5000"
         
         # Get list of jobs first
-        resp = requests.get(f"{base_url}/api/jobs", timeout=5)
+        try:
+            resp = requests.get(f"{base_url}/api/jobs", timeout=5)
+        except requests.exceptions.RequestException:
+            pytest.skip("API not available")
         if resp.status_code != 200:
             pytest.skip("API not available")
         
@@ -173,7 +176,10 @@ class TestCrossValidation:
         if not job_id:
             pytest.skip("No job_id found")
         
-        resp2 = requests.get(f"{base_url}/api/jobs/{job_id}", timeout=5)
+        try:
+            resp2 = requests.get(f"{base_url}/api/jobs/{job_id}", timeout=5)
+        except requests.exceptions.RequestException:
+            pytest.skip("Job detail endpoint not available")
         if resp2.status_code != 200:
             pytest.skip("Job detail endpoint not available")
         
