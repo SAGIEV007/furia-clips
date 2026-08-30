@@ -811,13 +811,15 @@ Retorne APENAS o array JSON. Nenhum texto antes ou depois."""
 
             except requests.exceptions.ConnectionError:
                 if emit_progress:
-                    emit_progress("Ollama nao disponivel.")
-                return []
+                    emit_progress(f"[Ollama] Chunk {chunk_idx // chunk_size + 1} indisponível; continuando com os próximos.")
+                continue
             except Exception as e:
                 if emit_progress:
-                    emit_progress(f"Erro na IA: {str(e)[:200]}")
-                return []
+                    emit_progress(f"[Ollama] Erro no chunk {chunk_idx // chunk_size + 1}: {str(e)[:200]}; continuando.")
+                continue
 
+        if not all_selections and emit_progress:
+            emit_progress("[Ollama] Nenhuma seleção válida após todos os chunks; usando fallback NLP.", "warning")
         all_selections.sort(key=lambda x: x.get("viral_score", 0), reverse=True)
         return all_selections
 
