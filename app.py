@@ -1421,6 +1421,14 @@ def api_batch_rank():
     if not all(isinstance(candidate, dict) for candidate in candidates):
         return jsonify({"error": "Cada candidato deve ser um objeto JSON"}), 400
 
+    for candidate in candidates:
+        for field in ("start", "end", "duration"):
+            if field in candidate:
+                try:
+                    float(candidate[field])
+                except (TypeError, ValueError):
+                    return jsonify({"error": f"Candidato com campo '{field}' inválido"}), 400
+
     from modules.viral_ranker import ViralRanker
     from modules.campaign_hub import load_snapshot
     from modules.ab_exporter import ALLOWED_MODES, export_run_candidates

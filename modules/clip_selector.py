@@ -120,6 +120,9 @@ class ClipSelector:
             "previous_discarded_count": 0,
             "previous_discarded_approved": 0,
             "previous_discarded_rejected": 0,
+            "overlap_comparison_count": 0,
+            "text_similarity_call_count": 0,
+            "expected_count_calls": 0,
             "reason": "not_evaluated",
         }
 

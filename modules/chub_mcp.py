@@ -14,6 +14,8 @@ import time
 from datetime import datetime, timezone
 from typing import Any
 
+from modules.schemas import ChubSnapshotValidationError, validate_chub_snapshot
+
 
 DEFAULT_URL = os.environ.get("CHUB_MCP_URL", "")
 DEFAULT_TOKEN = os.environ.get("CHUB_MCP_TOKEN", "")
@@ -189,19 +191,21 @@ def fetch_snapshot(
     if not any([top_posts, transcript, stats, pauta, blocks]):
         return None
 
-    return {
-        "default_account": account,
-        "accounts": {
-            account: {
-                "hook_observations": transcript.get("segments", [])[:20],
-                "acervo_blocks": blocks.get("blocks", [])[:20],
-                "acervo_pauta": pauta.get("pauta", [])[:20],
-                "audience_priors": stats.get("audience", {}),
-                "performance": top_posts,
-            }
-        },
-        "meta": {
-            "source": "chub_mcp_auto_snapshot",
-            "fetched_at": datetime.utcnow().isoformat() + "Z",
-        },
-    }
+    return validate_chub_snapshot(
+        {
+            "default_account": account,
+            "accounts": {
+                account: {
+                    "hook_observations": transcript.get("segments", [])[:20],
+                    "acervo_blocks": blocks.get("blocks", [])[:20],
+                    "acervo_pauta": pauta.get("pauta", [])[:20],
+                    "audience_priors": stats.get("audience", {}),
+                    "performance": top_posts,
+                }
+            },
+            "meta": {
+                "source": "chub_mcp_auto_snapshot",
+                "fetched_at": datetime.utcnow().isoformat() + "Z",
+            },
+        }
+    )
