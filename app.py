@@ -1337,8 +1337,22 @@ def api_get_job(job_id):
     job.setdefault("failed_render_count", render_rejection_count)
     total_candidates = job.get("candidate_count") or job.get("total_candidates") or 0
     rendered_count = job.get("rendered_count", rendered_count)
+    # Derive total_candidates from artifacts if not persisted in the job row.
+    if not total_candidates:
+        for artifact in job.get("artifacts") or []:
+            if not isinstance(artifact, dict):
+                continue
+            if artifact.get("type") == "candidate_diagnostics":
+                total_candidates = (
+                    artifact.get("pre_render_candidate_count")
+                    or artifact.get("expected_count")
+                    or artifact.get("final_count")
+                    or artifact.get("primary_count")
+                    or 0
+                )
+                break
     discard_rate = max(0.0, (total_candidates - rendered_count) / total_candidates) if total_candidates > 0 else 0.0
-    job.setdefault("discard_rate", round(discard_rate, 3))
+    job["discard_rate"] = round(discard_rate, 3)
     job.setdefault("review_required_count", job.get("review_required_count", 0))
     return jsonify(job)
 
@@ -3083,6 +3097,33 @@ def api_cut_shorts():
                     f"[Contexto] {len(editorial_gate_rejections)} candidato(s) foram adiados para revisão antes do render; hooks fortes não compensam contexto incompleto.",
                     "warning",
                 )
+
+            # Quality gate: auto-approve / review / reject by viral_score
+            from modules.clip_selector import ClipSelector
+            quality_gate = ClipSelector().quality_gate
+            approved = []
+            review = []
+            rejected = []
+            for clip in top_clips:
+                tier, reason = quality_gate(clip)
+                clip["quality_gate_tier"] = tier
+                clip["quality_gate_reason"] = reason
+                if tier == "approve":
+                    approved.append(clip)
+                elif tier == "review":
+                    review.append(clip)
+                else:
+                    rejected.append(clip)
+            candidate_diagnostics["quality_gate_approved"] = len(approved)
+            candidate_diagnostics["quality_gate_review"] = len(review)
+            candidate_diagnostics["quality_gate_rejected"] = len(rejected)
+            candidate_diagnostics["quality_gate_reject_reason"] = "low_viral_score"
+            if rejected:
+                emit_progress(
+                    f"[Quality Gate] {len(rejected)} clip(s) rejeitados automaticamente por viral_score baixo.",
+                    "warning",
+                )
+            top_clips = approved + review
 
             ctx.update(stage="rendering", progress=76, message="Validando enquadramento e renderizando cortes")
             ctx.check_cancel()

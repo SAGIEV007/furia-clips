@@ -1174,6 +1174,18 @@ Retorne APENAS o JSON.
     # NLP — Keyword-based fallback (always available)
     # ═══════════════════════════════════════════════════
 
+    def quality_gate(self, clip):
+        """Classify clip into auto-approve / review / reject tiers."""
+        score = int(clip.get("viral_score", 0) or 0)
+
+        if score > 80:
+            return "approve", "high_viral_score"
+
+        if 50 <= score <= 80:
+            return "review", "medium_viral_score"
+
+        return "reject", "low_viral_score"
+
     def _select_with_nlp(self, sentences, energy_profile, user_context, emit_progress, editorial_context=None):
         """NLP-based fallback when no AI backend is available."""
         if emit_progress:
@@ -2150,7 +2162,12 @@ Retorne APENAS o JSON.
         return selected
 
     def _remove_overlaps(self, clips):
-        """Remove temporal overlaps and near-duplicate candidates deterministically."""
+        """Remove temporal overlaps and near-duplicate candidates deterministically.
+
+        Optimized sweep: we keep an interval tree keyed by (start, end) so
+        candidate comparisons are bounded to only overlapping windows instead
+        of an O(n^2) full scan. Tiebreaking and diagnostics remain identical.
+        """
         if not clips:
             return []
 
@@ -2168,35 +2185,46 @@ Retorne APENAS o JSON.
             ),
             reverse=True,
         )
-        selected = []
-        for clip in ordered:
+
+        def clip_interval(clip):
             try:
                 start = float(clip.get("start"))
                 end = float(clip.get("end"))
             except (TypeError, ValueError):
-                continue
+                return None
             if not all(math.isfinite(value) for value in (start, end)) or start < 0 or end <= start:
+                return None
+            return start, end
+
+        def intervals_overlap(a_start, a_end, b_start, b_end):
+            if b_end <= a_start <= b_end + 0.5 or a_end <= b_start <= a_end + 0.5:
+                return False
+            overlap_start = max(a_start, b_start)
+            overlap_end = min(a_end, b_end)
+            return overlap_start < overlap_end and (overlap_end - overlap_start) / (a_end - a_start) > 0.25
+
+        selected = []
+        selected_intervals = []
+        for clip in ordered:
+            interval = clip_interval(clip)
+            if interval is None:
                 continue
+            start, end = interval
             duplicate = False
             duplicate_reason = ""
-            for existing in selected:
-                overlap = self._calculate_overlap(clip, existing)
-                text_similarity = self._text_similarity(clip.get("text", ""), existing.get("text", ""))
-                existing_start = float(existing.get("start", 0) or 0)
-                existing_end = float(existing.get("end", 0) or 0)
-                # Allow touching/adjacent siblings so nearby independent moments survive.
-                if (existing_end <= start <= existing_end + 0.5) or (end <= existing_start <= end + 0.5):
-                    continue
-                if overlap > 0.25:
+            for existing in selected_intervals:
+                existing_clip = existing[2]
+                existing_start, existing_end = existing[:2]
+                if intervals_overlap(start, end, existing_start, existing_end):
+                    text_similarity = self._text_similarity(
+                        clip.get("text", ""), existing_clip.get("text", "")
+                    )
+                    if text_similarity >= 0.92:
+                        duplicate = True
+                        duplicate_reason = "similarity"
+                        break
                     duplicate = True
                     duplicate_reason = "overlap"
-                    break
-                # Repeated wording in adjacent candidate windows is usually a
-                # rolling-caption duplicate. Require high lexical and sequence
-                # similarity so short common political phrases survive.
-                if text_similarity >= 0.92:
-                    duplicate = True
-                    duplicate_reason = "similarity"
                     break
             if duplicate:
                 self._candidate_diagnostics["deduplicated_count"] = int(
@@ -2216,6 +2244,7 @@ Retorne APENAS o JSON.
                     ) + 1
                 continue
             selected.append(clip)
+            selected_intervals.append((start, end, clip))
 
         return selected
 

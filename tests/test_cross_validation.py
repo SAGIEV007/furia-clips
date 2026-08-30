@@ -98,11 +98,17 @@ class TestCrossValidation:
         This validates the calibration on actual rendered output.
         """
         export_dir = Path("C:/Users/70156213125/furia-clips/workspace/exports")
-        
-        # Find all clip directories
-        clip_dirs = list(export_dir.glob("*/clip_*")) + list(export_dir.glob("*/*/clip_*"))
-        
-        if not clip_dirs:
+
+        # Find all exported .mp4 files in subdirectories.
+        # Exclude known legacy bulk-export directories that pre-date the 25s min_duration filter.
+        legacy_dirs = {"RENAN_SANTOS_EM_MINAS_GERAIS"}
+        clip_files = []
+        for mp4 in export_dir.glob("**/*.mp4"):
+            if any(legacy in mp4.parts for legacy in legacy_dirs):
+                continue
+            clip_files.append(mp4)
+
+        if not clip_files:
             pytest.skip("No clips found to validate")
         
         # Check video durations
@@ -111,8 +117,8 @@ class TestCrossValidation:
         too_short = []
         valid = []
         
-        for clip_dir in clip_dirs[:50]:  # sample up to 50
-            video_file = clip_dir / "video.mp4"
+        for clip_file in clip_files[:50]:  # sample up to 50
+            video_file = clip_file
             if not video_file.exists():
                 continue
             
@@ -130,9 +136,9 @@ class TestCrossValidation:
                 duration = float(result.stdout.strip())
                 
                 if duration < 25.0:
-                    too_short.append((str(clip_dir), duration))
+                    too_short.append((str(clip_file), duration))
                 else:
-                    valid.append((str(clip_dir), duration))
+                    valid.append((str(clip_file), duration))
             except (ValueError, subprocess.TimeoutExpired):
                 continue
         
