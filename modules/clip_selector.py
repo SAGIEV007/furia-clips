@@ -797,7 +797,7 @@ Retorne APENAS o array JSON. Nenhum texto antes ou depois."""
         # Fail fast when Ollama is not reachable instead of spending seconds
         # in a long request timeout per chunk.
         try:
-            _http_session.get(f"{ollama_url}/api/tags", timeout=2)
+            requests.get(f"{ollama_url}/api/tags", timeout=2)
         except requests.exceptions.RequestException:
             if emit_progress:
                 emit_progress("[Ollama] Servidor indisponível; seguindo sem IA local.")
