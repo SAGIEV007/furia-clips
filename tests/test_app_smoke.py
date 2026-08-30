@@ -907,6 +907,24 @@ class YouTubeApiSmokeTests(unittest.TestCase):
         assert source["platform"] == "youtube"
         assert source["source_video_id"] == "dQw4w9WgXcQ"
         assert "source_title" in source
+    def test_youtube_metadata_accepts_valid_url(self):
+        fake_metadata = {
+            "video_id": "dQw4w9WgXcQ",
+            "title": "Never Gonna Give You Up",
+            "duration": 212.0,
+            "uploader": "Rick Astley",
+            "is_live": False,
+        }
+        with patch("app.fetch_youtube_metadata", return_value=fake_metadata) as mock_md:
+            response = self.client.post(
+                "/api/youtube/metadata",
+                json={"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"},
+            )
+            assert response.status_code == 200
+            payload = response.get_json()
+            assert payload["success"] is True
+            assert payload["metadata"]["title"] == "Never Gonna Give You Up"
+            mock_md.assert_called_once()
     def test_youtube_download_rejects_invalid_url(self):
         response = self.client.post(
             "/api/youtube/download",
