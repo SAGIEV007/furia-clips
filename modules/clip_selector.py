@@ -2221,6 +2221,7 @@ Retorne APENAS o JSON.
 
         selected = []
         selected_intervals = []
+        comparison_count = 0
         for clip in ordered:
             interval = clip_interval(clip)
             if interval is None:
@@ -2229,6 +2230,7 @@ Retorne APENAS o JSON.
             duplicate = False
             duplicate_reason = ""
             for existing in selected_intervals:
+                comparison_count += 1
                 existing_clip = existing[2]
                 existing_start, existing_end = existing[:2]
                 if intervals_overlap(start, end, existing_start, existing_end):
@@ -2262,6 +2264,9 @@ Retorne APENAS o JSON.
             selected.append(clip)
             selected_intervals.append((start, end, clip))
 
+        self._candidate_diagnostics["overlap_comparison_count"] = int(
+            self._candidate_diagnostics.get("overlap_comparison_count", 0) or 0
+        ) + comparison_count
         return selected
 
     def _text_similarity(self, first, second):
