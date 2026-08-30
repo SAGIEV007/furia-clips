@@ -36,24 +36,27 @@ _ENV_PATHS = [_PERSISTENT_ENV_PATH, _PROJECT_ENV_PATH]
 
 
 def _auto_fetch_chub_snapshot() -> None:
-    """On startup, fetch a fresh Chub MCP snapshot if no local snapshot exists."""
-    try:
-        snapshot_path = os.path.join(
-            os.path.abspath(os.path.expanduser(_PERSISTENT_ROOT)),
-            "campaign_hub",
-            "profile.json",
-        )
-        if os.path.exists(snapshot_path) and os.path.getsize(snapshot_path) > 0:
-            return
-        from modules.chub_mcp import fetch_snapshot
-        account = os.environ.get("CHUB_MCP_ACCOUNT", "@renansantosmbl")
-        snapshot = fetch_snapshot(account=account)
-        if snapshot:
-            os.makedirs(os.path.dirname(snapshot_path), exist_ok=True)
-            with open(snapshot_path, "w", encoding="utf-8") as handle:
-                json.dump(snapshot, handle, ensure_ascii=False, indent=2)
-    except Exception:
-        pass
+    """Background fetch of Chub MCP snapshot without blocking startup."""
+    def _worker():
+        try:
+            snapshot_path = os.path.join(
+                os.path.abspath(os.path.expanduser(_PERSISTENT_ROOT)),
+                "campaign_hub",
+                "profile.json",
+            )
+            if os.path.exists(snapshot_path) and os.path.getsize(snapshot_path) > 0:
+                return
+            from modules.chub_mcp import fetch_snapshot
+            account = os.environ.get("CHUB_MCP_ACCOUNT", "@renansantosmbl")
+            snapshot = fetch_snapshot(account=account)
+            if snapshot:
+                os.makedirs(os.path.dirname(snapshot_path), exist_ok=True)
+                with open(snapshot_path, "w", encoding="utf-8") as handle:
+                    json.dump(snapshot, handle, ensure_ascii=False, indent=2)
+        except Exception:
+            pass
+
+    threading.Thread(target=_worker, daemon=True).start()
 
 
 _auto_fetch_chub_snapshot()
