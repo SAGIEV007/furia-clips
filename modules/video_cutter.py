@@ -5,6 +5,8 @@ import unicodedata
 import subprocess
 import math
 import time
+import hashlib
+from functools import lru_cache
 from config import EXPORT_DIR
 from .media_validation import validate_media
 from .render_presets import get_preset, ffmpeg_video_filter
@@ -16,6 +18,7 @@ class VideoCutter:
         self.target_duration = target_duration
         self.preset = get_preset(preset) if isinstance(preset, str) else (preset or get_preset("shorts"))
         self.last_rejections = []
+        self._ffprobe_cache = {}
 
     def _record_render_rejection(self, output_path, errors, warnings=None):
         self.last_rejections.append({
@@ -66,7 +69,18 @@ class VideoCutter:
             )
         return False
 
+    def _ffprobe_cache_key(self, video_path):
+        try:
+            st = os.stat(video_path)
+            return hashlib.sha256(f"{video_path}:{st.st_size}:{st.st_mtime_ns}".encode()).hexdigest()
+        except OSError:
+            return video_path
+
     def get_video_info(self, video_path):
+        cache_key = self._ffprobe_cache_key(video_path)
+        if cache_key in self._ffprobe_cache:
+            return self._ffprobe_cache[cache_key]
+
         cmd = [
             "ffprobe", "-v", "quiet",
             "-print_format", "json",
@@ -76,7 +90,14 @@ class VideoCutter:
         result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
         if result.returncode != 0:
             raise RuntimeError((result.stderr or "ffprobe falhou").strip()[-500:])
-        return json.loads(result.stdout or "{}")
+
+        info = json.loads(result.stdout or "{}")
+        self._ffprobe_cache[cache_key] = info
+        return info
+
+    def clear_ffprobe_cache(self):
+        """Drop cached probe results. Call after renders that replace files."""
+        self._ffprobe_cache.clear()
 
     def detect_scenes(self, video_path, threshold=27.0, emit_progress=None):
         if emit_progress:
