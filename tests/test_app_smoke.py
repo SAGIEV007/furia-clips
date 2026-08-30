@@ -1014,3 +1014,13 @@ class YouTubeApiSmokeTests(unittest.TestCase):
         payload = response.get_json()
         assert payload["success"] is False
         assert "URL obrigatoria" in payload["error"]
+
+    def test_youtube_import_rejects_invalid_url(self):
+        response = self.client.post(
+            "/api/youtube/import",
+            json={"url": "https://www.google.com", "destination_dir": "/tmp"},
+        )
+        assert response.status_code == 400
+        payload = response.get_json()
+        assert payload["success"] is False
+        assert "URL do YouTube não reconhecida" in payload["error"]
