@@ -15,18 +15,12 @@ import math
 from datetime import datetime
 
 
+from modules.safe_types import safe_float, coerce_bool
+
+
 def _coerce_bool(value, default=False):
-    """Interpret JSON and form-style booleans consistently at API boundaries."""
-    if value is None:
-        return bool(default)
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, (int, float)):
-        return bool(value)
-    normalized = str(value).strip().lower()
-    if not normalized:
-        return bool(default)
-    return normalized not in {"0", "false", "no", "off", "disabled", "nao", "não"}
+    """Backward-compatible wrapper around safe_types.coerce_bool."""
+    return coerce_bool(value, default)
 
 
 # Load local environment files. The persistent file lives outside the checkout

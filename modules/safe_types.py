@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+
 __all__ = ["coerce_bool", "safe_float"]
 
 
@@ -17,7 +19,7 @@ def coerce_bool(value, default=False):
         return value
     if isinstance(value, (int, float)):
         try:
-            return bool(value) and value == value  # filter NaN
+            return bool(default) if not math.isfinite(value) else value != 0
         except (TypeError, ValueError):
             return bool(default)
     normalized = str(value or "").strip().lower()

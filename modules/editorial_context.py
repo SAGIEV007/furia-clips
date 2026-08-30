@@ -25,17 +25,12 @@ VISUAL_EVIDENCE_RE = re.compile(
 )
 
 
+from modules.safe_types import safe_float, coerce_bool
+
+
 def _coerce_flag(value: object, default: bool = False) -> bool:
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, (int, float)):
-        return value != 0
-    normalized = str(value or "").strip().lower()
-    if normalized in {"1", "true", "yes", "sim", "on", "enabled"}:
-        return True
-    if normalized in {"0", "false", "no", "não", "nao", "off", "disabled"}:
-        return False
-    return bool(default)
+    """Backward-compatible wrapper around safe_types.coerce_bool."""
+    return coerce_bool(value, default)
 
 
 def _requires_visual_evidence(text: str) -> bool:

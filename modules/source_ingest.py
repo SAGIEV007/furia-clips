@@ -108,17 +108,12 @@ def _coerce_bounded_int(value, default, minimum, maximum):
     return max(minimum, min(int(parsed), maximum))
 
 
+from modules.safe_types import safe_float, coerce_bool
+
+
 def _coerce_flag(value, default=False):
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, (int, float)):
-        return value != 0 and math.isfinite(float(value))
-    normalized = str(value or "").strip().lower()
-    if normalized in {"1", "true", "yes", "sim", "on", "enabled"}:
-        return True
-    if normalized in {"0", "false", "no", "não", "nao", "off", "disabled"}:
-        return False
-    return bool(default)
+    """Backward-compatible wrapper around safe_types.coerce_bool."""
+    return coerce_bool(value, default)
 
 
 def _common_yt_dlp_options():

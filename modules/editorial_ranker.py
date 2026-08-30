@@ -92,21 +92,12 @@ def _bounded_score(value, default=50.0):
     return max(0.0, min(100.0, parsed))
 
 
+from modules.safe_types import safe_float, coerce_bool
+
+
 def _coerce_flag(value, default=False):
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, (int, float)):
-        return bool(default) if not math.isfinite(value) else value != 0
-    if value is None:
-        return bool(default)
-    normalized = str(value).strip().lower()
-    if not normalized:
-        return bool(default)
-    if normalized in {"0", "false", "no", "não", "nao", "off", "disabled"}:
-        return False
-    if normalized in {"1", "true", "yes", "sim", "on", "enabled"}:
-        return True
-    return bool(default)
+    """Backward-compatible wrapper around safe_types.coerce_bool."""
+    return coerce_bool(value, default)
 
 
 def _audio_context_signal(clip: dict, energy_profile, start: float, end: float) -> dict:
