@@ -5986,3 +5986,10 @@ body.has-review-candidates #resultsSection > .section-header { border-bottom-col
         transition: none;
     }
 }
+
+.performance-breakdown-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+    margin-top: 10px;
+}

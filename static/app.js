@@ -2781,18 +2781,29 @@ async function loadPerformanceDashboard() {
                 platforms[p] = (platforms[p] || 0) + 1;
                 formats[f] = (formats[f] || 0) + 1;
             });
-            const rows = [...new Set([...Object.keys(platforms), ...Object.keys(formats)])].sort().map((key) => `
+            const platformRows = Object.keys(platforms).sort().map((key) => `
                 <tr>
                     <td>${escapeHtml(key)}</td>
-                    <td>${formatNumber(platforms[key] || 0)}</td>
-                    <td>${formatNumber(formats[key] || 0)}</td>
+                    <td>${formatNumber(platforms[key])}</td>
+                </tr>
+            `).join('');
+            const formatRows = Object.keys(formats).sort().map((key) => `
+                <tr>
+                    <td>${escapeHtml(key)}</td>
+                    <td>${formatNumber(formats[key])}</td>
                 </tr>
             `).join('');
             summary.innerHTML += `
-                <table class="performance-breakdown-table">
-                    <thead><tr><th>Chave</th><th>Plataforma</th><th>Formato</th></tr></thead>
-                    <tbody>${rows}</tbody>
-                </table>
+                <div class="performance-breakdown-grid">
+                    <table class="performance-breakdown-table">
+                        <thead><tr><th>Plataforma</th><th>Snapshots</th></tr></thead>
+                        <tbody>${platformRows}</tbody>
+                    </table>
+                    <table class="performance-breakdown-table">
+                        <thead><tr><th>Formato</th><th>Snapshots</th></tr></thead>
+                        <tbody>${formatRows}</tbody>
+                    </table>
+                </div>
             `;
         }
         status.textContent = data.filters && Object.keys(data.filters).length ? "Dashboard filtrado atualizado." : "Dashboard local atualizado.";

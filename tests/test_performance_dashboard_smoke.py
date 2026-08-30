@@ -10,3 +10,16 @@ def test_dashboard_smoke_returns_200():
     assert payload is not None
     assert payload.get("success") is True
     assert "dashboard" in payload
+    dashboard = payload["dashboard"] or {}
+    assert "count" in dashboard
+    assert "total_views" in dashboard
+    assert "avg_engagement_rate" in dashboard
+    assert "avg_velocity" in dashboard
+    assert "top_format" in dashboard
+    assert "top_platform" in dashboard
+    snapshots = payload.get("snapshots") or []
+    assert isinstance(snapshots, list)
+    if snapshots:
+        for snap in snapshots:
+            assert "platform" in snap
+            assert "format_id" in snap
