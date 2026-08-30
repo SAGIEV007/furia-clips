@@ -907,3 +907,25 @@ class YouTubeApiSmokeTests(unittest.TestCase):
         assert source["platform"] == "youtube"
         assert source["source_video_id"] == "dQw4w9WgXcQ"
         assert "source_title" in source
+    def test_youtube_download_rejects_invalid_url(self):
+        response = self.client.post(
+            "/api/youtube/download",
+            json={"url": "not-a-youtube-url", "destination": "/tmp"},
+        )
+        assert response.status_code == 400
+        payload = response.get_json()
+        assert payload["success"] is False
+
+    def test_youtube_download_accepts_valid_url(self):
+        fake_result = {"path": "/tmp/fake.mp4", "source_id": "dQw4w9WgXcQ"}
+        with patch("app.download_youtube_video", return_value=fake_result) as mock_dl:
+            response = self.client.post(
+                "/api/youtube/download",
+                json={"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "destination": "/tmp"},
+            )
+            assert response.status_code == 200
+            payload = response.get_json()
+            assert payload["success"] is True
+            assert payload["result"]["path"] == "/tmp/fake.mp4"
+            mock_dl.assert_called_once()
+

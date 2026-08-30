@@ -2292,6 +2292,19 @@ def api_youtube_metadata():
         return jsonify({"success": True, "metadata": fetch_youtube_metadata(data.get("url", ""))})
     except (SourceIngestError, YouTubeImportError, ValueError) as exc:
         return jsonify({"success": False, "error": str(exc)}), 400
+@app.route("/api/youtube/download", methods=["POST"])
+def api_youtube_download():
+    data = request.get_json(silent=True) or {}
+    try:
+        result = download_youtube_video(
+            url=data.get("url", ""),
+            destination=data.get("destination", ""),
+            max_height=int(data.get("max_height", 1080)),
+        )
+        return jsonify({"success": True, "result": result})
+    except (SourceIngestError, YouTubeImportError, ValueError) as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
+
 
 def _format_source_import_progress(update):
     """Present yt-dlp multi-stream progress without implying a single global percent."""
