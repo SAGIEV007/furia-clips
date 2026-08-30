@@ -1199,16 +1199,45 @@ Retorne APENAS o JSON.
     # ═══════════════════════════════════════════════════
 
     def quality_gate(self, clip):
-        """Classify clip into auto-approve / review / reject tiers."""
+        """Classify clip into approve / review / reject tiers.
+        
+        Professional calibration criteria:
+        - Reject: duration < 25s, viral_score < 50, weak hook
+        - Review: context incomplete, payoff incomplete, technical review needed
+        - Approve: strong score + complete context + complete payoff
+        """
+        duration = float(clip.get("duration", 0) or 0)
         score = int(clip.get("viral_score", 0) or 0)
+        context = clip.get("context_complete", True)
+        payoff = clip.get("payoff_complete", True)
+        technical = clip.get("technical_review_required", False)
+        hook = clip.get("has_hook", False)
+        editorial_family = clip.get("editorial_family", "")
 
-        if score > 80:
-            return "approve", "high_viral_score"
+        # REJECT criteria (hard fail)
+        if duration < 25:
+            return "reject", "too_short"
+        if score < 50:
+            return "reject", "low_viral_score"
+        if not hook:
+            return "reject", "weak_hook"
 
-        if 50 <= score <= 80:
-            return "review", "medium_viral_score"
+        # REVIEW criteria (needs human judgment)
+        if not context:
+            return "review", "incomplete_context"
+        if not payoff:
+            return "review", "incomplete_payoff"
+        if technical:
+            return "review", "technical_review_required"
 
-        return "reject", "low_viral_score"
+        # APPROVE (strong candidates)
+        if score >= 80:
+            return "approve", "high_score_complete"
+        if score >= 60 and context and payoff:
+            return "approve", "solid_score_complete"
+
+        # Default: review for borderline cases
+        return "review", "borderline_score"
 
     def _select_with_nlp(self, sentences, energy_profile, user_context, emit_progress, editorial_context=None):
         """NLP-based fallback when no AI backend is available."""

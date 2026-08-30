@@ -870,7 +870,9 @@ def test_chub_hook_multipliers_boost_viral_score():
     clips = selector._parse_llm_response(response, [], all_blocks, 0, source="gemini")
 
     assert clips
-    assert clips[0]["viral_score"] == 61
+    # desafio-ao-espectador has multiplier 3.07 based on real Chub data
+    # B=55, so 55 * 3.07 * 0.25 + flow + value + energy ≈ 83
+    assert clips[0]["viral_score"] == 83
     assert clips[0]["editorial_family"] == "desafio-ao-espectador"
 
 def test_chub_hook_multipliers_fallback_unknown_family():

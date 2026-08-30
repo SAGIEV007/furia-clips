@@ -255,13 +255,16 @@ CAPTION_PATTERNS = [
 ]
 
 # Hook multipliers derived from Chub engagement data
-# Used by modules.clip_selector for viral_score weighting
+# Based on 65 real posts from @renansantosmbl + @renansantosreserva
+# Calculated using median ratio / baseline median (32.51x)
+# Updated: 2026-08-30
 CHUB_HOOK_MULTIPLIERS = {
-    "desafio-ao-espectador": 1.50,
-    "acusacao-direta": 1.35,
-    "tese-provocativa": 1.30,
-    "revelacao-de-local": 1.25,
-    "news-peg": 1.20,
-    "outro": 1.10,
-    "curiosity-gap": 1.05,
+    "desafio-ao-espectador": 3.07,  # median=99.79x, n=3
+    "acusacao-direta": 3.55,        # mean=115.50x, n=13 (high count)
+    "tese-provocativa": 3.01,       # mean=98.06x, n=26 (highest count)
+    "revelacao-de-local": 2.60,     # median=84.45x, n=4
+    "outro": 1.04,                  # median=33.93x, n=6
+    "curiosity-gap": 0.96,          # median=31.08x, n=6
+    "callback": 0.83,               # median=26.82x, n=4
+    "news-peg": 0.65,               # median=21.09x, n=3
 }
