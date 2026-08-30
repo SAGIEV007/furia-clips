@@ -1,4 +1,22 @@
-# Relatório inicial de testes
+# Relatório de testes — Fúria Clips
+
+> Este documento contém o relatório inicial de testes (histórico) e o status atual da suíte.
+
+## Status atual (2026-08-30)
+
+A suíte atual está estabilizada com:
+
+- **866 testes aprovados**
+- **3 testes ignorados**
+- **0 erros**
+- **Tempo de execução**: ~43s
+
+Ferramenta: `pytest` via `run_pytest.py`.  
+Profiling de imports: `scripts/measure_imports.py`.
+
+---
+
+## Relatório inicial de testes
 
 ## Ambiente
 
