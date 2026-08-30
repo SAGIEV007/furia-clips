@@ -120,6 +120,8 @@ Além da interface web, o Furia expõe endpoints JSON para automação e integra
 
 | Método | Rota | Descrição |
 | --- | --- | --- |
+| Método | Rota | Descrição |
+| --- | --- | --- |
 | `POST` | `/api/youtube/probe` | Prévia de vídeo do YouTube com `url` no corpo; retorna `platform`, `source_video_id`, `source_title`, `source_duration`, `is_live` e metadados enriquecidos quando disponíveis. |
 | `POST` | `/api/youtube/metadata` | Metadados normalizados do YouTube via `url`; retorna título, duração, canal e flags. |
 | `POST` | `/api/youtube/download` | Download de vídeo do YouTube para `destination` com `url` e `max_height` opcional (padrão: 1080); retorna caminho e validação com `ffprobe`. |
