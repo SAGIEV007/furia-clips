@@ -221,3 +221,77 @@ def test_download_youtube_video_delegates(monkeypatch, tmp_path):
 def test_download_youtube_video_rejects_non_youtube(tmp_path):
     with pytest.raises(ValueError):
         download_youtube_video("https://www.example.com/video", str(tmp_path))
+
+
+def test_probe_youtube_url_includes_view_count_and_upload_date(monkeypatch):
+    info = {
+        "id": "dQw4w9WgXcQ",
+        "title": "Never Gonna Give You Up",
+        "duration": 212,
+        "uploader": "Rick Astley",
+        "webpage_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+        "is_live": False,
+        "extractor": "youtube",
+        "language": "en",
+        "format_id": "251",
+        "view_count": 1000000,
+        "upload_date": "20091023",
+    }
+
+    class FakeYoutubeDL:
+        def __init__(self, options):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def extract_info(self, url, download=False):
+            return info
+
+    yt_dlp = pytest.importorskip("yt_dlp")
+    monkeypatch.setattr("modules.youtube_importer._yt_dlp", lambda: yt_dlp)
+    monkeypatch.setattr("yt_dlp.YoutubeDL", FakeYoutubeDL)
+
+    result = probe_youtube_url("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+    assert result["view_count"] == 1000000
+    assert result["upload_date"] == "20091023"
+
+
+def test_fetch_youtube_metadata_includes_view_count_and_upload_date(monkeypatch):
+    info = {
+        "id": "dQw4w9WgXcQ",
+        "title": "Never Gonna Give You Up",
+        "duration": 212,
+        "uploader": "Rick Astley",
+        "webpage_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+        "is_live": False,
+        "extractor": "youtube",
+        "language": "en",
+        "format_id": "251",
+        "view_count": 1000000,
+        "upload_date": "20091023",
+    }
+
+    class FakeYoutubeDL:
+        def __init__(self, options):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def extract_info(self, url, download=False):
+            return info
+
+    yt_dlp = pytest.importorskip("yt_dlp")
+    monkeypatch.setattr("modules.youtube_importer._yt_dlp", lambda: yt_dlp)
+    monkeypatch.setattr("yt_dlp.YoutubeDL", FakeYoutubeDL)
+
+    result = fetch_youtube_metadata("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+    assert result["view_count"] == 1000000
+    assert result["upload_date"] == "20091023"

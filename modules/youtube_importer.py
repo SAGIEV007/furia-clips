@@ -113,6 +113,8 @@ def probe_youtube_url(url: str) -> dict[str, Any]:
                     "extractor": info.get("extractor", ""),
                     "language": info.get("language"),
                     "format_id": info.get("format_id"),
+                    "view_count": info.get("view_count"),
+                    "upload_date": info.get("upload_date"),
                 }
                 normalized = webpage_url
         except Exception:
@@ -172,6 +174,8 @@ def fetch_youtube_metadata(url: str) -> dict[str, Any]:
         "is_live": _coerce_flag(info.get("is_live")),
         "language": info.get("language"),
         "format_id": info.get("format_id"),
+        "view_count": info.get("view_count"),
+        "upload_date": info.get("upload_date"),
         "metadata": info,
     }
 
