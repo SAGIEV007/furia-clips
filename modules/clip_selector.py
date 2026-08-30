@@ -1248,6 +1248,9 @@ Retorne APENAS o JSON.
         if emit_progress:
             emit_progress(f"[NLP] Encontrou {len(clips)} clips candidatos")
 
+        for clip in clips:
+            clip["editorial_gate_status"] = self.quality_gate(clip)
+
         return clips
 
     def _prepare_context_matching(self, user_context):
