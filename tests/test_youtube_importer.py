@@ -35,6 +35,14 @@ def test_probe_youtube_url_rejects_invalid_id():
     with pytest.raises(ValueError):
         probe_youtube_url("https://www.youtube.com/watch?v=invalid")
 
+def test_probe_youtube_url_shorts_link():
+    result = probe_youtube_url("https://www.youtube.com/shorts/dQw4w9WgXcQ")
+    assert result["source_video_id"] == "dQw4w9WgXcQ"
+
+
+def test_probe_youtube_url_live_link():
+    result = probe_youtube_url("https://www.youtube.com/live/dQw4w9WgXcQ")
+    assert result["source_video_id"] == "dQw4w9WgXcQ"
 
 def test_youtube_video_source_as_context_payload():
     source = YouTubeVideoSource(

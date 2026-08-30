@@ -42,6 +42,8 @@ class YouTubeVideoSource:
 
 def _extract_youtube_id(url: str) -> str | None:
     patterns = [
+        r"youtube.com/shorts/([A-Za-z0-9_-]{11})",
+        r"youtube.com/live/([A-Za-z0-9_-]{11})",
         r"(?:v=|youtu\.be/|youtube\.com/embed/)([A-Za-z0-9_-]{11})",
         r"^([A-Za-z0-9_-]{11})$",
     ]
