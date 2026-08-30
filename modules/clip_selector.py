@@ -311,7 +311,10 @@ class ClipSelector:
         return dict(self._candidate_diagnostics)
 
     def _expected_candidate_count(self, sentences):
-        """Estimate a review pool size without turning the daily goal into a quota."""
+        """Estimate a review pool size and record telemetry for UI calibration."""
+        self._candidate_diagnostics["expected_count_calls"] = int(
+            self._candidate_diagnostics.get("expected_count_calls", 0) or 0
+        ) + 1
         if not sentences:
             return 0
         try:
@@ -2279,6 +2282,10 @@ Retorne APENAS o JSON.
         return selected
 
     def _text_similarity(self, first, second):
+        """Return lexical/sequence similarity and record call counts."""
+        self._candidate_diagnostics["text_similarity_call_count"] = int(
+            self._candidate_diagnostics.get("text_similarity_call_count", 0) or 0
+        ) + 1
         def normalize(value):
             return re.sub(r"[^a-z0-9à-ÿ ]+", " ", str(value or "").lower()).strip()
 
