@@ -875,6 +875,7 @@ def test_performance_dashboard_endpoint_uses_summarize_snapshots(monkeypatch, tm
     assert payload["dashboard"]["total_views"] == 5000
     assert payload["dashboard"]["top_platform"] == "instagram"
     assert payload["dashboard"]["top_format"] == "vertical_916"
+    assert payload["generated_at"].endswith("Z") or "+" in payload["generated_at"]
 
 
 class YouTubeApiSmokeTests(unittest.TestCase):

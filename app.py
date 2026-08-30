@@ -12,7 +12,7 @@ import requests
 import re
 import unicodedata
 import math
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 from modules.safe_types import safe_float, coerce_bool
@@ -3860,6 +3860,7 @@ def api_performance_dashboard():
     summary = summarize_snapshots(snapshots)
     return jsonify({
         "success": True,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
         "filters": {key: value for key, value in filters.items() if value is not None},
         "dashboard": summary,
         "snapshots": snapshots[:50],
