@@ -1299,7 +1299,23 @@ def _enrich_editorial_context(video_path, settings, editorial_context, user_cont
 
 @app.route("/health", methods=["GET"])
 def api_health():
-    return jsonify({"status": "ok"})
+    db_path = os.environ.get("FURIA_DB_PATH") or os.path.join(_PERSISTENT_ROOT, "furia.db")
+    version = "unknown"
+    try:
+        version = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"], cwd=os.path.dirname(os.path.abspath(__file__))).decode().strip()
+    except Exception:
+        pass
+    return jsonify({
+        "status": "ok",
+        "version": version,
+        "db": {
+            "path": db_path,
+            "exists": os.path.isfile(db_path),
+        },
+        "whisper": {
+            "engine": "available" if __import__("importlib").util.find_spec("faster_whisper") else "unavailable",
+        },
+    })
 
 
 @app.route("/api/jobs", methods=["GET"])

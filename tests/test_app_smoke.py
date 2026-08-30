@@ -954,3 +954,8 @@ class YouTubeApiSmokeTests(unittest.TestCase):
         assert response.status_code == 200
         payload = response.get_json()
         assert payload["status"] == "ok"
+        assert "version" in payload
+        assert "db" in payload
+        assert "exists" in payload["db"]
+        assert "whisper" in payload
+        assert "engine" in payload["whisper"]
