@@ -1335,6 +1335,11 @@ def api_get_job(job_id):
         render_rejection_count = 0
     job.setdefault("rendered_count", rendered_count)
     job.setdefault("failed_render_count", render_rejection_count)
+    total_candidates = job.get("candidate_count") or job.get("total_candidates") or 0
+    rendered_count = job.get("rendered_count", rendered_count)
+    discard_rate = max(0.0, (total_candidates - rendered_count) / total_candidates) if total_candidates > 0 else 0.0
+    job.setdefault("discard_rate", round(discard_rate, 3))
+    job.setdefault("review_required_count", job.get("review_required_count", 0))
     return jsonify(job)
 
 
