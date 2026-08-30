@@ -6,6 +6,7 @@ Reusa a validação de URL pública e os tratamentos de erro do source_ingest.
 from __future__ import annotations
 
 import re
+from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -191,11 +192,16 @@ def download_youtube_video(
     """Download the best YouTube source up to the requested vertical resolution.
 
     Thin wrapper around ``source_ingest.download_public_video`` restricted to
-    YouTube sources.
+    YouTube sources. ``destination`` is resolved and ``max_height`` is clamped
+    to ``[144, 1080]`` before delegating.
     """
     url = (url or "").strip()
     if "youtu" not in url.lower() and "youtube" not in url.lower():
         raise ValueError("URL do YouTube não reconhecida")
+
+    from modules.source_ingest import _coerce_bounded_int
+    max_height = _coerce_bounded_int(max_height, 1080, 144, 1080)
+    destination = str(Path(destination).expanduser().resolve())
 
     result = download_public_video(
         url=url,

@@ -295,3 +295,45 @@ def test_fetch_youtube_metadata_includes_view_count_and_upload_date(monkeypatch)
     result = fetch_youtube_metadata("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
     assert result["view_count"] == 1000000
     assert result["upload_date"] == "20091023"
+
+
+def test_download_youtube_video_normalizes_destination(monkeypatch, tmp_path):
+    fake_dest = tmp_path / "sub" / "out"
+    fake_dest.mkdir(parents=True)
+
+    def fake_download(url, destination, progress=None, max_height=1080, retries=3, cancel_check=None):
+        assert Path(destination).is_absolute(), "destination should be resolved"
+        assert Path(destination).exists(), "destination should exist"
+        return {"path": str(Path(destination) / "fake.mp4"), "title": "Fake", "max_height": max_height}
+
+    monkeypatch.setattr("modules.youtube_importer.download_public_video", fake_download)
+
+    result = download_youtube_video(
+        "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+        str(fake_dest),
+    )
+    assert result["path"].endswith("fake.mp4")
+
+
+def test_download_youtube_video_clamps_max_height(monkeypatch, tmp_path):
+    destination = tmp_path / "out"
+    destination.mkdir()
+
+    def fake_download(url, destination, progress=None, max_height=1080, retries=3, cancel_check=None):
+        return {"path": str(Path(destination) / "fake.mp4"), "title": "Fake", "max_height": max_height}
+
+    monkeypatch.setattr("modules.youtube_importer.download_public_video", fake_download)
+
+    result_low = download_youtube_video(
+        "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+        str(destination),
+        max_height=144,
+    )
+    assert result_low["max_height"] == 144
+
+    result_high = download_youtube_video(
+        "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+        str(destination),
+        max_height=9999,
+    )
+    assert result_high["max_height"] == 1080
