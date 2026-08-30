@@ -907,6 +907,29 @@ class YouTubeApiSmokeTests(unittest.TestCase):
         assert source["platform"] == "youtube"
         assert source["source_video_id"] == "dQw4w9WgXcQ"
         assert "source_title" in source
+    def test_youtube_probe_accepts_shorts_url(self):
+        response = self.client.post(
+            "/api/youtube/probe",
+            json={"url": "https://www.youtube.com/shorts/dQw4w9WgXcQ"},
+        )
+        assert response.status_code == 200
+        payload = response.get_json()
+        assert payload["success"] is True
+        source = payload["source"]
+        assert source["platform"] == "youtube"
+        assert source["source_video_id"] == "dQw4w9WgXcQ"
+
+    def test_youtube_probe_accepts_live_url(self):
+        response = self.client.post(
+            "/api/youtube/probe",
+            json={"url": "https://www.youtube.com/live/dQw4w9WgXcQ"},
+        )
+        assert response.status_code == 200
+        payload = response.get_json()
+        assert payload["success"] is True
+        source = payload["source"]
+        assert source["platform"] == "youtube"
+        assert source["source_video_id"] == "dQw4w9WgXcQ"
     def test_youtube_metadata_accepts_valid_url(self):
         fake_metadata = {
             "video_id": "dQw4w9WgXcQ",
