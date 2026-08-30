@@ -947,3 +947,10 @@ class YouTubeApiSmokeTests(unittest.TestCase):
             assert payload["result"]["path"] == "/tmp/fake.mp4"
             mock_dl.assert_called_once()
 
+
+
+    def test_health_endpoint_returns_ok(self):
+        response = self.client.get("/health")
+        assert response.status_code == 200
+        payload = response.get_json()
+        assert payload["status"] == "ok"

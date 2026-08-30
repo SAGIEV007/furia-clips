@@ -1297,6 +1297,11 @@ def _enrich_editorial_context(video_path, settings, editorial_context, user_cont
     return editorial_context
 
 
+@app.route("/health", methods=["GET"])
+def api_health():
+    return jsonify({"status": "ok"})
+
+
 @app.route("/api/jobs", methods=["GET"])
 def api_list_jobs():
     try:
