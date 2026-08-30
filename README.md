@@ -114,6 +114,19 @@ python -m pytest -q
 
 A suíte cobre timeline, segurança, jobs, banco e migrações, ranking editorial, portfólio diário global, seleção, perfil político, presets, legendas, renderização FFmpeg, descoberta em lote e smoke tests HTTP. A fixture audiovisual determinística está em `tests/fixtures/sample_av.mp4`.
 
+## API HTTP
+
+Além da interface web, o Furia expõe endpoints JSON para automação e integração:
+
+| Método | Rota | Descrição |
+| --- | --- | --- |
+| `POST` | `/api/youtube/probe` | Prévia de vídeo do YouTube com `url` no corpo; retorna `platform`, `source_video_id`, `source_title`, `source_duration`, `is_live` e metadados enriquecidos quando disponíveis. |
+| `POST` | `/api/youtube/metadata` | Metadados normalizados do YouTube via `url`; retorna título, duração, canal e flags. |
+| `POST` | `/api/youtube/download` | Download de vídeo do YouTube para `destination` com `url` e `max_height` opcional (padrão: 1080); retorna caminho e validação com `ffprobe`. |
+| `GET` | `/api/performance/dashboard` | Métricas de performance por plataforma e formato; aceita filtros opcionais `format_id`, `platform`, `observation_window` e `region`. |
+
+Todos os endpoints retornam JSON com `success` em 200 ou `{"success": false, "error": "..."}` em 400 quando a entrada é inválida.
+
 ## Estrutura relevante
 
 ```text
@@ -133,6 +146,7 @@ modules/transcript_parser.py parser Tactiq/SRT/VTT e timeline manual
 modules/editorial_context.py pré-análise de entrevista, perguntas e sinais
 modules/quality_metrics.py IoU temporal, precisão/recall, bordas e redundância
 modules/source_ingest.py      validação e download de fontes públicas
+modules/performance_metrics.py  métricas observadas e dashboard de performance
 modules/gemini_video.py       upload e análise multimodal online
 modules/native_dialogs.py     exploradores nativos locais
 static/js/app.js           estado, fontes, progresso e revisão no frontend
