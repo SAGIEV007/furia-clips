@@ -1007,3 +1007,10 @@ class YouTubeApiSmokeTests(unittest.TestCase):
         assert "exists" in payload["db"]
         assert "whisper" in payload
         assert "engine" in payload["whisper"]
+
+    def test_youtube_import_rejects_missing_url(self):
+        response = self.client.post("/api/youtube/import", json={"destination_dir": "/tmp"})
+        assert response.status_code == 400
+        payload = response.get_json()
+        assert payload["success"] is False
+        assert "URL obrigatoria" in payload["error"]
