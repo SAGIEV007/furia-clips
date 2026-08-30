@@ -875,3 +875,22 @@ def test_performance_dashboard_endpoint_uses_summarize_snapshots(monkeypatch, tm
     assert payload["dashboard"]["total_views"] == 5000
     assert payload["dashboard"]["top_platform"] == "instagram"
     assert payload["dashboard"]["top_format"] == "vertical_916"
+
+
+class YouTubeApiSmokeTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        database.init_db()
+        cls.client = furia_app.app.test_client()
+
+    def test_youtube_probe_rejects_invalid_url(self):
+        response = self.client.post("/api/youtube/probe", json={"url": "not-a-youtube-url"})
+        assert response.status_code == 400
+        payload = response.get_json()
+        assert payload["success"] is False
+
+    def test_youtube_metadata_rejects_invalid_url(self):
+        response = self.client.post("/api/youtube/metadata", json={"url": "not-a-youtube-url"})
+        assert response.status_code == 400
+        payload = response.get_json()
+        assert payload["success"] is False

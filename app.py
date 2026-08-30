@@ -132,6 +132,12 @@ from modules.source_ingest import (
     download_public_subtitles,
     validate_public_url,
 )
+from modules.youtube_importer import (
+    probe_youtube_url,
+    fetch_youtube_metadata,
+    download_youtube_video,
+    YouTubeImportError,
+)
 from modules.job_manager import JobManager, JobCancelled
 from modules.cancellation import OperationCancelled
 from modules.batch_queue import build_manifest
@@ -2269,6 +2275,23 @@ def api_source_probe():
     except SourceIngestError as exc:
         return jsonify({"success": False, "error": str(exc)}), 400
 
+
+@app.route("/api/youtube/probe", methods=["POST"])
+def api_youtube_probe():
+    data = request.get_json(silent=True) or {}
+    try:
+        return jsonify({"success": True, "source": probe_youtube_url(data.get("url", ""))})
+    except (SourceIngestError, YouTubeImportError, ValueError) as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
+
+
+@app.route("/api/youtube/metadata", methods=["POST"])
+def api_youtube_metadata():
+    data = request.get_json(silent=True) or {}
+    try:
+        return jsonify({"success": True, "metadata": fetch_youtube_metadata(data.get("url", ""))})
+    except (SourceIngestError, YouTubeImportError, ValueError) as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
 
 def _format_source_import_progress(update):
     """Present yt-dlp multi-stream progress without implying a single global percent."""
