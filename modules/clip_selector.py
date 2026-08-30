@@ -13,6 +13,8 @@ import math
 import requests
 from difflib import SequenceMatcher
 from collections import Counter
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 from data.chub_training_data import CHUB_HOOK_MULTIPLIERS
 from .political_profile import PROFILE_NAME, build_political_prompt_fragment
@@ -27,6 +29,24 @@ QUALITY_GATE_REVIEW_THRESHOLD = 50
 OVERLAP_DUPLICATE_THRESHOLD = 0.25
 TEXT_SIMILARITY_DUPLICATE_THRESHOLD = 0.92
 TOUCHING_SIBLINGS_TOLERANCE = 0.5
+
+
+def _build_http_session():
+    """Shared requests.Session with connection pooling and retry policy."""
+    session = requests.Session()
+    retry_strategy = Retry(
+        total=3,
+        backoff_factor=1,
+        status_forcelist=[429, 500, 502, 503, 504],
+        allowed_methods=["GET", "POST"],
+    )
+    adapter = HTTPAdapter(max_retries=retry_strategy, pool_connections=10, pool_maxsize=20)
+    session.mount("https://", adapter)
+    session.mount("http://", adapter)
+    return session
+
+
+_http_session = _build_http_session()
 
 
 def _safe_float(value, default=0.0):
