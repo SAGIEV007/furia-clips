@@ -787,6 +787,15 @@ Retorne APENAS o array JSON. Nenhum texto antes ou depois."""
         if not transcript_blocks:
             return []
 
+        # Fail fast when Ollama is not reachable instead of spending seconds
+        # in a long request timeout per chunk.
+        try:
+            requests.get(f"{ollama_url}/api/tags", timeout=2)
+        except requests.exceptions.RequestException:
+            if emit_progress:
+                emit_progress("[Ollama] Servidor indisponível; seguindo sem IA local.")
+            return []
+
         all_selections = []
         chunk_size = 25
 
@@ -816,7 +825,7 @@ Retorne APENAS o array JSON. Nenhum texto antes ou depois."""
                         "stream": False,
                         "options": {"temperature": 0.3, "num_predict": 4096},
                     },
-                    timeout=600,
+                    timeout=15,
                 )
                 response.raise_for_status()
                 data = response.json()

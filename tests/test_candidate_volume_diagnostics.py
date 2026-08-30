@@ -226,6 +226,7 @@ def test_previous_fingerprint_does_not_discard_distant_same_text():
 
 def test_previous_fingerprints_are_reset_for_each_selection_run(monkeypatch):
     selector = ClipSelector(target_duration=30, max_clips=15, min_duration=8, max_duration=180)
+    monkeypatch.setattr(selector, "_select_with_llm", lambda *args, **kwargs: [])
     monkeypatch.setattr(selector, "_select_with_nlp", lambda *args, **kwargs: [_clip(0, 30, "Uma tese completa e independente.")])
     monkeypatch.setattr(clip_selector_module, "annotate_clip_with_chapters", lambda clip, context: clip)
     transcription = {"segments": [{"start": i * 15.0, "end": (i + 1) * 15.0, "text": f"Ideia {i}."} for i in range(20)]}
