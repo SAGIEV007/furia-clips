@@ -148,6 +148,26 @@ class FaceTracker:
         # Strategy 4: MediaPipe face counting (original method)
         if self._ensure_detector():
             mediapipe_layout = self._detect_layout_mediapipe(video_path, emit_progress)
+            # `fullscreen` significa "não vi rostos suficientes na amostra" — é uma
+            # AUSÊNCIA de evidência, não evidência de ausência. Mas em
+            # `video_cutter.batch_cut` esse rótulo é destrutivo: marca TODOS os
+            # cortes como aspecto original e força 16:9, inutilizando o vídeo
+            # para Instagram. Medido em 31/08 na live de MG: detect_layout
+            # devolveu `fullscreen` enquanto detect_faces_in_video encontrou 410
+            # frames com rosto no MESMO vídeo — a amostragem de layout errou e
+            # condenou o render inteiro.
+            #
+            # Só aceitamos `fullscreen` quando o rastreamento completo confirmar.
+            # Caso contrário deixamos a decisão para a avaliação por segmento,
+            # que é feita com muito mais amostras e por clipe.
+            if mediapipe_layout == LAYOUT_FULLSCREEN:
+                if emit_progress:
+                    emit_progress(
+                        "[Layout] Amostragem não encontrou rostos, mas isso não confirma "
+                        "vídeo sem locutor; o enquadramento será decidido por trecho."
+                    )
+                self._layout = LAYOUT_SINGLE
+                return self._layout
             if mediapipe_layout != LAYOUT_UNKNOWN:
                 self._layout = mediapipe_layout
                 return self._layout
