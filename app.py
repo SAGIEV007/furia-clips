@@ -2869,6 +2869,7 @@ def api_remove_silence():
 
 @app.route("/api/process/transcribe", methods=["POST"])
 def api_transcribe():
+    _start = datetime.now()
     data = request.get_json(silent=True) or {}
     video_path = _resolve_media_input(data.get("video_path", ""))
     log_info(f"[Transcrição] Requisição recebida para {video_path or 'caminho vazio'}.", stage="transcription")
@@ -2935,7 +2936,8 @@ def api_transcribe():
             emit_progress(f"Erro na transcricao: {str(e)}", "error")
             emit_status("error", {"message": str(e), "operation": "transcription"}, job_id=legacy_job_id)
         finally:
-            log_info(f"FIM transcribe video={os.path.basename(video_path)}", stage="transcription")
+            _elapsed = (datetime.now() - _start).total_seconds()
+            log_info(f"FIM transcribe video={os.path.basename(video_path)} elapsed={_elapsed:.2f}s", stage="transcription")
             _set_legacy_task("", active=False)
 
     with processing_lock:
