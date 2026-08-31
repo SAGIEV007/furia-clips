@@ -259,12 +259,13 @@ CAPTION_PATTERNS = [
 # Calculated using median ratio / baseline median (32.51x)
 # Updated: 2026-08-30
 CHUB_HOOK_MULTIPLIERS = {
-    "desafio-ao-espectador": 3.07,  # median=99.79x, n=3
-    "acusacao-direta": 3.55,        # mean=115.50x, n=13 (high count)
-    "tese-provocativa": 3.01,       # mean=98.06x, n=26 (highest count)
-    "revelacao-de-local": 2.60,     # median=84.45x, n=4
-    "outro": 1.04,                  # median=33.93x, n=6
-    "curiosity-gap": 0.96,          # median=31.08x, n=6
-    "callback": 0.83,               # median=26.82x, n=4
-    "news-peg": 0.65,               # median=21.09x, n=3
+    "news-peg":              1.40,  # mediana=1.395, n=41
+    "callback":              1.26,  # mediana=1.260, n=25
+    "acusacao-direta":       1.16,  # mediana=1.164, n=249
+    "curiosity-gap":         1.15,  # mediana=1.145, n=157
+    "revelacao-de-local":    1.08,  # mediana=1.078, n=73
+    "desafio-ao-espectador": 0.91,  # mediana=0.908, n=59
+    "tese-provocativa":      0.86,  # mediana=0.860, n=390
+    "outro":                 0.61,  # mediana=0.606, n=31
+    "numero-choque":         0.55,  # mediana=0.548, n=10
 }

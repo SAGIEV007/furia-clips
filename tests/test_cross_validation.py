@@ -34,14 +34,18 @@ class TestCrossValidation:
         assert selector.preferred_max_duration == 90.0
 
     def test_chub_hook_multipliers_loaded(self):
-        """Chub-trained hook multipliers must be present and >1.0 for high-performing hooks."""
+        """Chub-trained hook multipliers must be present and calibrated from population data."""
         from data.chub_training_data import CHUB_HOOK_MULTIPLIERS
         
-        # Verify the multipliers exist and are calibrated
+        # Verify the multipliers exist and are calibrated from real population medians
         assert "desafio-ao-espectador" in CHUB_HOOK_MULTIPLIERS
-        assert CHUB_HOOK_MULTIPLIERS["desafio-ao-espectador"] > 1.0
+        assert CHUB_HOOK_MULTIPLIERS["desafio-ao-espectador"] == 0.91
         assert "acusacao-direta" in CHUB_HOOK_MULTIPLIERS
-        assert CHUB_HOOK_MULTIPLIERS["acusacao-direta"] > 1.0
+        assert CHUB_HOOK_MULTIPLIERS["acusacao-direta"] == 1.16
+        assert "news-peg" in CHUB_HOOK_MULTIPLIERS
+        assert CHUB_HOOK_MULTIPLIERS["news-peg"] == 1.40
+        assert "numero-choque" in CHUB_HOOK_MULTIPLIERS
+        assert CHUB_HOOK_MULTIPLIERS["numero-choque"] == 0.55
     def test_candidate_volume_is_reasonable(self):
         """Test that candidate count scales properly with video duration.
         
