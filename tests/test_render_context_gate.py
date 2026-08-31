@@ -35,7 +35,7 @@ def test_text_false_context_contract_is_deferred_before_rendering():
             "end": 30,
             "duration": 20,
             "context_complete": "false",
-            "starts_mid_sentence": "false",
+            "starts_mid_sentence": "true",
             "starts_with_context_reference": "false",
         },
         {"start": 40, "end": 60, "duration": 20, "context_complete": "true"},
@@ -43,7 +43,9 @@ def test_text_false_context_contract_is_deferred_before_rendering():
 
     assert [clip["start"] for clip in renderable] == [40]
     assert [clip["start"] for clip in deferred] == [10]
-    assert deferred[0]["errors"] == ["contexto autossuficiente não confirmado"]
+    assert deferred[0]["errors"] == [
+        "contexto autossuficiente não confirmado; início possivelmente no meio da frase"
+    ]
 
 
 def test_technical_review_candidate_is_flagged_after_rendering():
