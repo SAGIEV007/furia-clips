@@ -284,6 +284,12 @@ ERROR_MESSAGES = {
 }
 
 app = Flask(__name__)
+
+@app.errorhandler(Exception)
+def _log_unhandled_exception(exc):
+    log_error(f"Excecao nao tratada: {exc}", stage="unhandled", exc_info=True)
+    return jsonify({"error": "Erro interno", "details": str(exc)}), 500
+
 app.config["SECRET_KEY"] = os.environ.get("FURIA_SECRET_KEY") or secrets.token_hex(32)
 app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD_SIZE
 
@@ -2861,6 +2867,7 @@ def api_cut_shorts():
         return jsonify({"error": "Video nao encontrado"}), 404
 
     def task(ctx):
+        log_info(f"INICIO cut_shorts job={ctx.job_id} video={os.path.basename(video_path)}", stage="cut_shorts")
         emit_progress = _job_scoped_progress(ctx.job_id)
         try:
             ctx.update(stage="transcription", progress=5, message="Preparando transcrição e contexto")
@@ -3577,6 +3584,7 @@ def api_cut_shorts():
             emit_status("error", {"message": friendly, "technical": str(e)}, job_id=ctx.job_id)
             raise
         finally:
+            log_info(f"FIM cut_shorts job={ctx.job_id} video={os.path.basename(video_path)}", stage="cut_shorts")
             _set_legacy_task("", active=False)
 
     with processing_lock:
