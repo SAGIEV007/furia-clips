@@ -111,6 +111,10 @@ class AudioAnalyzer:
             if process.poll() is None:
                 process.kill()
                 process.wait()
+            if process.stdout and hasattr(process.stdout, "close"):
+                process.stdout.close()
+            if process.stderr and hasattr(process.stderr, "close"):
+                process.stderr.close()
 
         max_energy = max((entry["energy_rms"] for entry in energy_profile), default=0.0)
         for entry in energy_profile:
