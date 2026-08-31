@@ -12,10 +12,13 @@ import json
 import math
 import re
 from datetime import datetime, timezone
+import os
 from pathlib import Path
 from typing import Any, Iterable
 
-DEFAULT_AB_RUN_DIR = Path.home() / "FuriaClipsData" / "analyses" / "ab-runs"
+DEFAULT_AB_RUN_DIR = Path(
+    os.environ.get("FURIA_AB_RUN_DIR", "")
+) or (Path.home() / "FuriaClipsData" / "analyses" / "ab-runs")
 ALLOWED_MODES = {"off", "prioritize", "require"}
 
 
