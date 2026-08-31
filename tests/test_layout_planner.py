@@ -113,3 +113,37 @@ def test_explicit_original_overrides_stable_face():
     assert result["reframe_allowed"] is False
     assert result["output_aspect"] == "original"
     assert result["reason_code"] == "original_requested"
+
+
+def test_multiple_face_samples_below_ratio_does_not_force_multi_speaker():
+    """Regressão 31/08: múltiplas amostras isoladas com ratio baixo não devem
+    forçar multi_speaker. Um frame de plateia ao fundo não condena orador único."""
+    result = plan_layout(
+        detected_layout="single",
+        face_count=1,
+        tracking_assessment=stable_tracking(
+            multiple_face_samples=1,
+            multi_face_ratio=0.10,
+        ),
+    )
+
+    assert result["layout_family"] == "single_face"
+    assert result["reframe_allowed"] is True
+    assert result["reason_code"] == "single_face_stable"
+
+
+def test_multiple_face_samples_above_ratio_triggers_multi_speaker():
+    """Regressão 31/08: quando ratio de multi-face > 0.30, even com face_total<2
+    o trecho deve ser tratado como multi_speaker."""
+    result = plan_layout(
+        detected_layout="single",
+        face_count=1,
+        tracking_assessment=stable_tracking(
+            multiple_face_samples=4,
+            multi_face_ratio=0.45,
+        ),
+    )
+
+    assert result["layout_family"] == "multi_speaker"
+    assert result["reframe_allowed"] is False
+    assert result["reason_code"] == "multiple_subjects"
