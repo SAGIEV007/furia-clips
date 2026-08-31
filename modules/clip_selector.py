@@ -1249,7 +1249,9 @@ Retorne APENAS o JSON.
         editorial_family = clip.get("editorial_family", "")
 
         # REJECT criteria (hard fail)
-        if duration < 25:
+        # NOTA: o piso de duração acompanha MIN_DURATION (calibração Chub 31/08),
+        # não um 25 hardcoded — senão o gate contradiz o seletor.
+        if duration < MIN_DURATION:
             return "reject", "too_short"
         if score < 50:
             return "reject", "low_viral_score"

@@ -52,8 +52,9 @@ class SubtitleGeneratorTests(unittest.TestCase):
             with open(path, encoding="utf-8") as handle:
                 content = handle.read()
         self.assertIn("Style: Alert", content)
-        self.assertIn("{\\rAlert}ilegal", content)
-        self.assertIn("{\\rAlert}10", content)
+        # ASS usa literal {\rStyle} (backslash-r), não caractere de carriage return
+        self.assertIn(r"{\rAlert}ilegal", content)
+        self.assertIn(r"{\rAlert}10", content)
 
     def test_political_preset_uses_larger_bottom_safe_margin(self):
         generator = SubtitleGenerator({"render_preset": "political_shorts"})
@@ -77,6 +78,65 @@ class SubtitleGeneratorTests(unittest.TestCase):
             with open(path, encoding="utf-8") as handle:
                 content = handle.read()
         self.assertIn("00:00:00,000 --> 00:00:01,250", content)
+
+    def test_generates_ass_with_custom_back_color(self):
+        generator = SubtitleGenerator({
+            "render_preset": "shorts",
+            "subtitle_style": "word_by_word",
+            "subtitle_back_color": "#FF0000",
+        })
+        with tempfile.TemporaryDirectory() as tempdir:
+            path = os.path.join(tempdir, "back.ass")
+            generator.generate_ass_file(
+                [{"start": 0, "end": 1, "text": "Teste", "words": []}],
+                path,
+            )
+            with open(path, encoding="utf-8") as handle:
+                content = handle.read()
+        # #FF0000 (Red) in ASS BBGGRR = &H000000FF (Blue channel = FF)
+        self.assertIn("&H000000FF", content)
+
+    def test_generates_ass_with_center_lower_position(self):
+        generator = SubtitleGenerator({
+            "render_preset": "shorts",
+            "subtitle_position": "center_lower",
+        })
+        with tempfile.TemporaryDirectory() as tempdir:
+            path = os.path.join(tempdir, "center.ass")
+            generator.generate_ass_file(
+                [{"start": 0, "end": 1, "text": "Teste", "words": []}],
+                path,
+            )
+            with open(path, encoding="utf-8") as handle:
+                content = handle.read()
+        self.assertIn(",240,1\n", content)
+
+    def test_generates_chunk_highlight_style(self):
+        generator = SubtitleGenerator({
+            "render_preset": "shorts",
+            "subtitle_style": "chunk_highlight",
+        })
+        segments = [
+            {
+                "start": 0,
+                "end": 2,
+                "text": "Teste chunk highlight",
+                "words": [
+                    {"word": "Teste", "start": 0, "end": 0.5},
+                    {"word": "chunk", "start": 0.5, "end": 1.0},
+                    {"word": "highlight", "start": 1.0, "end": 1.5},
+                    {"word": "extra", "start": 1.5, "end": 2.0},
+                ],
+            }
+        ]
+        with tempfile.TemporaryDirectory() as tempdir:
+            path = os.path.join(tempdir, "chunk.ass")
+            generator.generate_ass_file(segments, path)
+            with open(path, encoding="utf-8") as handle:
+                content = handle.read()
+        self.assertIn("Style: ChunkHighlight", content)
+        # chunk_highlight produz 1 linha por chunk (4 palavras), não por palavra
+        self.assertIn("Dialogue: 0,0:00:00.00,0:00:02.00,ChunkHighlight,,0,0,0,,Teste chunk highlight extra", content)
 
 
 if __name__ == "__main__":

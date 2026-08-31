@@ -150,6 +150,7 @@ DEFAULT_SETTINGS = {
     "subtitle_alert_color": "#FF3B30",
     "subtitle_border_color": "#000000",
     "subtitle_border_size": 1.5,
+    "subtitle_back_color": "#80000000",
     "subtitle_highlight_size": 5,
     "subtitle_position": "bottom",
     "subtitle_style": "word_by_word",

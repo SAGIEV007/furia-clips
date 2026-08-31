@@ -287,6 +287,19 @@ app = Flask(__name__)
 
 @app.errorhandler(Exception)
 def _log_unhandled_exception(exc):
+    # Erros HTTP normais (404, 400, 405...) NÃO são exceções não tratadas:
+    # devolvê-los como 500 com traceback mente sobre a gravidade e polui o log.
+    # Caso real 31/08: o frontend faz polling de rotas ausentes e o log ganhou
+    # ~60 tracebacks/hora de "500" que na verdade eram 404 de rota inexistente.
+    from werkzeug.exceptions import HTTPException
+
+    if isinstance(exc, HTTPException):
+        log_warning(
+            f"HTTP {exc.code} em {request.method} {request.path}: {exc.name}",
+            stage="http",
+        )
+        return jsonify({"error": exc.name, "status": exc.code}), exc.code
+
     log_error(f"Excecao nao tratada: {exc}", stage="unhandled", exc_info=True)
     return jsonify({"error": "Erro interno", "details": str(exc)}), 500
 
@@ -1451,6 +1464,76 @@ def api_get_job(job_id):
     return jsonify(job)
 
 
+@app.route("/api/jobs/<job_id>/diagnostics", methods=["GET"])
+def api_job_diagnostics(job_id):
+    """Devolve o RACIOCÍNIO da Fúria para um job: por que cada corte saiu ou não.
+
+    Esta rota existia no frontend mas nunca no backend — o painel de
+    diagnóstico pedia e recebia 404 (mascarado como 500 pelo errorhandler),
+    então o usuário nunca conseguia ver o motivo das decisões. Ver log de
+    31/08: `GET /api/jobs/<id>/diagnostics?limit=1000 -> 500`.
+    """
+    job = job_manager.get(job_id)
+    if not job:
+        return jsonify({"error": "Job não encontrado"}), 404
+
+    try:
+        limit = max(1, min(int(request.args.get("limit", 200)), 5000))
+    except (TypeError, ValueError):
+        limit = 200
+
+    diagnostics = {}
+    for artifact in job.get("artifacts") or []:
+        if isinstance(artifact, dict) and artifact.get("type") == "candidate_diagnostics":
+            diagnostics = {k: v for k, v in artifact.items() if k != "type"}
+            break
+
+    events = []
+    try:
+        # job_manager não expõe leitura de eventos; ler direto da tabela.
+        import sqlite3 as _sqlite3
+
+        conn = _sqlite3.connect(DB_PATH)
+        conn.row_factory = _sqlite3.Row
+        try:
+            cur = conn.execute(
+                "SELECT * FROM job_events WHERE job_id = ? ORDER BY id DESC LIMIT ?",
+                (job_id, limit),
+            )
+            events = [dict(row) for row in cur.fetchall()]
+        finally:
+            conn.close()
+    except Exception as exc:  # nunca derrubar o painel por causa do histórico
+        log_warning(f"Não foi possível ler eventos do job {job_id}: {exc}", stage="diagnostics")
+
+    funil = []
+    if diagnostics:
+        for rotulo, chave in (
+            ("Candidatos gerados", "primary_count"),
+            ("Após deduplicação", "final_count"),
+            ("Entraram no render", "pre_render_candidate_count"),
+            ("Adiados pelo contexto", "editorial_gate_deferred_count"),
+            ("Rejeitados por score", "quality_gate_rejected"),
+            ("Resgatados pela salvaguarda", "empty_set_rescue_count"),
+            ("Falharam ao renderizar", "render_rejection_count"),
+            ("Cortes entregues", "rendered_count"),
+        ):
+            if chave in diagnostics:
+                funil.append({"etapa": rotulo, "chave": chave, "valor": diagnostics.get(chave)})
+
+    return jsonify({
+        "job_id": job_id,
+        "state": job.get("state"),
+        "stage": job.get("stage"),
+        "message": job.get("message"),
+        "error": job.get("error"),
+        "diagnostics": diagnostics,
+        "funil": funil,
+        "events": events,
+        "event_count": len(events),
+    })
+
+
 @app.route("/api/jobs/<job_id>/cancel", methods=["POST"])
 def api_cancel_job(job_id):
     try:
@@ -2279,6 +2362,7 @@ def api_upload_file():
 
     ext = os.path.splitext(file.filename)[1].lower()
     if ext not in ALLOWED_EXTENSIONS:
+        log_warning(f"[Upload] Formato nao suportado: {ext}", stage="upload")
         return jsonify({"error": f"Formato nao suportado: {ext}"}), 400
 
     dest_dir = request.form.get("path", "uploads")
@@ -2465,10 +2549,13 @@ def api_source_import():
     data = request.get_json(silent=True) or {}
     url = str(data.get("url", "")).strip()
     settings = get_all_settings()
+    log_info(f"[Fonte] Requisição recebida para URL: {url[:80] if url else 'vazio'}", stage="source_import")
     try:
         url = validate_public_url(url)
         destination = _resolve_source_destination(data.get("destination_dir"), settings)
+        log_info(f"[Fonte] URL validada. Destino: {destination}", stage="source_import")
     except (SourceIngestError, OSError) as exc:
+        log_warning(f"[Fonte] URL inválida ou destino inacessível: {exc}", stage="source_import")
         return jsonify({"success": False, "error": str(exc)}), 400
     source_job_id = uuid.uuid4().hex
     with processing_lock:
@@ -2625,6 +2712,7 @@ def api_source_import():
             emit_progress(f"[Fonte] Operação cancelada: {exc}", "warning")
             emit_status("cancelled", {"operation": "source_import", "message": str(exc)}, job_id=source_job_id)
         except Exception as exc:
+            log_error(f"[Fonte] Falha ao importar link: {exc}", stage="source_import", exc_info=True)
             emit_progress(f"[Fonte] Falha ao importar link: {str(exc)}", "error")
             emit_status("error", {"operation": "source_import", "message": str(exc)}, job_id=source_job_id)
         finally:
@@ -2773,7 +2861,9 @@ def api_remove_silence():
 def api_transcribe():
     data = request.get_json(silent=True) or {}
     video_path = _resolve_media_input(data.get("video_path", ""))
+    log_info(f"[Transcrição] Requisição recebida para {video_path or 'caminho vazio'}.", stage="transcription")
     if not video_path:
+        log_error("[Transcrição] Caminho de vídeo não encontrado ou inválido.", stage="transcription")
         return jsonify({"error": "Video não encontrado ou caminho inválido"}), 404
     project_id = data.get("project_id")
 
@@ -2830,6 +2920,7 @@ def api_transcribe():
             emit_progress(f"[Transcrição] Operação cancelada: {exc}", "warning")
             emit_status("cancelled", {"operation": "transcription", "message": str(exc)}, job_id=legacy_job_id)
         except Exception as e:
+            log_error(f"[Transcrição] Falha inesperada: {e}", stage="transcription", exc_info=True)
             emit_progress(f"Erro na transcricao: {str(e)}", "error")
             emit_status("error", {"message": str(e), "operation": "transcription"}, job_id=legacy_job_id)
         finally:
@@ -3300,6 +3391,32 @@ def api_cut_shorts():
                 )
             top_clips = approved + review
 
+            # Salvaguarda anti-"0/0": o gate editorial e o quality gate são
+            # sequenciais, então juntos podem zerar a lista mesmo com candidatos
+            # bons (caso real 31/08: 21 candidatos -> 8 adiados -> 13 rejeitados
+            # -> 0 renderizados, e o app relatou "Corte completo: 0/0" como
+            # sucesso). Se sobrou zero, reabilita os melhores adiados pelo gate
+            # EDITORIAL (que é uma dúvida de contexto, não um defeito técnico)
+            # e marca para revisão manual, em vez de entregar nada.
+            if not top_clips and editorial_gate_rejections:
+                resgatados = sorted(
+                    editorial_gate_rejections,
+                    key=lambda c: float(c.get("viral_score", 0) or 0),
+                    reverse=True,
+                )[:5]
+                for clip in resgatados:
+                    clip["quality_gate_tier"] = "review"
+                    clip["quality_gate_reason"] = "rescued_after_empty_render_set"
+                    clip["technical_review_required"] = True
+                top_clips = resgatados
+                candidate_diagnostics["empty_set_rescue_count"] = len(resgatados)
+                emit_progress(
+                    f"[Salvaguarda] Nenhum corte sobreviveu aos filtros; "
+                    f"{len(resgatados)} candidato(s) de maior score foram reabilitados "
+                    f"e marcados para sua revisão, em vez de entregar zero.",
+                    "warning",
+                )
+
             ctx.update(stage="rendering", progress=76, message="Validando enquadramento e renderizando cortes")
             ctx.check_cancel()
 
@@ -3318,7 +3435,7 @@ def api_cut_shorts():
             framing_by_index = {}
             layout_plans = {}
             target_aspect = get_preset(settings.get("render_preset", "shorts"))["aspect"]
-            if use_face_tracking and tracker and video_layout not in {"debate", "unknown", "fullscreen"}:
+            if use_face_tracking and tracker and video_layout not in {"debate", "fullscreen"}:
                 try:
                     emit_progress("[Layout] Detectando o locutor para enquadramento automático...", "info")
                     all_face_positions = tracker.detect_faces_in_video(video_path, sample_interval=2.0, emit_progress=emit_progress)
@@ -4464,7 +4581,7 @@ def api_process_complete():
                 emit_progress(f"Face tracking indisponível: {str(exc)}", "warning")
 
             target_aspect = get_preset(settings.get("render_preset", "shorts"))["aspect"]
-            if use_face_tracking and tracker and video_layout not in {"debate", "unknown", "fullscreen"}:
+            if use_face_tracking and tracker and video_layout not in {"debate", "fullscreen"}:
                 try:
                     emit_progress("[Layout] Avaliando estabilidade do locutor para reframe...", "info")
                     ctx.check_cancel()

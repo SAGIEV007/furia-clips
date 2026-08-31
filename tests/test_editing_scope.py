@@ -45,7 +45,7 @@ def test_optional_legacy_endpoints_return_and_emit_job_ids():
 def test_face_tracking_is_optional_and_guarded_before_detection():
     source = inspect.getsource(app_module.api_cut_shorts)
     assert 'use_face_tracking = _coerce_bool(data.get("face_tracking"), default=True)' in source
-    assert 'if use_face_tracking and tracker and video_layout not in {"debate", "unknown", "fullscreen"}:' in source
+    assert 'if use_face_tracking and tracker and video_layout not in {"debate", "fullscreen"}:' in source
     assert 'original_aspect_indices.update(range(len(top_clips)))' in source
     assert '"mode": "original"' in source
 

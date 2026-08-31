@@ -25,6 +25,7 @@ class SubtitleGenerator:
         self.border_color = self.settings.get("subtitle_border_color", "#000000")
         self.border_size = self.settings.get("subtitle_border_size", 1.5)
         self.highlight_size = self.settings.get("subtitle_highlight_size", 5)
+        self.back_color = self.settings.get("subtitle_back_color", "#80000000")
         self.position = self.settings.get("subtitle_position", "bottom")
         self.style = self.settings.get("subtitle_style", "word_by_word")
         preset_name = self.settings.get("render_preset", "shorts")
@@ -33,13 +34,18 @@ class SubtitleGenerator:
     def generate_ass_file(self, segments, output_path, video_width=1080, video_height=1920):
         safe_bottom = int(self.preset.get("safe_bottom", 300))
         safe_top = int(self.preset.get("safe_top", 180))
-        margin_v = safe_bottom if self.position == "bottom" else safe_top
-        alignment = 2 if self.position == "bottom" else 8
+        if self.position == "center_lower":
+            margin_v = (safe_top + safe_bottom) // 2
+            alignment = 2
+        else:
+            margin_v = safe_bottom if self.position == "bottom" else safe_top
+            alignment = 2 if self.position == "bottom" else 8
 
         hex_text = self._color_to_ass(self.text_color)
         hex_border = self._color_to_ass(self.border_color)
         hex_highlight = self._color_to_ass(self.highlight_color)
         hex_alert = self._color_to_ass(self.settings.get("subtitle_alert_color", "#FF3B30"))
+        hex_back = self._color_to_ass(self.back_color)
 
         ass_content = f"""[Script Info]
 Title: Furia Clips Subtitles
@@ -51,9 +57,10 @@ ScaledBorderAndShadow: yes
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,{self.font},{self.font_size},{hex_text},&H000000FF,{hex_border},&H80000000,1,0,0,0,100,100,0,0,1,{self.border_size},2,{alignment},40,40,{margin_v},1
-Style: Highlight,{self.font},{int(self.font_size * 1.1)},{hex_highlight},&H000000FF,{hex_border},&H80000000,1,0,0,0,100,100,0,0,1,{self.border_size + 0.5},2,{alignment},40,40,{margin_v},1
-Style: Alert,{self.font},{int(self.font_size * 1.12)},{hex_alert},&H000000FF,{hex_border},&H80000000,1,0,0,0,100,100,0,0,1,{self.border_size + 0.5},2,{alignment},40,40,{margin_v},1
+Style: Default,{self.font},{self.font_size},{hex_text},&H000000FF,{hex_border},{hex_back},1,0,0,0,100,100,0,0,1,{self.border_size},2,{alignment},40,40,{margin_v},1
+Style: Highlight,{self.font},{int(self.font_size * 1.1)},{hex_highlight},&H000000FF,{hex_border},{hex_back},1,0,0,0,100,100,0,0,1,{self.border_size + 0.5},2,{alignment},40,40,{margin_v},1
+Style: Alert,{self.font},{int(self.font_size * 1.12)},{hex_alert},&H000000FF,{hex_border},{hex_back},1,0,0,0,100,100,0,0,1,{self.border_size + 0.5},2,{alignment},40,40,{margin_v},1
+Style: ChunkHighlight,{self.font},{int(self.font_size * 1.05)},{hex_highlight},&H000000FF,{hex_border},{hex_back},1,0,0,0,100,100,0,0,1,{self.border_size + 0.3},2,{alignment},40,40,{margin_v},1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -61,6 +68,8 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 
         if self.style == "word_by_word":
             ass_content += self._generate_word_by_word(segments)
+        elif self.style == "chunk_highlight":
+            ass_content += self._generate_chunk_highlight(segments)
         else:
             ass_content += self._generate_full_sentence(segments)
 
@@ -115,6 +124,30 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             lines += f"Dialogue: 0,{start},{end},Default,,0,0,0,,{text}\n"
         return lines
 
+    def _generate_chunk_highlight(self, segments):
+        lines = ""
+        for seg in segments:
+            words = seg.get("words", [])
+            if not words:
+                start = self._seconds_to_ass_time(seg["start"])
+                end = self._seconds_to_ass_time(seg["end"])
+                text = self._escape_ass_text(seg.get("text", ""))
+                lines += f"Dialogue: 0,{start},{end},ChunkHighlight,,0,0,0,,{text}\n"
+                continue
+
+            chunk_size = 4
+            for i in range(0, len(words), chunk_size):
+                chunk = words[i:i + chunk_size]
+                if not chunk:
+                    continue
+
+                chunk_start = self._seconds_to_ass_time(chunk[0]["start"])
+                chunk_end = self._seconds_to_ass_time(chunk[-1]["end"])
+                text_parts = [self._escape_ass_text(cw.get("word", "")) for cw in chunk]
+                line_text = " ".join(text_parts)
+                lines += f"Dialogue: 0,{chunk_start},{chunk_end},ChunkHighlight,,0,0,0,,{line_text}\n"
+        return lines
+
     def burn_subtitles(self, video_path, ass_path, output_path=None, emit_progress=None):
         if output_path is None:
             base = os.path.splitext(os.path.basename(video_path))[0]
@@ -129,7 +162,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             "ffmpeg", "-y",
             "-i", video_path,
             "-vf", f"ass={ass_escaped}",
-            "-c:v", "libx264", "-preset", "medium", "-crf", "23",
+            "-c:v", "libx264", "-preset", "medium", "-crf", "20",
             "-c:a", "copy",
             "-movflags", "+faststart",
             output_path
