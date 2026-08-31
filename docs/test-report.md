@@ -9,10 +9,25 @@ A suíte atual está estabilizada com:
 - **866 testes aprovados**
 - **3 testes ignorados**
 - **0 erros**
-- **Tempo de execução**: ~43s
+- **Tempo de execução**: ~86s
 
-Ferramenta: `pytest` via `run_pytest.py`.  
+Ferramenta: `pytest` via `run_pytest.py`.
 Profiling de imports: `scripts/measure_imports.py`.
+
+### Métricas de importação (21:49)
+
+- **Import stack total**: 1070.6 ms
+- `app`: 882.2 ms
+- `modules.clip_selector`: 278.0 ms
+- `modules.headline_studio`: 38.4 ms
+- `modules.video_cutter`: 36.4 ms
+- `modules.editorial_ranker`: 14.2 ms
+- `modules.native_dialogs`: 11.1 ms
+- `modules.repository_sync`: 6.7 ms
+- `modules.source_ingest`: 6.5 ms
+- `modules.job_manager`: 4.5 ms
+- `modules.youtube_importer`: 3.0 ms
+- Outros módulos: <2 ms cada
 
 ---
 
