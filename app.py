@@ -614,8 +614,13 @@ def _defer_context_incomplete_candidates(candidates):
     """Keep editorially unsafe candidates for review instead of rendering them ready.
 
     The ranker exposes the reasons, but rendering is the final publication-like
-    boundary: a strong hook must not compensate for missing context or an
-    explicit technical review requirement such as an unvalidated Q&A bridge.
+    boundary. Only hard signals that structurally break a clip — an opening
+    mid-sentence, an unresolved context reference, suspected audio overlap,
+    ambiguous timing, or an invalid speaker turn — defer a candidate before
+    render. A ``context_complete=False`` verdict with none of those hard flags
+    is a soft signal: it marks the candidate for post-render human review but
+    does not discard it, so a strong hook is never thrown away over mere
+    uncertainty.
     """
     renderable = []
     deferred = []
@@ -629,13 +634,32 @@ def _defer_context_incomplete_candidates(candidates):
         payoff_complete = _coerce_bool(candidate.get("payoff_complete"), default=True)
         technical_review = str(technical_status or "").strip().lower() in {"review", "review_required", "blocked"}
 
-        if context_incomplete:
-            reasons = []
-            reasons.append("contexto autossuficiente não confirmado")
-            if _coerce_bool(candidate.get("starts_mid_sentence")):
+        starts_mid_sentence = _coerce_bool(candidate.get("starts_mid_sentence")) or _coerce_bool(review_flags.get("starts_mid_sentence"))
+        starts_with_context_reference = _coerce_bool(candidate.get("starts_with_context_reference")) or _coerce_bool(review_flags.get("starts_with_context_reference"))
+        overlap_suspected = _coerce_bool(candidate.get("overlap_suspected")) or _coerce_bool(review_flags.get("overlap_suspected"))
+        timing_ambiguous = _coerce_bool(candidate.get("timing_ambiguous")) or _coerce_bool(review_flags.get("timing_ambiguous"))
+        speaker_turn_valid_raw = candidate.get("speaker_turn_valid", review_flags.get("speaker_turn_valid"))
+        speaker_turn_invalid = not _coerce_bool(speaker_turn_valid_raw, default=True)
+        hard_context_signal = (
+            starts_mid_sentence
+            or starts_with_context_reference
+            or overlap_suspected
+            or timing_ambiguous
+            or speaker_turn_invalid
+        )
+
+        if context_incomplete and hard_context_signal:
+            reasons = ["contexto autossuficiente não confirmado"]
+            if starts_mid_sentence:
                 reasons.append("início possivelmente no meio da frase")
-            if _coerce_bool(candidate.get("starts_with_context_reference")):
+            if starts_with_context_reference:
                 reasons.append("referência contextual sem antecedente recuperado")
+            if overlap_suspected:
+                reasons.append("sobreposição de áudio ou timestamps")
+            if timing_ambiguous:
+                reasons.append("timing ambíguo")
+            if speaker_turn_invalid:
+                reasons.append("locutor inválido para o corte")
             if technical_review:
                 reasons.append("revisão técnica editorial obrigatória")
                 reasons.extend(str(reason) for reason in technical_reasons if str(reason).strip())
@@ -662,9 +686,20 @@ def _defer_context_incomplete_candidates(candidates):
             })
             continue
 
-        if technical_review:
+        if context_incomplete or technical_review:
             candidate["post_render_review_required"] = True
-            candidate["post_review_reasons"] = list(technical_reasons)
+            post_review_reasons = list(candidate.get("post_review_reasons") or [])
+            if context_incomplete:
+                candidate["review_required"] = True
+                existing_review_reasons = candidate.get("review_reasons")
+                if not isinstance(existing_review_reasons, list):
+                    existing_review_reasons = []
+                    candidate["review_reasons"] = existing_review_reasons
+                existing_review_reasons.append("contexto autossuficiente não confirmado; confirmar antes de publicar")
+                post_review_reasons.append("contexto autossuficiente não confirmado; confirmar antes de publicar")
+            if technical_review:
+                post_review_reasons.extend(str(reason) for reason in technical_reasons if str(reason).strip())
+            candidate["post_review_reasons"] = list(dict.fromkeys(post_review_reasons))
 
         renderable.append(candidate)
     return renderable, deferred
