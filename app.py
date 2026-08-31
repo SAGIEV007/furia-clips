@@ -2383,6 +2383,7 @@ def api_upload_file():
     log_info(f"Upload: {file.filename} -> {filepath} ({os.path.getsize(filepath)} bytes)")
 
     log_info(f"FIM upload file={file.filename} path={os.path.relpath(filepath, WORKSPACE_DIR)} size={os.path.getsize(filepath)}", stage="upload")
+    log_info(f"FIM upload file={file.filename} path={os.path.relpath(filepath, WORKSPACE_DIR)} size={os.path.getsize(filepath)}", stage="upload")
     return jsonify({
         "success": True,
         "filename": filename,

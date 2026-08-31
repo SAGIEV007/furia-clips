@@ -257,7 +257,15 @@ class FaceTracker:
         duration = total_frames / fps
 
         sample_times = []
-        num_samples = min(8, max(5, int(duration / 60)))
+        # Amostragem (corrigida 31/08). Antes: min(8, ...) — oito frames para
+        # decidir o layout de um vídeo inteiro. Numa live de 80 min isso é uma
+        # amostra a cada 10 min, e bastava o orador estar de lado/longe nesses
+        # instantes para o vídeo ser classificado como "fullscreen" (sem
+        # rostos). Esse rótulo é destrutivo: em `video_cutter.batch_cut` ele
+        # marca TODOS os cortes como aspecto original, forçando 16:9.
+        # Medido na live de MG: detect_layout disse "fullscreen" enquanto
+        # detect_faces_in_video encontrou 410 frames com rosto no mesmo vídeo.
+        num_samples = min(40, max(12, int(duration / 30)))
         for i in range(num_samples):
             t = (i + 1) * duration / (num_samples + 1)
             sample_times.append(t)
@@ -445,8 +453,25 @@ class FaceTracker:
 
     def assess_segment_tracking(self, all_positions, start_time, end_time,
                                 min_confidence=0.60, min_coverage=0.60,
-                                max_position_jump=0.30):
-        """Return stable positions only when a single visible speaker is reliable."""
+                                max_position_jump=0.30,
+                                max_multi_face_ratio=0.30):
+        """Return stable positions only when a single visible speaker is reliable.
+
+        Regra de múltiplas faces (corrigida 31/08 com dados reais).
+        -----------------------------------------------------------
+        Antes: `multiple_face_samples == 0` — bastava UM único frame com 2+
+        rostos para reprovar o segmento inteiro. Em palco/plateia (o caso do
+        Renan) isso reprova quase tudo: medido na live de MG, o clip 779s-843s
+        passava em coverage (0.681), average_confidence (0.664) e largest_jump
+        (0.069) e era reprovado só por `multiple_face_samples=1` de 8 amostras.
+        Consequência: sem reframe seguro, o clip saía 1920x1080 em vez de
+        1080x1920 — inútil para Instagram.
+
+        Agora usamos uma PROPORÇÃO. Um rosto de plateia aparecendo em ~12% das
+        amostras não descaracteriza um orador único; metade das amostras com
+        múltiplos rostos, sim. `largest_jump` continua protegendo contra troca
+        de câmera, que é o risco real de reenquadrar no alvo errado.
+        """
         duration = max(0.1, float(end_time) - float(start_time))
         positions = self.get_face_positions_for_segment(all_positions, start_time, end_time)
         positions = [p for p in positions if float(p.get("confidence", 0)) >= min_confidence]
@@ -457,6 +482,7 @@ class FaceTracker:
         coverage = (positions[-1]["time"] - positions[0]["time"]) / duration
         average_confidence = sum(float(p.get("confidence", 0)) for p in positions) / len(positions)
         multiple_face_samples = sum(1 for p in positions if int(p.get("face_count", 1) or 1) > 1)
+        multi_face_ratio = multiple_face_samples / len(positions)
         jumps = []
         for previous, current in zip(positions, positions[1:]):
             jumps.append(abs(float(current.get("center_x", 0.5)) - float(previous.get("center_x", 0.5))))
@@ -464,10 +490,19 @@ class FaceTracker:
         confident = (
             coverage >= min_coverage
             and average_confidence >= min_confidence
-            and multiple_face_samples == 0
+            and multi_face_ratio <= max_multi_face_ratio
             and largest_jump <= max_position_jump
         )
-        reason = "estável" if confident else "detecção ambígua, múltiplas faces ou troca de câmera"
+        if confident:
+            reason = "estável"
+        elif multi_face_ratio > max_multi_face_ratio:
+            reason = "múltiplas faces em parte relevante do trecho"
+        elif largest_jump > max_position_jump:
+            reason = "troca de câmera ou salto de enquadramento"
+        elif coverage < min_coverage:
+            reason = "rosto visível em pouco tempo do trecho"
+        else:
+            reason = "confiança média de detecção abaixo do mínimo"
         return {
             "confident": confident,
             "positions": positions,
