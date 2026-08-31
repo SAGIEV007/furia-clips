@@ -832,7 +832,7 @@ Retorne APENAS o array JSON. Nenhum texto antes ou depois."""
                         "stream": False,
                         "options": {"temperature": 0.3, "num_predict": 4096},
                     },
-                    timeout=15,
+                    timeout=30,
                 )
                 response.raise_for_status()
                 data = response.json()
