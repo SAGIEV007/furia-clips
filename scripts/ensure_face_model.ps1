@@ -1,9 +1,29 @@
 param(
     [Parameter(Mandatory = $false)]
-    [string]$ProjectRoot = (Split-Path -Parent $PSScriptRoot)
+    [string]$ProjectRoot = ""
 )
 
 $ErrorActionPreference = "Stop"
+
+# Blindagem de caminho (bug real reportado 31/08).
+#
+# O run.bat passa -ProjectRoot "%~dp0". Quando a pasta do projeto contém
+# caracteres não-ASCII (ex.: "C:\Users\nandi\OneDrive\Área de Trabalho\..."),
+# o cmd.exe entrega o argumento no code page OEM e o PowerShell recebe o
+# caminho CORROMPIDO ("Área" chega como "µrea"). O script então falhava com
+# "Caracteres inválidos no caminho", nunca baixava o modelo facial, e como
+# consequência TODOS os cortes saíam em 16:9 em vez de 9:16 (Instagram) —
+# porque sem modelo facial o plan_layout devolve family=unknown e bloqueia o
+# reframe vertical.
+#
+# $PSScriptRoot é resolvido pelo próprio PowerShell e por isso é imune a essa
+# corrupção. Usamos o argumento apenas quando ele aponta para um caminho que
+# realmente existe; caso contrário caímos no caminho derivado do script.
+$scriptRoot = Split-Path -Parent $PSScriptRoot
+if ([string]::IsNullOrWhiteSpace($ProjectRoot) -or -not (Test-Path -LiteralPath $ProjectRoot)) {
+    $ProjectRoot = $scriptRoot
+}
+
 $modelRelativePath = "models\blaze_face_short_range.tflite"
 $modelPath = Join-Path $ProjectRoot $modelRelativePath
 $modelUrl = "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite"
