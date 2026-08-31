@@ -751,6 +751,10 @@ def _transcribe_video_automatically(video_path, settings, emit_progress, transcr
         word_timestamps=settings.get("whisper_word_timestamps", True),
         beam_size=settings.get("whisper_beam_size", 5),
         device=resolved_device,
+        condition_on_previous_text=settings.get("whisper_condition_on_previous_text", True),
+        vad_min_silence_ms=settings.get("whisper_vad_min_silence_ms", 500),
+        vad_speech_pad_ms=settings.get("whisper_vad_speech_pad_ms", 200),
+        temperature=settings.get("whisper_temperature", 0.0),
     )
     transcribe_kwargs = {"emit_progress": emit_progress}
     if cancel_check:

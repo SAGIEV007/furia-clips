@@ -125,7 +125,11 @@ _ensure_persistent_data_layout()
 DEFAULT_SETTINGS = {
     "whisper_model": "small",
     "whisper_word_timestamps": False,
-    "whisper_beam_size": 1,
+    "whisper_beam_size": 5,
+    "whisper_condition_on_previous_text": True,
+    "whisper_vad_min_silence_ms": 500,
+    "whisper_vad_speech_pad_ms": 200,
+    "whisper_temperature": 0.0,
     "whisper_device": "auto",
     "whisper_long_video_threshold_minutes": 45,
     "whisper_long_video_model": "base",

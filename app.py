@@ -833,6 +833,10 @@ def _transcribe_video_automatically(video_path, settings, emit_progress, transcr
         word_timestamps=settings.get("whisper_word_timestamps", True),
         beam_size=settings.get("whisper_beam_size", 5),
         device=resolved_device,
+        condition_on_previous_text=settings.get("whisper_condition_on_previous_text", True),
+        vad_min_silence_ms=settings.get("whisper_vad_min_silence_ms", 500),
+        vad_speech_pad_ms=settings.get("whisper_vad_speech_pad_ms", 200),
+        temperature=settings.get("whisper_temperature", 0.0),
     )
     transcribe_kwargs = {"emit_progress": emit_progress}
     if cancel_check:
@@ -2353,6 +2357,7 @@ def api_list_files():
 
 @app.route("/api/files/upload", methods=["POST"])
 def api_upload_file():
+    log_info(f"INICIO upload file={request.files.get('file') and request.files['file'].filename or 'vazio'}", stage="upload")
     if "file" not in request.files:
         return jsonify({"error": "Nenhum arquivo enviado"}), 400
 
@@ -2377,6 +2382,7 @@ def api_upload_file():
     file.save(filepath)
     log_info(f"Upload: {file.filename} -> {filepath} ({os.path.getsize(filepath)} bytes)")
 
+    log_info(f"FIM upload file={file.filename} path={os.path.relpath(filepath, WORKSPACE_DIR)} size={os.path.getsize(filepath)}", stage="upload")
     return jsonify({
         "success": True,
         "filename": filename,
@@ -2569,6 +2575,7 @@ def api_source_import():
     set_setting("source_max_height", max_height)
 
     def task():
+        log_info(f"INICIO source_import url={str(data.get('url', ''))[:80]}", stage="source_import")
         try:
             check_current_task_cancel()
             emit_progress("[Fonte] Preparando download de URL pública...", "info")
@@ -2716,6 +2723,7 @@ def api_source_import():
             emit_progress(f"[Fonte] Falha ao importar link: {str(exc)}", "error")
             emit_status("error", {"operation": "source_import", "message": str(exc)}, job_id=source_job_id)
         finally:
+            log_info("FIM source_import", stage="source_import")
             _set_legacy_task("", active=False)
 
     threading.Thread(target=task, daemon=True).start()
@@ -2873,6 +2881,7 @@ def api_transcribe():
     legacy_job_id = f"legacy-{uuid.uuid4().hex}"
 
     def task():
+        log_info(f"INICIO transcribe video={os.path.basename(video_path)}", stage="transcription")
         try:
             check_current_task_cancel()
             settings = get_all_settings()
@@ -2924,6 +2933,7 @@ def api_transcribe():
             emit_progress(f"Erro na transcricao: {str(e)}", "error")
             emit_status("error", {"message": str(e), "operation": "transcription"}, job_id=legacy_job_id)
         finally:
+            log_info(f"FIM transcribe video={os.path.basename(video_path)}", stage="transcription")
             _set_legacy_task("", active=False)
 
     with processing_lock:
@@ -3051,6 +3061,10 @@ def api_cut_shorts():
                     word_timestamps=settings.get("whisper_word_timestamps", True),
                     beam_size=settings.get("whisper_beam_size", 5),
                     device=settings.get("whisper_device", "auto"),
+                    condition_on_previous_text=settings.get("whisper_condition_on_previous_text", True),
+                    vad_min_silence_ms=settings.get("whisper_vad_min_silence_ms", 500),
+                    vad_speech_pad_ms=settings.get("whisper_vad_speech_pad_ms", 200),
+                    temperature=settings.get("whisper_temperature", 0.0),
                 )
                 transcription = transcriber.transcribe(
                     video_path,
@@ -3948,6 +3962,12 @@ def api_generate_subtitles():
                 transcriber = Transcriber(
                     model_name=settings.get("whisper_model", "small"),
                     language=settings.get("language", "pt"),
+                    word_timestamps=settings.get("whisper_word_timestamps", True),
+                    beam_size=settings.get("whisper_beam_size", 5),
+                    condition_on_previous_text=settings.get("whisper_condition_on_previous_text", True),
+                    vad_min_silence_ms=settings.get("whisper_vad_min_silence_ms", 500),
+                    vad_speech_pad_ms=settings.get("whisper_vad_speech_pad_ms", 200),
+                    temperature=settings.get("whisper_temperature", 0.0),
                 )
                 result = transcriber.transcribe(video_path, emit_progress=emit_progress)
                 segments = result["segments"]

@@ -10,12 +10,16 @@ CACHE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file_
 
 
 class Transcriber:
-    def __init__(self, model_name="small", language="pt", word_timestamps=False, beam_size=1, device="auto"):
+    def __init__(self, model_name="small", language="pt", word_timestamps=False, beam_size=1, device="auto", condition_on_previous_text=True, vad_min_silence_ms=300, vad_speech_pad_ms=200, temperature=0.0):
         self.model_name = model_name
         self.language = language
         self.word_timestamps = bool(word_timestamps)
         self.beam_size = max(1, int(beam_size or 1))
         self.requested_device = str(device or "auto").lower()
+        self.condition_on_previous_text = bool(condition_on_previous_text)
+        self.vad_min_silence_ms = int(vad_min_silence_ms)
+        self.vad_speech_pad_ms = int(vad_speech_pad_ms)
+        self.temperature = float(temperature)
         self.device = "cpu"
         self.compute_type = "int8"
         self.model = None
@@ -240,10 +244,12 @@ class Transcriber:
             task="transcribe",
             beam_size=self.beam_size,
             word_timestamps=self.word_timestamps,
+            condition_on_previous_text=self.condition_on_previous_text,
+            temperature=self.temperature,
             vad_filter=True,
             vad_parameters=dict(
-                min_silence_duration_ms=300,
-                speech_pad_ms=200,
+                min_silence_duration_ms=self.vad_min_silence_ms,
+                speech_pad_ms=self.vad_speech_pad_ms,
             ),
         )
 
