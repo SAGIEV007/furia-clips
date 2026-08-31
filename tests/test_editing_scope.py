@@ -177,14 +177,34 @@ def test_complete_pipeline_keeps_original_timeline_after_silence_artifact():
     assert "without an explicit TimelineMap conversion." in source
 
 
-def test_project_transcript_reuse_requires_matching_source_identity():
-    import inspect
-    import app as app_module
+def test_project_transcript_reuse_requires_matching_source_identity(tmp_path):
+    video_a = tmp_path / "video_a.mp4"
+    video_b = tmp_path / "video_b.mp4"
+    video_a.write_bytes(b"a")
+    video_b.write_bytes(b"b")
 
-    source = inspect.getsource(app_module._project_matches_video)
-    assert "get_project(int(project_id))" in source
-    assert "os.path.realpath(stored_source) == os.path.realpath(video_path)" in source
-    assert "stored_signature and current_signature" in source
+    with patch.object(app_module, "get_project") as mock_get_project, \
+            patch.object(app_module, "_resolve_media_input", side_effect=lambda p: p), \
+            patch.object(app_module, "get_source_signature", return_value="sig-current"):
+        # Same realpath as stored source_video -> matches regardless of signature.
+        mock_get_project.return_value = {"source_video": str(video_a), "source_signature": ""}
+        assert app_module._project_matches_video(1, str(video_a)) is True
+
+        # Different path but matching stored signature -> matches.
+        mock_get_project.return_value = {"source_video": str(video_b), "source_signature": "sig-current"}
+        assert app_module._project_matches_video(1, str(video_a)) is True
+
+        # Different path and mismatched signature -> does not match.
+        mock_get_project.return_value = {"source_video": str(video_b), "source_signature": "sig-other"}
+        assert app_module._project_matches_video(1, str(video_a)) is False
+
+        # No project found -> does not match.
+        mock_get_project.return_value = None
+        assert app_module._project_matches_video(1, str(video_a)) is False
+
+    # Missing project_id or video_path short-circuits without touching get_project.
+    assert app_module._project_matches_video(None, str(video_a)) is False
+    assert app_module._project_matches_video(1, "") is False
 
 
 def test_smart_cut_preserves_all_canonical_transcript_sources():
