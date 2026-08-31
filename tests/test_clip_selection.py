@@ -262,15 +262,20 @@ class ClipSelectionTests(unittest.TestCase):
         self.assertGreaterEqual(clips[0]["end"], 25.5)
         self.assertTrue(clips[0]["qa_bridge"])
 
-    def test_default_duration_policy_is_short_first_with_soft_ceiling(self):
+    def test_default_duration_policy_matches_chub_calibration(self):
         selector = ClipSelector()
-        # Professional calibration: min_duration raised from 8s to 25s
-        self.assertEqual(selector.min_duration, 25)
-        # Professional calibration: preferred max aligned to research (Reels 90s max)
-        self.assertEqual(selector.preferred_max_duration, 90.0)
-        # Technical ceiling above preferred max for edge cases
-        self.assertEqual(selector.max_duration, 150.0)
-        self.assertGreater(selector._duration_score(25), selector._duration_score(210))
+        # Chub-calibrated 2026-08-31: clips <=60s deliver 0.371-0.394 follows
+        # ratio (under 40% of baseline), so the floor moved 25s -> 45s.
+        self.assertEqual(selector.min_duration, 45.0)
+        # The 91-150s band beats <=90s on all 10 normalised metrics
+        # (n=345-407), so preferred max moved 90s -> 150s.
+        self.assertEqual(selector.preferred_max_duration, 150.0)
+        # Technical ceiling 180s: follows drops to 0.872 in 151-180s and the
+        # 181-210s band has n=1, so 210s is not supported by evidence.
+        self.assertEqual(selector.max_duration, 180.0)
+        # A clip inside the preferred band must still outscore one past the
+        # technical ceiling.
+        self.assertGreater(selector._duration_score(120), selector._duration_score(240))
 
     def test_gemini_prompt_does_not_impose_fixed_duration_range(self):
         selector = ClipSelector()

@@ -23,15 +23,27 @@ from modules.clip_selector import ClipSelector
 class TestCrossValidation:
     """Cross-video validation of professional calibration."""
 
-    def test_duration_floor_is_25s(self):
-        """Professional calibration: minimum duration must be 25s."""
-        selector = ClipSelector()
-        assert selector.min_duration == 25
+    def test_duration_floor_is_45s(self):
+        """Chub-calibrated (2026-08-31): minimum duration must be 45s.
 
-    def test_duration_ceiling_is_90s_preferred(self):
-        """Professional calibration: preferred max is 1min30s."""
+        Clips <=60s deliver 0.371-0.394 follows ratio vs baseline 1.0 —
+        under 40% of expected conversion. See
+        03_FURIA/Research/estudo-chub-calibracao-2026-08-31.md
+        """
         selector = ClipSelector()
-        assert selector.preferred_max_duration == 90.0
+        assert selector.min_duration == 45.0
+
+    def test_duration_ceiling_is_150s_preferred(self):
+        """Chub-calibrated (2026-08-31): preferred max is 150s.
+
+        The 91-150s band beats <=90s on all 10 normalised metrics
+        (n=345-407) and holds in the recent window (follows 1.307 vs 0.371).
+        Technical ceiling is 180s — follows drops to 0.872 in 151-180s and
+        the 181-210s band has n=1.
+        """
+        selector = ClipSelector()
+        assert selector.preferred_max_duration == 150.0
+        assert selector.max_duration == 180.0
 
     def test_chub_hook_multipliers_loaded(self):
         """Chub-trained hook multipliers must be present and calibrated from population data."""

@@ -255,17 +255,36 @@ CAPTION_PATTERNS = [
 ]
 
 # Hook multipliers derived from Chub engagement data
-# Based on 65 real posts from @renansantosmbl + @renansantosreserva
-# Calculated using median ratio / baseline median (32.51x)
-# Updated: 2026-08-30
+#
+# METODOLOGIA (2026-08-31): mediana do ratio normalizado por baseline da conta,
+# sobre a POPULAÇÃO INTEIRA — não sobre top posts.
+#   Query: videos JOIN ratios WHERE variant='settled_centered_7d'
+#          GROUP BY hook_family HAVING COUNT(*)>=10
+#   Conta principal: metric='follows' (@renansantosmbl, instagram)
+#   Validação cruzada: metric='shares' (@renansantosreserva, instagram)
+#
+# ⚠️ ERRO CORRIGIDO: os valores até 2026-08-30 vinham de `chub_top_posts`
+# (n=3 a 26 por hook) — viés de sobrevivência. Olhar só os campeões de um hook
+# mede o TETO dele, não o desempenho esperado. Isso produziu pesos INVERTIDOS:
+# `news-peg`, o melhor hook real, carregava o pior peso (0.65); enquanto
+# `desafio-ao-espectador` (o pior hook medido) carregava 3.07.
+# A média engana aqui: `tese-provocativa` tem mediana 0.860, média 3.844 e
+# máximo 178.18 — um único outlier virou o multiplicador 3.01.
+#
+# VALIDAÇÃO: 8 de 8 hooks concordam em direção entre os dois perfis
+# independentes (baselines separadas, métricas diferentes).
+#   03_FURIA/Research/estudo-chub-calibracao-2026-08-31.md
+#   03_FURIA/Research/validacao-cruzada-reserva-2026-08-31.md
+#
+# NUNCA recalibrar isto a partir de `chub_top_posts`.
 CHUB_HOOK_MULTIPLIERS = {
-    "news-peg":              1.40,  # mediana=1.395, n=41
-    "callback":              1.26,  # mediana=1.260, n=25
-    "acusacao-direta":       1.16,  # mediana=1.164, n=249
-    "curiosity-gap":         1.15,  # mediana=1.145, n=157
-    "revelacao-de-local":    1.08,  # mediana=1.078, n=73
-    "desafio-ao-espectador": 0.91,  # mediana=0.908, n=59
-    "tese-provocativa":      0.86,  # mediana=0.860, n=390
-    "outro":                 0.61,  # mediana=0.606, n=31
-    "numero-choque":         0.55,  # mediana=0.548, n=10
+    "news-peg":              1.40,  # mediana=1.395, n=41  | reserva 5.317 shares
+    "callback":              1.26,  # mediana=1.260, n=25  | reserva 1.079
+    "acusacao-direta":       1.16,  # mediana=1.164, n=249 | reserva 0.995
+    "curiosity-gap":         1.15,  # mediana=1.145, n=157 | reserva 1.874
+    "revelacao-de-local":    1.08,  # mediana=1.078, n=73  | reserva 1.139
+    "desafio-ao-espectador": 0.91,  # mediana=0.908, n=59  | reserva 0.337
+    "tese-provocativa":      0.86,  # mediana=0.860, n=390 | reserva 1.000
+    "outro":                 0.61,  # mediana=0.606, n=31  | reserva 0.694
+    "numero-choque":         0.55,  # mediana=0.548, n=10  | ausente antes de 31/08
 }

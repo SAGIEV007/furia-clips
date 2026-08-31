@@ -27,9 +27,35 @@ _adapter = requests.adapters.HTTPAdapter(max_retries=3, pool_connections=10, poo
 _http_session.mount("https://", _adapter)
 _http_session.mount("http://", _adapter)
 
-PREFERRED_MAX_DURATION = 90.0
-TECHNICAL_MAX_DURATION = 150.0
-MIN_DURATION = 25.0
+# Duration calibration — derived from real Chub engagement data (2026-08-31).
+#
+# Ratios normalizados por baseline da conta (@renansantosmbl, instagram,
+# variant='settled_centered_7d'). Mediana, nunca média.
+#
+# Histórico completo (n=345-407 por faixa) — 10 de 10 métricas concordam:
+#   métrica      <=60s   61-90s   91-150s   >150s
+#   follows      0.394   0.685    1.061     1.085
+#   watch total  0.402   0.694    1.062     1.183
+#   shares       0.589   0.695    1.006     1.251
+#   views        0.839   0.859    1.033     1.045
+#
+# Janela recente (>= 2026-05-07), granular em follows:
+#   <=90s     n=28  0.371
+#   91-120s   n=29  1.354  <- pico
+#   121-150s  n=31  1.260
+#   151-180s  n=38  0.872  <- follows cai
+#   181-210s  n=1   (amostra insuficiente)
+#
+# Conclusão: 91-150s vence <=90s em toda métrica e em ambas as janelas.
+# Acima de 150s, shares/saved/views seguem bons (~1.06-1.11) mas `follows` cai —
+# por isso 180s é limite técnico, não 210s (a faixa 181-210s tem n=1).
+# Mínimo sobe de 25s para 45s: clips <=60s entregam 0.371-0.394 em follows.
+#
+# Evidência: 03_FURIA/Research/estudo-chub-calibracao-2026-08-31.md
+#            03_FURIA/Research/validacao-cruzada-reserva-2026-08-31.md
+PREFERRED_MAX_DURATION = 150.0
+TECHNICAL_MAX_DURATION = 180.0
+MIN_DURATION = 45.0
 QUALITY_GATE_APPROVE_THRESHOLD = 80
 QUALITY_GATE_REVIEW_THRESHOLD = 50
 OVERLAP_DUPLICATE_THRESHOLD = 0.25
@@ -82,7 +108,7 @@ class ClipSelector:
         self,
         target_duration=45,
         max_clips=15,
-        min_duration=25,
+        min_duration=MIN_DURATION,
         max_duration=TECHNICAL_MAX_DURATION,
         preferred_max_duration=PREFERRED_MAX_DURATION,
         debug_snapshot_path=None,

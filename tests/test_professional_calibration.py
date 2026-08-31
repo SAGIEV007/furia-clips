@@ -149,19 +149,31 @@ class TestProfessionalCalibration(unittest.TestCase):
         )
 
     def test_clip_selector_produces_quality_candidates(self):
-        """Selector should produce candidates with strong editorial signals."""
+        """Selector should produce candidates with strong editorial signals.
+
+        The transcript must be long enough to clear the calibrated floor
+        (MIN_DURATION = 45s as of the 2026-08-31 Chub calibration). A 40s
+        sample makes a clip mathematically impossible, which tests the
+        arithmetic rather than the selector.
+        """
         selector = ClipSelector()
-        
+
         sample_segments = [
             {"start": 0.0, "end": 10.0, "text": "Nós vamos eleger um presidente da República em 2026."},
             {"start": 10.0, "end": 20.0, "text": "Esta é a nossa missão para o Brasil."},
             {"start": 20.0, "end": 30.0, "text": "Com trabalho e dedicação, nós vamos vencer."},
             {"start": 30.0, "end": 40.0, "text": "O futuro do Brasil está em nossas mãos."},
+            {"start": 40.0, "end": 50.0, "text": "O centrão representa exatamente o sistema que nós vamos enfrentar."},
+            {"start": 50.0, "end": 60.0, "text": "Eles disseram que a gente jamais iria formar um partido."},
+            {"start": 60.0, "end": 70.0, "text": "Nós respondemos com trabalho e formamos o partido."},
+            {"start": 70.0, "end": 80.0, "text": "Agora a missão é ganhar a eleição e mudar o Brasil."},
+            {"start": 80.0, "end": 90.0, "text": "Cada município que eu visito confirma que o povo quer mudança."},
+            {"start": 90.0, "end": 100.0, "text": "A nossa candidatura não é sobre mim, é sobre o país."},
         ]
-        
+
         transcription = {"segments": sample_segments}
         clips = selector.select_clips(transcription)
-        
+
         self.assertGreater(len(clips), 0, "Selector should produce clips")
         
         # Verify clip structure
