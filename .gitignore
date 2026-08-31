@@ -70,3 +70,4 @@ pytest-report.txt
 pytest_current.txt
 .runtime/
 furia.sqlite3
+.env
