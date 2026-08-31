@@ -738,10 +738,13 @@ def _transcribe_video_automatically(video_path, settings, emit_progress, transcr
     """Use the explicit source preference, preserving Gemini-first behavior in auto mode."""
     mode = _transcription_source_mode(settings)
     if mode == "whisper":
+        log_info("[Transcrição] Preferência: Whisper local forçado; Gemini e legenda pública serão ignorados.", stage="transcription")
         emit_progress("[Transcrição] Preferência: Whisper local forçado; Gemini e legenda pública serão ignorados.", "info")
     elif mode == "public_subtitle":
+        log_info("[Transcrição] Preferência: legenda pública timestampada; Whisper será fallback se ela não existir.", stage="transcription")
         emit_progress("[Transcrição] Preferência: legenda pública timestampada; Whisper será fallback se ela não existir.", "info")
     else:
+        log_info("[Transcrição] Modo automático: Gemini multimodal online → legenda pública → Whisper CPU.", stage="transcription")
         emit_progress("[Transcrição] Modo automático: Gemini multimodal online → legenda pública → Whisper CPU.", "info")
     if cancel_check:
         cancel_check()
@@ -756,6 +759,7 @@ def _transcribe_video_automatically(video_path, settings, emit_progress, transcr
         multimodal = _run_gemini_video_analysis(video_path, settings, {}, "", emit_progress, **gemini_kwargs)
         transcription = _transcription_from_gemini_result(multimodal, settings.get("language", "pt"))
         if transcription:
+            log_info("[Transcrição] Gemini forneceu timestamps; Whisper CPU não será iniciado.", stage="transcription")
             emit_progress("[Transcrição] Gemini forneceu timestamps; Whisper CPU não será iniciado.", "success")
             transcription["source"] = "gemini_video"
             return transcription
@@ -764,6 +768,7 @@ def _transcribe_video_automatically(video_path, settings, emit_progress, transcr
         try:
             with open(transcript_fallback_path, "r", encoding="utf-8-sig") as handle:
                 transcription = parse_transcript_text(handle.read(), duration=None)
+            log_info("[Transcrição] Legenda pública timestampada usada; Whisper CPU não será iniciado.", stage="transcription")
             transcription["source"] = "public_subtitles"
             emit_progress(
                 f"[Transcrição] Legenda pública timestampada usada ({transcription.get('segment_count', len(transcription.get('segments', [])))} segmentos); Whisper CPU não será iniciado.",
@@ -774,10 +779,13 @@ def _transcribe_video_automatically(video_path, settings, emit_progress, transcr
             emit_progress(f"[Transcrição] Legenda pública não pôde ser interpretada: {str(exc)[:180]}", "warning")
 
     if mode == "public_subtitle":
+        log_warning("[Transcrição] Legenda pública não disponível ou inválida; iniciando fallback local faster-whisper.", stage="transcription")
         emit_progress("[Transcrição] Legenda pública não disponível ou inválida; iniciando fallback local faster-whisper.", "warning")
     elif mode == "whisper":
+        log_info("[Transcrição] Iniciando faster-whisper por solicitação do usuário.", stage="transcription")
         emit_progress("[Transcrição] Iniciando faster-whisper por solicitação do usuário.", "info")
     else:
+        log_warning("[Transcrição] Gemini/legenda pública não entregaram timestamps; iniciando fallback local faster-whisper.", stage="transcription")
         emit_progress("[Transcrição] Gemini/legenda pública não entregaram timestamps; iniciando fallback local faster-whisper.", "warning")
     from modules.transcriber import Transcriber
     requested_model = settings.get("whisper_model", "small")
@@ -817,7 +825,11 @@ def _transcribe_video_automatically(video_path, settings, emit_progress, transcr
     if cancel_check:
         transcribe_kwargs["cancel_check"] = cancel_check
     transcription = transcriber.transcribe(video_path, **transcribe_kwargs)
-    transcription["source"] = "whisper"
+    if transcription:
+        log_info("[Transcrição] Whisper retornou timestamps com sucesso.", stage="transcription")
+        transcription["source"] = "whisper"
+    else:
+        log_error("[Transcrição] Whisper retornou None; sem timestamps para contexto.", stage="transcription", exc_info=False)
     emit_progress(
         f"[Whisper] Motor: {transcriber._engine} em {transcriber.device}; "
         "timestamps por segmento gerados.",
@@ -3659,6 +3671,11 @@ def api_analyze_editorial_context():
                 cancel_check=ctx.check_cancel,
             )
         if not transcription:
+            log_error(
+                "Falha na transcricao para contexto: Gemini, legenda publica e Whisper local nao retornaram timestamps.",
+                stage="editorial_context",
+                exc_info=False,
+            )
             raise ValueError("Não foi possível obter uma transcrição para analisar o contexto.")
         coverage = _transcription_coverage_report(transcription, video_duration)
         transcription["coverage"] = coverage
