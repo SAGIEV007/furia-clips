@@ -3620,6 +3620,14 @@ def api_analyze_editorial_context():
             )
             transcription = _transcription_from_gemini_result(multimodal_result, settings.get("language", "pt"))
         if not transcription:
+            fallback_settings = {**settings, "transcription_source": "whisper"}
+            transcription = _transcribe_video_automatically(
+                video_path,
+                fallback_settings,
+                progress,
+                cancel_check=ctx.check_cancel,
+            )
+        if not transcription:
             raise ValueError("Não foi possível obter uma transcrição para analisar o contexto.")
         coverage = _transcription_coverage_report(transcription, video_duration)
         transcription["coverage"] = coverage
