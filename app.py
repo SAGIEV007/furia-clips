@@ -315,7 +315,24 @@ def _runtime_revision():
         return "checkout-sem-revisão"
 
 
-PROGRAM_VERSION = "rebuild-opus-parity"
+def _runtime_version():
+    configured = str(os.environ.get("FURIA_CLIPS_VERSION", "") or "").strip()
+    if configured:
+        return configured[:80]
+    try:
+        branch = subprocess.check_output(
+            ["git", "branch", "--show-current"],
+            cwd=os.path.dirname(os.path.abspath(__file__)),
+            stderr=subprocess.DEVNULL,
+            text=True,
+            timeout=2,
+        ).strip()
+        return branch or "rebuild-opus-parity"
+    except Exception:
+        return "rebuild-opus-parity"
+
+
+PROGRAM_VERSION = _runtime_version()
 PROGRAM_REVISION = _runtime_revision()
 
 
