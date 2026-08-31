@@ -1,6 +1,15 @@
+import os
+import tempfile
+import unittest
+
 from modules.clip_selector import ClipSelector
 from modules.editorial_context import analyze_transcript_context
 from modules.editorial_ranker import EditorialRanker
+from modules.media_validation import validate_media
+from modules.video_cutter import VideoCutter
+
+
+FIXTURE = os.path.join(os.path.dirname(__file__), "fixtures", "sample_av.mp4")
 
 
 def test_context_pipeline_without_gemini_preserves_editorial_evidence():
@@ -30,3 +39,21 @@ def test_context_pipeline_without_gemini_preserves_editorial_evidence():
     assert any((clip.get("factors") or {}).get("qa_boundary") is not None for clip in ranked)
     assert any(clip.get("qa_boundary_basis") for clip in ranked)
     assert any((clip.get("review_flags") or {}).get("qa_boundary_basis") for clip in ranked)
+
+
+@unittest.skipUnless(os.path.exists(FIXTURE), "fixture de mídia ainda não foi gerada")
+def test_real_video_render_end_to_end():
+    with tempfile.TemporaryDirectory() as tempdir:
+        output = os.path.join(tempdir, "e2e-render.mp4")
+        cutter = VideoCutter(preset="shorts")
+        result = cutter.cut_clip(FIXTURE, 0, 1.5, output, vertical=True)
+        assert result == output
+        validation = validate_media(
+            output,
+            expected_width=1080,
+            expected_height=1920,
+            expected_duration=1.5,
+            duration_tolerance=0.5,
+            require_audio=True,
+        )
+        assert validation.valid, validation.as_dict()
