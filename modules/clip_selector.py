@@ -1503,13 +1503,13 @@ Retorne APENAS o JSON.
         duration = max(0.0, float(duration or 0.0))
         if duration < self.min_duration:
             return -8
-        if duration <= 30:
+        if duration <= self.min_duration + 15:
             return 10
-        if duration <= 60:
+        if duration <= self.min_duration + 75:
             return 7
-        if duration <= 120:
-            return 2
         if duration <= self.preferred_max_duration:
+            return 2
+        if duration <= self.max_duration:
             return -1
         return -5
 

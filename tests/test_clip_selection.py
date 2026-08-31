@@ -277,6 +277,16 @@ class ClipSelectionTests(unittest.TestCase):
         # technical ceiling.
         self.assertGreater(selector._duration_score(120), selector._duration_score(240))
 
+    def test_duration_score_bands_align_with_calibration(self):
+        selector = ClipSelector()
+        # Calibrated thresholds: MIN=45, PREF=150, TECH=180
+        self.assertEqual(selector._duration_score(44), -8)
+        self.assertEqual(selector._duration_score(45), 10)
+        self.assertEqual(selector._duration_score(90), 7)
+        self.assertEqual(selector._duration_score(140), 2)
+        self.assertEqual(selector._duration_score(170), -1)
+        self.assertEqual(selector._duration_score(240), -5)
+
     def test_gemini_prompt_does_not_impose_fixed_duration_range(self):
         selector = ClipSelector()
         prompt = selector._get_gemini_system_prompt()
