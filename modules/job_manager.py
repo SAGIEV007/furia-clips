@@ -336,4 +336,4 @@ class JobManager:
         return recovered
 
     def shutdown(self):
-        self.executor.shutdown(wait=False, cancel_futures=False)
+        self.executor.shutdown(wait=True, cancel_futures=False)
