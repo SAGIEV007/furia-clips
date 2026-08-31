@@ -139,7 +139,12 @@ def plan_layout(
     tracking_score = _tracking_confidence(tracking_assessment)
     assessment_confident = bool(tracking_assessment and tracking_assessment.get("confident") is True)
     multiple_samples = _positive_int((tracking_assessment or {}).get("multiple_face_samples"))
-    if face_total < 2 and multiple_samples > 0:
+    multi_face_ratio = _clamp((tracking_assessment or {}).get("multi_face_ratio"), 0.0)
+    # A correção (31/08): usar a PROPORÇÃO de frames com múltiplas faces,
+    # não a contagem absoluta. Um frame isolado de plateia ao fundo
+    # não deve condenar um trecho inteiro de orador único.
+    # O critério real está no assess_segment_tracking (max_multi_face_ratio=0.30).
+    if face_total < 2 and multiple_samples > 0 and multi_face_ratio > 0.30:
         face_total = 2
 
     signals = {
