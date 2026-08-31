@@ -3121,8 +3121,11 @@ def api_cut_shorts():
             emit_progress("=== ETAPA 4/5: Ranqueamento ===", "info")
             if scene_changes:
                 for clip in top_clips:
-                    start = float(clip.get("start", 0))
-                    end = float(clip.get("end", start))
+                    try:
+                        start = safe_float(clip.get("start", 0))
+                        end = safe_float(clip.get("end", start))
+                    except (TypeError, ValueError):
+                        continue
                     clip["scene_changes"] = [
                         change for change in scene_changes
                         if start <= float(change) <= end
@@ -3301,8 +3304,11 @@ def api_cut_shorts():
                     emit_progress("[Layout] Detectando o locutor para enquadramento automático...", "info")
                     all_face_positions = tracker.detect_faces_in_video(video_path, sample_interval=2.0, emit_progress=emit_progress)
                     for index, clip in enumerate(top_clips):
-                        start = float(clip.get("start", 0))
-                        end = float(clip.get("end", start))
+                        try:
+                            start = safe_float(clip.get("start", 0))
+                            end = safe_float(clip.get("end", start))
+                        except (TypeError, ValueError):
+                            continue
                         assessment = tracker.assess_segment_tracking(all_face_positions, start, end)
                         motion_context = tracker.summarize_segment_motion(assessment.get("positions", []))
                         clip["motion_context"] = motion_context
