@@ -131,7 +131,32 @@ CEREMONIAL_OPENING_PT = (
 )
 
 
+def _block_field(block, *names):
+    """Read a block field written in either naming convention.
+
+    Snapshots reach the selector both snake_cased by the local converter and
+    camelCased straight from the Acervo, so reading only one shape silently
+    dropped ranks, risks and the speaker verdict.
+    """
+    for name in names:
+        value = block.get(name)
+        if value is not None:
+            return value
+    return None
+
+
 class ClipSelector:
+
+    # Constantes da ponte Campaign Hub -> cortes, restauradas da versao de
+    # agosto (branch furia-studio-experimental-20260828). Elas governam o
+    # ancoramento de uma seed do Chub no texto local e o descarte de trechos
+    # rotulados como nao-conteudo.
+    MAX_SEED_ANCHOR_GAP_S = 60.0
+    MAX_SEED_TEXT_ANCHOR_SENTENCES = 3
+    MIN_SEED_TEXT_ANCHOR_COVERAGE = 0.55
+    MIN_SEED_TEXT_ANCHOR_SCORE = 0.62
+    NON_CONTENT_DROP_RATIO = 0.5
+    SPAN_MATCH_S = 0.25
     def __init__(
         self,
         target_duration=45,
@@ -2637,3 +2662,605 @@ Retorne APENAS o JSON.
         m = int(seconds // 60)
         s = int(seconds % 60)
         return f"{m:02d}:{s:02d}"
+
+
+    # ═══════════════════════════════════════════════════
+    # PONTE CAMPAIGN HUB -> CORTES (restaurada em 01/09/2026)
+    #
+    # Estes metodos existiam na versao de agosto e foram perdidos. Eles
+    # transformam blocos autorizados do Chub em propostas de janela: ancoram
+    # a seed no texto local, anexam evidencia do bloco, descartam regiao
+    # rotulada como nao-conteudo e registram o rastro da decisao.
+    # Nenhum deles acessa a rede -- leem apenas o snapshot local.
+    # ═══════════════════════════════════════════════════
+
+    @staticmethod
+    def _media_duration(settings):
+        """Length of the file being processed, as measured by the caller.
+
+        The snapshot only knows how long the original source is. When the editor
+        works on a block that was downloaded out of a long live, that declared
+        length is the wrong ruler, so the job must hand over the duration it
+        probed from the local media.
+        """
+        if not isinstance(settings, dict):
+            return None
+        for key in ("media_duration", "video_duration", "source_duration"):
+            try:
+                duration = float(settings.get(key))
+            except (TypeError, ValueError):
+                continue
+            if duration > 0:
+                return duration
+        return None
+
+    @classmethod
+
+    def _blocks_for_span(self, all_blocks, start, end):
+        """Os blocos editoriais que um intervalo de tempo cobre."""
+        span = end - start
+        hits = []
+        for block in all_blocks:
+            try:
+                block_start = float(block["start"])
+                block_end = float(block["end"])
+            except (KeyError, TypeError, ValueError):
+                continue
+            overlap = min(block_end, end) - max(block_start, start)
+            if overlap > self.SPAN_MATCH_S or (overlap > 0 and overlap >= 0.5 * span):
+                hits.append(int(block["index"]))
+        if hits:
+            return hits
+        # Um intervalo inteiramente dentro de um bloco pode não cruzar a borda de
+        # nenhum outro; o bloco que contém o meio dele é a resposta.
+        middle = (start + end) / 2
+        for block in all_blocks:
+            if float(block["start"]) <= middle < float(block["end"]):
+                return [int(block["index"])]
+        return []
+
+    @staticmethod
+    def _labelled_non_content_regions(settings):
+        """Intervals the authorized snapshot marks as carrying no content.
+
+        Each region arrives with a reason — an unintelligible stretch, an
+        isolated fragment — so this is labelled evidence of absence, not missing
+        data. Without a snapshot the list is empty and nothing is filtered.
+        """
+        snapshot = settings.get("campaign_hub_snapshot") if isinstance(settings, dict) else None
+        records = snapshot.get("records") if isinstance(snapshot, dict) else None
+        regions = []
+        for region in (records or {}).get("ignored_regions") or []:
+            if not isinstance(region, dict):
+                continue
+            try:
+                start = float(region.get("start_s"))
+                end = float(region.get("end_s"))
+            except (TypeError, ValueError):
+                continue
+            if end > start:
+                regions.append((start, end, str(region.get("reason") or "")))
+        return regions
+
+    def _drop_labelled_non_content(self, clips, settings, sentences=None, emit_progress=None):
+        """Remove candidates that mostly cover material that is not editorial.
+
+        A candidate is only dropped when the majority of its window sits inside
+        such a region: merely touching one at the edge is normal, because a real
+        idea can start right after an unintelligible stretch. Candidates are a
+        budget — every slot spent here is a slot a real cut does not get.
+
+        The authorized snapshot is preferred when present, but it only exists for
+        sources the Acervo already labelled. Without it the same judgement is made
+        locally from the transcript, so a fresh recording is not left defenceless
+        against its own sponsor read, opening titles and sign-off.
+        """
+        regions = self._labelled_non_content_regions(settings)
+        source = "acervo"
+        if not regions and sentences:
+            try:
+                from .non_content_detector import detect_non_content_regions
+                regions = [
+                    (float(item["start_s"]), float(item["end_s"]), str(item.get("reason") or ""))
+                    for item in detect_non_content_regions(sentences)
+                ]
+                source = "local"
+            except (ImportError, KeyError, TypeError, ValueError):
+                regions = []
+        if not regions or not clips:
+            return clips
+        kept, dropped = [], []
+        for clip in clips:
+            start = float(clip.get("start", 0) or 0)
+            end = float(clip.get("end", 0) or 0)
+            span = end - start
+            if span <= 0:
+                kept.append(clip)
+                continue
+            covered = sum(
+                max(0.0, min(end, region_end) - max(start, region_start))
+                for region_start, region_end, _ in regions
+            )
+            if covered / span >= self.NON_CONTENT_DROP_RATIO:
+                dropped.append(clip)
+            else:
+                kept.append(clip)
+        if dropped:
+            self._candidate_diagnostics["labelled_non_content_dropped"] = len(dropped)
+            self._candidate_diagnostics["non_content_source"] = source
+            self._candidate_diagnostics["non_content_regions"] = len(regions)
+            if emit_progress:
+                origem = (
+                    "que o Acervo marcou como sem conteúdo editorial"
+                    if source == "acervo"
+                    else "reconhecidos localmente como propaganda, abertura, bastidor ou encerramento"
+                )
+                emit_progress(
+                    f"[Descarte] {len(dropped)} candidato(s) removido(s) por cair em trechos {origem}; "
+                    "o orçamento foi liberado para fala aproveitável.",
+                    "info",
+                )
+                for clip in dropped[:8]:
+                    emit_progress(
+                        f"[Descarte] {float(clip.get('start', 0)):.0f}s-{float(clip.get('end', 0)):.0f}s: "
+                        f"{str(clip.get('text') or '')[:70]}",
+                        "info",
+                    )
+        return kept
+
+    @staticmethod
+
+    @classmethod
+    def _find_seed_text_anchor(cls, sentences, seed):
+        """Find a conservative local sentence window for a distant Chub seed.
+
+        A timestamp is authoritative only when it overlaps the local transcript or
+        falls inside a short silence. When the source is a downloaded block or a
+        re-timed copy, the highlight text can still identify the same moment. This
+        method deliberately returns an auditable *review* anchor, never a hard
+        approval or speaker assertion.
+        """
+        seed_text = " ".join(str(seed.get("seed_text") or "").split())
+        if len(seed_text) < 18 or not sentences:
+            return None
+
+        stop_words = {
+            "a", "as", "ao", "aos", "com", "da", "das", "de", "do", "dos", "e",
+            "em", "esse", "essa", "isso", "na", "nas", "no", "nos", "o", "os",
+            "por", "que", "se", "sem", "um", "uma", "uns", "umas", "para",
+        }
+
+        def normalize(value):
+            decomposed = unicodedata.normalize("NFKD", str(value or "").lower())
+            plain = "".join(char for char in decomposed if not unicodedata.combining(char))
+            return re.sub(r"[^a-z0-9à-ÿ-]+", " ", plain).strip()
+
+        def words(value):
+            return {
+                word for word in re.findall(r"[a-z0-9à-ÿ-]{3,}", normalize(value))
+                if word not in stop_words
+            }
+
+        seed_words = words(seed_text)
+        if len(seed_words) < 3:
+            return None
+        normalized_seed = normalize(seed_text)
+        best = None
+        max_width = min(cls.MAX_SEED_TEXT_ANCHOR_SENTENCES, len(sentences))
+        for start_index in range(len(sentences)):
+            for width in range(1, max_width + 1):
+                end_index = start_index + width - 1
+                if end_index >= len(sentences):
+                    break
+                text = " ".join(str(item.get("text") or "").strip() for item in sentences[start_index:end_index + 1]).strip()
+                local_words = words(text)
+                coverage = len(seed_words & local_words) / max(1, len(seed_words))
+                if coverage < cls.MIN_SEED_TEXT_ANCHOR_COVERAGE:
+                    continue
+                sequence = SequenceMatcher(None, normalized_seed, normalize(text)).ratio()
+                score = 0.70 * coverage + 0.30 * sequence
+                if score < cls.MIN_SEED_TEXT_ANCHOR_SCORE:
+                    continue
+                candidate = {
+                    "start_index": start_index,
+                    "end_index": end_index,
+                    "coverage": round(coverage, 3),
+                    "sequence": round(sequence, 3),
+                    "score": round(score, 3),
+                    "matched_words": sorted(seed_words & local_words)[:20],
+                }
+                tie_break = (score, coverage, -abs(len(local_words) - len(seed_words)), -start_index)
+                if best is None or tie_break > best[0]:
+                    best = (tie_break, candidate)
+        return best[1] if best else None
+
+    def _attach_block_evidence(self, clips, settings):
+        """Give every candidate the editorial context of the block it sits in.
+
+        Only candidates born from a Campaign Hub seed carried provenance, so the
+        rest reached the reviewer anonymous: no title, no topic, no risk flag and
+        — worst of all — no indication of who is speaking. A candidate that lands
+        inside a QA-gated block inherits what the Acervo already established about
+        that stretch, which is evidence, never approval: nothing here raises a
+        score or clears a gate.
+        """
+        snapshot = settings.get("campaign_hub_snapshot") if isinstance(settings, dict) else None
+        # The normal job passes a path, not the parsed snapshot. Read it here as
+        # well as in the guided-seed path; otherwise local candidates silently
+        # lose Chub block evidence while only guided proposals see it.
+        if snapshot is None and isinstance(settings, dict) and settings.get("campaign_hub_snapshot_path"):
+            try:
+                from .campaign_hub import load_snapshot
+                snapshot = load_snapshot(settings.get("campaign_hub_snapshot_path"))
+            except (ImportError, OSError, ValueError):
+                snapshot = None
+        records = snapshot.get("records") if isinstance(snapshot, dict) else None
+        blocks = [item for item in (records or {}).get("blocks") or [] if isinstance(item, dict)]
+        if not blocks or not clips:
+            return clips
+
+        for clip in clips:
+            start = float(clip.get("start", 0) or 0)
+            end = float(clip.get("end", 0) or 0)
+            if end <= start:
+                continue
+            best, best_overlap = None, 0.0
+            for block in blocks:
+                try:
+                    block_start = float(_block_field(block, "start_s", "startS"))
+                    block_end = float(_block_field(block, "end_s", "endS"))
+                except (TypeError, ValueError):
+                    continue
+                overlap = max(0.0, min(end, block_end) - max(start, block_start))
+                if overlap > best_overlap:
+                    best, best_overlap = block, overlap
+            if not best or best_overlap / (end - start) < 0.5:
+                continue
+
+            renan_speaking = _block_field(best, "renan_speaking", "renanSpeaking")
+            # ``false`` from the Acervo means "not confirmed as Renan", which
+            # covers both a third party and an unidentified voice. Neither may be
+            # published as Renan, so both land on the same review verdict.
+            speaker_status = "renan_confirmado" if renan_speaking is True else (
+                "nao_confirmado" if renan_speaking is None else "terceiro_ou_indeterminado"
+            )
+            risk_flags = list(_block_field(best, "risk_flags", "riskFlags") or [])
+            gate_warnings = list(_block_field(best, "gate_warnings", "gateWarnings") or [])
+            trust_tier = str(_block_field(best, "trust_tier", "trustTier") or "").strip().lower()
+            coverage_of_candidate = round(best_overlap / (end - start), 3)
+            # A rich Acervo block can provide identity evidence, but only when
+            # the source is trusted, the block explicitly says Renan is speaking,
+            # and the local candidate is substantially inside that same interval.
+            # This is not diarization and it never approves a render by itself.
+            aligned_renan_evidence = bool(
+                renan_speaking is True
+                and trust_tier in {"owner", "allied"}
+                and coverage_of_candidate >= 0.75
+            )
+            clip["campaign_hub_block"] = {
+                "block_id": best.get("id") or best.get("blockId"),
+                "title": best.get("title"),
+                "summary": best.get("summary"),
+                "trigger_question": _block_field(best, "trigger_question", "triggerQuestion"),
+                "topics": list(best.get("topics") or [])[:20],
+                "category": best.get("category"),
+                "density_rank": _block_field(best, "density_rank", "densityRank"),
+                "self_contained_rank": _block_field(best, "self_contained_rank", "selfContainedRank"),
+                "self_contained_reason": _block_field(best, "self_contained_reason", "selfContainedReason"),
+                "renan_speaking": renan_speaking,
+                "speaker_status": speaker_status,
+                "speakers_note": _block_field(best, "speakers_note", "speakersNote"),
+                "risk_flags": risk_flags,
+                "gate_warnings": gate_warnings,
+                "trust_tier": trust_tier,
+                "coverage_of_candidate": coverage_of_candidate,
+                "identity_evidence": "campaign_hub_aligned_owner_or_allied" if aligned_renan_evidence else "not_sufficient",
+                "evidence_only": True,
+            }
+            if aligned_renan_evidence and self._speaker_identity_required:
+                clip["speaker_identity_available"] = True
+                clip["speaker_identity_basis"] = "campaign_hub_aligned_owner_or_allied"
+                clip["speaker_identity_evidence_only"] = True
+                refreshed = self._editorial_flags(
+                    clip.get("text", ""),
+                    {
+                        "overlap_suspected": clip.get("overlap_suspected"),
+                        "timing_ambiguous": clip.get("timing_ambiguous"),
+                        "speaker_turn_valid": clip.get("speaker_turn_valid", True),
+                        "speaker_identity_required": True,
+                        "speaker_identity_available": True,
+                        "timing_confidence": clip.get("timing_confidence"),
+                    },
+                )
+                for key in ("context_complete", "qa_bridge", "speaker_identity_review_required"):
+                    clip[key] = refreshed[key]
+                clip["review_reasons"] = [
+                    reason for reason in (clip.get("review_reasons") or [])
+                    if "identidade do locutor" not in reason and "locutor não confirmado como Renan" not in reason
+                ]
+            if speaker_status != "renan_confirmado" or risk_flags:
+                clip["review_required"] = True
+                reasons = list(clip.get("review_reasons") or [])
+                if speaker_status != "renan_confirmado":
+                    reasons.append("locutor não confirmado como Renan pelo Acervo")
+                if risk_flags:
+                    reasons.append(f"riscos sinalizados: {', '.join(risk_flags[:4])}")
+                clip["review_reasons"] = reasons
+        return clips
+
+    @staticmethod
+
+    def _campaign_hub_discovery_record(clip, publication_status):
+        """Return bounded Chub provenance for discovery and audit surfaces."""
+        campaign_hub = clip.get("campaign_hub") if isinstance(clip, dict) else {}
+        campaign_hub = campaign_hub if isinstance(campaign_hub, dict) else {}
+        gates = campaign_hub.get("gates") if isinstance(campaign_hub.get("gates"), dict) else {}
+        evidence = campaign_hub.get("alignment_evidence")
+        if isinstance(evidence, dict):
+            evidence = {
+                "coverage": evidence.get("coverage"),
+                "sequence": evidence.get("sequence"),
+                "score": evidence.get("score"),
+                "matched_words": list(evidence.get("matched_words") or [])[:20],
+            }
+        else:
+            evidence = None
+        return {
+            "seed_id": campaign_hub.get("seed_id"),
+            "block_id": campaign_hub.get("block_id"),
+            "highlight_id": campaign_hub.get("highlight_id"),
+            "start": round(float(clip.get("start", 0) or 0), 3),
+            "end": round(float(clip.get("end", 0) or 0), 3),
+            "duration": round(float(clip.get("duration", 0) or 0), 3),
+            "source_kind": campaign_hub.get("source_kind"),
+            "alignment_method": clip.get("alignment_method") or campaign_hub.get("alignment_method"),
+            "alignment_evidence": evidence,
+            "seed_text": str(campaign_hub.get("seed_text") or "")[:320],
+            "summary": str(campaign_hub.get("summary") or "")[:500],
+            "trigger_question": str(campaign_hub.get("trigger_question") or "")[:320],
+            "topics": list(campaign_hub.get("topics") or [])[:20],
+            "renan_speaking": campaign_hub.get("renan_speaking"),
+            "speaker_gate": campaign_hub.get("speaker_gate"),
+            "confidence": campaign_hub.get("confidence"),
+            "density_rank": campaign_hub.get("density_rank"),
+            "self_contained_rank": campaign_hub.get("self_contained_rank"),
+            "trust_tier": campaign_hub.get("trust_tier"),
+            "risk_flags": list(campaign_hub.get("risk_flags") or [])[:20],
+            "gate_warnings": list(campaign_hub.get("gate_warnings") or [])[:20],
+            "gates": gates,
+            "review_required": bool(clip.get("review_required")),
+            "publication_status": publication_status,
+        }
+
+    def _build_campaign_hub_proposal(self, sentences, seed):
+        """Expand one temporal/semantic seed to the smallest complete local window."""
+        if not seed or not sentences:
+            return None
+        seed_start = float(seed.get("start", 0) or 0)
+        seed_end = float(seed.get("end", seed_start) or seed_start)
+        overlapping = [
+            index for index, sentence in enumerate(sentences)
+            if float(sentence.get("end", 0) or 0) > seed_start
+            and float(sentence.get("start", 0) or 0) < seed_end
+        ]
+        alignment_method = "temporal_overlap"
+        alignment_evidence = None
+        if not overlapping:
+            text_anchor = self._find_seed_text_anchor(sentences, seed)
+            if text_anchor:
+                overlapping = [text_anchor["start_index"], text_anchor["end_index"]]
+                alignment_method = "text_anchor"
+                alignment_evidence = text_anchor
+            else:
+                nearest = min(
+                    range(len(sentences)),
+                    key=lambda index: abs(float(sentences[index].get("start", 0) or 0) - seed_start),
+                )
+                # A seed landing in a short silence or just past the last sentence is
+                # still the same moment, so the nearest sentence is a fair anchor. A
+                # seed that misses the transcript by minutes is not: it means the seed
+                # and the transcript are on different timelines, and snapping it would
+                # publish an unrelated window carrying Campaign Hub provenance. Every
+                # such seed would also collapse onto the same edge sentence, turning
+                # distinct highlights into duplicate proposals.
+                gap = max(
+                    float(sentences[nearest].get("start", 0) or 0) - seed_end,
+                    seed_start - float(sentences[nearest].get("end", 0) or 0),
+                    0.0,
+                )
+                if gap > self.MAX_SEED_ANCHOR_GAP_S:
+                    return None
+                overlapping = [nearest]
+                alignment_method = "nearest_sentence"
+        start_index = min(overlapping)
+        end_index = max(overlapping)
+
+        def window_text():
+            return " ".join(str(sentences[index].get("text", "") or "").strip() for index in range(start_index, end_index + 1)).strip()
+
+        def window_metadata():
+            window = sentences[start_index:end_index + 1]
+            return {
+                "overlap_suspected": any(bool(item.get("overlap_suspected")) for item in window),
+                "timing_ambiguous": any(bool(item.get("timing_ambiguous")) for item in window),
+                "speaker_turn_valid": all(item.get("speaker_turn_valid", True) is not False for item in window),
+                "speaker_identity_required": bool(self._speaker_identity_required),
+                "speaker_identity_available": all(bool(item.get("speakers") or item.get("speaker")) for item in window),
+                "timing_confidence": min(
+                    [float(item.get("timing_confidence")) for item in window if item.get("timing_confidence") is not None]
+                    or [1.0]
+                ),
+            }
+
+        # Recover the opening question/antecedent when the Chub highlight starts
+        # inside a response. The expansion is bounded by the same technical ceiling.
+        while start_index > 0:
+            current_text = window_text()
+            current_flags = self._editorial_flags(current_text, window_metadata())
+            previous = sentences[start_index - 1]
+            gap = float(sentences[start_index].get("start", 0) or 0) - float(previous.get("end", 0) or 0)
+            joined_duration = float(sentences[end_index].get("end", 0) or 0) - float(previous.get("start", 0) or 0)
+            needs_opening = (
+                current_flags.get("starts_mid_sentence")
+                or current_flags.get("starts_with_context_reference")
+                or (seed.get("trigger_question") and not current_flags.get("question_detected"))
+            )
+            if not needs_opening or gap > 2.5 or joined_duration > self.max_duration:
+                break
+            start_index -= 1
+
+        # Add enough response for the seed to become a complete, reviewable idea.
+        while end_index < len(sentences) - 1:
+            current_text = window_text()
+            current_flags = self._editorial_flags(current_text, window_metadata())
+            duration = float(sentences[end_index].get("end", 0) or 0) - float(sentences[start_index].get("start", 0) or 0)
+            if duration >= self.min_duration and current_flags.get("context_complete") and current_flags.get("payoff_complete"):
+                break
+            next_sentence = sentences[end_index + 1]
+            joined_duration = float(next_sentence.get("end", 0) or 0) - float(sentences[start_index].get("start", 0) or 0)
+            if joined_duration > self.max_duration:
+                break
+            end_index += 1
+
+        text = window_text()
+        if not text:
+            return None
+        metadata = window_metadata()
+        flags = self._editorial_flags(text, metadata)
+        start = float(sentences[start_index].get("start", seed_start) or seed_start)
+        end = float(sentences[end_index].get("end", seed_end) or seed_end)
+        duration = max(0.0, end - start)
+        if duration <= 0:
+            return None
+        chub_confidence = float(seed.get("confidence", 0.0) or 0.0)
+        gate_warnings = list(seed.get("gate_warnings") or [])
+        if seed.get("renan_speaking") is False:
+            gate_warnings.append("Campaign Hub indica outro locutor; confirme o foco editorial")
+        speaker_gate = "pass" if seed.get("renan_speaking") is True and metadata.get("speaker_turn_valid") else "review_required"
+        trust_tier = str(seed.get("trust_tier") or "unknown").lower()
+        gates = {
+            "context_complete": bool(flags.get("context_complete")),
+            "payoff_complete": bool(flags.get("payoff_complete")),
+            "alignment_gate": "review_required" if alignment_method == "text_anchor" else "pass",
+            "speaker_gate": speaker_gate,
+            "timing_gate": "review_required" if metadata.get("timing_ambiguous") else "pass",
+            "risk_gate": "review_required" if seed.get("risk_flags") else "pass",
+            "technical_gate": "review_required" if metadata.get("overlap_suspected") else "pass",
+            "provenance_gate": "pass" if trust_tier == "qa_gated" else "review_required",
+            "warning_gate": "review_required" if gate_warnings else "pass",
+        }
+        review_required = any(value == "review_required" for value in gates.values())
+        score = 46.0 + (chub_confidence * 22.0)
+        score += 16.0 if flags.get("context_complete") else -12.0
+        score += 10.0 if flags.get("payoff_complete") else -10.0
+        score += 5.0 if seed.get("source_kind") == "highlight" else 0.0
+        density_rank = seed.get("density_rank")
+        self_contained_rank = seed.get("self_contained_rank")
+        if density_rank is not None:
+            score += min(8.0, max(0.0, float(density_rank)) * 0.08)
+        if self_contained_rank is not None:
+            score += min(8.0, max(0.0, float(self_contained_rank)) * 0.08)
+        if trust_tier == "qa_gated":
+            score += 3.0
+        score -= min(12.0, len(gate_warnings) * 3.0)
+        score = max(0.0, min(100.0, score))
+        title = str(seed.get("title") or "").strip() or self._generate_simple_title(text)
+        reason_parts = [
+            f"seed {seed.get('source_kind', 'Campaign Hub')} {seed.get('seed_id')}",
+            "alinhamento textual conservador; revisão obrigatória" if alignment_method == "text_anchor" else "alinhamento temporal/local",
+            "janela expandida até contexto e payoff" if flags.get("context_complete") and flags.get("payoff_complete") else "janela requer revisão de completude",
+        ]
+        return {
+            **flags,
+            "start": round(start, 3),
+            "end": round(end, 3),
+            "duration": round(duration, 3),
+            "text": text,
+            "title": title[:160],
+            "reason": "; ".join(reason_parts),
+            "viral_score": int(round(score)),
+            "has_hook": bool(flags.get("context_complete")),
+            "breakdown": {
+                "hook": "A" if score >= 75 else ("B" if score >= 55 else "C"),
+                "flow": "A" if flags.get("context_complete") else "C",
+                "value": "A" if chub_confidence >= 0.8 else "B",
+                "energy": "B",
+            },
+            "source": "campaign_hub_guided",
+            "alignment_method": alignment_method,
+            "alignment_evidence": alignment_evidence,
+            "duration_preference": self._duration_label(duration, {"flow": "A" if flags.get("context_complete") else "B"}),
+            "review_required": review_required,
+            "campaign_hub": {
+                "seed_id": seed.get("seed_id"),
+                "block_id": seed.get("block_id"),
+                "highlight_id": seed.get("highlight_id"),
+                "source_kind": seed.get("source_kind"),
+                "seed_text": seed.get("seed_text"),
+                "summary": seed.get("summary"),
+                "trigger_question": seed.get("trigger_question"),
+                "renan_speaking": seed.get("renan_speaking"),
+                "speaker_gate": seed.get("speaker_gate"),
+                "topics": seed.get("topics") or [],
+                "timeline_mapping": seed.get("timeline_mapping"),
+                "absolute_start": seed.get("absolute_start"),
+                "absolute_end": seed.get("absolute_end"),
+                "confidence": seed.get("confidence"),
+                "density_rank": seed.get("density_rank"),
+                "self_contained_rank": seed.get("self_contained_rank"),
+                "self_contained_reason": seed.get("self_contained_reason"),
+                "possible_cuts": seed.get("possible_cuts", 0),
+                "content_class": seed.get("content_class"),
+                "labeler_version": seed.get("labeler_version"),
+                "prompt_version": seed.get("prompt_version"),
+                "trust_tier": seed.get("trust_tier"),
+                "risk_flags": seed.get("risk_flags") or [],
+                "gate_warnings": list(dict.fromkeys(gate_warnings)),
+                "gates": gates,
+                "alignment_method": alignment_method,
+                "alignment_evidence": alignment_evidence,
+                "review_required": review_required,
+                "provenance": seed.get("provenance") or {},
+            },
+            "technical_gate_status": "review" if review_required else "pass",
+            "technical_gate_reasons": list(dict.fromkeys(
+                gate_warnings
+                + (["alinhamento textual exige conferência do intervalo"] if alignment_method == "text_anchor" else [])
+            )),
+        }
+
+    def _select_with_campaign_hub_guidance(self, sentences, settings, emit_progress=None):
+        """Turn an authorized Campaign Hub snapshot into bounded clip proposals."""
+        snapshot = settings.get("campaign_hub_snapshot") if isinstance(settings, dict) else None
+        if snapshot is None and isinstance(settings, dict) and settings.get("campaign_hub_snapshot_path"):
+            try:
+                from .campaign_hub import load_snapshot
+                snapshot = load_snapshot(settings.get("campaign_hub_snapshot_path"))
+            except (ImportError, OSError, ValueError):
+                snapshot = None
+        if not snapshot or not sentences:
+            return []
+        try:
+            from .campaign_hub_guidance import build_campaign_hub_guided_seeds
+            seeds = build_campaign_hub_guided_seeds(
+                sentences,
+                snapshot,
+                account=settings.get("campaign_hub_account") or snapshot.get("default_account"),
+                limit=max(1, min(30, self.max_clips * 2)),
+                media_duration=self._media_duration(settings),
+            )
+        except (ImportError, OSError, TypeError, ValueError) as exc:
+            if emit_progress:
+                emit_progress(f"[Campaign Hub] Seeds guiadas indisponíveis; mantendo seleção local: {str(exc)[:140]}", "warning")
+            return []
+        proposals = []
+        for seed in seeds:
+            proposal = self._build_campaign_hub_proposal(sentences, seed)
+            if proposal:
+                proposals.append(proposal)
+        proposals.sort(key=lambda item: (
+            bool((item.get("campaign_hub") or {}).get("gates", {}).get("context_complete")),
+            float(item.get("viral_score", 0) or 0),
+            float(item.get("campaign_hub", {}).get("confidence", 0) or 0),
+        ), reverse=True)
+        return proposals[:self.max_clips]
