@@ -62,6 +62,13 @@ OVERLAP_DUPLICATE_THRESHOLD = 0.25
 TEXT_SIMILARITY_DUPLICATE_THRESHOLD = 0.92
 TOUCHING_SIBLINGS_TOLERANCE = 0.5
 
+# Speech density floor — reject clips that are mostly silence.
+# Measured as: sum of segment durations with actual speech / clip duration.
+# Based on real case: 0-53s clip with 47.3s silence = 89% mute, scored 62 (highest).
+# Orchestrator measured density: corte 1 = 12%, corte 9 = 68%, cortes 3,4,5 = 100%.
+# 60% floor kills the bad clip without affecting good ones.
+SPEECH_DENSITY_FLOOR = 0.60
+
 
 def _safe_float(value, default=0.0):
     """Backward-compatible wrapper around safe_types.safe_float."""
@@ -1258,6 +1265,17 @@ Retorne APENAS o JSON.
         if not hook:
             return "reject", "weak_hook"
 
+        # Speech density floor: reject clips that are mostly silence.
+        # O atributo é opcional; só aplica quando presente.
+        speech_density = clip.get("speech_density")
+        if speech_density is not None:
+            try:
+                density_value = float(speech_density)
+            except (TypeError, ValueError):
+                density_value = None
+            if density_value is not None and density_value < 0.6:
+                return "reject", "low_speech_density"
+
         # REVIEW criteria (needs human judgment)
         if not context:
             return "review", "incomplete_context"
@@ -2029,13 +2047,16 @@ Retorne APENAS o JSON.
             )
 
             # ENFORCE max_duration — truncate if clip exceeds limit
-            if clip_end - clip_start > self.max_duration:
-                clip_end = clip_start + self.max_duration
-                clip_duration = self.max_duration
-            else:
-                clip_duration = clip_end - clip_start
+                        if clip_end - clip_start > self.max_duration:
+                            clip_end = clip_start + self.max_duration
+                            clip_duration = self.max_duration
+                        else:
+                            clip_duration = clip_end - clip_start
 
-            avg_score = sum(scored_blocks[i][1] for i in range(start_idx, clip_end_idx + 1)) / (clip_end_idx - start_idx + 1)
+                        # Calculate speech density: proportion of clip covered by actual speech segments
+                        speech_density = self._calculate_speech_density(clip_blocks, clip_start, clip_end)
+
+                        avg_score = sum(scored_blocks[i][1] for i in range(start_idx, clip_end_idx + 1)) / (clip_end_idx - start_idx + 1)
 
             hook_grade = "A" if start_score > 75 else ("B" if start_score > 50 else "C")
             flow_grade = "A" if clip_flags["context_complete"] else ("B" if clip_flags["payoff_complete"] else "C")
