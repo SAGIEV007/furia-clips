@@ -5783,7 +5783,7 @@ Retorne APENAS o JSON.
 
                 coverage = len(seed_words & local_words) / max(1, len(seed_words))
 
-                if coverage < cls.MIN_SEED_TEXT_ANCHOR_COVERAGE:
+                if coverage < self.MIN_SEED_TEXT_ANCHOR_COVERAGE:
 
                     continue
 
@@ -5791,7 +5791,7 @@ Retorne APENAS o JSON.
 
                 score = 0.70 * coverage + 0.30 * sequence
 
-                if score < cls.MIN_SEED_TEXT_ANCHOR_SCORE:
+                if score < self.MIN_SEED_TEXT_ANCHOR_SCORE:
 
                     continue
 
