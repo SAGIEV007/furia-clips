@@ -1183,6 +1183,23 @@ Retorne APENAS o JSON.
 
             clip_text = " ".join(b["text"] for b in valid_blocks)
             technical_flags = self._editorial_flags(clip_text, metadata)
+
+            # Densidade de fala TAMBÉM na via LLM.
+            # Antes só a via NLP calculava, então o piso de 60% no quality_gate
+            # nunca disparava no caminho principal de produção — foi como o corte
+            # de 47s mudos da coletiva (12% de fala) passou pelo filtro em 01/09.
+            speech_density = self._calculate_speech_density(
+                valid_blocks, clip_start, clip_end
+            )
+
+            # Gancho: só os primeiros 30s são realmente assistidos.
+            # Medido no Chub (708 vídeos, 01/09): retenção média de 30,8s em
+            # clipes de 122s (25%) e 36,1s em clipes de 168s (21%). Ou seja,
+            # em qualquer duração a audiência vive na janela inicial — um clipe
+            # que começa mudo ou morno perde a plateia antes do conteúdo bom.
+            hook_density = self._calculate_speech_density(
+                valid_blocks, clip_start, min(clip_end, clip_start + 30.0)
+            )
             if technical_flags["overlap_suspected"] or technical_flags["timing_ambiguous"]:
                 # Ambiguous timing remains reviewable but should not be treated
                 # as a clean candidate by the model response parser.
@@ -1209,6 +1226,16 @@ Retorne APENAS o JSON.
                 energy_score * 0.15
             )
 
+            # Penalidade de gancho fraco (Chub 01/09): a janela dos primeiros
+            # 30s concentra toda a retenção real. Silêncio ou enrolação aí
+            # custa a audiência inteira, por melhor que seja o resto do clipe.
+            # Escalonado para não condenar uma pausa curta de respiro.
+            if hook_density < 0.5:
+                viral_score -= 25
+            elif hook_density < 0.7:
+                viral_score -= 10
+            viral_score = max(0, min(100, viral_score))
+
             clips.append({
                 **technical_flags,
                 "start": clip_start,
@@ -1221,6 +1248,8 @@ Retorne APENAS o JSON.
                 "editorial_family": sel.get("editorial_family", ""),
                 "viral_score": viral_score,
                 "has_hook": sel.get("hook", "C") in ("A", "B"),
+                "speech_density": round(speech_density, 3),
+                "hook_density": round(hook_density, 3),
                 "breakdown": {
                     "hook": sel.get("hook", "B"),
                     "flow": sel.get("flow", "B"),
