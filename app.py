@@ -2395,6 +2395,7 @@ def api_upload_file():
     })
 
 
+@app.route("/api/files/mkdir", methods=["POST"])
 def api_mkdir():
     data = request.get_json(silent=True) or {}
     name = data.get("name", "").strip()

@@ -61,6 +61,25 @@ def _layout_label(value: Any) -> str:
 
 
 def _tracking_confidence(assessment: Mapping[str, Any] | None) -> float | None:
+    """Score how safe a reframe is, weighting what actually predicts safety.
+
+    Recalibrado 31/08 contra a live de MG (6 trechos medidos).
+    ---------------------------------------------------------
+    Antes: 0.45*average_confidence + 0.35*coverage + 0.20*jump_score.
+    O peso maior ficava na confiança bruta do detector — mas essa confiança
+    já passou por um piso (`min_confidence=0.60` em assess_segment_tracking),
+    então em filmagem real de palco ela se concentra numa faixa estreita
+    (0.664 a 0.703 nos seis trechos medidos). Dar 45% do peso a um sinal que
+    quase não varia deixa a nota final insensível justamente ao que importa,
+    e o teto prático virava ~0.80 — abaixo do corte de revisão em metade dos
+    trechos perfeitamente estáveis.
+
+    O que de fato prevê um reenquadramento seguro é geométrico:
+    - coverage: o rosto aparece do começo ao fim? (se não, o crop viaja)
+    - largest_jump: houve troca de câmera? (risco de cortar no sujeito errado)
+    A confiança do detector responde "isso é mesmo um rosto", pergunta que o
+    piso de 0.60 já respondeu. Por isso ela cai para 20% do peso.
+    """
     if not assessment:
         return None
     if assessment.get("confident") is True:
@@ -68,7 +87,7 @@ def _tracking_confidence(assessment: Mapping[str, Any] | None) -> float | None:
         coverage = _clamp(assessment.get("coverage"), 0.0)
         jump = max(0.0, float(assessment.get("largest_jump", 0.0) or 0.0))
         jump_score = max(0.0, 1.0 - min(1.0, jump / 0.30))
-        return round(min(1.0, 0.45 * average + 0.35 * coverage + 0.20 * jump_score), 3)
+        return round(min(1.0, 0.45 * coverage + 0.35 * jump_score + 0.20 * average), 3)
     return 0.0
 
 

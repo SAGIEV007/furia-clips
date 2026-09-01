@@ -1077,3 +1077,10 @@ class YouTubeApiSmokeTests(unittest.TestCase):
             mock_dl.assert_called_once()
             mock_md.assert_called_once()
             mock_create.assert_called_once()
+
+    def test_api_mkdir_route_is_registered(self):
+        response = self.client.post("/api/files/mkdir", json={"name": "test-dir"})
+        assert response.status_code == 200
+        payload = response.get_json()
+        assert payload["success"] is True
+        assert "test-dir" in payload["path"]
