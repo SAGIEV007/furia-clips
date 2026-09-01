@@ -222,3 +222,69 @@ class AudioAnalyzer:
 
         high_moments.sort(key=lambda x: x["avg_energy"], reverse=True)
         return high_moments
+
+    def detect_silence(self, video_path, noise_tolerance_db=-30, min_duration=0.5, emit_progress=None, cancel_check=None):
+        """Detect silence intervals using FFmpeg silencedetect filter.
+
+        Args:
+            video_path: path to video/audio file
+            noise_tolerance_db: noise floor in dB (default -30)
+            min_duration: minimum silence duration in seconds (default 0.5)
+            emit_progress: optional callback(str)
+            cancel_check: optional cancellation callback
+
+        Returns:
+            list of dicts with `start`, `end`, `duration` (seconds)
+        """
+        command = [
+            "ffmpeg",
+            "-i", video_path,
+            "-af", f"silencedetect=noise={noise_tolerance_db}dB:d={min_duration}",
+            "-f", "null",
+            "-",
+        ]
+        process = subprocess.Popen(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        silence_intervals = []
+        current_start = None
+        try:
+            while True:
+                if cancel_check and cancel_check():
+                    raise OperationCancelled()
+                line = process.stderr.readline()
+                if not line:
+                    break
+                text = line.decode("utf-8", errors="replace").strip()
+                if "silence_start:" in text:
+                    try:
+                        current_start = float(text.split("silence_start:")[1].strip())
+                    except (IndexError, ValueError):
+                        current_start = None
+                elif "silence_end:" in text and current_start is not None:
+                    try:
+                        end_part = text.split("silence_end:")[1].strip()
+                        end_time = float(end_part.split()[0])
+                        duration = round(end_time - current_start, 3)
+                        silence_intervals.append({
+                            "start": round(current_start, 3),
+                            "end": round(end_time, 3),
+                            "duration": duration,
+                        })
+                        current_start = None
+                    except (IndexError, ValueError):
+                        current_start = None
+                if emit_progress and len(silence_intervals) % 10 == 0 and silence_intervals:
+                    emit_progress(f"Silêncio detectado: {len(silence_intervals)} intervalos")
+        finally:
+            if process.poll() is None:
+                process.kill()
+                process.wait()
+            if process.stdout and hasattr(process.stdout, "close"):
+                process.stdout.close()
+            if process.stderr and hasattr(process.stderr, "close"):
+                process.stderr.close()
+
+        return silence_intervals

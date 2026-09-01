@@ -133,3 +133,31 @@ def test_summarize_window_is_review_only_and_ignores_invalid_values():
     assert summary["peak_energy"] == 0.9
     assert summary["possible_reaction_peak"] == 0.7
     assert summary["confidence"] <= 0.5
+
+
+def test_detect_silence_finds_intervals(tmp_path):
+    source = tmp_path / "tone_silence.wav"
+    sample_rate = 16000
+    frames = bytearray()
+    # 0.5s silence, 0.5s tone, 1.0s silence, 0.5s tone, 0.5s silence
+    segments = [
+        (0, 0.5, 0),
+        (0.5, 1.0, 12000),
+        (1.0, 2.0, 0),
+        (2.0, 2.5, 12000),
+        (2.5, 3.0, 0),
+    ]
+    for start, end, amplitude in segments:
+        for index in range(int(start * sample_rate), int(end * sample_rate)):
+            value = int(amplitude * math.sin(2 * math.pi * 440 * index / sample_rate))
+            frames.extend(value.to_bytes(2, byteorder="little", signed=True))
+    with wave.open(str(source), "wb") as handle:
+        handle.setnchannels(1)
+        handle.setsampwidth(2)
+        handle.setframerate(sample_rate)
+        handle.writeframes(bytes(frames))
+
+    intervals = AudioAnalyzer().detect_silence(str(source), noise_tolerance_db=-40, min_duration=0.3)
+
+    assert len(intervals) >= 2
+    assert all("start" in i and "end" in i and "duration" in i for i in intervals)
