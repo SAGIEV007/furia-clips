@@ -158,10 +158,14 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 
         ass_escaped = ass_path.replace("\\", "/").replace(":", "\\:")
 
+        fonts_dir = os.path.join(os.path.dirname(os.path.abspath(ass_path)), "fonts")
+        fonts_dir_escaped = fonts_dir.replace("\\", "/")
+        ass_filter = f"ass=fontsdir={fonts_dir_escaped}:" + ass_escaped
+
         cmd = [
             "ffmpeg", "-y",
             "-i", video_path,
-            "-vf", f"ass={ass_escaped}",
+            "-vf", ass_filter,
             "-c:v", "libx264", "-preset", "medium", "-crf", "20",
             "-c:a", "copy",
             "-movflags", "+faststart",
