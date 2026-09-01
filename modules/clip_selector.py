@@ -1884,6 +1884,22 @@ Retorne APENAS o JSON.
             },
         )
 
+    def _calculate_speech_density(self, clip_blocks, clip_start, clip_end):
+        """Calcular proporção do clipe coberta por fala real.
+
+        Como _build_sentences descarta segmentos vazios, blocos construídos
+        contêm apenas fala. Esta métrica retorna 1.0 nesses casos, mas
+        serve como hook para futura integração com silencedetect/VAD.
+        """
+        if not clip_blocks:
+            return 0.0
+        block_speech = sum(
+            max(0.0, min(float(b.get('end', 0)), clip_end) - max(float(b.get('start', 0)), clip_start))
+            for b in clip_blocks
+        )
+        duration = max(0.001, clip_end - clip_start)
+        return min(1.0, block_speech / duration)
+
     def _build_clips_from_scored_blocks(self, scored_blocks, context_data=None, editorial_context=None):
         """Build clips by joining only the blocks needed for context and payoff.
         Enforces the technical ceiling on all clips without imposing a fixed length.
@@ -2047,16 +2063,16 @@ Retorne APENAS o JSON.
             )
 
             # ENFORCE max_duration — truncate if clip exceeds limit
-                        if clip_end - clip_start > self.max_duration:
-                            clip_end = clip_start + self.max_duration
-                            clip_duration = self.max_duration
-                        else:
-                            clip_duration = clip_end - clip_start
+            if clip_end - clip_start > self.max_duration:
+                clip_end = clip_start + self.max_duration
+                clip_duration = self.max_duration
+            else:
+                clip_duration = clip_end - clip_start
 
-                        # Calculate speech density: proportion of clip covered by actual speech segments
-                        speech_density = self._calculate_speech_density(clip_blocks, clip_start, clip_end)
+            # Calculate speech density: proportion of clip covered by actual speech segments
+            speech_density = self._calculate_speech_density(clip_blocks, clip_start, clip_end)
 
-                        avg_score = sum(scored_blocks[i][1] for i in range(start_idx, clip_end_idx + 1)) / (clip_end_idx - start_idx + 1)
+            avg_score = sum(scored_blocks[i][1] for i in range(start_idx, clip_end_idx + 1)) / (clip_end_idx - start_idx + 1)
 
             hook_grade = "A" if start_score > 75 else ("B" if start_score > 50 else "C")
             flow_grade = "A" if clip_flags["context_complete"] else ("B" if clip_flags["payoff_complete"] else "C")
@@ -2098,6 +2114,7 @@ Retorne APENAS o JSON.
                 "boundary_refinement": boundary_refinement,
                 "viral_score": viral_score,
                 "has_hook": hook_grade in ("A", "B"),
+                "speech_density": round(speech_density, 3),
                 "breakdown": {
                     "hook": hook_grade,
                     "flow": flow_grade,
