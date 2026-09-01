@@ -161,3 +161,33 @@ def test_detect_silence_finds_intervals(tmp_path):
 
     assert len(intervals) >= 2
     assert all("start" in i and "end" in i and "duration" in i for i in intervals)
+
+
+def test_detect_silence_respects_min_duration(tmp_path):
+    source = tmp_path / "short_silence.wav"
+    sample_rate = 16000
+    frames = bytearray()
+    # 0.3s tone, 0.2s silence, 0.3s tone, 0.6s silence, 0.3s tone
+    segments = [
+        (0, 0.3, 12000),
+        (0.3, 0.5, 0),
+        (0.5, 0.8, 12000),
+        (0.8, 1.4, 0),
+        (1.4, 1.7, 12000),
+    ]
+    for start, end, amplitude in segments:
+        for index in range(int(start * sample_rate), int(end * sample_rate)):
+            value = int(amplitude * math.sin(2 * math.pi * 440 * index / sample_rate))
+            frames.extend(value.to_bytes(2, byteorder="little", signed=True))
+    with wave.open(str(source), "wb") as handle:
+        handle.setnchannels(1)
+        handle.setsampwidth(2)
+        handle.setframerate(sample_rate)
+        handle.writeframes(bytes(frames))
+
+    intervals = AudioAnalyzer().detect_silence(str(source), noise_tolerance_db=-40, min_duration=0.5)
+
+    assert len(intervals) == 1
+    assert intervals[0]["start"] == 0.8
+    assert intervals[0]["end"] == 1.4
+    assert intervals[0]["duration"] == 0.6
