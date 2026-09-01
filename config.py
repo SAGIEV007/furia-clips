@@ -130,6 +130,7 @@ DEFAULT_SETTINGS = {
     "whisper_vad_min_silence_ms": 500,
     "whisper_vad_speech_pad_ms": 200,
     "whisper_temperature": 0.0,
+    "whisper_chunk_length": 30,
     "whisper_device": "auto",
     "whisper_long_video_threshold_minutes": 45,
     "whisper_long_video_model": "base",

@@ -82,3 +82,20 @@ def test_faster_whisper_downgrades_when_cuda_float16_is_unavailable(monkeypatch)
     assert any(device == "cuda" and compute == "float16" for device, compute in attempts)
     assert any(device == "cpu" for device, _ in attempts)
     assert any("configuração segura" in message for message, _ in events)
+
+
+def test_faster_whisper_receives_configured_chunk_length():
+    captured = {}
+
+    class FakeWhisperModel:
+        def transcribe(self, audio_path, **kwargs):
+            captured.update(kwargs)
+            return iter([type("Seg", (), {"words": None, "start": 0, "end": 1, "text": "x"})()]), type("Info", (), {"duration": 1})()
+
+    transcriber = Transcriber(chunk_length=15)
+    transcriber.device = "cpu"
+    transcriber.model = FakeWhisperModel()
+
+    transcriber._transcribe_faster_whisper("video.mp4")
+
+    assert captured["chunk_length"] == 15
