@@ -109,6 +109,27 @@ WEAK_PAYOFF_ENDINGS_PT = {
     "eu", "ele", "ela", "eles", "elas",
 }
 
+# Abertura cerimonial de programa: saudação, apresentação de canal, escalada,
+# agradecimento protocolar. Densidade de fala não distingue isto de conteúdo —
+# a locução é contínua e soa saudável para qualquer medidor de silêncio.
+# Caso real (01/09): um corte abrindo com "Seja muito bem-vinda, seja muito
+# bem-vindo você que acompanha o canal…" foi aprovado junto com material de
+# verdade. É o mesmo defeito que o Fernando reprovou na coletiva, onde a
+# abertura protocolar levou a maior nota do lote.
+CEREMONIAL_OPENING_PT = (
+    "seja muito bem-vind", "sejam muito bem-vind", "seja bem-vind", "sejam bem-vind",
+    "bem-vindo a mais um", "bem-vinda a mais um", "boa noite a todos", "boa tarde a todos",
+    "bom dia a todos", "você que acompanha", "voce que acompanha",
+    "que acompanha o canal", "eu sou o seu apresentador", "eu sou a sua apresentadora",
+    "meu nome é", "inscreva-se no canal", "ativa o sininho", "ative o sininho",
+    "deixa o seu like", "deixe o seu like", "curta e compartilhe",
+    "obrigado a todos os presentes", "obrigada a todos os presentes",
+    "agradeço a presença", "agradecemos a presença",
+    "vamos começar o programa", "começa agora o", "está no ar",
+    "a entrevista de hoje", "o programa de hoje", "nosso convidado de hoje",
+    "nossa convidada de hoje", "recebemos hoje", "recebo hoje",
+)
+
 
 class ClipSelector:
     def __init__(
@@ -1234,6 +1255,9 @@ Retorne APENAS o JSON.
                 viral_score -= 25
             elif hook_density < 0.7:
                 viral_score -= 10
+            # Abertura cerimonial: saudação de programa em vez de conteúdo.
+            if technical_flags.get("ceremonial_opening"):
+                viral_score -= 18
             viral_score = max(0, min(100, viral_score))
 
             clips.append({
@@ -1660,6 +1684,13 @@ Retorne APENAS o JSON.
             ends_on_question = len(palavras_finais) >= 4 and not eco_retorico
         if ends_on_question:
             payoff_complete = False
+
+        # Abertura cerimonial só conta no início real do trecho: os primeiros
+        # ~140 caracteres. Uma menção a "bem-vindo" no meio de um argumento é
+        # conteúdo legítimo e não pode punir o corte.
+        ceremonial_opening = any(
+            marcador in normalized[:140] for marcador in CEREMONIAL_OPENING_PT
+        )
         overlap_suspected = _coerce_flag(metadata.get("overlap_suspected"))
         timing_ambiguous = _coerce_flag(metadata.get("timing_ambiguous"))
         topic_boundary = _coerce_flag(metadata.get("topic_boundary")) or _coerce_flag(metadata.get("topic_change_detected"))
@@ -1717,6 +1748,10 @@ Retorne APENAS o JSON.
             # na pergunta de um repórter e termina na pergunta de OUTRO — o
             # espectador fica esperando uma resposta que nunca vem.
             "ends_on_question": ends_on_question,
+            # Abertura cerimonial: o corte começa com saudação/vinheta de
+            # programa em vez de conteúdo. Só conta quando está no COMEÇO do
+            # trecho — "bem-vindo" citado no meio de um argumento é conteúdo.
+            "ceremonial_opening": ceremonial_opening,
         }
 
     def _opening_context_signal(self, start_block, previous_block=None):
@@ -2186,6 +2221,11 @@ Retorne APENAS o JSON.
                 viral_score -= 16
             if clip_flags["timing_ambiguous"]:
                 viral_score -= 8
+            # Abertura cerimonial (saudação de programa, vinheta, agradecimento
+            # protocolar): locução contínua que soa saudável a qualquer medidor
+            # de silêncio, mas não entrega conteúdo nenhum.
+            if clip_flags.get("ceremonial_opening"):
+                viral_score -= 18
             # Mesma penalidade de gancho da via LLM: silêncio nos primeiros 30s
             # custa a audiência inteira, independente do caminho que gerou o corte.
             if hook_density < 0.5:
