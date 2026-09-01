@@ -2578,6 +2578,7 @@ def api_source_import():
 
     def task():
         log_info(f"INICIO source_import url={str(data.get('url', ''))[:80]}", stage="source_import")
+        _start = datetime.now()
         try:
             check_current_task_cancel()
             emit_progress("[Fonte] Preparando download de URL pública...", "info")
@@ -2725,7 +2726,8 @@ def api_source_import():
             emit_progress(f"[Fonte] Falha ao importar link: {str(exc)}", "error")
             emit_status("error", {"operation": "source_import", "message": str(exc)}, job_id=source_job_id)
         finally:
-            log_info("FIM source_import", stage="source_import")
+            _elapsed = (datetime.now() - _start).total_seconds()
+            log_info(f"FIM source_import elapsed={_elapsed:.2f}s", stage="source_import")
             _set_legacy_task("", active=False)
 
     threading.Thread(target=task, daemon=True).start()
