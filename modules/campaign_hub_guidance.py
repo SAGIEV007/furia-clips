@@ -207,6 +207,13 @@ def build_campaign_hub_guided_seeds(
             seeds.append({
                 "seed_id": seed_id,
                 "block_id": str(block.get("id") or block.get("blockId") or ""),
+                # Fronteira do bloco de origem. O bloco e o recorte editorial ja
+                # decidido pelo acervo: onde o raciocinio comeca e termina. A
+                # expansao local usa isto para nao fechar o corte no meio do
+                # argumento, que produzia cortes de ~52s contra os 117s de
+                # mediana do Garimpo.
+                "block_start_s": _float(block.get("start_s") or block.get("startS")),
+                "block_end_s": _float(block.get("end_s") or block.get("endS")),
                 "highlight_id": str(
                     row.get("id")
                     or row.get("highlight_id")

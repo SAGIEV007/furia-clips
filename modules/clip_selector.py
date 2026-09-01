@@ -1,3266 +1,6619 @@
 """
+
 Clip Selector — Intelligent clip selection using Gemini, Ollama (LLM) or NLP fallback.
 
+
+
 Selection priority in automatic mode:
+
 1. Google Gemini Flash, only when a key is already configured
+
 2. Ollama local LLM, when the service and model are available
+
 3. NLP keyword matching, always available and requiring no key
+
 """
 
+
+
 import json
+
 import re
+
 import math
+
 import requests
+
 from difflib import SequenceMatcher
+
 from collections import Counter
 
+
+
 from data.chub_training_data import CHUB_HOOK_MULTIPLIERS
+
 from .political_profile import PROFILE_NAME, build_political_prompt_fragment
+
 from .editorial_chapters import annotate_clip_with_chapters
+
 from .safe_types import safe_float, coerce_bool
 
+
+
 # Shared HTTP session with connection pooling for Gemini/Ollama API calls.
+
 # Reusing connections avoids a full TCP/TLS handshake on every request.
+
 _http_session = requests.Session()
+
 _http_session.headers.update({"Content-Type": "application/json"})
+
 _adapter = requests.adapters.HTTPAdapter(max_retries=3, pool_connections=10, pool_maxsize=10)
+
 _http_session.mount("https://", _adapter)
+
 _http_session.mount("http://", _adapter)
 
+
+
 # Duration calibration — derived from real Chub engagement data (2026-08-31).
+
 #
+
 # Ratios normalizados por baseline da conta (@renansantosmbl, instagram,
+
 # variant='settled_centered_7d'). Mediana, nunca média.
+
 #
+
 # Histórico completo (n=345-407 por faixa) — 10 de 10 métricas concordam:
+
 #   métrica      <=60s   61-90s   91-150s   >150s
+
 #   follows      0.394   0.685    1.061     1.085
+
 #   watch total  0.402   0.694    1.062     1.183
+
 #   shares       0.589   0.695    1.006     1.251
+
 #   views        0.839   0.859    1.033     1.045
+
 #
+
 # Janela recente (>= 2026-05-07), granular em follows:
+
 #   <=90s     n=28  0.371
+
 #   91-120s   n=29  1.354  <- pico
+
 #   121-150s  n=31  1.260
+
 #   151-180s  n=38  0.872  <- follows cai
+
 #   181-210s  n=1   (amostra insuficiente)
+
 #
+
 # Conclusão: 91-150s vence <=90s em toda métrica e em ambas as janelas.
+
 # Acima de 150s, shares/saved/views seguem bons (~1.06-1.11) mas `follows` cai —
+
 # por isso 180s é limite técnico, não 210s (a faixa 181-210s tem n=1).
+
 # Mínimo sobe de 25s para 45s: clips <=60s entregam 0.371-0.394 em follows.
+
 #
+
 # Evidência: 03_FURIA/Research/estudo-chub-calibracao-2026-08-31.md
+
 #            03_FURIA/Research/validacao-cruzada-reserva-2026-08-31.md
+
 PREFERRED_MAX_DURATION = 150.0
+
 TECHNICAL_MAX_DURATION = 180.0
+
 MIN_DURATION = 45.0
+
 QUALITY_GATE_APPROVE_THRESHOLD = 80
+
 QUALITY_GATE_REVIEW_THRESHOLD = 50
+
 OVERLAP_DUPLICATE_THRESHOLD = 0.25
+
 TEXT_SIMILARITY_DUPLICATE_THRESHOLD = 0.92
+
 TOUCHING_SIBLINGS_TOLERANCE = 0.5
 
+
+
 # Speech density floor — reject clips that are mostly silence.
+
 # Measured as: sum of segment durations with actual speech / clip duration.
+
 # Based on real case: 0-53s clip with 47.3s silence = 89% mute, scored 62 (highest).
+
 # Orchestrator measured density: corte 1 = 12%, corte 9 = 68%, cortes 3,4,5 = 100%.
+
 # 60% floor kills the bad clip without affecting good ones.
+
 SPEECH_DENSITY_FLOOR = 0.60
 
 
+
+
+
 def _safe_float(value, default=0.0):
+
     """Backward-compatible wrapper around safe_types.safe_float."""
+
     return safe_float(value, default)
 
 
+
+
+
 def _coerce_flag(value, default=False):
+
     """Backward-compatible wrapper around safe_types.coerce_bool."""
+
     return coerce_bool(value, default)
 
 
+
+
+
 # Portuguese filler words to detect
+
 FILLER_WORDS_PT = {
+
     "ne", "ne\u0301", "tipo", "ah", "eh", "e\u0301h", "enta\u0303o", "entao",
+
     "sabe", "basicamente", "na verdade", "ou seja", "entendeu",
+
     "digamos", "assim", "enfim", "bom", "olha", "veja",
+
     "quer dizer", "pois e\u0301", "pois e", "ta", "ta\u0301", "cara",
+
 }
+
+
 
 CONTINUATION_STARTERS_PT = {
+
     "e", "mas", "porem", "porém", "porque", "que", "ai", "aí", "entao", "então", "ou", "nem",
-}
-CONTEXT_REFERENCE_STARTERS_PT = {
-    "isso", "isto", "aquilo", "esse", "essa", "esses", "essas", "aquele", "aquela",
-    "aqueles", "aquelas", "ele", "ela", "eles", "elas", "nesse", "nessa", "nisso",
-    "com isso", "por isso", "a resposta", "essa resposta", "esta resposta", "minha resposta",
-}
-EVIDENCE_TERMS_PT = {
-    "dado", "dados", "numero", "número", "numeros", "números", "pesquisa", "pesquisas",
-    "registro", "registros", "email", "emails", "e-mail", "fonte", "prova", "provas",
-    "documento", "documentos", "exemplo", "exemplos", "lei", "artigo", "segundo",
-}
-WEAK_PAYOFF_ENDINGS_PT = {
-    "porque", "mas", "porém", "porem", "se", "quando", "que", "como", "embora",
-    "então", "entao", "portanto", "logo", "ou seja", "por isso", "dessa forma", "com isso",
-    "e", "ou", "nem", "ao", "aos", "à", "às", "de", "do", "da", "dos", "das",
-    "em", "no", "na", "nos", "nas", "para", "por", "com", "sem", "entre", "contra",
-    "eu", "ele", "ela", "eles", "elas",
+
 }
 
+CONTEXT_REFERENCE_STARTERS_PT = {
+
+    "isso", "isto", "aquilo", "esse", "essa", "esses", "essas", "aquele", "aquela",
+
+    "aqueles", "aquelas", "ele", "ela", "eles", "elas", "nesse", "nessa", "nisso",
+
+    "com isso", "por isso", "a resposta", "essa resposta", "esta resposta", "minha resposta",
+
+}
+
+EVIDENCE_TERMS_PT = {
+
+    "dado", "dados", "numero", "número", "numeros", "números", "pesquisa", "pesquisas",
+
+    "registro", "registros", "email", "emails", "e-mail", "fonte", "prova", "provas",
+
+    "documento", "documentos", "exemplo", "exemplos", "lei", "artigo", "segundo",
+
+}
+
+WEAK_PAYOFF_ENDINGS_PT = {
+
+    "porque", "mas", "porém", "porem", "se", "quando", "que", "como", "embora",
+
+    "então", "entao", "portanto", "logo", "ou seja", "por isso", "dessa forma", "com isso",
+
+    "e", "ou", "nem", "ao", "aos", "à", "às", "de", "do", "da", "dos", "das",
+
+    "em", "no", "na", "nos", "nas", "para", "por", "com", "sem", "entre", "contra",
+
+    "eu", "ele", "ela", "eles", "elas",
+
+}
+
+
+
 # Abertura cerimonial de programa: saudação, apresentação de canal, escalada,
+
 # agradecimento protocolar. Densidade de fala não distingue isto de conteúdo —
+
 # a locução é contínua e soa saudável para qualquer medidor de silêncio.
+
 # Caso real (01/09): um corte abrindo com "Seja muito bem-vinda, seja muito
+
 # bem-vindo você que acompanha o canal…" foi aprovado junto com material de
+
 # verdade. É o mesmo defeito que o Fernando reprovou na coletiva, onde a
+
 # abertura protocolar levou a maior nota do lote.
+
 CEREMONIAL_OPENING_PT = (
+
     "seja muito bem-vind", "sejam muito bem-vind", "seja bem-vind", "sejam bem-vind",
+
     "bem-vindo a mais um", "bem-vinda a mais um", "boa noite a todos", "boa tarde a todos",
+
     "bom dia a todos", "você que acompanha", "voce que acompanha",
+
     "que acompanha o canal", "eu sou o seu apresentador", "eu sou a sua apresentadora",
+
     "meu nome é", "inscreva-se no canal", "ativa o sininho", "ative o sininho",
+
     "deixa o seu like", "deixe o seu like", "curta e compartilhe",
+
     "obrigado a todos os presentes", "obrigada a todos os presentes",
+
     "agradeço a presença", "agradecemos a presença",
+
     "vamos começar o programa", "começa agora o", "está no ar",
+
     "a entrevista de hoje", "o programa de hoje", "nosso convidado de hoje",
+
     "nossa convidada de hoje", "recebemos hoje", "recebo hoje",
+
 )
 
 
+
+
+
 def _block_field(block, *names):
+
     """Read a block field written in either naming convention.
 
+
+
     Snapshots reach the selector both snake_cased by the local converter and
+
     camelCased straight from the Acervo, so reading only one shape silently
+
     dropped ranks, risks and the speaker verdict.
+
     """
+
     for name in names:
+
         value = block.get(name)
+
         if value is not None:
+
             return value
+
     return None
+
+
+
 
 
 class ClipSelector:
 
+
+
     # Constantes da ponte Campaign Hub -> cortes, restauradas da versao de
+
     # agosto (branch furia-studio-experimental-20260828). Elas governam o
+
     # ancoramento de uma seed do Chub no texto local e o descarte de trechos
+
     # rotulados como nao-conteudo.
+
     MAX_SEED_ANCHOR_GAP_S = 60.0
+
     MAX_SEED_TEXT_ANCHOR_SENTENCES = 3
+
     MIN_SEED_TEXT_ANCHOR_COVERAGE = 0.55
+
     MIN_SEED_TEXT_ANCHOR_SCORE = 0.62
+
     NON_CONTENT_DROP_RATIO = 0.5
+
     SPAN_MATCH_S = 0.25
+
     def __init__(
+
         self,
+
         target_duration=45,
+
         max_clips=15,
+
         min_duration=MIN_DURATION,
+
         max_duration=TECHNICAL_MAX_DURATION,
+
         preferred_max_duration=PREFERRED_MAX_DURATION,
+
         debug_snapshot_path=None,
+
     ):
+
         # ``target_duration`` remains for backward compatibility, but is only a
+
         # soft stopping hint. Context and sentence completion always win.
+
         self.target_duration = target_duration
+
         self.max_clips = max_clips
+
         self.min_duration = min_duration
+
         self.max_duration = max_duration
+
         self.preferred_max_duration = preferred_max_duration
+
         self.debug_snapshot_path = debug_snapshot_path
+        self._speaker_identity_required = False
+
         self._candidate_diagnostics = {
+
             "expected_count": 0,
+
             "primary_count": 0,
+
             "fallback_count": 0,
+
             "final_count": 0,
+
             "fallback_used": False,
+
             "fallback_discarded_count": 0,
+
             "fallback_discarded_overlap": 0,
+
             "fallback_discarded_similarity": 0,
+
             "deduplicated_count": 0,
+
             "deduplicated_overlap": 0,
+
             "deduplicated_similarity": 0,
+
             "previous_discarded_count": 0,
+
             "previous_discarded_approved": 0,
+
             "previous_discarded_rejected": 0,
+
             "overlap_comparison_count": 0,
+
             "text_similarity_call_count": 0,
+
             "expected_count_calls": 0,
+
             "reason": "not_evaluated",
+            "stage_counts": {},
+            "campaign_hub_discovery_count": 0,
+            "campaign_hub_guided_count": 0,
+            "campaign_hub_guided_filtered_by_speaker": 0,
+            "campaign_hub_discovery_candidates": [],
+
         }
 
+
+
     def select_clips(self, transcription, energy_profile=None, user_context="",
+
                      settings=None, emit_progress=None, scene_changes=None,
+
                      video_layout=None):
+
         settings = settings or {}
+
         self._selection_source = None
+
         self._previous_clip_fingerprints = [
+
             item for item in (settings.get("previous_clip_fingerprints") or [])
+
             if isinstance(item, dict)
+
         ]
+
         ai_backend = settings.get("ai_backend", "auto")
+
         gemini_key = str(settings.get("gemini_api_key", "") or "").strip()
+
         sentences = self._build_sentences(transcription["segments"])
 
+
+
         if emit_progress:
+
             emit_progress(f"Transcricao dividida em {len(sentences)} sentencas")
 
+
+
         if user_context and emit_progress:
+
             keywords = self._extract_context_keywords(user_context)
+
             if keywords:
+
                 emit_progress(f"Contexto aplicado: {', '.join(keywords[:8])}...", "info")
+
+
 
         clips = None
 
+
+
         # Gemini só entra no fluxo automático quando a chave já existe.
+
         if ai_backend in ("auto", "gemini") and gemini_key:
+
             clips = self._select_with_gemini(
+
                 sentences, energy_profile, user_context, settings, emit_progress
+
             )
+
             if clips:
+
                 self._selection_source = "gemini"
+
                 if emit_progress:
+
                     emit_progress(f"[Gemini] Selecao inteligente concluida! {len(clips)} clips.", "success")
 
+
+
         # Ollama é opcional; falhas de conexão não interrompem o processamento.
+
         if not clips and ai_backend in ("auto", "gemini", "ollama"):
+
             if ai_backend == "gemini" and not gemini_key and emit_progress:
+
                 emit_progress("[Gemini] Sem chave configurada; seguindo para o modo local.", "info")
+
             elif ai_backend == "gemini" and emit_progress:
+
                 emit_progress("[Gemini] Tentando Ollama como fallback...", "warning")
+
             clips = self._select_with_llm(
+
                 sentences, energy_profile, user_context, settings, emit_progress
+
             )
+
             if clips:
+
                 self._selection_source = "llm"
+
                 if emit_progress:
+
                     emit_progress(f"[Ollama] Selecao inteligente concluida! {len(clips)} clips.", "success")
 
+
+
         # O ranking NLP é o caminho final e não requer API, Ollama ou download extra.
+
+
+
         if not clips:
+
             self._selection_source = "nlp"
+
             if emit_progress:
+
                 emit_progress("[NLP] Usando selecao local por contexto e palavras-chave.", "info")
+
             clips = self._select_with_nlp(
+
                 sentences,
+
                 energy_profile,
+
                 user_context,
+
                 emit_progress,
+
                 editorial_context=settings.get("editorial_context"),
+
             )
+
+
+
+        # ── Propostas guiadas pelo acervo do Chub ──────────────────────────
+        # O acervo e a interpretacao editorial ja validada do video: onde cada
+        # argumento comeca e termina, com pergunta-gatilho, densidade e quem
+        # fala. Elas entram no pool ANTES do ranking, e nao como ultimo recurso
+        # -- usar o dado mais confiavel so quando tudo falhou desperdicava
+        # justamente o que temos de melhor.
+        #
+        # Medido em 01/09 (video o6yEVC-exk8, 63 blocos de gabarito):
+        #   sem acervo: 40% de acerto alto, mediana 57s
+        #   com acervo: 73% de acerto alto, 100% de acerto parcial
+        # Nada aqui aprova corte sozinho: as propostas seguem sujeitas aos
+        # mesmos gates de qualidade e a revisao do editor.
+        if isinstance(settings, dict) and (
+            settings.get("campaign_hub_snapshot") or settings.get("campaign_hub_snapshot_path")
+        ):
+            try:
+                guiados = self._select_with_campaign_hub_guidance(
+                    sentences, settings, emit_progress
+                ) or []
+            except Exception:
+                guiados = []
+            if guiados:
+                publicaveis, barrados_por_locutor = [], 0
+                for proposta in guiados:
+                    chub = proposta.get("campaign_hub") if isinstance(proposta.get("campaign_hub"), dict) else {}
+                    if self._speaker_identity_required and chub.get("renan_speaking") is not True:
+                        barrados_por_locutor += 1
+                        continue
+                    publicaveis.append(proposta)
+                self._campaign_hub_discovery_candidates = list(guiados)
+                self._campaign_hub_guided_filtered_by_speaker = barrados_por_locutor
+                if publicaveis:
+                    clips = publicaveis + list(clips or [])
+                    self._selection_source = "campaign_hub_guided"
+                    if emit_progress:
+                        emit_progress(
+                            f"[Acervo] {len(publicaveis)} proposta(s) do Chub adicionadas ao pool; "
+                            "seguem sujeitas aos gates e a revisao editorial.",
+                            "info",
+                        )
 
         expected_count = self._expected_candidate_count(sentences)
+
         primary_clips = list(clips or [])
+
         self._candidate_diagnostics = {
+
             "expected_count": expected_count,
+
             "primary_count": len(primary_clips),
+
             "fallback_count": 0,
+
             "final_count": 0,
+
             "fallback_used": False,
+
             "fallback_discarded_count": 0,
+
             "fallback_discarded_overlap": 0,
+
             "fallback_discarded_similarity": 0,
+
             "deduplicated_count": 0,
+
             "deduplicated_overlap": 0,
+
             "deduplicated_similarity": 0,
+
             "previous_discarded_count": 0,
+
             "previous_discarded_approved": 0,
+
             "previous_discarded_rejected": 0,
+
+            "overlap_comparison_count": 0,
+
+            "text_similarity_call_count": 0,
+
+            "expected_count_calls": self._candidate_diagnostics.get("expected_count_calls", 0),
+
             "reason": "short_source" if expected_count == 0 else ("adequate_pool" if len(primary_clips) >= expected_count else "primary_pool_thin"),
+
+            "stage_counts": {},
+
+            "campaign_hub_discovery_count": 0,
+
+            "campaign_hub_guided_count": 0,
+
+            "campaign_hub_guided_filtered_by_speaker": 0,
+
+            "campaign_hub_discovery_candidates": [],
+
         }
+
         if primary_clips and expected_count and len(primary_clips) < expected_count:
+
             fallback_clips = self._select_with_nlp(
+
                 sentences,
+
                 energy_profile,
+
                 user_context,
+
                 emit_progress,
+
                 editorial_context=settings.get("editorial_context"),
+
             ) or []
+
             if fallback_clips:
+
                 primary_keys = {(round(float(item.get("start", 0)), 3), round(float(item.get("end", 0)), 3)) for item in primary_clips}
+
                 additions = [
+
                     item for item in fallback_clips
+
                     if (round(float(item.get("start", 0)), 3), round(float(item.get("end", 0)), 3)) not in primary_keys
+
                 ]
+
                 clips = primary_clips + additions
+
                 self._candidate_diagnostics.update({
+
                     "fallback_count": len(additions),
+
                     "fallback_used": bool(additions),
+
                 })
+
                 if additions and emit_progress:
+
                     emit_progress(
+
                         f"[Fallback editorial] A fonte principal retornou {len(primary_clips)} candidatos; "
+
                         f"foram acrescentadas {len(additions)} alternativas locais para revisão, sem relaxar os gates.",
+
                         "warning",
+
                     )
 
+
+
         # Filter clips at scene boundaries if available
+
         if scene_changes:
+
             clips = self._adjust_to_scene_boundaries(clips, scene_changes)
 
+
+
         # Preserve chapter evidence before overlap normalization so every
+
         # backend (Gemini, Ollama, and NLP) exposes the same review contract.
+
         editorial_context = settings.get("editorial_context")
+
         clips = [annotate_clip_with_chapters(clip, editorial_context) for clip in clips]
+
         transcription_quality = (editorial_context or {}).get("transcription_quality", {}) if isinstance(editorial_context, dict) else {}
+
         if transcription_quality.get("review_required"):
+
             coverage_status = str(transcription_quality.get("status", "unknown") or "unknown")
+
             for clip in clips:
+
                 clip["transcription_review_required"] = True
+
                 clip["transcription_coverage_status"] = coverage_status
+
                 clip["transcription_review_reason"] = (
+
                     "cobertura parcial da transcrição; confirme o trecho no vídeo"
+
                     if coverage_status == "partial"
+
                     else "identidade temporal da transcrição não validada; confirme o trecho no vídeo"
+
                 )
+
         fallback_used = bool(self._candidate_diagnostics.get("fallback_used"))
+
         for clip in clips:
+
             source = str(clip.get("source") or "nlp").lower()
+
             if source == "gemini":
+
                 origin = "gemini_primary"
+
                 origin_label = "Gemini — seleção primária"
+
             elif source == "llm":
+
                 origin = "ollama_primary"
+
                 origin_label = "Ollama — seleção primária"
+
             elif fallback_used:
+
                 origin = "local_fallback"
+
                 origin_label = "NLP local — alternativa de cobertura"
+
             else:
+
                 origin = "local_primary"
+
                 origin_label = "NLP local — seleção primária"
+
             clip["candidate_origin"] = origin
+
             clip["candidate_origin_label"] = origin_label
+
             clip["candidate_origin_note"] = (
+
                 "Alternativa acrescentada porque a fonte primária devolveu um pool curto; "
+
                 "não substitui a avaliação editorial humana."
+
                 if origin == "local_fallback"
+
                 else "Origem registrada para transparência da revisão."
+
             )
 
+
+
         # Apply energy window grouping before overlap removal when an
+
         # energy profile is available so only the strongest candidate per
+
         # 30s window advances.
+
         if energy_profile:
+
             clips = self._apply_energy_window_grouping(clips, energy_profile)
+
             clips = self._remove_overlaps(clips)
+
         else:
+
             # When every candidate shares the same origin there is no primary/
+
             # fallback conflict to resolve, so we preserve the full pool for
+
             # editorial review. Mixed origins still go through deduplication.
+
             origins = {c.get("candidate_origin") for c in clips if isinstance(c, dict)}
+
             if len(origins) > 1:
+
                 clips = self._remove_overlaps(clips)
 
+
+
         # Do not recreate intervals already generated in a previous run of the same source.
+
         clips = self._remove_previous_fingerprints(clips)
 
+
+
         # Limit to the adaptive maximum only after deduplication, so a second run can
+
         # fill the queue with genuinely new moments instead of truncating repetitions.
+
         clips = clips[:self.max_clips]
+
         self._candidate_diagnostics["final_count"] = len(clips)
+
         diagnostics = self._candidate_diagnostics
+
         if diagnostics.get("expected_count", 0) == 0 and diagnostics.get("final_count", 0) > 0:
+
             diagnostics["reason"] = "short_source"
+
         elif not diagnostics.get("primary_count") and not diagnostics.get("fallback_count"):
+
             diagnostics["reason"] = "no_candidates"
+
         elif diagnostics["final_count"] == 0 and diagnostics.get("previous_discarded_count", 0):
+
             diagnostics["reason"] = "all_intervals_already_processed"
+
         elif diagnostics["final_count"] == 0 and diagnostics.get("deduplicated_count", 0):
+
             diagnostics["reason"] = "all_candidates_redundant"
+
         elif diagnostics["final_count"] < diagnostics.get("expected_count", 0):
+
             diagnostics["reason"] = "quality_pool_below_reference"
+
         else:
+
             diagnostics["reason"] = "adequate_pool"
 
+
+
         if emit_progress:
+
             source_labels = {"gemini": "Gemini Flash", "llm": "Ollama", "nlp": "NLP local"}
+
             source_label = source_labels.get(self._selection_source, "NLP local")
+
             emit_progress(f"Selecionados {len(clips)} clips de partes diferentes do video (via {source_label})")
 
+
+
         if self.debug_snapshot_path:
+
             try:
+
                 os.makedirs(os.path.dirname(self.debug_snapshot_path) or ".", exist_ok=True)
+
                 with open(self.debug_snapshot_path, "w", encoding="utf-8") as handle:
+
                     json.dump({
+
                         "diagnostics": self._candidate_diagnostics,
+
                         "clips": clips,
+
                     }, handle, ensure_ascii=False, indent=2)
+
             except OSError:
+
                 pass
+
+
 
         return clips
 
+
+
     def get_selection_source(self):
+
         return self._selection_source or "nlp"
 
+
+
     def get_candidate_diagnostics(self):
+
         """Return explainable candidate-volume diagnostics for the review UI."""
+
         return dict(self._candidate_diagnostics)
 
+
+
     def _expected_candidate_count(self, sentences):
+
         """Estimate a review pool size and record telemetry for UI calibration."""
+
         self._candidate_diagnostics["expected_count_calls"] = int(
+
             self._candidate_diagnostics.get("expected_count_calls", 0) or 0
+
         ) + 1
+
         if not sentences:
+
             return 0
+
         try:
+
             span = max(0.0, float(sentences[-1].get("end", 0)) - float(sentences[0].get("start", 0)))
+
         except (TypeError, ValueError):
+
             span = 0.0
+
         if span < 120 or len(sentences) < 8:
+
             return 0
+
         duration_based = int(span // 240) + 6
+
         structure_based = int(len(sentences) // 18) + 6
+
         return min(max(3, duration_based, structure_based), max(3, min(self.max_clips, 36)))
 
+
+
     def _extract_context_keywords(self, user_context):
+
         """Extract meaningful keywords from user context for display."""
+
         stop_words = {
+
             "quero", "extrair", "cortes", "onde", "esteja", "neste", "nesta",
+
             "debate", "principalmente", "quando", "sobre", "para", "como",
+
             "que", "com", "dos", "das", "nos", "nas", "por", "mais",
+
             "uma", "uns", "umas", "este", "esta", "esse", "essa",
+
             "ele", "ela", "eles", "elas", "seu", "sua", "seus", "suas",
+
             "nos", "pontos", "fala", "fale", "deste", "desta",
+
         }
+
         words = user_context.split()
+
         keywords = []
+
         for w in words:
+
             clean = re.sub(r'[^\w]', '', w)
+
             if clean and len(clean) > 1 and clean.lower() not in stop_words:
+
                 keywords.append(clean)
+
         return keywords
 
+
+
     def _extract_names_from_context(self, user_context):
+
         """Extract likely person names from user context for speaker filtering.
+
         Only extracts words that start with uppercase (proper nouns)."""
+
         stop_words = {
+
             "quero", "quando", "como", "onde", "sobre", "para", "este", "esta",
+
             "esse", "essa", "principalmente", "extrair", "momentos",
+
             "esteja", "falando", "clips", "cortes", "video", "fazer", "pedir",
+
             "quais", "melhor", "mais", "menos", "muito", "pouco", "todos",
+
             "todas", "cada", "outro", "outra", "outros", "outras",
+
             "pode", "deve", "quer", "tem", "vai", "vem",
+
             "somente", "apenas", "tambem", "ainda", "agora", "debate",
+
             "neste", "nesta", "deste", "desta", "pontos", "fala", "fale",
+
             "proeminentes", "melhores", "piores", "bons", "ruins",
+
             "sobressaindo", "nesse", "nessa", "aqui", "ali",
+
             "sobresaia", "estaja", "respondendo", "perguntas", "mitando",
+
         }
+
         common_short = {
+
             "que", "mas", "nem", "dos", "das", "nos", "nas", "uns", "uma",
+
             "umas", "ele", "ela", "eles", "elas", "sao", "era", "foi",
+
             "ser", "ter", "ver", "dar", "vir", "por", "pre", "pos", "sub", "pro",
+
             "se", "no", "na", "ao", "os", "as", "de", "do", "da", "em", "um",
+
             "ou", "ja", "so", "ha", "la", "ca", "ai", "ir", "oi", "ah", "eh",
+
         }
+
         names = []
+
         for w in user_context.split():
+
             clean = re.sub(r'[^\w]', '', w)
+
             if not clean or len(clean) < 3 or len(clean) > 15:
+
                 continue
+
             if clean.lower() in stop_words:
+
                 continue
+
             if clean.isdigit():
+
                 continue
+
             if clean.lower() in common_short:
+
                 continue
+
             # Only extract as name if starts with uppercase (proper noun)
+
             if clean[0].isupper():
+
                 if clean.lower() not in [n.lower() for n in names]:
+
                     names.append(clean)
+
         return names
 
+
+
     def _build_sentences(self, segments):
+
         """Group transcript segments while preserving technical metadata.
 
+
+
         Caps sentence length at 30s, but carries speaker labels, overlap flags,
+
         timing confidence and source segment ids into every editorial block.
+
         """
+
         sentences = []
+
         current_text = ""
+
         current_start = None
+
         current_end = None
+
         current_segments = []
+
         current_word_spans = []
+
         last_end = 0
+
         MAX_SENTENCE_DURATION = 30
 
+
+
         def flush():
+
             nonlocal current_text, current_start, current_end, current_segments, current_word_spans
+
             if not current_text.strip() or current_start is None or current_end is None:
+
                 current_text = ""
+
                 current_start = None
+
                 current_end = None
+
                 current_segments = []
+
                 current_word_spans = []
+
                 return
+
             speakers = [
+
                 str(item.get("speaker") or "").strip()
+
                 for item in current_segments
+
                 if str(item.get("speaker") or "").strip()
+
             ]
+
             unique_speakers = list(dict.fromkeys(speakers))
+
             confidences = []
+
             for item in current_segments:
+
                 try:
+
                     value = float(item.get("speaker_confidence"))
+
                     if math.isfinite(value):
+
                         confidences.append(value)
+
                 except (TypeError, ValueError):
+
                     continue
+
             timing_confidences = []
+
             for item in current_segments:
+
                 try:
+
                     value = float(item.get("timing_confidence"))
+
                     if math.isfinite(value):
+
                         timing_confidences.append(value)
+
                 except (TypeError, ValueError):
+
                     continue
+
             sentences.append({
+
                 "text": current_text.strip(),
+
                 "start": current_start,
+
                 "end": current_end,
+
                 "duration": current_end - current_start,
+
                 "speaker": unique_speakers[0] if len(unique_speakers) == 1 else "",
+
                 "speakers": unique_speakers,
+
                 "speaker_change_detected": len(unique_speakers) > 1,
+
                 "speaker_confidence": min(confidences) if confidences else None,
+
                 "overlap_suspected": any(_coerce_flag(item.get("overlap_suspected")) for item in current_segments),
+
                 "timing_ambiguous": any(
+
                     float(item.get("timing_confidence", 1.0) or 1.0) < 0.6
+
                     for item in current_segments
+
                     if item.get("timing_confidence") is not None
+
                 ) or any(_coerce_flag(item.get("overlap_suspected")) for item in current_segments),
+
                 "timing_confidence": min(timing_confidences) if timing_confidences else None,
+
                 # Keep only numeric spans; raw word text remains outside this metadata path.
+
                 "word_spans": list(current_word_spans),
+
                 "segment_ids": [item.get("id") for item in current_segments if item.get("id") is not None],
+
             })
+
             current_text = ""
+
             current_start = None
+
             current_end = None
+
             current_segments = []
+
             current_word_spans = []
 
+
+
         for seg in segments:
+
             start = float(seg.get("start", 0.0))
+
             end = float(seg.get("end", start))
+
             if start < 0 or end <= start:
+
                 continue
+
             pause_before = start - last_end if last_end > 0 else 0
 
+
+
             if pause_before > 0.8 and current_text:
+
                 flush()
+
+
 
             if current_start is None:
+
                 current_start = start
 
+
+
             current_text += " " + str(seg.get("text", ""))
+
             current_end = end
+
             current_segments.append(seg)
+
             for word in seg.get("words") or []:
+
                 if not isinstance(word, dict):
+
                     continue
+
                 try:
+
                     word_start = float(word.get("start"))
+
                     word_end = float(word.get("end"))
+
                 except (TypeError, ValueError):
+
                     continue
+
                 if not math.isfinite(word_start) or not math.isfinite(word_end):
+
                     continue
+
                 if start <= word_start < word_end <= end:
+
                     current_word_spans.append({"start": word_start, "end": word_end})
+
             last_end = end
 
+
+
             current_duration = current_end - current_start
+
             if current_duration >= MAX_SENTENCE_DURATION:
+
                 flush()
+
                 continue
 
+
+
             text_stripped = current_text.strip()
+
             if text_stripped and text_stripped[-1] in ".!?" and len(text_stripped.split()) >= 5:
+
                 flush()
 
+
+
         flush()
+
         return sentences
 
+
+
     # ═══════════════════════════════════════════════════
+
     # GEMINI — Google Gemini Flash API (most capable)
+
     # ═══════════════════════════════════════════════════
+
+
 
     def _select_with_gemini(self, sentences, energy_profile, user_context, settings, emit_progress):
+
         """Use Google Gemini Flash API to select clips — sends FULL transcript at once."""
+
         api_key = settings.get("gemini_api_key", "").strip()
+
         if not api_key:
+
             if emit_progress:
+
                 emit_progress("[Gemini] API key nao configurada.", "warning")
+
             return []
+
+
 
         transcript_blocks = self._build_transcript_blocks(sentences)
+
         if not transcript_blocks:
+
             return []
 
+
+
         system_prompt = self._get_gemini_system_prompt(settings.get("editorial_profile", PROFILE_NAME))
+
         user_prompt = self._build_gemini_prompt(
+
             transcript_blocks,
+
             user_context,
+
             settings.get("editorial_context"),
+
         )
 
+
+
         if emit_progress:
+
             emit_progress(f"[Gemini] Enviando {len(transcript_blocks)} blocos para analise...", "info")
+
+
 
         import time as _time
 
+
+
         # Usa o mesmo modelo Gemini configurado para a análise multimodal.
+
         # O padrão preserva compatibilidade com instalações existentes; a validação
+
         # impede que uma configuração corrompida altere o caminho da requisição.
+
         configured_model = str(settings.get("gemini_model", "gemini-2.5-flash") or "").strip()
+
         model_name = configured_model if re.fullmatch(r"gemini-[a-z0-9.-]+", configured_model) else "gemini-2.5-flash"
+
         models_to_try = [model_name]
+
         last_error = ""
 
+
+
         for model_name in models_to_try:
+
             for attempt in range(3):
+
                 try:
+
                     if attempt > 0 and emit_progress:
+
                         emit_progress(f"[Gemini] Tentativa {attempt + 1} com {model_name}...", "info")
 
+
+
                     response = _http_session.post(
+
                         f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent",
+
                         headers={"x-goog-api-key": api_key, "Content-Type": "application/json"},
+
                         json={
+
                             "contents": [{"parts": [{"text": user_prompt}]}],
+
                             "systemInstruction": {"parts": [{"text": system_prompt}]},
+
                             "generationConfig": {
+
                                 "temperature": 0.3,
+
                                 "maxOutputTokens": 16384,
+
                             },
+
                         },
+
                         timeout=180,
+
                     )
 
+
+
                     if response.status_code == 503:
+
                         # Temporary overload — retry after delay
+
                         if emit_progress:
+
                             emit_progress(f"[Gemini] {model_name} sobrecarregado (503). Retentando em {5 * (attempt + 1)}s...", "warning")
+
                         _time.sleep(5 * (attempt + 1))
+
                         continue
 
+
+
                     if response.status_code == 429:
+
                         # Quota exceeded — try next model
+
                         try:
+
                             error_msg = response.json().get("error", {}).get("message", "")
+
                         except Exception:
+
                             error_msg = response.text[:200]
+
                         if emit_progress:
+
                             emit_progress(f"[Gemini] {model_name} atingiu a cota. A seleção seguirá para o fallback local.", "warning")
+
                         last_error = f"429: {error_msg[:150]}"
+
                         break  # Break retry loop, try next model
 
+
+
                     if response.status_code == 403:
+
                         if emit_progress:
+
                             emit_progress("[Gemini] API key inválida ou sem permissão; a seleção seguirá para o fallback local.", "warning")
+
                         return []
 
+
+
                     if response.status_code != 200:
+
                         try:
+
                             error_msg = response.json().get("error", {}).get("message", "")
+
                         except Exception:
+
                             error_msg = response.text[:200]
+
                         if emit_progress:
+
                             emit_progress(f"[Gemini] Erro {response.status_code}: {error_msg[:200]}", "warning")
+
                         last_error = f"{response.status_code}: {error_msg[:150]}"
+
                         break  # Try next model
+
+
 
                     # Success! Parse the response
+
                     data = response.json()
+
                     candidates = data.get("candidates", [])
+
                     if not candidates:
+
                         if emit_progress:
+
                             emit_progress(f"[Gemini] {model_name} sem resposta da API.", "warning")
+
                         last_error = "no candidates"
+
                         break  # Try next model
+
+
 
                     # Gemini 2.5 Flash may return "thinking" parts before actual response
+
                     parts = candidates[0].get("content", {}).get("parts", [])
+
                     text = ""
+
                     for part in parts:
+
                         if part.get("thought"):
+
                             continue  # Skip thinking parts
+
                         if "text" in part:
+
                             text = part["text"]
+
                             break  # Use the first non-thinking text part
 
+
+
                     if not text:
+
                         # Fallback: try last part regardless
+
                         if parts:
+
                             text = parts[-1].get("text", "")
 
+
+
                     if not text:
+
                         finish_reason = candidates[0].get("finishReason", "unknown")
+
                         if emit_progress:
+
                             emit_progress(f"[Gemini] {model_name} resposta vazia (finishReason: {finish_reason}).", "warning")
+
                         last_error = f"empty response: {finish_reason}"
+
                         break  # Try next model
 
+
+
                     if emit_progress:
+
                         emit_progress(f"[Gemini] Resposta recebida de {model_name} ({len(text)} chars). Parseando...", "info")
+
+
 
                     selections = self._parse_llm_response(text, sentences, transcript_blocks, 0, source="gemini")
 
+
+
                     if not selections:
+
                         if emit_progress:
+
                             preview = text[:300].replace("\n", " ")
+
                             emit_progress(f"[Gemini] JSON parseado mas 0 clips validos. Preview: {preview}...", "warning")
+
                         last_error = "0 clips parsed"
+
                         break  # Try next model
 
+
+
                     if emit_progress:
+
                         emit_progress(f"[Gemini] {model_name} encontrou {len(selections)} clips candidatos!", "info")
 
+
+
                     selections.sort(key=lambda x: x.get("viral_score", 0), reverse=True)
+
                     return selections
 
+
+
                 except requests.exceptions.ConnectionError:
+
                     if emit_progress:
+
                         emit_progress("[Gemini] Sem conexão com a internet; a seleção seguirá para o fallback local.", "warning")
+
                     return []
+
                 except requests.exceptions.Timeout:
+
                     if emit_progress:
+
                         emit_progress(f"[Gemini] Timeout com {model_name} (>180s).", "warning")
+
                     last_error = "timeout"
+
                     break  # Try next model
+
                 except Exception as e:
+
                     if emit_progress:
+
                         emit_progress(f"[Gemini] Erro com {model_name}: {str(e)[:200]}", "warning")
+
                     last_error = str(e)[:150]
+
                     break  # Try next model
+
+
 
         if emit_progress and last_error:
+
             emit_progress(f"[Gemini] A tentativa online não foi concluída. O pipeline seguirá com Ollama/NLP local. Último diagnóstico: {last_error}", "warning")
+
         return []
 
+
+
     def _get_gemini_system_prompt(self, editorial_profile=PROFILE_NAME):
+
         political_fragment = ""
+
         if editorial_profile in (PROFILE_NAME, "politics", "political"):
+
             political_fragment = "\n\n" + build_political_prompt_fragment()
+
         return """Voce e um editor de video profissional especialista em selecionar os melhores momentos de debates, entrevistas, podcasts e videos longos para clips curtos (YouTube Shorts, TikTok, Reels).
+
+
 
 REGRAS CRITICAS:
 
+
+
 1. CONTEXTO COMPLETO OBRIGATORIO:
+
    Cada clip DEVE fazer sentido para quem NAO viu o video inteiro.
+
    - Se alguem faz uma PERGUNTA e outro RESPONDE, o clip DEVE incluir a pergunta E a resposta.
+
    - Se alguem diz "esse impacto", "isso tudo", "essa questao", o clip DEVE incluir o que veio antes para contextualizar.
+
    - O espectador NUNCA deve se perguntar "impacto de que?", "isso o que?", "quem?".
+
    - Na duvida, inclua blocos a mais para dar contexto.
 
+
+
 2. PENSAMENTO 100% COMPLETO:
+
    NUNCA corte no meio de uma frase ou raciocinio.
+
    - O falante DEVE terminar COMPLETAMENTE sua ideia antes do clip acabar.
+
    - Se ele esta no meio de uma explicacao, CONTINUE incluindo blocos ate ele terminar.
+
    - O clip ideal termina com o falante fazendo uma pausa natural ou passando a palavra.
 
+
+
 3. IDENTIFICACAO DE FALANTES:
+
    Em debates e entrevistas, identifique quem fala em cada trecho:
+
    - Jornalistas/mediadores geralmente fazem perguntas e introduzem topicos.
+
    - Debatedores/convidados respondem e argumentam.
+
    - Mudancas no conteudo, estilo de fala e tom indicam troca de falante.
 
+
+
 4. FILTRAGEM POR FALANTE:
+
    Se o usuario mencionou um NOME ESPECIFICO (ex: "Kim", "Chico", "reporter"):
+
    - SOMENTE selecione clips onde ESSA PESSOA e o falante principal.
+
    - PODE incluir a pergunta de um jornalista como setup (1-2 blocos iniciais), mas o foco DEVE ser a resposta da pessoa mencionada.
+
    - Se nao tiver certeza de quem esta falando em um trecho, NAO inclua.
 
+
+
 5. DURACAO E SELECAO:
+
    - NAO existe uma duracao fixa: encontre o menor trecho que contenha hook, contexto e payoff completos.
+
    - Quanto mais curto, melhor, desde que o espectador entenda quem, o que e por que sem ter visto o video inteiro.
+
    - Use 180 segundos como teto preferencial, nao como limite absoluto. Ultrapasse-o somente quando encurtar destruir a pergunta, a resposta, a prova, o argumento ou a conclusao.
+
    - Nunca corte uma ideia apenas para caber em uma duracao. Um clip excepcionalmente contextualizado pode ser mais longo e deve ser marcado como excecao.
+
    - Selecione clips de PARTES DIFERENTES do video (diversidade temporal).
+
    - Prefira momentos com: opiniao forte, dado concreto, confronto, emocao, humor, reacao, historia, bastidor ou conversa descontraida.
+
    - Nao force tudo como politico. Escolha uma familia editorial: politico, humor, reacao, bastidor, descontraido ou conversa.
 
+
+
 6. AVALIACAO HONESTA — use a escala INTEIRA, nao de A para tudo:
+
    - hook: A = Primeiros segundos prendem atencao imediatamente. B = Inicio razoavel. C = Inicio confuso ou fraco.
+
    - flow: A = Contexto 100% completo e pensamento totalmente terminado. B = Quase completo, falta algo menor. C = Falta contexto ou cortado no meio.
+
    - value: A = Conteudo forte, impactante, polemico, engajante. B = Conteudo razoavel. C = Conteudo generico/fraco.
+
    - energy: A = Tom intenso, animado, emocionante. B = Tom normal. C = Monotono.
+
    Um clip medio DEVE receber B ou C, NAO A.
 
+
+
 FORMATO DE RESPOSTA — retorne APENAS um array JSON valido:
+
 [
+
   {
+
     "blocks": [3, 4, 5],
+
     "title": "Titulo descritivo que resume o conteudo do clip",
+
     "speaker": "Nome da pessoa principal falando",
+
     "reason": "Por que este clip e relevante para o pedido do usuario",
+
     "editorial_family": "politico|humor|reacao|bastidor|descontraido|conversa",
+
     "hook": "A",
+
     "flow": "A",
+
     "value": "B",
+
     "energy": "A"
+
   }
+
 ]""" + political_fragment
 
+
+
     def _build_gemini_prompt(self, blocks, user_context, editorial_context=None):
+
         """Build prompt with deterministic interview context plus the transcript."""
+
         lines = []
+
         for b in blocks:
+
             lines.append(self._format_prompt_block(b))
+
+
 
         transcript_text = "\n".join(lines)
 
+
+
         context_instruction = ""
+
         if user_context:
+
             names = self._extract_names_from_context(user_context)
+
             if names:
+
                 names_str = ", ".join(names)
+
                 context_instruction = f"""
 
+
+
 INSTRUCAO DO USUARIO: "{user_context}"
+
+
 
 ATENCAO: O usuario mencionou nomes especificos: {names_str}.
+
 SOMENTE selecione clips onde uma dessas pessoas esta falando como falante principal.
+
 A pergunta de outro pode ser incluida como setup, mas o FOCO deve ser a fala de {names_str}.
+
 Se o nome nao aparece literalmente na transcricao, identifique pela posicao no debate (quem defende qual argumento)."""
+
             else:
+
                 context_instruction = f"""
 
+
+
 INSTRUCAO DO USUARIO: "{user_context}"
+
 Selecione clips que melhor atendam a esse pedido."""
 
+
+
         editorial_instruction = ""
+
         if editorial_context:
+
             windows = editorial_context.get("interview_windows", [])[:8]
+
             qa = editorial_context.get("qa_candidates", [])[:12]
+
             chapters = editorial_context.get("editorial_chapters", [])[:24]
+
             editorial_instruction = f"""
 
+
+
 PRÉ-ANÁLISE EDITORIAL DETERMINÍSTICA:
+
 {editorial_context.get('description', '')}
+
 Foco padrão: Renan Santos/MBL. Confiança inicial de participante: {editorial_context.get('participant_confidence', 0):.0%}.
+
 Janelas prováveis de entrevista: {windows}.
+
 Candidatos pergunta–resposta detectados: {qa}.
+
 Mapa de capítulos temporais: {chapters}.
+
 Respeite os capítulos como blocos editoriais contíguos. Não combine blocos de capítulos separados sem uma ponte de fala clara. Quando a seleção for uma pergunta–resposta, inclua o capítulo inteiro ou a ponte completa; se houver dúvida sobre locutor ou sobreposição, reduza a confiança ou rejeite.
+
 """
+
+
 
         num_clips = min(self.max_clips, max(5, len(blocks) // 4))
 
+
+
         return f"""Analise esta transcricao completa e selecione os {num_clips} MELHORES momentos para clips curtos.
+
 {editorial_instruction}
+
 {context_instruction}
+
+
 
 TRANSCRICAO COMPLETA ({len(blocks)} blocos, {self._format_time(blocks[-1]['end'])} de video):
 
+
+
 {transcript_text}
 
+
+
 Combine apenas os blocos consecutivos necessarios para formar o menor clip com CONTEXTO COMPLETO.
+
 Lembre: cada clip deve ter inicio (contexto/pergunta), meio (desenvolvimento) e fim (conclusao do raciocinio); nao encurte nem estenda artificialmente.
+
 Retorne APENAS o array JSON. Nenhum texto antes ou depois."""
 
+
+
     # ═══════════════════════════════════════════════════
+
     # OLLAMA — Local LLM (offline, free)
+
     # ═══════════════════════════════════════════════════
+
+
 
     def _select_with_llm(self, sentences, energy_profile, user_context, settings, emit_progress):
+
         """Use Ollama to intelligently select the best clips."""
+
         ollama_url = settings.get("ollama_url", "http://localhost:11434")
+
         ollama_model = settings.get("ollama_model", "llama3.2:3b")
 
+
+
         transcript_blocks = self._build_transcript_blocks(sentences)
+
         if not transcript_blocks:
+
             return []
+
+
 
         # Fail fast when Ollama is not reachable instead of spending seconds
+
         # in a long request timeout per chunk.
+
         try:
+
             requests.get(f"{ollama_url}/api/tags", timeout=2)
+
         except requests.exceptions.RequestException:
+
             if emit_progress:
+
                 emit_progress("[Ollama] Servidor indisponível; seguindo sem IA local.")
+
             return []
 
+
+
         all_selections = []
+
         chunk_size = 25
 
+
+
         for chunk_idx in range(0, len(transcript_blocks), chunk_size):
+
             chunk = transcript_blocks[chunk_idx:chunk_idx + chunk_size]
+
             prompt = self._build_llm_prompt(
+
                 chunk,
+
                 user_context,
+
                 chunk_idx,
+
                 len(transcript_blocks),
+
                 settings.get("editorial_context"),
+
             )
 
+
+
             if emit_progress:
+
                 emit_progress(
+
                     f"Analisando trecho {chunk_idx // chunk_size + 1}/"
+
                     f"{math.ceil(len(transcript_blocks) / chunk_size)} com IA..."
+
                 )
+
+
 
             try:
+
                 response = _http_session.post(
+
                     f"{ollama_url}/api/generate",
+
                     json={
+
                         "model": ollama_model,
+
                         "prompt": prompt,
+
                         "system": self._get_system_prompt(settings.get("editorial_profile", PROFILE_NAME)),
+
                         "stream": False,
+
                         "options": {"temperature": 0.3, "num_predict": 4096},
+
                     },
+
                     timeout=30,
+
                 )
+
                 response.raise_for_status()
+
                 data = response.json()
+
                 text = data.get("response", "")
 
+
+
                 selections = self._parse_llm_response(text, sentences, transcript_blocks, chunk_idx, source="llm")
+
                 if not selections and text and emit_progress:
+
                     # Ollama responded but JSON was unparseable - log for debug
+
                     preview = text[:150].replace("\n", " ")
+
                     emit_progress(f"[Ollama] Resposta invalida (nao e JSON): {preview}...", "warning")
+
                 all_selections.extend(selections)
 
+
+
             except requests.exceptions.ConnectionError:
+
                 if emit_progress:
+
                     emit_progress(f"[Ollama] Chunk {chunk_idx // chunk_size + 1} indisponível; continuando com os próximos.")
+
                 continue
+
             except Exception as e:
+
                 if emit_progress:
+
                     emit_progress(f"[Ollama] Erro no chunk {chunk_idx // chunk_size + 1}: {str(e)[:200]}; continuando.")
+
                 continue
+
+
 
         if not all_selections and emit_progress:
+
             emit_progress("[Ollama] Nenhuma seleção válida após todos os chunks; usando fallback NLP.", "warning")
+
         all_selections.sort(key=lambda x: x.get("viral_score", 0), reverse=True)
+
         return all_selections
 
+
+
     def _get_system_prompt(self, editorial_profile=PROFILE_NAME):
+
         """System prompt for Ollama — simpler and more direct for small models (3B)."""
+
         political_fragment = ""
+
         if editorial_profile in (PROFILE_NAME, "politics", "political"):
+
             political_fragment = "\n\n" + build_political_prompt_fragment()
+
         return """Voce seleciona os melhores trechos de uma transcricao de video para clips curtos.
 
+
+
 REGRAS OBRIGATORIAS:
+
 1. CONTEXTO: Cada clip DEVE ter contexto completo. Se ha uma pergunta, inclua a pergunta E a resposta juntas.
+
 2. COMPLETO: O falante DEVE terminar sua frase e seu raciocinio. NUNCA corte no meio.
+
 3. FALANTE: Se o usuario pediu clips de uma pessoa especifica, SOMENTE inclua momentos dessa pessoa falando.
+
 4. DIVERSIDADE: Selecione clips de partes DIFERENTES do video.
+
 5. DURACAO: Nao ha faixa fixa. Prefira o menor trecho autossuficiente; 180 segundos e apenas um teto preferencial. So ultrapasse esse teto se o contexto e o payoff exigirem.
+
 6. NOTAS: A = excelente (raro), B = bom (normal), C = fraco. NAO de A para tudo, seja critico.
 
+
+
 FORMATO — retorne APENAS JSON valido:
+
 [
+
   {
+
     "blocks": [3, 4, 5],
+
     "title": "Titulo descritivo do clip",
+
     "reason": "Por que este clip e bom",
+
     "hook": "A",
+
     "flow": "A",
+
     "value": "B",
+
     "energy": "B"
+
   }
+
 ]""" + political_fragment
 
+
+
     def _build_llm_prompt(self, blocks, user_context, chunk_offset, total_blocks, editorial_context=None):
+
         """Build local prompt with the same interview signals as the online path."""
+
         lines = []
+
         for b in blocks:
+
             lines.append(self._format_prompt_block(b))
+
+
 
         transcript_text = "\n".join(lines)
 
+
+
         context_instruction = ""
+
         if user_context:
+
             names = self._extract_names_from_context(user_context)
+
             if names:
+
                 names_str = ", ".join(names)
+
                 context_instruction = f"""
 
+
+
 INSTRUCAO DO USUARIO: "{user_context}"
+
 IMPORTANTE: SOMENTE selecione clips onde {names_str} esta falando. Clips de outras pessoas devem ser EXCLUIDOS."""
+
             else:
+
                 context_instruction = f"""
 
+
+
 INSTRUCAO DO USUARIO: "{user_context}"
+
 Selecione clips que atendam a esse pedido."""
 
+
+
         editorial_instruction = ""
+
         if editorial_context:
+
             chapters = editorial_context.get("editorial_chapters", [])[:16]
+
             editorial_instruction = (
+
                 f"\nPRÉ-ANÁLISE: {editorial_context.get('description', '')}\n"
+
                 f"CAPÍTULOS EDITORIAIS: {chapters}\n"
+
                 "Não atravesse capítulos desconectados; preserve perguntas e respostas no mesmo capítulo.\n"
+
             )
 
+
+
         num_clips = min(self.max_clips, max(3, len(blocks) // 3))
+
         return f"""Selecione os {num_clips} MELHORES momentos para clips curtos.
+
 {editorial_instruction}
+
 {context_instruction}
+
+
 
 TRANSCRICAO (blocos {chunk_offset} a {chunk_offset + len(blocks) - 1} de {total_blocks} total):
 
+
+
 {transcript_text}
 
+
+
 Combine blocos consecutivos apenas ate o menor trecho com contexto completo e conclusao.
+
 Retorne APENAS o JSON.
+
 """
 
+
+
     def _format_prompt_block(self, block):
+
         """Render a bounded block with speaker evidence for model review."""
+
         timestamp = f"[{self._format_time(block['start'])} - {self._format_time(block['end'])}]"
+
         speaker_notes = []
+
         for sentence in block.get("sentences") or []:
+
             start = _safe_float(sentence.get("start"), 0.0)
+
             end = _safe_float(sentence.get("end"), start)
+
             label = " ".join(str(sentence.get("speaker") or "").split())[:40]
+
             labels = [
+
                 " ".join(str(item).split())[:40]
+
                 for item in (sentence.get("speakers") or [])
+
                 if str(item).strip()
+
             ][:3]
+
             label = label or ", ".join(dict.fromkeys(labels))
+
             if label:
+
                 confidence = _safe_float(sentence.get("speaker_confidence"), -1.0)
+
                 confidence_note = f"; confiança {confidence:.0%}" if 0.0 <= confidence <= 1.0 else "; confiança não informada"
+
                 speaker_notes.append(f"{self._format_time(start)}–{self._format_time(end)}: {label}{confidence_note}")
+
         if not speaker_notes:
+
             speaker_notes.append("locutor não identificado; não assuma quem está respondendo")
+
         speaker_note = "; ".join(speaker_notes[:4])
+
         return f"BLOCO {block['index']}: {timestamp} ({block['duration']}s)\nLOCUTOR/CONFIANÇA: {speaker_note}\n{block['text']}\n"
 
+
+
     def _build_transcript_blocks(self, sentences):
+
         """Group sentences into compact editorial blocks for analysis."""
+
         blocks = []
+
         current_block_sentences = []
+
         current_start = None
+
         current_duration = 0
 
+
+
         for sent in sentences:
+
             if current_start is None:
+
                 current_start = sent["start"]
 
+
+
             current_block_sentences.append(sent)
+
             current_duration = sent["end"] - current_start
 
+
+
             # Use smaller editorial blocks so a complete idea can remain short.
+
             # The selector may still join blocks when the context requires it.
+
             if current_duration >= 30 or (sent["text"].strip()[-1:] in ".!?" and current_duration >= 18):
+
                 block_text = " ".join(s["text"] for s in current_block_sentences)
+
                 blocks.append(self._make_editorial_block(
+
                     len(blocks), current_start, sent["end"], block_text, current_block_sentences
+
                 ))
+
                 current_block_sentences = []
+
                 current_start = None
+
                 current_duration = 0
 
+
+
         if current_block_sentences:
+
             block_text = " ".join(s["text"] for s in current_block_sentences)
+
             blocks.append(self._make_editorial_block(
+
                 len(blocks), current_start, current_block_sentences[-1]["end"],
+
                 block_text, current_block_sentences
+
             ))
+
+
 
         return blocks
 
+
+
     def _make_editorial_block(self, index, start, end, block_text, sentences):
+
         speakers = []
+
         word_spans = []
+
         for sentence in sentences:
+
             for speaker in sentence.get("speakers", []):
+
                 if speaker and speaker not in speakers:
+
                     speakers.append(speaker)
+
             for span in sentence.get("word_spans") or []:
+
                 if isinstance(span, dict):
+
                     word_spans.append(span)
+
         return {
+
             "index": index,
+
             "start": start,
+
             "end": end,
+
             "duration": round(end - start, 1),
+
             "text": block_text.strip(),
+
             "sentences": sentences.copy(),
+
             "word_spans": word_spans,
+
             "speaker": speakers[0] if len(speakers) == 1 else "",
+
             "speakers": speakers,
+
             "speaker_change_detected": len(speakers) > 1,
+
             "overlap_suspected": any(_coerce_flag(sentence.get("overlap_suspected")) for sentence in sentences),
+
             "speaker_turn_valid": not any(_coerce_flag(sentence.get("overlap_suspected")) for sentence in sentences),
+
             "timing_ambiguous": any(_coerce_flag(sentence.get("timing_ambiguous")) for sentence in sentences),
+
             "timing_confidence": min(
+
                 [
+
                     _safe_float(sentence.get("timing_confidence"), default=1.0)
+
                     for sentence in sentences
+
                     if sentence.get("timing_confidence") is not None
+
                     and math.isfinite(_safe_float(sentence.get("timing_confidence"), default=1.0))
+
                 ]
+
                 or [1.0]
+
             ),
+
         }
 
+
+
     def _parse_llm_response(self, response_text, sentences, all_blocks, chunk_offset, source="llm"):
+
         """Parse LLM/Gemini JSON response into clip data with timestamps."""
+
         try:
+
             json_str = response_text.strip()
+
             # Extract JSON from potential markdown code blocks
+
             if "```json" in json_str:
+
                 json_str = json_str.split("```json")[1].split("```")[0]
+
             elif "```" in json_str:
+
                 code_parts = json_str.split("```")
+
                 if len(code_parts) >= 3:
+
                     json_str = code_parts[1]
 
+
+
             # Try to find JSON array in the response
+
             start_idx = json_str.find("[")
+
             end_idx = json_str.rfind("]") + 1
+
             if start_idx >= 0 and end_idx > start_idx:
+
                 json_str = json_str[start_idx:end_idx]
 
+
+
             # Fix common JSON issues from LLMs
+
             # Replace smart quotes with regular quotes
+
             json_str = json_str.replace("\u201c", '"').replace("\u201d", '"')
+
             json_str = json_str.replace("\u2018", "'").replace("\u2019", "'")
+
             # Remove trailing commas before ] or }
+
             json_str = re.sub(r',\s*([}\]])', r'\1', json_str)
 
+
+
             selections = json.loads(json_str)
+
         except (json.JSONDecodeError, ValueError):
+
             # Try a more aggressive approach: find each {...} object
+
             try:
+
                 objects = re.findall(r'\{[^{}]+\}', response_text)
+
                 selections = []
+
                 for obj_str in objects:
+
                     obj_str = obj_str.replace("\u201c", '"').replace("\u201d", '"')
+
                     obj_str = re.sub(r',\s*([}\]])', r'\1', obj_str)
+
                     try:
+
                         obj = json.loads(obj_str)
+
                         if "blocks" in obj:
+
                             selections.append(obj)
+
                     except (json.JSONDecodeError, ValueError):
+
                         continue
+
                 if not selections:
+
                     return []
+
             except Exception:
+
                 return []
 
+
+
         clips = []
+
         for sel in selections:
+
             if not isinstance(sel, dict):
+
                 continue
+
+
 
             raw_indices = sel.get("blocks", [])
+
             if not isinstance(raw_indices, (list, tuple)) or not raw_indices:
+
                 continue
+
             try:
+
                 block_indices = [int(index) for index in raw_indices]
+
             except (TypeError, ValueError):
+
                 continue
+
             if len(set(block_indices)) != len(block_indices):
+
                 continue
+
+
 
             zero_based_valid = all(0 <= index < len(all_blocks) for index in block_indices)
+
             one_based_valid = all(1 <= index <= len(all_blocks) for index in block_indices)
+
             # Our prompt exposes zero-based `BLOCO` indices. Only switch to
+
             # one-based when zero-based mapping is impossible, avoiding the old
+
             # silent off-by-one error for responses such as [1, 2].
+
             if not zero_based_valid and one_based_valid:
+
                 block_indices = [index - 1 for index in block_indices]
+
             elif not zero_based_valid:
+
                 continue
+
+
 
             ordered_indices = sorted(block_indices)
+
             if ordered_indices != list(range(ordered_indices[0], ordered_indices[-1] + 1)):
+
                 # A model that skips a block skipped context; do not publish it.
+
                 continue
+
             block_indices = ordered_indices
+
             valid_blocks = [all_blocks[index] for index in block_indices]
+
             if not valid_blocks:
+
                 continue
+
+
 
             metadata = {
+
                 "overlap_suspected": any(_coerce_flag(block.get("overlap_suspected")) for block in valid_blocks),
+
                 "timing_ambiguous": any(_coerce_flag(block.get("timing_ambiguous")) for block in valid_blocks),
+
                 "speaker_turn_valid": all(_coerce_flag(block.get("speaker_turn_valid"), default=True) for block in valid_blocks),
+
                 "timing_confidence": min(
+
                     [
+
                         _safe_float(block.get("timing_confidence"), default=1.0)
+
                         for block in valid_blocks
+
                         if block.get("timing_confidence") is not None
+
                         and math.isfinite(_safe_float(block.get("timing_confidence"), default=1.0))
+
                     ]
+
                     or [1.0]
+
                 ),
+
             }
+
             context_recovery = {"applied": False, "reason": "antecedente não precisou ser recuperado"}
+
             previous_for_opening = all_blocks[block_indices[0] - 1] if block_indices[0] > 0 else None
+
             opening_signal = self._opening_context_signal(valid_blocks[0], previous_for_opening)
+
             if opening_signal["weak"] and block_indices[0] > 0:
+
                 previous = all_blocks[block_indices[0] - 1]
+
                 gap = float(valid_blocks[0]["start"]) - float(previous["end"])
+
                 joined_duration = float(valid_blocks[-1]["end"]) - float(previous["start"])
+
                 if gap <= 2.5 and joined_duration <= self.max_duration:
+
                     valid_blocks.insert(0, previous)
+
                     block_indices.insert(0, block_indices[0] - 1)
+
                     metadata["overlap_suspected"] = metadata["overlap_suspected"] or _coerce_flag(previous.get("overlap_suspected"))
+
                     metadata["timing_ambiguous"] = metadata["timing_ambiguous"] or _coerce_flag(previous.get("timing_ambiguous"))
+
                     context_recovery = {
+
                         "applied": True,
+
                         "reason": opening_signal["reason"],
+
                         "added_start": float(previous.get("start", 0)),
+
                         "original_start": float(valid_blocks[1].get("start", 0)),
+
                         "gap_seconds": round(max(0.0, gap), 3),
+
                     }
 
+
+
             clip_start, clip_end, boundary_refinement = self._refine_clip_boundaries(valid_blocks)
+
             clip_duration = clip_end - clip_start
 
+
+
             # Validate duration. The technical ceiling prevents malformed
+
             # responses, while the editorial preference remains soft.
+
             if clip_duration < self.min_duration:
+
                 continue
+
             if clip_duration > self.max_duration:
+
                 clip_end = clip_start + self.max_duration
+
                 clip_duration = self.max_duration
 
+
+
             clip_text = " ".join(b["text"] for b in valid_blocks)
+
             technical_flags = self._editorial_flags(clip_text, metadata)
 
+
+
             # Densidade de fala TAMBÉM na via LLM.
+
             # Antes só a via NLP calculava, então o piso de 60% no quality_gate
+
             # nunca disparava no caminho principal de produção — foi como o corte
+
             # de 47s mudos da coletiva (12% de fala) passou pelo filtro em 01/09.
+
             speech_density = self._calculate_speech_density(
+
                 valid_blocks, clip_start, clip_end
+
             )
+
+
 
             # Gancho: só os primeiros 30s são realmente assistidos.
+
             # Medido no Chub (708 vídeos, 01/09): retenção média de 30,8s em
+
             # clipes de 122s (25%) e 36,1s em clipes de 168s (21%). Ou seja,
+
             # em qualquer duração a audiência vive na janela inicial — um clipe
+
             # que começa mudo ou morno perde a plateia antes do conteúdo bom.
+
             hook_density = self._calculate_speech_density(
+
                 valid_blocks, clip_start, min(clip_end, clip_start + 30.0)
+
             )
+
             if technical_flags["overlap_suspected"] or technical_flags["timing_ambiguous"]:
+
                 # Ambiguous timing remains reviewable but should not be treated
+
                 # as a clean candidate by the model response parser.
+
                 sel["technical_review_required"] = True
 
+
+
             # Score scale: A=90, B=55, C=25 (wide spread for real differentiation)
+
             grade_to_score = {"A": 90, "B": 55, "C": 25}
+
             hook_score = grade_to_score.get(sel.get("hook", "B"), 55)
+
             flow_score = grade_to_score.get(sel.get("flow", "B"), 55)
+
             value_score = grade_to_score.get(sel.get("value", "B"), 55)
+
             audio_highlight_score = grade_to_score.get(sel.get("energy", "B"), 55)
 
+
+
             # Chub-trained hook multipliers (based on real engagement data)
+
             hook_type = sel.get("editorial_family", "")
+
             chub_multipliers = CHUB_HOOK_MULTIPLIERS
+
             chub_mult = chub_multipliers.get(hook_type, 1.0)
 
+
+
             # Weighted: flow (context completeness) gets highest weight
+
             # Chub multiplier boosts hook score for high-performing patterns
+
             viral_score = int(
+
                 (hook_score * chub_mult) * 0.20 +
+
                 flow_score * 0.25 +
+
                 value_score * 0.20 +
+
                 audio_highlight_score * 0.35
+
             )
 
+
+
             # Penalidade de gancho fraco (Chub 01/09): a janela dos primeiros
+
             # 30s concentra toda a retenção real. Silêncio ou enrolação aí
+
             # custa a audiência inteira, por melhor que seja o resto do clipe.
+
             # Escalonado para não condenar uma pausa curta de respiro.
+
             if hook_density < 0.5:
+
                 viral_score -= 25
+
             elif hook_density < 0.7:
+
                 viral_score -= 10
+
             # Abertura cerimonial: saudação de programa em vez de conteúdo.
+
             if technical_flags.get("ceremonial_opening"):
+
                 viral_score -= 18
+
             viral_score = max(0, min(100, viral_score))
 
+
+
             clips.append({
+
                 **technical_flags,
+
                 "start": clip_start,
+
                 "end": clip_end,
+
                 "duration": round(clip_duration, 3),
+
                 "text": clip_text,
+
                 "title": sel.get("title", ""),
+
                 "reason": sel.get("reason", ""),
+
                 "speaker": sel.get("speaker", ""),
+
                 "editorial_family": sel.get("editorial_family", ""),
+
                 "viral_score": viral_score,
+
                 "has_hook": sel.get("hook", "C") in ("A", "B"),
+
                 "speech_density": round(speech_density, 3),
+
                 "hook_density": round(hook_density, 3),
+
                 "breakdown": {
+
                     "hook": sel.get("hook", "B"),
+
                     "flow": sel.get("flow", "B"),
+
                     "value": sel.get("value", "B"),
+
                     "energy": sel.get("energy", "B"),
+
                 },
+
                 "source": source,
+
                 "context_recovery": context_recovery,
+
                 "boundary_refinement": boundary_refinement,
+
                 "duration_preference": self._duration_label(clip_duration, sel),
+
             })
+
+
 
         return clips
 
+
+
     # ═══════════════════════════════════════════════════
+
     # NLP — Keyword-based fallback (always available)
+
     # ═══════════════════════════════════════════════════
+
+
 
     def quality_gate(self, clip):
+
         """Classify clip into approve / review / reject tiers.
+
         
+
         Professional calibration criteria:
+
         - Reject: duration < 25s, viral_score < 50, weak hook
+
         - Review: context incomplete, payoff incomplete, technical review needed
+
         - Approve: strong score + complete context + complete payoff
+
         """
+
         duration = float(clip.get("duration", 0) or 0)
+
         score = int(clip.get("viral_score", 0) or 0)
+
         context = clip.get("context_complete", True)
+
         payoff = clip.get("payoff_complete", True)
+
         technical = clip.get("technical_review_required", False)
+
         hook = clip.get("has_hook", False)
+
         editorial_family = clip.get("editorial_family", "")
 
+
+
         # REJECT criteria (hard fail)
+
         # NOTA: o piso de duração acompanha MIN_DURATION (calibração Chub 31/08),
+
         # não um 25 hardcoded — senão o gate contradiz o seletor.
+
         if duration < MIN_DURATION:
+
             return "reject", "too_short"
+
         if score < 50:
+
             return "reject", "low_viral_score"
+
         if not hook:
+
             return "reject", "weak_hook"
 
+
+
         # Speech density floor: reject clips that are mostly silence.
+
         # O atributo é opcional; só aplica quando presente.
+
         speech_density = clip.get("speech_density")
+
         if speech_density is not None:
+
             try:
+
                 density_value = float(speech_density)
+
             except (TypeError, ValueError):
+
                 density_value = None
+
             if density_value is not None and density_value < 0.6:
+
                 return "reject", "low_speech_density"
 
+
+
         # REVIEW criteria (needs human judgment)
+
         if not context:
+
             return "review", "incomplete_context"
+
         if not payoff:
+
             return "review", "incomplete_payoff"
+
         if technical:
+
             return "review", "technical_review_required"
 
+
+
         # APPROVE (strong candidates)
+
         if score >= 80:
+
             return "approve", "high_score_complete"
+
         if score >= 60 and context and payoff:
+
             return "approve", "solid_score_complete"
 
+
+
         # Default: review for borderline cases
+
         return "review", "borderline_score"
 
+
+
     def _select_with_nlp(self, sentences, energy_profile, user_context, emit_progress, editorial_context=None):
+
         """NLP-based fallback when no AI backend is available."""
+
         if emit_progress:
+
             emit_progress("[NLP] Construindo clips com analise por palavras-chave...")
 
+
+
         blocks = self._build_transcript_blocks(sentences)
+
         if not blocks:
+
             return []
+
+
 
         context_data = self._prepare_context_matching(user_context) if user_context else None
 
+
+
         scored_blocks = []
+
         for block in blocks:
+
             score = self._nlp_score_block(block, user_context, energy_profile, context_data, editorial_context)
+
             scored_blocks.append((block, score))
+
+
 
         clips = self._build_clips_from_scored_blocks(scored_blocks, context_data, editorial_context)
 
+
+
         # SPEAKER FILTERING: When names are specified, EXCLUDE clips without them
+
         if context_data and context_data["names"]:
+
             target_names = context_data["names"]
+
             filtered = []
+
             for clip in clips:
+
                 clip_text_lower = clip["text"].lower()
+
                 has_target = any(name in clip_text_lower for name in target_names)
+
                 if has_target:
+
                     filtered.append(clip)
+
             # If filtering removes too many, keep at least some clips
+
             if len(filtered) >= 3:
+
                 clips = filtered
+
             elif emit_progress:
+
                 emit_progress(f"[NLP] Poucos clips com '{', '.join(target_names)}' na transcricao. Mostrando melhores disponiveis.", "warning")
+
+
 
         clips.sort(key=lambda x: x["viral_score"], reverse=True)
 
+
+
         if emit_progress:
+
             emit_progress(f"[NLP] Encontrou {len(clips)} clips candidatos")
 
+
+
         for clip in clips:
+
             clip["editorial_gate_status"] = self.quality_gate(clip)
+
+
 
         return clips
 
+
+
     def _prepare_context_matching(self, user_context):
+
         """Pre-process user context for efficient matching."""
+
         text_lower = user_context.lower()
 
+
+
         all_words = [w.strip('.,;:!?"()') for w in text_lower.split()]
+
         context_words = [w for w in all_words if len(w) > 2]
 
+
+
         stop_words_pt = {
+
             "quero", "quando", "como", "onde", "sobre", "para", "este", "esta",
+
             "esse", "essa", "principalmente", "extrair", "momentos", "onde",
+
             "esteja", "falando", "clips", "cortes", "video", "fazer", "pedir",
+
             "quais", "melhor", "mais", "menos", "muito", "pouco", "todos",
+
             "todas", "cada", "outro", "outra", "outros", "outras", "aqui",
+
             "ali", "isso", "isto", "aquilo", "dele", "dela", "deles", "delas",
+
             "nele", "nela", "neles", "nelas", "meu", "minha", "seu", "sua",
+
             "nosso", "nossa", "vosso", "vossa", "com", "sem", "por", "entre",
+
             "contra", "desde", "ate", "apos", "antes", "depois", "durante",
+
             "pode", "deve", "quer", "tem", "vai", "vem", "esta", "estao",
+
             "foram", "seria", "seria", "fosse", "sendo", "sido", "tendo",
+
             "tendo", "faz", "fez", "faria", "somente", "apenas", "tambem",
+
             "ainda", "agora", "logo", "sempre", "nunca", "talvez", "sim",
+
             "nao", "bem", "mal", "assim", "entao", "pois", "porque", "como",
+
             "sobresaia", "estaja", "respondendo", "perguntas", "mitando",
+
             "debate", "neste", "nesta", "deste", "desta",
+
         }
+
+
 
         names = []
+
         for w in user_context.split():
+
             clean = w.strip('.,;:!?"()')
+
             if not clean or len(clean) < 3 or len(clean) > 12:
+
                 continue
+
             clean_lower = clean.lower()
+
             if clean_lower in stop_words_pt:
+
                 continue
+
             if clean.isdigit():
+
                 continue
+
             # Only treat as name if starts with uppercase
+
             if clean[0].isupper():
+
                 common_short = {"que", "mas", "nem", "dos", "das", "nos", "nas",
+
                                 "uns", "uma", "umas", "ele", "ela", "eles", "elas",
+
                                 "sao", "era", "foi", "ser", "ter", "ver", "dar",
+
                                 "vir", "por", "pre", "pos", "sub", "pro",
+
                                 "se", "no", "na", "ao", "os", "as", "de", "do",
+
                                 "da", "em", "um", "ou", "ja", "so", "ha", "la"}
+
                 if clean_lower not in common_short:
+
                     if clean_lower not in names:
+
                         names.append(clean_lower)
 
+
+
         phrases = []
+
         parts = re.split(r'[,;.!?]', text_lower)
+
         for part in parts:
+
             part = part.strip()
+
             words_in_part = part.split()
+
             if len(words_in_part) >= 3:
+
                 phrases.append(part)
+
             numeric_phrases = re.findall(r'\d+[\s\w]*\d+[\s\w]*', part)
+
             for np_match in numeric_phrases:
+
                 if len(np_match.split()) >= 2:
+
                     phrases.append(np_match.strip())
 
+
+
         return {
+
             "words": context_words,
+
             "names": names,
+
             "phrases": phrases,
+
             "raw": text_lower,
+
         }
+
+
 
     def _nlp_score_block(self, block, user_context, energy_profile, context_data=None, editorial_context=None):
+
         """Score a block using NLP heuristics."""
+
         text = block["text"].lower()
+
         score = 40
 
+
+
         # Hook detection
+
         first_words = " ".join(text.split()[:15])
+
         hook_patterns = [
+
             r"voce\s+sabia", r"presta\s+atencao", r"olha\s+isso",
+
             r"a\s+verdade\s+e", r"ninguem\s+te", r"cuidado",
+
             r"absurdo", r"vergonha", r"mentira", r"bomba",
+
             r"urgente", r"inacreditavel", r"chocante",
+
             r"vou\s+te\s+falar", r"isso\s+e\s+muito",
+
             r"nao\s+pode", r"tem\s+que",
+
         ]
+
         hook_score = 0
+
         for pattern in hook_patterns:
+
             if re.search(pattern, first_words):
+
                 hook_score += 12
+
         hook_score = min(20, hook_score)
 
+
+
         # Emotional intensity
+
         emotional_words = [
+
             "absurdo", "vergonha", "mentira", "corrupto", "criminoso",
+
             "covarde", "traidor", "hipocrita", "lixo", "revolta",
+
             "liberdade", "patriota", "coragem", "vitoria", "luta",
+
             "impressionante", "incrivel", "surreal", "chocante",
+
             "inacreditavel", "povo", "nacao", "brasil",
+
         ]
+
         word_list = text.split()
+
         emotional_count = sum(1 for w in word_list if any(ew in w for ew in emotional_words))
+
         emotional_density = emotional_count / max(len(word_list), 1)
+
         emotional_score = min(20, emotional_density * 200)
 
+
+
         # Punctuation energy
+
         excl_count = block["text"].count("!")
+
         quest_count = block["text"].count("?")
+
         punct_score = min(10, excl_count * 4 + quest_count * 2)
 
+
+
         # Filler word penalty
+
         filler_count = 0
+
         for fw in FILLER_WORDS_PT:
+
             if " " in fw:
+
                 filler_count += text.count(fw)
+
             else:
+
                 filler_count += sum(1 for w in word_list if w == fw)
+
         filler_density = filler_count / max(len(word_list), 1)
+
         filler_penalty = min(15, filler_density * 150)
 
+
+
         # User context relevance
+
         context_score = 0
+
         if context_data:
+
             context_score = self._compute_context_score(text, context_data)
 
+
+
         # Duration is a soft preference: shorter complete blocks are rewarded,
+
         # while long blocks remain eligible when their context is stronger.
+
         duration = block["duration"]
+
         duration_score = self._duration_score(duration)
+
         dossier_score = self._dossier_context_score(block, editorial_context)
 
+
+
         # Sentence completeness
+
         if block["text"].strip()[-1:] in ".!?":
+
             completeness_score = 10
+
         else:
+
             completeness_score = -15
 
+
+
         total = (score + hook_score + emotional_score + punct_score
+
                  + context_score + duration_score + completeness_score
+
                  + dossier_score - filler_penalty)
+
         return max(0, min(100, total))
 
+
+
     def _dossier_context_score(self, block, editorial_context):
+
         """Use the local dossier as a bounded tie-breaker for offline selection."""
+
         if not isinstance(editorial_context, dict):
+
             return 0.0
+
         start = float(block.get("start", 0) or 0)
+
         end = float(block.get("end", start) or start)
+
         best_hook = 0.0
+
         for hook in editorial_context.get("hook_candidates", []) or []:
+
             try:
+
                 hook_start = float(hook.get("start", 0) or 0)
+
                 hook_end = float(hook.get("end", hook_start) or hook_start)
+
                 hook_score = max(0.0, float(hook.get("score", 0) or 0))
+
             except (TypeError, ValueError):
+
                 continue
+
             overlap = max(0.0, min(end, hook_end) - max(start, hook_start))
+
             if overlap > 0:
+
                 # A hook without a confirmed payoff is still a useful review
+
                 # lead, but must not receive the same selection bonus as a
+
                 # self-contained editorial opening.
+
                 hook_bonus_cap = 8.0 if _coerce_flag(hook.get("payoff_confirmed")) else 2.0
+
                 best_hook = max(best_hook, min(hook_bonus_cap, hook_score * 0.08))
+
         qa_bonus = 0.0
+
         qa_context_gap = 0.0
+
         for candidate in editorial_context.get("qa_candidates", []) or []:
+
             qa_start = float(candidate.get("start", 0) or 0)
+
             qa_end = float(candidate.get("end", qa_start) or qa_start)
+
             overlap = max(0.0, min(end, qa_end) - max(start, qa_start))
+
             if overlap <= 0:
+
                 continue
+
             needs_question = _coerce_flag(candidate.get("needs_question"))
+
             preserves_question = start <= qa_start + 2.5
+
             preserves_response = end >= qa_end - 2.5
+
             if needs_question and not preserves_question:
+
                 # Do not reward a response-only window as a complete Q&A clip.
+
                 qa_context_gap = max(qa_context_gap, 2.5)
+
                 continue
+
             if needs_question and not preserves_response:
+
                 qa_context_gap = max(qa_context_gap, 1.5)
+
                 continue
+
             qa_bonus = 3.0 if _coerce_flag(candidate.get("speaker_boundary")) else 1.5
+
             break
+
         return round(max(-4.0, min(10.0, best_hook + qa_bonus - qa_context_gap)), 2)
 
+
+
     def _duration_score(self, duration):
+
         duration = max(0.0, float(duration or 0.0))
+
         if duration < self.min_duration:
+
             return -8
+
         if duration <= self.min_duration + 15:
+
             return 10
+
         if duration <= self.min_duration + 75:
+
             return 7
+
         if duration <= self.preferred_max_duration:
+
             return 2
+
         if duration <= self.max_duration:
+
             return -1
+
         return -5
 
+
+
     def _duration_label(self, duration, selection):
+
         if duration <= self.preferred_max_duration:
+
             return "curto_preferencial"
+
         flow = str(selection.get("flow", "B")).upper()
+
         if flow == "A":
+
             return "excecao_contextual"
+
         return "longo_para_revisao"
 
+
+
     def _compute_context_score(self, text, context_data):
+
         """Compute context relevance score."""
+
         score = 0
 
+
+
         for phrase in context_data["phrases"]:
+
             if phrase in text:
+
                 score += 20
 
+
+
         for name in context_data["names"]:
+
             if name in text:
+
                 score += 25
 
+
+
         for cw in context_data["words"]:
+
             if len(cw) > 1 and cw in text:
+
                 score += 5
 
+
+
         name_bonus = sum(25 for n in context_data["names"] if n in text)
+
         if name_bonus > 0:
+
             return min(80, score)
+
         return min(60, score)
 
+
+
     @staticmethod
+
     def _has_multiple_speakers(block):
+
         """Return True only for an explicit collection with multiple speakers."""
+
         speakers = block.get("speakers") if isinstance(block, dict) else None
+
         if not isinstance(speakers, (list, tuple, set)):
+
             return False
+
         normalized = {str(item).strip().lower() for item in speakers if str(item).strip()}
+
         return len(normalized) > 1
 
+
+
     def _editorial_flags(self, text, metadata=None):
+
         """Return conservative, explainable gates shared by every backend."""
+
         raw = str(text or "").strip()
+
         metadata = metadata if isinstance(metadata, dict) else {}
+
         normalized = raw.lower()
+
         words = re.findall(r"[\wÀ-ÿ-]+", normalized)
+
         first_word = words[0] if words else ""
+
         continuation_starters = {item.lower() for item in CONTINUATION_STARTERS_PT}
+
         starts_mid_sentence = first_word in continuation_starters
+
         first_two_words = " ".join(words[:2]) if len(words) >= 2 else first_word
+
         reference_starters = {item.lower() for item in CONTEXT_REFERENCE_STARTERS_PT}
+
         starts_with_context_reference = first_word in reference_starters or first_two_words in reference_starters
+
         has_question = self._looks_like_explicit_question(raw)
+
         question_index = raw.find("?")
+
         response_text = raw[question_index + 1:] if question_index >= 0 else ""
+
         response_words = len(re.findall(r"[\wÀ-ÿ-]+", response_text))
+
         response_closed = response_text.strip().endswith((".", "!", "?"))
+
         question_answer_complete = bool(
+
             has_question and response_words >= 8 and (response_closed or response_words >= 14)
+
         )
+
         normalized_words = set(re.findall(r"[\wÀ-ÿ-]+", normalized))
+
         has_evidence = bool(normalized_words & {term.lower() for term in EVIDENCE_TERMS_PT})
+
         ends_closed = raw.endswith((".", "!", "?"))
+
         tail_words = re.findall(r"[\wÀ-ÿ-]+", normalized)
+
         tail = tail_words[-2:] if tail_words else []
+
         weak_payoff_ending = bool(tail and tail[-1] in WEAK_PAYOFF_ENDINGS_PT)
+
         if len(tail) >= 2 and " ".join(tail[-2:]) in WEAK_PAYOFF_ENDINGS_PT:
+
             weak_payoff_ending = True
+
         cliffhanger = any(pattern in normalized[-220:] for pattern in ("em breve", "depois eu", "na proxima", "fique ligado", "vou mostrar"))
+
         # Relax weak_payoff_ending when a strong period appears before the weak
+
         # conjunction (e.g. "texto completo. Então."), so completed thoughts are
+
         # not penalized just because the final word is a discourse connector.
+
         has_strong_period_before_weak = False
+
         if weak_payoff_ending and tail:
+
             last_weak_word = tail[-1]
+
             weak_word_idx = normalized.rfind(last_weak_word)
+
             if weak_word_idx > 0:
+
                 text_before_weak = normalized[:weak_word_idx]
+
                 if any(ch in text_before_weak for ch in (".", "!", "?")):
+
                     has_strong_period_before_weak = True
+
         payoff_complete = bool(ends_closed and not cliffhanger and (not weak_payoff_ending or has_strong_period_before_weak))
 
+
+
         # Fecho em pergunta não respondida. A última frase interroga e nada vem
+
         # depois: o espectador fica pendurado. Detectado pelo trecho após o
+
         # último ponto final — só conta se a pergunta é a frase que ENCERRA o
+
         # clipe, não uma pergunta retórica no meio do raciocínio.
+
         ends_on_question = False
+
         if raw.endswith("?"):
+
             ultima_frase = re.split(r"[.!]", raw)[-1].strip()
+
             palavras_finais = re.findall(r"[\wÀ-ÿ-]+", ultima_frase.lower())
+
             # Confirmação retórica no fim da própria fala ("..., né?", "...,
+
             # certo?", "..., entendeu?") é vício de oralidade, não pergunta
+
             # aberta — o pensamento está completo, só termina buscando eco.
+
             CONFIRMACOES = {
+
                 "ne", "né", "certo", "entendeu", "entende", "sabe", "viu",
+
                 "ta", "tá", "okay", "ok", "concorda", "verdade", "pois",
+
             }
+
             eco_retorico = bool(palavras_finais and palavras_finais[-1] in CONFIRMACOES)
+
             # Pergunta de verdade tem interrogativo ou verbo dirigido a alguém.
+
             ends_on_question = len(palavras_finais) >= 4 and not eco_retorico
+
         if ends_on_question:
+
             payoff_complete = False
 
+
+
         # Abertura cerimonial só conta no início real do trecho: os primeiros
+
         # ~140 caracteres. Uma menção a "bem-vindo" no meio de um argumento é
+
         # conteúdo legítimo e não pode punir o corte.
+
         ceremonial_opening = any(
+
             marcador in normalized[:140] for marcador in CEREMONIAL_OPENING_PT
+
         )
+
         overlap_suspected = _coerce_flag(metadata.get("overlap_suspected"))
+
         timing_ambiguous = _coerce_flag(metadata.get("timing_ambiguous"))
+
         topic_boundary = _coerce_flag(metadata.get("topic_boundary")) or _coerce_flag(metadata.get("topic_change_detected"))
+
         speaker_turn_valid = _coerce_flag(metadata.get("speaker_turn_valid"), default=True)
+
         needs_speaker_review = _coerce_flag(metadata.get("needs_speaker_review")) or _coerce_flag(metadata.get("speaker_review_required"))
+
         needs_topic_review = _coerce_flag(metadata.get("needs_topic_review")) or topic_boundary
+
         context_complete = bool(
+
             not starts_mid_sentence
+
             and not starts_with_context_reference
+
             and payoff_complete
+
             and len(words) >= 8
+
             and not overlap_suspected
+
             and not timing_ambiguous
+
             and speaker_turn_valid is not False
+
         )
+
         # Allow strong CTA/mobilization openings even when they start mid-sentence.
+
         if not context_complete and payoff_complete and len(words) >= 8:
+
             cta_signals = {"eleitores", "brasileiros", "missão", "candidatos", "número", "olhem", "escolham", "voto", "votar", "apoie", "compartilhe", "siga", "partido", "campanha", "vencer", "derrotar"}
+
             text_words = {w.lower().strip(".,!?;:") for w in words if w}
+
             if text_words & cta_signals:
+
                 context_complete = True
+
         return {
+
             "starts_mid_sentence": starts_mid_sentence,
+
             "starts_with_context_reference": starts_with_context_reference,
+
             "question_detected": has_question,
+
             "question_answer_complete": question_answer_complete,
+
             "evidence_present": has_evidence,
+
             "payoff_complete": payoff_complete,
+
             "payoff_weak_ending": weak_payoff_ending,
+
             "context_complete": context_complete,
+
             "qa_bridge": bool(
+
                 question_answer_complete
+
                 and not overlap_suspected
+
                 and not timing_ambiguous
+
                 and not topic_boundary
+
                 and speaker_turn_valid is not False
+
             ),
+
             "speaker_turn_valid": speaker_turn_valid,
+
             "needs_speaker_review": needs_speaker_review,
+
             "speaker_review_reason": (
+
                 "ponte pergunta–resposta sem diarização confiável; confirmar áudio e vídeo"
+
                 if needs_speaker_review else ""
+
             ),
+
             "overlap_suspected": overlap_suspected,
+
             "timing_ambiguous": timing_ambiguous,
+
             "topic_boundary": topic_boundary,
+
             "needs_topic_review": needs_topic_review,
+
             "topic_review_reason": (
+
                 "mudança de tópico detectada; confirmar continuidade do assunto"
+
                 if needs_topic_review else ""
+
             ),
+
             "timing_confidence": metadata.get("timing_confidence"),
+
             # Fio solto no fecho: o clipe termina fazendo uma pergunta que ele
+
             # mesmo não responde. Caso real da coletiva (01/09, corte 3): começa
+
             # na pergunta de um repórter e termina na pergunta de OUTRO — o
+
             # espectador fica esperando uma resposta que nunca vem.
+
             "ends_on_question": ends_on_question,
+
             # Abertura cerimonial: o corte começa com saudação/vinheta de
+
             # programa em vez de conteúdo. Só conta quando está no COMEÇO do
+
             # trecho — "bem-vindo" citado no meio de um argumento é conteúdo.
+
             "ceremonial_opening": ceremonial_opening,
+
         }
+
+
 
     def _opening_context_signal(self, start_block, previous_block=None):
+
         """Detect a weak opening even when the transcript is sentence-complete.
 
+
+
         A frequent editorial failure is a response block that starts after the
+
         interviewer question. Existing markers catch pronouns and conjunctions,
+
         but not a clean answer such as ``A proposta...``. We only recover the
+
         adjacent block when it ends like a question and the candidate itself is
+
         not another question, keeping the expansion conservative.
+
         """
+
         opening_flags = self._editorial_flags(start_block.get("text", ""), start_block)
+
         if opening_flags.get("starts_mid_sentence") or opening_flags.get("starts_with_context_reference"):
+
             return {
+
                 "weak": True,
+
                 "reason": "antecedente recuperado antes de início truncado",
+
             }
+
+
 
         if not isinstance(previous_block, dict):
+
             return {"weak": False, "reason": "antecedente não precisou ser recuperado"}
+
+
 
         previous_text = str(previous_block.get("text") or "").strip()
+
         current_text = str(start_block.get("text") or "").strip()
+
         if not previous_text or not current_text:
+
             return {"weak": False, "reason": "antecedente não precisou ser recuperado"}
+
+
 
         previous_ends_as_question = previous_text.rstrip().endswith(("?", ":"))
+
         previous_looks_like_question = self._looks_like_explicit_question(previous_text)
+
         if not previous_ends_as_question and not previous_looks_like_question:
+
             return {"weak": False, "reason": "antecedente não precisou ser recuperado"}
+
+
 
         first_word = re.sub(r"[^\wÀ-ÿ-]", "", current_text.lower().split()[0]) if current_text.split() else ""
+
         response_starters = {
+
             "sim", "não", "nao", "depende", "exatamente", "claro", "olha",
+
             "bom", "eu", "a", "o", "uma", "um", "essa", "esse", "isso",
+
         }
+
         current_is_another_question = self._looks_like_explicit_question(current_text)
+
         if current_is_another_question and first_word not in response_starters:
+
             return {"weak": False, "reason": "antecedente não precisou ser recuperado"}
 
+
+
         return {
+
             "weak": True,
+
             "reason": "antecedente recuperado para preservar pergunta e resposta",
+
         }
+
+
 
     @staticmethod
+
     def _looks_like_explicit_question(text):
+
         """Detect explicit question blocks without treating explanations as questions."""
+
         raw = str(text or "").strip().lower()
+
         if not raw:
+
             return False
+
         if "?" in raw[:160]:
+
             return True
+
         normalized = re.sub(r"^[\\\"'“”‘’([{]+", "", raw).strip()
+
         question_labels = (
+
             "pergunta:", "pergunta é", "a pergunta:", "a pergunta é",
+
             "questão:", "questão é", "a questão:", "a questão é",
+
         )
+
         if normalized.startswith(question_labels):
+
             return True
+
         words = re.findall(r"[\wÀ-ÿ-]+", normalized)
+
         question_prefixes = {
+
             ("como", "é"), ("como", "foi"), ("como", "fazer"), ("como", "combater"),
+
             ("qual", "é"), ("qual", "foi"), ("quais", "são"), ("quais", "foram"),
+
             ("quem", "é"), ("quem", "foi"), ("quando", "foi"), ("quando", "será"),
+
             ("onde", "está"), ("onde", "foi"), ("por", "que"), ("o", "que"),
+
             ("será", "que"), ("seria", "possível"), ("você", "acha"),
+
             ("vocês", "acham"), ("você", "concorda"), ("vocês", "concordam"),
+
             ("você", "acredita"), ("vocês", "acreditam"),
+
             ("você", "pode"), ("vocês", "podem"), ("pode", "explicar"),
+
             ("pode", "falar"), ("poderia", "explicar"), ("poderia", "falar"),
+
             ("me", "explica"), ("me", "diz"), ("me", "diga"),
+
         }
+
         return tuple(words[:2]) in question_prefixes
 
+
+
     def _extend_for_payoff(self, clip_blocks, clip_end_idx, scored_blocks, used_indices):
+
         """Add adjacent blocks only when the current ending is still open.
 
+
+
         A sentence may end with punctuation while the thought remains open
+
         (for example, ``porque.``). The previous builder stopped too early in
+
         that case, which matches the dominant ``no_payoff`` feedback. This
+
         helper uses the same conservative editorial flags as the final gate,
+
         adds at most three adjacent blocks, and never crosses the technical
+
         duration ceiling or a block already claimed by another candidate.
+
         """
+
         if not clip_blocks:
+
             return clip_blocks, clip_end_idx
 
+
+
         additions = 0
+
         while additions < 3:
+
             clip_text = " ".join(block.get("text", "") for block in clip_blocks)
+
             metadata = {
+
                 "overlap_suspected": any(_coerce_flag(block.get("overlap_suspected")) for block in clip_blocks),
+
                 "timing_ambiguous": any(_coerce_flag(block.get("timing_ambiguous")) for block in clip_blocks),
+
                 "topic_boundary": any(
+
                     _coerce_flag(block.get("topic_boundary")) or _coerce_flag(block.get("topic_change_detected"))
+
                     for block in clip_blocks
+
                 ),
+
                 "speaker_turn_valid": (
+
                     False
+
                     if any(
+
                         _coerce_flag(block.get("speaker_turn_valid"), default=True) is False
+
                         or _coerce_flag(block.get("speaker_change_detected"))
+
                         or self._has_multiple_speakers(block)
+
                         for block in clip_blocks
+
                     )
+
                     else True
+
                 ),
+
             }
+
             flags = self._editorial_flags(clip_text, metadata)
+
             if flags.get("payoff_complete"):
+
                 break
+
+
 
             next_idx = clip_end_idx + 1
+
             if next_idx >= len(scored_blocks) or next_idx in used_indices:
-                break
-            next_block = scored_blocks[next_idx][0]
-            if (
-                _coerce_flag(next_block.get("overlap_suspected"))
-                or _coerce_flag(next_block.get("timing_ambiguous"))
-                or _coerce_flag(next_block.get("topic_boundary"))
-                or _coerce_flag(next_block.get("topic_change_detected"))
-                or _coerce_flag(next_block.get("speaker_turn_valid"), default=True) is False
-                or _coerce_flag(next_block.get("speaker_change_detected"))
-                or self._has_multiple_speakers(next_block)
-            ):
-                break
-            current_speaker = str(clip_blocks[-1].get("speaker") or "").strip()
-            next_speaker = str(next_block.get("speaker") or "").strip()
-            if current_speaker and next_speaker and current_speaker != next_speaker:
-                break
-            next_start = float(next_block.get("start", 0) or 0)
-            current_end = float(clip_blocks[-1].get("end", 0) or 0)
-            gap_seconds = next_start - current_end
-            if gap_seconds < -0.25 or gap_seconds > 2.5:
-                break
-            next_text = str(next_block.get("text") or "").strip()
-            next_looks_like_question = self._looks_like_explicit_question(next_text)
-            if next_looks_like_question:
-                break
-            new_duration = float(next_block.get("end", 0)) - float(clip_blocks[0].get("start", 0))
-            if new_duration > self.max_duration:
+
                 break
 
+            next_block = scored_blocks[next_idx][0]
+
+            if (
+
+                _coerce_flag(next_block.get("overlap_suspected"))
+
+                or _coerce_flag(next_block.get("timing_ambiguous"))
+
+                or _coerce_flag(next_block.get("topic_boundary"))
+
+                or _coerce_flag(next_block.get("topic_change_detected"))
+
+                or _coerce_flag(next_block.get("speaker_turn_valid"), default=True) is False
+
+                or _coerce_flag(next_block.get("speaker_change_detected"))
+
+                or self._has_multiple_speakers(next_block)
+
+            ):
+
+                break
+
+            current_speaker = str(clip_blocks[-1].get("speaker") or "").strip()
+
+            next_speaker = str(next_block.get("speaker") or "").strip()
+
+            if current_speaker and next_speaker and current_speaker != next_speaker:
+
+                break
+
+            next_start = float(next_block.get("start", 0) or 0)
+
+            current_end = float(clip_blocks[-1].get("end", 0) or 0)
+
+            gap_seconds = next_start - current_end
+
+            if gap_seconds < -0.25 or gap_seconds > 2.5:
+
+                break
+
+            next_text = str(next_block.get("text") or "").strip()
+
+            next_looks_like_question = self._looks_like_explicit_question(next_text)
+
+            if next_looks_like_question:
+
+                break
+
+            new_duration = float(next_block.get("end", 0)) - float(clip_blocks[0].get("start", 0))
+
+            if new_duration > self.max_duration:
+
+                break
+
+
+
             clip_blocks.append(next_block)
+
             clip_end_idx = next_idx
+
             additions += 1
+
+
 
         return clip_blocks, clip_end_idx
 
+
+
     def _refine_clip_boundaries(self, clip_blocks):
+
         """Tighten clip edges around the first and last timed words when safe.
 
+
+
         Segment timestamps frequently include breathing room before speech and
+
         after the last word. Word timings let us remove only that dead air. The
+
         method is deliberately conservative: it applies a small pad, caps the
+
         trim on each side, and leaves the original interval untouched when word
+
         timing is missing, invalid, or would make the clip too short.
+
         """
+
         if not clip_blocks:
+
             return 0.0, 0.0, {"applied": False, "reason": "sem_blocos"}
+
         try:
+
             original_start = float(clip_blocks[0].get("start", 0) or 0)
+
             original_end = float(clip_blocks[-1].get("end", original_start) or original_start)
+
         except (TypeError, ValueError):
+
             return 0.0, 0.0, {"applied": False, "reason": "intervalo_invalido"}
+
         if not math.isfinite(original_start) or not math.isfinite(original_end) or original_end <= original_start:
+
             return original_start, original_end, {"applied": False, "reason": "intervalo_invalido"}
 
+
+
         spans = []
+
         for block in clip_blocks:
+
             for span in block.get("word_spans") or []:
+
                 if not isinstance(span, dict):
+
                     continue
+
                 try:
+
                     word_start = float(span.get("start"))
+
                     word_end = float(span.get("end"))
+
                 except (TypeError, ValueError):
+
                     continue
+
                 if not math.isfinite(word_start) or not math.isfinite(word_end):
+
                     continue
+
                 if original_start <= word_start < word_end <= original_end:
+
                     spans.append((word_start, word_end))
+
         if not spans:
+
             return original_start, original_end, {"applied": False, "reason": "sem_timestamps_de_palavras"}
 
+
+
         first_word_start = min(item[0] for item in spans)
+
         last_word_end = max(item[1] for item in spans)
+
         pad_before = 0.12
+
         pad_after = 0.12
+
         max_trim_each_side = 0.8
+
         refined_start = max(original_start, first_word_start - pad_before)
+
         refined_end = min(original_end, last_word_end + pad_after)
+
         refined_start = max(refined_start, original_start)
+
         refined_end = min(refined_end, original_end)
+
         if original_start + max_trim_each_side < refined_start:
+
             refined_start = original_start + max_trim_each_side
+
         if original_end - max_trim_each_side > refined_end:
+
             refined_end = original_end - max_trim_each_side
 
+
+
         minimum_safe_duration = max(float(self.min_duration), 2.0)
+
         if refined_end - refined_start < minimum_safe_duration:
+
             return original_start, original_end, {"applied": False, "reason": "poda_reduziria_duracao", "minimum_safe_duration": minimum_safe_duration}
+
         trim_before = max(0.0, refined_start - original_start)
+
         trim_after = max(0.0, original_end - refined_end)
+
         if trim_before < 0.05 and trim_after < 0.05:
+
             return original_start, original_end, {"applied": False, "reason": "sem_silencio_significativo"}
+
         return (
+
             round(refined_start, 3),
+
             round(refined_end, 3),
+
             {
+
                 "applied": True,
+
                 "reason": "ancorado_nas_palavras_com_margem_conservadora",
+
                 "original_start": round(original_start, 3),
+
                 "original_end": round(original_end, 3),
+
                 "first_word_start": round(first_word_start, 3),
+
                 "last_word_end": round(last_word_end, 3),
+
                 "trim_before": round(trim_before, 3),
+
                 "trim_after": round(trim_after, 3),
+
             },
+
         )
+
+
 
     def _calculate_speech_density(self, clip_blocks, clip_start, clip_end):
+
         """Calcular proporção do clipe coberta por fala real.
 
+
+
         Como _build_sentences descarta segmentos vazios, blocos construídos
+
         contêm apenas fala. Esta métrica retorna 1.0 nesses casos, mas
+
         serve como hook para futura integração com silencedetect/VAD.
+
         """
+
         if not clip_blocks:
+
             return 0.0
+
         block_speech = sum(
+
             max(0.0, min(float(b.get('end', 0)), clip_end) - max(float(b.get('start', 0)), clip_start))
+
             for b in clip_blocks
+
         )
+
         duration = max(0.001, clip_end - clip_start)
+
         return min(1.0, block_speech / duration)
 
+
+
     def _build_clips_from_scored_blocks(self, scored_blocks, context_data=None, editorial_context=None):
+
         """Build clips by joining only the blocks needed for context and payoff.
+
         Enforces the technical ceiling on all clips without imposing a fixed length.
+
         """
+
         clips = []
+
         used_indices = set()
+
+
 
         sorted_by_score = sorted(enumerate(scored_blocks), key=lambda x: x[1][1], reverse=True)
 
+
+
         for start_idx, (start_block, start_score) in sorted_by_score:
+
             if start_idx in used_indices:
+
                 continue
+
+
 
             clip_blocks = [start_block]
+
             clip_duration = start_block["duration"]
+
             clip_end_idx = start_idx
 
+
+
             # Whisper blocks can begin with a continuation or an unresolved
+
             # reference after a pause. Recover adjacent context when safe instead
+
             # of publishing an abrupt start such as “isso aconteceu...”.
+
             previous_block = scored_blocks[start_idx - 1][0] if start_idx > 0 else None
+
             opening_signal = self._opening_context_signal(start_block, previous_block)
+
             context_recovery = None
+
             if (
+
                 opening_signal["weak"]
+
                 and start_idx > 0
+
                 and (start_idx - 1) not in used_indices
+
             ):
+
                 previous_block = scored_blocks[start_idx - 1][0]
+
                 gap = float(start_block.get("start", 0)) - float(previous_block.get("end", 0))
+
                 joined_duration = float(start_block.get("end", 0)) - float(previous_block.get("start", 0))
+
                 previous_timing_safe = (
+
                     not _coerce_flag(previous_block.get("overlap_suspected"))
+
                     and _coerce_flag(previous_block.get("speaker_turn_valid"), default=True)
+
                     and not _coerce_flag(previous_block.get("speaker_change_detected"))
+
                     and not (_coerce_flag(previous_block.get("topic_boundary")) or _coerce_flag(previous_block.get("topic_change_detected")))
+
                     and not self._has_multiple_speakers(previous_block)
+
                 )
+
                 current_timing_safe = (
+
                     not _coerce_flag(start_block.get("overlap_suspected"))
+
                     and _coerce_flag(start_block.get("speaker_turn_valid"), default=True)
+
                     and not _coerce_flag(start_block.get("speaker_change_detected"))
+
                     and not (_coerce_flag(start_block.get("topic_boundary")) or _coerce_flag(start_block.get("topic_change_detected")))
+
                     and not self._has_multiple_speakers(start_block)
+
                 )
+
                 if -0.25 <= gap <= 2.5 and previous_timing_safe and current_timing_safe and joined_duration <= self.max_duration:
+
                     clip_blocks.insert(0, previous_block)
+
                     clip_duration = joined_duration
+
                     context_recovery = {
+
                         "applied": True,
+
                         "reason": opening_signal["reason"],
+
                         "added_start": float(previous_block.get("start", 0)),
+
                         "original_start": float(start_block.get("start", 0)),
+
                         "gap_seconds": round(max(0.0, gap), 3),
+
                     }
+
                     start_idx -= 1
 
+
+
             preferred_stop = min(float(self.target_duration or 45), 30.0)
+
             qa_completion_end = None
+
             for qa_candidate in (editorial_context or {}).get("qa_candidates", []) or []:
+
                 try:
+
                     qa_start = float(qa_candidate.get("start", 0) or 0)
+
                     qa_end = float(qa_candidate.get("end", qa_start) or qa_start)
+
                 except (TypeError, ValueError):
+
                     continue
+
                 if qa_end <= qa_start or not _coerce_flag(qa_candidate.get("needs_question")):
+
                     continue
+
                 starts_with_question = float(clip_blocks[0].get("start", 0) or 0) <= qa_start + 2.5
+
                 overlaps_question_window = float(clip_blocks[-1].get("end", 0) or 0) >= qa_start - 2.5
+
                 if starts_with_question and overlaps_question_window:
+
                     qa_completion_end = max(qa_completion_end or qa_end, qa_end)
+
             start_is_complete = (
+
                 clip_duration >= self.min_duration
+
                 and clip_duration >= preferred_stop
+
                 and start_block["text"].rstrip().endswith((".", "!", "?"))
+
                 and (qa_completion_end is None or float(clip_blocks[-1].get("end", 0) or 0) >= qa_completion_end - 2.5)
+
             )
+
             speaker_transitions = 0
+
             if not start_is_complete:
+
                 for next_idx in range(clip_end_idx + 1, len(scored_blocks)):
+
                     current_speaker = str(clip_blocks[-1].get("speaker") or "").strip()
+
                     next_speaker = str(scored_blocks[next_idx][0].get("speaker") or "").strip()
+
                     if current_speaker and next_speaker and current_speaker != next_speaker:
+
                         if qa_completion_end is None or speaker_transitions >= 1:
+
                             break
+
                         speaker_transitions += 1
+
                     if next_idx in used_indices:
+
                         break
+
                     next_block = scored_blocks[next_idx][0]
+
                     if (
+
                         _coerce_flag(next_block.get("overlap_suspected"))
+
                         or _coerce_flag(next_block.get("timing_ambiguous"))
+
                         or _coerce_flag(next_block.get("topic_boundary"))
+
                         or _coerce_flag(next_block.get("topic_change_detected"))
+
                         or _coerce_flag(next_block.get("speaker_turn_valid"), default=True) is False
+
                         or _coerce_flag(next_block.get("speaker_change_detected"))
+
                         or self._has_multiple_speakers(next_block)
+
                     ):
+
                         break
+
                     gap = float(next_block.get("start", 0)) - float(clip_blocks[-1].get("end", 0))
+
                     if gap < -0.25 or gap > 2.5:
+
                         break
+
                     new_duration = next_block["end"] - clip_blocks[0]["start"]
 
+
+
                     if new_duration > self.max_duration:
+
                         break
+
+
 
                     clip_blocks.append(next_block)
+
                     clip_duration = new_duration
+
                     clip_end_idx = next_idx
 
+
+
                     # Stop at the first natural ending after the minimum useful
+
                     # duration. The old target is only a soft hint for continuation.
+
                     natural_end = " ".join(b["text"] for b in clip_blocks)
+
                     qa_complete = qa_completion_end is None or float(next_block.get("end", 0) or 0) >= qa_completion_end - 2.5
+
                     if (
+
                         clip_duration >= self.min_duration
+
                         and clip_duration >= preferred_stop
+
                         and natural_end.rstrip().endswith((".", "!", "?"))
+
                         and qa_complete
+
                     ):
+
                         break
+
                     if clip_duration >= self.target_duration and qa_complete:
+
                         break
+
+
 
             clip_blocks, clip_end_idx = self._extend_for_payoff(
+
                 clip_blocks,
+
                 clip_end_idx,
+
                 scored_blocks,
+
                 used_indices,
+
             )
+
             clip_duration = float(clip_blocks[-1].get("end", 0)) - float(clip_blocks[0].get("start", 0))
 
+
+
             if clip_duration < self.min_duration:
+
                 continue
 
+
+
             for idx in range(start_idx, clip_end_idx + 1):
+
                 used_indices.add(idx)
 
+
+
             clip_text = " ".join(b["text"] for b in clip_blocks)
+
             clip_start, clip_end, boundary_refinement = self._refine_clip_boundaries(clip_blocks)
+
             qa_speaker_review = any(
+
                 _coerce_flag(qa_candidate.get("needs_speaker_review"))
+
                 and clip_start <= float(qa_candidate.get("end", 0) or 0) + 2.5
+
                 and clip_end >= float(qa_candidate.get("start", 0) or 0) - 2.5
+
                 for qa_candidate in (editorial_context or {}).get("qa_candidates", []) or []
+
             )
+
             block_speaker_review = any(_coerce_flag(block.get("needs_speaker_review")) for block in clip_blocks)
+
             clip_flags = self._editorial_flags(
+
                 clip_text,
+
                 {
+
                     "overlap_suspected": any(_coerce_flag(block.get("overlap_suspected")) for block in clip_blocks),
+
                     "timing_ambiguous": any(_coerce_flag(block.get("timing_ambiguous")) for block in clip_blocks),
+
                     "speaker_turn_valid": all(
+
                         _coerce_flag(block.get("speaker_turn_valid"), default=True)
+
                         for block in clip_blocks
+
                     ),
+
                     "needs_speaker_review": qa_speaker_review or block_speaker_review,
+
                     "timing_confidence": min(
+
                         [float(block.get("timing_confidence")) for block in clip_blocks if block.get("timing_confidence") is not None]
+
                         or [1.0]
+
                     ),
+
                 },
+
             )
+
+
 
             # ENFORCE max_duration — truncate if clip exceeds limit
+
             if clip_end - clip_start > self.max_duration:
+
                 clip_end = clip_start + self.max_duration
+
                 clip_duration = self.max_duration
+
             else:
+
                 clip_duration = clip_end - clip_start
 
+
+
             # Calculate speech density: proportion of clip covered by actual speech segments
+
             speech_density = self._calculate_speech_density(clip_blocks, clip_start, clip_end)
 
+
+
             # Gancho: densidade de fala só nos primeiros 30s, a janela que
+
             # concentra a retenção real (Chub, 708 vídeos). Antes só a via LLM
+
             # media isto — sem ele, um corte que abre em silêncio passava por
+
             # aqui sem punição nenhuma.
+
             hook_density = self._calculate_speech_density(
+
                 clip_blocks, clip_start, min(clip_end, clip_start + 30.0)
+
             )
+
+
 
             avg_score = sum(scored_blocks[i][1] for i in range(start_idx, clip_end_idx + 1)) / (clip_end_idx - start_idx + 1)
 
+
+
             # Nota do gancho. `start_score` sai da mesma escala comprimida dos
+
             # blocos NLP (base 40), então o limiar antigo de 50/75 reprovava
+
             # quase tudo: na entrevista IstoÉ, 13 de 15 candidatos com 100% de
+
             # fala, contexto e fecho completos morriam em "weak_hook".
+
             # Agora a abertura vale quando ELA de fato tem fala densa nos
+
             # primeiros 30s — o sinal medido no Chub — e não só quando as
+
             # palavras-gatilho do dicionário aparecem.
+
             hook_grade = "C"
+
             if start_score > 70 or (start_score > 45 and hook_density >= 0.9):
+
                 hook_grade = "A"
+
             elif start_score > 42 or hook_density >= 0.7:
+
                 hook_grade = "B"
+
             flow_grade = "A" if clip_flags["context_complete"] else ("B" if clip_flags["payoff_complete"] else "C")
+
             value_grade = "A" if avg_score > 70 else ("B" if avg_score > 50 else "C")
+
             energy_grade = "B"
+
+
 
             viral_score = int(avg_score)
 
+
+
             # Bônus por qualidade editorial confirmada.
+
             # A via NLP só subtraía: partia da média dos blocos (~45) e apenas
+
             # descia. Resultado medido na entrevista IstoÉ (01/09): os 15
+
             # candidatos ficaram entre 43 e 49 contra um piso de 50 no
+
             # quality_gate — nem o melhor deles, com 100% de fala, contexto e
+
             # fecho completos, conseguia passar. Zero cortes entregues num
+
             # vídeo de 32 minutos com material bom.
+
             # Os bônus abaixo espelham os sinais que a via LLM já premia, para
+
             # que as duas escalas fiquem comparáveis.
+
             if clip_flags["context_complete"] and clip_flags["payoff_complete"]:
+
                 # Pensamento inteiro: abre e fecha sem depender do que veio antes.
+
                 viral_score += 8
+
             if clip_flags.get("qa_bridge"):
+
                 # Pergunta e resposta no mesmo corte — formato que performa.
+
                 viral_score += 5
+
             if clip_flags.get("evidence_present"):
+
                 # Número, nome ou fato concreto em vez de opinião solta.
+
                 viral_score += 4
 
+
+
             if not clip_flags["context_complete"]:
+
                 viral_score -= 10
+
             if clip_flags["starts_mid_sentence"]:
+
                 viral_score -= 12
+
             if clip_flags["question_detected"] and not clip_flags["qa_bridge"]:
+
                 viral_score -= 10
+
             if not clip_flags["payoff_complete"]:
+
                 viral_score -= 12
+
             if clip_flags["overlap_suspected"]:
+
                 viral_score -= 16
+
             if clip_flags["timing_ambiguous"]:
+
                 viral_score -= 8
+
             # Abertura cerimonial (saudação de programa, vinheta, agradecimento
+
             # protocolar): locução contínua que soa saudável a qualquer medidor
+
             # de silêncio, mas não entrega conteúdo nenhum.
+
             if clip_flags.get("ceremonial_opening"):
+
                 viral_score -= 18
+
             # Mesma penalidade de gancho da via LLM: silêncio nos primeiros 30s
+
             # custa a audiência inteira, independente do caminho que gerou o corte.
+
             if hook_density < 0.5:
+
                 viral_score -= 25
+
             elif hook_density < 0.7:
+
                 viral_score -= 10
+
             viral_score = max(0, min(100, viral_score))
+
+
 
             title = self._generate_simple_title(clip_text)
 
+
+
             reason = ""
+
             if context_data and context_data["names"]:
+
                 matched_names = [n for n in context_data["names"] if n in clip_text.lower()]
+
                 if matched_names:
+
                     reason = f"Contem mencao a: {', '.join(matched_names)}"
 
+
+
             clips.append({
+
                 **clip_flags,
+
                 "start": clip_start,
+
                 "end": clip_end,
+
                 "duration": round(clip_duration, 3),
+
                 "text": clip_text,
+
                 "title": title,
+
                 "reason": reason,
+
                 "context_recovery": context_recovery or {"applied": False, "reason": "antecedente não precisou ser recuperado"},
+
                 "boundary_refinement": boundary_refinement,
+
                 "viral_score": viral_score,
+
                 "has_hook": hook_grade in ("A", "B"),
+
                 "speech_density": round(speech_density, 3),
+
                 "hook_density": round(hook_density, 3),
+
                 "breakdown": {
+
                     "hook": hook_grade,
+
                     "flow": flow_grade,
+
                     "value": value_grade,
+
                     "energy": energy_grade,
+
                 },
+
                 "source": "nlp",
+
                 "duration_preference": self._duration_label(clip_duration, {"flow": flow_grade}),
+
             })
+
+
 
         return clips
 
+
+
     def _generate_simple_title(self, text):
+
         """Generate a basic title from the clip text."""
+
         for end_char in ["!", "?", "."]:
+
             idx = text.find(end_char)
+
             if 10 < idx < 80:
+
                 title = text[:idx + 1].strip()
+
                 return title
+
         words = text.split()[:8]
+
         title = " ".join(words)
+
         if len(title) > 60:
+
             title = title[:57] + "..."
+
         return title
 
+
+
     # ═══════════════════════════════════════════════════
+
     # Post-processing helpers
+
     # ═══════════════════════════════════════════════════
+
+
 
     def _adjust_to_scene_boundaries(self, clips, scene_changes):
+
         """Snap only outward to nearby scene boundaries.
 
+
+
         A scene transition should not cut spoken content. Therefore an opening
+
         may move to the nearest earlier boundary and an ending to the nearest
+
         later boundary, but neither edge is allowed to move inward. Invalid or
+
         non-finite scene timestamps are ignored and the original interval is
+
         preserved when the expanded interval would be unsafe.
+
         """
+
         if not scene_changes or len(scene_changes) < 2:
+
             return clips
+
+
 
         safe_scenes = []
+
         for value in scene_changes:
+
             try:
+
                 boundary = float(value)
+
             except (TypeError, ValueError):
+
                 continue
+
             if math.isfinite(boundary) and boundary >= 0:
+
                 safe_scenes.append(boundary)
+
         safe_scenes = sorted(set(safe_scenes))
+
         if len(safe_scenes) < 2:
+
             return clips
 
+
+
         adjusted = []
+
         for clip in clips:
+
             try:
+
                 original_start = float(clip.get("start"))
+
                 original_end = float(clip.get("end"))
+
             except (AttributeError, TypeError, ValueError):
+
                 continue
+
             if not math.isfinite(original_start) or not math.isfinite(original_end) or original_start < 0 or original_end <= original_start:
+
                 continue
+
+
 
             best_start = original_start
+
             best_end = original_end
+
             earlier = [boundary for boundary in safe_scenes if boundary <= original_start and original_start - boundary < 2.0]
+
             later = [boundary for boundary in safe_scenes if boundary >= original_end and boundary - original_end < 2.0]
+
             if earlier:
+
                 best_start = max(earlier)
+
             if later:
+
                 best_end = min(later)
 
+
+
             max_duration = _safe_float(self.max_duration, TECHNICAL_MAX_DURATION)
+
             if best_end <= best_start or (
+
                 max_duration > 0 and best_end - best_start > max_duration
+
             ):
+
                 best_start = original_start
+
                 best_end = original_end
 
+
+
             clip["start"] = round(best_start, 3)
+
             clip["end"] = round(best_end, 3)
+
             clip["duration"] = round(best_end - best_start, 3)
+
             clip["scene_boundary_adjustment"] = {
+
                 "applied": best_start != original_start or best_end != original_end,
+
                 "original_start": round(original_start, 3),
+
                 "original_end": round(original_end, 3),
+
                 "adjusted_start": round(best_start, 3),
+
                 "adjusted_end": round(best_end, 3),
+
                 "direction": "outward_only",
+
             }
 
+
+
             if clip["duration"] >= self.min_duration:
+
                 adjusted.append(clip)
+
+
 
         return adjusted
 
+
+
     def _previous_contextually_distinct(self, clip, previous):
+
         """Keep nearby repeated wording when two independent editorial signals differ."""
+
         def flag(value):
+
             if isinstance(value, bool):
+
                 return value
+
             if isinstance(value, (int, float)):
+
                 return value != 0
+
             normalized = str(value or "").strip().lower()
+
             if normalized in {"1", "true", "yes", "sim", "on", "enabled"}:
+
                 return True
+
             return False
 
+
+
         evidence = 0
+
         if clip.get("closure_type") and previous.get("closure_type") and clip.get("closure_type") != previous.get("closure_type"):
+
             evidence += 1
+
         if flag(clip.get("question_answer_complete")) != flag(previous.get("question_answer_complete")):
+
             evidence += 1
+
         if flag(clip.get("payoff_complete")) != flag(previous.get("payoff_complete")):
+
             evidence += 1
+
         if flag(clip.get("qa_bridge")) != flag(previous.get("qa_bridge")):
+
             evidence += 1
+
         if clip.get("chapter_primary_id") and previous.get("chapter_primary_id") and clip.get("chapter_primary_id") != previous.get("chapter_primary_id"):
+
             evidence += 1
+
         if clip.get("political_editorial_type") and previous.get("political_editorial_type") and clip.get("political_editorial_type") != previous.get("political_editorial_type"):
+
             evidence += 1
+
         return evidence >= 2
 
 
+
+
+
     def _apply_energy_window_grouping(self, clips, energy_profile):
+
         """Group clips into 30s windows and keep the best candidate per window.
 
+
+
         Uses the configured energy_profile to pick the strongest moment inside
+
         each window. When no profile is provided the clips pass through
+
         unchanged.
+
         """
+
         if not clips or not energy_profile:
+
             return clips
+
+
 
         # Build fast lookup: start -> max energy within a tiny epsilon.
+
         energy_by_start = {}
+
         for point in energy_profile:
+
             try:
+
                 start = float(point.get("start", 0) or 0)
+
                 energy = float(point.get("energy", 0) or 0)
+
             except (TypeError, ValueError):
+
                 continue
+
             energy_by_start[start] = max(energy_by_start.get(start, 0.0), energy)
 
+
+
         def window_key(start):
+
             return int(start // 30)
 
+
+
         # Group clips by 30s window keyed by start time.
+
         windows = {}
+
         for clip in clips:
+
             try:
+
                 start = float(clip.get("start", 0) or 0)
+
             except (TypeError, ValueError):
+
                 continue
+
             key = window_key(start)
+
             windows.setdefault(key, []).append(clip)
 
+
+
         grouped = []
+
         for key, window_clips in windows.items():
+
             if len(window_clips) == 1:
+
                 grouped.append(window_clips[0])
+
                 continue
+
+
 
             # Keep the earliest start inside the window so the release order
+
             # remains stable; energy breaks ties only.
+
             def sort_key(clip):
+
                 start = float(clip.get("start", 0) or 0)
+
                 energy = energy_by_start.get(start, 0.0)
+
                 return (start, -energy)
 
+
+
             best = sorted(window_clips, key=sort_key)[0]
+
             grouped.append(best)
 
+
+
         grouped.sort(key=lambda c: float(c.get("start", 0) or 0))
+
         return grouped
 
+
+
     def _remove_previous_fingerprints(self, clips):
+
         """Drop candidates that were already exported for this source video."""
+
         previous = self._previous_clip_fingerprints
+
         if not previous or not clips:
+
             return clips
+
         selected = []
+
         for clip in clips:
+
             repeated = None
+
             for old in previous:
+
                 try:
+
                     old_start_raw = old.get("start", old.get("start_seconds"))
+
                     old_end_raw = old.get("end", old.get("end_seconds"))
+
                     old_start = float(old_start_raw)
+
                     old_duration = float(old.get("duration", old.get("duration_seconds", 0)) or 0)
+
                     old_end = float(old_end_raw) if old_end_raw is not None else old_start + old_duration
+
                     new_start = float(clip.get("start", 0) or 0)
+
                     new_end = float(clip.get("end", 0) or 0)
+
                 except (TypeError, ValueError):
+
                     continue
+
                 if not all(math.isfinite(value) for value in (old_start, old_end, new_start, new_end)):
+
                     continue
+
                 if old_start < 0 or old_end <= old_start or new_start < 0 or new_end <= new_start:
+
                     continue
+
                 old_duration = old_end - old_start
+
                 old_clip = {"start": old_start, "end": old_end, "duration": old_duration}
+
                 new_clip = {"start": new_start, "end": new_end, "duration": max(new_end - new_start, 0.001)}
+
                 overlap = self._calculate_overlap(new_clip, old_clip)
+
                 text_similarity = self._text_similarity(clip.get("text", ""), old.get("text", ""))
+
                 contextually_distinct = self._previous_contextually_distinct(clip, old)
+
                 boundary_match = abs(new_start - old_start) <= 2.0 and abs(new_end - old_end) <= 4.0
+
                 overlap_duplicate = overlap >= 0.30 and not contextually_distinct
+
                 boundary_duplicate = boundary_match and not contextually_distinct
+
                 repeated_by_similarity = (
+
                     text_similarity >= TEXT_SIMILARITY_DUPLICATE_THRESHOLD
+
                     and abs(new_start - old_start) <= 30.0
+
                     and not contextually_distinct
+
                 )
+
                 if overlap_duplicate or boundary_duplicate or repeated_by_similarity:
+
                     repeated = old
+
                     break
+
             if repeated is None:
+
                 selected.append(clip)
+
                 continue
+
             self._candidate_diagnostics["previous_discarded_count"] = int(
+
                 self._candidate_diagnostics.get("previous_discarded_count", 0) or 0
+
             ) + 1
+
             status = str(repeated.get("review_status") or "").lower()
+
             if status == "approved":
+
                 self._candidate_diagnostics["previous_discarded_approved"] += 1
+
             elif status == "rejected":
+
                 self._candidate_diagnostics["previous_discarded_rejected"] += 1
+
         return selected
+
+
 
     def _remove_overlaps(self, clips):
+
         """Remove temporal overlaps and near-duplicate candidates deterministically.
 
+
+
         Optimized sweep: we keep an interval tree keyed by (start, end) so
+
         candidate comparisons are bounded to only overlapping windows instead
+
         of an O(n^2) full scan. Tiebreaking and diagnostics remain identical.
+
         """
+
         if not clips:
+
             return []
 
+
+
         def origin_priority(clip):
+
             origin = str(clip.get("candidate_origin") or "")
+
             return 0 if origin == "local_fallback" else 1
 
+
+
         ordered = sorted(
+
             clips,
+
             key=lambda clip: (
+
                 origin_priority(clip),
+
                 _safe_float(clip.get("editorial_potential_score", clip.get("viral_score", 0))),
+
                 _safe_float(clip.get("confidence", 0)),
+
                 -_safe_float(clip.get("duration", 0)),
+
             ),
+
             reverse=True,
+
         )
 
+
+
         def clip_interval(clip):
+
             try:
+
                 start = float(clip.get("start"))
+
                 end = float(clip.get("end"))
+
             except (TypeError, ValueError):
+
                 return None
+
             if not all(math.isfinite(value) for value in (start, end)) or start < 0 or end <= start:
+
                 return None
+
             return start, end
 
+
+
         def intervals_overlap(a_start, a_end, b_start, b_end):
+
             if b_end <= a_start <= b_end + TOUCHING_SIBLINGS_TOLERANCE or a_end <= b_start <= a_end + TOUCHING_SIBLINGS_TOLERANCE:
+
                 return False
+
             overlap_start = max(a_start, b_start)
+
             overlap_end = min(a_end, b_end)
+
             return overlap_start < overlap_end and (overlap_end - overlap_start) / (a_end - a_start) > OVERLAP_DUPLICATE_THRESHOLD
 
+
+
         selected = []
+
         selected_intervals = []
+
         comparison_count = 0
+
         for clip in ordered:
+
             interval = clip_interval(clip)
+
             if interval is None:
+
                 continue
+
             start, end = interval
+
             duplicate = False
+
             duplicate_reason = ""
+
             for existing in selected_intervals:
+
                 comparison_count += 1
+
                 existing_clip = existing[2]
+
                 existing_start, existing_end = existing[:2]
+
                 if intervals_overlap(start, end, existing_start, existing_end):
+
                     text_similarity = self._text_similarity(
+
                         clip.get("text", ""), existing_clip.get("text", "")
+
                     )
+
                     if text_similarity >= TEXT_SIMILARITY_DUPLICATE_THRESHOLD:
+
                         duplicate = True
+
                         duplicate_reason = "similarity"
+
                         break
+
                     duplicate = True
+
                     duplicate_reason = "overlap"
+
                     break
+
             if duplicate:
+
                 self._candidate_diagnostics["deduplicated_count"] = int(
+
                     self._candidate_diagnostics.get("deduplicated_count", 0) or 0
+
                 ) + 1
+
                 field = "deduplicated_overlap" if duplicate_reason == "overlap" else "deduplicated_similarity"
+
                 self._candidate_diagnostics[field] = int(
+
                     self._candidate_diagnostics.get(field, 0) or 0
+
                 ) + 1
+
                 if str(clip.get("candidate_origin") or "") == "local_fallback":
+
                     self._candidate_diagnostics["fallback_discarded_count"] = int(
+
                         self._candidate_diagnostics.get("fallback_discarded_count", 0) or 0
+
                     ) + 1
+
                     field = "fallback_discarded_overlap" if duplicate_reason == "overlap" else "fallback_discarded_similarity"
+
                     self._candidate_diagnostics[field] = int(
+
                         self._candidate_diagnostics.get(field, 0) or 0
+
                     ) + 1
+
                 continue
+
             selected.append(clip)
+
             selected_intervals.append((start, end, clip))
 
+
+
         self._candidate_diagnostics["overlap_comparison_count"] = int(
+
             self._candidate_diagnostics.get("overlap_comparison_count", 0) or 0
+
         ) + comparison_count
+
         return selected
 
+
+
     def _text_similarity(self, first, second):
+
         """Return lexical/sequence similarity and record call counts."""
+
         self._candidate_diagnostics["text_similarity_call_count"] = int(
+
             self._candidate_diagnostics.get("text_similarity_call_count", 0) or 0
+
         ) + 1
+
         def normalize(value):
+
             return re.sub(r"[^a-z0-9à-ÿ ]+", " ", str(value or "").lower()).strip()
 
+
+
         left = normalize(first)
+
         right = normalize(second)
+
         if not left or not right:
+
             return 0.0
+
         left_words = set(left.split())
+
         right_words = set(right.split())
+
         lexical = len(left_words & right_words) / max(1, len(left_words | right_words))
+
         sequence = SequenceMatcher(None, left, right).ratio()
+
         return max(lexical, sequence)
 
+
+
     def _calculate_overlap(self, clip_a, clip_b):
+
         """Calculate overlap ratio, returning zero for malformed intervals."""
+
         try:
+
             first_start = float(clip_a["start"])
+
             first_end = float(clip_a["end"])
+
             second_start = float(clip_b["start"])
+
             second_end = float(clip_b["end"])
+
         except (KeyError, TypeError, ValueError):
+
             return 0.0
+
         if not all(math.isfinite(value) for value in (first_start, first_end, second_start, second_end)):
+
             return 0.0
+
         if first_end <= first_start or second_end <= second_start:
+
             return 0.0
+
         overlap_start = max(first_start, second_start)
+
         overlap_end = min(first_end, second_end)
 
+
+
         if overlap_start >= overlap_end:
+
             return 0.0
 
+
+
         overlap_duration = overlap_end - overlap_start
+
         min_duration = min(first_end - first_start, second_end - second_start)
+
+
 
         return overlap_duration / max(min_duration, 1.0)
 
+
+
     def _format_time(self, seconds):
+
         """Format seconds as MM:SS."""
+
         m = int(seconds // 60)
+
         s = int(seconds % 60)
+
         return f"{m:02d}:{s:02d}"
 
 
-    # ═══════════════════════════════════════════════════
-    # PONTE CAMPAIGN HUB -> CORTES (restaurada em 01/09/2026)
-    #
-    # Estes metodos existiam na versao de agosto e foram perdidos. Eles
-    # transformam blocos autorizados do Chub em propostas de janela: ancoram
-    # a seed no texto local, anexam evidencia do bloco, descartam regiao
-    # rotulada como nao-conteudo e registram o rastro da decisao.
-    # Nenhum deles acessa a rede -- leem apenas o snapshot local.
+
+
+
     # ═══════════════════════════════════════════════════
 
+    # PONTE CAMPAIGN HUB -> CORTES (restaurada em 01/09/2026)
+
+    #
+
+    # Estes metodos existiam na versao de agosto e foram perdidos. Eles
+
+    # transformam blocos autorizados do Chub em propostas de janela: ancoram
+
+    # a seed no texto local, anexam evidencia do bloco, descartam regiao
+
+    # rotulada como nao-conteudo e registram o rastro da decisao.
+
+    # Nenhum deles acessa a rede -- leem apenas o snapshot local.
+
+    # ═══════════════════════════════════════════════════
+
+
+
     @staticmethod
+
     def _media_duration(settings):
+
         """Length of the file being processed, as measured by the caller.
 
+
+
         The snapshot only knows how long the original source is. When the editor
+
         works on a block that was downloaded out of a long live, that declared
+
         length is the wrong ruler, so the job must hand over the duration it
+
         probed from the local media.
+
         """
+
         if not isinstance(settings, dict):
+
             return None
+
         for key in ("media_duration", "video_duration", "source_duration"):
+
             try:
+
                 duration = float(settings.get(key))
+
             except (TypeError, ValueError):
+
                 continue
+
             if duration > 0:
+
                 return duration
+
         return None
 
+
+
     @classmethod
+
+
 
     def _blocks_for_span(self, all_blocks, start, end):
+
         """Os blocos editoriais que um intervalo de tempo cobre."""
+
         span = end - start
+
         hits = []
+
         for block in all_blocks:
+
             try:
+
                 block_start = float(block["start"])
+
                 block_end = float(block["end"])
+
             except (KeyError, TypeError, ValueError):
+
                 continue
+
             overlap = min(block_end, end) - max(block_start, start)
+
             if overlap > self.SPAN_MATCH_S or (overlap > 0 and overlap >= 0.5 * span):
+
                 hits.append(int(block["index"]))
+
         if hits:
+
             return hits
+
         # Um intervalo inteiramente dentro de um bloco pode não cruzar a borda de
+
         # nenhum outro; o bloco que contém o meio dele é a resposta.
+
         middle = (start + end) / 2
+
         for block in all_blocks:
+
             if float(block["start"]) <= middle < float(block["end"]):
+
                 return [int(block["index"])]
+
         return []
 
+
+
     @staticmethod
+
     def _labelled_non_content_regions(settings):
+
         """Intervals the authorized snapshot marks as carrying no content.
 
+
+
         Each region arrives with a reason — an unintelligible stretch, an
+
         isolated fragment — so this is labelled evidence of absence, not missing
+
         data. Without a snapshot the list is empty and nothing is filtered.
+
         """
+
         snapshot = settings.get("campaign_hub_snapshot") if isinstance(settings, dict) else None
+
         records = snapshot.get("records") if isinstance(snapshot, dict) else None
+
         regions = []
+
         for region in (records or {}).get("ignored_regions") or []:
+
             if not isinstance(region, dict):
+
                 continue
+
             try:
+
                 start = float(region.get("start_s"))
+
                 end = float(region.get("end_s"))
+
             except (TypeError, ValueError):
+
                 continue
+
             if end > start:
+
                 regions.append((start, end, str(region.get("reason") or "")))
+
         return regions
 
+
+
     def _drop_labelled_non_content(self, clips, settings, sentences=None, emit_progress=None):
+
         """Remove candidates that mostly cover material that is not editorial.
 
+
+
         A candidate is only dropped when the majority of its window sits inside
+
         such a region: merely touching one at the edge is normal, because a real
+
         idea can start right after an unintelligible stretch. Candidates are a
+
         budget — every slot spent here is a slot a real cut does not get.
 
+
+
         The authorized snapshot is preferred when present, but it only exists for
+
         sources the Acervo already labelled. Without it the same judgement is made
+
         locally from the transcript, so a fresh recording is not left defenceless
+
         against its own sponsor read, opening titles and sign-off.
+
         """
+
         regions = self._labelled_non_content_regions(settings)
+
         source = "acervo"
+
         if not regions and sentences:
+
             try:
+
                 from .non_content_detector import detect_non_content_regions
+
                 regions = [
+
                     (float(item["start_s"]), float(item["end_s"]), str(item.get("reason") or ""))
+
                     for item in detect_non_content_regions(sentences)
+
                 ]
+
                 source = "local"
+
             except (ImportError, KeyError, TypeError, ValueError):
+
                 regions = []
+
         if not regions or not clips:
+
             return clips
+
         kept, dropped = [], []
+
         for clip in clips:
+
             start = float(clip.get("start", 0) or 0)
+
             end = float(clip.get("end", 0) or 0)
+
             span = end - start
+
             if span <= 0:
+
                 kept.append(clip)
+
                 continue
+
             covered = sum(
+
                 max(0.0, min(end, region_end) - max(start, region_start))
+
                 for region_start, region_end, _ in regions
+
             )
+
             if covered / span >= self.NON_CONTENT_DROP_RATIO:
+
                 dropped.append(clip)
+
             else:
+
                 kept.append(clip)
+
         if dropped:
+
             self._candidate_diagnostics["labelled_non_content_dropped"] = len(dropped)
+
             self._candidate_diagnostics["non_content_source"] = source
+
             self._candidate_diagnostics["non_content_regions"] = len(regions)
+
             if emit_progress:
+
                 origem = (
+
                     "que o Acervo marcou como sem conteúdo editorial"
+
                     if source == "acervo"
+
                     else "reconhecidos localmente como propaganda, abertura, bastidor ou encerramento"
+
                 )
+
                 emit_progress(
+
                     f"[Descarte] {len(dropped)} candidato(s) removido(s) por cair em trechos {origem}; "
+
                     "o orçamento foi liberado para fala aproveitável.",
+
                     "info",
+
                 )
+
                 for clip in dropped[:8]:
+
                     emit_progress(
+
                         f"[Descarte] {float(clip.get('start', 0)):.0f}s-{float(clip.get('end', 0)):.0f}s: "
+
                         f"{str(clip.get('text') or '')[:70]}",
+
                         "info",
+
                     )
+
         return kept
 
-    @staticmethod
+
+
+
+
 
     @classmethod
-    def _find_seed_text_anchor(cls, sentences, seed):
+
+    def _find_seed_text_anchor(self, sentences, seed):
+
         """Find a conservative local sentence window for a distant Chub seed.
 
+
+
         A timestamp is authoritative only when it overlaps the local transcript or
+
         falls inside a short silence. When the source is a downloaded block or a
+
         re-timed copy, the highlight text can still identify the same moment. This
+
         method deliberately returns an auditable *review* anchor, never a hard
+
         approval or speaker assertion.
+
         """
+
         seed_text = " ".join(str(seed.get("seed_text") or "").split())
+
         if len(seed_text) < 18 or not sentences:
+
             return None
+
+
 
         stop_words = {
+
             "a", "as", "ao", "aos", "com", "da", "das", "de", "do", "dos", "e",
+
             "em", "esse", "essa", "isso", "na", "nas", "no", "nos", "o", "os",
+
             "por", "que", "se", "sem", "um", "uma", "uns", "umas", "para",
+
         }
+
+
 
         def normalize(value):
+
             decomposed = unicodedata.normalize("NFKD", str(value or "").lower())
+
             plain = "".join(char for char in decomposed if not unicodedata.combining(char))
+
             return re.sub(r"[^a-z0-9à-ÿ-]+", " ", plain).strip()
 
+
+
         def words(value):
+
             return {
+
                 word for word in re.findall(r"[a-z0-9à-ÿ-]{3,}", normalize(value))
+
                 if word not in stop_words
+
             }
+
+
 
         seed_words = words(seed_text)
+
         if len(seed_words) < 3:
+
             return None
+
         normalized_seed = normalize(seed_text)
+
         best = None
+
         max_width = min(cls.MAX_SEED_TEXT_ANCHOR_SENTENCES, len(sentences))
+
         for start_index in range(len(sentences)):
+
             for width in range(1, max_width + 1):
+
                 end_index = start_index + width - 1
+
                 if end_index >= len(sentences):
+
                     break
+
                 text = " ".join(str(item.get("text") or "").strip() for item in sentences[start_index:end_index + 1]).strip()
+
                 local_words = words(text)
+
                 coverage = len(seed_words & local_words) / max(1, len(seed_words))
+
                 if coverage < cls.MIN_SEED_TEXT_ANCHOR_COVERAGE:
+
                     continue
+
                 sequence = SequenceMatcher(None, normalized_seed, normalize(text)).ratio()
+
                 score = 0.70 * coverage + 0.30 * sequence
+
                 if score < cls.MIN_SEED_TEXT_ANCHOR_SCORE:
+
                     continue
+
                 candidate = {
+
                     "start_index": start_index,
+
                     "end_index": end_index,
+
                     "coverage": round(coverage, 3),
+
                     "sequence": round(sequence, 3),
+
                     "score": round(score, 3),
+
                     "matched_words": sorted(seed_words & local_words)[:20],
+
                 }
+
                 tie_break = (score, coverage, -abs(len(local_words) - len(seed_words)), -start_index)
+
                 if best is None or tie_break > best[0]:
+
                     best = (tie_break, candidate)
+
         return best[1] if best else None
 
+
+
     def _attach_block_evidence(self, clips, settings):
+
         """Give every candidate the editorial context of the block it sits in.
 
+
+
         Only candidates born from a Campaign Hub seed carried provenance, so the
+
         rest reached the reviewer anonymous: no title, no topic, no risk flag and
+
         — worst of all — no indication of who is speaking. A candidate that lands
+
         inside a QA-gated block inherits what the Acervo already established about
+
         that stretch, which is evidence, never approval: nothing here raises a
+
         score or clears a gate.
+
         """
+
         snapshot = settings.get("campaign_hub_snapshot") if isinstance(settings, dict) else None
+
         # The normal job passes a path, not the parsed snapshot. Read it here as
+
         # well as in the guided-seed path; otherwise local candidates silently
+
         # lose Chub block evidence while only guided proposals see it.
+
         if snapshot is None and isinstance(settings, dict) and settings.get("campaign_hub_snapshot_path"):
+
             try:
+
                 from .campaign_hub import load_snapshot
+
                 snapshot = load_snapshot(settings.get("campaign_hub_snapshot_path"))
+
             except (ImportError, OSError, ValueError):
+
                 snapshot = None
+
         records = snapshot.get("records") if isinstance(snapshot, dict) else None
+
         blocks = [item for item in (records or {}).get("blocks") or [] if isinstance(item, dict)]
+
         if not blocks or not clips:
+
             return clips
 
+
+
         for clip in clips:
+
             start = float(clip.get("start", 0) or 0)
+
             end = float(clip.get("end", 0) or 0)
+
             if end <= start:
+
                 continue
+
             best, best_overlap = None, 0.0
+
             for block in blocks:
+
                 try:
+
                     block_start = float(_block_field(block, "start_s", "startS"))
+
                     block_end = float(_block_field(block, "end_s", "endS"))
+
                 except (TypeError, ValueError):
+
                     continue
+
                 overlap = max(0.0, min(end, block_end) - max(start, block_start))
+
                 if overlap > best_overlap:
+
                     best, best_overlap = block, overlap
+
             if not best or best_overlap / (end - start) < 0.5:
+
                 continue
+
+
 
             renan_speaking = _block_field(best, "renan_speaking", "renanSpeaking")
+
             # ``false`` from the Acervo means "not confirmed as Renan", which
+
             # covers both a third party and an unidentified voice. Neither may be
+
             # published as Renan, so both land on the same review verdict.
+
             speaker_status = "renan_confirmado" if renan_speaking is True else (
+
                 "nao_confirmado" if renan_speaking is None else "terceiro_ou_indeterminado"
+
             )
+
             risk_flags = list(_block_field(best, "risk_flags", "riskFlags") or [])
+
             gate_warnings = list(_block_field(best, "gate_warnings", "gateWarnings") or [])
+
             trust_tier = str(_block_field(best, "trust_tier", "trustTier") or "").strip().lower()
+
             coverage_of_candidate = round(best_overlap / (end - start), 3)
+
             # A rich Acervo block can provide identity evidence, but only when
+
             # the source is trusted, the block explicitly says Renan is speaking,
+
             # and the local candidate is substantially inside that same interval.
+
             # This is not diarization and it never approves a render by itself.
+
             aligned_renan_evidence = bool(
+
                 renan_speaking is True
+
                 and trust_tier in {"owner", "allied"}
+
                 and coverage_of_candidate >= 0.75
+
             )
+
             clip["campaign_hub_block"] = {
+
                 "block_id": best.get("id") or best.get("blockId"),
+
                 "title": best.get("title"),
+
                 "summary": best.get("summary"),
+
                 "trigger_question": _block_field(best, "trigger_question", "triggerQuestion"),
+
                 "topics": list(best.get("topics") or [])[:20],
+
                 "category": best.get("category"),
+
                 "density_rank": _block_field(best, "density_rank", "densityRank"),
+
                 "self_contained_rank": _block_field(best, "self_contained_rank", "selfContainedRank"),
+
                 "self_contained_reason": _block_field(best, "self_contained_reason", "selfContainedReason"),
+
                 "renan_speaking": renan_speaking,
+
                 "speaker_status": speaker_status,
+
                 "speakers_note": _block_field(best, "speakers_note", "speakersNote"),
+
                 "risk_flags": risk_flags,
+
                 "gate_warnings": gate_warnings,
+
                 "trust_tier": trust_tier,
+
                 "coverage_of_candidate": coverage_of_candidate,
+
                 "identity_evidence": "campaign_hub_aligned_owner_or_allied" if aligned_renan_evidence else "not_sufficient",
+
                 "evidence_only": True,
+
             }
+
             if aligned_renan_evidence and self._speaker_identity_required:
+
                 clip["speaker_identity_available"] = True
+
                 clip["speaker_identity_basis"] = "campaign_hub_aligned_owner_or_allied"
+
                 clip["speaker_identity_evidence_only"] = True
+
                 refreshed = self._editorial_flags(
+
                     clip.get("text", ""),
+
                     {
+
                         "overlap_suspected": clip.get("overlap_suspected"),
+
                         "timing_ambiguous": clip.get("timing_ambiguous"),
+
                         "speaker_turn_valid": clip.get("speaker_turn_valid", True),
+
                         "speaker_identity_required": True,
+
                         "speaker_identity_available": True,
+
                         "timing_confidence": clip.get("timing_confidence"),
+
                     },
+
                 )
+
                 for key in ("context_complete", "qa_bridge", "speaker_identity_review_required"):
+
                     clip[key] = refreshed[key]
+
                 clip["review_reasons"] = [
+
                     reason for reason in (clip.get("review_reasons") or [])
+
                     if "identidade do locutor" not in reason and "locutor não confirmado como Renan" not in reason
+
                 ]
+
             if speaker_status != "renan_confirmado" or risk_flags:
+
                 clip["review_required"] = True
+
                 reasons = list(clip.get("review_reasons") or [])
+
                 if speaker_status != "renan_confirmado":
+
                     reasons.append("locutor não confirmado como Renan pelo Acervo")
+
                 if risk_flags:
+
                     reasons.append(f"riscos sinalizados: {', '.join(risk_flags[:4])}")
+
                 clip["review_reasons"] = reasons
+
         return clips
 
-    @staticmethod
+
+
+
+
 
     def _campaign_hub_discovery_record(clip, publication_status):
+
         """Return bounded Chub provenance for discovery and audit surfaces."""
+
         campaign_hub = clip.get("campaign_hub") if isinstance(clip, dict) else {}
+
         campaign_hub = campaign_hub if isinstance(campaign_hub, dict) else {}
+
         gates = campaign_hub.get("gates") if isinstance(campaign_hub.get("gates"), dict) else {}
+
         evidence = campaign_hub.get("alignment_evidence")
+
         if isinstance(evidence, dict):
+
             evidence = {
+
                 "coverage": evidence.get("coverage"),
+
                 "sequence": evidence.get("sequence"),
+
                 "score": evidence.get("score"),
+
                 "matched_words": list(evidence.get("matched_words") or [])[:20],
+
             }
+
         else:
+
             evidence = None
+
         return {
+
             "seed_id": campaign_hub.get("seed_id"),
+
             "block_id": campaign_hub.get("block_id"),
+
             "highlight_id": campaign_hub.get("highlight_id"),
+
             "start": round(float(clip.get("start", 0) or 0), 3),
+
             "end": round(float(clip.get("end", 0) or 0), 3),
+
             "duration": round(float(clip.get("duration", 0) or 0), 3),
+
             "source_kind": campaign_hub.get("source_kind"),
+
             "alignment_method": clip.get("alignment_method") or campaign_hub.get("alignment_method"),
+
             "alignment_evidence": evidence,
+
             "seed_text": str(campaign_hub.get("seed_text") or "")[:320],
+
             "summary": str(campaign_hub.get("summary") or "")[:500],
+
             "trigger_question": str(campaign_hub.get("trigger_question") or "")[:320],
+
             "topics": list(campaign_hub.get("topics") or [])[:20],
+
             "renan_speaking": campaign_hub.get("renan_speaking"),
+
             "speaker_gate": campaign_hub.get("speaker_gate"),
+
             "confidence": campaign_hub.get("confidence"),
+
             "density_rank": campaign_hub.get("density_rank"),
+
             "self_contained_rank": campaign_hub.get("self_contained_rank"),
+
             "trust_tier": campaign_hub.get("trust_tier"),
+
             "risk_flags": list(campaign_hub.get("risk_flags") or [])[:20],
+
             "gate_warnings": list(campaign_hub.get("gate_warnings") or [])[:20],
+
             "gates": gates,
+
             "review_required": bool(clip.get("review_required")),
+
             "publication_status": publication_status,
+
         }
+
+
 
     def _build_campaign_hub_proposal(self, sentences, seed):
+
         """Expand one temporal/semantic seed to the smallest complete local window."""
+
         if not seed or not sentences:
+
             return None
+
         seed_start = float(seed.get("start", 0) or 0)
+
         seed_end = float(seed.get("end", seed_start) or seed_start)
+
         overlapping = [
+
             index for index, sentence in enumerate(sentences)
+
             if float(sentence.get("end", 0) or 0) > seed_start
+
             and float(sentence.get("start", 0) or 0) < seed_end
+
         ]
+
         alignment_method = "temporal_overlap"
+
         alignment_evidence = None
+
         if not overlapping:
+
             text_anchor = self._find_seed_text_anchor(sentences, seed)
+
             if text_anchor:
+
                 overlapping = [text_anchor["start_index"], text_anchor["end_index"]]
+
                 alignment_method = "text_anchor"
+
                 alignment_evidence = text_anchor
+
             else:
+
                 nearest = min(
+
                     range(len(sentences)),
+
                     key=lambda index: abs(float(sentences[index].get("start", 0) or 0) - seed_start),
+
                 )
+
                 # A seed landing in a short silence or just past the last sentence is
+
                 # still the same moment, so the nearest sentence is a fair anchor. A
+
                 # seed that misses the transcript by minutes is not: it means the seed
+
                 # and the transcript are on different timelines, and snapping it would
+
                 # publish an unrelated window carrying Campaign Hub provenance. Every
+
                 # such seed would also collapse onto the same edge sentence, turning
+
                 # distinct highlights into duplicate proposals.
+
                 gap = max(
+
                     float(sentences[nearest].get("start", 0) or 0) - seed_end,
+
                     seed_start - float(sentences[nearest].get("end", 0) or 0),
+
                     0.0,
+
                 )
+
                 if gap > self.MAX_SEED_ANCHOR_GAP_S:
+
                     return None
+
                 overlapping = [nearest]
+
                 alignment_method = "nearest_sentence"
+
         start_index = min(overlapping)
+
         end_index = max(overlapping)
 
+
+
         def window_text():
+
             return " ".join(str(sentences[index].get("text", "") or "").strip() for index in range(start_index, end_index + 1)).strip()
 
+
+
         def window_metadata():
+
             window = sentences[start_index:end_index + 1]
+
             return {
+
                 "overlap_suspected": any(bool(item.get("overlap_suspected")) for item in window),
+
                 "timing_ambiguous": any(bool(item.get("timing_ambiguous")) for item in window),
+
                 "speaker_turn_valid": all(item.get("speaker_turn_valid", True) is not False for item in window),
+
                 "speaker_identity_required": bool(self._speaker_identity_required),
+
                 "speaker_identity_available": all(bool(item.get("speakers") or item.get("speaker")) for item in window),
+
                 "timing_confidence": min(
+
                     [float(item.get("timing_confidence")) for item in window if item.get("timing_confidence") is not None]
+
                     or [1.0]
+
                 ),
+
             }
 
+
+
         # Recover the opening question/antecedent when the Chub highlight starts
+
         # inside a response. The expansion is bounded by the same technical ceiling.
+
         while start_index > 0:
+
             current_text = window_text()
+
             current_flags = self._editorial_flags(current_text, window_metadata())
+
             previous = sentences[start_index - 1]
+
             gap = float(sentences[start_index].get("start", 0) or 0) - float(previous.get("end", 0) or 0)
+
             joined_duration = float(sentences[end_index].get("end", 0) or 0) - float(previous.get("start", 0) or 0)
+
             needs_opening = (
+
                 current_flags.get("starts_mid_sentence")
+
                 or current_flags.get("starts_with_context_reference")
+
                 or (seed.get("trigger_question") and not current_flags.get("question_detected"))
+
             )
+
             if not needs_opening or gap > 2.5 or joined_duration > self.max_duration:
+
                 break
+
             start_index -= 1
 
+
+
         # Add enough response for the seed to become a complete, reviewable idea.
+
         while end_index < len(sentences) - 1:
+
             current_text = window_text()
+
             current_flags = self._editorial_flags(current_text, window_metadata())
+
             duration = float(sentences[end_index].get("end", 0) or 0) - float(sentences[start_index].get("start", 0) or 0)
-            if duration >= self.min_duration and current_flags.get("context_complete") and current_flags.get("payoff_complete"):
+
+            # Parar de expandir cedo demais era o motivo dos cortes curtos.
+            # A regra antiga saia assim que passasse do minimo (45s) com contexto
+            # e fecho completos, entregando ~52s de mediana contra os 117s que o
+            # acervo do Garimpo considera a unidade natural do argumento
+            # (medido em 63 blocos do video o6yEVC-exk8).
+            #
+            # Quando a seed veio de um bloco do Chub, o bloco JA e o recorte
+            # editorial correto: um humano/modelo decidiu onde o raciocinio
+            # comeca e termina. Entao continuamos expandindo enquanto estivermos
+            # dentro dele -- fechar antes do fim do bloco corta o argumento no
+            # meio, que e exatamente a reclamacao do dono da ferramenta.
+            fim_do_bloco = _safe_float(seed.get("block_end_s"), 0.0) or None
+            if fim_do_bloco is None and isinstance(seed.get("provenance"), dict):
+                fim_do_bloco = _safe_float(seed["provenance"].get("block_end_s"), 0.0) or None
+            dentro_do_bloco = (
+                fim_do_bloco is not None
+                and float(sentences[end_index].get("end", 0) or 0) < fim_do_bloco - 1.0
+                and duration < self.preferred_max_duration
+            )
+
+            if (
+                duration >= self.min_duration
+                and current_flags.get("context_complete")
+                and current_flags.get("payoff_complete")
+                and not dentro_do_bloco
+            ):
+
                 break
+
             next_sentence = sentences[end_index + 1]
+
             joined_duration = float(next_sentence.get("end", 0) or 0) - float(sentences[start_index].get("start", 0) or 0)
+
             if joined_duration > self.max_duration:
+
                 break
+
             end_index += 1
 
+
+
         text = window_text()
+
         if not text:
+
             return None
+
         metadata = window_metadata()
+
         flags = self._editorial_flags(text, metadata)
+
         start = float(sentences[start_index].get("start", seed_start) or seed_start)
+
         end = float(sentences[end_index].get("end", seed_end) or seed_end)
+
         duration = max(0.0, end - start)
+
         if duration <= 0:
+
             return None
+
         chub_confidence = float(seed.get("confidence", 0.0) or 0.0)
+
         gate_warnings = list(seed.get("gate_warnings") or [])
+
         if seed.get("renan_speaking") is False:
+
             gate_warnings.append("Campaign Hub indica outro locutor; confirme o foco editorial")
+
         speaker_gate = "pass" if seed.get("renan_speaking") is True and metadata.get("speaker_turn_valid") else "review_required"
+
         trust_tier = str(seed.get("trust_tier") or "unknown").lower()
+
         gates = {
+
             "context_complete": bool(flags.get("context_complete")),
+
             "payoff_complete": bool(flags.get("payoff_complete")),
+
             "alignment_gate": "review_required" if alignment_method == "text_anchor" else "pass",
+
             "speaker_gate": speaker_gate,
+
             "timing_gate": "review_required" if metadata.get("timing_ambiguous") else "pass",
+
             "risk_gate": "review_required" if seed.get("risk_flags") else "pass",
+
             "technical_gate": "review_required" if metadata.get("overlap_suspected") else "pass",
+
             "provenance_gate": "pass" if trust_tier == "qa_gated" else "review_required",
+
             "warning_gate": "review_required" if gate_warnings else "pass",
-        }
-        review_required = any(value == "review_required" for value in gates.values())
-        score = 46.0 + (chub_confidence * 22.0)
-        score += 16.0 if flags.get("context_complete") else -12.0
-        score += 10.0 if flags.get("payoff_complete") else -10.0
-        score += 5.0 if seed.get("source_kind") == "highlight" else 0.0
-        density_rank = seed.get("density_rank")
-        self_contained_rank = seed.get("self_contained_rank")
-        if density_rank is not None:
-            score += min(8.0, max(0.0, float(density_rank)) * 0.08)
-        if self_contained_rank is not None:
-            score += min(8.0, max(0.0, float(self_contained_rank)) * 0.08)
-        if trust_tier == "qa_gated":
-            score += 3.0
-        score -= min(12.0, len(gate_warnings) * 3.0)
-        score = max(0.0, min(100.0, score))
-        title = str(seed.get("title") or "").strip() or self._generate_simple_title(text)
-        reason_parts = [
-            f"seed {seed.get('source_kind', 'Campaign Hub')} {seed.get('seed_id')}",
-            "alinhamento textual conservador; revisão obrigatória" if alignment_method == "text_anchor" else "alinhamento temporal/local",
-            "janela expandida até contexto e payoff" if flags.get("context_complete") and flags.get("payoff_complete") else "janela requer revisão de completude",
-        ]
-        return {
-            **flags,
-            "start": round(start, 3),
-            "end": round(end, 3),
-            "duration": round(duration, 3),
-            "text": text,
-            "title": title[:160],
-            "reason": "; ".join(reason_parts),
-            "viral_score": int(round(score)),
-            "has_hook": bool(flags.get("context_complete")),
-            "breakdown": {
-                "hook": "A" if score >= 75 else ("B" if score >= 55 else "C"),
-                "flow": "A" if flags.get("context_complete") else "C",
-                "value": "A" if chub_confidence >= 0.8 else "B",
-                "energy": "B",
-            },
-            "source": "campaign_hub_guided",
-            "alignment_method": alignment_method,
-            "alignment_evidence": alignment_evidence,
-            "duration_preference": self._duration_label(duration, {"flow": "A" if flags.get("context_complete") else "B"}),
-            "review_required": review_required,
-            "campaign_hub": {
-                "seed_id": seed.get("seed_id"),
-                "block_id": seed.get("block_id"),
-                "highlight_id": seed.get("highlight_id"),
-                "source_kind": seed.get("source_kind"),
-                "seed_text": seed.get("seed_text"),
-                "summary": seed.get("summary"),
-                "trigger_question": seed.get("trigger_question"),
-                "renan_speaking": seed.get("renan_speaking"),
-                "speaker_gate": seed.get("speaker_gate"),
-                "topics": seed.get("topics") or [],
-                "timeline_mapping": seed.get("timeline_mapping"),
-                "absolute_start": seed.get("absolute_start"),
-                "absolute_end": seed.get("absolute_end"),
-                "confidence": seed.get("confidence"),
-                "density_rank": seed.get("density_rank"),
-                "self_contained_rank": seed.get("self_contained_rank"),
-                "self_contained_reason": seed.get("self_contained_reason"),
-                "possible_cuts": seed.get("possible_cuts", 0),
-                "content_class": seed.get("content_class"),
-                "labeler_version": seed.get("labeler_version"),
-                "prompt_version": seed.get("prompt_version"),
-                "trust_tier": seed.get("trust_tier"),
-                "risk_flags": seed.get("risk_flags") or [],
-                "gate_warnings": list(dict.fromkeys(gate_warnings)),
-                "gates": gates,
-                "alignment_method": alignment_method,
-                "alignment_evidence": alignment_evidence,
-                "review_required": review_required,
-                "provenance": seed.get("provenance") or {},
-            },
-            "technical_gate_status": "review" if review_required else "pass",
-            "technical_gate_reasons": list(dict.fromkeys(
-                gate_warnings
-                + (["alinhamento textual exige conferência do intervalo"] if alignment_method == "text_anchor" else [])
-            )),
+
         }
 
+        review_required = any(value == "review_required" for value in gates.values())
+
+        score = 46.0 + (chub_confidence * 22.0)
+
+        score += 16.0 if flags.get("context_complete") else -12.0
+
+        score += 10.0 if flags.get("payoff_complete") else -10.0
+
+        score += 5.0 if seed.get("source_kind") == "highlight" else 0.0
+
+        density_rank = seed.get("density_rank")
+
+        self_contained_rank = seed.get("self_contained_rank")
+
+        if density_rank is not None:
+
+            score += min(8.0, max(0.0, float(density_rank)) * 0.08)
+
+        if self_contained_rank is not None:
+
+            score += min(8.0, max(0.0, float(self_contained_rank)) * 0.08)
+
+        if trust_tier == "qa_gated":
+
+            score += 3.0
+
+        score -= min(12.0, len(gate_warnings) * 3.0)
+
+        score = max(0.0, min(100.0, score))
+
+        title = str(seed.get("title") or "").strip() or self._generate_simple_title(text)
+
+        reason_parts = [
+
+            f"seed {seed.get('source_kind', 'Campaign Hub')} {seed.get('seed_id')}",
+
+            "alinhamento textual conservador; revisão obrigatória" if alignment_method == "text_anchor" else "alinhamento temporal/local",
+
+            "janela expandida até contexto e payoff" if flags.get("context_complete") and flags.get("payoff_complete") else "janela requer revisão de completude",
+
+        ]
+
+        return {
+
+            **flags,
+
+            "start": round(start, 3),
+
+            "end": round(end, 3),
+
+            "duration": round(duration, 3),
+
+            "text": text,
+
+            "title": title[:160],
+
+            "reason": "; ".join(reason_parts),
+
+            "viral_score": int(round(score)),
+
+            "has_hook": bool(flags.get("context_complete")),
+
+            "breakdown": {
+
+                "hook": "A" if score >= 75 else ("B" if score >= 55 else "C"),
+
+                "flow": "A" if flags.get("context_complete") else "C",
+
+                "value": "A" if chub_confidence >= 0.8 else "B",
+
+                "energy": "B",
+
+            },
+
+            "source": "campaign_hub_guided",
+
+            "alignment_method": alignment_method,
+
+            "alignment_evidence": alignment_evidence,
+
+            "duration_preference": self._duration_label(duration, {"flow": "A" if flags.get("context_complete") else "B"}),
+
+            "review_required": review_required,
+
+            "campaign_hub": {
+
+                "seed_id": seed.get("seed_id"),
+
+                "block_id": seed.get("block_id"),
+
+                "highlight_id": seed.get("highlight_id"),
+
+                "source_kind": seed.get("source_kind"),
+
+                "seed_text": seed.get("seed_text"),
+
+                "summary": seed.get("summary"),
+
+                "trigger_question": seed.get("trigger_question"),
+
+                "renan_speaking": seed.get("renan_speaking"),
+
+                "speaker_gate": seed.get("speaker_gate"),
+
+                "topics": seed.get("topics") or [],
+
+                "timeline_mapping": seed.get("timeline_mapping"),
+
+                "absolute_start": seed.get("absolute_start"),
+
+                "absolute_end": seed.get("absolute_end"),
+
+                "confidence": seed.get("confidence"),
+
+                "density_rank": seed.get("density_rank"),
+
+                "self_contained_rank": seed.get("self_contained_rank"),
+
+                "self_contained_reason": seed.get("self_contained_reason"),
+
+                "possible_cuts": seed.get("possible_cuts", 0),
+
+                "content_class": seed.get("content_class"),
+
+                "labeler_version": seed.get("labeler_version"),
+
+                "prompt_version": seed.get("prompt_version"),
+
+                "trust_tier": seed.get("trust_tier"),
+
+                "risk_flags": seed.get("risk_flags") or [],
+
+                "gate_warnings": list(dict.fromkeys(gate_warnings)),
+
+                "gates": gates,
+
+                "alignment_method": alignment_method,
+
+                "alignment_evidence": alignment_evidence,
+
+                "review_required": review_required,
+
+                "provenance": seed.get("provenance") or {},
+
+            },
+
+            "technical_gate_status": "review" if review_required else "pass",
+
+            "technical_gate_reasons": list(dict.fromkeys(
+
+                gate_warnings
+
+                + (["alinhamento textual exige conferência do intervalo"] if alignment_method == "text_anchor" else [])
+
+            )),
+
+        }
+
+
+
     def _select_with_campaign_hub_guidance(self, sentences, settings, emit_progress=None):
+
         """Turn an authorized Campaign Hub snapshot into bounded clip proposals."""
+
         snapshot = settings.get("campaign_hub_snapshot") if isinstance(settings, dict) else None
+
         if snapshot is None and isinstance(settings, dict) and settings.get("campaign_hub_snapshot_path"):
+
             try:
+
                 from .campaign_hub import load_snapshot
+
                 snapshot = load_snapshot(settings.get("campaign_hub_snapshot_path"))
+
             except (ImportError, OSError, ValueError):
+
                 snapshot = None
+
         if not snapshot or not sentences:
+
             return []
+
         try:
+
             from .campaign_hub_guidance import build_campaign_hub_guided_seeds
+
             seeds = build_campaign_hub_guided_seeds(
+
                 sentences,
+
                 snapshot,
+
                 account=settings.get("campaign_hub_account") or snapshot.get("default_account"),
+
                 limit=max(1, min(30, self.max_clips * 2)),
+
                 media_duration=self._media_duration(settings),
+
             )
+
         except (ImportError, OSError, TypeError, ValueError) as exc:
+
             if emit_progress:
+
                 emit_progress(f"[Campaign Hub] Seeds guiadas indisponíveis; mantendo seleção local: {str(exc)[:140]}", "warning")
+
             return []
+
         proposals = []
+
         for seed in seeds:
+
             proposal = self._build_campaign_hub_proposal(sentences, seed)
+
             if proposal:
+
                 proposals.append(proposal)
+
         proposals.sort(key=lambda item: (
+
             bool((item.get("campaign_hub") or {}).get("gates", {}).get("context_complete")),
+
             float(item.get("viral_score", 0) or 0),
+
             float(item.get("campaign_hub", {}).get("confidence", 0) or 0),
+
         ), reverse=True)
+
         return proposals[:self.max_clips]
