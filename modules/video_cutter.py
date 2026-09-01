@@ -453,7 +453,13 @@ class VideoCutter:
         os.makedirs(export_dir, exist_ok=True)
 
         original_aspect_indices = set(original_aspect_indices or [])
-        if video_layout in {"debate", "unknown", "fullscreen"}:
+        # Correção 31/08: o rótulo global de layout não pode mais condenar TODOS
+        # os cortes ao 16:9 quando já existe uma decisão por clip. `layout_plans`
+        # é calculado clip a clip com o assessment facial real; sobrescrevê-lo
+        # com um rótulo de vídeo inteiro descartava a análise individual e era o
+        # último elo que mantinha os cortes horizontais.
+        has_per_clip_plans = isinstance(layout_plans, dict) and len(layout_plans) > 0
+        if not has_per_clip_plans and video_layout in {"debate", "unknown", "fullscreen"}:
             original_aspect_indices.update(range(len(cuts)))
             use_face_tracking = False
             if emit_progress:
