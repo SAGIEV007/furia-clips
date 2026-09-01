@@ -2127,14 +2127,53 @@ Retorne APENAS o JSON.
             # Calculate speech density: proportion of clip covered by actual speech segments
             speech_density = self._calculate_speech_density(clip_blocks, clip_start, clip_end)
 
+            # Gancho: densidade de fala só nos primeiros 30s, a janela que
+            # concentra a retenção real (Chub, 708 vídeos). Antes só a via LLM
+            # media isto — sem ele, um corte que abre em silêncio passava por
+            # aqui sem punição nenhuma.
+            hook_density = self._calculate_speech_density(
+                clip_blocks, clip_start, min(clip_end, clip_start + 30.0)
+            )
+
             avg_score = sum(scored_blocks[i][1] for i in range(start_idx, clip_end_idx + 1)) / (clip_end_idx - start_idx + 1)
 
-            hook_grade = "A" if start_score > 75 else ("B" if start_score > 50 else "C")
+            # Nota do gancho. `start_score` sai da mesma escala comprimida dos
+            # blocos NLP (base 40), então o limiar antigo de 50/75 reprovava
+            # quase tudo: na entrevista IstoÉ, 13 de 15 candidatos com 100% de
+            # fala, contexto e fecho completos morriam em "weak_hook".
+            # Agora a abertura vale quando ELA de fato tem fala densa nos
+            # primeiros 30s — o sinal medido no Chub — e não só quando as
+            # palavras-gatilho do dicionário aparecem.
+            hook_grade = "C"
+            if start_score > 70 or (start_score > 45 and hook_density >= 0.9):
+                hook_grade = "A"
+            elif start_score > 42 or hook_density >= 0.7:
+                hook_grade = "B"
             flow_grade = "A" if clip_flags["context_complete"] else ("B" if clip_flags["payoff_complete"] else "C")
             value_grade = "A" if avg_score > 70 else ("B" if avg_score > 50 else "C")
             energy_grade = "B"
 
             viral_score = int(avg_score)
+
+            # Bônus por qualidade editorial confirmada.
+            # A via NLP só subtraía: partia da média dos blocos (~45) e apenas
+            # descia. Resultado medido na entrevista IstoÉ (01/09): os 15
+            # candidatos ficaram entre 43 e 49 contra um piso de 50 no
+            # quality_gate — nem o melhor deles, com 100% de fala, contexto e
+            # fecho completos, conseguia passar. Zero cortes entregues num
+            # vídeo de 32 minutos com material bom.
+            # Os bônus abaixo espelham os sinais que a via LLM já premia, para
+            # que as duas escalas fiquem comparáveis.
+            if clip_flags["context_complete"] and clip_flags["payoff_complete"]:
+                # Pensamento inteiro: abre e fecha sem depender do que veio antes.
+                viral_score += 8
+            if clip_flags.get("qa_bridge"):
+                # Pergunta e resposta no mesmo corte — formato que performa.
+                viral_score += 5
+            if clip_flags.get("evidence_present"):
+                # Número, nome ou fato concreto em vez de opinião solta.
+                viral_score += 4
+
             if not clip_flags["context_complete"]:
                 viral_score -= 10
             if clip_flags["starts_mid_sentence"]:
@@ -2147,6 +2186,12 @@ Retorne APENAS o JSON.
                 viral_score -= 16
             if clip_flags["timing_ambiguous"]:
                 viral_score -= 8
+            # Mesma penalidade de gancho da via LLM: silêncio nos primeiros 30s
+            # custa a audiência inteira, independente do caminho que gerou o corte.
+            if hook_density < 0.5:
+                viral_score -= 25
+            elif hook_density < 0.7:
+                viral_score -= 10
             viral_score = max(0, min(100, viral_score))
 
             title = self._generate_simple_title(clip_text)
@@ -2170,6 +2215,7 @@ Retorne APENAS o JSON.
                 "viral_score": viral_score,
                 "has_hook": hook_grade in ("A", "B"),
                 "speech_density": round(speech_density, 3),
+                "hook_density": round(hook_density, 3),
                 "breakdown": {
                     "hook": hook_grade,
                     "flow": flow_grade,
