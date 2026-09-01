@@ -156,23 +156,39 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         if emit_progress:
             emit_progress("Queimando legendas no video...")
 
-        ass_escaped = ass_path.replace("\\", "/").replace(":", "\\:")
+        # O filtro `ass` do ffmpeg exige o ARQUIVO como primeiro argumento;
+        # opções nomeadas vêm depois. Estava invertido (`ass=fontsdir=...:arquivo`),
+        # o que faz o ffmpeg abortar com "Error parsing filterchain" — ou seja,
+        # a queima de legenda nunca funcionou, e `burn_subtitles` devolvia None
+        # silenciosamente porque o erro só ia para `emit_progress`.
+        #
+        # Caminho absoluto do Windows dentro de um filtro é uma fonte crônica de
+        # erro de escape (a letra do drive vira separador de opção). Rodamos o
+        # ffmpeg COM CWD na pasta do .ass e passamos só o nome do arquivo, o que
+        # elimina o problema em vez de tentar escapar corretamente.
+        ass_dir = os.path.dirname(os.path.abspath(ass_path)) or "."
+        ass_name = os.path.basename(ass_path)
+        ass_filter = f"ass={ass_name}"
+        if os.path.isdir(os.path.join(ass_dir, "fonts")):
+            ass_filter += ":fontsdir=fonts"
 
-        fonts_dir = os.path.join(os.path.dirname(os.path.abspath(ass_path)), "fonts")
-        fonts_dir_escaped = fonts_dir.replace("\\", "/")
-        ass_filter = f"ass=fontsdir={fonts_dir_escaped}:" + ass_escaped
+        output_abs = os.path.abspath(output_path)
+        video_abs = os.path.abspath(video_path)
 
         cmd = [
             "ffmpeg", "-y",
-            "-i", video_path,
+            "-i", video_abs,
             "-vf", ass_filter,
             "-c:v", "libx264", "-preset", "medium", "-crf", "20",
             "-c:a", "copy",
             "-movflags", "+faststart",
-            output_path
+            output_abs
         ]
 
-        result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
+        result = subprocess.run(
+            cmd, capture_output=True, text=True,
+            encoding="utf-8", errors="replace", cwd=ass_dir,
+        )
 
         if result.returncode != 0:
             if emit_progress:
