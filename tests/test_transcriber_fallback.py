@@ -99,3 +99,29 @@ def test_faster_whisper_receives_configured_chunk_length():
     transcriber._transcribe_faster_whisper("video.mp4")
 
     assert captured["chunk_length"] == 15
+
+
+def test_apply_preset_high_accuracy_overrides_defaults():
+    from config import WHISPER_PRESETS
+
+    transcriber = Transcriber()
+    # Apply default preset to align hardcoded defaults with config
+    transcriber.apply_preset("default")
+    assert transcriber.beam_size == WHISPER_PRESETS["default"]["beam_size"]
+    assert transcriber.chunk_length == WHISPER_PRESETS["default"]["chunk_length"]
+    assert transcriber.vad_min_silence_ms == WHISPER_PRESETS["default"]["vad_min_silence_ms"]
+
+    transcriber.apply_preset("high_accuracy")
+    assert transcriber.beam_size == WHISPER_PRESETS["high_accuracy"]["beam_size"]
+    assert transcriber.chunk_length == WHISPER_PRESETS["high_accuracy"]["chunk_length"]
+    assert transcriber.vad_min_silence_ms == WHISPER_PRESETS["high_accuracy"]["vad_min_silence_ms"]
+
+
+def test_apply_preset_unknown_falls_back_to_default():
+    from config import WHISPER_PRESETS
+
+    transcriber = Transcriber()
+    transcriber.apply_preset("default")
+    default_beam = transcriber.beam_size
+    transcriber.apply_preset("nonexistent")
+    assert transcriber.beam_size == default_beam

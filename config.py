@@ -122,6 +122,22 @@ def get_persistent_data_status():
 
 _ensure_persistent_data_layout()
 
+WHISPER_PRESETS = {
+    "default": {
+        "beam_size": 5,
+        "chunk_length": 30,
+        "vad_min_silence_ms": 500,
+        "temperature": 0.0,
+    },
+    "high_accuracy": {
+        "beam_size": 10,
+        "chunk_length": 15,
+        "vad_min_silence_ms": 400,
+        "temperature": 0.0,
+    },
+}
+
+
 DEFAULT_SETTINGS = {
     "whisper_model": "small",
     "whisper_word_timestamps": False,
@@ -131,6 +147,7 @@ DEFAULT_SETTINGS = {
     "whisper_vad_speech_pad_ms": 200,
     "whisper_temperature": 0.0,
     "whisper_chunk_length": 30,
+    "whisper_preset": "default",
     "whisper_device": "auto",
     "whisper_long_video_threshold_minutes": 45,
     "whisper_long_video_model": "base",

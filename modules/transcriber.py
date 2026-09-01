@@ -29,6 +29,19 @@ class Transcriber:
         self._cache_misses = 0
         os.makedirs(CACHE_DIR, exist_ok=True)
 
+    def apply_preset(self, preset_name="default"):
+        """Aplica preset de parâmetros do Whisper."""
+        from config import WHISPER_PRESETS
+        preset = WHISPER_PRESETS.get(preset_name, WHISPER_PRESETS["default"])
+        if "beam_size" in preset:
+            self.beam_size = max(1, int(preset["beam_size"]))
+        if "chunk_length" in preset:
+            self.chunk_length = int(preset["chunk_length"])
+        if "vad_min_silence_ms" in preset:
+            self.vad_min_silence_ms = int(preset["vad_min_silence_ms"])
+        if "temperature" in preset:
+            self.temperature = float(preset["temperature"])
+
     def _detect_device(self):
         if self.requested_device in {"cpu", "cuda"}:
             return self.requested_device

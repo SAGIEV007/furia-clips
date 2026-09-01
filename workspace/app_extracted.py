@@ -757,6 +757,7 @@ def _transcribe_video_automatically(video_path, settings, emit_progress, transcr
         temperature=settings.get("whisper_temperature", 0.0),
         chunk_length=settings.get("whisper_chunk_length", 30),
     )
+    transcriber.apply_preset(settings.get("whisper_preset", "default"))
     transcribe_kwargs = {"emit_progress": emit_progress}
     if cancel_check:
         transcribe_kwargs["cancel_check"] = cancel_check

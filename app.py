@@ -839,6 +839,7 @@ def _transcribe_video_automatically(video_path, settings, emit_progress, transcr
         temperature=settings.get("whisper_temperature", 0.0),
                     chunk_length=settings.get("whisper_chunk_length", 30),
     )
+    transcriber.apply_preset(settings.get("whisper_preset", "default"))
     transcribe_kwargs = {"emit_progress": emit_progress}
     if cancel_check:
         transcribe_kwargs["cancel_check"] = cancel_check
@@ -3076,6 +3077,7 @@ def api_cut_shorts():
                     temperature=settings.get("whisper_temperature", 0.0),
                     chunk_length=settings.get("whisper_chunk_length", 30),
                 )
+                transcriber.apply_preset(settings.get("whisper_preset", "default"))
                 transcription = transcriber.transcribe(
                     video_path,
                     emit_progress=emit_progress,
@@ -3980,6 +3982,7 @@ def api_generate_subtitles():
                     temperature=settings.get("whisper_temperature", 0.0),
                     chunk_length=settings.get("whisper_chunk_length", 30),
                 )
+                transcriber.apply_preset(settings.get("whisper_preset", "default"))
                 result = transcriber.transcribe(video_path, emit_progress=emit_progress)
                 segments = result["segments"]
                 if project_id:

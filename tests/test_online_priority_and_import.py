@@ -54,6 +54,9 @@ def test_automatic_transcription_reports_and_uses_cpu_only_after_gemini_failure(
         def _detect_device(self):
             return "cpu"
 
+        def apply_preset(self, preset_name="default"):
+            pass
+
         def transcribe(self, video_path, emit_progress=None):
             return {"segments": [{"start": 0, "end": 1, "text": "fallback"}], "full_text": "fallback", "language": "pt", "segment_count": 1}
 
@@ -289,6 +292,9 @@ def test_whisper_preference_skips_gemini_and_public_subtitles(monkeypatch, tmp_p
         def _detect_device(self):
             return "cpu"
 
+        def apply_preset(self, preset_name="default"):
+            pass
+
         def transcribe(self, video_path, emit_progress=None):
             return {"segments": [{"start": 0, "end": 1, "text": "Whisper escolhido"}], "full_text": "Whisper escolhido", "language": "pt", "segment_count": 1}
 
@@ -319,6 +325,9 @@ def test_long_cpu_video_uses_fast_model_for_discovery(monkeypatch, tmp_path):
 
         def _detect_device(self):
             return "cpu"
+
+        def apply_preset(self, preset_name="default"):
+            pass
 
         def transcribe(self, video_path, emit_progress=None):
             return {"segments": [], "full_text": "", "language": "pt", "segment_count": 0}
