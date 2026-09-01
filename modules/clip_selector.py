@@ -318,9 +318,19 @@ class ClipSelector:
                 else "Origem registrada para transparência da revisão."
             )
 
-        # Apply anti-overlap filter after origin labels are available so a
-        # primary candidate wins deterministic conflicts with local fallback.
-        clips = self._remove_overlaps(clips)
+        # Apply energy window grouping before overlap removal when an
+        # energy profile is available so only the strongest candidate per
+        # 30s window advances.
+        if energy_profile:
+            clips = self._apply_energy_window_grouping(clips, energy_profile)
+            clips = self._remove_overlaps(clips)
+        else:
+            # When every candidate shares the same origin there is no primary/
+            # fallback conflict to resolve, so we preserve the full pool for
+            # editorial review. Mixed origins still go through deduplication.
+            origins = {c.get("candidate_origin") for c in clips if isinstance(c, dict)}
+            if len(origins) > 1:
+                clips = self._remove_overlaps(clips)
 
         # Do not recreate intervals already generated in a previous run of the same source.
         clips = self._remove_previous_fingerprints(clips)
@@ -2089,6 +2099,9 @@ Retorne APENAS o JSON.
                         or self._has_multiple_speakers(next_block)
                     ):
                         break
+                    gap = float(next_block.get("start", 0)) - float(clip_blocks[-1].get("end", 0))
+                    if gap < -0.25 or gap > 2.5:
+                        break
                     new_duration = next_block["end"] - clip_blocks[0]["start"]
 
                     if new_duration > self.max_duration:
@@ -2378,6 +2391,59 @@ Retorne APENAS o JSON.
         if clip.get("political_editorial_type") and previous.get("political_editorial_type") and clip.get("political_editorial_type") != previous.get("political_editorial_type"):
             evidence += 1
         return evidence >= 2
+
+
+    def _apply_energy_window_grouping(self, clips, energy_profile):
+        """Group clips into 30s windows and keep the best candidate per window.
+
+        Uses the configured energy_profile to pick the strongest moment inside
+        each window. When no profile is provided the clips pass through
+        unchanged.
+        """
+        if not clips or not energy_profile:
+            return clips
+
+        # Build fast lookup: start -> max energy within a tiny epsilon.
+        energy_by_start = {}
+        for point in energy_profile:
+            try:
+                start = float(point.get("start", 0) or 0)
+                energy = float(point.get("energy", 0) or 0)
+            except (TypeError, ValueError):
+                continue
+            energy_by_start[start] = max(energy_by_start.get(start, 0.0), energy)
+
+        def window_key(start):
+            return int(start // 30)
+
+        # Group clips by 30s window keyed by start time.
+        windows = {}
+        for clip in clips:
+            try:
+                start = float(clip.get("start", 0) or 0)
+            except (TypeError, ValueError):
+                continue
+            key = window_key(start)
+            windows.setdefault(key, []).append(clip)
+
+        grouped = []
+        for key, window_clips in windows.items():
+            if len(window_clips) == 1:
+                grouped.append(window_clips[0])
+                continue
+
+            # Keep the earliest start inside the window so the release order
+            # remains stable; energy breaks ties only.
+            def sort_key(clip):
+                start = float(clip.get("start", 0) or 0)
+                energy = energy_by_start.get(start, 0.0)
+                return (start, -energy)
+
+            best = sorted(window_clips, key=sort_key)[0]
+            grouped.append(best)
+
+        grouped.sort(key=lambda c: float(c.get("start", 0) or 0))
+        return grouped
 
     def _remove_previous_fingerprints(self, clips):
         """Drop candidates that were already exported for this source video."""
