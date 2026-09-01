@@ -2357,6 +2357,7 @@ def api_list_files():
 
 @app.route("/api/files/upload", methods=["POST"])
 def api_upload_file():
+    _start = datetime.now()
     log_info(f"INICIO upload file={request.files.get('file') and request.files['file'].filename or 'vazio'}", stage="upload")
     if "file" not in request.files:
         return jsonify({"error": "Nenhum arquivo enviado"}), 400
@@ -2382,9 +2383,10 @@ def api_upload_file():
     file.save(filepath)
     log_info(f"Upload: {file.filename} -> {filepath} ({os.path.getsize(filepath)} bytes)")
 
-    log_info(f"FIM upload file={file.filename} path={os.path.relpath(filepath, WORKSPACE_DIR)} size={os.path.getsize(filepath)}", stage="upload")
-    log_info(f"FIM upload file={file.filename} path={os.path.relpath(filepath, WORKSPACE_DIR)} size={os.path.getsize(filepath)}", stage="upload")
-    log_info(f"FIM upload file={file.filename} path={os.path.relpath(filepath, WORKSPACE_DIR)} size={os.path.getsize(filepath)}", stage="upload")
+    log_info(
+        f"FIM upload file={file.filename} path={os.path.relpath(filepath, WORKSPACE_DIR)} size={os.path.getsize(filepath)} elapsed={(_elapsed:=datetime.now()-_start).total_seconds():.2f}s",
+        stage="upload",
+    )
     return jsonify({
         "success": True,
         "filename": filename,
@@ -2393,7 +2395,6 @@ def api_upload_file():
     })
 
 
-@app.route("/api/files/mkdir", methods=["POST"])
 def api_mkdir():
     data = request.get_json(silent=True) or {}
     name = data.get("name", "").strip()
