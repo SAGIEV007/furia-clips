@@ -886,8 +886,8 @@ def test_chub_hook_multipliers_boost_viral_score():
 
     assert clips
     # desafio-ao-espectador has multiplier 0.91 based on real Chub population data
-    # B=55, so 55 * 0.91 * 0.25 + flow + value + energy ≈ 53
-    assert clips[0]["viral_score"] == 53
+    # B=55, so 55 * 0.91 * 0.20 + flow + value + audio_highlight ≈ 54
+    assert clips[0]["viral_score"] == 54
     assert clips[0]["editorial_family"] == "desafio-ao-espectador"
 
 def test_chub_hook_multipliers_fallback_unknown_family():

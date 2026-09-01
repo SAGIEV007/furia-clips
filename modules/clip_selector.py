@@ -1231,7 +1231,7 @@ Retorne APENAS o JSON.
             hook_score = grade_to_score.get(sel.get("hook", "B"), 55)
             flow_score = grade_to_score.get(sel.get("flow", "B"), 55)
             value_score = grade_to_score.get(sel.get("value", "B"), 55)
-            energy_score = grade_to_score.get(sel.get("energy", "B"), 55)
+            audio_highlight_score = grade_to_score.get(sel.get("energy", "B"), 55)
 
             # Chub-trained hook multipliers (based on real engagement data)
             hook_type = sel.get("editorial_family", "")
@@ -1241,10 +1241,10 @@ Retorne APENAS o JSON.
             # Weighted: flow (context completeness) gets highest weight
             # Chub multiplier boosts hook score for high-performing patterns
             viral_score = int(
-                (hook_score * chub_mult) * 0.25 +
-                flow_score * 0.35 +
-                value_score * 0.25 +
-                energy_score * 0.15
+                (hook_score * chub_mult) * 0.20 +
+                flow_score * 0.25 +
+                value_score * 0.20 +
+                audio_highlight_score * 0.35
             )
 
             # Penalidade de gancho fraco (Chub 01/09): a janela dos primeiros
