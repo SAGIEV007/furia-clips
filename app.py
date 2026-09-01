@@ -3222,12 +3222,14 @@ def api_cut_shorts():
                 "qualidade, contexto e diversidade continuam prioritários.",
                 "info",
             )
+            # Durações vêm dos defaults calibrados do ClipSelector
+            # (MIN=45 / PREFERRED_MAX=150 / TECHNICAL_MAX=180), derivados de
+            # 1.468 posts reais do Instagram — ver estudo-chub-calibracao.
+            # NÃO reintroduzir valores hardcoded aqui: sobrescrevê-los deixa
+            # toda a calibração inerte em produção.
             selector = ClipSelector(
                 target_duration=settings.get("cut_duration", 45),
                 max_clips=coverage_plan["adaptive_max_clips"],
-                min_duration=25,
-                max_duration=150,
-                preferred_max_duration=90,
             )
             top_clips = selector.select_clips(
                 transcription,
@@ -4503,12 +4505,14 @@ def api_process_complete():
                 "qualidade, contexto e diversidade continuam prioritários.",
                 "info",
             )
+            # Durações vêm dos defaults calibrados do ClipSelector
+            # (MIN=45 / PREFERRED_MAX=150 / TECHNICAL_MAX=180), derivados de
+            # 1.468 posts reais do Instagram — ver estudo-chub-calibracao.
+            # NÃO reintroduzir valores hardcoded aqui: sobrescrevê-los deixa
+            # toda a calibração inerte em produção.
             selector = ClipSelector(
                 target_duration=settings.get("cut_duration", 45),
                 max_clips=coverage_plan["adaptive_max_clips"],
-                min_duration=25,
-                max_duration=150,
-                preferred_max_duration=90,
             )
             top_clips = selector.select_clips(
                 transcription,
