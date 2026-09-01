@@ -19,6 +19,7 @@ Selection priority in automatic mode:
 import json
 
 import re
+import unicodedata
 
 import math
 
@@ -722,6 +723,12 @@ class ClipSelector:
                 origin = "ollama_primary"
 
                 origin_label = "Ollama — seleção primária"
+
+            elif source == "campaign_hub_guided":
+
+                origin = "campaign_hub_guided"
+
+                origin_label = "Acervo Chub — proposta guiada"
 
             elif fallback_used:
 
@@ -5758,7 +5765,7 @@ Retorne APENAS o JSON.
 
         best = None
 
-        max_width = min(cls.MAX_SEED_TEXT_ANCHOR_SENTENCES, len(sentences))
+        max_width = min(self.MAX_SEED_TEXT_ANCHOR_SENTENCES, len(sentences))
 
         for start_index in range(len(sentences)):
 
