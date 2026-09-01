@@ -1639,6 +1639,27 @@ Retorne APENAS o JSON.
                 if any(ch in text_before_weak for ch in (".", "!", "?")):
                     has_strong_period_before_weak = True
         payoff_complete = bool(ends_closed and not cliffhanger and (not weak_payoff_ending or has_strong_period_before_weak))
+
+        # Fecho em pergunta não respondida. A última frase interroga e nada vem
+        # depois: o espectador fica pendurado. Detectado pelo trecho após o
+        # último ponto final — só conta se a pergunta é a frase que ENCERRA o
+        # clipe, não uma pergunta retórica no meio do raciocínio.
+        ends_on_question = False
+        if raw.endswith("?"):
+            ultima_frase = re.split(r"[.!]", raw)[-1].strip()
+            palavras_finais = re.findall(r"[\wÀ-ÿ-]+", ultima_frase.lower())
+            # Confirmação retórica no fim da própria fala ("..., né?", "...,
+            # certo?", "..., entendeu?") é vício de oralidade, não pergunta
+            # aberta — o pensamento está completo, só termina buscando eco.
+            CONFIRMACOES = {
+                "ne", "né", "certo", "entendeu", "entende", "sabe", "viu",
+                "ta", "tá", "okay", "ok", "concorda", "verdade", "pois",
+            }
+            eco_retorico = bool(palavras_finais and palavras_finais[-1] in CONFIRMACOES)
+            # Pergunta de verdade tem interrogativo ou verbo dirigido a alguém.
+            ends_on_question = len(palavras_finais) >= 4 and not eco_retorico
+        if ends_on_question:
+            payoff_complete = False
         overlap_suspected = _coerce_flag(metadata.get("overlap_suspected"))
         timing_ambiguous = _coerce_flag(metadata.get("timing_ambiguous"))
         topic_boundary = _coerce_flag(metadata.get("topic_boundary")) or _coerce_flag(metadata.get("topic_change_detected"))
@@ -1691,6 +1712,11 @@ Retorne APENAS o JSON.
                 if needs_topic_review else ""
             ),
             "timing_confidence": metadata.get("timing_confidence"),
+            # Fio solto no fecho: o clipe termina fazendo uma pergunta que ele
+            # mesmo não responde. Caso real da coletiva (01/09, corte 3): começa
+            # na pergunta de um repórter e termina na pergunta de OUTRO — o
+            # espectador fica esperando uma resposta que nunca vem.
+            "ends_on_question": ends_on_question,
         }
 
     def _opening_context_signal(self, start_block, previous_block=None):
