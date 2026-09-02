@@ -948,3 +948,39 @@ def test_extend_for_payoff_continues_past_question_ending():
     )
     assert end_index == 1
     assert len(blocks) == 2
+
+
+def test_extend_for_payoff_ignores_speaker_change():
+    selector = ClipSelector(target_duration=20, max_clips=5, min_duration=5, max_duration=30)
+    first = {
+        "start": 0.0,
+        "end": 5.0,
+        "duration": 5.0,
+        "text": "A proposta protege o cidadão",
+        "overlap_suspected": "false",
+        "timing_ambiguous": "false",
+        "topic_boundary": "false",
+        "speaker_turn_valid": "false",
+        "speaker_change_detected": "true",
+        "speaker": "A",
+    }
+    second = {
+        "start": 5.2,
+        "end": 12.0,
+        "duration": 6.8,
+        "text": "E por isso que ela é importante para o Brasil.",
+        "overlap_suspected": "false",
+        "timing_ambiguous": "false",
+        "topic_boundary": "false",
+        "speaker_turn_valid": "true",
+        "speaker_change_detected": "false",
+        "speaker": "B",
+    }
+    blocks, end_index = selector._extend_for_payoff(
+        [first],
+        0,
+        [(first, 80.0), (second, 70.0)],
+        set(),
+    )
+    assert end_index == 1
+    assert len(blocks) == 2
