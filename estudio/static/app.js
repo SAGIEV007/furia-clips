@@ -131,6 +131,16 @@
         if (carga.project_id) abrirRodada(carga.project_id);
         aviso(`Pronto: ${carga.total_clips || 0} cortes.`, "success");
       }
+      if (tipo === "source_import_complete") {
+        // A fonte chegou. Fecha a janela de importar, atualiza a mesa e abre a
+        // fonte já baixada — o gesto dele é um só: colei o link, quero cortar.
+        terminarDeMoer(true);
+        fecharImportar();
+        const campo = $("#linkFonte");
+        if (campo) campo.value = "";
+        aviso("Vídeo baixado e na mesa.", "success");
+        abrirAFonteBaixada(carga.path || carga.absolute_path || "");
+      }
       if (tipo === "cancelled") { terminarDeMoer(false); aviso("Trabalho parado.", "default"); }
       if (tipo === "error") {
         terminarDeMoer(false);
@@ -569,6 +579,22 @@
     navegar("project");
   }
 
+  /* Depois de baixar, abrir a fonte sozinho.
+
+     O motor devolve o caminho onde salvou. A mesa lista por chave relativa à
+     pasta de trabalho, então basta achar na lista recarregada a fonte cujo
+     nome de arquivo bate. Se não achar — porque ele mandou salvar noutro lugar
+     —, a mesa recarregada ainda mostra tudo e ele escolhe. Nunca fica sem
+     saída. */
+  async function abrirAFonteBaixada(caminho) {
+    await carregarAMesa();
+    const nome = String(caminho).replace(/\\/g, "/").split("/").pop();
+    if (!nome) { navegar("projects"); return; }
+    const achada = estado.fontes.find((f) => f.nome === nome);
+    if (achada) await abrirFonte(achada.chave);
+    else navegar("projects");
+  }
+
   async function carregarRodada(id) {
     try {
       estado.rodada = await pedir(`/api/estudio/rodada/${id}`);
@@ -623,6 +649,17 @@
     ligarOsBotoes(corpo);
   }
 
+  /* O `#t=` no fim do endereço é o que garante que o corte abre no lugar certo.
+
+     Mandar `currentTime` pelo JavaScript só funciona depois que o navegador
+     leu a duração do arquivo, e essa leitura pode demorar — no teste ela ainda
+     não tinha acontecido cinco segundos depois de abrir a tela. Enquanto isso,
+     todo corte mostrava o segundo zero da mesma entrevista, que é exatamente a
+     queixa: "mostra apenas o mesmo trecho do vídeo".
+
+     O `#t=` é um pedaço do próprio endereço: o navegador já abre ali, sem
+     esperar por código nenhum. O ajuste pelo JavaScript continua logo abaixo
+     como reforço, para o caso de o corte mudar sem a página recarregar. */
   const videoDaFonte = (chave) => `/api/fonte/video?chave=${encodeURIComponent(chave)}`;
 
   function desenharEntender() {
@@ -668,6 +705,19 @@
 
   const NOME_DO_ESTADO = { suggested: "SUGERIDO", reviewing: "AJUSTADO", approved: "APROVADO", rejected: "RECUSADO" };
 
+  /* O quadro do cartão sai da FONTE, no segundo em que o corte começa.
+
+     Antes ele só aparecia quando o render tinha deixado uma miniatura — e o
+     render nem sempre deixa. Ele abriu uma rodada com mais de setenta cortes e
+     disse: "no próprio programa não dá para ver os cortes". Era isso: setenta
+     retângulos cinzas escritos SEM MINIATURA. Tirando da fonte, o quadro
+     existe sempre, inclusive antes de qualquer render. */
+  function quadroDoCorte(corte) {
+    const chave = estado.rodada?.chave;
+    if (!chave) return "";
+    return `/api/estudio/quadro?chave=${encodeURIComponent(chave)}&em=${Math.max(0, corte.start || 0).toFixed(2)}`;
+  }
+
   function emOrdem(cortes) {
     const lista = [...cortes];
     if (estado.ordem === "duration") return lista.sort((a, b) => b.duration - a.duration);
@@ -678,7 +728,7 @@
   function cartaoDoCorte(corte) {
     const acesas = Math.max(1, Math.round(Number(corte.score || 0) / 20));
     return `<article class="clip-card${corte.status === "rejected" ? " is-rejected" : ""}" data-corte="${corte.id}">
-      <div class="clip-thumb">${corte.thumbnail ? `<img src="${corte.thumbnail}" alt="" loading="lazy" onerror="this.remove()">` : `<div class="clip-fallback">SEM MINIATURA</div>`}<span class="score-badge">${corte.score}</span></div>
+      <div class="clip-thumb"><img src="${corte.thumbnail || quadroDoCorte(corte)}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'clip-fallback',textContent:'SEM QUADRO'}))"><span class="score-badge">${corte.score}</span></div>
       <div class="clip-content">
         <div class="clip-card-top"><span>${NOME_DO_ESTADO[corte.status] || "SUGERIDO"}</span><span>${relogio(corte.duration)}</span></div>
         <h3>${escapar(corte.title)}</h3>
@@ -742,7 +792,7 @@
       <section class="window review-stage"><div class="window-bar"><span>01 / O CORTE</span><span class="window-status">${NOME_DO_ESTADO[corte.status] || "SUGERIDO"}</span></div>
         <div class="review-stage-body">
           <div class="review-frame">
-            <video class="review-video" controls preload="metadata" src="${videoDaFonte(rodada.chave)}" data-start="${corte.start}" data-end="${corte.end}"></video>
+            <video class="review-video" controls preload="metadata" src="${videoDaFonte(rodada.chave)}#t=${Math.max(0, corte.start).toFixed(2)}" data-start="${corte.start}" data-end="${corte.end}"></video>
             ${legendas}<div class="review-safe-label">9:16 / ÁREA SEGURA</div>
           </div>
           <div class="review-controls">
@@ -1316,6 +1366,48 @@
      pasta dele, e era exatamente isso que fazia "moer" falhar sem dizer por
      quê. A cópia conta o progresso no console. */
 
+  /* BAIXAR POR LINK — a entrada de verdade do trabalho dele.
+
+     O log que ele mandou começa assim: cola o endereço da coletiva, o programa
+     baixa vídeo e áudio, junta num MP4 e importa. O motor já sabia fazer tudo
+     isso; o estúdio é que nunca chamou a rota. Sem esta função ele não
+     conseguia nem COMEÇAR — e é por isso que a versão que eu tinha chamado de
+     mais estável era inutilizável para ele.
+
+     A rota é a mesma que a interface antiga sempre usou, com o mesmo canal de
+     progresso: o console mostra a porcentagem descendo enquanto baixa, e o
+     botão de parar continua valendo. */
+  async function baixarPorLink() {
+    const campo = $("#linkFonte");
+    const link = (campo?.value || "").trim();
+    if (!link) { aviso("Cole o link do vídeo primeiro.", "error"); campo?.focus(); return; }
+    if (estado.moendo) { aviso("A máquina já está ocupada. Espere ou pare o trabalho no console.", "error"); abrirOConsole(true); return; }
+
+    const botao = $("#btnBaixarLink");
+    if (botao) { botao.disabled = true; botao.textContent = "Baixando…"; }
+    abrirOConsole(true);
+    escreverNoConsole(`[Fonte] Pedindo o vídeo de ${link}`, "info");
+    try {
+      const resposta = await pedir("/api/source/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        // Sem destino: o motor decide, e o padrão dele é a pasta de trabalho.
+        // Mandar o texto do campo vazio já criou uma pasta chamada "A pasta
+        // será escolhida ao importar" na máquina dele uma vez.
+        body: JSON.stringify({ url: link }),
+      });
+      estado.trabalho = resposta.job_id || null;
+      estado.moendo = true;
+      marcarNoRelogio("BAIXANDO");
+      $("#btnCancelWork").hidden = false;
+    } catch (erro) {
+      aviso(erro.message, "error");
+      escreverNoConsole(erro.message, "error");
+    } finally {
+      if (botao) { botao.disabled = false; botao.innerHTML = "Baixar <span>↓</span>"; }
+    }
+  }
+
   async function escolherNoWindows() {
     const botao = $("#btnPickNative");
     if (botao) { botao.disabled = true; botao.textContent = "Abrindo a janela…"; }
@@ -1434,6 +1526,29 @@
     const legendas = $$(".review-caption", escopo);
     const repetir = $(".review-loop", escopo);
     const agulha = $("#ondaAgulha");
+
+    /* O vídeo abre NO COMEÇO DO CORTE, não no começo da fonte.
+
+       Este era o defeito que ele descreveu assim: *"quando eu seleciono
+       qualquer um dos cortes, mostra apenas o mesmo trecho do vídeo"*. E era
+       exatamente isso: o player recebia a fonte inteira e ninguém mandava
+       pular. Corte 1, corte 7, corte 40 — todos abriam no segundo zero da
+       mesma entrevista, então os quarenta pareciam o mesmo corte.
+
+       O quadro só pode ser posicionado depois que o navegador lê a duração do
+       arquivo; antes disso, mexer em currentTime não faz nada. Por isso a
+       ordem certa é esperar o `loadedmetadata`. E se os metadados já tiverem
+       chegado antes deste código rodar, o evento não dispara mais — daí a
+       segunda linha. */
+    const irParaOComeco = () => {
+      const comeco = Number(video.dataset.start) || 0;
+      if (Number.isFinite(comeco) && Math.abs(video.currentTime - comeco) > 0.05) {
+        try { video.currentTime = comeco; } catch (_) { /* fonte ainda sem duração */ }
+      }
+    };
+    video.addEventListener("loadedmetadata", irParaOComeco);
+    if (video.readyState >= 1) irParaOComeco();
+
     video.addEventListener("timeupdate", () => {
       const agora = video.currentTime;
       legendas.forEach((l) => l.classList.toggle("is-active", agora >= Number(l.dataset.start) && agora < Number(l.dataset.end)));
@@ -1528,11 +1643,18 @@
     $("#btnQuickImport")?.addEventListener("click", abrirImportar);
     $("#btnCloseImport")?.addEventListener("click", fecharImportar);
     $("#btnPickNative")?.addEventListener("click", escolherNoWindows);
+    $("#btnBaixarLink")?.addEventListener("click", baixarPorLink);
+    $("#linkFonte")?.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); baixarPorLink(); } });
     $("#btnConfirmImport")?.addEventListener("click", enviarPeloNavegador);
     $("#btnProjectAnalyze")?.addEventListener("click", moer);
     $("#btnTopSettings")?.addEventListener("click", () => navegar("settings"));
     $("#btnSaveSettings")?.addEventListener("click", guardarOsAjustes);
     $("#btnConsole")?.addEventListener("click", () => abrirOConsole());
+    // A pasta fica na barra de cima, sempre à mão. Os cortes saem em
+    // ~/FuriaClipsData/exports, que é fora da pasta do programa — ele não tem
+    // como adivinhar, e disse exatamente isso: "não sei sequer onde fica a
+    // pasta de cortes".
+    $("#btnPasta")?.addEventListener("click", abrirAPasta);
     $("#btnConsoleClose")?.addEventListener("click", () => abrirOConsole(false));
     $("#btnConsoleClear")?.addEventListener("click", () => { CONSOLE.linhas = []; pintarOConsole(); });
     $("#btnConsoleCopy")?.addEventListener("click", () => {

@@ -780,7 +780,12 @@ img { max-width: 100%; display: block; }
 /* Um corte sozinho não vira faixa da largura da tela: com uma coluna fixa, o
    cartão tem o mesmo tamanho quando há um e quando há onze — que é o que
    deixa a lista comparável de um dia para o outro. */
-.shortlist-grid { grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); align-content: start; }
+.shortlist-grid { grid-template-columns: repeat(auto-fill, minmax(430px, 1fr)); align-content: start; }
+/* O quadro do corte manda na altura da linha, não o título. Com a coluna
+   estreita demais o título saía uma palavra por linha e o cartão virava uma
+   torre — impossível de comparar com o de baixo, que é para que a lista serve. */
+.clip-thumb { align-self: start; aspect-ratio: 16 / 10; min-height: 0; }
+.clip-content h3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .project-shortlist-layout .shortlist-grid { padding: 0; background: transparent; }
 
 /* A barra que passa do fim da faixa ganha uma ponta chanfrada: sem isso, dois
@@ -793,3 +798,15 @@ img { max-width: 100%; display: block; }
    tela é fonte de máquina. A diferença de letra faz o olho separar sem rótulo. */
 .bloco-pergunta { margin: 6px 0 0; font-family: var(--display); font-size: 13px; line-height: 1.25; }
 .bloco-pe { display: flex; justify-content: space-between; gap: 8px; margin-top: 7px; padding-top: 6px; border-top: 1px solid var(--grey); color: #6b6259; font-size: 7px; letter-spacing: .06em; text-transform: uppercase; }
+
+/* ── o link da fonte ─────────────────────────────────────────────────────────
+   Primeiro campo da janela de importar, porque é por onde o trabalho começa:
+   ele cola o endereço da coletiva e o programa baixa. */
+.campo-link { display: block; margin-bottom: 14px; }
+.campo-link > span:first-child { display: block; margin-bottom: 5px; font-size: 9px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+.campo-link-linha { display: grid; grid-template-columns: 1fr auto; gap: 7px; }
+.campo-link input { width: 100%; min-height: 36px; padding: 7px 9px; border: 1px solid var(--ink); background: var(--cream-light); box-shadow: inset 0 1px 0 #fff; font: inherit; font-size: 12px; }
+.campo-link button { min-height: 36px; white-space: nowrap; }
+.campo-link small { display: block; margin-top: 5px; color: #6b6259; font-size: 8px; }
+.import-ou { display: flex; align-items: center; gap: 9px; margin: 4px 0 11px; color: #6b6259; font-size: 8px; letter-spacing: .05em; text-transform: uppercase; }
+.import-ou::before, .import-ou::after { content: ""; flex: 1; height: 1px; background: var(--ink); opacity: .25; }

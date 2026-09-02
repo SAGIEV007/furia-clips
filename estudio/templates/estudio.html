@@ -35,7 +35,7 @@
                  ele olha ENQUANTO a máquina trabalha: precisa estar do lado do
                  botão que começa o trabalho, não escondido num menu. A luz pisca
                  sozinha quando tem coisa acontecendo. -->
-            <div class="system-actions"><button class="system-button" id="btnQuickImport" title="Importar vídeo">IMPORTAR <b>⌘O</b></button><button class="system-button" id="btnConsole" title="Console do motor">CONSOLE <b id="consoleLight">·</b></button><button class="system-icon" id="btnTopSettings" title="Ajustes">⌘</button><span class="system-clock" id="systemClock">PARADO</span></div>
+            <div class="system-actions"><button class="system-button" id="btnQuickImport" title="Importar vídeo">IMPORTAR <b>⌘O</b></button><button class="system-button" id="btnConsole" title="Console do motor">CONSOLE <b id="consoleLight">·</b></button><button class="system-button" id="btnPasta" title="Abrir a pasta dos cortes prontos">PASTA <b>↗</b></button><button class="system-icon" id="btnTopSettings" title="Ajustes">⌘</button><span class="system-clock" id="systemClock">PARADO</span></div>
         </header>
 
         <main class="desktop-workspace">
@@ -132,7 +132,19 @@
          o arquivo dá o caminho, não a permissão — o motor só lê o que está
          dentro da pasta dele, e era exatamente isso que fazia "moer" falhar
          sem dizer por quê. -->
-    <div class="modal-backdrop" id="importModal" hidden><div class="import-modal window" role="dialog" aria-modal="true" aria-labelledby="importTitle"><div class="window-bar"><span>NOVA FONTE</span><button class="modal-close" id="btnCloseImport" aria-label="Fechar">×</button></div><div class="import-body"><span class="tiny-label">FONTE / SÓ NESTA MÁQUINA</span><h2 id="importTitle">Traga uma fonte<br><em>para a mesa.</em></h2><p>O vídeo é copiado para a pasta de trabalho. Nada sai deste computador.</p><button class="button button-coral import-pick" id="btnPickNative">Procurar no computador <span>↗</span></button><label class="drop-zone" id="dropZone" for="videoInput"><span class="drop-orb">+</span><strong>ou arraste o vídeo aqui</strong><small>para arquivo que veio de fora</small><b>MP4 · MOV · MKV · WEBM</b></label><div class="import-footer"><span id="importFileName">Nenhum arquivo escolhido</span><button class="button" id="btnConfirmImport" disabled>Enviar pelo navegador <span>→</span></button></div><div class="import-progress" id="importProgress" hidden><i></i><span>copiando…</span></div></div></div></div>
+    <div class="modal-backdrop" id="importModal" hidden><div class="import-modal window" role="dialog" aria-modal="true" aria-labelledby="importTitle"><div class="window-bar"><span>NOVA FONTE</span><button class="modal-close" id="btnCloseImport" aria-label="Fechar">×</button></div><div class="import-body"><span class="tiny-label">FONTE</span><h2 id="importTitle">Traga uma fonte<br><em>para a mesa.</em></h2>
+      <!-- O LINK VEM PRIMEIRO porque é por onde o trabalho dele começa: ele
+           cola o endereço da coletiva e o programa baixa. Estava faltando
+           inteiro, e sem ele não dava nem para começar. -->
+      <label class="campo-link"><span>Colar o link do vídeo</span>
+        <span class="campo-link-linha">
+          <input type="url" id="linkFonte" placeholder="https://www.youtube.com/watch?v=..." autocomplete="off" spellcheck="false">
+          <button class="button button-coral" id="btnBaixarLink">Baixar <span>↓</span></button>
+        </span>
+        <small>O vídeo é baixado para a pasta de trabalho deste computador.</small>
+      </label>
+      <div class="import-ou"><span>ou, se o arquivo já está aqui</span></div>
+      <button class="button import-pick" id="btnPickNative">Procurar no computador <span>↗</span></button><label class="drop-zone" id="dropZone" for="videoInput"><span class="drop-orb">+</span><strong>ou arraste o vídeo aqui</strong><small>para arquivo que veio de fora</small><b>MP4 · MOV · MKV · WEBM</b></label><div class="import-footer"><span id="importFileName">Nenhum arquivo escolhido</span><button class="button" id="btnConfirmImport" disabled>Enviar pelo navegador <span>→</span></button></div><div class="import-progress" id="importProgress" hidden><i></i><span>copiando…</span></div></div></div></div>
 
     <!-- ══ O CONSOLE ══════════════════════════════════════════════════════
          O que a máquina está dizendo, ao vivo, na ordem em que ela diz. É a

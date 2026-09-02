@@ -31,10 +31,11 @@ import json
 import os
 import subprocess
 import sys
+import uuid
 from pathlib import Path
 from urllib.parse import quote
 
-from flask import Blueprint, jsonify, render_template
+from flask import Blueprint, abort, jsonify, render_template, request, send_file
 
 RAIZ = Path(__file__).resolve().parent.parent
 if str(RAIZ) not in sys.path:
@@ -42,6 +43,14 @@ if str(RAIZ) not in sys.path:
 
 from config import ALLOWED_EXTENSIONS, WORKSPACE_DIR
 from database import get_all_projects, get_clips, get_project, get_transcription
+from modules.security import UnsafePathError, safe_workspace_path
+
+# Os quadros arrancados dos vídeos ficam fora do repositório, ao lado dos outros
+# dados do programa: são derivados, e dá para apagar a pasta inteira a qualquer
+# momento que o programa refaz.
+QUADROS = Path(
+    os.environ.get("FURIA_CLIPS_DATA_DIR") or (Path.home() / "FuriaClipsData")
+) / "estudio" / "quadros"
 
 estudio = Blueprint(
     "estudio",
@@ -342,6 +351,57 @@ def api_rodada(projeto_id):
             for t in (trechos or []) if isinstance(t, dict)
         ],
     })
+
+
+@estudio.route("/api/estudio/quadro")
+def api_quadro():
+    """Um quadro da fonte no segundo pedido.
+
+    Ele abriu uma rodada com mais de setenta cortes e disse: *"no próprio
+    programa não dá para ver os cortes"*. O motivo é que o cartão só mostrava
+    foto quando o render tinha deixado uma miniatura — e ele nem sempre deixa.
+    Setenta cartões cinzas escritos SEM MINIATURA não é uma lista de cortes: é
+    uma parede que não deixa escolher nada.
+
+    O quadro sai da FONTE, no segundo em que o corte começa, então existe
+    sempre — mesmo antes de qualquer render, mesmo quando o render falhou.
+    Guardado em disco com o nome derivado do arquivo e do segundo: pedir o
+    mesmo quadro duas vezes não chama o ffmpeg de novo.
+    """
+    chave = request.args.get("chave", "")
+    try:
+        em = max(0.0, float(request.args.get("em", 0)))
+    except (TypeError, ValueError):
+        em = 0.0
+
+    try:
+        caminho = Path(safe_workspace_path(WORKSPACE_DIR, chave, allow_missing=False))
+    except (UnsafePathError, FileNotFoundError):
+        abort(404)
+    # Tem de ser ARQUIVO: uma chave vazia resolve para a própria pasta de
+    # trabalho, que existe, e daí o ffmpeg seria chamado em cima de uma pasta.
+    if not caminho.is_file():
+        abort(404)
+
+    QUADROS.mkdir(parents=True, exist_ok=True)
+    try:
+        estado = caminho.stat()
+    except OSError:
+        abort(404)
+    assinatura = f"{caminho}|{estado.st_mtime_ns}|{estado.st_size}|{em:.2f}"
+    destino = QUADROS / (uuid.uuid5(uuid.NAMESPACE_URL, assinatura).hex + ".jpg")
+
+    if not destino.exists():
+        # Meio segundo adiante do começo: no instante exato do corte a imagem
+        # costuma ser o último quadro da frase anterior, às vezes um piscar.
+        subprocess.run(
+            ["ffmpeg", "-v", "error", "-ss", f"{em + 0.5:.2f}", "-i", str(caminho),
+             "-frames:v", "1", "-vf", "scale=420:-2", "-q:v", "4", "-y", str(destino)],
+            capture_output=True, timeout=60, check=False,
+        )
+    if not destino.exists():
+        abort(404)
+    return send_file(destino, mimetype="image/jpeg", max_age=86400)
 
 
 @estudio.route("/")

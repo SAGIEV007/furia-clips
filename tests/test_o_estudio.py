@@ -500,14 +500,21 @@ def test_a_pagina_nao_pede_favicon_que_nao_existe(html):
 def test_a_tela_nao_busca_nada_na_internet(html, js, css):
     """A máquina dele trabalha desligada. Um endereço de fora é uma tela que um
     dia não carrega e ele não vai saber por quê."""
-    # O `xmlns` de um SVG parece endereço e não é: é o NOME do padrão, e o
-    # navegador nunca vai buscá-lo. Marcar isso como "busca coisa de fora"
-    # seria o teste reprovando justamente o ícone que existe para o navegador
-    # PARAR de pedir um arquivo que não existe.
+    # Duas coisas parecem endereço e não são, e o teste tem de saber a
+    # diferença — senão ele reprova justamente o que existe para ajudar:
+    #
+    #   · o `xmlns` de um SVG é o NOME do padrão, não um lugar de onde o
+    #     navegador baixa alguma coisa;
+    #   · o `placeholder` de um campo é o exemplo que ELE lê para saber o que
+    #     colar ali. É texto de tela, não busca de rede.
+    #
+    # O que o teste mede continua sendo o mesmo: nenhum endereço de fora que a
+    # página CARREGUE.
     def busca_de_fora(linha):
-        sem_ns = re.sub(r"xmlns(:\w+)?=['\"][^'\"]*['\"]", "", linha)
+        limpa = re.sub(r"xmlns(:\w+)?=['\"][^'\"]*['\"]", "", linha)
+        limpa = re.sub(r"placeholder=['\"][^'\"]*['\"]", "", limpa)
         for fora in ("http://", "https://", "//cdn", "fonts.googleapis"):
-            if fora in sem_ns and "127.0.0.1" not in sem_ns and "localhost" not in sem_ns:
+            if fora in limpa and "127.0.0.1" not in limpa and "localhost" not in limpa:
                 return True
         return False
 
@@ -582,3 +589,113 @@ def test_o_erro_de_rede_vira_frase_e_nao_silencio(js):
     trecho = limpo[limpo.find("async function pedir("):]
     trecho = trecho[:trecho.find("\n  }")]
     assert "O programa parou de responder" in trecho
+
+
+# ── o que ele conseguia fazer na versão antiga e aqui não ───────────────────
+#
+# Ele mandou o log de uma sessão que FUNCIONOU para ele, numa versão mais
+# velha, e disse: "a versão que você diz ser a mais estável é horrível e eu
+# nunca consegui usar". Os quatro testes abaixo guardam os quatro motivos.
+
+
+def test_a_fonte_entra_por_link(js, html):
+    """O trabalho dele COMEÇA colando um link.
+
+    O log que ele mandou abre assim: cola o endereço da coletiva, o programa
+    baixa vídeo e áudio, junta num MP4 e importa. O motor sempre soube fazer
+    isso — a rota é `/api/source/import` e as linhas do log saem dela. O
+    estúdio é que nunca chamou.
+
+    Sem isto ele não conseguia nem começar, e é por isso que a versão com mais
+    testes passando era, para ele, inutilizável. Contagem de teste não mede se
+    dá para trabalhar.
+    """
+    assert 'id="linkFonte"' in html, "sumiu o campo de colar o link"
+    assert 'id="btnBaixarLink"' in html
+    limpo = sem_comentario(js)
+    assert '"/api/source/import"' in limpo, "o estúdio parou de chamar a rota de baixar"
+    assert "baixarPorLink" in limpo
+
+
+def test_baixar_nao_manda_o_texto_do_campo_como_pasta(js):
+    """No log dele o vídeo foi parar numa pasta chamada, literalmente,
+    "A pasta será escolhida ao importar".
+
+    O texto de exemplo do campo foi enviado como se fosse um caminho, e o
+    programa criou a pasta com esse nome. É metade da resposta para "não sei
+    sequer onde fica a pasta de cortes".
+
+    O motor já tem defesa contra isso (`_is_source_destination_placeholder`),
+    mas a defesa certa é não mandar destino nenhum: sem destino, quem decide é
+    o motor, e o padrão dele é a pasta de trabalho.
+    """
+    limpo = sem_comentario(js)
+    trecho = limpo[limpo.find("async function baixarPorLink"):]
+    trecho = trecho[:trecho.find("\n  }")]
+    assert "destination_dir" not in trecho, (
+        "o estúdio voltou a mandar uma pasta de destino junto com o link"
+    )
+
+
+def test_cada_corte_abre_no_proprio_trecho(js):
+    """*"quando eu seleciono qualquer um dos cortes, mostra apenas o mesmo
+    trecho do vídeo"*.
+
+    O player recebia a fonte inteira e ninguém mandava pular. Corte 1, corte 7,
+    corte 40 — todos abriam no segundo zero da mesma entrevista, então os
+    quarenta pareciam o mesmo corte.
+
+    A marca `#t=` vai no próprio endereço porque mandar `currentTime` pelo
+    JavaScript só funciona depois que o navegador leu a duração do arquivo — e
+    essa leitura pode não ter acontecido ainda quando a tela aparece.
+    """
+    limpo = sem_comentario(js)
+    trecho = limpo[limpo.find('<video class="review-video"'):]
+    trecho = trecho[:trecho.find("</video>")]
+    assert "#t=${" in trecho, "o vídeo voltou a abrir no começo da fonte"
+    assert "corte.start" in trecho
+    # E o reforço pelo JavaScript, para quando o corte muda sem recarregar.
+    assert "loadedmetadata" in limpo
+
+
+def test_o_corte_tem_foto_mesmo_sem_miniatura(js):
+    """*"no próprio programa não dá para ver os cortes mesmo dizendo que tem
+    mais de 70"*.
+
+    O cartão só mostrava foto quando o render tinha deixado uma miniatura, e o
+    render nem sempre deixa. Setenta retângulos cinzas não são uma lista de
+    cortes: são uma parede que não deixa escolher nada.
+
+    O quadro passa a sair da FONTE, no segundo em que o corte começa — existe
+    sempre, inclusive antes de qualquer render e quando o render falhou.
+    """
+    limpo = sem_comentario(js)
+    assert "quadroDoCorte" in limpo
+    assert "/api/estudio/quadro?chave=" in limpo
+    trecho = limpo[limpo.find('<div class="clip-thumb">'):]
+    trecho = trecho[:trecho.find("</div>")]
+    assert "quadroDoCorte(corte)" in trecho, "o cartão voltou a depender só da miniatura"
+
+
+def test_o_quadro_do_corte_nao_serve_arquivo_de_fora(estudio, tmp_path, monkeypatch):
+    """A chave vem da barra de endereço e é escrita por quem quiser."""
+    import app as motor
+    cliente = motor.app.test_client()
+    for chave in ("../../../../etc/passwd", "..\\..\\windows\\system32\\config\\sam", "/etc/passwd", ""):
+        resposta = cliente.get("/api/estudio/quadro", query_string={"chave": chave, "em": 1})
+        assert resposta.status_code == 404, f"a chave {chave!r} passou"
+
+
+def test_a_pasta_dos_cortes_tem_botao_em_lugar_visivel(html, js):
+    """*"não sei sequer onde fica a pasta de cortes"*.
+
+    Os cortes saem em `~/FuriaClipsData/exports`, que fica fora da pasta do
+    programa de propósito — é material derivado. Mas isso quer dizer que não
+    tem como ele adivinhar. Como ele não abre pasta e não digita caminho, a
+    única saída é botão, e o botão fica na barra de cima, que está em todas as
+    telas.
+    """
+    assert 'id="btnPasta"' in html, "sumiu o botão da pasta da barra de cima"
+    limpo = sem_comentario(js)
+    assert '"/api/open_folder"' in limpo
+    assert "btnPasta" in limpo, "o botão da pasta não foi ligado em nada"
