@@ -214,6 +214,10 @@ class TestFimFragmentado:
     def test_texto_curto_nao_branco_e_fragmentado(self, texto):
         assert fim_fragmentado(texto) == "fim_fragmentado"
 
+    def test_texto_limite_15_chars_nao_e_fragmentado(self):
+        assert fim_fragmentado("a" * 15) is None
+        assert fim_fragmentado("a" * 14) == "fim_fragmentado"
+
     def test_texto_longo_nao_e_fragmentado(self):
         assert fim_fragmentado("Renan Santos defende a proposta") is None
 
