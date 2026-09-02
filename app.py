@@ -3044,9 +3044,11 @@ def api_cut_shorts():
                 coverage = _transcription_coverage_report(transcription, video_duration)
                 transcription["coverage"] = coverage
                 if coverage["status"] == "mismatch_suspected" and str(transcription.get("source") or "").lower() in {"manual", "manual_confirmed"}:
-                    raise ValueError(
-                        "A transcrição manual contém timestamps além da duração do vídeo selecionado. "
-                        "Ela provavelmente pertence a outro vídeo; selecione a mídia correta ou importe a legenda correspondente."
+                    emit_progress(
+                        "[Transcrição manual] Timestamps além da duração do vídeo. "
+                        "A transcrição pode pertencer a outra fonte; confirme identidade e trecho no vídeo. "
+                        "Os cortes seguirão com flag de revisão editorial.",
+                        "warning",
                     )
                 if coverage["status"] == "partial":
                     emit_progress(
