@@ -3243,6 +3243,25 @@ Retorne APENAS o JSON.
         punct_score = min(10, excl_count * 4 + quest_count * 2)
 
 
+        # Prosodic emphasis via word duration (P5)
+        prosody_score = 0.0
+        word_spans = block.get("word_spans") or []
+        durations = []
+        for span in word_spans:
+            try:
+                s = float(span.get("start", 0) or 0)
+                e = float(span.get("end", 0) or 0)
+                d = e - s
+                if d > 0:
+                    durations.append(d)
+            except (TypeError, ValueError):
+                continue
+        if durations:
+            avg_dur = sum(durations) / len(durations)
+            long_words = sum(1 for d in durations if d > avg_dur * 1.5)
+            density = long_words / len(durations)
+            prosody_score = min(8.0, density * 40)
+
 
         # Filler word penalty
 
@@ -3300,9 +3319,9 @@ Retorne APENAS o JSON.
 
         total = (score + hook_score + emotional_score + punct_score
 
-                 + context_score + duration_score + completeness_score
+                 + prosody_score + context_score + duration_score
 
-                 + dossier_score - filler_penalty)
+                 + completeness_score + dossier_score - filler_penalty)
 
         return max(0, min(100, total))
 
