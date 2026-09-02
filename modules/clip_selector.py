@@ -4000,24 +4000,18 @@ Retorne APENAS o JSON.
                 or _coerce_flag(next_block.get("topic_boundary"))
 
                 or _coerce_flag(next_block.get("topic_change_detected"))
-
-                or _coerce_flag(next_block.get("speaker_turn_valid"), default=True) is False
-
-                or _coerce_flag(next_block.get("speaker_change_detected"))
-
                 or self._has_multiple_speakers(next_block)
+
+
+
 
             ):
 
                 break
 
-            current_speaker = str(clip_blocks[-1].get("speaker") or "").strip()
 
-            next_speaker = str(next_block.get("speaker") or "").strip()
 
-            if current_speaker and next_speaker and current_speaker != next_speaker:
 
-                break
 
             next_start = float(next_block.get("start", 0) or 0)
 
@@ -4420,12 +4414,10 @@ Retorne APENAS o JSON.
                         or _coerce_flag(next_block.get("topic_boundary"))
 
                         or _coerce_flag(next_block.get("topic_change_detected"))
-
-                        or _coerce_flag(next_block.get("speaker_turn_valid"), default=True) is False
-
-                        or _coerce_flag(next_block.get("speaker_change_detected"))
-
                         or self._has_multiple_speakers(next_block)
+
+
+
 
                     ):
 
