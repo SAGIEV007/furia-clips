@@ -71,12 +71,12 @@ class TestDeteccaoDeAberturaCerimonial:
 
 
 class TestPenalidadeDerrubaOProtocolar:
-    """A regra aplicada nas duas vias: -18 pontos."""
+    """A regra aplicada nas duas vias: -35 pontos."""
 
     @staticmethod
     def _aplicar(nota, cerimonial):
         if cerimonial:
-            nota -= 18
+            nota -= 35
         return max(0, min(100, nota))
 
     def test_protocolar_perde_para_conteudo_de_nota_menor(self):

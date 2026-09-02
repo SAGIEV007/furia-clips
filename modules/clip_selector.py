@@ -2767,7 +2767,7 @@ Retorne APENAS o JSON.
 
             if technical_flags.get("ceremonial_opening"):
 
-                viral_score -= 18
+                viral_score -= 35
 
             viral_score = max(0, min(100, viral_score))
 
@@ -4709,7 +4709,7 @@ Retorne APENAS o JSON.
 
             if clip_flags.get("ceremonial_opening"):
 
-                viral_score -= 18
+                viral_score -= 35
 
             # Mesma penalidade de gancho da via LLM: silêncio nos primeiros 30s
 
