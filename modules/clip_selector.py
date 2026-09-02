@@ -394,6 +394,7 @@ class ClipSelector:
             "campaign_hub_guided_count": 0,
             "campaign_hub_guided_filtered_by_speaker": 0,
             "campaign_hub_discovery_candidates": [],
+            "campaign_hub_guided_selection_enabled": False,
 
         }
 
@@ -533,16 +534,21 @@ class ClipSelector:
         #   com acervo: 73% de acerto alto, 100% de acerto parcial
         # Nada aqui aprova corte sozinho: as propostas seguem sujeitas aos
         # mesmos gates de qualidade e a revisao do editor.
-        if isinstance(settings, dict) and (
+        campaign_hub_snapshot_present = isinstance(settings, dict) and (
             settings.get("campaign_hub_snapshot") or settings.get("campaign_hub_snapshot_path")
-        ):
+        )
+        if campaign_hub_snapshot_present:
             try:
                 guiados = self._select_with_campaign_hub_guidance(
                     sentences, settings, emit_progress
                 ) or []
             except Exception:
                 guiados = []
-            if guiados:
+            self._candidate_diagnostics["campaign_hub_guided_selection_enabled"] = bool(
+                settings.get("campaign_hub_guided_selection", False) if isinstance(settings, dict) else False
+            )
+            self._campaign_hub_discovery_candidates = list(guiados)
+            if guiados and isinstance(settings, dict) and settings.get("campaign_hub_guided_selection", False):
                 publicaveis, barrados_por_locutor = [], 0
                 for proposta in guiados:
                     chub = proposta.get("campaign_hub") if isinstance(proposta.get("campaign_hub"), dict) else {}
@@ -550,7 +556,6 @@ class ClipSelector:
                         barrados_por_locutor += 1
                         continue
                     publicaveis.append(proposta)
-                self._campaign_hub_discovery_candidates = list(guiados)
                 self._campaign_hub_guided_filtered_by_speaker = barrados_por_locutor
                 if publicaveis:
                     clips = publicaveis + list(clips or [])

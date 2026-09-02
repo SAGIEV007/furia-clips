@@ -310,3 +310,101 @@ def diagnosticar_abertura(texto_inicial: str) -> dict:
         "pergunta": eh_pergunta(texto_inicial),
         "abertura_topico": eh_abertura_forte(texto_inicial),
     }
+
+
+def _palavras_conteudo(texto):
+    """Palavras de conteudo (>=4 letras, sem palavra-vazia) para casar textos."""
+    vazias = {
+        "a", "as", "ao", "aos", "com", "da", "das", "de", "do", "dos", "e",
+        "em", "esse", "essa", "isso", "na", "nas", "no", "nos", "o", "os",
+        "por", "que", "se", "sem", "um", "uma", "uns", "umas", "para", "pra",
+        "mais", "mas", "como", "quando", "sobre", "voce", "senhor", "senhora",
+        "sua", "seu", "muito", "ja", "nao", "sim", "entao", "tambem", "ser",
+    }
+    norm = _normalizar(texto)
+    return {p for p in re.findall(r"[a-z0-9]{4,}", norm) if p not in vazias}
+
+
+def localizar_pergunta_de_origem(blocos, indice_inicial, trigger_question,
+                                 limite_recuo_s=60.0, minimo_sobreposicao=0.34):
+    """Localiza, POR TEXTO, onde a pergunta do acervo foi realmente feita.
+
+    MOTIVO (medido 2026-09-01): `encontrar_inicio_do_assunto` recua por
+    heuristica e para na ULTIMA frase interrogativa antes do trecho. Numa
+    coletiva o reporter preambula bastante antes de perguntar, entao a heuristica
+    para no fim da pergunta e o bloco do acervo comeca no inicio da fala dele --
+    erro medido de +7 a +30s.
+
+    Aqui a busca e dirigida: o acervo diz QUAL pergunta procurar
+    (`trigger_question`, presente em 100% dos 18.075 trechos), e esta funcao acha
+    onde ela comeca. Nao sofre do problema de "parar na pergunta errada" porque
+    nao adivinha -- compara texto.
+
+    Recuo maior (60s) e seguro aqui justamente porque o destino e verificado por
+    conteudo, nao por heuristica.
+
+    Retorna (indice, diagnostico).
+    """
+    diag = {"aplicado": False, "motivo": "sem_trigger_question",
+            "indice_original": indice_inicial, "indice_novo": indice_inicial}
+
+    if not trigger_question or not blocos or indice_inicial <= 0:
+        return indice_inicial, diag
+
+    alvo = _palavras_conteudo(trigger_question)
+    if len(alvo) < 2:
+        diag["motivo"] = "pergunta_curta_demais"
+        return indice_inicial, diag
+
+    try:
+        t_ref = float(blocos[indice_inicial].get("start", 0) or 0)
+    except (TypeError, ValueError):
+        diag["motivo"] = "tempo_invalido"
+        return indice_inicial, diag
+
+    melhor_idx, melhor_score = None, 0.0
+
+    for idx in range(indice_inicial - 1, -1, -1):
+        bloco = blocos[idx]
+        try:
+            t_bloco = float(bloco.get("start", 0) or 0)
+        except (TypeError, ValueError):
+            continue
+        if t_ref - t_bloco > limite_recuo_s:
+            break
+
+        texto = bloco.get("text") or ""
+        if eh_protocolar(texto):
+            diag["barreira_protocolar"] = texto.strip()[:80]
+            break
+
+        # Janela de 2 blocos: a pergunta costuma atravessar a fronteira de frase.
+        janela = texto
+        if idx + 1 < len(blocos):
+            janela = texto + " " + (blocos[idx + 1].get("text") or "")
+
+        presentes = _palavras_conteudo(janela)
+        if not presentes:
+            continue
+        sobreposicao = len(alvo & presentes) / float(len(alvo))
+        if sobreposicao > melhor_score:
+            melhor_score, melhor_idx = sobreposicao, idx
+
+    if melhor_idx is not None and melhor_score >= minimo_sobreposicao and melhor_idx < indice_inicial:
+        try:
+            recuo = t_ref - float(blocos[melhor_idx].get("start", 0) or 0)
+        except (TypeError, ValueError):
+            recuo = 0.0
+        diag.update({
+            "aplicado": True,
+            "motivo": "pergunta_do_acervo_localizada",
+            "indice_novo": melhor_idx,
+            "recuo_s": round(recuo, 2),
+            "sobreposicao": round(melhor_score, 3),
+            "texto_novo_inicio": (blocos[melhor_idx].get("text") or "").strip()[:100],
+        })
+        return melhor_idx, diag
+
+    diag["motivo"] = "pergunta_nao_localizada_no_audio"
+    diag["melhor_sobreposicao"] = round(melhor_score, 3)
+    return indice_inicial, diag
