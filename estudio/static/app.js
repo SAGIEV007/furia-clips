@@ -485,8 +485,8 @@
   function selo(fonte) {
     if (!fonte.projeto) return "AINDA NÃO MOÍDA";
     if (fonte.para_rever) return `${fonte.para_rever} PARA REVER`;
-    if (fonte.aprovados) return `${fonte.aprovados} APROVADOS`;
-    return `${fonte.cortes} CORTES`;
+    if (fonte.aprovados) return `${fonte.aprovados} APROVADO${fonte.aprovados === 1 ? "" : "S"}`;
+    return `${fonte.cortes} CORTE${fonte.cortes === 1 ? "" : "S"}`;
   }
 
   function cartaoDaFonte(fonte) {
@@ -495,7 +495,7 @@
       <div class="project-card-body">
         <div class="project-card-title">${escapar(semExtensao(fonte.nome))}</div>
         <div class="project-card-meta"><span>${escapar(tamanho(fonte.bytes))}</span><span>${fonte.projeto ? "já moída" : "na fila"}</span></div>
-        <div class="project-card-status"><b>${fonte.cortes ? `${fonte.cortes} cortes` : "moer para achar os cortes"}</b><span>→</span></div>
+        <div class="project-card-status"><b>${fonte.cortes ? `${fonte.cortes} corte${fonte.cortes === 1 ? "" : "s"}` : "moer para achar os cortes"}</b><span>→</span></div>
       </div></button>`;
   }
 
@@ -605,7 +605,7 @@
       ? `${relogio(rodada.segundos)} · ${tamanho(fonte.bytes)} · moída em ${(rodada.quando || "").slice(0, 16).replace("T", " ")}`
       : `${tamanho(fonte.bytes)} · ainda não moída`;
     const marca = $("#projectState");
-    marca.textContent = estado.moendo ? "MOENDO" : rodada ? `${rodada.cortes.length} CORTES` : "NA FILA";
+    marca.textContent = estado.moendo ? "MOENDO" : rodada ? `${rodada.cortes.length} CORTE${rodada.cortes.length === 1 ? "" : "S"}` : "NA FILA";
     marca.className = `project-state ${estado.moendo ? "processing" : rodada ? "ready_review" : "ready"}`;
     $("#projectTabCount").textContent = rodada?.cortes?.length || 0;
     const botao = $("#btnProjectAnalyze");
@@ -1003,6 +1003,15 @@
     }
   }
 
+  async function abrirOsRegistros() {
+    try {
+      const resposta = await pedir("/api/open-logs", { method: "POST" });
+      // Sem ambiente gráfico o comando falha e a rota devolve ONDE fica. Dizer
+      // o caminho ainda resolve; ficar calado, não.
+      aviso(resposta.path ? `Registros em ${resposta.path}` : "A pasta dos registros abriu.", "success");
+    } catch (erro) { aviso(erro.message, "error"); }
+  }
+
   async function abrirAPasta() {
     try {
       await pedir("/api/open_folder", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
@@ -1022,10 +1031,15 @@
           <div class="transcript-tools"><span class="tiny-label">PROCURAR NOS BLOCOS</span><input class="transcript-search" id="blocosBusca" type="search" placeholder="um tema, um nome…" aria-label="Procurar nos blocos"></div>
           <div id="blocosLista" class="blocos-lista"><p class="review-muted">Lendo o acervo…</p></div>
         </div></section>
-      <aside class="window notes-window"><div class="window-bar"><span>O QUE É UM BLOCO</span><span class="window-status">ACERVO</span></div>
+      <aside class="window notes-window"><div class="window-bar"><span>O QUE É UM BLOCO</span><span class="window-status" id="blocosOrigem">—</span></div>
         <div class="notes-art" aria-hidden="true"></div>
-        <h2>Material que alguém já separou.</h2>
-        <p>Bloco não é palpite deste programa: é trecho do acervo que passou por revisão humana. Serve para lembrar o que já foi cortado desta fonte e o que ainda está inteiro.</p>
+        <h2>Pedaços inteiros da fonte.</h2>
+        <!-- Bloco vem de dois lugares, e a diferença é grande demais para
+             ficar implícita: um passou por gente, o outro é a leitura da
+             máquina. Cada cartão diz de qual dos dois ele é. -->
+        <p><b>Do acervo</b> — trecho que já passou por revisão humana. Vale como referência do que já foi cortado desta fonte.</p>
+        <p><b>Leitura do Furia</b> — o programa achou onde uma pergunta começa e a resposta acaba. É palpite dele, e o cartão diz isso.</p>
+        <p class="review-muted">Nenhum dos dois é corte. Bloco é onde procurar corte.</p>
       </aside></div>`;
   }
 
@@ -1047,18 +1061,37 @@
       });
       estado.blocos = dados;
       const blocos = dados.blocks || [];
-      if (marca) marca.textContent = dados.available === false ? "SEM ACERVO" : `${blocos.length} BLOCOS`;
-      if (dados.error) {
-        lista.innerHTML = `<p class="review-muted">${escapar(dados.error)}</p>`;
+      // "reviewed" quer dizer que alguém de carne e osso passou por esses
+      // blocos. Isso muda o peso do que está na tela e por isso vai escrito.
+      if (marca) {
+        marca.textContent = blocos.length
+          ? `${blocos.length} · ${dados.reviewed ? "REVISADO" : "LEITURA DO FURIA"}`
+          : "NENHUM";
+      }
+      const origem = $("#blocosOrigem");
+      if (origem) origem.textContent = blocos.length ? (dados.reviewed ? "ACERVO" : "FURIA") : "—";
+      if (!blocos.length) {
+        // A mensagem é do próprio motor e diz o que FAZER — "a transcrição não
+        // rende trechos longos o bastante", "importe os blocos do Acervo deste
+        // vídeo". Trocar isso por um texto genérico meu seria jogar fora a
+        // única frase da tela que resolve o problema dele.
+        lista.innerHTML = `<p class="review-muted">${escapar(dados.error || dados.message || "Nenhum bloco para esta fonte.")}</p>`;
         return;
       }
-      lista.innerHTML = blocos.length
-        ? blocos.map((b) => `<article class="bloco">
-            <div class="bloco-topo"><b>${escapar(b.title || b.label || b.id || "bloco")}</b><span>${b.start_s != null ? `${relogio(b.start_s)} — ${relogio(b.end_s)}` : ""}</span></div>
-            ${b.summary || b.text ? `<p>${escapar(String(b.summary || b.text).slice(0, 320))}</p>` : ""}
-            ${(b.tags || []).length ? `<div class="reason-list">${b.tags.slice(0, 6).map((t) => `<span>${escapar(t)}</span>`).join("")}</div>` : ""}
-          </article>`).join("")
-        : `<p class="review-muted">Nenhum bloco para esta fonte. Isso é normal quando o material é novo — bloco aparece depois que alguém revisa um corte dele.</p>`;
+      lista.innerHTML = blocos.map((b) => {
+        // Bloco não tem título porque ninguém escreveu um. O que ele tem é
+        // posição, que é fato — então o cabeçalho é a posição, e o texto é a
+        // fala literal, não um resumo inventado aqui.
+        const onde = b.start != null ? `${relogio(b.start)} — ${relogio(b.end)}` : "";
+        const marcas = [...(b.topics || [])].slice(0, 6);
+        return `<article class="bloco">
+          <div class="bloco-topo"><b>${escapar(b.label || "trecho")}</b><span>${escapar(onde)}</span></div>
+          ${b.trigger_question ? `<p class="bloco-pergunta">${escapar(b.trigger_question)}</p>` : ""}
+          ${b.summary ? `<p>${escapar(String(b.summary).slice(0, 340))}</p>` : ""}
+          ${marcas.length ? `<div class="reason-list">${marcas.map((t) => `<span>${escapar(t)}</span>`).join("")}</div>` : ""}
+          <div class="bloco-pe"><span>${escapar(b.trust_tier || b.source?.title || "")}</span>${b.duration ? `<span>${relogio(b.duration)}</span>` : ""}</div>
+        </article>`;
+      }).join("");
     } catch (erro) {
       if (marca) marca.textContent = "ERRO";
       lista.innerHTML = `<p class="review-muted">${escapar(erro.message)}</p>`;
@@ -1198,11 +1231,22 @@
       corpo.innerHTML = `<div class="settings-grade">
         <section class="window editor-window"><div class="window-bar"><span>A MÁQUINA</span><span class="window-status">v${escapar(estado.ajustes.program_version || "")}</span></div>
           <div class="editor-window-body">${CAMPOS.map(desenharCampo).join("")}</div></section>
-        <aside class="window notes-window"><div class="window-bar"><span>AS OUTRAS FRENTES</span><span class="window-status">MESMO MOTOR</span></div>
-          <h2>Uma máquina, várias portas.</h2>
-          <p>O estúdio é a porta da frente. As telas antigas continuam de pé no mesmo programa, para o caso de faltar alguma coisa aqui — mas nada te manda para lá sozinho.</p>
-          <div class="settings-portas"><a href="/2" target="_blank" rel="noopener">A bancada ↗</a><a href="/classico" target="_blank" rel="noopener">A interface antiga ↗</a></div>
-          <p class="review-muted">Elas abrem numa aba nova. O trabalho que estiver rodando aqui continua rodando.</p>
+        <!-- Aqui NÃO tem link para a interface antiga.
+             Ele já disse o que acha disso: "quando fui em ajustes e ajustes
+             completos simplesmente abriu o furia antigo, PORQUE????". Um botão
+             que devolve para o lugar de onde ele pediu para sair é o programa
+             admitindo que não dá conta — e me deixa confortável em deixar
+             buraco aqui. Se faltar alguma coisa, ela se constrói aqui dentro.
+             O que entra no lugar é o que ele realmente não consegue fazer
+             sozinho: chegar nos arquivos sem abrir pasta nenhuma. -->
+        <aside class="window notes-window"><div class="window-bar"><span>ONDE AS COISAS FICAM</span><span class="window-status">DISCO</span></div>
+          <h2>Nada aqui exige abrir pasta.</h2>
+          <p>Os cortes prontos, o registro do que a máquina fez e as fontes ficam em pastas desta máquina. Os botões abrem a pasta certa no Windows.</p>
+          <div class="settings-portas">
+            <button type="button" data-acao="abrir-pasta">Abrir a pasta dos cortes ↗</button>
+            <button type="button" data-acao="abrir-registros">Abrir a pasta dos registros ↗</button>
+          </div>
+          <p class="review-muted">Se der problema, o console tem um botão de copiar: o texto de lá é o que resolve mais rápido.</p>
         </aside></div>`;
       ligarOsBotoes(corpo);
     } catch (erro) {
@@ -1421,6 +1465,7 @@
     }
     if (acao === "seo") return gerarSeo();
     if (acao === "abrir-pasta") return abrirAPasta();
+    if (acao === "abrir-registros") return abrirOsRegistros();
     if (acao === "escolher-pasta") return escolherPasta(dados.alvo);
     return undefined;
   }

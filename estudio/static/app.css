@@ -688,8 +688,8 @@ img { max-width: 100%; display: block; }
 .campo-pasta { display: grid; grid-template-columns: 1fr auto; gap: 6px; }
 .campo-pasta input { cursor: default; }
 .settings-portas { display: grid; gap: 6px; margin: 13px 16px; }
-.settings-portas a { padding: 6px 8px; border: 1px solid var(--ink); background: var(--cream-light); box-shadow: 2px 2px 0 var(--ink); color: var(--ink); font-size: 9px; text-decoration: none; }
-.settings-portas a:hover { background: var(--sun); }
+.settings-portas button { width: 100%; padding: 7px 8px; border: 1px solid var(--ink); background: var(--cream-light); box-shadow: 2px 2px 0 var(--ink); color: var(--ink); font-size: 9px; text-align: left; }
+.settings-portas button:hover { background: var(--sun); }
 .settings-body .review-muted { margin: 0 16px 14px; font-size: 8px; }
 @media (max-width: 900px) { .settings-grade { grid-template-columns: 1fr; } }
 
@@ -788,3 +788,8 @@ img { max-width: 100%; display: block; }
    mente por omissão. */
 .barra.estourou { clip-path: polygon(0 0, calc(100% - 5px) 0, 100% 50%, calc(100% - 5px) 100%, 0 100%); }
 .barra.abaixo.estourou { clip-path: polygon(5px 0, 100% 0, 100% 100%, 5px 100%, 0 50%); }
+
+/* A pergunta que puxou o trecho vem em serifa: é FALA de gente, e o resto da
+   tela é fonte de máquina. A diferença de letra faz o olho separar sem rótulo. */
+.bloco-pergunta { margin: 6px 0 0; font-family: var(--display); font-size: 13px; line-height: 1.25; }
+.bloco-pe { display: flex; justify-content: space-between; gap: 8px; margin-top: 7px; padding-top: 6px; border-top: 1px solid var(--grey); color: #6b6259; font-size: 7px; letter-spacing: .06em; text-transform: uppercase; }
