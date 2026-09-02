@@ -4767,26 +4767,51 @@ def api_process_complete():
             if processing_interval.get("active"):
                 video_name += f"_interval_{int(processing_interval['start_seconds'])}-{int(processing_interval['end_seconds'])}"
 
-            # ── Step 1: Remove silence ──
-            emit_progress("━━━ ETAPA 1/6: Removendo Silencio ━━━", "info")
+            # ── Etapa 1: LER o silêncio. Não reescrever o vídeo. ──
+            #
+            # Isto era `remove_silence()`, que detecta o silêncio E DEPOIS
+            # recodifica o vídeo inteiro com libx264 preset medium para um
+            # arquivo `_sem_silencio.mp4`. Esse arquivo nunca era usado: três
+            # linhas abaixo, `working_video = video_path` devolvia a fonte
+            # original, e o resultado da recodificação só decidia se uma frase
+            # aparecia no console.
+            #
+            # O preço disso apareceu numa live IRL que o editor mandou moer:
+            # 15:28 começou, 15:35 terminou de detectar o silêncio, e às 16:14
+            # — trinta e nove minutos depois — ainda estava em "Processando 4
+            # segmentos de fala", que é a linha impressa logo antes da
+            # recodificação. Pior: ela roda dentro de um `subprocess.run` que
+            # bloqueia, sem progresso e sem checar cancelamento, então o botão
+            # de parar não alcança lá dentro.
+            #
+            # Detectar continua valendo: saber quanto da fonte é silêncio é
+            # informação real sobre o material. Recodificar para o lixo, não.
+            # A rota `/api/process/silence` continua produzindo o arquivo, que
+            # lá é justamente o que se pediu.
+            emit_progress("━━━ ETAPA 1/6: Lendo o silêncio da fonte ━━━", "info")
             from modules.silence_remover import SilenceRemover
             remover = SilenceRemover(
                 silence_threshold=settings.get("silence_threshold", -35),
                 min_silence_duration=settings.get("min_silence_duration", 0.5),
                 padding=settings.get("padding", 0.25),
             )
-            silence_result = remover.remove_silence(video_path, emit_progress=emit_progress)
-            ctx.update(stage="silence", progress=15, message="Análise de silêncio concluída")
+            duracao_da_fonte = _probe_video_duration_seconds(video_path) or 0.0
+            periodos_de_silencio = remover.detect_silence(video_path, emit_progress=emit_progress)
             ctx.check_cancel()
-            if silence_result:
+            silencio_total = sum(float(p.get("duration") or 0) for p in periodos_de_silencio)
+            if duracao_da_fonte > 0 and silencio_total > 0:
                 emit_progress(
-                    "Versão sem silêncio gerada como artefato separado; "
-                    "a seleção continuará usando a timeline original.",
+                    f"[Silêncio] {silencio_total:.0f}s de silêncio em "
+                    f"{duracao_da_fonte:.0f}s de fonte "
+                    f"({silencio_total / duracao_da_fonte * 100:.0f}% do material). "
+                    "A seleção usa a timeline original; nenhum vídeo foi reescrito.",
                     "info",
                 )
-            # The original video remains canonical. Removing silence resets PTS
-            # in the derived file, so its timestamps must never be used to cut
-            # the source without an explicit TimelineMap conversion.
+            ctx.update(stage="silence", progress=15, message="Silêncio lido")
+            ctx.check_cancel()
+            # A fonte original é a canônica. Remover silêncio zera o PTS do
+            # arquivo derivado, então os tempos dele nunca poderiam ser usados
+            # para cortar a fonte sem uma conversão explícita de timeline.
             working_video = video_path
 
             # ── Step 2: Import manual transcript or transcribe ──

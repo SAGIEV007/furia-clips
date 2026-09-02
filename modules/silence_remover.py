@@ -15,8 +15,18 @@ class SilenceRemover:
         if emit_progress:
             emit_progress("Detectando silencio no audio...")
 
+        # `-vn` = não decodifique o vídeo.
+        #
+        # `silencedetect` é um filtro de ÁUDIO: a imagem não entra na conta em
+        # momento nenhum. Sem esta linha o ffmpeg decodificava cada quadro de
+        # vídeo da fonte inteira para depois jogar tudo fora — numa live IRL de
+        # várias horas, isso é a diferença entre minutos e segundos.
+        #
+        # O editor mandou o registro de uma dessas: 15:28:57 começou a
+        # detectar, 15:35:29 terminou. Seis minutos e meio ouvindo um áudio
+        # enquanto decodificava um vídeo que ninguém ia olhar.
         cmd = [
-            "ffmpeg", "-i", video_path,
+            "ffmpeg", "-nostdin", "-hide_banner", "-i", video_path, "-vn",
             "-af", f"silencedetect=noise={self.silence_threshold}dB:d={self.min_silence_duration}",
             "-f", "null", "-"
         ]
