@@ -1,25 +1,4 @@
-"""Mede CONTEXTO — se o corte se sustenta sozinho.
-
-Prioridade declarada pelo Fernando (01/09): *"essa duracao e legal mas a parte
-de contexto e imprescindivel"*. Um corte de 117s que abre no meio do raciocinio
-e pior que um de 60s que se explica sozinho.
-
-O acervo do Chub ja tem esse julgamento: `self_contained_rank` (percentil de
-auto-suficiencia) e `needs_context` (depende do que veio antes). Os blocos de
-nota alta seguem um padrao claro, visivel em `self_contained_reason`:
-
-  "O bloco apresenta a pergunta, explica o conceito, fornece exemplos legais e
-   explicita a proposta e o prazo."
-
-Ou seja: PERGUNTA + RESPOSTA + FECHAMENTO na mesma janela. E isso que este
-script mede, em vez de so sobreposicao temporal.
-
-Uso:
-    python scripts/bench_contexto.py
-"""
-import io
-import json
-import sys
+import json, io, sys
 
 sys.path.insert(0, ".")
 
@@ -43,11 +22,33 @@ def bloco_mais_proximo(clip, gabarito):
     return melhor, score
 
 
+def ultimo_segmento(intervalo_start, intervalo_end, segs, tol=0.5):
+    candidatos = [s for s in segs if s["end"] <= intervalo_end + tol and s["start"] >= intervalo_start - tol]
+    if not candidatos:
+        candidatos = [s for s in segs if s["end"] <= intervalo_end + tol]
+    if not candidatos:
+        return None
+    return max(candidatos, key=lambda s: s["end"])
+
+
+def classificar_borda_saida(texto):
+    t = texto.rstrip()
+    if t.endswith(".") or t.endswith("!"):
+        return "ponto_exclamacao"
+    elif t.endswith("?"):
+        return "pergunta"
+    elif t.endswith(","):
+        return "virgula"
+    else:
+        return "sem_pontuacao"
+
+
 def avaliar(rotulo, settings=None):
     from modules.clip_selector import ClipSelector
 
     dados = json.load(io.open(TRANSCRICAO, encoding="utf-8"))
     gabarito = json.load(io.open(GABARITO, encoding="utf-8"))
+    segs = dados["segments"]
 
     seletor = ClipSelector()
     clips = seletor.select_clips(dados, settings=settings) if settings else seletor.select_clips(dados)
@@ -62,25 +63,42 @@ def avaliar(rotulo, settings=None):
         print(f"{rotulo}: nenhum corte aprovado")
         return
 
-    # 1. O corte abre onde o assunto abre?
     abre_no_lugar = 0
-    # 2. Fecha onde o assunto fecha?
     fecha_no_lugar = 0
-    # 3. Herda um bloco auto-suficiente (o acervo diz que se sustenta)?
     autossuficientes = 0
-    # 4. Cai em bloco que o proprio acervo marca como dependente de contexto?
     dependentes = 0
-    # 5. Flags editoriais internos do Furia
     com_contexto = sum(1 for c in aprovados if c.get("context_complete"))
     com_fecho = sum(1 for c in aprovados if c.get("payoff_complete"))
     abre_no_meio = sum(1 for c in aprovados if c.get("starts_mid_sentence"))
     referencia_solta = sum(1 for c in aprovados if c.get("starts_with_context_reference"))
 
+    # P4: borda de saida (5 categorias da pesquisa)
+    borda_categorias = {
+        "ponto_exclamacao": 0,
+        "pergunta": 0,
+        "virgula": 0,
+        "sem_pontuacao": 0,
+        "sem_segmento": 0,
+    }
+    gabarito_borda = {
+        "ponto_exclamacao": 0,
+        "pergunta": 0,
+        "virgula": 0,
+        "sem_pontuacao": 0,
+        "sem_segmento": 0,
+    }
+    for b in gabarito:
+        s = ultimo_segmento(b["start_s"], b["end_s"], segs)
+        if s:
+            cat = classificar_borda_saida(s["text"])
+        else:
+            cat = "sem_segmento"
+        gabarito_borda[cat] = gabarito_borda.get(cat, 0) + 1
+
     for clip in aprovados:
         bloco, score = bloco_mais_proximo(clip, gabarito)
         if not bloco:
             continue
-        # tolerancia de 3s: abrir/fechar junto com a fronteira do bloco
         if abs(clip["start"] - bloco["start_s"]) <= 3.0:
             abre_no_lugar += 1
         if abs(clip["end"] - bloco["end_s"]) <= 3.0:
@@ -90,8 +108,17 @@ def avaliar(rotulo, settings=None):
         if bloco.get("needs_context"):
             dependentes += 1
 
+        s = ultimo_segmento(clip["start"], clip["end"], segs)
+        if s:
+            cat = classificar_borda_saida(s["text"])
+        else:
+            cat = "sem_segmento"
+        borda_categorias[cat] = borda_categorias.get(cat, 0) + 1
+
     n = len(aprovados)
     pct = lambda x: f"{100*x/n:.0f}%"
+    g_n = len(gabarito)
+    g_pct = lambda x: f"{100*x/g_n:.0f}%"
 
     print(f"\n=== {rotulo} ({n} cortes) ===")
     print("  FRONTEIRA (vs. acervo)")
@@ -105,6 +132,12 @@ def avaliar(rotulo, settings=None):
     print(f"    fecho completo .................. {com_fecho}/{n}  {pct(com_fecho)}")
     print(f"    abre no meio da frase ........... {abre_no_meio}/{n}  {pct(abre_no_meio)}  <- quanto menor, melhor")
     print(f"    abre com referencia solta ....... {referencia_solta}/{n}  {pct(referencia_solta)}  <- quanto menor, melhor")
+    print("  BORDA DE SAIDA (ultima frase do corte vs. gabarito)")
+    print(f"    . ou ! (ideal) .................. {borda_categorias['ponto_exclamacao']}/{n}  {pct(borda_categorias['ponto_exclamacao'])}")
+    print(f"    ? ................................ {borda_categorias['pergunta']}/{n}  {pct(borda_categorias['pergunta'])}")
+    print(f"    , ................................ {borda_categorias['virgula']}/{n}  {pct(borda_categorias['virgula'])}")
+    print(f"    sem pontuacao .................... {borda_categorias['sem_pontuacao']}/{n}  {pct(borda_categorias['sem_pontuacao'])}")
+    print(f"    (gabarito ref: .! {gabarito_borda['ponto_exclamacao']}/{g_n} {g_pct(gabarito_borda['ponto_exclamacao'])}, ? {gabarito_borda['pergunta']}/{g_n} {g_pct(gabarito_borda['pergunta'])}, , {gabarito_borda['virgula']}/{g_n} {g_pct(gabarito_borda['virgula'])}, sem {gabarito_borda['sem_pontuacao']}/{g_n} {g_pct(gabarito_borda['sem_pontuacao'])})")
 
 
 if __name__ == "__main__":
