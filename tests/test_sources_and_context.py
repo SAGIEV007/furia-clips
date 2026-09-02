@@ -518,3 +518,20 @@ def test_audio_language_report_bounds_and_sanitizes_provider_metadata():
     assert report["language"] == ("pt-brprovider-noise" + ("x" * 200))[:32]
     assert len(report["language"]) <= 32
     assert "\\n" not in report["language"]
+
+
+def test_coverage_marks_manual_transcript_beyond_duration_as_mismatch_suspected():
+    from app import _transcription_coverage_report
+
+    report = _transcription_coverage_report({
+        "source": "manual",
+        "segments": [
+            {"start": 0.0, "end": 45.0, "text": "Fala inicial."},
+            {"start": 90.0, "end": 120.0, "text": "Fala além da duração."},
+        ],
+        "raw_last_timestamp": 120.0,
+    }, 100.0)
+
+    assert report["status"] == "mismatch_suspected"
+    assert report["end_ratio"] == 1.0
+    assert report["segment_count"] == 2
