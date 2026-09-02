@@ -307,6 +307,17 @@ class ClipSelector:
 
     MAX_SEED_ANCHOR_GAP_S = 60.0
 
+    # Duas sementes vizinhas do acervo expandiam para a mesma janela: o mesmo
+    # destaque virava duas propostas, o editor revisava o trecho duas vezes e
+    # perdia um corte. A trava impede a invasao, mas so depois que o corte ja
+    # tem duracao publicavel -- parar antes disso gerava corte curto demais,
+    # descartado pelo gate (medido 02/09: 4 vetos `too_short`).
+    # Custo medido na regua do Garimpo (02/09, 15 aprovados): acerto alto cai de
+    # 47% para 40% (1 caso), cobertura parcial fica em 73% nos dois. Ligada
+    # mesmo assim: destaque duplicado e defeito de produto, o caso a menos e
+    # ruido de amostra pequena.
+    LIMITAR_EXPANSAO_ENTRE_SEMENTES = True
+
     MAX_SEED_TEXT_ANCHOR_SENTENCES = 3
 
     MIN_SEED_TEXT_ANCHOR_COVERAGE = 0.55
@@ -6433,8 +6444,12 @@ Retorne APENAS o JSON.
             # Nao invadir o proximo destaque do acervo: cada destaque do Chub e
             # um momento editorial distinto. Se esta proposta engolir o destaque
             # seguinte, o editor perde um corte e revisa o mesmo trecho duas vezes.
+            # Mas so a partir do momento em que o corte ja tem duracao publicavel:
+            # parar antes disso produz corte curto demais, que o gate descarta e
+            # o destaque se perde de qualquer jeito.
             if (
                 limite_expansao_s is not None
+                and duration >= self.min_duration
                 and float(next_sentence.get("end", 0) or 0) > float(limite_expansao_s)
             ):
 
@@ -6724,6 +6739,10 @@ Retorne APENAS o JSON.
             proxima = ordenadas[posicao + 1] if posicao + 1 < len(ordenadas) else None
 
             limite = _safe_float(proxima.get("start"), 0.0) if proxima else None
+
+            if not self.LIMITAR_EXPANSAO_ENTRE_SEMENTES:
+
+                limite = None
 
             proposal = self._build_campaign_hub_proposal(sentences, seed, limite_expansao_s=limite)
 
