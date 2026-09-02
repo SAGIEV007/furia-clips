@@ -394,10 +394,14 @@ class ClipSelector:
             "campaign_hub_guided_count": 0,
             "campaign_hub_guided_filtered_by_speaker": 0,
             "campaign_hub_discovery_candidates": [],
+            "campaign_hub_publishable_candidates": [],
+            "campaign_hub_publishable_guided_count": 0,
             "campaign_hub_guided_selection_enabled": False,
-
         }
 
+        self._campaign_hub_discovery_records = []
+        self._campaign_hub_publishable_candidates = []
+        self._campaign_hub_guided_filtered_by_speaker = 0
 
 
     def select_clips(self, transcription, energy_profile=None, user_context="",
@@ -409,6 +413,23 @@ class ClipSelector:
         settings = settings or {}
 
         self._selection_source = None
+
+        # Modo "Renan primeiro": quando o perfil editorial e o do Renan, uma
+        # proposta do acervo so pode entrar publicavel com evidencia positiva de
+        # que ele fala. Sem isso, ela fica so como descoberta para revisao.
+        foco_editorial = str(
+            settings.get("editorial_focus") or settings.get("editorial_profile") or ""
+        ).strip().lower()
+
+        self._speaker_identity_required = foco_editorial in {
+            "renan", "renan_santos", "renan_santos_politics",
+        }
+
+        self._campaign_hub_discovery_candidates = []
+
+        self._campaign_hub_guided_filtered_by_speaker = 0
+
+        self._campaign_hub_publishable_candidates = []
 
         self._previous_clip_fingerprints = [
 
@@ -547,25 +568,46 @@ class ClipSelector:
             self._candidate_diagnostics["campaign_hub_guided_selection_enabled"] = bool(
                 settings.get("campaign_hub_guided_selection", False) if isinstance(settings, dict) else False
             )
+            flag_ligado = bool(self._candidate_diagnostics["campaign_hub_guided_selection_enabled"])
             self._campaign_hub_discovery_candidates = list(guiados)
-            if guiados and isinstance(settings, dict) and settings.get("campaign_hub_guided_selection", False):
-                publicaveis, barrados_por_locutor = [], 0
-                for proposta in guiados:
-                    chub = proposta.get("campaign_hub") if isinstance(proposta.get("campaign_hub"), dict) else {}
-                    if self._speaker_identity_required and chub.get("renan_speaking") is not True:
-                        barrados_por_locutor += 1
-                        continue
-                    publicaveis.append(proposta)
-                self._campaign_hub_guided_filtered_by_speaker = barrados_por_locutor
-                if publicaveis:
-                    clips = publicaveis + list(clips or [])
-                    self._selection_source = "campaign_hub_guided"
-                    if emit_progress:
-                        emit_progress(
-                            f"[Acervo] {len(publicaveis)} proposta(s) do Chub adicionadas ao pool; "
-                            "seguem sujeitas aos gates e a revisao editorial.",
-                            "info",
-                        )
+            # A classificacao acontece SEMPRE, mesmo com a ponte desligada: e ela
+            # que explica na revisao por que uma proposta do acervo nao virou
+            # corte. Antes so rodava com o flag ligado, e o diagnostico saia vazio.
+            publicaveis, barrados_por_locutor, registros = [], 0, []
+            for proposta in guiados:
+                chub = proposta.get("campaign_hub") if isinstance(proposta.get("campaign_hub"), dict) else {}
+                if self._speaker_identity_required and chub.get("renan_speaking") is not True:
+                    barrados_por_locutor += 1
+                    registro = ClipSelector._campaign_hub_discovery_record(proposta, "speaker_gate_review")
+                    registro["exclusion_reason"] = (
+                        "sem evidencia positiva de que Renan fala neste bloco; "
+                        "perfil editorial exige confirmacao de locutor"
+                    )
+                    registros.append(registro)
+                    continue
+                if not flag_ligado:
+                    registros.append(
+                        ClipSelector._campaign_hub_discovery_record(proposta, "descriptive_memory")
+                    )
+                    continue
+                publicaveis.append(proposta)
+                registros.append(
+                    ClipSelector._campaign_hub_discovery_record(proposta, "publishable")
+                )
+            self._campaign_hub_guided_filtered_by_speaker = barrados_por_locutor
+            self._campaign_hub_discovery_records = registros
+            self._campaign_hub_publishable_candidates = [
+                item for item in registros if item.get("publication_status") == "publishable"
+            ]
+            if publicaveis:
+                clips = publicaveis + list(clips or [])
+                self._selection_source = "campaign_hub_guided"
+                if emit_progress:
+                    emit_progress(
+                        f"[Acervo] {len(publicaveis)} proposta(s) do Chub adicionadas ao pool; "
+                        "seguem sujeitas aos gates e a revisao editorial.",
+                        "info",
+                    )
 
         expected_count = self._expected_candidate_count(sentences)
 
@@ -608,18 +650,19 @@ class ClipSelector:
             "expected_count_calls": self._candidate_diagnostics.get("expected_count_calls", 0),
 
             "reason": "short_source" if expected_count == 0 else ("adequate_pool" if len(primary_clips) >= expected_count else "primary_pool_thin"),
-
             "stage_counts": {},
-
-            "campaign_hub_discovery_count": 0,
-
-            "campaign_hub_guided_count": 0,
-
-            "campaign_hub_guided_filtered_by_speaker": 0,
-
-            "campaign_hub_discovery_candidates": [],
-
+            "campaign_hub_discovery_count": len(self._campaign_hub_discovery_records or []),
+            "campaign_hub_guided_count": len(self._campaign_hub_publishable_candidates or []),
+            "campaign_hub_guided_filtered_by_speaker": self._campaign_hub_guided_filtered_by_speaker,
+            "campaign_hub_discovery_candidates": list(self._campaign_hub_discovery_records or []),
+            "campaign_hub_publishable_candidates": list(self._campaign_hub_publishable_candidates or []),
+            "campaign_hub_publishable_guided_count": len(self._campaign_hub_publishable_candidates or []),
+            "campaign_hub_guided_selection_enabled": bool(
+                settings.get("campaign_hub_guided_selection", False) if isinstance(settings, dict) else False
+            ),
         }
+
+        self._registrar_estagio("primary_pool", primary_clips)
 
         if primary_clips and expected_count and len(primary_clips) < expected_count:
 
@@ -672,6 +715,14 @@ class ClipSelector:
                     )
 
 
+
+        self._registrar_estagio("post_fallback", clips)
+
+        # O acervo já marcou o que não é conteúdo (leitura de patrocínio,
+        # abertura, despedida). Cada candidato gasto ali é um corte real a menos.
+        clips = self._drop_labelled_non_content(clips, settings, sentences, emit_progress)
+
+        self._registrar_estagio("after_non_content_filter", clips)
 
         # Filter clips at scene boundaries if available
 
@@ -771,6 +822,12 @@ class ClipSelector:
 
         # 30s window advances.
 
+        clips = self._attach_block_evidence(clips, settings)
+
+        self._registrar_estagio("after_context_enrichment", clips)
+
+        self._registrar_estagio("pre_overlap", clips)
+
         if energy_profile:
 
             clips = self._apply_energy_window_grouping(clips, energy_profile)
@@ -795,6 +852,8 @@ class ClipSelector:
 
         # Do not recreate intervals already generated in a previous run of the same source.
 
+        self._registrar_estagio("post_overlap", clips)
+
         clips = self._remove_previous_fingerprints(clips)
 
 
@@ -806,6 +865,18 @@ class ClipSelector:
         clips = clips[:self.max_clips]
 
         self._candidate_diagnostics["final_count"] = len(clips)
+
+        self._candidate_diagnostics["final_candidates"] = [
+            {
+                "start": round(float(item.get("start", 0) or 0), 3),
+                "end": round(float(item.get("end", 0) or 0), 3),
+                "source": item.get("source"),
+                "candidate_origin": item.get("candidate_origin"),
+            }
+            for item in clips if isinstance(item, dict)
+        ]
+
+        self._registrar_estagio("final", clips)
 
         diagnostics = self._candidate_diagnostics
 
@@ -876,6 +947,28 @@ class ClipSelector:
         return self._selection_source or "nlp"
 
 
+
+    def _registrar_estagio(self, nome, clips):
+        """Registra quantos candidatos existiam em cada etapa da seleção.
+
+        É o que permite explicar na revisão onde um candidato do acervo se
+        perdeu: entre o pool inicial e o corte final há filtro de não-conteúdo,
+        enriquecimento de contexto e remoção de sobreposição.
+        """
+        clips = list(clips or [])
+        estagios = self._candidate_diagnostics.setdefault("stage_counts", {})
+        estagios[nome] = {
+            "count": len(clips),
+            "campaign_hub_guided": sum(
+                1 for item in clips
+                if isinstance(item, dict) and item.get("source") == "campaign_hub_guided"
+            ),
+            "campaign_hub_block_evidence": sum(
+                1 for item in clips
+                if isinstance(item, dict) and item.get("campaign_hub_block")
+            ),
+        }
+        return clips
 
     def get_candidate_diagnostics(self):
 
@@ -6057,6 +6150,7 @@ Retorne APENAS o JSON.
 
 
 
+    @staticmethod
     def _campaign_hub_discovery_record(clip, publication_status):
 
         """Return bounded Chub provenance for discovery and audit surfaces."""
@@ -6141,7 +6235,7 @@ Retorne APENAS o JSON.
 
 
 
-    def _build_campaign_hub_proposal(self, sentences, seed):
+    def _build_campaign_hub_proposal(self, sentences, seed, limite_expansao_s=None):
 
         """Expand one temporal/semantic seed to the smallest complete local window."""
 
@@ -6335,6 +6429,16 @@ Retorne APENAS o JSON.
                 break
 
             next_sentence = sentences[end_index + 1]
+
+            # Nao invadir o proximo destaque do acervo: cada destaque do Chub e
+            # um momento editorial distinto. Se esta proposta engolir o destaque
+            # seguinte, o editor perde um corte e revisa o mesmo trecho duas vezes.
+            if (
+                limite_expansao_s is not None
+                and float(next_sentence.get("end", 0) or 0) > float(limite_expansao_s)
+            ):
+
+                break
 
             joined_duration = float(next_sentence.get("end", 0) or 0) - float(sentences[start_index].get("start", 0) or 0)
 
@@ -6610,9 +6714,18 @@ Retorne APENAS o JSON.
 
         proposals = []
 
-        for seed in seeds:
+        # Cada semente e um destaque distinto do acervo. A expansao de uma nao
+        # pode atravessar o inicio da proxima, senao dois destaques viram um
+        # corte so e o editor perde material.
+        ordenadas = sorted(seeds, key=lambda item: _safe_float(item.get("start"), 0.0))
 
-            proposal = self._build_campaign_hub_proposal(sentences, seed)
+        for posicao, seed in enumerate(ordenadas):
+
+            proxima = ordenadas[posicao + 1] if posicao + 1 < len(ordenadas) else None
+
+            limite = _safe_float(proxima.get("start"), 0.0) if proxima else None
+
+            proposal = self._build_campaign_hub_proposal(sentences, seed, limite_expansao_s=limite)
 
             if proposal:
 
