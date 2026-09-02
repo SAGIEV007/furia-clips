@@ -3541,7 +3541,7 @@ Retorne APENAS o JSON.
 
         has_evidence = bool(normalized_words & {term.lower() for term in EVIDENCE_TERMS_PT})
 
-        ends_closed = raw.endswith((".", "!", "?"))
+        ends_closed = raw.endswith((".", "!"))
 
         tail_words = re.findall(r"[\wÀ-ÿ-]+", normalized)
 

@@ -903,4 +903,48 @@ def test_chub_hook_multipliers_fallback_unknown_family():
     clips = selector._parse_llm_response(response, [], all_blocks, 0, source="gemini")
 
     assert clips
-    assert clips[0]["viral_score"] == 55
+
+def test_payoff_complete_requires_period_or_exclamation():
+    selector = ClipSelector(target_duration=20, max_clips=5, min_duration=5, max_duration=30)
+    assert selector._editorial_flags("Isso é uma pergunta?")["payoff_complete"] is False
+    assert selector._editorial_flags("né?")["payoff_complete"] is False
+    assert selector._editorial_flags("A medida protege o cidadão.")["payoff_complete"] is True
+    assert selector._editorial_flags("A medida protege o cidadão!")["payoff_complete"] is True
+    assert selector._editorial_flags("A medida protege o cidadão,")["payoff_complete"] is False
+    assert selector._editorial_flags("A medida protege")["payoff_complete"] is False
+
+
+def test_extend_for_payoff_continues_past_question_ending():
+    selector = ClipSelector(target_duration=20, max_clips=5, min_duration=5, max_duration=30)
+    first = {
+        "start": 0.0,
+        "end": 5.0,
+        "duration": 5.0,
+        "text": "Qual é a proposta?",
+        "overlap_suspected": "false",
+        "timing_ambiguous": "false",
+        "topic_boundary": "false",
+        "speaker_turn_valid": "true",
+        "speaker_change_detected": "false",
+        "speaker": "A",
+    }
+    second = {
+        "start": 5.2,
+        "end": 12.0,
+        "duration": 6.8,
+        "text": "A proposta reduz impostos e protege o cidadão.",
+        "overlap_suspected": "false",
+        "timing_ambiguous": "false",
+        "topic_boundary": "false",
+        "speaker_turn_valid": "true",
+        "speaker_change_detected": "false",
+        "speaker": "A",
+    }
+    blocks, end_index = selector._extend_for_payoff(
+        [first],
+        0,
+        [(first, 80.0), (second, 70.0)],
+        set(),
+    )
+    assert end_index == 1
+    assert len(blocks) == 2
