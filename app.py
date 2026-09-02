@@ -5506,8 +5506,14 @@ def api_open_diagnostics():
 def api_open_folder():
     data = request.get_json(silent=True) or {}
     requested = str(data.get("path", "") or "").strip()
+    settings = get_all_settings()
+    # Sem pasta pedida, abre ONDE OS CORTES REALMENTE SAEM: a pasta escolhida
+    # nos ajustes, se houver, e a do programa quando não houver. Abrir a pasta
+    # padrão enquanto os cortes vão para outra é mandar ele procurar no lugar
+    # errado.
+    destino_dos_cortes = str(settings.get("output_dir") or "").strip() or EXPORT_DIR
     if not requested:
-        folder_path = EXPORT_DIR
+        folder_path = destino_dos_cortes
     elif os.path.isabs(requested):
         folder_path = os.path.abspath(os.path.expanduser(requested))
     else:
@@ -5518,8 +5524,22 @@ def api_open_folder():
 
     if not os.path.isdir(folder_path):
         return jsonify({"error": "Pasta nao encontrada"}), 404
-    settings = get_all_settings()
-    allowed_roots = _allowed_media_roots(settings) + [settings.get("output_dir") or EXPORT_DIR]
+    # A pasta de saída do próprio programa entra SEMPRE na lista.
+    #
+    # Ela mora em ~/FuriaClipsData/exports, fora da pasta de trabalho de
+    # propósito. A lista de permitidos era `_allowed_media_roots(...) +
+    # [output_dir OU EXPORT_DIR]` — o "ou" significava que, se ele escolhesse
+    # uma pasta de saída nos ajustes, a pasta padrão sumia da lista. E como
+    # sem caminho pedido a rota abria justamente a padrão, o botão respondia
+    # 403 para a única coisa que ele queria: ver os cortes.
+    #
+    # No registro dele: `POST /api/open_folder HTTP/1.1" 403`, logo depois de
+    # eu ter posto o botão PASTA na barra de cima.
+    #
+    # EXPORT_DIR não é entrada do usuário: é onde o programa escreve. Ele não
+    # amplia o que uma página pode alcançar — só deixa de esconder do editor a
+    # pasta que o próprio programa acabou de encher.
+    allowed_roots = _allowed_media_roots(settings) + [destino_dos_cortes, EXPORT_DIR]
     if not any(_is_under(folder_path, root) for root in allowed_roots if root):
         return jsonify({"error": "Pasta fora dos destinos configurados"}), 403
 

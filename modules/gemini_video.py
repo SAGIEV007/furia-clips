@@ -14,6 +14,7 @@ import random
 import subprocess
 import tempfile
 import time
+import uuid
 from pathlib import Path
 
 import requests
@@ -21,6 +22,26 @@ import requests
 
 class GeminiVideoError(RuntimeError):
     pass
+
+
+def _pasta_das_copias() -> Path:
+    """Onde ficam as cópias compactadas que já foram feitas.
+
+    Fora do repositório, ao lado dos outros dados do programa: são derivadas e
+    dá para apagar a pasta inteira a qualquer momento — o programa refaz.
+    """
+    raiz = Path(os.environ.get("FURIA_CLIPS_DATA_DIR") or (Path.home() / "FuriaClipsData"))
+    pasta = raiz / "gemini" / "copias"
+    pasta.mkdir(parents=True, exist_ok=True)
+    return pasta
+
+
+def _e_copia_guardada(caminho: Path) -> bool:
+    """A cópia está na pasta de cópias, e por isso não se apaga depois de usar."""
+    try:
+        return caminho.parent.resolve() == _pasta_das_copias().resolve()
+    except OSError:
+        return False
 
 
 class GeminiVideoAnalyzer:
@@ -97,7 +118,10 @@ class GeminiVideoAnalyzer:
             parsed["multimodal_evidence_policy"] = "auxiliary_until_identity_validated"
             return parsed
         finally:
-            if analysis_path != path:
+            # A cópia guardada NÃO se apaga: ela existe justamente para a
+            # próxima etapa desta mesma moagem não ter de compactar de novo.
+            # Só o temporário de uma compactação que não chegou ao fim é que sai.
+            if analysis_path != path and not _e_copia_guardada(analysis_path):
                 try:
                     analysis_path.unlink(missing_ok=True)
                 except OSError:
@@ -172,7 +196,38 @@ class GeminiVideoAnalyzer:
             )
         if cancel_check:
             cancel_check()
-        fd, proxy_name = tempfile.mkstemp(prefix="furia-gemini-proxy-", suffix=".mp4")
+
+        # A cópia é GUARDADA, não refeita.
+        #
+        # Numa moagem de uma live de 56 minutos, o editor registrou isto:
+        #
+        #   17:08:23  [Gemini] Compactando cópia de análise...   (8 minutos)
+        #   17:16:24  Enviando...  -> HTTP 503 tres vezes, desistiu
+        #   17:21:10  Fallback local: Whisper na CPU             (28 minutos)
+        #   17:50:29  [Gemini] Compactando cópia de análise...   (15 minutos)
+        #
+        # A mesma cópia, da mesma fonte, com os mesmos parâmetros, feita duas
+        # vezes na mesma rodada: uma para a transcrição e outra para a análise
+        # editorial. Vinte e três dos cinquenta e oito minutos da moagem foram
+        # compactar duas vezes o mesmo arquivo.
+        #
+        # O nome é derivado do arquivo (caminho, data e tamanho) e do perfil, e
+        # o arquivo fica na pasta de dados. Se ele existir e não estiver vazio,
+        # a compactação inteira é pulada.
+        cache = _pasta_das_copias()
+        assinatura = f"{path}|{path.stat().st_mtime_ns}|{path.stat().st_size}|{profile['fps']}|{profile['max_width']}|{profile['maxrate']}"
+        guardada = cache / (uuid.uuid5(uuid.NAMESPACE_URL, assinatura).hex + ".mp4")
+        if guardada.is_file() and guardada.stat().st_size > 0:
+            if emit_progress:
+                emit_progress(
+                    "[Gemini] A cópia compactada desta fonte já existia; "
+                    "reaproveitada sem compactar de novo.",
+                    "info",
+                )
+            descriptor["reused_proxy"] = True
+            return guardada, descriptor
+
+        fd, proxy_name = tempfile.mkstemp(prefix="furia-gemini-proxy-", suffix=".mp4", dir=str(cache))
         os.close(fd)
         proxy = Path(proxy_name)
         command = [
@@ -198,6 +253,14 @@ class GeminiVideoAnalyzer:
             stderr = process.stderr.read() if process.stderr else ""
             if process.returncode != 0:
                 raise GeminiVideoError(f"Não foi possível compactar a cópia para análise: {stderr[-240:]}")
+            # Só entra no nome definitivo depois de pronta: se a máquina desligar
+            # no meio, o que fica é um temporário que ninguém confunde com uma
+            # cópia boa — em vez de meio arquivo com o nome do arquivo inteiro.
+            try:
+                proxy.replace(guardada)
+                proxy = guardada
+            except OSError:
+                pass
             return proxy, descriptor
         except FileNotFoundError as exc:
             proxy.unlink(missing_ok=True)
