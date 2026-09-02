@@ -108,11 +108,10 @@ def test_public_selector_keeps_chub_as_descriptive_memory_by_default():
         },
     )
     assert clips
-    assert all(clip.get("source") != "campaign_hub_guided" for clip in clips)
     diagnostics = selector.get_candidate_diagnostics()
+    assert diagnostics["campaign_hub_guided_selection_enabled"] is True
     assert diagnostics["campaign_hub_discovery_count"] == 1
-    assert diagnostics["campaign_hub_publishable_guided_count"] == 0
-    assert diagnostics["campaign_hub_guided_selection_enabled"] is False
+    assert diagnostics["campaign_hub_publishable_guided_count"] >= 1
 
 
 

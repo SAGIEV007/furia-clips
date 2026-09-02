@@ -408,7 +408,7 @@ class ClipSelector:
             "campaign_hub_discovery_candidates": [],
             "campaign_hub_publishable_candidates": [],
             "campaign_hub_publishable_guided_count": 0,
-            "campaign_hub_guided_selection_enabled": False,
+            "campaign_hub_guided_selection_enabled": True,
         }
 
         self._campaign_hub_discovery_records = []
@@ -578,7 +578,7 @@ class ClipSelector:
             except Exception:
                 guiados = []
             self._candidate_diagnostics["campaign_hub_guided_selection_enabled"] = bool(
-                settings.get("campaign_hub_guided_selection", False) if isinstance(settings, dict) else False
+                settings.get("campaign_hub_guided_selection", True) if isinstance(settings, dict) else False
             )
             flag_ligado = bool(self._candidate_diagnostics["campaign_hub_guided_selection_enabled"])
             self._campaign_hub_discovery_candidates = list(guiados)
@@ -670,7 +670,7 @@ class ClipSelector:
             "campaign_hub_publishable_candidates": list(self._campaign_hub_publishable_candidates or []),
             "campaign_hub_publishable_guided_count": len(self._campaign_hub_publishable_candidates or []),
             "campaign_hub_guided_selection_enabled": bool(
-                settings.get("campaign_hub_guided_selection", False) if isinstance(settings, dict) else False
+                settings.get("campaign_hub_guided_selection", True) if isinstance(settings, dict) else False
             ),
         }
 
