@@ -220,6 +220,41 @@ def abre_dependente(texto: str):
     return None
 
 
+FIM_FRAGMENTADO_BRANCO = (
+    "ta", "e isso", "certo", "ne", "sabe", "entendeu", "viu", "ok",
+    "perfeito", "show", "valeu", "obrigado", "obrigada", "beleza",
+    "fim", "acabou", "pronto", "entao e isso", "muito obrigado",
+    "muito obrigada", "ate mais", "ate logo", "tchau",
+)
+
+
+def fim_fragmentado(texto: str):
+    """Retorna o motivo se o fim do texto e fragmentado/backchannel.
+
+    Dado medido (bench_contexto.py, 2026-09-02): fim <15 chars e ruim
+    (1,39% excelencia alto / 3,24% baixo), MAS backchannel e fecho legitimo
+    tem 2,61% excelencia, acima da base. Lista branca obrigatoria.
+    """
+    norm = _normalizar(texto)
+    if not norm:
+        return None
+    if len(norm) >= 15:
+        return None
+    if norm in FIM_FRAGMENTADO_BRANCO:
+        return None
+    return "fim_fragmentado"
+
+
+def diagnosticar_saida(texto_final: str) -> dict:
+    """Classifica a borda de saida de um corte.
+
+    Espelha `diagnosticar_abertura`, mas para o FIM do bloco.
+    """
+    return {
+        "fragmentado": fim_fragmentado(texto_final),
+    }
+
+
 def encontrar_inicio_do_assunto(blocos, indice_inicial, limite_recuo_s=MAX_RECUO_S):
     """Recua o inicio do corte ate onde o ASSUNTO comeca.
 

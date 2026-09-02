@@ -17,10 +17,12 @@ import pytest
 from modules.fronteira_assunto import (
     abre_dependente,
     diagnosticar_abertura,
+    diagnosticar_saida,
     eh_abertura_forte,
     eh_pergunta,
     eh_protocolar,
     encontrar_inicio_do_assunto,
+    fim_fragmentado,
     limpar_franja,
 )
 
@@ -166,3 +168,68 @@ class TestDiagnosticoAbertura:
         bom = diagnosticar_abertura("Renan Santos afirma que o pais precisa mudar")
         assert bom["dependente"] is None
         assert bom["protocolar"] is False
+
+
+class TestFimFragmentado:
+    @pytest.mark.parametrize("texto", [
+        "ta",
+        "e isso",
+        "certo",
+        "ne",
+        "sabe",
+        "entendeu",
+        "viu",
+        "ok",
+        "perfeito",
+        "show",
+        "valeu",
+        "obrigado",
+        "obrigada",
+        "beleza",
+        "fim",
+        "acabou",
+        "pronto",
+        "entao e isso",
+        "muito obrigado",
+        "muito obrigada",
+        "ate mais",
+        "ate logo",
+        "tchau",
+    ])
+    def test_backchannel_e_fecho_legitimo_nao_sao_fragmentados(self, texto):
+        assert fim_fragmentado(texto) is None
+
+    @pytest.mark.parametrize("texto", [
+        "poxa",
+        "e ai",
+        "ah sim",
+        "entao",
+        "e",
+        "sim",
+        "nao",
+        "ja",
+        "ta bom",
+        "e isso ai",
+    ])
+    def test_texto_curto_nao_branco_e_fragmentado(self, texto):
+        assert fim_fragmentado(texto) == "fim_fragmentado"
+
+    def test_texto_longo_nao_e_fragmentado(self):
+        assert fim_fragmentado("Renan Santos defende a proposta") is None
+
+    def test_texto_vazio_nao_e_fragmentado(self):
+        assert fim_fragmentado("") is None
+
+
+class TestDiagnosticoSaida:
+    def test_espelha_estrutura_de_abertura(self):
+        saida = diagnosticar_saida("ta")
+        assert "fragmentado" in saida
+
+    def test_fim_nao_fragmentado(self):
+        assert diagnosticar_saida("Renan Santos defende a proposta") == {
+            "fragmentado": None
+        }
+
+    def test_fim_fragmentado(self):
+        assert diagnosticar_saida("poxa")["fragmentado"] == "fim_fragmentado"

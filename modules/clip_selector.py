@@ -38,6 +38,7 @@ from .political_profile import PROFILE_NAME, build_political_prompt_fragment
 from .editorial_chapters import annotate_clip_with_chapters
 
 from .safe_types import safe_float, coerce_bool
+from .fronteira_assunto import fim_fragmentado
 
 
 
@@ -3554,6 +3555,12 @@ Retorne APENAS o JSON.
             weak_payoff_ending = True
 
         cliffhanger = any(pattern in normalized[-220:] for pattern in ("em breve", "depois eu", "na proxima", "fique ligado", "vou mostrar"))
+
+        # Fim fragmentado / backchannel: texto curto sem fecho legitimo e ruim
+        # (bench 2026-09-02). Tratar como weak_payoff_ending para evitar que
+        # clips de 1-2 palavras com ponto final recebam payoff_complete=True.
+        if fim_fragmentado(raw):
+            weak_payoff_ending = True
 
         # Relax weak_payoff_ending when a strong period appears before the weak
 
