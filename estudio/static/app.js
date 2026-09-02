@@ -184,11 +184,29 @@
       const dados = await pedir(`/api/jobs/${rodando.id}/events?limit=300`);
       for (const evento of dados.events || []) {
         escreverNoConsole(evento.message || "", evento.level || "info",
-          String(evento.created_at || "").slice(11, 19));
+          horaLocal(evento.created_at));
       }
       escreverNoConsole("— daqui para baixo é ao vivo —", "warning");
     } catch (_) { /* sem histórico o console segue ao vivo, só sem o começo */ }
     abrirOConsole(true);
+  }
+
+  /* A hora guardada é UTC; a hora dele é a do relógio dele.
+
+     O motor grava `created_at` em UTC. Recortar os caracteres 11 a 19 dessa
+     string dava a hora de Greenwich, enquanto as linhas ao vivo usavam o
+     relógio da máquina. O console dele ficou assim:
+
+         18:35:29  Processando 4 segmentos de fala...
+         16:28:57  — daqui para baixo é ao vivo —
+
+     Três horas para trás no meio da lista. Duas horas diferentes na mesma tela
+     é pior do que nenhuma: ele não sabe mais qual das duas é a de agora. */
+  function horaLocal(carimbo) {
+    if (!carimbo) return "";
+    const quando = new Date(carimbo);
+    if (Number.isNaN(quando.getTime())) return String(carimbo).slice(11, 19);
+    return quando.toTimeString().slice(0, 8);
   }
 
   function escreverNoConsole(texto, nivel = "info", hora = "") {
@@ -280,7 +298,36 @@
     pintarAFonte();
   }
 
+  /* Parar tem de dizer a verdade sobre o que aconteceu.
+
+     No console dele apareceu cinco vezes seguidas "Pedido de parada enviado. O
+     motor para no próximo passo." — e nada parou, porque não havia nada
+     rodando: o trabalho era um fantasma de um uso anterior do programa.
+
+     Prometer a mesma coisa cinco vezes é pior do que não fazer nada. Agora,
+     antes de prometer, o programa confere o estado de verdade do trabalho: se
+     ele já acabou, morreu ou nunca existiu, a tela diz isso e volta a ficar
+     parada, em vez de continuar dizendo que vai parar. */
   async function pararOTrabalho() {
+    if (!estado.trabalho) { terminarDeMoer(false); return; }
+
+    let situacao = null;
+    try {
+      const resposta = await pedir(`/api/jobs/${estado.trabalho}`);
+      situacao = (resposta.job || resposta).state || "";
+    } catch (_) {
+      // Sem resposta sobre o trabalho, seguimos e tentamos parar assim mesmo.
+    }
+
+    if (situacao && !["running", "queued", "cancel_requested"].includes(situacao)) {
+      escreverNoConsole(
+        "Não tinha nada rodando: este trabalho ficou de um uso anterior do programa.",
+        "warning",
+      );
+      terminarDeMoer(false);
+      return;
+    }
+
     try {
       await pedir("/api/process/cancel", {
         method: "POST",
@@ -288,6 +335,10 @@
         body: JSON.stringify({ job_id: estado.trabalho }),
       });
       escreverNoConsole("Pedido de parada enviado. O motor para no próximo passo.", "warning");
+      // O botão sai da tela: apertar de novo não adianta e repetir a mesma
+      // frase só faz parecer que o programa não ouviu.
+      const parar = $("#btnCancelWork");
+      if (parar) parar.hidden = true;
     } catch (erro) { aviso(erro.message, "error"); }
   }
 

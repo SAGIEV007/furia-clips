@@ -463,34 +463,64 @@ class JobManager:
         connection.close()
         return [self._row_to_dict(row) for row in rows]
 
-    def reconcile_stale(self, max_age_seconds: float = 12 * 60 * 60) -> list[dict]:
-        """Mark orphaned jobs as failed after a conservative inactivity window.
+    def reconcile_stale(self, max_age_seconds: float | None = None) -> list[dict]:
+        """Enterrar, na abertura do programa, todo trabalho que ficou de pé.
 
-        A process restart can leave a SQLite job in ``running`` even though no
-        worker exists anymore. Only jobs whose ``updated_at`` is older than the
-        configured window are recovered; active long-running jobs keep their
-        state because progress/heartbeat updates refresh that timestamp.
+        Os trabalhos rodam num ``ThreadPoolExecutor`` — ou seja, **dentro deste
+        processo**. Nenhum deles sobrevive a fechar e abrir o programa. Logo,
+        qualquer linha que ainda diga ``running`` quando o programa sobe é de um
+        processo que já morreu, por mais recente que ela seja.
+
+        Antes havia uma janela de doze horas de inatividade antes de enterrar.
+        Ela protegia contra uma coisa que não pode acontecer — um trabalho vivo
+        atravessando o reinício — e cobrava caro por isso. O editor baixou uma
+        versão nova, abriu, e o programa mostrou a moagem de três horas antes,
+        de uma versão anterior, como se estivesse em andamento:
+
+            18:28:57  ETAPA 1/6: Removendo Silencio      <- rótulo da versão velha
+            18:35:29  Processando 4 segmentos de fala...
+            16:28:57  — daqui para baixo é ao vivo —
+            16:29:15  Pedido de parada enviado...        <- cinco vezes, sem efeito
+
+        Ele resumiu certo: *"não faz sentido baixar uma versão nova e constar o
+        trabalho antigo em andamento"*. E o botão de parar não tinha o que
+        parar, porque o worker não existia mais.
+
+        ``max_age_seconds`` continua aceito para quem quer só varrer o que é
+        antigo — mas o padrão agora é enterrar tudo, que é o certo na abertura.
+
+        Uma ressalva: se dois programas dividissem o mesmo banco, o que abrisse
+        depois enterraria o trabalho do primeiro. Não acontece aqui porque os
+        dois disputariam a mesma porta e o segundo nem sobe.
         """
-        cutoff = datetime.now(timezone.utc).timestamp() - max(60.0, float(max_age_seconds))
         connection = self._connect()
         rows = connection.execute(
             "SELECT id, updated_at FROM jobs WHERE state IN ('running', 'cancel_requested')"
         ).fetchall()
         connection.close()
+
+        cutoff = None
+        if max_age_seconds is not None:
+            cutoff = datetime.now(timezone.utc).timestamp() - max(60.0, float(max_age_seconds))
+
         recovered = []
         for row in rows:
-            try:
-                updated_at = datetime.fromisoformat(str(row["updated_at"])).timestamp()
-            except (TypeError, ValueError, KeyError):
-                updated_at = 0.0
-            if updated_at > cutoff:
-                continue
+            if cutoff is not None:
+                try:
+                    updated_at = datetime.fromisoformat(str(row["updated_at"])).timestamp()
+                except (TypeError, ValueError, KeyError):
+                    updated_at = 0.0
+                if updated_at > cutoff:
+                    continue
             recovered.append(
                 self.update(
                     row["id"],
                     state="failed",
                     stage="stale_recovered",
-                    message="Job interrompido sem worker ativo; marcado como falho na recuperação.",
+                    message=(
+                        "Este trabalho ficou de um uso anterior do programa e "
+                        "não estava mais rodando."
+                    ),
                     error="stale_job_recovered",
                 )
             )
