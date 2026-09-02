@@ -66,3 +66,18 @@ class TestProsodyEmphasis:
         # Base mínima ~40 + max bonus 8 + outros componentes
         assert score >= 40
         assert score <= 100
+
+    def test_word_spans_com_dados_invalidos_nao_quebra(self):
+        cs = ClipSelector()
+        # None, zero/negative durations e chaves faltando devem ser ignorados
+        word_spans = [
+            {"start": None, "end": None},
+            {"start": 0.0, "end": 0.0},      # duração zero
+            {"start": 1.0, "end": 0.5},       # duração negativa
+            {"text": "palavra"},               # sem start/end
+            {"start": 0.0, "end": 0.3},
+            {"start": 0.3, "end": 1.5},       # palavra longa válida
+        ]
+        block = _block("Inacreditável o que esse governo está fazendo.", word_spans)
+        score = cs._nlp_score_block(block, "", None)
+        assert 0 <= score <= 100
