@@ -1,2 +1,2 @@
 @echo off
-python -m pytest %*
+"%~dp0venv\Scripts\python.exe" -m pytest %*
