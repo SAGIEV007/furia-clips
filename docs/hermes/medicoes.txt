@@ -1,3 +1,3 @@
 2026-09-03T19:51:29 | linha-de-base | blocos 5/10 | ancorados 40% | atravessa 1/11 | repeticao 18% | engolidos 1 | cortes 11
-2026-09-03T20:36:51 | antes-vocativo-preso | K6mQqjqqJqo | blocos 5/10 | ancorados 40% | atravessa 1/11 | repeticao 18% | engolidos 1 | cortes 11
-2026-09-03T20:38:50 | depois-vocativo-solto | K6mQqjqqJqo | blocos 9/10 | ancorados 22% | atravessa 2/16 | repeticao 18% | engolidos 1 | cortes 16
+2026-09-03T20:36:51 | antes-vocativo | K6mQqjqqJqo | blocos 5/10 | ancorados 40% | atravessa 1/11 | repeticao 18% | engolidos 1 | cortes 11
+2026-09-03T20:38:50 | depois-vocativo | K6mQqjqqJqo | blocos 9/10 | ancorados 22% | atravessa 2/16 | repeticao 18% | engolidos 1 | cortes 16

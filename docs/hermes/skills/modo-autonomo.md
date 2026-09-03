@@ -74,6 +74,19 @@ Regras do material:
 6. ANOTAR     ESTADO.md, sempre, mesmo quando desfez
 ```
 
+**`<ideia>` tem que ser a MESMA palavra nos passos 1 e 4.** `antes-vocativo` e
+`depois-vocativo`, não `antes-vocativo-preso` e `depois-vocativo-solto`. O
+relatório de prestação de contas (`python scripts/prova.py`) casa os dois pelo
+nome; nomes diferentes viram "experimento pela metade" e o editor lê isso como
+trabalho que mudou código sem conferir. Foi o primeiro defeito que esse
+relatório pegou, e ele pegou de mim.
+
+**A regra de ouro do número que sobe e do que desce:** antes de desfazer por
+"derrubou outro", olhe se o número que caiu é uma FRAÇÃO cujo debaixo cresceu.
+`abre junto com o assunto` foi de 2/5 para 2/9 — as mesmas duas aberturas
+certas, em nove assuntos alcançados em vez de cinco. Nada piorou. Um número
+absoluto que cai é regressão; uma proporção diluída por crescimento não é.
+
 A previsão escrita **antes** (passo 2) é o que separa experimento de tentativa.
 Sem ela, qualquer número que subir vira prova de qualquer coisa.
 
