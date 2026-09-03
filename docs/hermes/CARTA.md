@@ -1,7 +1,7 @@
-# A carta do turno da noite
+# A carta do trabalho autônomo
 
-Estas são as ordens permanentes do agente que cuida do Furia enquanto o editor
-dorme. Elas valem para **qualquer modelo** que estiver no comando — o pago ou o
+Estas são as ordens permanentes do agente que cuida do Furia sozinho — de
+madrugada ou às três da tarde. Elas valem para **qualquer modelo** que estiver no comando — o pago ou o
 grátis — e não mudam quando o modelo troca.
 
 Quem começa um turno lê esta carta primeiro. Sempre.
@@ -11,6 +11,16 @@ Quem começa um turno lê esta carta primeiro. Sempre.
 ## 1. A regra que existe antes de todas
 
 **Um número que o Furia dá para si mesmo não mede nada.**
+
+Existem duas verdades de fora, e as duas contam:
+
+| régua | o que ela sabe |
+|---|---|
+| `scripts/regua.py` | onde o **assunto** começa e termina, segundo o Acervo |
+| `scripts/regua_vereditos.py` | o que **serve**, segundo o editor |
+
+Não é a mesma coisa, e a segunda é a mais valiosa — o Acervo não sabe que o
+final ficou cortado num corte que ele aprovou na fronteira.
 
 O programa tem duas famílias de número, e `scripts/regua.py` já as separa na
 tela:
@@ -48,7 +58,7 @@ mudando de opinião sobre si mesmo. Progresso é `abre junto com o bloco` subir.
 
 ## 2. Onde se pode mexer
 
-O turno da noite trabalha **só** na branch `furia-treino-noturno`.
+O trabalho autônomo acontece **só** na branch `furia-treino-noturno`.
 
 Antes de qualquer alteração, confira:
 
@@ -57,8 +67,8 @@ git branch --show-current    # tem que responder: furia-treino-noturno
 ```
 
 Se responder outra coisa, **pare** e troque. A branch que o editor baixa nunca
-é tocada de madrugada. Se ele acordar e o programa estiver quebrado, o turno da
-noite falhou, por melhor que fosse a ideia.
+é tocada sem ele olhando. Se o programa dele quebrar enquanto ele dorme, a
+sessão falhou, por melhor que fosse a ideia.
 
 ---
 

@@ -58,10 +58,14 @@ HISTORICO = RAIZ / "docs" / "hermes" / "medicoes.txt"
 TOLERANCIA_S = 3.0
 
 
-def carregar_material():
-    if not FIXTURE.is_file():
-        raise SystemExit(f"Gabarito não encontrado: {FIXTURE}")
-    dados = json.loads(FIXTURE.read_text(encoding="utf-8"))
+def carregar_material(caminho=None):
+    arquivo = Path(caminho) if caminho else FIXTURE
+    if not arquivo.is_file():
+        raise SystemExit(
+            f"Gabarito não encontrado: {arquivo}\n"
+            "Traga material novo com: python scripts/novo_material.py --sortear"
+        )
+    dados = json.loads(arquivo.read_text(encoding="utf-8"))
     frases = dados["sentencas"]
     blocos = dados["blocos_de_referencia"]
     transcricao = {
@@ -218,12 +222,15 @@ def imprimir(fonte, fora, dentro, adiados):
 
 def main():
     parser = argparse.ArgumentParser(description="Mede o corte do Furia contra o gabarito do Acervo.")
+    parser.add_argument("--material", metavar="ARQUIVO",
+                        help="mede outro material (padrão: a sabatina da Band). "
+                             "Traga mais com scripts/novo_material.py")
     parser.add_argument("--json", action="store_true", help="devolve só os números, para o agente ler")
     parser.add_argument("--salvar", metavar="ROTULO",
                         help="acrescenta a medição ao histórico com este rótulo")
     args = parser.parse_args()
 
-    transcricao, blocos, fonte = carregar_material()
+    transcricao, blocos, fonte = carregar_material(args.material)
     _candidatos, entregues, adiados = moer(transcricao)
     fora = medir(entregues, blocos)
     dentro = diagnosticar(entregues)
@@ -238,8 +245,11 @@ def main():
         HISTORICO.parent.mkdir(parents=True, exist_ok=True)
         n = max(1, fora["cortes"])
         alc = max(1, fora["blocos_alcancados"])
+        # Hora do relógio da máquina, de propósito: quem lê este histórico é
+        # gente conferindo o que rodou de madrugada, e UTC já confundiu antes.
         linha = (
-            f"{datetime.now().isoformat(timespec='seconds')} | {args.salvar} | "
+            f"{datetime.now().isoformat(timespec='seconds')} | {args.salvar} | "  # noqa: DTZ005
+            f"{fonte.get('videoId', 'sabatina')} | "
             f"blocos {fora['blocos_alcancados']}/{fora['blocos_total']} | "
             f"ancorados {100 * fora['aberturas_ancoradas'] / alc:.0f}% | "
             f"atravessa {fora['atravessam_assunto']}/{n} | "

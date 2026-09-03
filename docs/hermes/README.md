@@ -1,7 +1,16 @@
-# O turno da noite do Furia
+# O Furia trabalhando sozinho
 
-Como fazer o Hermes cuidar, testar e melhorar o Furia sem supervisão — sem que
-ele ande em círculos e sem que o programa amanheça quebrado.
+Como fazer o Hermes cuidar, testar e melhorar o Furia sem supervisão, a qualquer
+hora — sem andar em círculos e sem o programa amanhecer quebrado.
+
+O ciclo tem quatro partes:
+
+```
+   1. TRAZER MATERIAL   ->  2. MEDIR E CORRIGIR
+          ^                        |
+          |                        v
+   4. RELATAR          <-  3. APRENDER COM O EDITOR
+```
 
 ## O que tem aqui
 
@@ -9,7 +18,7 @@ ele ande em círculos e sem que o programa amanheça quebrado.
 |---|---|
 | `CARTA.md` | As ordens permanentes. Qualquer modelo lê antes de agir. |
 | `ESTADO.md` | O quadro de aviso. Uma página, sempre atual, lida antes de tudo. |
-| `skills/turno-da-noite.md` | O laço: medir, mudar uma coisa, medir, desfazer se não melhorou. |
+| `skills/modo-autonomo.md` | O ciclo inteiro: trazer material, medir, corrigir, aprender, relatar. |
 | `skills/medir-o-corte.md` | Como saber se melhorou de verdade. |
 | `skills/nota-de-passagem.md` | O bilhete que faz o trabalho continuar quando o modelo troca. |
 | `skills/caderno-de-vereditos.md` | Anotar "serviu / serviu com ressalva / não serviu" pelo WhatsApp sem interromper o que está rodando. |
@@ -54,24 +63,33 @@ faz um bot saber o que o outro descobriu.
 
 ## As duas travas que impedem o desastre
 
-**O programa que você baixa nunca é tocado de madrugada.** O turno trabalha só
-na `furia-treino-noturno`.
+**O programa que você baixa nunca é tocado sem você olhando.** O trabalho
+autônomo acontece só na `furia-treino-noturno`.
 
 **Nada fica de pé sem provar.** Cada mudança é medida contra os blocos do
 Acervo — verdade de fora, supervisionada por gente. Se o número não sobe, a
 mudança é desfeita na hora, e o motivo fica escrito. É isso que separa sete
 horas de treino de sete horas de uma máquina se achando ótima.
 
-## A régua
+## As ferramentas
 
 ```bash
-python scripts/regua.py
+python scripts/novo_material.py --sortear     # traz material novo COM gabarito
+python scripts/regua.py --material <arquivo>  # mede contra o Acervo
+python scripts/regua_vereditos.py             # mede contra o julgamento do editor
 ```
 
-Roda sem instalar nada. O gabarito — 10 blocos do Acervo da sabatina da Band —
+**Por que não baixar vídeo qualquer:** sem gabarito não há como saber se o corte
+ficou bom, e um agente medindo o próprio trabalho passa a noite produzindo
+confiança errada. O Acervo entrega transcrição e blocos revisados por gente
+juntos — cada vídeo de lá já é um exercício com a resposta no fim do livro. São
+5.391 blocos disponíveis.
+
+A régua roda sem instalar nada. O gabarito — 10 blocos do Acervo da sabatina da Band —
 está versionado em `tests/fixtures/acervo_sabatina_band.json`, então a régua não
 depende de pasta temporária nem do estado da máquina.
 
-Linha de base medida em 03/09: abre 18%, fecha 18%, 5 dos 10 blocos alcançados.
-E o Furia, sobre si mesmo, marcou "fecho completo" em 11 de 11. Essa distância
-entre os dois números é o motivo de a régua existir.
+Linha de base medida em 03/09, na sabatina da Band: **5 dos 10 blocos
+alcançados**, e **zero cortes nos primeiros quinze minutos** — onde o Acervo diz
+que cabem 16. O Furia, sobre si mesmo, marcou "contexto completo" em 10 de 11.
+Essa distância entre os dois números é o motivo de a régua existir.

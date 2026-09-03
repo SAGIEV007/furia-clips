@@ -12,26 +12,32 @@
 
 | | |
 |---|---|
-| Branch do turno da noite | `furia-treino-noturno` |
-| Branch que o editor baixa | `claude/repo-access-commits-imgjmk` — **não tocar de madrugada** |
+| Branch do trabalho autônomo | `furia-treino-noturno` |
+| Branch que o editor baixa | `claude/repo-access-commits-imgjmk` — **não tocar sem ele olhando** |
 | Outra linha em andamento | `furia-sync-portable` — outro agente trabalha lá; não mexer sem combinar |
 
 ## A régua
 
 | | |
 |---|---|
-| Script | `python scripts/regua.py` |
-| Gabarito | `tests/fixtures/acervo_sabatina_band.json` — versionado no repositório |
+| Régua do assunto | `python scripts/regua.py [--material <arquivo>]` |
+| Régua do editor | `python scripts/regua_vereditos.py` |
+| Material novo | `python scripts/novo_material.py --sortear` (traz do Acervo, com gabarito) |
+| Gabarito padrão | `tests/fixtures/acervo_sabatina_band.json` — versionado no repositório |
 | Verdade de fora | 10 blocos do Acervo (CHUB), supervisionados por gente |
-| Números que contam | `abre junto com o bloco`, `fecha junto com o bloco`, `blocos alcançados`, `pior repetição` |
+| Números que contam | `blocos alcançados`, `abre junto com o assunto`, `atravessa dois assuntos`, `pior repetição` |
 | Números que **não** são meta | tudo sob "diagnóstico — o Furia se avaliando" |
 | Histórico | `docs/hermes/medicoes.txt` (use `--salvar <rótulo>`) |
 
-Roda sem instalar nada e sem depender de pasta temporária. A régua da outra
+Rodam sem instalar nada e sem depender de pasta temporária. A régua da outra
 branch (`bench_contexto.py`, em `furia-sync-portable`) lê o gabarito de
 `AppData/Local/Temp/` — pasta temporária some, e régua que some no meio da noite
-é pior que régua nenhuma, porque o turno continua rodando e passa a medir nada.
-Esta lê do próprio repositório.
+é pior que régua nenhuma, porque o trabalho continua e passa a medir nada. Esta
+lê do próprio repositório.
+
+**Material novo tem que vir do Acervo, não do YouTube solto.** Sem gabarito não
+há como saber se o corte ficou bom. São 5.391 blocos revisados por gente
+disponíveis — cada vídeo de lá já vem com a resposta.
 
 ## Última medição
 
