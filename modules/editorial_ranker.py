@@ -241,6 +241,21 @@ class EditorialRanker:
         )
         technical_gate = self._technical_gate(clip, factors, political_signals)
         score -= technical_gate["penalty"]
+
+        # O único peso positivo que o espelho mediu: pergunta e resposta
+        # inteiras dentro do mesmo corte renderam mais do que o resto.
+        #
+        # Ele vale só quando o corte de fato traz as duas — e nunca sozinho:
+        # se a nota já caiu pelos portões técnicos, um bônus por cima estaria
+        # comprando de volta um corte que os defeitos já reprovaram.
+        if (
+            clip.get("question_answer_complete")
+            and not technical_gate.get("reasons")
+        ):
+            bonus_qa = self._peso("pergunta_e_resposta_completas", 0)
+            if bonus_qa:
+                score += bonus_qa
+                factors["qa_boundary"] = min(100.0, float(factors.get("qa_boundary", 50.0)) + bonus_qa)
         if context_contract:
             if not clip.get("context_complete") and not clip.get("qa_bridge"):
                 score = min(score, 74)
@@ -467,6 +482,40 @@ class EditorialRanker:
         proximity = max(0.0, min(1.0, 1.0 - distance / 12.0))
         return round(50.0 + (hook_score - 50.0) * 0.55 * proximity, 1)
 
+    # Os pesos que o espelho do CHUB mediu, guardados uma vez por processo.
+    # `None` = ainda não olhei; `{}` = olhei e não havia espelho.
+    _PESOS_DO_ESPELHO: Optional[dict] = None
+
+    @classmethod
+    def _pesos_medidos(cls) -> dict:
+        """Os pesos vindos dos cortes publicados, ou vazio sem espelho.
+
+        Enquanto ninguém lia isto, os descontos por começar no meio da frase e
+        por não fechar eram números que eu escolhi: 14 e 12. O espelho mede os
+        mesmos dois defeitos em 5.339 cortes que ele publicou, e dá 28 e 18.
+
+        Trocar meu palpite pela medição dele é a diferença entre o programa
+        achar e o programa saber. Sem espelho no disco, os palpites voltam a
+        valer e nada quebra.
+        """
+        if cls._PESOS_DO_ESPELHO is None:
+            try:
+                from .espelho_chub import portoes
+
+                cls._PESOS_DO_ESPELHO = portoes() or {}
+            except (ImportError, OSError, ValueError):
+                # Sem espelho legível o ranqueamento segue com os padrões: a
+                # ausência do CHUB nunca pode parar uma moagem.
+                cls._PESOS_DO_ESPELHO = {}
+        return cls._PESOS_DO_ESPELHO
+
+    @classmethod
+    def _peso(cls, nome: str, padrao: float) -> int:
+        medido = cls._pesos_medidos().get(nome)
+        if isinstance(medido, bool) or not isinstance(medido, (int, float)):
+            return int(padrao)
+        return round(abs(float(medido)))
+
     def _technical_gate(self, clip: dict, factors: dict, political_signals: Optional[dict] = None) -> dict:
         """Apply bounded, explainable penalties for technical uncertainty."""
         reasons = []
@@ -497,8 +546,43 @@ class EditorialRanker:
             key in clip for key in ("context_complete", "evidence_present", "payoff_complete")
         )
 
+        # ── Quem está falando, e sobre o quê ────────────────────────────────
+        #
+        # O programa já sabia disto e não fazia nada com o que sabia. Medido na
+        # sabatina da Band, pelo caminho completo, CINCO dos DOZE melhores
+        # cortes não abriam no entrevistado:
+        #
+        #   81 (4º lugar)  "Renan, eu preciso chamar aqui o nosso intervalo"
+        #   80             "O senhor manteria essas empresas estatais?"
+        #   79             "Renan, por favor, de maneira cara, eu me sinto..."
+        #   79             "A gente precisa finalizar... considerações finais"
+        #   78             "Deixa eu colocar um outro assunto aqui na roda"
+        #
+        # As marcações existiam; elas só mandavam o corte para revisão. Um
+        # corte que abre na chamada do intervalo aparecendo em quarto lugar não
+        # é um corte para revisar, é um corte que não existe. O desconto entra
+        # aqui, junto com os outros, explicável e com motivo na tela.
+        abertura_sem_tese = str(clip.get("opens_without_a_claim") or "").strip()
+        if abertura_sem_tese:
+            penalty += 45
+            reasons.append({
+                "intervalo": "abre na chamada do intervalo, não numa fala",
+                "fala_de_mesa": "abre no programa se administrando, não num assunto",
+                "cortesia": "abre em cumprimento ou agradecimento, sem afirmar nada",
+            }.get(abertura_sem_tese, "abre sem nenhuma afirmação"))
+        elif clip.get("contains_broadcast_break"):
+            # A chamada do intervalo não abre o corte, mas está dentro dele: o
+            # corte atravessa a pausa e junta dois assuntos que o programa
+            # separou.
+            penalty += 20
+            reasons.append("a janela atravessa uma chamada ou retorno de intervalo")
+
+        if clip.get("starts_with_question_only"):
+            penalty += 24
+            reasons.append("abre na pergunta do jornalista sem resposta substancial")
+
         if starts_mid_sentence:
-            penalty += 14
+            penalty += self._peso("comeca_no_meio_da_frase", 14)
             reasons.append("início possivelmente no meio da frase")
         if overlap_suspected:
             penalty += 22
@@ -517,7 +601,7 @@ class EditorialRanker:
             penalty += 10
             reasons.append("pergunta detectada sem ponte pergunta–resposta validada")
         if has_contract and not payoff_complete:
-            penalty += 12
+            penalty += self._peso("termina_sem_fechar", 12)
             reasons.append("payoff ou fechamento não confirmado")
         if clip.get("speaker_turn_valid") is False:
             penalty += 18

@@ -40,8 +40,18 @@ _ADDRESS = (
     # inside the studio reading the running order. The alignment pass then
     # opened a clip there, undoing the guard that had just moved it past the
     # presentation. The vocative form is picked up by ``addresses_the_guest``.
+    # "deputado" e "governador" saíram daqui pelo mesmo motivo que "candidato":
+    # são tão usados na terceira pessoa quanto no vocativo. Medido na sabatina
+    # da Band, "a emenda do deputado aliado" — o Renan explicando como um
+    # prefeito ganha eleição — era lido como alguém CHAMANDO um deputado, e o
+    # corte, que é bom, entrava marcado como fala do entrevistador. Enquanto a
+    # marcação só ia para revisão isso passava despercebido; agora que ela
+    # desconta nota, custaria caro num corte que presta.
+    #
+    # As duas continuam valendo na forma vocativa ("Deputado, o senhor acha?"),
+    # que é onde elas realmente marcam quem fala, por ``addresses_the_guest``.
     " o senhor ", " ao senhor ", " do senhor ", " pro senhor ", " para o senhor ",
-    " senhor ", " dos senhores ", " deputado ", " governador ", " presidente eleito",
+    " senhor ", " dos senhores ", " presidente eleito",
     " seu plano", " seu programa", " seu governo", " sua proposta", " suas propostas",
     " no seu livro", " as suas ", " os seus ", " sua candidatura",
 )
@@ -70,6 +80,13 @@ _BROADCAST_BREAK_START_RE = re.compile(
     r"\b(?:vamos|faremos|vamos fazer|vamos para|vamos ao|vamos a)\b"
     r"[^.!?]{0,70}\bintervalo\b"
     r"|\bintervalo\b[^.!?]{0,70}\b(?:voltamos|volta)\b"
+    # "Renan, eu preciso chamar aqui o nosso intervalo": é assim que quem
+    # apresenta anuncia a pausa, e o vocabulário acima não pegava — nem
+    # "vamos", nem "voltamos". Na sabatina da Band esse corte tirou a quarta
+    # melhor nota da rodada. O verbo é "chamar", e ele exige o intervalo
+    # logo adiante para não confundir com "chamar para o debate".
+    r"|\bchamar\b[^.!?]{0,40}\bintervalo\b"
+    r"|\b(?:pausa|breve pausa)\b[^.!?]{0,30}\b(?:comercial|publicidade)\b"
 )
 _BROADCAST_RETURN_RE = re.compile(
     r"\b(?:estamos|a gente está|a gente esta)\s+de volta\b"
@@ -102,6 +119,74 @@ def classify_broadcast_boundary(text: str) -> str | None:
 def is_broadcast_break_sentence(text: str) -> bool:
     """Whether a transcript sentence explicitly announces a break or return."""
     return classify_broadcast_boundary(text) is not None
+
+
+# ─── O programa se administrando ────────────────────────────────────────────
+#
+# Existe uma terceira coisa numa entrevista, que não é pergunta nem resposta: o
+# programa cuidando de si mesmo. "A gente precisa finalizar um minuto", "na
+# sequência, considerações finais", "deixa eu colocar um outro assunto aqui na
+# roda". Quem fala é quem apresenta, e o assunto é o próprio programa.
+#
+# Nada disso vira corte. Medido na sabatina da Band, três dos doze melhores
+# cortes entregues abriam exatamente assim — um deles com nota 79.
+#
+# O vocabulário é estreito de propósito, como o do intervalo. Cada expressão
+# aqui é uma forma de administrar o tempo do programa, não de discutir um
+# assunto: "nosso tempo" não é o mesmo que "o tempo do país".
+_FALA_DE_MESA_RE = re.compile(
+    r"\b(?:precisa|precisamos|preciso|temos que|tenho que)\b[^.!?]{0,24}\bfinalizar\b"
+    r"|\bconsidera(?:c|ç)(?:oes|ões) finais\b"
+    r"|\b(?:nosso|o nosso) tempo\b[^.!?]{0,24}\b(?:acabou|acabando|estourou|curto)\b"
+    r"|\b(?:ultimo|último|proximo|próximo) bloco\b"
+    r"|\bdeixa eu (?:colocar|trazer|puxar)\b[^.!?]{0,30}\b(?:assunto|tema|roda|pauta)\b"
+    r"|\b(?:passo|passamos|devolvo) a palavra\b"
+    r"|\b(?:vamos|vou) (?:para|ao|a) (?:o|a)? ?(?:nosso|nossa)? ?(?:proximo|próximo|ultimo|último)\b"
+)
+
+# Cortesia: cumprimento e agradecimento sem tese nenhuma dentro.
+#
+# "Bom, de fato é minha primeira vez aqui. Queria agradecer a Band, agradecer
+# todo o time." — quem fala é o entrevistado, então nenhum detector de
+# entrevistador pega, e mesmo assim não é corte: não afirma nada. Tirou nota 79
+# na sabatina.
+_CORTESIA_RE = re.compile(
+    r"\b(?:queria|quero|gostaria de|vim) agradecer\b"
+    r"|\bobrigado (?:pelo|pela|por)\b[^.!?]{0,24}\b(?:convite|espa(?:c|ç)o|oportunidade)\b"
+    r"|\bagrade(?:c|ç)o (?:o|pelo|a|pela)\b[^.!?]{0,24}\b(?:convite|espa(?:c|ç)o|oportunidade)\b"
+    r"|\b(?:minha|a minha) primeira vez aqui\b"
+    r"|\b(?:boa noite|bom dia|boa tarde) (?:a todos|a todas|pra voc|para voc)\b"
+)
+
+
+def is_studio_housekeeping(text: str) -> bool:
+    """Whether the sentence is the programme managing itself.
+
+    Encerramento, anúncio de bloco, passagem de palavra, mudança de assunto
+    conduzida pela mesa. Não é o intervalo (que tem detector próprio) nem uma
+    pergunta: é a produção aparecendo na transcrição.
+    """
+    return bool(_FALA_DE_MESA_RE.search(_normalize(text)))
+
+
+def is_courtesy_sentence(text: str) -> bool:
+    """Whether the sentence is greeting or thanks with no claim inside."""
+    return bool(_CORTESIA_RE.search(_normalize(text)))
+
+
+def opens_without_a_claim(text: str) -> str | None:
+    """Name the reason this opening carries no editorial content, or ``None``.
+
+    Uma só porta para as três coisas que nunca são a abertura de um corte: o
+    intervalo, o programa se administrando, e a cortesia.
+    """
+    if classify_broadcast_boundary(text) is not None:
+        return "intervalo"
+    if is_studio_housekeeping(text):
+        return "fala_de_mesa"
+    if is_courtesy_sentence(text):
+        return "cortesia"
+    return None
 
 # Below this a turn is an interruption inside the answer, not a new question:
 # "Senhor manter então para a extrema pobreza até fazer a transição." The guest
@@ -368,21 +453,75 @@ def detect_interviewer_turns(sentences: list[dict[str, Any]]) -> list[dict[str, 
 
 _VOCATIVE = None
 
+# O nome do entrevistado, chamado de frente.
+#
+# É o sinal mais forte que existe numa entrevista, e o mais barato: quem
+# apresenta diz "Renan," o tempo todo, e o entrevistado nunca diz o próprio
+# nome em vocativo. Medido na sabatina da Band, era o que separava três dos
+# cinco piores cortes entregues — inclusive o que abria em "Renan, eu preciso
+# chamar aqui o nosso intervalo" e tirava a quarta melhor nota da rodada.
+#
+# Ficam de fora as menções em terceira pessoa ("o Renan disse", "com o Renan
+# Santos"), que são gente FALANDO DELE, não COM ele: só conta o nome isolado
+# por pontuação, que é a forma vocativa.
+NOMES_DO_ENTREVISTADO = ("renan", "renan santos")
 
-def addresses_the_guest(text: str) -> bool:
+_NOME_VOCATIVO = None
+
+
+def _regex_do_vocativo_por_nome(nomes: tuple[str, ...]) -> re.Pattern[str]:
+    """Só chamar pelo nome conta. Nomear em terceira pessoa, não.
+
+    A diferença é a mesma que o módulo já fazia para "candidato", e a armadilha
+    é a mesma frase da abertura da sabatina:
+
+        "o primeiro a detalhar suas propostas é o candidato do Missão,
+         Renan Santos."
+
+    O nome vem depois de uma vírgula e termina em ponto — só que ali ele é
+    aposto, a âncora apresentando ao público, não alguém falando com ele.
+    Contar isso punha a costura aos 31,6 s, dentro da leitura do estúdio.
+
+    Duas formas sobrevivem, as duas inequívocas:
+
+        "Renan, eu preciso chamar o intervalo."   nome ABRINDO a fala
+        "..., e o que o senhor acha, Renan?"      nome FECHANDO a pergunta
+
+    Aposto no meio de uma narração não bate em nenhuma das duas.
+    """
+    alternativas = "|".join(re.escape(nome) for nome in sorted(nomes, key=len, reverse=True))
+    return re.compile(
+        r"^\s(?:" + alternativas + r")\s*,"
+        r"|[,;]\s*(?:" + alternativas + r")\s*\?"
+    )
+
+
+def addresses_the_guest(text: str, nomes: tuple[str, ...] = NOMES_DO_ENTREVISTADO) -> bool:
     """Whether the speaker is turning to the guest, not talking about him.
 
     "Candidato, boa noite" is the moment the programme hands over. "o candidato
     do Missão" and "o primeiro a detalhar suas propostas" are the anchor still
     presenting, in the third person, to the audience. Only the first marks where
     the interview actually begins.
+
+    O nome próprio entra pela mesma porta e pela mesma regra: só na forma
+    vocativa, isolado por pontuação.
     """
-    global _VOCATIVE
+    global _VOCATIVE, _NOME_VOCATIVO
     if _VOCATIVE is None:
         _VOCATIVE = re.compile(
             r"(?:^\s*|[,;.!?]\s*)(?:candidato|senhor|senhora|deputado|governador)\s*[,?!.]"
         )
-    return bool(_VOCATIVE.search(_normalize(text)))
+    normalizado = _normalize(text)
+    if _VOCATIVE.search(normalizado):
+        return True
+    if not nomes:
+        return False
+    if nomes is NOMES_DO_ENTREVISTADO:
+        if _NOME_VOCATIVO is None:
+            _NOME_VOCATIVO = _regex_do_vocativo_por_nome(nomes)
+        return bool(_NOME_VOCATIVO.search(normalizado))
+    return bool(_regex_do_vocativo_por_nome(tuple(nomes)).search(normalizado))
 
 
 def first_address_to_guest(sentences: list[dict[str, Any]]) -> float | None:

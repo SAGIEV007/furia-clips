@@ -24,6 +24,7 @@ from .interview_turns import (
     is_a_whole_question,
     is_interviewer_sentence,
     looks_like_an_interview,
+    opens_without_a_claim,
 )
 
 # Teto preferencial, não limite absoluto: `max_duration` continua sendo o limite
@@ -161,6 +162,20 @@ class ClipSelector:
     # its first stable, self-directed explanation rather than on the aside. This
     # is a minimum shift guard, not a timestamp rule.
     MIN_STABILIZED_OPENING_SHIFT_S = 20.0
+
+    # Até onde a pergunta do jornalista pode ocupar a abertura do corte.
+    #
+    # Escolha do editor: pergunta curta fica, porque dá contexto para a
+    # resposta; pergunta longa é cortada fora e o corte abre no entrevistado.
+    # Oito segundos é o limite que ele deu — cabe uma frase de pergunta, não um
+    # preâmbulo.
+    MAX_PERGUNTA_NA_ABERTURA_S = 8.0
+
+    # O tempo mínimo de uma passagem de palavra de verdade.
+    #
+    # Abaixo disto não houve troca: é a mesma pessoa continuando a frase, com a
+    # diarização automática tendo marcado uma troca onde não havia.
+    MIN_PASSAGEM_DE_PALAVRA_S = 3.0
 
     # Teto do alongamento que fecha uma pergunta. Ele não tinha teto próprio: o
     # único limite era a duração técnica de dez minutos, e numa coletiva real
@@ -2706,6 +2721,37 @@ Retorne APENAS o JSON.
                 opening_sentence
                 and is_interviewer_sentence(str(opening_sentence.get("text") or ""))
             )
+
+            # A abertura que não afirma nada.
+            #
+            # Três coisas nunca são o começo de um corte, e as três apareciam
+            # entre os doze melhores da sabatina da Band: o apresentador
+            # chamando o intervalo (nota 81, quarto lugar), o programa se
+            # encerrando ("considerações finais", 79) e a cortesia de chegada
+            # ("queria agradecer a Band", 79).
+            #
+            # Nenhuma delas é um defeito de fronteira — a janela pode estar
+            # perfeitamente colada na frase. O defeito é o conteúdo da
+            # abertura, e por isso ele é anotado aqui e descontado na nota, em
+            # vez de mandado só para revisão.
+            sem_tese = (
+                opens_without_a_claim(str(opening_sentence.get("text") or ""))
+                if opening_sentence else None
+            )
+            if sem_tese:
+                clip["opens_without_a_claim"] = sem_tese
+                clip["context_complete"] = False
+                self._add_review_reason(
+                    clip,
+                    f"abertura_{sem_tese}",
+                    {
+                        "intervalo": "o corte abre na chamada do intervalo, não numa fala",
+                        "fala_de_mesa": "o corte abre no programa se administrando, não num assunto",
+                        "cortesia": "o corte abre em cumprimento ou agradecimento, sem afirmar nada",
+                    }[sem_tese],
+                )
+                changed += 1
+
             starts_with_question = bool(
                 first_turn
                 and first_turn["start_s"] <= start + 0.75
@@ -2733,12 +2779,79 @@ Retorne APENAS o JSON.
                     answer_words += len(str(sentence.get("text") or "").split())
                 clip["starts_with_interviewer_question"] = True
                 clip["answer_words_after_last_question"] = answer_words
+
+                # A resposta não começa um segundo depois da pergunta.
+                #
+                # Da sabatina da Band, aos 671,3 s:
+                #
+                #   671,3  "Renan, por favor,"
+                #   672,3  "de maneira clara, eu me sinto, dadas as devidas
+                #           proporções, como o Churchill pré-Segunda Guerra..."
+                #
+                # É a mesma pessoa, seguindo a mesma frase. A diarização
+                # automática da fonte marcou troca de locutor ali, e como a
+                # continuação não tem nenhum marcador de entrevistador, ela foi
+                # lida como "a resposta". Resultado: uma pergunta de 1,0 s, que
+                # passa longe do teto de aparo, e o corte abre com onze
+                # segundos de jornalista.
+                #
+                # Uma passagem de palavra tem um tempo. Abaixo dele, quem está
+                # falando é quem estava falando — e o corte abre no
+                # entrevistador, não numa resposta.
+                if (
+                    answer_start is not None
+                    and opening_is_interviewer
+                    and answer_start - start < self.MIN_PASSAGEM_DE_PALAVRA_S
+                ):
+                    clip["opens_without_a_claim"] = "fala_de_mesa"
+                    clip["context_complete"] = False
+                    self._add_review_reason(
+                        clip,
+                        "abertura_sem_passagem",
+                        "o corte abre no entrevistador e a resposta não chegou a começar",
+                    )
+                    changed += 1
+                    answer_start = None
+                    answer_words = 0
+                    clip["answer_words_after_last_question"] = 0
+
                 clip["question_answer_substantial"] = answer_words >= self.MIN_SUBSTANTIAL_ANSWER_WORDS
                 clip["question_answer_complete"] = bool(
                     clip.get("question_answer_complete") and answer_words >= self.MIN_ANSWER_WORDS
                 )
                 if answer_start is not None:
                     clip["answer_start_after_question_s"] = round(answer_start, 3)
+
+                    # Pergunta curta fica. Pergunta longa é aparada.
+                    #
+                    # Decisão do editor, nas palavras dele: "só quando a
+                    # pergunta é curta". Numa entrevista, ouvir a pergunta
+                    # ajuda quem assiste a entender a resposta — mas só
+                    # enquanto ela for uma frase, não um preâmbulo. Passando do
+                    # limite, o que ela faz é gastar a abertura do corte, que é
+                    # onde se ganha ou se perde quem está assistindo.
+                    #
+                    # A janela não encolhe até deixar de ser um corte, e o fim
+                    # não se mexe: só a entrada anda para a frente, até onde a
+                    # resposta começa.
+                    pergunta_dura = answer_start - start
+                    sobra = end - answer_start
+                    if (
+                        pergunta_dura > self.MAX_PERGUNTA_NA_ABERTURA_S
+                        and sobra >= self.min_duration
+                    ):
+                        clip["question_trimmed_from_opening_s"] = round(pergunta_dura, 3)
+                        clip["original_start_before_question_trim"] = round(start, 3)
+                        clip["start"] = round(answer_start, 3)
+                        clip["duration"] = round(end - answer_start, 3)
+                        start = float(clip["start"])
+                        self._add_review_reason(
+                            clip,
+                            "question_trimmed",
+                            f"a pergunta durava {pergunta_dura:.0f}s; o corte passa a abrir na resposta",
+                        )
+                        changed += 1
+
                 if answer_words < self.MIN_SUBSTANTIAL_ANSWER_WORDS:
                     clip["starts_with_question_only"] = True
                     clip["context_complete"] = False

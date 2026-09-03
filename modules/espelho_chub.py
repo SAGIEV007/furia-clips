@@ -182,6 +182,37 @@ def formato(nome: str, data_dir=None) -> dict[str, Any] | None:
     return None
 
 
+def portoes(data_dir=None) -> dict[str, Any]:
+    """Os pesos que o espelho mediu nos cortes que ELE publicou.
+
+    O espelho traz isto desde que existe, e nenhum arquivo do motor lia:
+
+        pergunta_e_resposta_completas : +14
+        comeca_no_meio_da_frase       : -28
+        termina_sem_fechar            : -18
+
+    Não é o programa se avaliando — é a diferença de desempenho medida entre
+    5.339 cortes publicados, contra os posts que renderam. Evidência de fora,
+    que é a única que vale (NORTE §15).
+
+    Sem espelho no disco, devolve vazio: quem chama continua funcionando sem
+    ele, só sem esse desempate.
+    """
+    lidos = (carregar(data_dir) or {}).get("portoes") or {}
+    if not isinstance(lidos, dict):
+        return {}
+    limpos: dict[str, Any] = {}
+    for nome, valor in lidos.items():
+        if isinstance(valor, bool):
+            limpos[str(nome)] = valor
+        elif isinstance(valor, (int, float)):
+            # Um portão que sozinho derruba ou salva um corte deixaria de ser
+            # desempate e viraria a decisão inteira. O teto é o mesmo dos
+            # outros descontos técnicos do ranqueador.
+            limpos[str(nome)] = max(-30.0, min(30.0, float(valor)))
+    return limpos
+
+
 def descrever(data_dir=None) -> dict[str, Any]:
     """A linha que o editor lê para saber se o espelho chegou e de quando é."""
     espelho = carregar(data_dir)
