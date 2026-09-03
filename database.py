@@ -82,7 +82,7 @@ def source_signature(source_video):
 def _editorial_clip_key(source_video, start_time, end_time, transcript):
     """Return a stable identity independent of the rendered output filename."""
     canonical = "|".join([
-        str(source_video or "").replace("\\\\", "/").strip().lower(),
+        str(source_video or "").replace("\\", "/").strip().lower(),
         f"{float(start_time or 0):.3f}",
         f"{float(end_time or 0):.3f}",
         " ".join(str(transcript or "").split()).lower(),
@@ -697,7 +697,7 @@ def get_existing_clip_fingerprints(source_video="", processing_identity=""):
     New interval-aware jobs compare the durable processing identity. Legacy calls
     retain the basename/signature fallback so old projects remain deduplicable.
     """
-    source_text = str(source_video or "").replace("\\\\", "/").strip().lower()
+    source_text = str(source_video or "").replace("\\", "/").strip().lower()
     source_basename = source_text.rsplit("/", 1)[-1]
     if not processing_identity and not source_basename:
         return []

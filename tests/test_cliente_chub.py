@@ -87,9 +87,13 @@ import json as _json  # noqa: E402  (o servidor falso acima sombreia o nome `jso
 URL = "https://exemplo.invalido/mcp/wk_teste"
 
 
-def test_a_credencial_nunca_e_inventada():
+def test_a_credencial_nunca_e_inventada(monkeypatch):
     """Sem endereço configurado o cliente para, em vez de tentar um padrão."""
     import os
+    from pathlib import Path
+
+    import modules.chub_client as _cc
+    monkeypatch.setattr(_cc, "endpoint_configurado", lambda *a, **k: "")
 
     anterior = os.environ.pop("FURIA_CHUB_MCP_URL", None)
     try:

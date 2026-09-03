@@ -553,7 +553,7 @@ def test_a_lista_de_fontes_nao_mistura_corte_pronto(estudio, tmp_path, monkeypat
     (tmp_path / "solta.mp4").write_bytes(b"x")
 
     monkeypatch.setattr(estudio, "WORKSPACE_DIR", str(tmp_path))
-    chaves = {f["chave"] for f in estudio._fontes_no_disco()}
+    chaves = {f["chave"].replace("\\", "/") for f in estudio._fontes_no_disco()}
 
     assert "uploads/entrevista.mp4" in chaves
     assert "solta.mp4" in chaves

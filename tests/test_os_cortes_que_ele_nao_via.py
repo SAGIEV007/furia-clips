@@ -122,7 +122,7 @@ def test_o_corte_guardado_ganha_os_nomes_que_a_tela_le():
     assert na_tela["path"] == "workspace/exports/corte-07.mp4"
     assert na_tela["clip_id"] == 7
     assert na_tela["text"] == "o que ele diz aqui"
-    assert na_tela["source_video"] == "workspace/uploads/live.mp4"
+    assert na_tela["source_video"].replace("\\", "/") == "workspace/uploads/live.mp4"
     assert na_tela["seo"]["titles"] == ["Um título"]
 
 

@@ -136,7 +136,8 @@ def test_escolher_um_video_de_fora_importa_na_hora(tmp_path, monkeypatch):
 
     corpo = bancada_mod.criar_app().test_client().post("/api/fonte/escolher").get_json()
     assert corpo["ok"] is True
-    assert corpo["fonte"]["chave"] == "uploads/entrevista.mp4", (
+    chave = corpo["fonte"]["chave"]
+    assert chave.replace("\\", "/") == "uploads/entrevista.mp4", (
         "a fonte tem de sair daqui com uma chave de dentro da pasta de trabalho"
     )
     assert (trabalho / "uploads" / "entrevista.mp4").read_bytes() == b"x" * 4096
@@ -175,7 +176,8 @@ def test_um_video_que_ja_esta_na_pasta_nao_e_copiado(tmp_path, monkeypatch):
     monkeypatch.setattr(bancada_mod, "WORKSPACE_DIR", str(trabalho))
     monkeypatch.setattr(bancada_mod, "choose_path", lambda **k: str(dentro))
     corpo = bancada_mod.criar_app().test_client().post("/api/fonte/escolher").get_json()
-    assert corpo["fonte"]["chave"] == "uploads/ja-esta-aqui.mp4"
+    chave = corpo["fonte"]["chave"]
+    assert chave.replace("\\", "/") == "uploads/ja-esta-aqui.mp4"
     assert len(list((trabalho / "uploads").glob("*.mp4"))) == 1
 
 

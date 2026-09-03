@@ -66,7 +66,7 @@ def test_a_lista_nao_mistura_corte_pronto_com_fonte(furia2, cliente, tmp_path, m
     (tmp_path / "solta.mp4").write_bytes(b"x")
 
     monkeypatch.setattr(furia2, "WORKSPACE_DIR", str(tmp_path))
-    chaves = {f["chave"] for f in cliente.get("/api/fonte/lista").get_json()["fontes"]}
+    chaves = {f["chave"].replace("\\", "/") for f in cliente.get("/api/fonte/lista").get_json()["fontes"]}
 
     assert "uploads/entrevista.mp4" in chaves, "a fonte que estava em uploads sumiu"
     assert "solta.mp4" in chaves, "um vídeo largado na raiz do workspace precisa aparecer"

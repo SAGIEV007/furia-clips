@@ -16,6 +16,7 @@ programa e não fala com servidor nenhum; exigir a credencial para lê-lo é cob
 senha para abrir uma porta que já está aberta.
 """
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -56,7 +57,7 @@ def test_o_espelho_roda_de_verdade_sem_endereco_no_ambiente():
     resultado = subprocess.run(
         [sys.executable, "scripts/sincronizar_acervo.py", "--espelho"],
         cwd=RAIZ, capture_output=True, text=True,
-        env={"PATH": "/usr/bin:/bin", "HOME": "/tmp"},
+        env={**os.environ, "HOME": str(Path.home()), "USERPROFILE": str(Path.home()), "PYTHONIOENCODING": "utf-8"},
     )
     assert resultado.returncode == 0, resultado.stderr[:400]
     assert "medições de gancho" in resultado.stdout

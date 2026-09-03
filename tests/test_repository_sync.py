@@ -1,4 +1,5 @@
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -88,7 +89,7 @@ class RepositorySyncTests(unittest.TestCase):
             with patch("modules.repository_sync.get_db", return_value=_FakeConnection(rows)):
                 result = write_feedback_snapshot(str(repo))
             target = repo / SNAPSHOT_RELATIVE_PATH
-            self.assertEqual(Path(result["path"]), target)
+            self.assertEqual(Path(result["path"]).resolve(), target.resolve())
             self.assertTrue(target.is_file())
             self.assertFalse((repo.parent / "editorial_feedback_snapshot.json").exists())
             saved = json.loads(target.read_text(encoding="utf-8"))

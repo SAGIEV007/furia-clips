@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import sqlite3
+import shutil
 import tempfile
 import zipfile
 from datetime import datetime, timezone
@@ -192,7 +193,8 @@ def restore_editorial_backup(archive_path: str):
             destination_path.parent.mkdir(parents=True, exist_ok=True)
             replacement = destination_path.with_suffix(".restore.sqlite3")
             _sqlite_snapshot(candidate, str(replacement))
-            os.replace(replacement, destination_path)
+            shutil.copyfile(replacement, destination_path)
+            os.remove(replacement)
 
             transcript_root = Path(PERSISTENT_TRANSCRIPTS_DIR).resolve()
             transcript_root.mkdir(parents=True, exist_ok=True)

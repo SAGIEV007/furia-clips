@@ -29,6 +29,7 @@ class SecurityTests(unittest.TestCase):
         self.assertNotEqual(first, second)
         self.assertTrue(first.endswith(".mp4"))
 
+    @unittest.skipIf(os.name == "nt", "symlinks exigem privilégio no Windows")
     def test_rejects_symlink_pointing_outside(self):
         with tempfile.TemporaryDirectory() as root, tempfile.TemporaryDirectory() as outside:
             link = os.path.join(root, "link")
