@@ -70,7 +70,7 @@ def test_a_pasta_do_diagnostico_e_a_mesma_onde_o_relatorio_e_gravado():
 
 
 def test_os_botoes_existem_e_fazem_alguma_coisa():
-    html = open(os.path.join(RAIZ, "templates", "index.html"), encoding="utf-8").read()
+    html = open(os.path.join(RAIZ, "templates", "mesa.html"), encoding="utf-8").read()
     js = open(os.path.join(RAIZ, "static", "js", "atelie.js"), encoding="utf-8").read()
     for botao in ("btnAbrirPastaDiagnostico", "btnCopiarResumoDaRodada"):
         assert f'id="{botao}"' in html, f"{botao} sumiu da tela"

@@ -404,6 +404,11 @@ def api_quadro():
     return send_file(destino, mimetype="image/jpeg", max_age=86400)
 
 
-@estudio.route("/")
+@estudio.route("/estudio")
 def pagina_do_estudio():
+    """O estúdio saiu da porta da frente.
+
+    A porta da frente é a tela da 6.6, a única que ele conseguiu usar para
+    fazer corte. Esta continua servida, e nenhum botão leva até ela.
+    """
     return render_template("estudio.html")

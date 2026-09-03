@@ -2,9 +2,9 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-TEMPLATE = (ROOT / "templates" / "index.html").read_text(encoding="utf-8")
-SCRIPT = (ROOT / "static" / "js" / "app.js").read_text(encoding="utf-8")
-STYLES = (ROOT / "static" / "css" / "style.css").read_text(encoding="utf-8")
+TEMPLATE = (ROOT / "templates" / "mesa.html").read_text(encoding="utf-8")
+SCRIPT = (ROOT / "static" / "js" / "mesa-app.js").read_text(encoding="utf-8")
+STYLES = (ROOT / "static" / "css" / "mesa-style.css").read_text(encoding="utf-8")
 
 
 def test_run_bar_exposes_progress_scope_and_pipeline_steps():

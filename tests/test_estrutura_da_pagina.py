@@ -25,7 +25,7 @@ from pathlib import Path
 
 import pytest
 
-TEMPLATE = Path(__file__).resolve().parents[1] / "templates" / "index.html"
+TEMPLATE = Path(__file__).resolve().parents[1] / "templates" / "mesa.html"
 
 # Tags que se fecham sozinhas e não entram na conta de aninhamento.
 VAZIAS = {"area", "base", "br", "col", "embed", "hr", "img", "input",

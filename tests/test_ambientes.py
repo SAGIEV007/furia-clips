@@ -18,7 +18,7 @@ from pathlib import Path
 
 import pytest
 
-TEMPLATE = Path(__file__).resolve().parents[1] / "templates" / "index.html"
+TEMPLATE = Path(__file__).resolve().parents[1] / "templates" / "mesa.html"
 ATELIE_CSS = Path(__file__).resolve().parents[1] / "static" / "css" / "atelie.css"
 ATELIE_JS = Path(__file__).resolve().parents[1] / "static" / "js" / "atelie.js"
 TALHO_JS = Path(__file__).resolve().parents[1] / "static" / "js" / "talho.js"
@@ -121,7 +121,7 @@ def test_o_inspetor_existe_e_e_irmao_dos_ambientes(arvore):
 def test_o_talho_carrega_antes_do_atelie():
     """`talho.js` publica `montarTalho`, e o `app.js` chama isso ao abrir o painel."""
     html = TEMPLATE.read_text(encoding="utf-8")
-    assert html.index("/static/js/app.js") < html.index("/static/js/talho.js")
+    assert html.index("/static/js/mesa-app.js") < html.index("/static/js/talho.js")
 
 
 def test_o_painel_de_ajustes_vem_antes_dos_scripts():
@@ -133,7 +133,7 @@ def test_o_painel_de_ajustes_vem_antes_dos_scripts():
     respondia.
     """
     html = TEMPLATE.read_text(encoding="utf-8")
-    assert html.index('id="ajustesFundo"') < html.index("/static/js/app.js")
+    assert html.index('id="ajustesFundo"') < html.index("/static/js/mesa-app.js")
 
 
 def test_a_navegacao_antiga_nao_esconde_mais_secoes():
@@ -143,7 +143,7 @@ def test_a_navegacao_antiga_nao_esconde_mais_secoes():
     mostrava a Auditoria, e o cartão do corte nascia com zero pixel — sem erro
     nenhum, como sempre acontece quando o culpado é `display:none`.
     """
-    js = (Path(__file__).resolve().parents[1] / "static" / "js" / "app.js").read_text(encoding="utf-8")
+    js = (Path(__file__).resolve().parents[1] / "static" / "js" / "mesa-app.js").read_text(encoding="utf-8")
     assert 'classList.toggle("stage-off"' not in js
 
 

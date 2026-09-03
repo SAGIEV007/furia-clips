@@ -60,7 +60,7 @@ def test_a_folha_antiga_nao_manda_mais_na_moldura():
     O que não pode voltar é ele decidir a MOLDURA. Se a lousa, a linha ou a
     lâmina voltarem a ser desenhadas lá, a identidade volta a ser um verniz.
     """
-    html = open(os.path.join(RAIZ, "templates", "index.html"), encoding="utf-8").read()
+    html = open(os.path.join(RAIZ, "templates", "mesa.html"), encoding="utf-8").read()
     assert "mesa.css" in html, "a folha da mesa saiu do template"
     # E as camadas intermediárias, que existiam só para cobrir a antiga, não
     # podem coexistir com ela: duas camadas de !important brigando foi como o
@@ -102,7 +102,7 @@ def test_o_som_toca_no_que_o_programa_faz_e_nao_no_que_ele_clica():
     bloco = js[js.index("const SONS = {"):js.index("window.mesaSom =")]
     assert set(re.findall(r"^\s{8}(\w+):", bloco, re.M)) == {"tique", "armar", "feito", "falha"}
 
-    app = open(os.path.join(RAIZ, "static", "js", "app.js"), encoding="utf-8").read()
+    app = open(os.path.join(RAIZ, "static", "js", "mesa-app.js"), encoding="utf-8").read()
     assert 'mesaSom?.("armar")' in app
     assert 'mesaSom?.(completedClips.length ? "feito" : "falha")' in app
     assert "mesaCorteChegou" in app

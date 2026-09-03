@@ -141,7 +141,7 @@ def test_a_tela_sabe_receber_um_corte_avulso():
     """O outro lado do fio: o app.js precisa tratar `clip_ready`."""
     import pathlib
 
-    js = (pathlib.Path(__file__).resolve().parents[1] / "static" / "js" / "app.js").read_text(
+    js = (pathlib.Path(__file__).resolve().parents[1] / "static" / "js" / "mesa-app.js").read_text(
         encoding="utf-8"
     )
     assert 'case "clip_ready"' in js, "o servidor avisa e ninguém escuta"

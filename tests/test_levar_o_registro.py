@@ -25,7 +25,7 @@ import pytest
 import app as aplicacao
 
 RAIZ = Path(__file__).resolve().parents[1]
-TEMPLATE = RAIZ / "templates" / "index.html"
+TEMPLATE = RAIZ / "templates" / "mesa.html"
 ATELIE_CSS = RAIZ / "static" / "css" / "atelie.css"
 ATELIE_JS = RAIZ / "static" / "js" / "atelie.js"
 MESA_CSS = RAIZ / "static" / "css" / "mesa.css"

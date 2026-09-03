@@ -176,16 +176,23 @@ socketio = SocketIO(app, cors_allowed_origins=_ALLOWED_CORS, async_mode="threadi
 # exatamente onde estavam, e toda frente fala com eles pelas mesmas rotas que a
 # interface antiga sempre usou.
 #
-#     /           o estúdio — a interface dele, a porta de entrada
+#     /           a tela da versão 6.6 — a porta de entrada
+#     /mesa       a tela da 6.61, de pé e sem link para ela em lugar nenhum
 #     /2          a bancada
-#     /classico   a interface antiga, de pé e sem link para ela em lugar nenhum
+#     /estudio    o estúdio
 #
-# A antiga sai da porta da frente porque ele foi claro sobre o que acontecia
-# quando ela reaparecia no meio do caminho: "quando fui em ajustes e ajustes
-# completos simplesmente abriu o furia antigo, PORQUE????". Um botão que
-# devolve para o lugar de onde ele pediu para sair é o programa admitindo que
-# não dá conta. Ela continua servida para não perder nada que ainda só existe
-# lá, mas ninguém é levado até ela.
+# A porta da frente é a tela da 6.6 porque foi a única que ele conseguiu usar
+# para fazer corte: "eu não sei se esse é o melhor motor mas eu consigo usar
+# minimamente para fazer cortes". Sobre a 6.61, que eu tinha recomendado como a
+# mais estável, ele foi igualmente claro: "é horrível e eu nunca consegui usar,
+# não sei sequer onde fica a pasta de cortes".
+#
+# Contagem de teste não mede se ele consegue trabalhar. Ele mede.
+#
+# As outras três continuam servidas para não perder o que ainda só existe lá,
+# mas nenhum botão leva até elas — ele já disse o que sente quando uma tela
+# antiga reaparece no meio do caminho: "quando fui em ajustes e ajustes
+# completos simplesmente abriu o furia antigo, PORQUE????".
 from estudio.app import estudio as _frente_estudio
 from furia2.app import bancada as _bancada_furia2
 
@@ -2611,14 +2618,26 @@ def api_editorial_restore():
 
 # ─── Page Routes ───
 
-@app.route("/classico")
+@app.route("/")
 def index():
-    """A interface antiga. Continua inteira, e ninguém é mandado para cá.
+    """A porta da frente: a tela da versão 6.6, a que ele consegue usar.
 
-    A porta da frente agora é o estúdio. Esta rota existe para não perder o que
-    ainda só mora aqui — não para ser um caminho de volta.
+    O motor por baixo NÃO é o da 6.6 — é o mais novo, com o corte melhor. As
+    sessenta e cinco rotas que esta tela chama existem todas nele; ele só
+    ganhou oito rotas novas, que esta tela não precisa chamar.
     """
     return render_template("index.html")
+
+
+@app.route("/mesa")
+@app.route("/classico")
+def mesa():
+    """A tela da 6.61. Continua inteira, e ninguém é mandado para cá.
+
+    Ela existe para não perder o que ainda só mora aqui — o painel, o ateliê, o
+    mapa — não para ser um caminho de volta.
+    """
+    return render_template("mesa.html")
 
 
 # ─── API: Settings ───
@@ -3279,12 +3298,60 @@ def api_list_projects():
     return jsonify(get_all_projects())
 
 
+def _corte_guardado_para_a_tela(guardado, fonte=""):
+    """O corte como ele foi salvo, com os nomes que a tela conhece.
+
+    O banco guarda `start_time`, `end_time` e `file_path`. A tela — a mesma que
+    recebe os cortes ao vivo pelo socket quando a moagem termina — lê `start`,
+    `end` e `path`. Enquanto os dois nomes não se encontravam, os cortes de uma
+    rodada anterior existiam no banco e não tinham como chegar na tela:
+
+        "no proprio programa não da para ver os cortes mesmo dizendo que tem
+        mais de 70"
+
+    A contagem vinha do banco. A lista, não vinha de lugar nenhum.
+    """
+    def _json(bruto, vazio):
+        if not bruto:
+            return vazio
+        try:
+            lido = json.loads(bruto)
+        except (TypeError, ValueError, json.JSONDecodeError):
+            return vazio
+        return lido if isinstance(lido, type(vazio)) else vazio
+
+    fatores = _json(guardado.get("score_factors"), {})
+    fatores = {chave: valor for chave, valor in fatores.items() if not chave.startswith("_")}
+
+    return {
+        **guardado,
+        "clip_id": guardado.get("id"),
+        "path": guardado.get("file_path") or "",
+        "start": float(guardado.get("start_time") or 0.0),
+        "end": float(guardado.get("end_time") or 0.0),
+        "duration": float(guardado.get("duration") or 0.0),
+        "viral_score": int(guardado.get("viral_score") or 0),
+        "confidence": float(guardado.get("score_confidence") or 0.0),
+        "factors": fatores,
+        "text": guardado.get("transcript") or "",
+        "source_video": fonte,
+        "seo": {
+            "titles": _json(guardado.get("suggested_titles"), []),
+            "tags": _json(guardado.get("suggested_tags"), []),
+            "hashtags": _json(guardado.get("suggested_hashtags"), []),
+            "description": guardado.get("suggested_description") or "",
+        },
+    }
+
+
 @app.route("/api/projects/<int:project_id>", methods=["GET"])
 def api_get_project(project_id):
     project = get_project(project_id)
     if not project:
         return jsonify({"error": "Projeto nao encontrado"}), 404
-    project["clips"] = get_clips(project_id)
+    fonte = project.get("source_video") or ""
+    project["clips"] = [_corte_guardado_para_a_tela(c, fonte) for c in get_clips(project_id)]
+    project["output_dir"] = str(get_setting("output_dir") or "").strip() or EXPORT_DIR
     project["transcription"] = get_transcription(project_id)
     return jsonify(project)
 

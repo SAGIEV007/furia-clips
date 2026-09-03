@@ -2,6 +2,11 @@
 // FURIA CLIPS - Frontend Application v2.0
 // ═══════════════════════════════════════════════════
 
+// O talho e a paleta são arquivos separados e precisam ler o vídeo selecionado,
+// os cortes e a transcrição. `const` em escopo de arquivo não é alcançável de
+// fora, e sem esta linha o ajuste de corte não acha corte nenhum — descobri
+// medindo no navegador, porque nada disso dá erro: `window.state?.clips` volta
+// indefinido em silêncio.
 const state = {
     selectedVideo: null,
     selectedVideoName: "",
@@ -37,17 +42,57 @@ const state = {
     campaignHubSnapshotStatus: null,
     campaignHubStatusTimer: null,
     faceTracking: true,
+    pendingProcessMode: "smart",
+    processingStart: "",
+    processingEnd: "",
+    processingScopeLabel: "Fonte inteira",
     previewToken: 0,
     consoleHistory: [],
-    // O trecho que está no player agora, quando o que toca é a FONTE
-    // posicionada no corte. Nulo quando toca o arquivo do próprio corte, que
-    // já acaba sozinho no lugar certo.
-    trechoNoPlayer: null,
-    // A fonte da live aberta da biblioteca, para os cortes dela terem o que
-    // mostrar mesmo sem nenhum vídeo selecionado à mão.
-    fonteDoProjetoAberto: "",
-    projetoAberto: null,
+    consoleEvents: [],
+    lastDiagnostic: null,
+    diagnosticLoading: false,
 };
+window.state = state;
+
+
+// Sistema de Toasts (Notificações UI)
+function showToast(title, message, type = "info", duration = 4000) {
+    let container = document.getElementById("toastContainer");
+    if (!container) {
+        container = document.createElement("div");
+        container.id = "toastContainer";
+        container.className = "toast-container";
+        document.body.appendChild(container);
+    }
+
+    const toast = document.createElement("div");
+    toast.className = `toast ${type}`;
+    
+    let icon = "info";
+    if (type === "success") icon = "check_circle";
+    if (type === "error") icon = "error";
+    if (type === "warning") icon = "warning";
+
+    toast.innerHTML = `
+        <span class="material-icons-round toast-icon">${icon}</span>
+        <div class="toast-content">
+            ${title ? `<span class="toast-title">${title}</span>` : ""}
+            <span class="toast-message">${message}</span>
+        </div>
+    `;
+
+    container.appendChild(toast);
+    
+    // Força o reflow para ativar a transição CSS
+    void toast.offsetWidth;
+    toast.classList.add("show");
+
+    setTimeout(() => {
+        toast.classList.add("hiding");
+        toast.classList.remove("show");
+        setTimeout(() => toast.remove(), 400);
+    }, duration);
+}
 
 // ─── WebSocket Connection ───
 
@@ -68,7 +113,67 @@ let socketRecoveryNotice = false;
 // que o segundo clique não fez efeito. Um clique ignorado sem explicação ensina
 // que o programa está travado.
 
-const run = { active: false, title: "", startedAt: 0, timer: null };
+const RUN_STAGE_ORDER = ["source", "transcript", "context", "ranking", "render"];
+const RUN_STAGE_LABELS = {
+    source: "Fonte",
+    transcript: "Transcrição",
+    context: "Contexto",
+    ranking: "Ranking",
+    render: "Cortes",
+};
+const run = { active: false, title: "", startedAt: 0, timer: null, progress: 0, stage: "source", scope: "Fonte inteira", lastSignal: 0 };
+
+// Quanto tempo de silêncio do servidor antes de destrancar a interface sozinha.
+//
+// O trinco existe para o operador não disparar duas operações em cima da mesma
+// fonte, e ele é uma conveniência — quem de fato serializa o trabalho é a fila
+// no servidor. Só que ele era absoluto: `run.active` só voltava a ser falso
+// quando chegava uma atualização de job dizendo que acabou. Se essa atualização
+// não chegasse — processo interrompido, socket caído, servidor reiniciado — todo
+// cartão de ação ficava com `pointer-events: none` para sempre, e o único que
+// não ficava era justamente o que estava rodando e por isso também não responde.
+//
+// O editor descreveu exatamente isso: "apesar de o botão de fazer tudo ser o
+// único que pareceu clicável, nem ele funcionou", depois de ter parado um
+// processo. Um trinco sem chave por fora é um travamento, não uma proteção.
+const RUN_STALL_MS = 90000;
+
+function inferRunStage(detail = "") {
+    const value = String(detail || "").toLowerCase();
+    if (/transcri|gemini|whisper|legenda pública/.test(value)) return "transcript";
+    if (/contexto|análise de vídeo|analise de video|\[layout\]|detec[cç][aã]o de cena/.test(value)) return "context";
+    if (/sele[cç][aã]o|ranqueamento|ranking|\[nlp\]/.test(value)) return "ranking";
+    if (/cortando|corte completo|renderizando|clip.*gerado/.test(value)) return "render";
+    return "source";
+}
+
+function renderRunBarState(stage = run.stage, progress = run.progress, level = "active") {
+    const normalizedStage = RUN_STAGE_ORDER.includes(stage) ? stage : "source";
+    const normalizedProgress = Math.max(0, Math.min(100, Number(progress) || 0));
+    run.stage = normalizedStage;
+    run.progress = normalizedProgress;
+    const stageEl = document.getElementById("runBarStage");
+    const fill = document.getElementById("runBarProgressFill");
+    const track = document.getElementById("runBarProgressTrack");
+    const progressText = document.getElementById("runBarProgressText");
+    if (stageEl) stageEl.textContent = RUN_STAGE_LABELS[normalizedStage];
+    if (fill) fill.style.width = `${normalizedProgress}%`;
+    if (progressText) progressText.textContent = `${Math.round(normalizedProgress)}%`;
+    if (track) track.setAttribute("aria-valuenow", String(Math.round(normalizedProgress)));
+    document.querySelectorAll("[data-run-step]").forEach((step) => {
+        const index = RUN_STAGE_ORDER.indexOf(step.dataset.runStep);
+        const currentIndex = RUN_STAGE_ORDER.indexOf(normalizedStage);
+        step.classList.toggle("complete", index < currentIndex);
+        step.classList.toggle("active", index === currentIndex && level !== "error");
+        step.classList.toggle("error", index === currentIndex && level === "error");
+    });
+}
+
+function setRunBarScope(scope) {
+    run.scope = String(scope || "Fonte inteira");
+    const element = document.getElementById("runBarScope");
+    if (element) element.textContent = run.scope;
+}
 
 function paintRun() {
     const bar = document.getElementById("runBar");
@@ -79,7 +184,21 @@ function paintRun() {
         card.classList.toggle("is-running", run.active && card.dataset.action === run.action);
     });
     if (!run.active) return;
+    // O servidor emudeceu: solta o trinco antes que ele vire travamento.
+    if (run.lastSignal && Date.now() - run.lastSignal > RUN_STALL_MS) {
+        const parado = run.title || "A operação";
+        endRun();
+        showToast(`${parado} parou de responder; as ações foram liberadas.`, "warning");
+        addConsoleLog(
+            `[Sistema] Sem notícia do servidor há ${Math.round(RUN_STALL_MS / 1000)}s. ` +
+            "As ações foram destrancadas — se a operação ainda estiver rodando, ela aparece no painel de operação.",
+            "warning",
+        );
+        return;
+    }
     document.getElementById("runBarTitle").textContent = run.title || "Processando";
+    setRunBarScope(run.scope);
+    renderRunBarState(run.stage, run.progress);
     const seconds = Math.max(0, Math.round((Date.now() - run.startedAt) / 1000));
     document.getElementById("runBarClock").textContent =
         `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
@@ -90,6 +209,10 @@ function beginRun(title, action = "", detail = "Preparando…") {
     run.title = title;
     run.action = action;
     run.startedAt = Date.now();
+    run.progress = 0;
+    run.stage = inferRunStage(detail);
+    run.lastSignal = Date.now();
+    setRunBarScope(state.processingScopeLabel || "Fonte inteira");
     const line = document.getElementById("runBarDetail");
     if (line) line.textContent = detail;
     window.clearInterval(run.timer);
@@ -99,28 +222,47 @@ function beginRun(title, action = "", detail = "Preparando…") {
 
 function describeRun(detail) {
     if (!run.active) return;
+    run.lastSignal = Date.now();
     const line = document.getElementById("runBarDetail");
     // A mensagem de progresso já vem carimbada com versão e etapa; o que
     // interessa na barra é a última coisa dita, sem o carimbo.
     if (line && detail) line.textContent = String(detail).replace(/^\[[^\]]*\]\s*/, "").slice(0, 140);
+    renderRunBarState(inferRunStage(detail), run.progress);
 }
 
 function endRun() {
     run.active = false;
     run.action = "";
+    run.lastSignal = 0;
     window.clearInterval(run.timer);
     run.timer = null;
+    // O botão de cancelar se desabilitava ao pedir a parada e nunca voltava.
+    // Se o pedido não surtisse efeito, não havia como pedir de novo.
+    const cancelar = document.getElementById("runBarCancel");
+    if (cancelar) cancelar.disabled = false;
     paintRun();
 }
 
-document.getElementById("runBarCancel")?.addEventListener("click", () => {
+document.getElementById("runBarCancel")?.addEventListener("click", async (event) => {
+    const button = event.currentTarget;
     const id = state.activeJob?.id;
-    if (id) {
-        fetch(`/api/jobs/${id}/cancel`, { method: "POST" }).catch(() => {});
-    } else {
-        fetch("/api/process/cancel", { method: "POST" }).catch(() => {});
+    if (button) button.disabled = true;
+    describeRun("Solicitando parada segura…");
+    try {
+        const response = id
+            ? await fetch(`/api/jobs/${id}/cancel`, { method: "POST" })
+            : await fetch("/api/process/cancel", { method: "POST" });
+        const data = await parseJsonResponse(response, "Cancelamento");
+        if (!response.ok || data.error) {
+            throw new Error(data.error || "Não foi possível solicitar o cancelamento");
+        }
+        describeRun("Cancelamento aceito; aguardando a etapa segura terminar…");
+    } catch (error) {
+        if (button) button.disabled = false;
+        describeRun(`Falha ao solicitar cancelamento: ${error.message}`);
+        showToast(error.message, "error");
+        addConsoleLog(`[Erro] Falha ao solicitar cancelamento: ${error.message}`, "error");
     }
-    describeRun("Cancelamento pedido; aguardando a etapa atual terminar…");
 });
 
 // ─── Voz de referência ───
@@ -236,31 +378,7 @@ function trabalhando(botao, ligado = true) {
     botao.disabled = ligado;
 }
 
-// Aviso que só avisa vira ruído. Cada notificação carrega o que fazer com ela.
-function avisar(mensagem, tipo = "info", acao = null) {
-    if (!toastContainer) {
-        toastContainer = document.createElement("div");
-        toastContainer.className = "toast-container";
-        document.body.appendChild(toastContainer);
-    }
-    const caixa = toastContainer;
-    const item = document.createElement("div");
-    item.className = `toast toast-${tipo}`;
-    const texto = document.createElement("span");
-    texto.textContent = mensagem;
-    item.appendChild(texto);
-    if (acao?.label && typeof acao.onClick === "function") {
-        const botao = document.createElement("button");
-        botao.className = "toast-action";
-        botao.type = "button";
-        botao.textContent = acao.label;
-        botao.addEventListener("click", () => { acao.onClick(); item.remove(); });
-        item.appendChild(botao);
-    }
-    caixa.appendChild(item);
-    window.setTimeout(() => item.remove(), acao ? 12000 : 5000);
-    return item;
-}
+// A função 'avisar' foi substituída por showToast.
 
 // Som desligado por padrão, um toque curto ao fim de processo longo, e um jeito
 // de calar. Ferramenta que apita sem permissão é desinstalada.
@@ -328,7 +446,13 @@ socket.on("progress", (data) => {
     const version = data.program_version && !String(data.message || "").includes("[Versão")
         ? `[Versão ${data.program_version}${data.program_revision ? ` · ${data.program_revision}` : ""}] `
         : "";
-    addConsoleLog(`[${time}] ${version}${data.message || "Progresso recebido"}`, data.level);
+    const displayMessage = `[${time}] ${version}${data.message || "Progresso recebido"}`;
+    addConsoleLog(displayMessage, data.level, {
+        ...data,
+        event_name: data.event_name || "progress.message",
+        message: displayMessage,
+        details: data.details || {},
+    });
     describeRun(data.message);
     showProgressBar();
 });
@@ -494,6 +618,50 @@ function handleStatusUpdate(data) {
             });
             showToast(data.data.transcription ? "Vídeo e transcrição importados!" : "Vídeo do link importado!", "success");
             break;
+        // Um corte pronto, entregue antes de a fonte inteira terminar.
+        //
+        // "se eu coloco um video para ir cortando e ele tem 2 horas e vai gerar
+        // 30 cortes, que os cortes ja vai saindo para eu analisar antes do video
+        // todo ser concluido".
+        //
+        // O cartão que chega aqui é o MESMO objeto que a lista final vai trazer
+        // — montado por uma função só no servidor —, então ele já nasce com
+        // clip_id, e ajustar entrada e saída ou aprovar funciona na hora, sem
+        // esperar o resto.
+        case "clip_ready": {
+            const corte = data.data.clip;
+            if (!corte) break;
+            state.clips = state.clips || [];
+            // O `cut_complete` no fim reescreve `state.clips` inteiro. Até lá,
+            // chegar duas vezes o mesmo índice não pode duplicar o cartão.
+            const jaEsta = state.clips.findIndex((c) => c && c.clip_id === corte.clip_id);
+            if (jaEsta >= 0) state.clips[jaEsta] = corte;
+            else state.clips.push(corte);
+
+            state.selectionSource = data.data.selection_source || state.selectionSource || "nlp";
+            state.outputFolder = data.data.output_folder || state.outputFolder || "";
+
+            const entregues = Number(data.data.delivered) || state.clips.length;
+            const esperados = Number(data.data.expected) || 0;
+            addConsoleLog(
+                `[Entrega] Corte ${entregues}${esperados ? ` de ${esperados}` : ""} pronto: `
+                + `${formatTime(corte.start || 0)}–${formatTime(corte.end || 0)}. `
+                + "Já dá para revisar enquanto o resto sai.",
+                "success",
+            );
+            if (entregues === 1) {
+                showToast("Primeiro corte pronto — já dá para revisar.", "success");
+                window.irParaAmbiente?.("auditoria");
+            }
+            renderReviewCommandCenter();
+            renderResultsGrid();
+            // A mesa reage: a lâmina nova pisca e o tique toca. Sem isto o
+            // corte aparece no meio dos outros sem nada dizer que chegou agora.
+            window.mesaCorteChegou?.();
+            updateResultsModeBadge(state.selectionSource);
+            updateOpenFolderButton(state.outputFolder);
+            break;
+        }
         case "cut_complete": {
             hideProgressBar();
             const completedClips = Array.isArray(data.data.clips) ? data.data.clips : [];
@@ -512,6 +680,7 @@ function handleStatusUpdate(data) {
                     "error",
                 );
             }
+            window.mesaSom?.(completedClips.length ? "feito" : "falha");
             renderEditorialAudit(data.data.editorial_audit, data.data.audit_mode || "standard");
             renderCandidateVolumeNotice(state.candidateDiagnostics);
             displayResults(completedClips, data.data.video_layout || null);
@@ -561,10 +730,41 @@ function handleStatusUpdate(data) {
 
 // ─── Console ───
 
-function addConsoleLog(message, level = "info") {
+function rememberDiagnosticEvent(event = {}) {
+    const normalized = {
+        event_id: String(event.event_id || `ui-${Date.now()}-${Math.random().toString(16).slice(2)}`),
+        job_id: event.job_id || state.activeJob?.id || null,
+        event_name: String(event.event_name || "ui.console"),
+        level: String(event.level || "info"),
+        stage: event.stage || null,
+        message: String(event.message ?? ""),
+        details: event.details && typeof event.details === "object" ? event.details : {},
+        created_at: event.created_at || event.recorded_at || new Date().toISOString(),
+        sequence: Number.isFinite(Number(event.sequence)) ? Number(event.sequence) : null,
+    };
+    if (!state.consoleEvents.some((item) => item.event_id === normalized.event_id)) {
+        state.consoleEvents.push(normalized);
+        if (state.consoleEvents.length > 5000) {
+            state.consoleEvents.splice(0, state.consoleEvents.length - 5000);
+        }
+    }
+    return normalized;
+}
+
+function addConsoleLog(message, level = "info", event = null) {
     const console_el = document.getElementById("consoleOutput");
     const text = String(message ?? "");
-    state.consoleHistory.push({ text, level, recorded_at: new Date().toISOString() });
+    const recordedAt = new Date().toISOString();
+    state.consoleHistory.push({ text, level, recorded_at: recordedAt });
+    rememberDiagnosticEvent({
+        ...(event || {}),
+        level,
+        message: text,
+        recorded_at: recordedAt,
+    });
+    // A very early browser error can happen before the template mounts the
+    // console. Keep the structured breadcrumb and avoid a second exception.
+    if (!console_el) return;
     // Whether the reader was already at the bottom before this line arrived. If
     // they scrolled up to read something, yanking the panel back down loses their
     // place; if they were at the bottom, they want to keep following.
@@ -595,13 +795,46 @@ function addConsoleLog(message, level = "info") {
     }
 }
 
+async function loadJobDiagnostic(jobId, { silent = false } = {}) {
+    if (!jobId) return null;
+    state.diagnosticLoading = true;
+    try {
+        const response = await fetch(`/api/jobs/${encodeURIComponent(jobId)}/diagnostics?limit=1000`, { cache: "no-store" });
+        const payload = await parseJsonResponse(response, "Diagnóstico do job");
+        if (!response.ok || payload.error) throw new Error(payload.error || "Não foi possível carregar o diagnóstico");
+        state.lastDiagnostic = payload;
+        (payload.events || []).forEach((event) => rememberDiagnosticEvent(event));
+        return payload;
+    } catch (error) {
+        if (!silent) addConsoleLog(`[Diagnóstico] Não foi possível carregar o histórico persistido: ${error.message}`, "warning", { event_name: "diagnostic.load_failed" });
+        return null;
+    } finally {
+        state.diagnosticLoading = false;
+    }
+}
+
 async function copyFullConsoleLog() {
+    const jobId = state.activeJob?.id || state.lastDiagnostic?.job?.id || null;
+    let diagnostic = state.lastDiagnostic?.job?.id === jobId ? state.lastDiagnostic : null;
+    if (jobId && !diagnostic) diagnostic = await loadJobDiagnostic(jobId, { silent: true });
     const lines = state.consoleHistory.map(entry => entry.text).filter(Boolean);
-    const value = lines.join("\n");
-    if (!value) {
+    if (!lines.length && !diagnostic) {
         showToast("Ainda não há linhas para copiar.", "warning");
         return;
     }
+    const report = {
+        schema_version: "ui-diagnostic-v1",
+        generated_at: new Date().toISOString(),
+        program_version: state.settings?.program_version || null,
+        program_revision: state.settings?.program_revision || null,
+        active_job_id: jobId,
+        console_line_count: lines.length,
+        console_lines: lines,
+        structured_events: state.consoleEvents.slice(-5000),
+        persisted_job_diagnostic: diagnostic || null,
+        privacy_note: "Este resumo não inclui chaves, cookies, transcrição integral ou mídia.",
+    };
+    const value = JSON.stringify(report, null, 2);
     try {
         if (navigator.clipboard?.writeText) {
             await navigator.clipboard.writeText(value);
@@ -616,14 +849,27 @@ async function copyFullConsoleLog() {
             document.execCommand("copy");
             helper.remove();
         }
-        addConsoleLog(`[Sistema] Log completo copiado (${lines.length} linhas).`, "success");
-        showToast(`Log completo copiado (${lines.length} linhas).`, "success");
+        const eventCount = (diagnostic?.events || []).length || state.consoleEvents.length;
+        addConsoleLog(`[Sistema] Diagnóstico completo copiado (${lines.length} linhas, ${eventCount} eventos).`, "success", { event_name: "diagnostic.copied", details: { line_count: lines.length, event_count: eventCount } });
+        showToast(`Diagnóstico copiado (${lines.length} linhas, ${eventCount} eventos).`, "success");
     } catch (error) {
-        showToast(`Não foi possível copiar o log: ${error.message}`, "error");
+        showToast(`Não foi possível copiar o diagnóstico: ${error.message}`, "error");
     }
 }
 
 document.getElementById("btnCopyConsoleLog")?.addEventListener("click", copyFullConsoleLog);
+
+window.addEventListener("error", (event) => {
+    const message = event?.error?.message || event?.message || "Erro JavaScript não identificado";
+    addConsoleLog(`[Frontend] ${message} (${event?.filename || "script"}:${event?.lineno || "?"})`, "error", {
+        event_name: "frontend.error",
+        details: { filename: event?.filename || null, line: event?.lineno || null, column: event?.colno || null },
+    });
+});
+window.addEventListener("unhandledrejection", (event) => {
+    const reason = event?.reason?.message || String(event?.reason || "Promise rejeitada sem motivo");
+    addConsoleLog(`[Frontend] Promise rejeitada: ${reason}`, "error", { event_name: "frontend.unhandled_rejection" });
+});
 
 function showProcessingControls(label = "Processamento em andamento.") {
     const controls = document.getElementById("processingControls");
@@ -660,7 +906,7 @@ function hideProcessingControls() {
 // Agora ela navega. As mesmas seções, agrupadas pelo momento em que servem.
 
 const STAGE_SECTIONS = {
-    source: ["mediaLibrarySection", "doneLivesSection", "sourceSection", "videoPreviewSection"],
+    source: ["mediaLibrarySection", "sourceSection"],
     analysis: ["sourceReadingSection", "editorialBlocksSection", "contextSection", "actionsSection"],
     review: ["resultsSection", "headlineStudioSection"],
     learning: ["operationDashboard", "performanceMetricsSection"],
@@ -677,19 +923,14 @@ function showStage(stage, { manual = false } = {}) {
     currentStage = stage;
     if (manual) stageChosenAt = Date.now();
 
-    Object.entries(STAGE_SECTIONS).forEach(([nome, ids]) => {
-        const visivel = nome === stage;
-        ids.forEach((id) => {
-            const secao = document.getElementById(id);
-            if (!secao) return;
-            // Uma classe, e não o atributo `hidden`: prévia e resultados se
-            // escondem com `display:none` embutido e voltam com `display:block`
-            // vindo de outro trecho do código. Estilo embutido ganha de
-            // `[hidden]`, então esconder assim não teria efeito nenhum nelas —
-            // e mostrar de novo faria reaparecerem na etapa errada.
-            secao.classList.toggle("stage-off", !visivel);
-        });
-    });
+    // A barra de ambientes assumiu a navegação, e duas navegações na mesma tela
+    // brigam: esta escondia `resultsSection` enquanto a outra mostrava o
+    // ambiente Auditoria, e o cartão do corte nascia com zero pixel — sem erro
+    // nenhum, como sempre acontece quando o culpado é `display:none`.
+    //
+    // A função continua existindo porque várias partes do código a chamam para
+    // dizer em que momento estamos; ela só não mexe mais em visibilidade.
+    document.querySelectorAll(".stage-off").forEach((secao) => secao.classList.remove("stage-off"));
 
     document.querySelectorAll(".workflow-step").forEach((passo, indice) => {
         const nome = STAGE_ORDER[indice];
@@ -813,6 +1054,11 @@ document.getElementById("btnRepositoryPushFeedback")?.addEventListener("click", 
 document.getElementById("btnRepositoryRestoreFeedback")?.addEventListener("click", () => runRepositorySync("restore_feedback"));
 
 function showProgressBar() {
+    // A mesa assume: uma varredura grave, uma vez por operação. Aqui e não em
+    // cada etapa — o editor ouviria a mesma nota seis vezes por vídeo.
+    if (document.getElementById("progressBarContainer")?.style.display !== "block") {
+        window.mesaSom?.("armar");
+    }
     showProcessingControls();
     const container = document.getElementById("progressBarContainer");
     const bar = document.getElementById("progressBar");
@@ -1032,70 +1278,13 @@ function renderProjectLibrary(projects = state.operationProjects || []) {
         const clips = Number(project.clip_count || 0);
         const approved = Number(project.approved_count || 0);
         const review = Number(project.review_count || 0);
-        const abrivel = clips > 0;
-        return `<article class="project-library-item${abrivel ? " is-openable" : ""}" title="${abrivel ? `Abrir os ${clips} cortes de ${name}` : name}"
-            ${abrivel ? `role="button" tabindex="0" data-abrir-projeto="${Number(project.id)}"` : ""}>
+        return `<article class="project-library-item" title="${name}">
             <div class="project-library-name">${name}</div>
             <div class="project-library-meta"><span>${clips} clips</span><span><b>${approved}</b> aprovados</span><span>${review} revisar</span></div>
             <span class="project-library-status">${status}</span>
-            ${abrivel ? '<span class="project-library-open">abrir os cortes ↗</span>' : ""}
         </article>`;
     }).join("");
 }
-
-/* Os cortes de uma rodada anterior chegam na tela.
- *
- * Cada card já dizia "72 clips" — o número vinha do banco. Mas o card era um
- * bloco de texto sem clique, e nada na página chamava /api/projects/<id>. A
- * rota existia no motor desde sempre, devolvendo os cortes; ninguém pedia.
- *
- *     "no proprio programa não da para ver os cortes mesmo dizendo que tem
- *      mais de 70"
- */
-async function abrirOsCortesDoProjeto(projectId) {
-    const summary = document.getElementById("projectLibrarySummary");
-    const anterior = summary ? summary.textContent : "";
-    if (summary) summary.textContent = "Abrindo os cortes desta live…";
-    try {
-        const response = await fetch(`/api/projects/${Number(projectId)}`);
-        const projeto = await parseJsonResponse(response, "Cortes da live");
-        if (!response.ok || projeto.error) throw new Error(projeto.error || "Não foi possível abrir esta live");
-        const cortes = Array.isArray(projeto.clips) ? projeto.clips : [];
-        if (!cortes.length) {
-            showToast("Esta live não tem cortes guardados.", "warning");
-            return;
-        }
-        state.currentProjectId = projeto.id;
-        state.projetoAberto = projeto;
-        state.outputFolder = projeto.output_dir || state.outputFolder || "";
-        if (projeto.source_video) {
-            state.fonteDoProjetoAberto = projeto.source_video;
-        }
-        updateWorkspaceWorkflow("review", "Cortes desta live");
-        displayResults(cortes, projeto.video_layout || null);
-        updateOpenFolderButton(state.outputFolder);
-        addConsoleLog(`[Cortes] ${cortes.length} cortes de "${projeto.name || "live"}" abertos do que já estava guardado.`, "success");
-        showToast(`${cortes.length} cortes abertos.`, "success");
-    } catch (error) {
-        showToast(error.message || "Não foi possível abrir os cortes", "error");
-        addConsoleLog(`[Cortes] ${error.message || "Falha ao abrir a live"}`, "warning");
-    } finally {
-        if (summary && anterior) summary.textContent = anterior;
-    }
-}
-
-document.addEventListener("click", (evento) => {
-    const card = evento.target.closest("[data-abrir-projeto]");
-    if (card) abrirOsCortesDoProjeto(card.dataset.abrirProjeto);
-});
-
-document.addEventListener("keydown", (evento) => {
-    if (evento.key !== "Enter" && evento.key !== " ") return;
-    const card = evento.target.closest("[data-abrir-projeto]");
-    if (!card) return;
-    evento.preventDefault();
-    abrirOsCortesDoProjeto(card.dataset.abrirProjeto);
-});
 
 async function loadProjectLibrary() {
     try {
@@ -1344,7 +1533,7 @@ function renderEditorialBlocks(payload) {
             : " Nenhum bloco para esta fonte";
     }
     if (!payload?.available) {
-        list.innerHTML = `<div class="editorial-blocks-empty"><span class="material-icons-round">cloud_off</span><br>${escapeHtml(payload?.message || "Atualize a memória local para carregar blocos editoriais.")}</div>`;
+        list.innerHTML = `<div class="editorial-blocks-empty"><span class="material-icons-round">cloud_off</span><br>${escapeHtml(payload?.message || "Insira um link do YouTube ou carregue um vídeo local para listar os blocos.")}</div>`;
         return;
     }
     if (!blocks.length) {
@@ -1358,7 +1547,7 @@ function renderEditorialBlocks(payload) {
         const sourceTitle = reviewed && block.source?.title ? ` · ${escapeHtml(block.source.title)}` : "";
         const highlights = Array.isArray(block.highlights) ? block.highlights.slice(0, 6) : [];
         const highlightsMarkup = highlights.length ? `<div class="editorial-block-highlights"><div class="editorial-block-highlights-title"><span class="material-icons-round">auto_awesome</span> Destaques de referência</div>${highlights.map((highlight) => `<div class="editorial-block-highlight"><div><b>${escapeHtml(formatTime(Number(highlight.start_s || 0)))}–${escapeHtml(formatTime(Number(highlight.end_s || 0)))}</b><span>${escapeHtml(highlight.text || "Destaque sem transcrição")}</span></div><button class="btn btn-sm btn-outline editorial-block-highlight-export" type="button" data-highlight-export="${escapeHtml(block.id)}" data-highlight-id="${escapeHtml(highlight.id)}" title="Exporta somente este destaque da fonte local"><span class="material-icons-round">download</span></button></div>`).join("")}</div>` : "";
-        return `<article class="editorial-block-card" data-block-id="${escapeHtml(block.id)}">
+        return `<article class="editorial-block-card" data-block-id="${escapeHtml(block.id)}" data-block-start="${Number(block.start || 0)}">
             <div class="editorial-block-time"><strong>${formatTime(Number(block.start || 0))}</strong>${formatTime(Number(block.end || 0))}<span>${Number(block.duration || 0).toFixed(0)}s</span></div>
             <div class="editorial-block-content">
                 <h4>${escapeHtml(block.title || block.label || "Bloco editorial")}</h4>
@@ -1368,7 +1557,7 @@ function renderEditorialBlocks(payload) {
                     <span class="editorial-block-chip ${renanClass}">${escapeHtml(renanLabel)}</span>
                     <span class="editorial-block-chip">${Number(block.highlight_count || 0)} destaque(s)</span>
                     ${block.self_contained_rank ? `<span class="editorial-block-chip good">contexto ${escapeHtml(block.self_contained_rank)}º percentil</span>` : ""}
-                    ${riskCount ? `<span class="editorial-block-chip warn">${riskCount} alerta(s)</span>` : ""}
+                    ${riskCount ? `<span class="editorial-block-chip warn">${riskCount} risco(s)</span>` : ""}
                     <span class="editorial-block-chip">${escapeHtml(block.trust_tier || "tier não informado")}${sourceTitle}</span>
                 </div>
                 ${highlightsMarkup}
@@ -1379,8 +1568,43 @@ function renderEditorialBlocks(payload) {
             </div>
         </article>`;
     }).join("");
+    // O card inteiro agora é clicável, seleciona o bloco e pula o preview
+    list.querySelectorAll(".editorial-block-card").forEach((card) => {
+        card.addEventListener("click", (e) => {
+            // Ignora se o clique foi num botão de ação (eles têm handlers próprios)
+            if (e.target.closest('button')) return;
+            
+            const blockId = card.dataset.blockId;
+            const startS = Number(card.dataset.blockStart);
+            const block = blocks.find((item) => String(item.id) === blockId);
+            
+            state.selectedEditorialBlock = block || null;
+            list.querySelectorAll(".editorial-block-card").forEach((c) => c.classList.toggle("selected", c.dataset.blockId === blockId));
+            
+            // Abre o player dock e pula para o tempo
+            const video = document.getElementById("videoPreview");
+            const dock = document.getElementById("playerDock");
+            if (video && dock && Number.isFinite(startS)) {
+                if (!dock.classList.contains("is-open") && state.selectedVideo) {
+                    showVideoPreview(state.selectedVideo);
+                }
+                // Aguarda o vídeo carregar se acabou de ser aberto
+                if (video.readyState >= 1) {
+                    video.currentTime = startS;
+                    video.play().catch(() => {});
+                } else {
+                    video.addEventListener('loadedmetadata', () => {
+                        video.currentTime = startS;
+                        video.play().catch(() => {});
+                    }, { once: true });
+                }
+            }
+        });
+    });
+
     list.querySelectorAll("[data-block-select]").forEach((button) => {
-        button.addEventListener("click", () => {
+        button.addEventListener("click", (e) => {
+            e.stopPropagation();
             const block = blocks.find((item) => String(item.id) === String(button.dataset.blockSelect));
             state.selectedEditorialBlock = block || null;
             list.querySelectorAll(".editorial-block-card").forEach((card) => card.classList.toggle("selected", card.dataset.blockId === String(button.dataset.blockSelect)));
@@ -1393,18 +1617,31 @@ function renderEditorialBlocks(payload) {
         button.addEventListener("click", async () => {
             const block = blocks.find((item) => String(item.id) === String(button.dataset.blockExport));
             const videoPath = selectedVideoPathForRequest();
-            if (!block || !videoPath) {
-                showToast("Selecione primeiro o MP4 correspondente ao bloco.", "warning");
+            const sourceUrl = state.sourceUrl || "";
+            
+            if (!block || (!videoPath && !sourceUrl)) {
+                showToast("É necessário um vídeo local ou uma URL de origem para exportar o bloco.", "warning");
                 return;
             }
+            
             const sourceLabel = block.source?.title || block.source?.url || "o vídeo carregado";
-            if (!confirm(`Confirme que o vídeo local selecionado corresponde a “${sourceLabel}”. Exportar ${formatTime(Number(block.start || 0))}–${formatTime(Number(block.end || 0))} no aspecto original?`)) return;
+            const msgConfirm = videoPath 
+                ? `Confirme que o vídeo local selecionado corresponde a “${sourceLabel}”. Exportar ${formatTime(Number(block.start || 0))}–${formatTime(Number(block.end || 0))} no aspecto original?`
+                : `Baixar o intervalo ${formatTime(Number(block.start || 0))}–${formatTime(Number(block.end || 0))} remotamente do YouTube na melhor qualidade? (Isso pode demorar alguns instantes)`;
+                
+            if (!confirm(msgConfirm)) return;
             button.disabled = true;
+            
+            // Ícone visual de loading no botão
+            const icone = button.querySelector(".material-icons-round");
+            const iconeOriginal = icone ? icone.textContent : "download";
+            if (icone) icone.textContent = "hourglass_empty";
+            
             try {
                 const response = await fetch("/api/editorial/blocks/export", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ video_path: videoPath, block_id: block.id, start: block.start, end: block.end }),
+                    body: JSON.stringify({ video_path: videoPath, source_url: sourceUrl, block_id: block.id, start: block.start, end: block.end }),
                 });
                 const payload = await parseJsonResponse(response, "Exportação do bloco");
                 if (!response.ok || !payload.success) throw new Error(payload.error || "Não foi possível exportar o intervalo.");
@@ -1416,22 +1653,35 @@ function renderEditorialBlocks(payload) {
                 addConsoleLog(`[Blocos] Exportação não concluída: ${error.message}`, "warning");
             } finally {
                 button.disabled = false;
+                if (icone) icone.textContent = iconeOriginal;
             }
         });
     });
     list.querySelectorAll("[data-highlight-export]").forEach((button) => {
         button.addEventListener("click", async () => {
             const videoPath = selectedVideoPathForRequest();
-            if (!videoPath) {
-                showToast("Selecione primeiro o MP4 correspondente ao bloco.", "warning");
+            const sourceUrl = state.sourceUrl || "";
+            if (!videoPath && !sourceUrl) {
+                showToast("É necessário um vídeo local ou uma URL de origem para exportar o destaque.", "warning");
                 return;
             }
+            
+            const msgConfirm = videoPath 
+                ? "Exportar este destaque da fonte local atual?"
+                : "Baixar este destaque remotamente do YouTube na melhor qualidade? (Isso pode demorar alguns instantes)";
+                
+            if (!confirm(msgConfirm)) return;
+            
             button.disabled = true;
+            const icone = button.querySelector(".material-icons-round");
+            const iconeOriginal = icone ? icone.textContent : "download";
+            if (icone) icone.textContent = "hourglass_empty";
+            
             try {
                 const response = await fetch("/api/editorial/blocks/highlights/export", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ video_path: videoPath, block_id: button.dataset.highlightExport, highlight_id: button.dataset.highlightId }),
+                    body: JSON.stringify({ video_path: videoPath, source_url: sourceUrl, block_id: button.dataset.highlightExport, highlight_id: button.dataset.highlightId }),
                 });
                 const payload = await parseJsonResponse(response, "Exportação do destaque");
                 if (!response.ok || !payload.success) throw new Error(payload.error || "Não foi possível exportar o destaque.");
@@ -1443,6 +1693,7 @@ function renderEditorialBlocks(payload) {
                 addConsoleLog(`[Blocos] Exportação do destaque não concluída: ${error.message}`, "warning");
             } finally {
                 button.disabled = false;
+                if (icone) icone.textContent = iconeOriginal;
             }
         });
     });
@@ -1462,6 +1713,7 @@ async function loadEditorialBlocks() {
             cache: "no-store",
             body: JSON.stringify({
                 video_path: state.selectedVideo || "",
+                source_url: state.sourceUrl || "",
                 segments: state.manualTranscript?.segments || [],
                 q: query,
                 prioritize_renan: Boolean(prioritizeRenan),
@@ -1656,11 +1908,28 @@ const RUN_TITLES = {
 
 function handleJobUpdate(job, options = {}) {
     state.activeJob = job;
+    if (job.last_event_id) {
+        rememberDiagnosticEvent({
+            event_id: job.last_event_id,
+            job_id: job.id,
+            event_name: job.event_name || "job.update",
+            level: job.state === "failed" ? "error" : job.state === "cancelled" ? "warning" : "info",
+            stage: job.stage,
+            message: job.message || job.state,
+            details: { state: job.state, progress: job.progress, error: job.error || null },
+            sequence: job.event_sequence,
+            created_at: job.updated_at,
+        });
+    }
     // Um job em andamento é a definição de "ocupado"; o resto da interface
     // passa a se comportar de acordo em vez de aceitar cliques e descartá-los.
     if (["queued", "running", "cancel_requested"].includes(job.state)) {
         if (!run.active) beginRun(RUN_TITLES[job.type] || "Processando", job.type, job.message || job.stage || "Preparando…");
-        describeRun(job.message || job.stage);
+        const jobDetail = job.message || job.stage || "Preparando…";
+        const jobScope = job.processing_interval?.label || (job.processing_interval?.active ? "faixa selecionada" : state.processingScopeLabel || "Fonte inteira");
+        setRunBarScope(jobScope);
+        renderRunBarState(inferRunStage(jobDetail), Number(job.progress || 0));
+        describeRun(jobDetail);
     } else {
         if (run.active && job.state === "completed") tocarFim();
         endRun();
@@ -1705,13 +1974,16 @@ function handleJobUpdate(job, options = {}) {
     if (job.state === "completed") {
         if (bar) bar.style.width = "100%";
         setTimeout(hideProgressBar, 250);
+        loadJobDiagnostic(job.id, { silent: true });
     } else if (job.state === "failed") {
         hideProgressBar();
         showToast(job.error || "O job falhou", "error");
+        loadJobDiagnostic(job.id, { silent: true });
     } else if (job.state === "cancelled") {
         hideProgressBar();
         hideProcessingControls();
         showToast("Processamento cancelado", "warning");
+        loadJobDiagnostic(job.id, { silent: true });
     }
 }
 
@@ -1834,12 +2106,30 @@ function selectVideo(item, sourceElement = null) {
         return;
     }
     const changedVideo = state.selectedVideo && state.selectedVideo !== item.path;
+    // Uma transcrição sem dono é desta fonte, não lixo.
+    //
+    // O sentinela "pending-source" existe justamente para a transcrição que
+    // chegou antes de haver vídeo escolhido. Só que `manualTranscriptVideo`
+    // também fica em branco em três caminhos — quando o servidor devolve a
+    // transcrição sem o caminho da fonte, quando a transcrição local termina
+    // antes de haver seleção, e quando o editor cola o texto à mão. Nesses
+    // casos ela não era "pending-source" nem igual ao caminho do item, então
+    // caía no descarte alguma linha abaixo, sem aviso nenhum.
+    //
+    // O editor viu o resultado disso e não a causa: "apesar de eu ter colado a
+    // transcrição previamente, o programa aparentemente tentou fazer uma
+    // transcrição também". Tinha mesmo: a colada já não existia mais.
+    const transcriptUnclaimed = !state.manualTranscriptVideo || state.manualTranscriptVideo === "pending-source";
     const transcriptBelongsToItem = state.manualTranscript && (
-        state.manualTranscriptVideo === item.path || state.manualTranscriptVideo === "pending-source"
+        state.manualTranscriptVideo === item.path || transcriptUnclaimed
     );
     state.selectedVideo = item.path;
     state.selectedVideoName = item.name;
-    if (transcriptBelongsToItem && state.manualTranscriptVideo === "pending-source") {
+    // E ela ganha dono agora. Sobreviver sem dono seria pior que ser
+    // descartada: na próxima troca de fonte ela continuaria "sem dono" e
+    // colaria no vídeo errado — o corte sairia com a transcrição de outro
+    // vídeo, que é um defeito silencioso e muito mais caro de perceber.
+    if (transcriptBelongsToItem && transcriptUnclaimed) {
         state.manualTranscriptVideo = item.path;
     }
     if (changedVideo) {
@@ -1914,16 +2204,28 @@ async function openOutputFolderForVideo() {
     await openOutputFolder(folderPath);
 }
 function showVideoPreview(item) {
-    const section = document.getElementById("videoPreviewSection");
+    const section = document.getElementById("playerDock");
     const video = document.getElementById("videoPreview");
     const source = document.getElementById("videoPreviewSource");
     const nameEl = document.getElementById("previewVideoName");
     const status = document.getElementById("videoPreviewStatus");
+    const mainContent = document.querySelector(".main-content");
+
+    // `state.selectedVideo` guarda o *caminho*, não o item — e dois lugares
+    // chamavam esta função com ele: o clique num bloco editorial e o clique
+    // numa unidade de leitura, que são justamente os dois lugares de onde o
+    // editor abriria o player para conferir um corte. Uma string não tem
+    // `.path`, então a guarda abaixo devolvia na hora e o player simplesmente
+    // não aparecia. Nenhum erro no console, nenhuma mensagem: o clique não
+    // fazia nada. Foi assim que "o player simplesmente SUMIU".
+    if (typeof item === "string") {
+        item = { path: item, name: state.selectedVideoName || "" };
+    }
     if (!section || !video || !source || !item?.path) return;
     const token = ++state.previewToken;
-    // Isto é a fonte inteira, não um corte: nada de parar no meio.
-    state.trechoNoPlayer = null;
-    section.style.display = "block";
+    
+    section.classList.add("is-open");
+    if (mainContent) mainContent.classList.add("dock-open");
     nameEl.textContent = item.name || "Vídeo selecionado";
     if (status) {
         status.textContent = "Carregando mídia…";
@@ -1958,121 +2260,6 @@ function showVideoPreview(item) {
     video.load();
 }
 
-/* Ver ESTE trecho — não a fonte inteira desde o começo.
- *
- *     "quando eu seleciono qualquer um dos cortes, pelo menos no video
- *      selecionado, mostra apenas o mesmo trecho do video"
- *
- * Ele estava certo, e o motivo era simples: a moldura de prévia só sabia
- * mostrar o vídeo-fonte a partir do zero. Nada em lugar nenhum da tela levava
- * o segundo em que o corte começa até o player.
- *
- * Duas fontes possíveis, nesta ordem:
- *
- *   1. o arquivo do próprio corte, quando ele já foi renderizado — é o corte,
- *      não uma aproximação dele;
- *   2. a fonte, com o segundo do corte no próprio endereço (`#t=início,fim`).
- *      O endereço é lido pelo navegador antes de qualquer script rodar, então
- *      o vídeo já abre no lugar certo em vez de abrir no zero e pular depois.
- */
-function fonteDesteCorte(corte) {
-    return String(
-        corte.source_video
-        || state.fonteDoProjetoAberto
-        || state.selectedVideo
-        || ""
-    );
-}
-
-function verOTrecho(index) {
-    const corte = (state.clips || [])[index];
-    if (!corte) return;
-
-    const section = document.getElementById("videoPreviewSection");
-    const video = document.getElementById("videoPreview");
-    const source = document.getElementById("videoPreviewSource");
-    const nameEl = document.getElementById("previewVideoName");
-    const status = document.getElementById("videoPreviewStatus");
-    if (!section || !video || !source) return;
-
-    const inicio = Math.max(0, Number(corte.start) || 0);
-    const fim = Number(corte.end) || 0;
-    const arquivoDoCorte = String(corte.path || "");
-    const fonte = fonteDesteCorte(corte);
-
-    if (!arquivoDoCorte && !fonte) {
-        showToast("Este corte ainda não tem arquivo nem fonte para mostrar.", "warning");
-        return;
-    }
-
-    const token = ++state.previewToken;
-    state.trechoNoPlayer = arquivoDoCorte ? null : { inicio, fim };
-
-    // A moldura do vídeo mora na etapa 01 (Fonte). Ele está na etapa 03
-    // olhando os cortes, então ela está com `stage-off` — que é
-    // `display:none !important` e ganha de qualquer `display:block` posto aqui.
-    // Sem esta linha o vídeo carrega, toca, e ninguém vê: exatamente o que ele
-    // descreveu. Assistir um corte é um pedido explícito; a moldura vem junto.
-    section.classList.remove("stage-off");
-    section.style.display = "block";
-    const rotulo = corte.title || `Corte ${index + 1}`;
-    if (nameEl) nameEl.textContent = `${rotulo} · ${formatTime(inicio)}–${formatTime(fim)}`;
-    if (status) {
-        status.textContent = "Carregando o trecho…";
-        status.className = "preview-status loading";
-    }
-
-    video.pause();
-    video.removeAttribute("src");
-    source.removeAttribute("src");
-    video.load();
-
-    video.addEventListener("loadedmetadata", () => {
-        if (token !== state.previewToken) return;
-        if (status) {
-            status.textContent = arquivoDoCorte
-                ? "Este é o arquivo do corte"
-                : `Fonte posicionada em ${formatTime(inicio)}`;
-            status.className = "preview-status ready";
-        }
-        // Se o navegador ignorou o endereço com o segundo, pomos na mão.
-        if (!arquivoDoCorte && Math.abs(video.currentTime - inicio) > 1) {
-            video.currentTime = inicio;
-        }
-        video.play().catch(() => {});
-    }, { once: true });
-
-    video.addEventListener("error", () => {
-        if (token !== state.previewToken) return;
-        if (status) {
-            status.textContent = "Não foi possível carregar este trecho";
-            status.className = "preview-status error";
-        }
-        addConsoleLog(`[Trecho] Falha ao abrir ${arquivoDoCorte || fonte}.`, "warning");
-    }, { once: true });
-
-    source.src = arquivoDoCorte
-        ? mediaUrlForPath(arquivoDoCorte)
-        : `${mediaUrlForPath(fonte)}#t=${inicio.toFixed(2)}${fim > inicio ? `,${fim.toFixed(2)}` : ""}`;
-    video.load();
-    section.scrollIntoView({ behavior: "smooth", block: "center" });
-}
-
-// O corte acaba onde ele acaba. Sem isto, a fonte seguiria tocando pela live
-// adentro e o que ele veria não seria mais o corte.
-function pararNoFimDoTrecho() {
-    const video = document.getElementById("videoPreview");
-    if (!video) return;
-    video.addEventListener("timeupdate", () => {
-        const trecho = state.trechoNoPlayer;
-        if (!trecho || !(trecho.fim > trecho.inicio)) return;
-        if (video.currentTime >= trecho.fim) {
-            video.pause();
-            state.trechoNoPlayer = null;
-        }
-    });
-}
-
 function deselectVideo() {
     state.selectedVideo = null;
     state.selectedVideoName = "";
@@ -2087,7 +2274,8 @@ function deselectVideo() {
         </div>`;
 
     // Hide preview
-    document.getElementById("videoPreviewSection").style.display = "none";
+    const previewSection = document.getElementById("videoPreviewSection");
+    if (previewSection) previewSection.style.display = "none";
 }
 
 // ─── File Upload ───
@@ -2240,8 +2428,31 @@ const mediaSection = document.getElementById("mediaLibrarySection");
 
 // ─── Close Preview ───
 
-document.getElementById("btnClosePreview").addEventListener("click", () => {
-    document.getElementById("videoPreviewSection").style.display = "none";
+// "ao clicar na prévia do video para fechar não fecha". Não fechava mesmo: o
+// botão escondia `videoPreviewSection`, um elemento que deixou de existir quando
+// a prévia virou o dock lateral. `getElementById` devolvia null, a guarda
+// engolia, e o clique não fazia absolutamente nada — sem erro, sem aviso.
+//
+// Fechar é desfazer o que `showVideoPreview` faz: tirar a classe do dock, tirar
+// a do `main-content` (que é quem devolve a largura ao palco) e PARAR o vídeo.
+// Prévia fechada que continua tocando som atrás da tela é pior que prévia
+// aberta.
+function fecharPrevia() {
+    const dock = document.getElementById("playerDock");
+    const video = document.getElementById("videoPreview");
+    dock?.classList.remove("is-open");
+    document.querySelector(".main-content")?.classList.remove("dock-open");
+    if (video) {
+        try { video.pause(); } catch (erro) { /* mídia ainda não carregada */ }
+    }
+}
+document.getElementById("btnClosePreview")?.addEventListener("click", fecharPrevia);
+// Esc fecha, como em toda janela sobreposta.
+document.addEventListener("keydown", (evento) => {
+    if (evento.key !== "Escape") return;
+    if (!document.getElementById("playerDock")?.classList.contains("is-open")) return;
+    if (/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || "")) return;
+    fecharPrevia();
 });
 
 // ─── Actions ───
@@ -2264,30 +2475,110 @@ document.getElementById("actionSilence").querySelector(".btn-action").addEventLi
     });
 });
 
-function openCutOptionsModal() {
+function openCutOptionsModal(mode = "smart") {
     if (!requireVideo()) return;
     const modal = document.getElementById("cutOptionsModal");
     if (!modal) return;
+    state.pendingProcessMode = mode === "complete" ? "complete" : "smart";
     const name = document.getElementById("cutOptionsVideoName");
     if (name) name.textContent = state.selectedVideoName || "vídeo selecionado";
     const enabled = document.getElementById("faceTrackingEnabled");
     if (enabled) enabled.checked = state.faceTracking !== false;
+    const title = document.getElementById("cutOptionsTitle");
+    if (title) title.innerHTML = `<span class="material-icons-round">${state.pendingProcessMode === "complete" ? "rocket_launch" : "center_focus_strong"}</span> ${state.pendingProcessMode === "complete" ? "Opções do processo completo" : "Opções do corte"}`;
+    const buttonIcon = document.getElementById("btnStartSmartCutIcon");
+    const buttonLabel = document.getElementById("btnStartSmartCutLabel");
+    if (buttonIcon) buttonIcon.textContent = state.pendingProcessMode === "complete" ? "rocket_launch" : "auto_awesome";
+    if (buttonLabel) buttonLabel.textContent = state.pendingProcessMode === "complete" ? "Executar processo completo" : "Gerar e ranquear cortes";
+    const startInput = document.getElementById("processingStartInput");
+    const endInput = document.getElementById("processingEndInput");
+    if (startInput) startInput.value = state.processingStart || "";
+    if (endInput) endInput.value = state.processingEnd || "";
+    updateProcessingIntervalHint();
     modal.classList.add("active");
 }
 function closeCutOptionsModal() {
     document.getElementById("cutOptionsModal")?.classList.remove("active");
 }
+function parseProcessingTime(value) {
+    const text = String(value || "").trim().replace(",", ".");
+    if (!text) return null;
+    if (/^\d+(?:\.\d+)?$/.test(text)) return Number(text);
+    const parts = text.split(":").map(Number);
+    if (parts.some((part) => !Number.isFinite(part)) || ![2, 3].includes(parts.length)) return NaN;
+    if (parts.slice(1).some((part) => part < 0 || part >= 60)) return NaN;
+    return parts.length === 2 ? parts[0] * 60 + parts[1] : parts[0] * 3600 + parts[1] * 60 + parts[2];
+}
+function formatProcessingTime(seconds) {
+    if (!Number.isFinite(seconds)) return "tempo inválido";
+    const total = Math.max(0, Math.round(seconds));
+    const hours = Math.floor(total / 3600);
+    const minutes = Math.floor((total % 3600) / 60);
+    const rest = total % 60;
+    return hours ? `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(rest).padStart(2, "0")}` : `${String(minutes).padStart(2, "0")}:${String(rest).padStart(2, "0")}`;
+}
+function readProcessingInterval() {
+    const start = document.getElementById("processingStartInput")?.value.trim() || "";
+    const end = document.getElementById("processingEndInput")?.value.trim() || "";
+    const startSeconds = parseProcessingTime(start);
+    const endSeconds = parseProcessingTime(end);
+    if (!start && !end) return { valid: true, start: null, end: null, label: "fonte inteira" };
+    if ((start && !Number.isFinite(startSeconds)) || (end && !Number.isFinite(endSeconds))) {
+        return { valid: false, error: "Use segundos, mm:ss ou hh:mm:ss no início e no fim." };
+    }
+    
+    // Tratamento mais tolerante e guiado para durações parciais (ex: deixou o fim em branco)
+    const finalStart = Number.isFinite(startSeconds) ? startSeconds : 0;
+    const finalEnd = Number.isFinite(endSeconds) ? endSeconds : Infinity;
+    
+    if (finalStart < 0) {
+        return { valid: false, error: "O início do intervalo não pode ser negativo." };
+    }
+    if (finalEnd <= finalStart) {
+        return { valid: false, error: "O fim do intervalo precisa ser maior que o início." };
+    }
+    
+    return {
+        valid: true,
+        start: start || null,
+        end: end || null,
+        label: `${start ? formatProcessingTime(finalStart) : "início da fonte"}–${end ? formatProcessingTime(finalEnd) : "fim da fonte"}`,
+    };
+}
+function updateProcessingIntervalHint() {
+    const hint = document.getElementById("processingIntervalHint");
+    const chip = document.getElementById("processingIntervalChip");
+    const interval = readProcessingInterval();
+    if (chip) chip.textContent = interval.valid ? (interval.label || "Fonte inteira") : "Verificar faixa";
+    if (!hint) return;
+    hint.textContent = interval.valid
+        ? (interval.start || interval.end ? `Esta execução usará somente ${interval.label}. A mídia original não será alterada.` : "Deixe os dois campos vazios para usar a fonte inteira. Aceita segundos, mm:ss ou hh:mm:ss.")
+        : interval.error;
+    hint.classList.toggle("interval-error", !interval.valid);
+}
 async function startSmartCut() {
+    const interval = readProcessingInterval();
+    if (!interval.valid) {
+        updateProcessingIntervalHint();
+        showToast(interval.error, "warning");
+        return;
+    }
+    state.processingStart = interval.start || "";
+    state.processingEnd = interval.end || "";
+    state.processingScopeLabel = interval.label || "fonte inteira";
     closeCutOptionsModal();
     if (!requireVideo()) return;
     state.faceTracking = Boolean(document.getElementById("faceTrackingEnabled")?.checked);
+    const mode = state.pendingProcessMode === "complete" ? "complete" : "smart";
     const userContext = document.getElementById("userContextInput").value.trim();
-    addConsoleLog("[Acao] Iniciando corte inteligente de shorts...", "info");
-    addConsoleLog(`[Enquadramento] Facetracking ${state.faceTracking ? "ativado" : "desativado"}; o fallback mantém a proporção original quando necessário.`, "info");
-    if (userContext) addConsoleLog(`[Contexto] "${userContext}"`, "info");
     const videoGenre = document.getElementById("settingVideoGenre").value;
     const geminiKey = document.getElementById("settingGeminiKey").value.trim();
     const aiBackend = document.getElementById("settingAiBackend").value;
+    const modeLabel = mode === "complete" ? "processo completo" : "corte inteligente de shorts";
+    addConsoleLog(`[Acao] Iniciando ${modeLabel}...`, "info");
+    addConsoleLog(`[Intervalo] ${interval.label}; a fonte original não será alterada.`, "info");
+    if (mode === "smart") addConsoleLog(`[Enquadramento] Facetracking ${state.faceTracking ? "ativado" : "desativado"}; o fallback mantém a proporção original quando necessário.`, "info");
+    if (userContext) addConsoleLog(`[Contexto] "${userContext}"`, "info");
     if (geminiKey.length > 10 || aiBackend) {
         await fetch("/api/settings", {
             method: "POST",
@@ -2299,28 +2590,32 @@ async function startSmartCut() {
             }),
         });
     }
-    const response = await fetch("/api/process/cut", {
+    const endpoint = mode === "complete" ? "/api/process/complete" : "/api/process/cut";
+    const response = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
             video_path: state.selectedVideo,
+            output_dir: state.outputDir || "",
             face_tracking: state.faceTracking,
             user_context: userContext,
             video_genre: videoGenre,
             transcription_source: document.getElementById("settingTranscriptionSource")?.value || "auto",
             audit_mode: document.getElementById("settingAuditMode")?.value || "standard",
             preferred_format: document.getElementById("settingPreferredFormat")?.value || "auto",
+            processing_start: interval.start,
+            processing_end: interval.end,
             ...(state.manualTranscript ? {
                 transcript_segments: state.manualTranscript.segments,
                 transcript_language: state.manualTranscript.language || "pt",
             } : {}),
         }),
     });
-    const started = await parseJsonResponse(response, "Corte inteligente");
-    if (!response.ok || started.error) throw new Error(started.error || "Não foi possível iniciar o corte");
+    const started = await parseJsonResponse(response, mode === "complete" ? "Processo completo" : "Corte inteligente");
+    if (!response.ok || started.error) throw new Error(started.error || `Não foi possível iniciar o ${modeLabel}`);
     if (started.job_id) {
         state.activeJob = { id: started.job_id, state: started.state || "queued" };
-        showProcessingControls("Corte adicionado à fila persistente.");
+        showProcessingControls(`${mode === "complete" ? "Processo completo" : "Corte"} adicionado à fila persistente.`);
     }
 }
 document.getElementById("actionCut").querySelector(".btn-action").addEventListener("click", openCutOptionsModal);
@@ -2338,34 +2633,8 @@ document.getElementById("actionThumbnail").querySelector(".btn-action").addEvent
     openThumbnailModal();
 });
 
-document.getElementById("actionComplete").querySelector(".btn-action").addEventListener("click", async () => {
-    if (!requireVideo()) return;
-    if (!confirm("Executar o pipeline completo? Isso pode demorar alguns minutos dependendo do tamanho do video.")) return;
-    const userContext = document.getElementById("userContextInput").value.trim();
-    addConsoleLog("[Acao] Iniciando processo completo...", "info");
-    if (userContext) addConsoleLog(`[Contexto] "${userContext}"`, "info");
-    const videoGenreComplete = document.getElementById("settingVideoGenre").value;
-    const response = await fetch("/api/process/complete", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            video_path: state.selectedVideo,
-            output_dir: state.outputDir || "",
-            user_context: userContext,
-            video_genre: videoGenreComplete,
-            transcription_source: document.getElementById("settingTranscriptionSource")?.value || "auto",
-            ...(state.manualTranscript ? {
-                transcript_segments: state.manualTranscript.segments,
-                transcript_language: state.manualTranscript.language || "pt",
-            } : {}),
-        }),
-    });
-    const started = await parseJsonResponse(response, "Processo completo");
-    if (!response.ok || started.error) throw new Error(started.error || "Não foi possível iniciar o processo completo");
-    if (started.job_id) {
-        state.activeJob = { id: started.job_id, state: started.state || "queued" };
-        showProcessingControls("Processo completo adicionado à fila persistente.");
-    }
+document.getElementById("actionComplete").querySelector(".btn-action").addEventListener("click", () => {
+    openCutOptionsModal("complete");
 });
 
 // ─── Subtitle Modal ───
@@ -2626,7 +2895,8 @@ function renderEditorialContextPreview(context = {}) {
 
 async function pollEditorialContextJob(jobId, button, status) {
     const started = Date.now();
-    while (Date.now() - started < 20 * 60 * 1000) {
+    // Aumentar o timeout de 20 para 60 minutos, já que o Gemini com fallback local em lives de 2h pode demorar
+    while (Date.now() - started < 60 * 60 * 1000) {
         await new Promise(resolve => setTimeout(resolve, 1200));
         const response = await fetch(`/api/jobs/${encodeURIComponent(jobId)}`);
         const job = await parseJsonResponse(response, "Status da análise de contexto");
@@ -3089,6 +3359,12 @@ function renderResultsGrid() {
                     <span class="score-value">${clip.viral_score || 0}</span>
                     <span class="score-label">/100</span>
                 </div>
+                <!-- Onde na fonte, e por quanto tempo. É a primeira pergunta de
+                     quem edita vídeo, e não estava em lugar nenhum do cartão. -->
+                <span class="result-tempo" title="Posição na fonte e duração do corte">
+                    <b>${formatTime(clip.start || 0)}</b><i>→</i><b>${formatTime(clip.end || 0)}</b>
+                    <em>${Math.round(durationSeconds)}s</em>
+                </span>
                 ${clip.has_hook ? '<span class="hook-badge"><span class="material-icons-round" style="font-size:12px">flash_on</span> Gancho</span>' : ''}
                 <span class="clip-source-badge ${sourceClass}">${sourceLabel}</span>
                 <span class="candidate-origin-badge ${originClass}" title="${escapeHtml(candidateOriginNote)}"><span class="material-icons-round">${candidateOrigin === "local_fallback" ? "alt_route" : "verified"}</span>${escapeHtml(candidateOriginLabel)}</span>
@@ -3126,10 +3402,8 @@ function renderResultsGrid() {
                 ${weakPayoffFlag ? `<div class="clip-review-risk"><span class="material-icons-round">pending</span><span><b>Payoff a revisar:</b> o final pode continuar o raciocínio em vez de concluí-lo.</span></div>` : ''}
                 ${(speakerLabel || overlapSuspected || Number.isFinite(speakerConfidence)) ? `<div class="clip-speaker-note ${overlapSuspected ? 'warning' : ''}"><span class="material-icons-round">${overlapSuspected ? 'record_voice_over' : 'person'}</span> ${speakerLabel ? `Locutor: ${escapeHtml(speakerLabel)}` : 'Locutor não identificado'}${Number.isFinite(speakerConfidence) ? ` · ${Math.round(Math.max(0, Math.min(1, speakerConfidence)) * 100)}%` : ''}${overlapSuspected ? ' · possível sobreposição' : ''}</div>` : ''}
                 ${diversityPenalty >= 20 ? `<div class="clip-diversity-note"><span class="material-icons-round">filter_list</span> Similaridade com outro corte: ${diversityPenalty}%${diversityReason ? ` · ${escapeHtml(diversityReason)}` : ''}</div>` : ''}
-                <div class="result-duration">
-                    <span class="material-icons-round" style="font-size:14px">schedule</span>
-                    ${formatTime(clip.start)} - ${formatTime(clip.end)} (${Number(clip.duration || 0).toFixed(1)}s)
-                </div>
+                <!-- O tempo do corte subiu para a faixa do topo, onde é a
+                     primeira coisa que se lê. Repetir aqui era ruído. -->
                 ${(editorialBlock.thesis || editorialBlock.context_summary || blockTags.length) ? `<div class="editorial-block-dossier">
                     <div class="editorial-block-kicker"><span class="material-icons-round">inventory_2</span> Dossiê do bloco · ${escapeHtml(editorialBlock.state || "candidato")}</div>
                     ${editorialBlock.thesis ? `<strong>${escapeHtml(editorialBlock.thesis)}</strong>` : ''}
@@ -3137,7 +3411,7 @@ function renderResultsGrid() {
                     ${editorialBlock.moment_reason ? `<small><b>Momento:</b> ${escapeHtml(editorialBlock.moment_reason)}</small>` : ''}
                     ${blockTags.length ? `<div class="editorial-block-tags">${blockTags.map((tag) => `<span>${escapeHtml(tag)}</span>`).join('')}</div>` : ''}
                 </div>` : ''}
-                <button class="btn btn-sm btn-boundary-toggle" onclick="toggleBoundaryEditor(${originalIndex})" title="Remover falas desnecessárias antes ou depois do trecho"><span class="material-icons-round">content_cut</span> Cortar fala antes/depois</button>
+                <button class="btn btn-sm btn-boundary-toggle" onclick="toggleBoundaryEditor(${originalIndex})" title="Remover falas desnecessárias antes ou depois do trecho"><span class="material-icons-round">graphic_eq</span> Ajustar entrada e saída</button>
                 <div class="clip-boundary-editor" id="boundary-editor-${originalIndex}" hidden>
                     <div class="clip-boundary-fields">
                         <label>Entrada <input type="number" min="0" step="0.1" data-boundary-start="${originalIndex}" value="${Number(clip.start || 0).toFixed(1)}"></label>
@@ -3145,7 +3419,7 @@ function renderResultsGrid() {
                         <button class="btn btn-sm btn-primary" onclick="previewClipBoundary(${originalIndex})"><span class="material-icons-round">preview</span> Pré-visualizar</button>
                         <button class="btn btn-sm btn-success" onclick="persistClipBoundary(${originalIndex})" ${clip.clip_id ? "" : "disabled"}><span class="material-icons-round">save</span> Salvar ajuste</button>
                     </div>
-                    <small><b>Como usar:</b> Entrada = primeiro segundo útil; saída = último segundo útil. “Pré-visualizar” atualiza somente este card e mantém o arquivo original. “Salvar ajuste” registra a decisão para o próximo render; não cria um MP4 novo nesta etapa.</small>
+                    <small><b>Como usar:</b> Arraste as alças douradas sobre a onda. O trecho aceso é o corte; o cinza dos lados é a margem, para você poder voltar. “Pré-visualizar” atualiza somente este card e mantém o arquivo original. “Salvar ajuste” registra a decisão para o próximo render; não cria um MP4 novo nesta etapa.</small>
                     <div class="clip-boundary-feedback" id="boundary-feedback-${originalIndex}" aria-live="polite"></div>
                 </div>
                 <div class="review-format-chip" title="${escapeHtml(layoutMeta.hint)}"><span class="material-icons-round">${escapeHtml(layoutMeta.icon)}</span>${escapeHtml(layoutMeta.label)}</div>
@@ -3204,9 +3478,6 @@ function renderResultsGrid() {
                 </div>` : ''}
 
                 <div class="result-actions">
-                    <button class="btn btn-sm btn-watch-clip" onclick="verOTrecho(${originalIndex})" title="Assistir exatamente este trecho">
-                        <span class="material-icons-round">play_circle</span> Ver este trecho
-                    </button>
                     <button class="btn btn-sm btn-primary" onclick="downloadClip(${originalIndex})">
                         <span class="material-icons-round">download</span> Baixar corte
                     </button>
@@ -3253,12 +3524,21 @@ function renderResultsGrid() {
     if (clips.length === 0) {
         grid.innerHTML = `<div class="review-empty-state"><span class="material-icons-round">filter_alt_off</span><strong>Nenhum corte nesta fila</strong><p>Altere o filtro para revisar os outros candidatos.</p></div>`;
     }
+
+    // O mapa da fonte lê `state.clips` inteiro, não a fila filtrada: ele existe
+    // para mostrar a cobertura da fonte, e um filtro de revisão não muda de
+    // onde os cortes saíram.
+    window.desenharMapaDaFonte?.();
 }
 
 function toggleBoundaryEditor(index) {
     const editor = document.getElementById(`boundary-editor-${index}`);
     if (!editor) return;
     editor.hidden = !editor.hidden;
+    // A onda só pode ser desenhada depois que o painel tem tamanho: filho de um
+    // elemento escondido mede zero pixel, e um canvas de zero pixel não desenha
+    // nada nem reclama. Foi assim que o player sumiu duas vezes.
+    if (!editor.hidden) window.montarTalho?.(index);
 }
 
 async function previewClipBoundary(index) {
@@ -3330,12 +3610,40 @@ async function persistClipBoundary(index) {
         if (feedback) feedback.textContent = "Este resultado ainda não possui um registro persistente.";
         return;
     }
-    const adjustment = clip.latest_adjustment || {
-        start: Number(clip.start),
-        end: Number(clip.end),
-        duration: Number(clip.duration),
-        boundary_adjustment: { source: "manual" },
+    // As alças escrevem nos campos escondidos; o "Pré-visualizar" lia deles, o
+    // "Salvar" não. Quem arrastasse e salvasse direto gravava clip.start e
+    // clip.end — os valores ORIGINAIS — e o corte voltava igual, sem erro e sem
+    // registro. Era exatamente o que o editor descreveu: "confirmei que era para
+    // calibrar o corte, o video se manteve o mesmo, não gerou logs".
+    const campoInicio = document.querySelector(`[data-boundary-start="${index}"]`);
+    const campoFim = document.querySelector(`[data-boundary-end="${index}"]`);
+    const arrastado = {
+        start: Number(campoInicio?.value),
+        end: Number(campoFim?.value),
     };
+    const usarArrasto = Number.isFinite(arrastado.start) && Number.isFinite(arrastado.end)
+        && arrastado.end > arrastado.start;
+    const adjustment = usarArrasto
+        ? {
+            start: arrastado.start,
+            end: arrastado.end,
+            duration: Number((arrastado.end - arrastado.start).toFixed(2)),
+            boundary_adjustment: { source: "manual" },
+        }
+        : clip.latest_adjustment || {
+            start: Number(clip.start),
+            end: Number(clip.end),
+            duration: Number(clip.duration),
+            boundary_adjustment: { source: "manual" },
+        };
+    if (usarArrasto) {
+        addConsoleLog(
+            `[Ajuste] Corte ${index + 1}: ${Number(clip.start).toFixed(1)}s→${Number(clip.end).toFixed(1)}s `
+            + `passa a ${adjustment.start.toFixed(1)}s→${adjustment.end.toFixed(1)}s `
+            + `(${adjustment.duration.toFixed(1)}s).`,
+            "info",
+        );
+    }
     if (!Number.isFinite(Number(adjustment.start)) || !Number.isFinite(Number(adjustment.end))) {
         if (feedback) feedback.textContent = "Pré-visualize limites válidos antes de salvar.";
         return;
@@ -3516,7 +3824,13 @@ function renderCandidateVolumeNotice(diagnostics = {}) {
     const discardedOverlap = Number(diagnostics.fallback_discarded_overlap || 0);
     const discardedSimilarity = Number(diagnostics.fallback_discarded_similarity || 0);
     const finalCount = Number(diagnostics.final_count || 0);
-    if (!expected && !primary && !finalCount) {
+    const chubDiscovery = Number(diagnostics.campaign_hub_discovery_count || 0);
+    const chubPublishable = Number(diagnostics.campaign_hub_publishable_guided_count || 0);
+    const chubFiltered = Number(diagnostics.campaign_hub_guided_filtered_by_speaker || 0);
+    const chubNote = chubDiscovery > 0
+        ? ` Campaign Hub encontrou ${chubDiscovery} trecho(s); ${chubPublishable} entraram na fila publicável${chubFiltered > 0 ? ` e ${chubFiltered} ficaram para revisão de locutor` : ""}.`
+        : "";
+    if (!expected && !primary && !finalCount && !chubDiscovery) {
         notice.hidden = true;
         notice.textContent = "";
         return;
@@ -3528,15 +3842,15 @@ function renderCandidateVolumeNotice(diagnostics = {}) {
         const discardedNote = discarded > 0
             ? ` ${discarded} alternativa(s) foram descartadas por redundância${discardedOverlap > 0 ? ` (${discardedOverlap} por sobreposição` : " ("}${discardedSimilarity > 0 ? `${discardedOverlap > 0 ? ", " : ""}${discardedSimilarity} por repetição textual` : ""}).`
             : " Nenhuma alternativa foi descartada por redundância.";
-        notice.innerHTML = `<span class="material-icons-round">alt_route</span><span>Pool ampliado com segurança: ${primary} candidato(s) da fonte principal + ${fallback} alternativa(s) locais.${discardedNote} Os gates de contexto permaneceram ativos.</span>`;
+        notice.innerHTML = `<span class="material-icons-round">alt_route</span><span>Pool ampliado com segurança: ${primary} candidato(s) da fonte principal + ${fallback} alternativa(s) locais.${discardedNote} Os gates de contexto permaneceram ativos.${chubNote}</span>`;
         return;
     }
     if (expected && finalCount < expected) {
         notice.classList.add("warning");
-        notice.innerHTML = `<span class="material-icons-round">info</span><span>${finalCount} candidato(s) chegaram à revisão; a referência estrutural era ${expected}. O vídeo pode ter pouco material autossuficiente ou gates editoriais rigorosos.</span>`;
+        notice.innerHTML = `<span class="material-icons-round">info</span><span>${finalCount} candidato(s) chegaram à revisão; a referência estrutural era ${expected}. O vídeo pode ter pouco material autossuficiente ou gates editoriais rigorosos.${chubNote}</span>`;
         return;
     }
-    notice.innerHTML = `<span class="material-icons-round">check_circle</span><span>Pool editorial adequado: ${finalCount} candidato(s) distintos chegaram à revisão.</span>`;
+    notice.innerHTML = `<span class="material-icons-round">check_circle</span><span>Pool editorial adequado: ${finalCount} candidato(s) distintos chegaram à revisão.${chubNote}</span>`;
 }
 
 // --- Open Folder Button ---
@@ -3553,14 +3867,15 @@ function updateOpenFolderButton(folderPath) {
 }
 
 async function openOutputFolder(folderPath) {
-    // Sem caminho não é erro: o motor abre a pasta para onde os cortes vão.
-    // Antes, "Pasta não informada" era o que ele ouvia justamente quando não
-    // sabia onde a pasta ficava — que é quando mais precisava do botão.
+    if (!folderPath) {
+        showToast("Pasta não informada.", "warning");
+        return;
+    }
     try {
         const res = await fetch("/api/open_folder", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(folderPath ? { path: folderPath } : {}),
+            body: JSON.stringify({ path: folderPath }),
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok || !data.success) {
@@ -3643,12 +3958,53 @@ function copyToClipboard(text) {
 
 // ─── Source Intake ───
 
+// O 409 diz "cancele na barra do topo"; o editor respondeu "não mostra barra no
+// topo só para constar", e estava certo. Depois de recarregar a página, a aba
+// não guarda nenhuma lembrança do processamento — quem sabe dele é o servidor.
+// Então a barra é trazida de volta a partir do que o servidor informa, com o
+// botão de cancelar vivo, em vez de mandar o editor procurar um botão que não
+// existe. Ela se solta sozinha pelo mesmo destravamento de 90 s do resto.
+function adotarProcessamentoDoServidor(payload) {
+    const nomes = {
+        source_import: "Baixando a fonte",
+        transcription: "Transcrevendo",
+        cut: "Cortando",
+        analysis: "Analisando o vídeo",
+    };
+    const decorridoServidor = Number(payload?.elapsed_seconds);
+    // Já existe barra: ela é a mesma operação. Reiniciá-la zeraria o relógio que
+    // o editor está lendo.
+    if (run.active) return decorridoServidor;
+    const titulo = nomes[payload?.operation] || "Processamento em andamento";
+    if (payload?.job_id) state.activeJob = { ...(state.activeJob || {}), id: payload.job_id };
+    beginRun(titulo, "", "Retomado a partir do servidor — use Cancelar se ele estiver travado.");
+    const decorrido = Number(payload?.elapsed_seconds);
+    if (Number.isFinite(decorrido) && decorrido > 0) {
+        run.startedAt = Date.now() - decorrido * 1000;
+        paintRun();
+    }
+    return decorrido;
+}
+
 async function parseJsonResponse(response, context = "servidor") {
     // 409 é a recusa deliberada do servidor quando já existe trabalho em
     // andamento. Tratada como erro genérico, ela chegava ao editor como uma
     // falha inexplicável — quando na verdade é a guarda funcionando.
     if (response.status === 409) {
-        throw new Error("Já existe um processamento em andamento. Espere ele terminar ou cancele na barra do topo.");
+        let payload = null;
+        try {
+            payload = JSON.parse(await response.text());
+        } catch (erro) {
+            payload = null;
+        }
+        const decorrido = adotarProcessamentoDoServidor(payload);
+        const ha = Number.isFinite(decorrido) && decorrido > 0
+            ? ` Está rodando há ${Math.floor(decorrido / 60)}min${String(decorrido % 60).padStart(2, "0")}s.`
+            : "";
+        throw new Error(
+            `Já existe um processamento em andamento.${ha} A barra do topo voltou a aparecer: ` +
+            "espere terminar, ou clique em Cancelar nela.",
+        );
     }
     const raw = await response.text();
     if (!raw) {
@@ -3861,58 +4217,54 @@ function artworkFeedbackButton(format, value, clipIndex = null) {
     return `<button class="btn btn-sm artwork-feedback-button" type="button" data-artwork-format="${escapeHtml(format)}" data-artwork-feedback="${encodeURIComponent(value)}"${clipAttribute}><span class="material-icons-round">bookmark_add</span>Escolher</button>`;
 }
 
-function artworkHeadlineHtml(linhas, emphasis) {
-    /* O trecho em destaque vai DENTRO da frase, com fundo vermelho, e não numa
-     * linha "Destaque sugerido:" embaixo dela. Na arte que ele produz o
-     * destaque é parte da leitura, não uma anotação sobre ela.
-     *
-     * As quebras de linha ficam onde estão: elas são a prévia de como o texto
-     * vai cair na arte. E o destaque quase sempre atravessa uma delas —
-     * "CAMINHO ARCAICO" com "CAMINHO" no fim de uma linha e "ARCAICO" no
-     * começo da seguinte. Pintar cada linha por conta própria perderia o
-     * destaque inteiro nesse caso, porque nenhuma das duas contém a expressão
-     * completa. Então a conta é feita na frase inteira e o resultado é
-     * repartido linha a linha, do jeito que a arte final vai mostrar.
-     */
-    const linhasDoTexto = Array.isArray(linhas) ? linhas : [String(linhas || "")];
-    const marcarNada = () => linhasDoTexto.map(l => `<span>${escapeHtml(l)}</span>`).join("");
-
-    const alvo = String(emphasis || "");
-    if (!alvo) return marcarNada();
-
-    const frase = linhasDoTexto.join(" ");
-    const comeco = frase.toLowerCase().indexOf(alvo.toLowerCase());
-    if (comeco < 0) return marcarNada();
-    const fim = comeco + alvo.length;
-
-    let percorrido = 0;
-    return linhasDoTexto.map((linha) => {
-        const inicioDaLinha = percorrido;
-        const fimDaLinha = percorrido + linha.length;
-        percorrido = fimDaLinha + 1;  // o espaço que juntou esta linha à próxima
-        const de = Math.max(comeco, inicioDaLinha) - inicioDaLinha;
-        const ate = Math.min(fim, fimDaLinha) - inicioDaLinha;
-        if (ate <= de) return `<span>${escapeHtml(linha)}</span>`;
-        return `<span>${escapeHtml(linha.slice(0, de))}`
-            + `<mark class="artwork-mark">${escapeHtml(linha.slice(de, ate))}</mark>`
-            + `${escapeHtml(linha.slice(ate))}</span>`;
-    }).join("");
+function artworkHeadlineHtml(headline, emphasis) {
+    // O trecho em destaque vai dentro da frase, com fundo vermelho, e não numa
+    // linha "Destaque sugerido:" embaixo dela. Na arte que o editor produz o
+    // destaque é parte da leitura, não uma anotação sobre ela.
+    const texto = escapeHtml(headline || "");
+    const alvo = escapeHtml(emphasis || "");
+    if (!alvo) return texto;
+    const posicao = texto.toLowerCase().indexOf(alvo.toLowerCase());
+    if (posicao < 0) return texto;
+    return texto.slice(0, posicao)
+        + `<mark class="artwork-mark">${texto.slice(posicao, posicao + alvo.length)}</mark>`
+        + texto.slice(posicao + alvo.length);
 }
 
 function renderArtworkHeadline(suggestion, format, clipIndex = null) {
-    const eyebrow = escapeHtml(suggestion.eyebrow || "");
-    const lines = Array.isArray(suggestion.headline_lines) && suggestion.headline_lines.length
-        ? suggestion.headline_lines : [suggestion.headline || ""];
-    const headline = escapeHtml(suggestion.headline || "");
+    const gancho = escapeHtml(suggestion.eyebrow || "");
+    const alternativas = Array.isArray(suggestion.eyebrow_alternatives) ? suggestion.eyebrow_alternatives : [];
+    const headline = String(suggestion.headline || "");
     const destaque = String(suggestion.emphasis || "");
-    const artwork = artworkHeadlineHtml(lines, destaque);
-    return `<article class="artwork-suggestion-card ${format}">
-        <div class="artwork-preview ${suggestion.accent === "red_on_white" ? "has-red-accent" : ""}">
-            ${eyebrow ? `<div class="artwork-eyebrow">${eyebrow}</div>` : ""}
-            <div class="artwork-headline">${artwork}</div>
+    const corpo = artworkHeadlineHtml(headline, destaque);
+    const modo = suggestion.mode === "citacao" ? "citação literal" : "leitura do trecho";
+    const inicio = suggestion.source_interval && suggestion.source_interval.start_s;
+    const marca = Number.isFinite(inicio) ? formatTimecode(inicio) : "";
+    const fora = suggestion.within_preferred_limit === false;
+
+    const trocas = alternativas.length > 1
+        ? `<div class="artwork-hook-swap">${alternativas.map(item => `
+            <button type="button" class="artwork-hook-option ${escapeHtml(item) === gancho ? "active" : ""}"
+                data-hook="${encodeURIComponent(item)}">${escapeHtml(item)}</button>`).join("")}</div>`
+        : "";
+
+    return `<article class="artwork-suggestion-card ${format}" data-headline="${encodeURIComponent(headline)}" data-emphasis="${encodeURIComponent(destaque)}">
+        <div class="artwork-canvas">
+            <div class="artwork-band">
+                ${gancho ? `<div class="artwork-eyebrow">${gancho}</div>` : ""}
+                <div class="artwork-headline">${corpo}</div>
+            </div>
+            <div class="artwork-frame"><span class="material-icons-round">movie</span></div>
         </div>
-        <div class="artwork-suggestion-footer"><span>${Number(suggestion.character_count || headline.length)} caracteres · ${Number(suggestion.word_count || String(suggestion.headline || "").trim().split(/\s+/).filter(Boolean).length)} palavras</span><div>${artworkCopyButton(suggestion.headline || "", "Copiar headline")}${artworkFeedbackButton(format, suggestion.headline || "", clipIndex)}</div></div>
-        ${suggestion.layout_hint ? `<p class="artwork-layout-hint"><span class="material-icons-round">grid_view</span>${escapeHtml(suggestion.layout_hint)}</p>` : ""}
+        ${trocas}
+        <div class="artwork-suggestion-footer">
+            <span class="artwork-meta">
+                <span class="artwork-mode ${suggestion.mode === "citacao" ? "literal" : ""}">${modo}</span>
+                <span>${Number(suggestion.character_count || headline.length)} car${fora ? " · acima do ideal" : ""}</span>
+                ${marca ? `<span>${marca}</span>` : ""}
+            </span>
+            <div>${artworkCopyButton(headline, "Copiar headline")}${artworkFeedbackButton(format, headline, clipIndex)}</div>
+        </div>
     </article>`;
 }
 
@@ -3928,10 +4280,19 @@ function renderHeadlineStudioResults(studio, options = {}) {
     const learningLabel = learning.applied
         ? `aprendizado aplicado (${Number(learning.selected_count || 0)} escolha(s))`
         : "aprendizado em coleta";
+    const aiRefinement = studio.ai_refinement || {};
+    const aiStatus = String(aiRefinement.status || "");
+    const aiProvider = String(aiRefinement.provider || "").trim();
+    const aiReviewChip = aiRefinement.requested
+        ? `<span class="artwork-review-chip ${aiStatus === "accepted" ? "safe" : "warning"}"><span class="material-icons-round">${aiStatus === "accepted" ? "auto_awesome" : "info"}</span>${escapeHtml(aiRefinement.message || (aiProvider ? `IA configurada · ${aiProvider}` : "IA solicitada"))}</span>`
+        : "";
     const reviewChips = [
+        aiReviewChip,
         flags.transcript_ends_incomplete ? '<span class="artwork-review-chip warning"><span class="material-icons-round">pending</span>final da transcrição incompleto</span>' : "",
         flags.needs_fact_review ? '<span class="artwork-review-chip"><span class="material-icons-round">fact_check</span>revisar afirmação factual</span>' : "",
         flags.needs_legal_review ? '<span class="artwork-review-chip legal"><span class="material-icons-round">gavel</span>revisar formulação jurídica</span>' : "",
+        flags.source_not_punctuated ? '<span class="artwork-review-chip warning"><span class="material-icons-round">graphic_eq</span>a legenda não pontua: a leitura saiu das pausas, confira no áudio</span>' : "",
+        flags.speaker_unconfirmed ? '<span class="artwork-review-chip warning"><span class="material-icons-round">person_off</span>ninguém confirmou quem fala: a arte sai sem atribuição</span>' : "",
     ].filter(Boolean).join("");
     const selectedFormat = studio.generated_format || recommended;
     const availableFormats = [selectedFormat].filter(format => ["vertical_916", "square_alfinetei"].includes(format));
@@ -3943,18 +4304,37 @@ function renderHeadlineStudioResults(studio, options = {}) {
             <div class="artwork-suggestion-grid">${suggestions.map(item => renderArtworkHeadline(item, format, clipIndex)).join("") || `<p class="artwork-empty">${escapeHtml(studio.recommendation_reason || "Sem alternativa disponível.")}</p>`}</div>
         </section>`;
     }).join("");
-    // Esta linha não existia. A função montava os cartões inteiros e os jogava
-    // fora: a mensagem verde de sucesso aparecia, o servidor devolvia as
-    // sugestões, e o estúdio de texto ficava em branco. `node --check` passava,
-    // porque o código continuava válido — ele só não fazia nada.
+    // Esta atribuição foi apagada junto com o cartão do formato descartado na
+    // 6.7: o script que removeu aquele bloco cortava linhas até achar uma que
+    // terminasse em crase-ponto-e-vírgula, e essa linha era exatamente esta. O
+    // resultado passou dois ciclos montando o HTML e jogando fora, com a tela em
+    // branco e a mensagem verde de sucesso — e `node --check` passando, porque o
+    // código continuava válido. Só não fazia nada.
     container.innerHTML = `<div class="headline-studio-result-summary">
-<div><span class="artwork-format-kicker">LEITURA EDITORIAL</span><h4>${escapeHtml(artworkFormatLabels[recommended] || recommended)}</h4><p>${escapeHtml(studio.recommendation_reason || "")}</p></div><div class="artwork-analysis-metrics"><span>Tema: <strong>${escapeHtml(studio.topic || "geral")}</strong></span><span>Contexto: <strong>${Math.round(Number(studio.analysis?.context_completeness || 0))}/100</strong></span><span>Fonte: <strong>${studio.generation_source === "ai_refined" ? "IA + regras" : "regras editoriais"}</strong></span><span>Preferência: <strong>${escapeHtml(learningLabel)}</strong></span></div></div><div class="artwork-review-chips">${reviewChips || '<span class="artwork-review-chip safe"><span class="material-icons-round">verified</span>sem alerta lexical automático</span>'}</div><div class="artwork-format-results">${formatCards}</div>`;
+<div><span class="artwork-format-kicker">LEITURA EDITORIAL</span><h4>${escapeHtml(artworkFormatLabels[recommended] || recommended)}</h4><p>${escapeHtml(studio.recommendation_reason || "")}</p></div><div class="artwork-analysis-metrics"><span>Tema: <strong>${escapeHtml(studio.topic || "geral")}</strong></span><span>Contexto: <strong>${Math.round(Number(studio.analysis?.context_completeness || 0))}/100</strong></span><span>Fonte: <strong>${studio.generation_source === "ai_refined" ? "IA + regras" : "regras editoriais"}</strong>${aiProvider ? ` · ${escapeHtml(aiProvider)}` : ""}</span><span>Preferência: <strong>${escapeHtml(learningLabel)}</strong></span></div></div><div class="artwork-review-chips">${reviewChips || '<span class="artwork-review-chip safe"><span class="material-icons-round">verified</span>sem alerta lexical automático</span>'}</div><div class="artwork-format-results">${formatCards}</div>`;
     container.style.display = "block";
     container.querySelectorAll(".artwork-copy-button").forEach(button => {
         button.addEventListener("click", () => copyToClipboard(decodeURIComponent(button.dataset.artworkCopy || "")));
     });
     container.querySelectorAll(".artwork-feedback-button").forEach(button => {
         button.addEventListener("click", () => saveArtworkFeedback(button));
+    });
+    // Trocar o gancho sem reescrever a headline. As alternativas já vêm do
+    // gerador, e sem isto elas eram só um dado no objeto de resposta.
+    container.querySelectorAll(".artwork-hook-option").forEach(button => {
+        button.addEventListener("click", () => {
+            const card = button.closest(".artwork-suggestion-card");
+            if (!card) return;
+            const gancho = decodeURIComponent(button.dataset.hook || "");
+            const alvo = card.querySelector(".artwork-eyebrow");
+            if (alvo) alvo.textContent = gancho;
+            card.querySelectorAll(".artwork-hook-option").forEach(item => item.classList.remove("active"));
+            button.classList.add("active");
+            const headline = decodeURIComponent(card.dataset.headline || "");
+            card.querySelectorAll(".artwork-copy-button").forEach(item => {
+                item.dataset.artworkCopy = encodeURIComponent(`${gancho}\n${headline}`);
+            });
+        });
     });
 }
 
@@ -4238,13 +4618,17 @@ document.getElementById("btnProbeSource")?.addEventListener("click", async () =>
         const res = await fetch("/api/source/probe", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ url }),
+            body: JSON.stringify({ url, ...getSourceDownloadAuthPayload() }),
         });
         const data = await parseJsonResponse(res, "Verificação da fonte");
         if (!res.ok || !data.success) throw new Error(data.error || "Fonte indisponível");
         state.sourceUrl = url;
+        
+        // Se conseguimos validar a URL remota, já podemos puxar os blocos do Acervo
+        loadEditorialBlocks();
+        
         const duration = data.source.duration ? ` — ${formatTime(data.source.duration)}` : "";
-        showSourceStatus(`${data.source.title || "Fonte válida"}${duration}. Pronta para importar.`, "success");
+        showSourceStatus(`${data.source.title || "Fonte válida"}${duration}. Blocos analisados remotamente.`, "success");
     } catch (error) {
         showSourceStatus(error.message, "error");
     }
@@ -4322,6 +4706,13 @@ async function ensureSourceDirectory() {
     return chooseSourceDirectory();
 }
 
+function getSourceDownloadAuthPayload() {
+    return {
+        cookie_browser: document.getElementById("sourceCookieBrowser")?.value || "",
+        user_agent: document.getElementById("sourceUserAgent")?.value?.trim() || "",
+    };
+}
+
 async function transcribeSourceOnly() {
     if (state.sourceTranscriptionActive || state.sourceImportActive) return;
     const input = document.getElementById("sourceUrlInput");
@@ -4350,6 +4741,7 @@ async function transcribeSourceOnly() {
                 max_height: maxHeight,
                 media_type: "audio",
                 transcription_source: document.getElementById("settingTranscriptionSource")?.value || "auto",
+                ...getSourceDownloadAuthPayload(),
             }),
         });
         const data = await parseJsonResponse(res, "Transcrição por URL");
@@ -4415,6 +4807,7 @@ async function importSource(autoTranscribe = false) {
                 auto_transcribe: autoTranscribe,
                 manual_transcript: confirmedTranscript,
                 transcription_source: document.getElementById("settingTranscriptionSource")?.value || "auto",
+                ...getSourceDownloadAuthPayload(),
             }),
         });
         const data = await parseJsonResponse(res, "Importação da fonte");
@@ -4505,6 +4898,14 @@ function applySettings() {
         state.sourceMaxHeight = Math.min(1080, Number(s.source_max_height) || 1080);
         const quality = document.getElementById("sourceMaxHeight");
         if (quality) quality.value = String(state.sourceMaxHeight);
+    }
+    const sourceCookieBrowser = document.getElementById("sourceCookieBrowser");
+    if (sourceCookieBrowser && typeof s.source_cookie_browser === "string") {
+        sourceCookieBrowser.value = s.source_cookie_browser || "";
+    }
+    const sourceUserAgent = document.getElementById("sourceUserAgent");
+    if (sourceUserAgent && typeof s.source_user_agent === "string") {
+        sourceUserAgent.value = s.source_user_agent || "";
     }
 }
 
@@ -4598,12 +4999,6 @@ document.getElementById("consoleToggle").addEventListener("click", () => {
     const icon = document.querySelector(".toggle-icon");
     content.classList.toggle("collapsed");
     icon.style.transform = content.classList.contains("collapsed") ? "rotate(-90deg)" : "";
-});
-
-// ─── A pasta dos cortes ───
-
-document.getElementById("btnCutsFolder")?.addEventListener("click", () => {
-    openOutputFolder(state.outputFolder || "");
 });
 
 // ─── Help Modal ───
@@ -4790,7 +5185,6 @@ document.addEventListener("DOMContentLoaded", () => {
     loadMediaFiles();
     loadTranscriptArchive();
     recoverActiveJobs();
-    pararNoFimDoTrecho();
     // Check Ollama status on load
     socket.emit("check_ollama");
 });
@@ -4953,10 +5347,22 @@ function focusReadingUnit(index) {
     document.querySelectorAll(".reading-unit, .reading-timeline-unit").forEach((node) => {
         node.classList.toggle("active", node.dataset.index === String(index));
     });
+    
     const video = document.getElementById("videoPreview");
-    if (video && Number.isFinite(Number(unit.start_s))) {
-        video.currentTime = Number(unit.start_s);
-        video.parentElement?.closest("section")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    const dock = document.getElementById("playerDock");
+    if (video && dock && Number.isFinite(Number(unit.start_s))) {
+        if (!dock.classList.contains("is-open") && state.selectedVideo) {
+            showVideoPreview(state.selectedVideo);
+        }
+        if (video.readyState >= 1) {
+            video.currentTime = Number(unit.start_s);
+            video.play().catch(() => {});
+        } else {
+            video.addEventListener('loadedmetadata', () => {
+                video.currentTime = Number(unit.start_s);
+                video.play().catch(() => {});
+            }, { once: true });
+        }
     }
 }
 

@@ -124,6 +124,14 @@ def _renderizar(tmp_path, payload: dict) -> dict:
             headlines: document.querySelectorAll('.artwork-headline').length,
             ganchos: document.querySelectorAll('.artwork-eyebrow').length,
             destaques: document.querySelectorAll('.artwork-mark').length,
+            // O destaque atravessa as quebras de linha da arte quase sempre
+            // ("CAMINHO" no fim de uma linha, "ARCAICO" no começo da outra),
+            // então ele aparece pintado em pedaços. Contar elementos diria
+            // pouco: o que importa é que o texto pintado, junto, seja o
+            // destaque — e não uma anotação embaixo da frase.
+            pintado: [...document.querySelectorAll('.artwork-suggestion-card')]
+                .map(c => [...c.querySelectorAll('.artwork-mark')]
+                    .map(m => m.textContent).join(' ').replace(/\\s+/g, ' ').trim()),
             html: document.getElementById('alvo').innerHTML.length,
         }}));
         console.log(JSON.stringify({{ ...contagem, erros }}));
@@ -176,12 +184,15 @@ def test_o_trecho_destacado_e_pintado_dentro_da_frase(tmp_path):
         preferred_format=FORMAT_SQUARE,
         ai_backend=None,
     )
-    com_destaque = sum(1 for item in payload["formats"][FORMAT_SQUARE]["suggestions"] if item["emphasis"])
-    if not com_destaque:
+    esperados = [str(item["emphasis"] or "") for item in payload["formats"][FORMAT_SQUARE]["suggestions"]]
+    if not any(esperados):
         pytest.skip("esta fonte não rendeu trecho em destaque")
 
     tela = _renderizar(tmp_path, payload)
-    assert tela["destaques"] == com_destaque
+    assert tela["pintado"] == esperados, (
+        "o que está pintado dentro da frase tem de ser exatamente o trecho em "
+        f"destaque de cada sugestão: esperado {esperados}, na tela {tela['pintado']}"
+    )
 
 
 def test_a_tela_diz_o_motivo_quando_nada_foi_gerado(tmp_path):

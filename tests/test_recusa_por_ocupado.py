@@ -79,7 +79,7 @@ def test_o_texto_da_tela_nao_manda_mais_procurar_uma_barra_que_nao_existe():
     """
     from pathlib import Path
 
-    tela = Path(__file__).resolve().parents[1] / "static" / "js" / "app.js"
+    tela = Path(__file__).resolve().parents[1] / "static" / "js" / "mesa-app.js"
     texto = tela.read_text(encoding="utf-8")
 
     assert "adotarProcessamentoDoServidor" in texto, (

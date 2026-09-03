@@ -88,14 +88,14 @@ echo ==================================================
 echo    Iniciando Furia Clips...
 echo ==================================================
 echo.
-echo [Furia Clips] O estudio:          http://localhost:3001
+echo [Furia Clips] O programa:         http://localhost:3001
 echo [Furia Clips] Para parar: feche esta janela ou Ctrl+C
 echo [Furia Clips] Log do launcher: %RUN_LOG%
 echo.
 
-REM Uma aba so: o estudio. E o programa inteiro, e as outras frentes continuam
-REM de pe no mesmo endereco (/2 e /classico) para quem precisar - mas ninguem
-REM abre elas por acidente.
+REM Uma aba so: a tela que ele consegue usar. E o programa inteiro, e as outras
+REM frentes continuam de pe no mesmo endereco (/mesa, /2 e /estudio) para quem
+REM precisar - mas ninguem abre elas por acidente.
 start "" powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "%~dp0scripts\open_browser_windows.ps1" -Url "http://127.0.0.1:3001" -TimeoutSeconds 120 -LogFile "%RUN_LOG%"
 "%~dp0venv\Scripts\python.exe" app.py
 

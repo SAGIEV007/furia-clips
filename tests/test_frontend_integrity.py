@@ -13,9 +13,9 @@ import re
 from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parent.parent
-JS = (RAIZ / "static" / "js" / "app.js").read_text(encoding="utf-8")
-HTML = (RAIZ / "templates" / "index.html").read_text(encoding="utf-8")
-CSS = (RAIZ / "static" / "css" / "style.css").read_text(encoding="utf-8")
+JS = (RAIZ / "static" / "js" / "mesa-app.js").read_text(encoding="utf-8")
+HTML = (RAIZ / "templates" / "mesa.html").read_text(encoding="utf-8")
+CSS = (RAIZ / "static" / "css" / "mesa-style.css").read_text(encoding="utf-8")
 
 IDS_NO_HTML = set(re.findall(r'id="([^"]+)"', HTML))
 
