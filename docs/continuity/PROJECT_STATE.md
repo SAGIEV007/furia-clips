@@ -12,7 +12,7 @@
 | Última release funcional anterior | `6.20` |
 | Natureza da release atual | Importação append-only de decisões humanas no `hard-negative-v1`, conflitos explícitos, adjudicação e métricas descritivas |
 | Fonte da versão | [`VERSION`](../../VERSION) |
-| Branch de trabalho | `claude/repo-access-commits-imgjmk` |
+| Branch de trabalho | `furia-treino-noturno` |
 | Última publicação conhecida | `54a4d8e` — `feat: importar decisões humanas no benchmark hard-negative (6.26)` |
 | Commit funcional 2.6 | `fec34fe` — `feat: primeira ponte funcional Campaign Hub para propostas (2.6)` |
 | Commit funcional 2.7 | `a0452d3` — `fix: declarar confiabilidade da medição no benchmark editorial (2.7)` |
@@ -20,9 +20,9 @@
 | Commit funcional 2.9 | `10c1fad` — `feat: medir recall em fonte longa inteira e descartar não-conteúdo rotulado (2.9)` |
 | Commit funcional 3.0 | `f83d1fb` — `feat: governar o orçamento de candidatos pela fonte, com precisão medida (3.0)` |
 | Commit funcional 3.1 | `a170aab` — `feat: entregar todo candidato com contexto, locutor e veredito de revisão (3.1)` |
-| Última atualização | 2026-08-21 |
+| Última atualização | 2026-09-03 |
 | Baseline editorial | Duas fontes medidas na 3.1. `3XJfcqn56Rw` (live 98 min): recall `50/66`, cobertura `25/27`. `j9FRVbb8CAI` (entrevista 31 min): recall `30/34`, cobertura `11/11`. Precisão `1.00`, zero fora de bloco e zero desperdício **nas duas**. O ciclo 6.14 mediu `3/30` identidades disponíveis no Renan-first com snapshot rico, contra `0/30` sem snapshot. |
-| Suíte no checkout | 594 aprovados, 4 ignorados na validação da 6.26; o asset BlazeFace foi temporário e removido |
+| Suíte no checkout | 1160 aprovados, 13 ignorados, 2 xfailed, 1 flaky; pytest no Windows exige `python -m pytest` ou `pytest.cmd` local |
 | Objetivo | Gerar cortes Renan Santos/MBL concisos, autossuficientes, contextualizados e editorialmente úteis |
 
 A branch de trabalho deve ser confirmada no checkout real. O GitHub é a fonte da revisão técnica; o commit funcional publicado da 6.26 é `54a4d8e`. Antes de alterar qualquer arquivo, preserve mudanças locais e confirme `git status`.
