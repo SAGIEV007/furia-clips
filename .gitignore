@@ -72,3 +72,6 @@ pytest_current.txt
 furia.sqlite3
 .env
 .worktrees/
+
+# Runtime data
+FuriaClipsData/
