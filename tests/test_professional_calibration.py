@@ -26,6 +26,24 @@ class TestProfessionalCalibration(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.bh_clips_dir = Path(r"C:\Users\70156213125\furia-clips\workspace\exports\RENAN_SANTOS_EM_MINAS_GERAIS")
+        cls._ffprobe_cache = {}
+        # Pre-populate ffprobe cache to avoid redundant subprocess calls across tests
+        for clip in sorted(cls.bh_clips_dir.glob("*.mp4")):
+            cache_key = str(clip)
+            if cache_key not in cls._ffprobe_cache:
+                probe = subprocess.run(
+                    ["ffprobe", "-v", "quiet", "-print_format", "json",
+                     "-show_format", str(clip)],
+                    capture_output=True, text=True
+                )
+                try:
+                    meta = json.loads(probe.stdout)
+                    fmt = meta.get("format", {})
+                    duration = float(fmt.get("duration", 0))
+                    size_mb = round(int(fmt.get("size", 0)) / 1024 / 1024, 1)
+                    cls._ffprobe_cache[cache_key] = (duration, size_mb)
+                except:
+                    cls._ffprobe_cache[cache_key] = (0, 0)
         
         # Critérios profissionais MBL
         cls.MBL_IDENTITY_KEYWORDS = {
@@ -48,6 +66,9 @@ class TestProfessionalCalibration(unittest.TestCase):
 
     def _get_clip_metadata(self, clip_path):
         """Extract metadata from clip file."""
+        cache_key = str(clip_path)
+        if cache_key in self._ffprobe_cache:
+            return self._ffprobe_cache[cache_key]
         probe = subprocess.run(
             ["ffprobe", "-v", "quiet", "-print_format", "json", 
              "-show_format", str(clip_path)],
@@ -58,9 +79,11 @@ class TestProfessionalCalibration(unittest.TestCase):
             fmt = meta.get('format', {})
             duration = float(fmt.get('duration', 0))
             size_mb = round(int(fmt.get('size', 0)) / 1024 / 1024, 1)
-            return duration, size_mb
+            result = (duration, size_mb)
         except:
-            return 0, 0
+            result = (0, 0)
+        self._ffprobe_cache[cache_key] = result
+        return result
 
     def _extract_title_and_rank(self, clip_path):
         """Extract rank and title from filename."""
