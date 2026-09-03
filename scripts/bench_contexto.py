@@ -71,6 +71,9 @@ def avaliar(rotulo, settings=None):
     com_fecho = sum(1 for c in aprovados if c.get("payoff_complete"))
     abre_no_meio = sum(1 for c in aprovados if c.get("starts_mid_sentence"))
     referencia_solta = sum(1 for c in aprovados if c.get("starts_with_context_reference"))
+    fim_no_turno = sum(1 for c in aprovados if c.get("speaker_turn_valid") is True)
+    fim_troca_turno = sum(1 for c in aprovados if c.get("speaker_turn_valid") is False)
+    fim_turno_unknown = sum(1 for c in aprovados if c.get("speaker_turn_valid") is None)
 
     # P4: borda de saida (5 categorias da pesquisa)
     borda_categorias = {
@@ -132,6 +135,12 @@ def avaliar(rotulo, settings=None):
     print(f"    fecho completo .................. {com_fecho}/{n}  {pct(com_fecho)}")
     print(f"    abre no meio da frase ........... {abre_no_meio}/{n}  {pct(abre_no_meio)}  <- quanto menor, melhor")
     print(f"    abre com referencia solta ....... {referencia_solta}/{n}  {pct(referencia_solta)}  <- quanto menor, melhor")
+    print("  FIM NO TURNO (speaker_turn_valid no clip)")
+    print(f"    fim dentro do turno ............ {fim_no_turno}/{n}  {pct(fim_no_turno)}")
+    print(f"    fim na troca de turno .......... {fim_troca_turno}/{n}  {pct(fim_troca_turno)}")
+    if fim_turno_unknown:
+        print(f"    sem dado ....................... {fim_turno_unknown}/{n}  {pct(fim_turno_unknown)}")
+
     print("  BORDA DE SAIDA (ultima frase do corte vs. gabarito)")
     print(f"    . ou ! (ideal) .................. {borda_categorias['ponto_exclamacao']}/{n}  {pct(borda_categorias['ponto_exclamacao'])}")
     print(f"    ? ................................ {borda_categorias['pergunta']}/{n}  {pct(borda_categorias['pergunta'])}")
