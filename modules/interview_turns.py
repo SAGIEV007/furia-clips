@@ -492,7 +492,8 @@ def _regex_do_vocativo_por_nome(nomes: tuple[str, ...]) -> re.Pattern[str]:
     alternativas = "|".join(re.escape(nome) for nome in sorted(nomes, key=len, reverse=True))
     return re.compile(
         r"^\s(?:" + alternativas + r")\s*,"
-        r"|[,;]\s*(?:" + alternativas + r")\s*\?"
+        r"|[,;]\s*(?:" + alternativas + r")\s*[,;!?]"
+        r"|,\s*(?:" + alternativas + r")\s*,"
     )
 
 

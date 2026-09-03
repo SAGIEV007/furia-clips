@@ -329,3 +329,18 @@ def test_the_studio_opening_is_not_a_clip():
     )
 
     assert clips == []
+
+
+def test_nome_entre_virgulas_no_meio_da_frase_e_vocativo():
+    """O apresentador pode dizer '..., Renan, ...' no meio da frase.
+
+    Isso é a forma exata que abria a sabatina:
+    'Também agradeço, Renan, por aceitar'.
+    """
+    linhas = [
+        (660.0, 663.5, "Também agradeço, Renan, por aceitar."),
+        (663.5, 670.0, "Vamos começar pelo plano de governo."),
+    ]
+    turns = detect_interviewer_turns(_talk(linhas))
+    assert turns, "a primeira frase tem que ser detectada como turno do apresentador"
+    assert turns[0]["start_s"] == 660.0

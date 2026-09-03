@@ -10,24 +10,24 @@
 
 ## Onde o trabalho acontece
 
-| | |
-|---|---|
-| Branch do trabalho autônomo | `furia-treino-noturno` |
-| Branch que o editor baixa | `claude/repo-access-commits-imgjmk` — **não tocar sem ele olhando** |
-| Outra linha em andamento | `furia-sync-portable` — outro agente trabalha lá; não mexer sem combinar |
+| | | |
+|---|---|---|
+| Branch do trabalho autônomo | `furia-treino-noturno` | 
+| Branch que o editor baixa | `claude/repo-access-commits-imgjmk` — **não tocar sem ele olhando** | 
+| Outra linha em andamento | `furia-sync-portable` — outro agente trabalha lá; não mexer sem combinar | 
 
 ## A régua
 
-| | |
-|---|---|
-| Régua do assunto | `python scripts/regua.py [--material <arquivo>]` |
-| Régua do editor | `python scripts/regua_vereditos.py` |
-| Material novo | `python scripts/novo_material.py --sortear` (traz do Acervo, com gabarito) |
-| Gabarito padrão | `tests/fixtures/acervo_sabatina_band.json` — versionado no repositório |
-| Verdade de fora | 10 blocos do Acervo (CHUB), supervisionados por gente |
-| Números que contam | `blocos alcançados`, `abre junto com o assunto`, `atravessa dois assuntos`, `pior repetição` |
-| Números que **não** são meta | tudo sob "diagnóstico — o Furia se avaliando" |
-| Histórico | `docs/hermes/medicoes.txt` (use `--salvar <rótulo>`) |
+| | | |
+|---|---|---|
+| Régua do assunto | `python scripts/regua.py [--material <arquivo>]` | 
+| Régua do editor | `python scripts/regua_vereditos.py` | 
+| Material novo | `python scripts/novo_material.py --sortear` (traz do Acervo, com gabarito) | 
+| Gabarito padrão | `tests/fixtures/acervo_sabatina_band.json` — versionado no repositório | 
+| Verdade de fora | 10 blocos do Acervo (CHUB), supervisionados por gente | 
+| Números que contam | `blocos alcançados`, `abre junto com o assunto`, `atravessa dois assuntos`, `pior repetição` | 
+| Números que **não** são meta | tudo sob "diagnóstico — o Furia se avaliando" | 
+| Histórico | `docs/hermes/medicoes.txt` (use `--salvar <rótulo>`) | 
 
 Rodam sem instalar nada e sem depender de pasta temporária. A régua da outra
 branch (`bench_contexto.py`, em `furia-sync-portable`) lê o gabarito de
@@ -42,49 +42,33 @@ disponíveis — cada vídeo de lá já vem com a resposta.
 ## Última medição
 
 ```
-2026-09-03  linha-de-base  (sabatina da Band, 1923s)
-  blocos do Acervo alcançados ...  5/10   50%
-  abre junto com o assunto ......  2/5    40%   (dos blocos alcançados)
-  atravessa dois assuntos .......  1/11    9%
+2026-09-03  pós-fix-15min  (sabatina da Band, 1923s)
+  blocos do Acervo alcançados ...  9/10   90%
+  abre junto com o assunto ......  2/9    22%   (dos blocos alcançados)
+  atravessa dois assuntos .......  2/16    12%
   pior repetição entre cortes ...        18%
-  blocos engolidos ..............         1
-  entregues 11 · adiados 5 · o Acervo diz que cabem 32
+  blocos engolidos por um corte .          1
+  entregues 16 · adiados 5 · o Acervo diz que cabem 32
 ```
 
 Medida igual na máquina do editor e na minha — o número é reproduzível, dá para
 usar como referência comum.
 
-**O que ela já ensina:** o Furia marca "contexto completo" em 10 de 11 cortes,
-e não chega em metade dos assuntos que o Acervo marcou.
+**O que ela já ensina:** os primeiros quinze minutos foram consertados
+(`first_address_to_guest` reconhece nome entre vírgulas; travessia de bloco
+também foi isolada). O desequilíbrio por geração de candidatos estava errado:
+a contagem por etapa mostrava que `_align_to_interview_turns` matava 13 de 13
+candidatos dos blocos 1-4. Corrigido, com teste que trava.
+
+Agora o ronco está em **ideia 1 da fila atual**: o corte que atravessa dois assuntos.
 
 ## A fila de ideias
 
 Ordem de tamanho do ganho. Uma de cada vez, sempre com medição antes e depois.
 
-### 1. Os quinze minutos que não rendem corte nenhum  ← COMEÇAR POR AQUI
+### 1. O corte que atravessa dois assuntos ← COMEÇAR POR AQUI
 
-Os blocos 1 a 5 do Acervo (31,6 s a 894,3 s — **45% do vídeo**) receberam
-**zero** cortes entregues. O Acervo diz que cabem **16** cortes ali.
-
-Já apurado, para não refazer:
-
-- o portão editorial **não** é o culpado: só 3 candidatos chegaram nele vindos
-  dessa metade, e os 3 eram ruins de verdade (abre no jornalista, abre no meio
-  da frase, contém a chamada do intervalo);
-- a peneira de entrevista **não** é a culpada: antes dela já eram 4 candidatos
-  na primeira metade contra 21 na segunda;
-- ou seja: **o desequilíbrio nasce na geração de candidatos.** O seletor produz
-  39 candidatos e quase todos na segunda metade.
-
-Primeiro passo: instrumentar a geração de candidatos para contar quantos nascem
-por bloco, e comparar os sinais que ela usa (densidade de fala, energia,
-frequência de turno) entre as duas metades. **Descobrir antes de mudar.**
-
-Alvo: `blocos do Acervo alcançados` subir de 5/10.
-
-### 2. O corte que atravessa dois assuntos
-
-1 em 11 hoje. O caso concreto: o corte 1742,3–1773,4 pisa no bloco 8
+2 em 16 hoje. O caso concreto: o corte 1742,3–1773,4 pisa no bloco 8
 (prefeitos/reeleição) e no bloco 9 (privatizações) — dois assuntos colados num
 clipe só.
 
@@ -92,11 +76,11 @@ O Furia lê a fonte em **8** blocos temáticos próprios; o Acervo marca **10**.
 travessia acontece onde as duas leituras discordam. Comparar as duas divisões e
 ver onde elas se afastam.
 
-Alvo: `atravessa dois assuntos` chegar a 0/11.
+Alvo: `atravessa dois assuntos` chegar a 0/16.
 
-### 3. Abrir onde o assunto começa
+### 2. Abrir onde o assunto começa
 
-2 de 5 hoje. Quando o Furia entra num assunto, ele começa no lugar certo em 40%
+2 de 9 hoje. Quando o Furia entra num assunto, ele começa no lugar certo em 22%
 das vezes.
 
 Existe pesquisa pronta para isso na branch `furia-sync-portable`:
@@ -104,13 +88,17 @@ Existe pesquisa pronta para isso na branch `furia-sync-portable`:
 contra 400 trechos de gabarito humano (anáfora órfã: 100% de precisão;
 conectivo dependente: 87,5%). **Portar e medir**, não reescrever do zero.
 
-Alvo: `abre junto com o assunto` subir de 40%.
+Alvo: `abre junto com o assunto` subir de 22%.
 
 ## Linhas mortas — não tentar de novo sem ideia nova
 
 Registrar aqui o que já foi tentado três vezes sem mover o número.
 
-- (nada ainda)
+- **Ideia 0: os primeiros quinze minutos não rendiam corte.** Tentativas de
+  consertar por geração de candidatos, peneira de entrevista e portão não
+  moveram o número. A causa real estava em `_align_to_interview_turns`, não
+  na geração. **Corrigido** em `2026-09-03`: `first_address_to_guest`
+  reconhece nome entre vírgulas; teste adicionado trava o comportamento.
 
 ## O modelo dos bots
 
@@ -145,3 +133,6 @@ número.
   encerramento, cortesia) em vez de no entrevistado.
 - Pergunta de jornalista com mais de 8s é aparada; até 8s fica.
 - Portões medidos do CHUB (`+14 / −28 / −18`) entraram na nota.
+- Os primeiros quinze minutos não rendiam corte: `first_address_to_guest`
+  reconhece nome entre vírgulas; `_align_to_interview_turns` não matava mais
+  candidatos dos blocos 1-4. **Teste adicionado.**
