@@ -12,6 +12,7 @@ ele ande em círculos e sem que o programa amanheça quebrado.
 | `skills/turno-da-noite.md` | O laço: medir, mudar uma coisa, medir, desfazer se não melhorou. |
 | `skills/medir-o-corte.md` | Como saber se melhorou de verdade. |
 | `skills/nota-de-passagem.md` | O bilhete que faz o trabalho continuar quando o modelo troca. |
+| `skills/caderno-de-vereditos.md` | Anotar "serviu / serviu com ressalva / não serviu" pelo WhatsApp sem interromper o que está rodando. |
 
 ## Instalar
 

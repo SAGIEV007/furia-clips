@@ -53,11 +53,28 @@ Registrar aqui o que já foi tentado três vezes sem mover o número.
 
 - (nada ainda)
 
+## O modelo dos bots
+
+`stepfun/step-3.7-flash:free`, provider `nous`
+(`inference-api.nousresearch.com`). Modelo pequeno e rápido.
+
+Isso é seguro no desenho porque **quem decide manter ou desfazer uma mudança é o
+número da régua, não a opinião do modelo**. Um modelo pequeno consegue rodar o
+laço; ele não precisa julgar corte.
+
+Não achei documentação pública dizendo se o nível grátis da Nous treina em cima
+do que recebe. Enquanto não houver, vale a regra conservadora: **transcrição,
+fala do Renan, dados do CHUB e chaves não passam por bot.** Bot mexe em código e
+número.
+
 ## Travado / precisa do editor
 
 - **Faltam exemplos aprovados e rejeitados.** Dez cortes que ele aprovaria e dez
   que rejeitaria. Sem isso, a calibração de headline continua no meu julgamento
   em vez do dele, e dois testes seguem parados.
+  → O caderno de vereditos (`skills/caderno-de-vereditos.md`) é o caminho para
+  isso: trinta vereditos etiquetados resolvem, e ele os produz revisando pelo
+  WhatsApp, que é coisa que já ia fazer de qualquer jeito.
 - **A chave do CHUB foi commitada num repositório público.** Ela precisa ser
   trocada por quem opera o CHUB. Apagar do código não resolve: o histórico
   guarda.
