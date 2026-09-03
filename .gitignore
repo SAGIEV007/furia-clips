@@ -77,3 +77,6 @@ furia.sqlite3
 FuriaClipsData/
 .pytest_last.txt
 pytest_summary.txt
+pytest_out.txt
+pytest_stderr.txt
+pytest_stdout.txt
