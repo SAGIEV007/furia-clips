@@ -82,3 +82,4 @@ pytest_stderr.txt
 pytest_stdout.txt
 docs/obsidian-vault/
 pytest_last_run.txt
+pytest_last.log
