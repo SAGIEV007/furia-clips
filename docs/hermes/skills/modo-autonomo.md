@@ -21,6 +21,27 @@ O ciclo tem quatro partes, e a ordem importa:
 
 ---
 
+## O rastro — obrigatório para todo agente, chefe e bots
+
+**Todo agente que começa a trabalhar escreve uma linha, e escreve outra ao
+terminar.** Uma linha por evento, em `docs/hermes/turnos.txt`:
+
+```
+2026-09-04T02:11:07 | bot-2 | step-3.7-flash:free | inicio | portar fronteira_assunto
+2026-09-04T02:49:31 | bot-2 | step-3.7-flash:free | fim    | portado, a régua não mexeu
+```
+
+Use o seu nome real e o modelo que você está de fato rodando. Se o modelo
+trocar no meio (créditos acabaram), escreva `fim` com o modelo velho e `inicio`
+com o novo — é assim que o editor vê a troca acontecer.
+
+Isto não é burocracia. É a única coisa que responde à pergunta dele: *"como vou
+saber se os bots estão funcionando?"* O relatório (`python scripts/prova.py`)
+conta nomes diferentes e confere se as janelas de tempo se sobrepõem. Três bots
+que trabalharam em fila não são três bots — é um bot com três nomes, ou a
+delegação não subiu. Sem a linha, o trabalho não aconteceu, mesmo tendo
+acontecido.
+
 ## Antes de começar (uma vez por sessão)
 
 1. `git branch --show-current` → tem que ser `furia-treino-noturno`.

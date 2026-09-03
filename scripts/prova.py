@@ -120,6 +120,59 @@ def _blocos(medicao) -> str:
     return "?"
 
 
+def ler_turnos(desde: datetime) -> list[dict]:
+    """Quem trabalhou, com que modelo, e quando.
+
+    Cada bot escreve duas linhas — uma ao começar e uma ao terminar:
+
+        2026-09-04T02:11:07 | bot-2 | step-3.7-flash:free | inicio | portar fronteira_assunto
+
+    O relatório não acredita em ninguém: ele conta nomes diferentes e olha se
+    as janelas de tempo se sobrepõem. Três bots que trabalharam um depois do
+    outro não são três bots trabalhando — é um bot com três nomes.
+    """
+    arquivo = RAIZ / "docs" / "hermes" / "turnos.txt"
+    if not arquivo.is_file():
+        return []
+    eventos = []
+    for linha in arquivo.read_text(encoding="utf-8", errors="replace").splitlines():
+        partes = [p.strip() for p in linha.split("|")]
+        if len(partes) < 4:
+            continue
+        try:
+            quando = datetime.fromisoformat(partes[0])
+        except ValueError:
+            continue
+        if quando < desde:
+            continue
+        eventos.append({
+            "quando": quando, "bot": partes[1], "modelo": partes[2],
+            "evento": partes[3].lower(), "tarefa": partes[4] if len(partes) > 4 else "",
+        })
+    return eventos
+
+
+def janelas(eventos: list[dict]) -> dict[str, tuple[datetime, datetime]]:
+    """De quando até quando cada bot esteve de pé."""
+    por_bot: dict[str, list[datetime]] = {}
+    for evento in eventos:
+        por_bot.setdefault(evento["bot"], []).append(evento["quando"])
+    return {bot: (min(horas), max(horas)) for bot, horas in por_bot.items()}
+
+
+def trabalharam_juntos(intervalos: dict[str, tuple[datetime, datetime]]) -> int:
+    """Quantos pares de bots estiveram de pé ao mesmo tempo."""
+    nomes = sorted(intervalos)
+    pares = 0
+    for i, um in enumerate(nomes):
+        for outro in nomes[i + 1:]:
+            a_ini, a_fim = intervalos[um]
+            b_ini, b_fim = intervalos[outro]
+            if a_ini < b_fim and b_ini < a_fim:
+                pares += 1
+    return pares
+
+
 def main():
     parser = argparse.ArgumentParser(description="Mostra o rastro do trabalho autônomo.")
     parser.add_argument("--horas", type=int, default=24, help="janela a olhar (padrão 24)")
@@ -145,6 +198,34 @@ def main():
     if tocou_sua_branch:
         print("    (trabalho sozinho nunca devia tocar aí. Se foi você acompanhando,")
         print("     está certo — a linha só acusa o que aconteceu sem você olhando.)")
+    print()
+
+    eventos = ler_turnos(desde)
+    intervalos = janelas(eventos)
+    juntos = trabalharam_juntos(intervalos)
+    modelos = sorted({e["modelo"] for e in eventos if e["modelo"]})
+
+    print("  Quem trabalhou")
+    if not eventos:
+        print("    ninguém deixou rastro                                     OLHE ISTO")
+        print("    Cada bot deve escrever uma linha em docs/hermes/turnos.txt ao")
+        print("    começar e ao terminar. Sem isso, não dá para saber se algum bot")
+        print("    rodou — nem se foi um só respondendo por todos.")
+    else:
+        print(f"    bots diferentes ............... {len(intervalos):<28} {ok(len(intervalos) > 1)}")
+        print(f"    pares que rodaram ao mesmo tempo {juntos:<27} {ok(juntos > 0)}")
+        if len(intervalos) > 1 and not juntos:
+            print("    Trabalharam em fila, um depois do outro. Isso não é vários")
+            print("    bots — é um bot com vários nomes, ou a delegação não subiu.")
+        print(f"    modelos vistos ................ {', '.join(modelos) or '?'}")
+        for bot, (ini, fim) in sorted(intervalos.items()):
+            minutos = (fim - ini).total_seconds() / 60
+            tarefa = next((e["tarefa"] for e in eventos if e["bot"] == bot and e["tarefa"]), "")
+            print(f"        {bot:<12} {ini:%H:%M}–{fim:%H:%M} ({minutos:.0f} min)  {tarefa[:38]}")
+        abertos = [b for b in intervalos
+                   if not any(e["bot"] == b and e["evento"] == "fim" for e in eventos)]
+        if abertos:
+            print(f"    começaram e não terminaram .... {', '.join(abertos)}")
     print()
 
     print("  O que ele mediu")
