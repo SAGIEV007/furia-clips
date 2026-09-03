@@ -62,9 +62,16 @@ Acervo — verdade de fora, supervisionada por gente. Se o número não sobe, a
 mudança é desfeita na hora, e o motivo fica escrito. É isso que separa sete
 horas de treino de sete horas de uma máquina se achando ótima.
 
-## Antes da primeira noite
+## A régua
 
-Uma coisa precisa ser resolvida, ou o turno começa cego: o `bench_contexto.py`
-lê o gabarito de uma pasta temporária do Windows
-(`AppData/Local/Temp/...`). Pasta temporária some. O gabarito e o snapshot do
-CHUB precisam de uma cópia em lugar fixo antes de a noite depender deles.
+```bash
+python scripts/regua.py
+```
+
+Roda sem instalar nada. O gabarito — 10 blocos do Acervo da sabatina da Band —
+está versionado em `tests/fixtures/acervo_sabatina_band.json`, então a régua não
+depende de pasta temporária nem do estado da máquina.
+
+Linha de base medida em 03/09: abre 18%, fecha 18%, 5 dos 10 blocos alcançados.
+E o Furia, sobre si mesmo, marcou "fecho completo" em 11 de 11. Essa distância
+entre os dois números é o motivo de a régua existir.

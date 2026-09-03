@@ -11,7 +11,9 @@ opinião, e opinião de máquina sobre o trabalho da própria máquina não vale
 ## A régua
 
 ```bash
-python scripts/bench_contexto.py
+python scripts/regua.py                    # ler na tela
+python scripts/regua.py --json             # para o agente ler
+python scripts/regua.py --salvar antes-X   # guarda no histórico
 ```
 
 Ela compara os cortes que o Furia produziu com os **blocos do Acervo** — o
@@ -50,9 +52,10 @@ prova.
 
 - **Material diferente antes e depois.** Não é comparação, é coincidência.
 - **Duas mudanças de uma vez.** Se o número mexeu, qual das duas foi?
-- **Régua quebrada.** O `bench_contexto.py` aponta para arquivos em pasta
-  temporária do Windows. Se ele falhar ao abrir o gabarito, **não continue**:
-  sem régua, cada rodada seguinte é chute com aparência de método.
+- **Régua quebrada.** Se `scripts/regua.py` falhar, **não continue**: sem régua,
+  cada rodada seguinte é chute com aparência de método. (Ela lê o gabarito do
+  próprio repositório justamente para não depender de pasta temporária, que é o
+  que quebra a régua da outra branch.)
 
 ## Quando o número não mexe
 

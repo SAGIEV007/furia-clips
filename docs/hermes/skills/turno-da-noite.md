@@ -13,7 +13,7 @@ Leia `docs/hermes/CARTA.md` antes. Ela manda mais que esta skill.
    Se não for: `git checkout furia-treino-noturno`. Se não existir, crie a
    partir da branch atual do editor e avise no `ESTADO.md`.
 2. Leia `docs/hermes/ESTADO.md` inteiro. É uma página.
-3. Confira que a régua roda: `python scripts/bench_contexto.py`.
+3. Confira que a régua roda: `python scripts/regua.py`.
    **Se ela não rodar, o turno acabou aqui.** Escreva no `ESTADO.md` o erro
    exato e pare. Um turno sem régua é um turno cego, e turno cego só produz
    confiança errada.

@@ -20,25 +20,34 @@
 
 | | |
 |---|---|
-| Script | `scripts/bench_contexto.py` |
-| Verdade de fora | blocos do Acervo (CHUB), supervisionados por gente |
-| Números que contam | `abre junto com o bloco`, `fecha junto com o bloco`, `cai em bloco dependente` |
-| Números que **não** são meta | tudo sob "FLAGS EDITORIAIS (julgamento do Furia)" |
+| Script | `python scripts/regua.py` |
+| Gabarito | `tests/fixtures/acervo_sabatina_band.json` — versionado no repositório |
+| Verdade de fora | 10 blocos do Acervo (CHUB), supervisionados por gente |
+| Números que contam | `abre junto com o bloco`, `fecha junto com o bloco`, `blocos alcançados`, `pior repetição` |
+| Números que **não** são meta | tudo sob "diagnóstico — o Furia se avaliando" |
+| Histórico | `docs/hermes/medicoes.txt` (use `--salvar <rótulo>`) |
 
-**Risco conhecido:** o `bench_contexto.py` aponta para arquivos em pasta
-temporária do Windows (`AppData/Local/Temp/...`). Pasta temporária some. Se a
-régua parar de rodar, é quase certo que é isso — o gabarito precisa de uma cópia
-em lugar fixo antes de o turno da noite depender dele.
+Roda sem instalar nada e sem depender de pasta temporária. A régua da outra
+branch (`bench_contexto.py`, em `furia-sync-portable`) lê o gabarito de
+`AppData/Local/Temp/` — pasta temporária some, e régua que some no meio da noite
+é pior que régua nenhuma, porque o turno continua rodando e passa a medir nada.
+Esta lê do próprio repositório.
 
 ## Última medição
 
 ```
-data:        (preencher na primeira rodada)
-material:    (qual fonte)
-abre junto com o bloco:      __%
-fecha junto com o bloco:     __%
-cai em bloco dependente:     __%
+2026-09-03  linha-de-base  (sabatina da Band, 1923s)
+  abre junto com o bloco ....... 18%   (2/11)
+  fecha junto com o bloco ...... 18%   (2/11)
+  blocos do Acervo alcançados ... 5/10
+  pior repetição entre cortes .. 18%
+  entregues 11 · adiados 5
 ```
+
+**O que essa medição já ensina:** o Furia marca "fecho completo" em 11 de 11
+cortes — 100% de confiança — enquanto a régua de fora diz que ele fecha onde o
+Acervo fecha em 18% das vezes. É a prova, em números, de por que a nota que o
+programa dá para si mesmo não pode ser a meta.
 
 ## Fila de ideias (só o modelo pago acrescenta)
 

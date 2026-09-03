@@ -12,19 +12,24 @@ Quem começa um turno lê esta carta primeiro. Sempre.
 
 **Um número que o Furia dá para si mesmo não mede nada.**
 
-O programa tem duas famílias de número, e o `bench_contexto.py` já as separa na
+O programa tem duas famílias de número, e `scripts/regua.py` já as separa na
 tela:
 
 ```
-  FRONTEIRA (vs. acervo)          <- verdade de fora. É esta que conta.
+  VERDADE DE FORA (contra os blocos do Acervo)  <- é esta que conta.
     abre junto com o bloco
     fecha junto com o bloco
-  AUTO-SUFICIENCIA (julgamento do acervo)   <- verdade de fora. Conta também.
-    cai em bloco dependente
-  FLAGS EDITORIAIS (julgamento do Furia)    <- o programa se avaliando.
-    contexto completo                          NÃO é meta. Nunca.
+    blocos do Acervo alcançados
+    pior repetição entre cortes
+  diagnóstico — o Furia se avaliando           <- NÃO é meta. Nunca.
+    contexto completo
     fecho completo
 ```
+
+Na primeira medição isso já apareceu em números: o Furia marcou "fecho completo"
+em **11 de 11** cortes, e a régua de fora disse que ele fecha onde o Acervo fecha
+em **18%** das vezes. Cem por cento de confiança sobre um fecho que está no lugar
+errado quatro em cada cinco vezes.
 
 O Acervo é supervisionado por gente. É a régua. Os números que o próprio Furia
 se dá são diagnóstico — servem para entender o que aconteceu, nunca para provar
