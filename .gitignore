@@ -72,3 +72,10 @@ Thumbs.db
 # Credenciais locais (o endereco do CHUB carrega a chave no caminho)
 chub-endpoint.txt
 *.chub-endpoint
+
+# Runtime and local artifacts
+.runtime/
+.worktrees/
+FuriaClipsData/
+docs/obsidian-vault/
+pytest_last_run.txt
