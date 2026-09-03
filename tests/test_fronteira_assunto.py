@@ -237,3 +237,12 @@ class TestDiagnosticoSaida:
 
     def test_fim_fragmentado(self):
         assert diagnosticar_saida("poxa")["fragmentado"] == "fim_fragmentado"
+
+    @pytest.mark.parametrize("texto", [
+        "ta", "e isso", "certo", "ne", "sabe", "entendeu", "viu", "ok",
+        "perfeito", "show", "valeu", "obrigado", "obrigada", "beleza",
+        "fim", "acabou", "pronto", "entao e isso", "muito obrigado",
+        "muito obrigada", "ate mais", "ate logo", "tchau",
+    ])
+    def test_whitelist_nao_e_fragmentado(self, texto):
+        assert diagnosticar_saida(texto)["fragmentado"] is None
