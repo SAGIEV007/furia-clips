@@ -3,6 +3,8 @@ import os
 import re
 import unicodedata
 import subprocess
+import tempfile
+import time
 from config import EXPORT_DIR
 
 
@@ -10,6 +12,9 @@ SCENE_DETECTION_TIMEOUT_SECONDS = max(
     10,
     int(os.environ.get("FURIA_SCENE_DETECTION_TIMEOUT_SECONDS", "120")),
 )
+RENDER_TIMEOUT_MIN_SECONDS = min(300, max(90, int(os.environ.get("FURIA_RENDER_TIMEOUT_MIN_SECONDS", "90"))))
+RENDER_TIMEOUT_MAX_SECONDS = min(300, max(RENDER_TIMEOUT_MIN_SECONDS, int(os.environ.get("FURIA_RENDER_TIMEOUT_MAX_SECONDS", "300"))))
+RENDER_HEARTBEAT_SECONDS = max(5, int(os.environ.get("FURIA_RENDER_HEARTBEAT_SECONDS", "15")))
 from .media_validation import validate_media
 from .render_presets import get_preset, ffmpeg_video_filter
 
@@ -21,12 +26,33 @@ class VideoCutter:
         self.preset = get_preset(preset) if isinstance(preset, str) else (preset or get_preset("shorts"))
         self.last_rejections = []
 
-    def _validate_rendered_output(self, output_path, expected_duration, emit_progress=None):
+    @staticmethod
+    def _source_has_audio_stream(video_path):
+        """Return whether a source has audio, or None when probing is inconclusive."""
+        try:
+            result = subprocess.run(
+                [
+                    "ffprobe", "-v", "error", "-select_streams", "a:0",
+                    "-show_entries", "stream=index", "-of", "csv=p=0", video_path,
+                ],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=10,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            return None
+        if result.returncode != 0:
+            return None
+        return bool((result.stdout or "").strip())
+
+    def _validate_rendered_output(self, output_path, expected_duration, emit_progress=None, require_audio=True):
         validation = validate_media(
             output_path,
             expected_duration=max(0.1, float(expected_duration or 0)),
             duration_tolerance=2.0,
-            require_audio=True,
+            require_audio=require_audio,
             require_video=True,
         )
         if validation.valid:
@@ -56,7 +82,14 @@ class VideoCutter:
             "-show_format", "-show_streams",
             video_path
         ]
-        result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=20,
+        )
         if result.returncode != 0:
             raise RuntimeError((result.stderr or "ffprobe falhou").strip()[-500:])
         return json.loads(result.stdout or "{}")
@@ -76,7 +109,68 @@ class VideoCutter:
         except Exception:
             return None
 
-    def detect_scenes(self, video_path, threshold=27.0, emit_progress=None, timeout=None):
+    @staticmethod
+    def _render_timeout_seconds(duration):
+        try:
+            seconds = float(duration or 0)
+        except (TypeError, ValueError):
+            seconds = 0.0
+        # A short 1080x1920 render normally finishes well below this budget.
+        # Keep a bounded allowance for slow Windows CPUs, but never let one
+        # broken FFmpeg invocation hold the queue for the old 15-minute ceiling.
+        return max(RENDER_TIMEOUT_MIN_SECONDS, min(RENDER_TIMEOUT_MAX_SECONDS, 90.0 + seconds * 3.0))
+
+    @staticmethod
+    def _run_ffmpeg(command, cancel_check=None, emit_progress=None, progress_label="", timeout_seconds=None, heartbeat_prefix="Render"):
+        """Run FFmpeg with cooperative cancel, heartbeat and a finite timeout."""
+        stderr_buffer = tempfile.TemporaryFile(mode="w+", encoding="utf-8")
+        try:
+            process = subprocess.Popen(
+                command,
+                stdout=subprocess.DEVNULL,
+                stderr=stderr_buffer,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+            )
+        except Exception:
+            stderr_buffer.close()
+            raise
+        started = time.monotonic()
+        heartbeat_at = started
+        try:
+            while process.poll() is None:
+                if cancel_check:
+                    cancel_check()
+                now = time.monotonic()
+                elapsed = now - started
+                if timeout_seconds and elapsed >= float(timeout_seconds):
+                    if process.poll() is None:
+                        process.kill()
+                    process.wait(timeout=10)
+                    raise TimeoutError(
+                        f"FFmpeg excedeu {float(timeout_seconds):.0f}s no {progress_label or 'render'}"
+                    )
+                if emit_progress and now - heartbeat_at >= RENDER_HEARTBEAT_SECONDS:
+                    heartbeat_at = now
+                    emit_progress(
+                        f"[{heartbeat_prefix}] {progress_label or 'Clip'} ainda em processamento ({elapsed:.0f}s); "
+                        "o job está sendo monitorado e será encerrado ao atingir o limite.",
+                        "info",
+                    )
+                time.sleep(0.2)
+            stderr_buffer.seek(0)
+            stderr = stderr_buffer.read()
+            return subprocess.CompletedProcess(command, process.returncode, "", stderr)
+        except Exception:
+            if process.poll() is None:
+                process.kill()
+            process.wait(timeout=10)
+            raise
+        finally:
+            stderr_buffer.close()
+
+    def detect_scenes(self, video_path, threshold=27.0, emit_progress=None, timeout=None, cancel_check=None):
         """Detect scene changes without allowing ffmpeg to take down a job.
 
         Scene metadata is an enhancement, not a prerequisite for editorial selection.
@@ -107,17 +201,22 @@ class VideoCutter:
             duration = self._probe_duration_seconds(video_path)
             timeout_seconds = SCENE_DETECTION_TIMEOUT_SECONDS
             if duration:
-                timeout_seconds = max(timeout_seconds, min(900.0, duration / 6.0))
+                # Short fixtures and social clips must not wait the same two
+                # minutes as a long interview. Long sources retain a generous
+                # bounded budget, but the detector can never hold a job forever.
+                timeout_seconds = max(30.0, min(900.0, duration * 2.0))
+        if emit_progress:
+            emit_progress(f"[Cenas] Análise visual em andamento; limite {float(timeout_seconds):.0f}s.", "info")
         try:
-            result = subprocess.run(
+            result = self._run_ffmpeg(
                 cmd,
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                timeout=max(1, float(timeout_seconds)),
+                cancel_check=cancel_check,
+                emit_progress=emit_progress,
+                progress_label="Detecção de cenas",
+                timeout_seconds=max(1, float(timeout_seconds)),
+                heartbeat_prefix="Cenas",
             )
-        except subprocess.TimeoutExpired:
+        except TimeoutError:
             message = f"Deteccao de cena excedeu {timeout_seconds}s; continuando sem limites visuais."
             if emit_progress:
                 emit_progress(message, "warning")
@@ -209,7 +308,8 @@ class VideoCutter:
         return candidates
 
     def cut_clip(self, video_path, start_time, end_time, output_path,
-                 vertical=True, emit_progress=None, video_layout=None, preset=None):
+                 vertical=True, emit_progress=None, video_layout=None, preset=None,
+                 cancel_check=None):
         if emit_progress:
             emit_progress(f"Cortando clip {start_time:.1f}s - {end_time:.1f}s...")
 
@@ -235,14 +335,25 @@ class VideoCutter:
             output_path
         ])
 
-        result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
+        result = self._run_ffmpeg(
+            cmd,
+            cancel_check=cancel_check,
+            emit_progress=emit_progress,
+            progress_label=f"clip {start_time:.1f}s–{end_time:.1f}s",
+            timeout_seconds=self._render_timeout_seconds(duration),
+        )
 
         if result.returncode != 0:
             if emit_progress:
                 emit_progress(f"Erro ao cortar: {result.stderr[-300:]}")
             return None
 
-        if not self._validate_rendered_output(output_path, duration, emit_progress):
+        if not self._validate_rendered_output(
+            output_path,
+            duration,
+            emit_progress,
+            require_audio=self._source_has_audio_stream(video_path) is not False,
+        ):
             return None
 
         if emit_progress:
@@ -251,7 +362,8 @@ class VideoCutter:
         return output_path
 
     def cut_clip_with_face_tracking(self, video_path, start_time, end_time,
-                                     output_path, face_positions=None, emit_progress=None, preset=None):
+                                     output_path, face_positions=None, emit_progress=None, preset=None,
+                                     cancel_check=None):
         if emit_progress:
             emit_progress(f"Cortando clip com face tracking {start_time:.1f}s - {end_time:.1f}s...")
 
@@ -262,7 +374,7 @@ class VideoCutter:
             (s for s in info.get("streams", []) if s["codec_type"] == "video"), None
         )
         if not video_stream:
-            return self.cut_clip(video_path, start_time, end_time, output_path, True, emit_progress)
+            return self.cut_clip(video_path, start_time, end_time, output_path, True, emit_progress, cancel_check=cancel_check)
 
         orig_w = int(video_stream["width"])
         orig_h = int(video_stream["height"])
@@ -292,14 +404,25 @@ class VideoCutter:
             output_path
         ]
 
-        result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
+        result = self._run_ffmpeg(
+            cmd,
+            cancel_check=cancel_check,
+            emit_progress=emit_progress,
+            progress_label=f"clip com face tracking {start_time:.1f}s–{end_time:.1f}s",
+            timeout_seconds=self._render_timeout_seconds(duration),
+        )
 
         if result.returncode != 0:
             if emit_progress:
                 emit_progress(f"Erro ao cortar com face tracking: {result.stderr[-300:]}")
-            return self.cut_clip(video_path, start_time, end_time, output_path, True, emit_progress)
+            return self.cut_clip(video_path, start_time, end_time, output_path, True, emit_progress, cancel_check=cancel_check)
 
-        if not self._validate_rendered_output(output_path, duration, emit_progress):
+        if not self._validate_rendered_output(
+            output_path,
+            duration,
+            emit_progress,
+            require_audio=self._source_has_audio_stream(video_path) is not False,
+        ):
             return None
 
         if emit_progress:
@@ -326,7 +449,7 @@ class VideoCutter:
     def batch_cut(self, video_path, cuts, project_name, use_face_tracking=False,
                   face_positions_map=None, emit_progress=None, output_dir=None,
                   video_layout=None, preset=None, original_aspect_indices=None,
-                  layout_plans=None, on_clip_ready=None):
+                  layout_plans=None, on_clip_ready=None, cancel_check=None):
         """Corta os trechos escolhidos, um por um.
 
         `on_clip_ready` recebe cada corte assim que ele passa na validação, em
@@ -357,6 +480,8 @@ class VideoCutter:
         results = []
 
         for i, cut in enumerate(cuts):
+            if cancel_check:
+                cancel_check()
             rank = i + 1
             # Use AI-generated title if available, otherwise generate from text
             clip_title = cut.get("title", "")
@@ -382,31 +507,50 @@ class VideoCutter:
             face_pos = face_positions_map.get(i, None) if face_positions_map else None
             can_reframe = use_face_tracking and bool(face_pos) and i not in original_aspect_indices
             framing_reason = ""
-            if can_reframe:
-                result = self.cut_clip_with_face_tracking(
-                    video_path, padded_start, padded_end,
-                    output_path, face_pos, emit_progress, active_preset
-                )
-                framing_mode = "face_tracking"
-                framing_reason = "facetracking aplicado com posição facial detectada"
-            elif i in original_aspect_indices:
-                result = self.cut_clip(
-                    video_path, padded_start, padded_end,
-                    output_path, vertical=False, emit_progress=emit_progress,
-                    video_layout=video_layout, preset=active_preset
-                )
-                framing_mode = "original_16_9"
-                framing_reason = (layout_plan or {}).get("reason") or "composição original preservada por segurança"
+            try:
+                if can_reframe:
+                    result = self.cut_clip_with_face_tracking(
+                        video_path, padded_start, padded_end,
+                        output_path, face_pos, emit_progress, active_preset, cancel_check=cancel_check
+                    )
+                    framing_mode = "face_tracking"
+                    framing_reason = "facetracking aplicado com posição facial detectada"
+                elif i in original_aspect_indices:
+                    result = self.cut_clip(
+                        video_path, padded_start, padded_end,
+                        output_path, vertical=False, emit_progress=emit_progress,
+                        video_layout=video_layout, preset=active_preset, cancel_check=cancel_check
+                    )
+                    framing_mode = "original_16_9"
+                    framing_reason = (layout_plan or {}).get("reason") or "composição original preservada por segurança"
+                    if emit_progress:
+                        emit_progress(f"[Layout] Clip {rank}: {framing_reason} Saída na proporção original.", "info")
+                else:
+                    result = self.cut_clip(
+                        video_path, padded_start, padded_end,
+                        output_path, vertical=True, emit_progress=emit_progress,
+                        video_layout=video_layout, preset=active_preset, cancel_check=cancel_check
+                    )
+                    framing_mode = "center_crop"
+                    framing_reason = "crop centralizado; facetracking não aplicado ou não disponível"
+            except Exception as erro:
+                # Cancellation is deliberate and must bubble to JobManager. A
+                # single render timeout or FFmpeg error must not freeze the rest
+                # of the candidate queue.
+                from .cancellation import OperationCancelled
+                if isinstance(erro, OperationCancelled):
+                    raise
+                self.last_rejections.append({
+                    "path": output_path,
+                    "errors": [str(erro)[:300]],
+                    "warnings": ["render_skipped_and_queue_continued"],
+                })
                 if emit_progress:
-                    emit_progress(f"[Layout] Clip {rank}: {framing_reason} Saída na proporção original.", "info")
-            else:
-                result = self.cut_clip(
-                    video_path, padded_start, padded_end,
-                    output_path, vertical=True, emit_progress=emit_progress,
-                    video_layout=video_layout, preset=active_preset
-                )
-                framing_mode = "center_crop"
-                framing_reason = "crop centralizado; facetracking não aplicado ou não disponível"
+                    emit_progress(
+                        f"[Render] Clip {rank}/{len(cuts)} não concluído; seguindo para o próximo. Motivo: {str(erro)[:220]}",
+                        "warning",
+                    )
+                continue
 
             if result:
                 render_vertical = framing_mode != "original_16_9"
@@ -416,7 +560,7 @@ class VideoCutter:
                     expected_height=active_preset["height"] if render_vertical else None,
                     expected_duration=max(0.1, padded_end - padded_start),
                     duration_tolerance=2.0,
-                    require_audio=True,
+                    require_audio=self._source_has_audio_stream(video_path) is not False,
                     require_video=True,
                 )
                 if not validation.valid:
