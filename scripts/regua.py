@@ -40,6 +40,7 @@ corte não melhora, o programa só passa a se elogiar mais.
 from __future__ import annotations
 
 import argparse
+import itertools
 import json
 import sys
 from datetime import datetime
@@ -88,36 +89,67 @@ def moer(transcricao):
 
 
 def medir(entregues, blocos):
-    """Os números de fora: onde o corte cai em relação ao gabarito do Acervo."""
-    n = len(entregues)
-    abre_no_lugar = 0
-    fecha_no_lugar = 0
-    blocos_alcancados = set()
+    """Os números de fora: onde o corte cai em relação ao gabarito do Acervo.
 
+    CUIDADO COM O QUE SE PEDE. A primeira versão desta função media "quantos
+    cortes fecham junto com o bloco" sobre o total de cortes — e isso é
+    impossível de acertar. O Acervo diz que num bloco de 368 s cabem QUATRO
+    cortes; só o primeiro pode abrir no início dele e só o último pode fechar no
+    fim. Pedir que onze cortes fechem em dez bordas é pedir o impossível, e um
+    agente otimizando sete horas contra um alvo impossível conclui que tudo
+    falhou — ou descobre como trapacear.
+
+    A trapaça, aqui, seria óbvia: um corte único de 137 segundos cobrindo o
+    bloco 1 inteiro marcaria abertura e fecho perfeitos e seria um clipe
+    inútil. Por isso `blocos engolidos` existe: ele denuncia exatamente essa
+    saída.
+
+    Todo número aqui é alcançável de verdade, e nenhum deles melhora ao entregar
+    cortes piores.
+    """
+    n = len(entregues)
+    total_esperado = sum(int(b.get("cortes") or 0) for b in blocos)
+
+    def cruza(inicio, fim):
+        """O corte pisa em dois assuntos diferentes."""
+        for bloco in blocos:
+            b_inicio, b_fim = float(bloco["start"]), float(bloco["end"])
+            # Começa dentro deste bloco e termina depois do fim dele.
+            if b_inicio - TOLERANCIA_S <= inicio < b_fim - TOLERANCIA_S and fim > b_fim + TOLERANCIA_S:
+                return True
+        return False
+
+    alcancados = {}
+    atravessam = 0
     for corte in entregues:
         inicio = float(corte.get("start", 0) or 0)
         fim = float(corte.get("end", 0) or 0)
-        for indice, bloco in enumerate(blocos):
-            b_inicio = float(bloco["start"])
-            b_fim = float(bloco["end"])
-            if abs(inicio - b_inicio) <= TOLERANCIA_S:
-                abre_no_lugar += 1
-                break
-        for bloco in blocos:
-            if abs(fim - float(bloco["end"])) <= TOLERANCIA_S:
-                fecha_no_lugar += 1
-                break
-        # Um bloco é "alcançado" quando algum corte cai dentro dele. Mede se o
-        # programa achou o material, mesmo tendo errado a borda.
+        if cruza(inicio, fim):
+            atravessam += 1
         for indice, bloco in enumerate(blocos):
             if inicio < float(bloco["end"]) and fim > float(bloco["start"]):
-                blocos_alcancados.add(indice)
+                alcancados.setdefault(indice, []).append((inicio, fim))
 
-    # Repetição: quanto de um corte já estava em outro. Dois cortes que dividem
-    # metade do tempo são o mesmo clipe entregue duas vezes.
+    # Dos blocos que receberam corte, em quantos algum corte abre junto com o
+    # começo do assunto. Medido sobre blocos alcançados, não sobre cortes:
+    # assim o alvo é alcançável.
+    ancorados = 0
+    engolidos = 0
+    for indice, cortes_do_bloco in alcancados.items():
+        bloco = blocos[indice]
+        b_inicio, b_fim = float(bloco["start"]), float(bloco["end"])
+        if any(abs(i - b_inicio) <= TOLERANCIA_S for i, _f in cortes_do_bloco):
+            ancorados += 1
+        # Bloco engolido: um corte só, cobrindo quase o bloco inteiro, num
+        # bloco onde o Acervo diz que cabem vários. É a trapaça.
+        if len(cortes_do_bloco) == 1 and int(bloco.get("cortes") or 1) > 1:
+            i, f = cortes_do_bloco[0]
+            if (min(f, b_fim) - max(i, b_inicio)) / max(1.0, b_fim - b_inicio) > 0.70:
+                engolidos += 1
+
     ordenados = sorted(entregues, key=lambda c: float(c.get("start", 0) or 0))
     pior_repeticao = 0.0
-    for antes, depois in zip(ordenados, ordenados[1:]):
+    for antes, depois in itertools.pairwise(ordenados):
         comum = float(antes.get("end", 0) or 0) - float(depois.get("start", 0) or 0)
         if comum <= 0:
             continue
@@ -126,10 +158,12 @@ def medir(entregues, blocos):
 
     return {
         "cortes": n,
-        "abre_no_lugar": abre_no_lugar,
-        "fecha_no_lugar": fecha_no_lugar,
-        "blocos_alcancados": len(blocos_alcancados),
+        "cortes_esperados": total_esperado,
+        "blocos_alcancados": len(alcancados),
         "blocos_total": len(blocos),
+        "aberturas_ancoradas": ancorados,
+        "atravessam_assunto": atravessam,
+        "blocos_engolidos": engolidos,
         "pior_repeticao": round(pior_repeticao * 100),
     }
 
@@ -155,18 +189,23 @@ def diagnosticar(entregues):
 
 def imprimir(fonte, fora, dentro, adiados):
     n = max(1, fora["cortes"])
-    pct = lambda x: f"{100 * x / n:5.0f}%"
+    b = max(1, fora["blocos_total"])
+    alc = max(1, fora["blocos_alcancados"])
 
     print()
     print(f"  material: {fonte.get('titulo', 'sabatina')}  ({fonte.get('duracao_total_s', 0):.0f}s)")
-    print(f"  entregues: {fora['cortes']} cortes   ·   adiados pelo portão: {len(adiados)}")
+    print(f"  entregues: {fora['cortes']} cortes   ·   adiados pelo portão: {len(adiados)}"
+          f"   ·   o Acervo diz que cabem {fora['cortes_esperados']}")
     print()
     print("  ┌─ VERDADE DE FORA (contra os blocos do Acervo) ─ ESTA É A META ─┐")
-    print(f"     abre junto com o bloco ........ {fora['abre_no_lugar']:3}/{n:<3} {pct(fora['abre_no_lugar'])}   subir")
-    print(f"     fecha junto com o bloco ....... {fora['fecha_no_lugar']:3}/{n:<3} {pct(fora['fecha_no_lugar'])}   subir")
     print(f"     blocos do Acervo alcançados ... {fora['blocos_alcancados']:3}/{fora['blocos_total']:<3}"
-          f" {100 * fora['blocos_alcancados'] / max(1, fora['blocos_total']):5.0f}%   subir")
+          f" {100 * fora['blocos_alcancados'] / b:5.0f}%   subir")
+    print(f"     abre junto com o assunto ...... {fora['aberturas_ancoradas']:3}/{fora['blocos_alcancados']:<3}"
+          f" {100 * fora['aberturas_ancoradas'] / alc:5.0f}%   subir   (dos blocos alcançados)")
+    print(f"     atravessa dois assuntos ....... {fora['atravessam_assunto']:3}/{n:<3}"
+          f" {100 * fora['atravessam_assunto'] / n:5.0f}%   baixar")
     print(f"     pior repetição entre cortes ... {fora['pior_repeticao']:>10}%   baixar")
+    print(f"     blocos engolidos por um corte . {fora['blocos_engolidos']:>10}    baixar   (guarda anti-trapaça)")
     print("  └─────────────────────────────────────────────────────────────────┘")
     print()
     print("   diagnóstico — o Furia se avaliando. NÃO é meta; serve para entender:")
@@ -185,7 +224,7 @@ def main():
     args = parser.parse_args()
 
     transcricao, blocos, fonte = carregar_material()
-    candidatos, entregues, adiados = moer(transcricao)
+    _candidatos, entregues, adiados = moer(transcricao)
     fora = medir(entregues, blocos)
     dentro = diagnosticar(entregues)
 
@@ -198,12 +237,14 @@ def main():
     if args.salvar:
         HISTORICO.parent.mkdir(parents=True, exist_ok=True)
         n = max(1, fora["cortes"])
+        alc = max(1, fora["blocos_alcancados"])
         linha = (
             f"{datetime.now().isoformat(timespec='seconds')} | {args.salvar} | "
-            f"abre {100 * fora['abre_no_lugar'] / n:.0f}% | "
-            f"fecha {100 * fora['fecha_no_lugar'] / n:.0f}% | "
             f"blocos {fora['blocos_alcancados']}/{fora['blocos_total']} | "
+            f"ancorados {100 * fora['aberturas_ancoradas'] / alc:.0f}% | "
+            f"atravessa {fora['atravessam_assunto']}/{n} | "
             f"repeticao {fora['pior_repeticao']}% | "
+            f"engolidos {fora['blocos_engolidos']} | "
             f"cortes {fora['cortes']}\n"
         )
         with HISTORICO.open("a", encoding="utf-8") as arquivo:

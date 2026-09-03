@@ -22,31 +22,33 @@ escrita pelo programa que está sendo medido.
 
 ## Ler o resultado
 
-O script separa três blocos na tela. Só os dois primeiros são meta:
-
 ```
-  FRONTEIRA (vs. acervo)                       <- META
-    abre junto com o bloco ....... 41%            subir
-    fecha junto com o bloco ...... 33%            subir
+  ┌─ VERDADE DE FORA (contra os blocos do Acervo) ─ ESTA É A META ─┐
+     blocos do Acervo alcançados ...   5/10     50%   subir
+     abre junto com o assunto ......   2/5      40%   subir
+     atravessa dois assuntos .......   1/11      9%   baixar
+     pior repetição entre cortes ...          18%   baixar
+     blocos engolidos por um corte .           1    baixar
+  └─────────────────────────────────────────────────────────────────┘
 
-  AUTO-SUFICIENCIA (julgamento do acervo)      <- META
-    herda bloco que se sustenta .. 68%            subir
-    cai em bloco dependente ...... 22%            baixar
-
-  FLAGS EDITORIAIS (julgamento do Furia)       <- DIAGNÓSTICO, não meta
-    contexto completo ............ 91%            NÃO perseguir
-    fecho completo ............... 84%            NÃO perseguir
-    abre no meio da frase ......... 4%            NÃO perseguir
+   diagnóstico — o Furia se avaliando. NÃO é meta:
+     contexto completo .............  10/11
+     fecho completo ................  11/11
 ```
 
-**Por que a terceira família não é meta:** ali o Furia está dizendo o que ele
-acha do próprio trabalho. Dá para fazer "contexto completo" chegar a 100% num
-minuto — é só afrouxar a regra que decide isso. O corte não melhora; o programa
-só passa a se elogiar mais. Os números de fora não se deixam enganar assim.
+**Por que a segunda família não é meta:** ali o Furia diz o que ele acha do
+próprio trabalho. Dá para fazer "contexto completo" chegar a 100% num minuto —
+é só afrouxar a regra que decide isso. O corte não melhora; o programa só passa
+a se elogiar mais. Os números de fora não se deixam enganar assim.
 
-Use a terceira família para **entender** o que aconteceu ("o número de fora
-subiu e o `abre no meio da frase` desabou junto — faz sentido"). Nunca como
-prova.
+**Todo alvo aqui é alcançável.** Uma versão anterior desta régua media "fecha
+junto com o bloco" sobre o total de cortes — impossível, porque o Acervo diz que
+num bloco cabem até quatro cortes e só o último pode fechar na borda. Alvo
+impossível ensina o agente a concluir que tudo falhou, ou a trapacear.
+
+**`blocos engolidos` é a guarda.** Um corte só, cobrindo mais de 70% de um bloco
+onde caberiam vários, marca abertura perfeita e é um clipe inútil. Se esse
+número subir junto com os outros, a melhora é falsa.
 
 ## O erro que invalida a medição
 

@@ -17,19 +17,25 @@ tela:
 
 ```
   VERDADE DE FORA (contra os blocos do Acervo)  <- é esta que conta.
-    abre junto com o bloco
-    fecha junto com o bloco
     blocos do Acervo alcançados
+    abre junto com o assunto
+    atravessa dois assuntos
     pior repetição entre cortes
+    blocos engolidos por um corte   <- guarda anti-trapaça
   diagnóstico — o Furia se avaliando           <- NÃO é meta. Nunca.
     contexto completo
     fecho completo
 ```
 
-Na primeira medição isso já apareceu em números: o Furia marcou "fecho completo"
-em **11 de 11** cortes, e a régua de fora disse que ele fecha onde o Acervo fecha
-em **18%** das vezes. Cem por cento de confiança sobre um fecho que está no lugar
-errado quatro em cada cinco vezes.
+Na primeira medição isso já apareceu em números: o Furia marcou "contexto
+completo" em **10 de 11** cortes, e a régua de fora disse que ele nem chega em
+metade dos assuntos que o Acervo marcou — **5 de 10 blocos**, e **zero** nos
+primeiros quinze minutos. Confiança alta sobre material que ele nem viu.
+
+**Sobre `blocos engolidos`:** existe porque toda régua pode ser trapaceada. Um
+corte único de 137 segundos cobrindo um bloco inteiro marcaria abertura perfeita
+e seria um clipe inútil. Se esse número subir, alguém está otimizando o número
+em vez do corte — e isso é pior que não melhorar nada.
 
 O Acervo é supervisionado por gente. É a régua. Os números que o próprio Furia
 se dá são diagnóstico — servem para entender o que aconteceu, nunca para provar

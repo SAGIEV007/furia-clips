@@ -1,1 +1,1 @@
-2026-09-03T19:27:09 | linha-de-base | abre 18% | fecha 18% | blocos 5/10 | repeticao 18% | cortes 11
+2026-09-03T19:51:29 | linha-de-base | blocos 5/10 | ancorados 40% | atravessa 1/11 | repeticao 18% | engolidos 1 | cortes 11
