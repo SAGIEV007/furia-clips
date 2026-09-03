@@ -76,3 +76,4 @@ furia.sqlite3
 # Runtime data
 FuriaClipsData/
 .pytest_last.txt
+pytest_summary.txt
