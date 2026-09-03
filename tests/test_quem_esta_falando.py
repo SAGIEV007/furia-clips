@@ -40,6 +40,13 @@ RAIZ = Path(__file__).resolve().parents[1]
     "Renan, eu preciso chamar aqui o nosso intervalo, mas só para complementar uma questão.",
     "Renan, por favor, de maneira clara, eu me sinto dadas as devidas proporções.",
     "E o que o senhor responde a isso, Renan?",
+    # A forma que faltava, e que a âncora mais usa: o nome entre duas
+    # vírgulas, no meio da frase. Sem ela, a entrega da palavra na sabatina da
+    # Band era lida aos 671 s em vez de aos 17,8 s, e a peneira de entrevista
+    # jogava fora TODO candidato dos primeiros onze minutos — treze de treze,
+    # nos blocos que o Acervo diz que valem dezesseis cortes.
+    "Também agradeço, Renan, por aceitar o nosso convite e tá aqui com a gente no programa.",
+    "Antes do Mitre da Thaís, Renan, deixa eu também fazer uma pergunta.",
 ])
 def test_chamar_pelo_nome_e_alguem_falando_com_ele(frase):
     """O entrevistado não diz o próprio nome em vocativo. Quem diz é quem
@@ -400,3 +407,33 @@ def test_a_sabatina_nao_entrega_o_mesmo_trecho_duas_vezes():
             f"{comum:.0f}s repetidos, {comum / duracao * 100:.0f}% do corte de "
             f"{depois.get('start'):.0f}s"
         )
+
+
+def test_a_entrega_da_palavra_na_sabatina_nao_pode_cair_no_meio_do_programa():
+    """A guarda que este teste protege é a mais cara que já apareceu aqui.
+
+    `_align_to_interview_turns` descarta todo candidato anterior à entrega da
+    palavra, porque antes dela o programa está se apresentando e o convidado
+    ainda não falou. Quando a entrega é lida tarde demais, esse descarte deixa
+    de ser proteção e vira uma tesoura cega: na sabatina da Band ela caía aos
+    671 s — 35% do programa — e levava junto treze candidatos bons.
+
+    O sintoma era invisível pelo lado de dentro: nenhum erro, nenhum aviso, só
+    metade do vídeo que não rendia corte. Por isso o teste mede o número, e não
+    a ausência de exceção.
+    """
+    import json
+
+    from modules.interview_turns import first_address_to_guest
+
+    fixture = RAIZ / "tests" / "fixtures" / "acervo_sabatina_band.json"
+    frases = json.loads(fixture.read_text(encoding="utf-8"))["sentencas"]
+    entrega = first_address_to_guest(frases)
+
+    assert entrega is not None, "a entrega da palavra sumiu; tudo vira estúdio"
+    assert entrega < 60.0, (
+        f"a entrega da palavra foi lida aos {entrega:.1f}s. Acima de um minuto "
+        f"num programa de 32 minutos ela não é entrega — é uma forma de vocativo "
+        f"que o reconhecedor deixou passar, e todo candidato antes dela será "
+        f"descartado sem aviso"
+    )

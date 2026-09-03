@@ -482,17 +482,25 @@ def _regex_do_vocativo_por_nome(nomes: tuple[str, ...]) -> re.Pattern[str]:
     aposto, a âncora apresentando ao público, não alguém falando com ele.
     Contar isso punha a costura aos 31,6 s, dentro da leitura do estúdio.
 
-    Duas formas sobrevivem, as duas inequívocas:
+    Três formas sobrevivem, as três inequívocas:
 
         "Renan, eu preciso chamar o intervalo."   nome ABRINDO a fala
         "..., e o que o senhor acha, Renan?"      nome FECHANDO a pergunta
+        "Também agradeço, Renan, por aceitar."    nome ENTRE duas vírgulas
 
-    Aposto no meio de uma narração não bate em nenhuma das duas.
+    A terceira é a que a âncora mais usa, e faltava. Sem ela, a sabatina da
+    Band só era reconhecida aos 671 s — a máquina lia trinta e cinco por cento
+    do programa como estúdio se apresentando e jogava fora todo candidato dali.
+    Eram treze candidatos, nos blocos que o Acervo diz que valem dezesseis
+    cortes.
+
+    Ela não reabre a armadilha porque o aposto termina em PONTO, não em
+    vírgula: "..., Renan Santos." não bate; "..., Renan, por aceitar" bate.
     """
     alternativas = "|".join(re.escape(nome) for nome in sorted(nomes, key=len, reverse=True))
     return re.compile(
         r"^\s(?:" + alternativas + r")\s*,"
-        r"|[,;]\s*(?:" + alternativas + r")\s*\?"
+        r"|[,;]\s*(?:" + alternativas + r")\s*[,?]"
     )
 
 

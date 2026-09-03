@@ -42,49 +42,59 @@ disponíveis — cada vídeo de lá já vem com a resposta.
 ## Última medição
 
 ```
-2026-09-03  linha-de-base  (sabatina da Band, 1923s)
-  blocos do Acervo alcançados ...  5/10   50%
-  abre junto com o assunto ......  2/5    40%   (dos blocos alcançados)
-  atravessa dois assuntos .......  1/11    9%
-  pior repetição entre cortes ...        18%
-  blocos engolidos ..............         1
-  entregues 11 · adiados 5 · o Acervo diz que cabem 32
+2026-09-03  depois-vocativo-solto  (sabatina da Band, 1923s)
+  blocos do Acervo alcançados ...  9/10   90%    (era 5/10)
+  abre junto com o assunto ......  2/9    22%    (era 2/5 — o de baixo cresceu)
+  atravessa dois assuntos .......  2/16   12%    (era 1/11)
+  pior repetição entre cortes ...        18%     (igual)
+  blocos engolidos ..............         1      (igual)
+  entregues 16 · adiados 6 · o Acervo diz que cabem 32
 ```
 
 Medida igual na máquina do editor e na minha — o número é reproduzível, dá para
 usar como referência comum.
 
-**O que ela já ensina:** o Furia marca "contexto completo" em 10 de 11 cortes,
-e não chega em metade dos assuntos que o Acervo marcou.
+**Cuidado ao ler `abre junto com o assunto`:** ele é contado sobre os blocos
+alcançados. Continuam sendo 2 aberturas certas; o que mudou é que agora são 9
+blocos em vez de 5. Nenhum número absoluto caiu. Alcançar um bloco e abrir mal
+é melhor que não alcançar — antes esses quatro blocos não davam corte nenhum.
 
 ## A fila de ideias
 
 Ordem de tamanho do ganho. Uma de cada vez, sempre com medição antes e depois.
 
-### 1. Os quinze minutos que não rendem corte nenhum  ← COMEÇAR POR AQUI
+### RESOLVIDO — os quinze minutos que não rendiam corte nenhum
 
-Os blocos 1 a 5 do Acervo (31,6 s a 894,3 s — **45% do vídeo**) receberam
-**zero** cortes entregues. O Acervo diz que cabem **16** cortes ali.
+Ficava aqui a ideia 1. Está feita, e o diagnóstico que estava escrito nela
+**estava errado**. Fica registrado porque a forma do erro se repete.
 
-Já apurado, para não refazer:
+Estava escrito que "o desequilíbrio nasce na geração de candidatos" e que "a
+peneira de entrevista não é a culpada". As duas frases eram falsas. Medindo
+etapa por etapa, no material que tem gabarito:
 
-- o portão editorial **não** é o culpado: só 3 candidatos chegaram nele vindos
-  dessa metade, e os 3 eram ruins de verdade (abre no jornalista, abre no meio
-  da frase, contém a chamada do intervalo);
-- a peneira de entrevista **não** é a culpada: antes dela já eram 4 candidatos
-  na primeira metade contra 21 na segunda;
-- ou seja: **o desequilíbrio nasce na geração de candidatos.** O seletor produz
-  39 candidatos e quase todos na segunda metade.
+```
+saída crua do NLP           blocos 1-4: 13    blocos 5-10: 26
+_align_to_interview_turns   blocos 1-4:  0    blocos 5-10: 25   <-- aqui
+```
 
-Primeiro passo: instrumentar a geração de candidatos para contar quantos nascem
-por bloco, e comparar os sinais que ela usa (densidade de fala, energia,
-frequência de turno) entre as duas metades. **Descobrir antes de mudar.**
+A geração de candidatos era **equilibrada**. A peneira de entrevista descartava
+13 de 13. Causa: `first_address_to_guest` só reconhecia o nome abrindo a fala
+(`Renan, ...`) ou fechando a pergunta (`..., Renan?`). A âncora usa a terceira
+forma — `Também agradeço, Renan, por aceitar` — e ela faltava. Sem ela, a
+entrega da palavra era lida aos **671 s**, e tudo antes disso virava "estúdio se
+apresentando".
 
-Alvo: `blocos do Acervo alcançados` subir de 5/10.
+Uma vírgula no lugar de um ponto de interrogação: 5/10 → 9/10.
 
-### 2. O corte que atravessa dois assuntos
+**A lição, que vale para a próxima:** aquele diagnóstico não foi medido, foi
+deduzido de contagens já filtradas. Contagem depois da peneira não diz nada
+sobre o que entrou nela. Instrumente etapa por etapa antes de escrever "não é
+aqui" — a frase "já apurado, para não refazer" custou tempo justamente por
+estar errada e parecer resolvida.
 
-1 em 11 hoje. O caso concreto: o corte 1742,3–1773,4 pisa no bloco 8
+### 1. O corte que atravessa dois assuntos  ← COMEÇAR POR AQUI
+
+2 em 16 hoje. O caso concreto: o corte 1742,3–1773,4 pisa no bloco 8
 (prefeitos/reeleição) e no bloco 9 (privatizações) — dois assuntos colados num
 clipe só.
 
@@ -92,19 +102,19 @@ O Furia lê a fonte em **8** blocos temáticos próprios; o Acervo marca **10**.
 travessia acontece onde as duas leituras discordam. Comparar as duas divisões e
 ver onde elas se afastam.
 
-Alvo: `atravessa dois assuntos` chegar a 0/11.
+Alvo: `atravessa dois assuntos` chegar a 0/16.
 
-### 3. Abrir onde o assunto começa
+### 2. Abrir onde o assunto começa
 
-2 de 5 hoje. Quando o Furia entra num assunto, ele começa no lugar certo em 40%
-das vezes.
+2 de 9 hoje — e agora é a maior sobra do quadro. O Furia chega em 9 dos 10
+assuntos, e abre no lugar certo em 2. Alcançar melhorou; entrar bem, não.
 
 Existe pesquisa pronta para isso na branch `furia-sync-portable`:
 `modules/fronteira_assunto.py` — recuo até a fronteira do assunto, com validação
 contra 400 trechos de gabarito humano (anáfora órfã: 100% de precisão;
 conectivo dependente: 87,5%). **Portar e medir**, não reescrever do zero.
 
-Alvo: `abre junto com o assunto` subir de 40%.
+Alvo: `abre junto com o assunto` subir de 2/9.
 
 ## Linhas mortas — não tentar de novo sem ideia nova
 
