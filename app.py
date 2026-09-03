@@ -1591,7 +1591,18 @@ def api_list_jobs():
         limit = min(max(int(request.args.get("limit", 50)), 1), 200)
     except (TypeError, ValueError):
         limit = 50
-    return jsonify({"jobs": job_manager.list(limit=limit)})
+    # `legacy_task` é a única janela que a tela tem para as rotas antigas
+    # (transcrição, corte, silêncio...): elas não passam pelo JobManager, então
+    # não aparecem na lista de jobs e não emitem `job_update`. Sem isto, a
+    # barra "processando" não tinha como saber que uma delas tinha, de fato,
+    # terminado — e ficava de pé horas depois de o trabalho acabar.
+    return jsonify({
+        "jobs": job_manager.list(limit=limit),
+        "legacy_task": {
+            "active": bool(current_task.get("active")),
+            "operation": current_task.get("operation") or "",
+        },
+    })
 
 
 @app.route("/api/jobs/<job_id>", methods=["GET"])
@@ -4276,143 +4287,148 @@ def api_analyze_editorial_context():
     analyze_video = _coerce_bool(data.get("analyze_video"), default=True)
 
     def task(ctx):
-        def progress(message, level="info", percentage=None):
-            current = int(percentage if percentage is not None else 10)
-            ctx.update(stage="editorial_context", progress=current, message=str(message))
-            socketio.emit(
-                "progress",
-                {
-                    "message": f"[Versão {PROGRAM_VERSION} · {PROGRAM_REVISION}] {str(message)}",
-                    "level": level,
-                    "time": datetime.now().strftime("%H:%M:%S"),
-                    "job_id": ctx.job_id,
-                    "program_version": PROGRAM_VERSION,
-                    "program_revision": PROGRAM_REVISION,
-                },
-            )
+        try:
+            def progress(message, level="info", percentage=None):
+                current = int(percentage if percentage is not None else 10)
+                ctx.update(stage="editorial_context", progress=current, message=str(message))
+                socketio.emit(
+                    "progress",
+                    {
+                        "message": f"[Versão {PROGRAM_VERSION} · {PROGRAM_REVISION}] {str(message)}",
+                        "level": level,
+                        "time": datetime.now().strftime("%H:%M:%S"),
+                        "job_id": ctx.job_id,
+                        "program_version": PROGRAM_VERSION,
+                        "program_revision": PROGRAM_REVISION,
+                    },
+                )
 
-        settings = get_all_settings()
-        if user_context:
-            settings["editorial_context_prompt"] = user_context
-        video_duration = _probe_video_duration_seconds(video_path)
-        progress("[Contexto] Preparando a análise integral da fonte...", "info", 5)
-        ctx.check_cancel()
-        manual_supplied = _manual_transcript_was_supplied(data)
-        transcription = _transcription_from_request(data, duration=video_duration)
-        if not transcription and project_id:
-            transcription = get_transcription(project_id)
-        multimodal_result = None
-        if not transcription:
-            progress("[Contexto] Não há transcrição confirmada; Gemini tentará gerar a leitura temporal.", "info", 18)
-            multimodal_result = _run_gemini_video_analysis(
-                video_path, settings, {}, user_context, progress, cancel_check=ctx.check_cancel
-            )
-            transcription = _transcription_from_gemini_result(multimodal_result, settings.get("language", "pt"))
-        if not transcription:
-            raise ValueError("Não foi possível obter uma transcrição para analisar o contexto.")
-        _realign_offset_transcription(transcription, video_duration, progress)
-        coverage = _transcription_coverage_report(transcription, video_duration)
-        transcription["coverage"] = coverage
-        transcription["provenance"] = _transcription_provenance(transcription, manual_supplied=manual_supplied)
-        progress(
-            f"[Contexto] Transcrição canônica confirmada: {transcription.get('segment_count', len(transcription.get('segments', [])))} segmentos; "
-            f"origem {transcription.get('source', 'desconhecida')}; cobertura {coverage.get('status', 'não verificada')}.",
-            "success",
-            35,
-        )
-        ctx.check_cancel()
-        from modules.editorial_context import analyze_transcript_context
-        editorial_context = analyze_transcript_context(
-                transcription,
-                focus=settings.get("editorial_focus", "auto"),
-                campaign_hub_account=settings.get("campaign_hub_account", "@renansantosmbl"),
-            )
-        editorial_context["transcription_provenance"] = transcription.get("provenance", {})
-        editorial_context["transcript_reference"] = _transcript_reference_for_multimodal(transcription)
-        progress(
-            "[Contexto] Identificando tese, perguntas, capítulos e possíveis payoffs; a transcrição canônica será preservada.",
-            "info",
-            55,
-        )
-        if analyze_video and multimodal_result is None:
-            progress("[Contexto] Escutando e observando a fonte para validar o cenário, tom e participantes...", "info", 62)
-            multimodal_result = _run_gemini_video_analysis(
-                video_path, settings, editorial_context, user_context, progress, cancel_check=ctx.check_cancel
-            )
-        enriched = _enrich_editorial_context(
-            video_path,
-            settings,
-            editorial_context,
-            user_context,
-            progress,
-            multimodal=multimodal_result,
-            allow_video_analysis=False,
-        )
-        if not multimodal_result or not analyze_video:
-            try:
-                progress(
-                    "[Contexto] Auditoria local ativa: energia, hooks e priors do Campaign Hub serão calculados sem reenviar o vídeo.",
-                    "info",
-                    72,
+            settings = get_all_settings()
+            if user_context:
+                settings["editorial_context_prompt"] = user_context
+            video_duration = _probe_video_duration_seconds(video_path)
+            progress("[Contexto] Preparando a análise integral da fonte...", "info", 5)
+            ctx.check_cancel()
+            manual_supplied = _manual_transcript_was_supplied(data)
+            transcription = _transcription_from_request(data, duration=video_duration)
+            if not transcription and project_id:
+                transcription = get_transcription(project_id)
+            multimodal_result = None
+            if not transcription:
+                progress("[Contexto] Não há transcrição confirmada; Gemini tentará gerar a leitura temporal.", "info", 18)
+                multimodal_result = _run_gemini_video_analysis(
+                    video_path, settings, {}, user_context, progress, cancel_check=ctx.check_cancel
                 )
-                # O processamento local de energia para lives muito longas pode demorar,
-                # mas não bloqueia a UI se o timeout do polling no frontend for adequado.
-                enriched = _enrich_editorial_context_locally(
-                    video_path,
+                transcription = _transcription_from_gemini_result(multimodal_result, settings.get("language", "pt"))
+            if not transcription:
+                raise ValueError("Não foi possível obter uma transcrição para analisar o contexto.")
+            _realign_offset_transcription(transcription, video_duration, progress)
+            coverage = _transcription_coverage_report(transcription, video_duration)
+            transcription["coverage"] = coverage
+            transcription["provenance"] = _transcription_provenance(transcription, manual_supplied=manual_supplied)
+            progress(
+                f"[Contexto] Transcrição canônica confirmada: {transcription.get('segment_count', len(transcription.get('segments', [])))} segmentos; "
+                f"origem {transcription.get('source', 'desconhecida')}; cobertura {coverage.get('status', 'não verificada')}.",
+                "success",
+                35,
+            )
+            ctx.check_cancel()
+            from modules.editorial_context import analyze_transcript_context
+            editorial_context = analyze_transcript_context(
                     transcription,
-                    enriched,
-                    settings,
-                    progress,
-                    cancel_check=ctx.check_cancel,
+                    focus=settings.get("editorial_focus", "auto"),
+                    campaign_hub_account=settings.get("campaign_hub_account", "@renansantosmbl"),
                 )
-                enriched["analysis_mode"] = "transcript_plus_local_audio"
-            except (OperationCancelled, JobCancelled):
-                raise
-            except Exception as local_exc:
-                progress(f"[Contexto] Auditoria local de áudio não concluída; mantendo sinais textuais: {str(local_exc)[:180]}", "warning", 78)
-        enriched["transcription_quality"] = {
-            "status": coverage.get("status", "unknown"),
-            "segment_count": len(transcription.get("segments", [])),
-            "last_timestamp": coverage.get("last_timestamp"),
-            "video_duration_seconds": coverage.get("video_duration_seconds"),
-        }
-        if not enriched.get("analysis_mode"):
-            enriched["analysis_mode"] = "transcript_plus_video" if multimodal_result else "transcript_only"
-        if project_id:
-            save_transcription(
-                project_id,
-                transcription.get("segments", []),
-                transcription.get("full_text", ""),
-                transcription.get("language", settings.get("language", "pt")),
-                transcription.get("source", "editorial_context"),
+            editorial_context["transcription_provenance"] = transcription.get("provenance", {})
+            editorial_context["transcript_reference"] = _transcript_reference_for_multimodal(transcription)
+            progress(
+                "[Contexto] Identificando tese, perguntas, capítulos e possíveis payoffs; a transcrição canônica será preservada.",
+                "info",
+                55,
             )
-        transcript_files = save_transcription_bundle(
-            transcription,
-            project_id=project_id,
-            source_video=video_path,
-        )
-        context_file = save_context_bundle(
-            enriched,
-            transcription_provenance=transcription.get("provenance", {}),
-            project_id=project_id,
-            source_video=video_path,
-        )
-        manifest_file = write_session_manifest(
-            project_id=project_id,
-            source_video=video_path,
-            transcription_provenance=transcription.get("provenance", {}),
-            context_status={"analysis_mode": enriched.get("analysis_mode"), "context_file": context_file},
-        )
-        enriched["session_artifacts"] = {**transcript_files, "context": context_file, "manifest": manifest_file}
-        artifacts = [{"type": "editorial_context", "context": enriched}]
-        ctx.update(stage="editorial_context", progress=100, message="Contexto integral concluído", artifacts=artifacts)
-        socketio.emit("editorial_context_complete", {"context": enriched, "job_id": ctx.job_id})
-        return {"artifacts": artifacts}
+            if analyze_video and multimodal_result is None:
+                progress("[Contexto] Escutando e observando a fonte para validar o cenário, tom e participantes...", "info", 62)
+                multimodal_result = _run_gemini_video_analysis(
+                    video_path, settings, editorial_context, user_context, progress, cancel_check=ctx.check_cancel
+                )
+            enriched = _enrich_editorial_context(
+                video_path,
+                settings,
+                editorial_context,
+                user_context,
+                progress,
+                multimodal=multimodal_result,
+                allow_video_analysis=False,
+            )
+            if not multimodal_result or not analyze_video:
+                try:
+                    progress(
+                        "[Contexto] Auditoria local ativa: energia, hooks e priors do Campaign Hub serão calculados sem reenviar o vídeo.",
+                        "info",
+                        72,
+                    )
+                    # O processamento local de energia para lives muito longas pode demorar,
+                    # mas não bloqueia a UI se o timeout do polling no frontend for adequado.
+                    enriched = _enrich_editorial_context_locally(
+                        video_path,
+                        transcription,
+                        enriched,
+                        settings,
+                        progress,
+                        cancel_check=ctx.check_cancel,
+                    )
+                    enriched["analysis_mode"] = "transcript_plus_local_audio"
+                except (OperationCancelled, JobCancelled):
+                    raise
+                except Exception as local_exc:
+                    progress(f"[Contexto] Auditoria local de áudio não concluída; mantendo sinais textuais: {str(local_exc)[:180]}", "warning", 78)
+            enriched["transcription_quality"] = {
+                "status": coverage.get("status", "unknown"),
+                "segment_count": len(transcription.get("segments", [])),
+                "last_timestamp": coverage.get("last_timestamp"),
+                "video_duration_seconds": coverage.get("video_duration_seconds"),
+            }
+            if not enriched.get("analysis_mode"):
+                enriched["analysis_mode"] = "transcript_plus_video" if multimodal_result else "transcript_only"
+            if project_id:
+                save_transcription(
+                    project_id,
+                    transcription.get("segments", []),
+                    transcription.get("full_text", ""),
+                    transcription.get("language", settings.get("language", "pt")),
+                    transcription.get("source", "editorial_context"),
+                )
+            transcript_files = save_transcription_bundle(
+                transcription,
+                project_id=project_id,
+                source_video=video_path,
+            )
+            context_file = save_context_bundle(
+                enriched,
+                transcription_provenance=transcription.get("provenance", {}),
+                project_id=project_id,
+                source_video=video_path,
+            )
+            manifest_file = write_session_manifest(
+                project_id=project_id,
+                source_video=video_path,
+                transcription_provenance=transcription.get("provenance", {}),
+                context_status={"analysis_mode": enriched.get("analysis_mode"), "context_file": context_file},
+            )
+            enriched["session_artifacts"] = {**transcript_files, "context": context_file, "manifest": manifest_file}
+            artifacts = [{"type": "editorial_context", "context": enriched}]
+            ctx.update(stage="editorial_context", progress=100, message="Contexto integral concluído", artifacts=artifacts)
+            socketio.emit("editorial_context_complete", {"context": enriched, "job_id": ctx.job_id})
+            return {"artifacts": artifacts}
+        finally:
+            _set_legacy_task("", active=False)
 
     with processing_lock:
-        # O JobManager já serializa os workers; o estado legado não é alterado
-        # aqui para que uma exceção de análise não deixe a interface travada.
+        if current_task["active"]:
+            return _busy_response()
+        _set_legacy_task("editorial_context", active=True)
         job = job_manager.submit("editorial_context", task, project_id=project_id)
+        current_task["job_id"] = job["id"]
     return jsonify({"success": True, "message": "Análise de contexto iniciada", "job_id": job["id"], "state": job["state"]})
 
 
@@ -5469,21 +5485,53 @@ def api_process_complete():
 
 @app.route("/api/process/cancel", methods=["POST"])
 def api_cancel():
+    """Parar o que está rodando de verdade — não só o que a tela lembra.
+
+    O editor apertou "Parar operação" numa transcrição, e ela terminou os doze
+    minutos inteiros mesmo assim. O motivo: esta rota só cancelava o job cujo
+    id a tela mandava (ou, na falta dele, o job de `current_task["job_id"]`).
+    Se a tela estivesse olhando para um job diferente do que estava rodando —
+    coisa que acontecia porque `/api/editorial/context` podia começar um job
+    novo sem esperar o anterior liberar — o pedido de parar acertava o job
+    errado e a transcrição seguia sem ninguém mandar parar.
+
+    Agora ela para tudo que está de pé: o job que a tela indicou, qualquer
+    outro job do JobManager que ainda esteja rodando, e a tarefa legada
+    (`current_task`), sem depender de qual deles a tela acha que é "o" ativo.
+    """
     data = request.get_json(silent=True) or {}
     job_id = data.get("job_id")
+    cancelled = []
+
     if job_id:
         try:
-            return jsonify(job_manager.request_cancel(job_id))
-        except KeyError:
-            return jsonify({"error": "Job não encontrado"}), 404
-    active_job_id = current_task.get("job_id")
-    if active_job_id:
-        try:
-            return jsonify(job_manager.request_cancel(active_job_id))
+            cancelled.append(job_manager.request_cancel(job_id))
         except KeyError:
             pass
-    current_task["cancel"] = True
-    return jsonify({"success": True, "message": "Cancelamento legado solicitado"})
+
+    active_job_id = current_task.get("job_id")
+    if active_job_id and active_job_id != job_id:
+        try:
+            cancelled.append(job_manager.request_cancel(active_job_id))
+        except KeyError:
+            pass
+
+    for job in job_manager.list(limit=20):
+        if job.get("id") in (job_id, active_job_id):
+            continue
+        if job.get("state") in ("queued", "running", "cancel_requested"):
+            try:
+                cancelled.append(job_manager.request_cancel(job["id"]))
+            except KeyError:
+                pass
+
+    was_active = bool(current_task.get("active"))
+    if was_active:
+        current_task["cancel"] = True
+
+    if not cancelled and not was_active:
+        return jsonify({"success": True, "message": "Nada estava rodando; nada para parar."})
+    return jsonify({"success": True, "message": "Cancelamento solicitado.", "jobs": cancelled})
 
 
 # ─── WebSocket ───

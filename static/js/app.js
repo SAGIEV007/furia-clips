@@ -1634,6 +1634,18 @@ async function loadOperationDashboard() {
         loadTranscriptArchive();
         const active = state.operationJobs.find((job) => ["queued", "running", "cancel_requested"].includes(job.state));
         if (active) handleJobUpdate(active, { refreshDashboard: false });
+
+        // A barra "processando" só devia ficar de pé enquanto algo estivesse
+        // rodando de verdade. As rotas antigas (transcrição, corte, silêncio)
+        // não passam pelo JobManager — não emitem `job_update` — então nada
+        // avisava a tela quando elas terminavam. O sintoma: "Parar operação"
+        // ainda na tela horas depois de o console já dizer "concluída".
+        // `legacy_task.active` é a verdade do servidor sobre essa parte; sem
+        // job novo e sem tarefa legada, não há nada rodando, e a barra fecha.
+        const legacyActive = Boolean(payload.legacy_task && payload.legacy_task.active);
+        if (!active && !legacyActive) {
+            hideProgressBar();
+        }
     } catch (error) {
         const subtitle = document.getElementById("operationSubtitle");
         if (subtitle) subtitle.textContent = "Não foi possível carregar o histórico local agora.";
@@ -4793,6 +4805,15 @@ document.addEventListener("DOMContentLoaded", () => {
     pararNoFimDoTrecho();
     // Check Ollama status on load
     socket.emit("check_ollama");
+
+    // A tarefa legada (transcrição, corte, silêncio) não emite `job_update`,
+    // então nada mais chamava `loadOperationDashboard` enquanto só ela estava
+    // rodando. Sem este relógio, uma dessas tarefas podia terminar e a barra
+    // "processando" ficava de pé até a próxima ação do editor mexer em algo
+    // que disparasse um refresh por acidente.
+    setInterval(() => {
+        if (!document.hidden) loadOperationDashboard();
+    }, 20000);
 });
 
 // ─── Leitura da fonte ───
