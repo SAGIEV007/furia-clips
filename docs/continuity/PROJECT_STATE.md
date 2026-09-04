@@ -8,12 +8,12 @@
 | --- | --- |
 | Projeto | Furia Clips |
 | Repositório | `SAGIEV007/furia-clips` |
-| Versão pública atual | `6.61` |
+| Versão pública atual | `6.62` |
 | Última release funcional anterior | `6.20` |
 | Natureza da release atual | Importação append-only de decisões humanas no `hard-negative-v1`, conflitos explícitos, adjudicação e métricas descritivas |
 | Fonte da versão | [`VERSION`](../../VERSION) |
 | Branch de trabalho | `furia-treino-noturno` |
-| Última publicação conhecida | `62d12b5` — `feat: implementar gates de fronteira de saída/entrada em fronteira_assunto.py` |
+| Última publicação conhecida | `7fdc4e0` — `feat: integrar gates de fronteira de saída em _editorial_flags (6.62)` |
 | Commit funcional 2.6 | `fec34fe` — `feat: primeira ponte funcional Campaign Hub para propostas (2.6)` |
 | Commit funcional 2.7 | `a0452d3` — `fix: declarar confiabilidade da medição no benchmark editorial (2.7)` |
 | Commit funcional 2.8 | `fdf5e6b` — `fix: alinhar seeds do Campaign Hub com a mídia local em processamento (2.8)` |
@@ -36,6 +36,10 @@ O ciclo 31 corrigiu o scorer para receber explicitamente o benchmark e instrumen
 O ciclo 32 separou a descoberta da publicação. Na mesma fonte, o Chub produziu 30 propostas de descoberta no Renan-first, 6 foram promovidas ao pool guiado e 24 permaneceram em `speaker_gate_review`; o recall publicável ficou em `7/66`, sem alteração do ranking. A interface agora mostra essa diferença, e os diagnósticos persistidos distinguem descoberta, propostas Chub promovidas e candidatos finais gerais.
 
 O ciclo 33 adicionou processamento parcial por intervalo. O ciclo 34 concentrou-se exclusivamente em UX, tornando o estado do job visível sem rolagem. O ciclo 35 corrigiu a corrida de cancelamento entre a fila e o worker, e tornou a resposta de cancelamento de barra superior verificável. O ciclo 36 implementou identidade persistente de faixa, proveniência e digest de transcrição, contrato narrativo de contexto, gate final de locutor e fidelidade de headlines. O ciclo 37 adicionou eventos estruturados persistentes, retenção, breadcrumbs, endpoints de diagnóstico, captura de erros globais e cópia do resumo completo pela interface, sem alterar o motor editorial. O ciclo 38 pesquisou o MCP/Chub e adicionou recuperação textual conservadora de seeds com timeline incompatível, sempre em revisão. A próxima hipótese única é medir baseline temporal versus `text_anchor` em benchmark real; a observabilidade serve para tornar essa medição reproduzível.
+
+`fim_fragmentado()` e `abre_dependente()` foram integrados ao `_editorial_flags` em `modules/clip_selector.py`: `payoff_complete` agora exige final não fragmentado e `context_complete` rejeita abertura dependente. 3 testes novos garantem o gate; suíte permanece **1170 passed, 13 skipped, 2 xfailed**.
+
+`fim_fragmentado()` e `abre_dependente()` foram integrados ao `_editorial_flags` em `modules/clip_selector.py`: `payoff_complete` agora exige final não fragmentado e `context_complete` rejeita abertura dependente. 3 testes novos garantem o gate; suíte permanece **1170 passed, 13 skipped, 2 xfailed**.
 
 As prioridades editoriais Renan-first continuam preservadas: contexto e payoff antes de hook, gates de locutor antes do ranking, Campaign Hub como memória/seed e não como aprovação, e uma hipótese principal por ciclo.
 
