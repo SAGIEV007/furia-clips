@@ -14,6 +14,7 @@ def test_selector_passes_contextual_hooks_to_final_clip_annotation(monkeypatch):
             "end": 24.0,
             "duration": 24.0,
             "text": "A proposta concreta muda o debate e termina com uma resposta.",
+            "viral_score": 80,
             "source": "nlp",
         }],
     )
@@ -50,6 +51,7 @@ def test_partial_transcript_context_reaches_clip_review_contract(monkeypatch):
             "end": 34.0,
             "duration": 24.0,
             "text": "A proposta concreta muda o debate e termina com uma resposta.",
+            "viral_score": 80,
             "source": "nlp",
         }],
     )

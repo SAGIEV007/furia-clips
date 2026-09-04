@@ -99,9 +99,9 @@ def apply_quality_gate(clips: list[dict[str, Any]]) -> tuple[list[dict[str, Any]
             reasons.append("fim_fragmentado")
         if flags.get("question_detected") and not flags.get("qa_bridge") and not flags.get("qa_bridge_local"):
             reasons.append("pergunta_sem_resposta")
-        if not flags.get("context_complete"):
+        if not flags.get("context_complete", True):
             reasons.append("contexto_incompleto")
-        if not flags.get("payoff_complete"):
+        if not flags.get("payoff_complete", True):
             reasons.append("payoff_incompleto")
         if flags.get("overlap_suspected"):
             reasons.append("tempo_ambiguo")
