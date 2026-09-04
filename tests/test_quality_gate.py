@@ -102,8 +102,8 @@ def test_accepts_clean_clip():
 
 
 def test_duplicate_lower_score_rejected():
-    high = _clip(10, 20, viral_score=90, text="Renan explica o projeto.")
-    low = _clip(12, 22, viral_score=40, text="Renan explica o projeto.")
+    high = _clip(10, 20, viral_score=90, text="Renan explica o projeto com dados concretos.")
+    low = _clip(12, 22, viral_score=40, text="Renan explica o projeto com dados concretos.")
     accepted, rejected = apply_quality_gate([high, low])
     assert high in accepted
     assert any(c["text"] == low["text"] and c["viral_score"] == low["viral_score"] for c in rejected)
@@ -111,8 +111,8 @@ def test_duplicate_lower_score_rejected():
 
 
 def test_duplicate_higher_score_rejected_when_processed_first():
-    low = _clip(10, 20, viral_score=40, text="Renan explica o projeto.")
-    high = _clip(12, 22, viral_score=90, text="Renan explica o projeto.")
+    low = _clip(10, 20, viral_score=40, text="Renan explica o projeto com dados concretos.")
+    high = _clip(12, 22, viral_score=90, text="Renan explica o projeto com dados concretos.")
     accepted, rejected = apply_quality_gate([low, high])
     assert high in accepted
     assert any(c["text"] == low["text"] and c["viral_score"] == low["viral_score"] for c in rejected)
@@ -120,17 +120,17 @@ def test_duplicate_higher_score_rejected_when_processed_first():
 
 
 def test_overlap_without_text_similarity_accepted():
-    a = _clip(0, 20, viral_score=80, text="Renan fala sobre economia.")
-    b = _clip(15, 35, viral_score=70, text="Renan fala sobre politica.")
+    a = _clip(0, 20, viral_score=80, text="Renan fala sobre economia com propriedade.")
+    b = _clip(15, 35, viral_score=70, text="Renan fala sobre politica com propriedade.")
     accepted, rejected = apply_quality_gate([a, b])
     assert len(accepted) == 2
 
 
 def test_full_overlap_only_highest_survives():
     clips = [
-        _clip(0, 10, viral_score=50, text="Renan explica o projeto A"),
-        _clip(0, 10, viral_score=90, text="Renan explica o projeto B"),
-        _clip(0, 10, viral_score=70, text="Renan explica o projeto C"),
+        _clip(0, 10, viral_score=50, text="Renan explica o projeto A com dados concretos."),
+        _clip(0, 10, viral_score=90, text="Renan explica o projeto B com dados concretos."),
+        _clip(0, 10, viral_score=70, text="Renan explica o projeto C com dados concretos."),
     ]
     accepted, rejected = apply_quality_gate(clips)
     assert len(accepted) == 1

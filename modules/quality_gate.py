@@ -56,6 +56,72 @@ def _text_similarity(a: str, b: str) -> float:
     return SequenceMatcher(None, a_clean, b_clean).ratio()
 
 
+def _is_reporter_question(text: str) -> bool:
+    """Detect if the clip starts with or contains a reporter question that
+    should not be the opening of a clip."""
+    if not text:
+        return False
+    lower = text.lower()
+    # Reporter question markers
+    reporter_markers = [
+        "o senhor acha",
+        "você acha",
+        "como o senhor",
+        "como você",
+        "o que o senhor",
+        "o que você",
+        "por que o senhor",
+        "por que você",
+        "quando o senhor",
+        "quando você",
+        "onde o senhor",
+        "onde você",
+        "o presidente da república tem que ser",
+        "o presidente tem que ser",
+        "se você não acha",
+        "seriam 30 mil pessoas",
+        "chamava muito a atenção",
+    ]
+    for marker in reporter_markers:
+        if marker in lower:
+            return True
+    return False
+
+
+def _ends_on_question(text: str) -> bool:
+    """Detect if the clip ends on a reporter question or incomplete thought."""
+    if not text:
+        return False
+    stripped = text.strip()
+    # Ends with question mark
+    if stripped.endswith("?"):
+        return True
+    # Ends with incomplete question markers
+    incomplete_markers = [
+        "o senhor acha",
+        "você acha",
+        "como o senhor",
+        "como você",
+        "o que o senhor",
+        "o que você",
+        "por que o senhor",
+        "por que você",
+    ]
+    for marker in incomplete_markers:
+        if stripped.lower().endswith(marker):
+            return True
+    return False
+
+
+def _has_minimum_context(text: str, min_words: int = 6) -> bool:
+    """Check if the clip has at least min_words of context before the main hook."""
+    if not text:
+        return False
+    words = text.split()
+    return len(words) >= min_words
+
+
+
 def apply_quality_gate(clips: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Filter clips through hard editorial gates.
 
@@ -103,6 +169,15 @@ def apply_quality_gate(clips: list[dict[str, Any]]) -> tuple[list[dict[str, Any]
             reasons.append("contexto_incompleto")
         if not flags.get("payoff_complete", True):
             reasons.append("payoff_incompleto")
+        # Gate 3b: reporter question should not be the opening
+        if _is_reporter_question(text):
+            reasons.append("abre_com_pergunta_do_reporter")
+        # Gate 3c: clip should not end on a question
+        if _ends_on_question(text):
+            reasons.append("termina_na_pergunta")
+        # Gate 3d: minimum context check
+        if not _has_minimum_context(text, min_words=6):
+            reasons.append("contexto_insuficiente")
         if flags.get("overlap_suspected"):
             reasons.append("tempo_ambiguo")
         if flags.get("contains_broadcast_break"):
