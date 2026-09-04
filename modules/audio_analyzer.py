@@ -213,6 +213,9 @@ class AudioAnalyzer:
         if not os.path.isfile(video_path):
             return []
 
+        if not self._has_audio_stream(video_path):
+            return []
+
         wav_path = None
         try:
             wav_path = self.extract_audio(video_path)

@@ -87,6 +87,23 @@ def test_segment_speech_returns_empty_when_vad_backend_unavailable(monkeypatch):
     assert result == []
 
 
+def test_segment_speech_skips_video_without_audio(monkeypatch):
+    import modules.audio_analyzer as audio_module
+
+    monkeypatch.setattr(audio_module.AudioAnalyzer, '_has_audio_stream', lambda self, video_path: False)
+
+    called = []
+
+    class DummyAnalyzer(AudioAnalyzer):
+        def extract_audio(self, video_path):
+            called.append(video_path)
+            return video_path
+
+    result = DummyAnalyzer().segment_speech('video.mp4')
+    assert result == []
+    assert called == []
+
+
 def test_segment_speech_filters_short_segments(tmp_path):
     source = tmp_path / 'tone.wav'
     sample_rate = 16000
