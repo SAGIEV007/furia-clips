@@ -13,7 +13,7 @@
 | Natureza da release atual | Importação append-only de decisões humanas no `hard-negative-v1`, conflitos explícitos, adjudicação e métricas descritivas |
 | Fonte da versão | [`VERSION`](../../VERSION) |
 | Branch de trabalho | `furia-treino-noturno` |
-| Última publicação conhecida | `2dea39c` — `docs: alinhar PROJECT_STATE.md com HEAD 8d4ccb8 e suite 1170` |
+| Última publicação conhecida | `47a3294` — `feat: adicionar segmentador VAD opcional via Silero empacotado no faster-whisper (6.62)`
 | Commit funcional 2.6 | `fec34fe` — `feat: primeira ponte funcional Campaign Hub para propostas (2.6)` |
 | Commit funcional 2.7 | `a0452d3` — `fix: declarar confiabilidade da medição no benchmark editorial (2.7)` |
 | Commit funcional 2.8 | `fdf5e6b` — `fix: alinhar seeds do Campaign Hub com a mídia local em processamento (2.8)` |
