@@ -17,6 +17,7 @@ from collections import Counter
 
 from .political_profile import PROFILE_NAME, build_political_prompt_fragment
 from .editorial_chapters import annotate_clip_with_chapters
+from .fronteira_assunto import fim_fragmentado, abre_dependente
 from .interview_turns import (
     classify_broadcast_boundary,
     detect_interviewer_turns,
@@ -4705,7 +4706,8 @@ Retorne APENAS o JSON.
         if len(tail) >= 2 and " ".join(tail[-2:]) in WEAK_PAYOFF_ENDINGS_PT:
             weak_payoff_ending = True
         cliffhanger = any(pattern in normalized[-220:] for pattern in ("em breve", "depois eu", "na proxima", "fique ligado", "vou mostrar"))
-        payoff_complete = bool(ends_closed and not cliffhanger and not weak_payoff_ending)
+        ending_fragmented = fim_fragmentado(raw)
+        payoff_complete = bool(ends_closed and not cliffhanger and not weak_payoff_ending and not ending_fragmented)
         overlap_suspected = bool(metadata.get("overlap_suspected"))
         timing_ambiguous = bool(metadata.get("timing_ambiguous"))
         speaker_turn_valid = metadata.get("speaker_turn_valid")
@@ -4714,6 +4716,7 @@ Retorne APENAS o JSON.
         speaker_identity_review_required = bool(
             speaker_identity_required and speaker_identity_available is not True
         )
+        opening_dependent = abre_dependente(raw)
         context_complete = bool(
             not starts_mid_sentence
             and not starts_with_context_reference
@@ -4723,6 +4726,7 @@ Retorne APENAS o JSON.
             and not overlap_suspected
             and not timing_ambiguous
             and speaker_turn_valid is not False
+            and not opening_dependent
         )
         return {
             "starts_mid_sentence": starts_mid_sentence,
@@ -4733,6 +4737,8 @@ Retorne APENAS o JSON.
             "evidence_present": has_evidence,
             "payoff_complete": payoff_complete,
             "payoff_weak_ending": weak_payoff_ending,
+            "ending_fragmented": ending_fragmented,
+            "opening_dependent": opening_dependent,
             "context_complete": context_complete,
             "qa_bridge": bool(
                 question_answer_complete

@@ -179,3 +179,24 @@ if __name__ == "__main__":
         )
         self.assertTrue(weak["payoff_weak_ending"])
         self.assertFalse(weak["payoff_complete"])
+
+    def test_ending_fragmented_gate_rejects_short_ending(self):
+        weak = self.selector._editorial_flags(
+            "A proposta parece boa, mas"
+        )
+        self.assertTrue(weak["ending_fragmented"])
+        self.assertFalse(weak["payoff_complete"])
+        self.assertFalse(weak["context_complete"])
+
+    def test_opening_dependent_gate_rejects_connective_opening(self):
+        flags = self.selector._editorial_flags(
+            "E aí, isso é um problema sério."
+        )
+        self.assertTrue(flags["opening_dependent"])
+        self.assertFalse(flags["context_complete"])
+
+    def test_backchannel_ending_is_not_fragmented(self):
+        flags = self.selector._editorial_flags(
+            "ta"
+        )
+        self.assertFalse(flags["ending_fragmented"])
