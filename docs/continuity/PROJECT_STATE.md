@@ -22,7 +22,7 @@
 | Commit funcional 3.1 | `a170aab` — `feat: entregar todo candidato com contexto, locutor e veredito de revisão (3.1)` |
 | Última atualização | 2026-09-04 |
 | Baseline editorial | Duas fontes medidas na 3.1. `3XJfcqn56Rw` (live 98 min): recall `50/66`, cobertura `25/27`. `j9FRVbb8CAI` (entrevista 31 min): recall `30/34`, cobertura `11/11`. Precisão `1.00`, zero fora de bloco e zero desperdício **nas duas**. O ciclo 6.14 mediu `3/30` identidades disponíveis no Renan-first com snapshot rico, contra `0/30` sem snapshot. |
-| Suíte no checkout | **1178 passed, 13 skipped, 2 xfailed, 0 failed**; execução em ~91s via `./pytest.cmd` |
+| Suíte no checkout | **1183 passed, 13 skipped, 2 xfailed, 0 failed**; execução em ~91s via `./pytest.cmd` |
 | Objetivo | Gerar cortes Renan Santos/MBL concisos, autossuficientes, contextualizados e editorialmente úteis |
 
 A branch de trabalho deve ser confirmada no checkout real. O GitHub é a fonte da revisão técnica; o commit funcional publicado da 6.26 é `54a4d8e`. Antes de alterar qualquer arquivo, preserve mudanças locais e confirme `git status`.
