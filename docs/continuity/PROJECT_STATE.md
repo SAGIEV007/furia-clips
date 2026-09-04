@@ -1,6 +1,6 @@
 # PROJECT_STATE — Furia Clips
 
-> Estado vivo do projeto. Atualizado em 2026-09-04 18:13 BRT.
+> Estado vivo do projeto. Atualizado em 2026-09-04 18:57 BRT.
 
 ## Estado corrente
 
@@ -10,8 +10,8 @@
 | Repositório | `SAGIEV007/furia-clips` |
 | Versão | `6.63` |
 | Branch de trabalho | `furia-treino-noturno` |
-| HEAD local | `4ec55fa` |
-| Divergência origin | 0 ahead / 4 behind (não sincronizada) |
+| HEAD local | `6de80bd` |
+| Divergência origin | 0 ahead / 0 behind (sincronizada) |
 | Suíte | **1215 passed, 13 skipped, 3 xfailed** em ~92s |
 | Baseline editorial | Duas fontes medidas na 3.1. `3XJfcqn56Rw` (live 98 min): recall `50/66`, cobertura `25/27`. `j9FRVbb8CAI` (entrevista 31 min): recall `30/34`, cobertura `11/11`. Precisão `1.00`, zero fora de bloco e zero desperdício **nas duas**. |
 | Objetivo | Gerar cortes Renan Santos/MBL concisos, autossuficientes, contextualizados e editorialmente úteis |
