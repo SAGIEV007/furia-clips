@@ -5,6 +5,10 @@ import os
 import tempfile
 
 from .cancellation import OperationCancelled
+try:
+    from .vad_segmenter import VADSegmenter
+except Exception:
+    VADSegmenter = None
 
 
 class AudioAnalyzer:
@@ -197,3 +201,45 @@ class AudioAnalyzer:
 
         high_moments.sort(key=lambda x: x["avg_energy"], reverse=True)
         return high_moments
+    def segment_speech(self, video_path, min_duration=0.5):
+        """Return VAD speech segments [{start, end, duration}, ...] or [].
+
+        Uses Silero VAD via faster-whisper as an optional pre-filter.
+        Falls back to an empty list when the backend is unavailable.
+        """
+        if VADSegmenter is None:
+            return []
+
+        if not os.path.isfile(video_path):
+            return []
+
+        wav_path = None
+        try:
+            wav_path = self.extract_audio(video_path)
+            import numpy as np
+            import wave
+
+            with wave.open(wav_path, 'rb') as wf:
+                frames = wf.readframes(wf.getnframes())
+            audio = np.frombuffer(frames, dtype=np.int16).astype(np.float32) / 32768.0
+
+            segments = VADSegmenter().segment(audio, sampling_rate=self.sample_rate)
+            result = []
+            for seg in segments:
+                duration = round(seg['end'] - seg['start'], 3)
+                if duration >= min_duration:
+                    result.append({
+                        'start': seg['start'],
+                        'end': seg['end'],
+                        'duration': duration,
+                    })
+            result.sort(key=lambda x: x['start'])
+            return result
+        except Exception:
+            return []
+        finally:
+            if wav_path and os.path.isfile(wav_path):
+                try:
+                    os.unlink(wav_path)
+                except OSError:
+                    pass

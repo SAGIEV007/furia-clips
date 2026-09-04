@@ -72,3 +72,33 @@ def test_analyze_energy_kills_ffmpeg_when_cancelled(monkeypatch):
 
     assert process.killed is True
     assert process.waited is True
+
+
+def test_segment_speech_returns_empty_when_vad_backend_unavailable(monkeypatch):
+    import modules.audio_analyzer as audio_module
+    monkeypatch.setattr(audio_module.os.path, 'isfile', lambda p: True)
+    monkeypatch.setattr(audio_module, 'VADSegmenter', None)
+
+    class DummyAnalyzer(AudioAnalyzer):
+        def extract_audio(self, video_path):
+            return video_path
+
+    result = DummyAnalyzer().segment_speech('video.mp4')
+    assert result == []
+
+
+def test_segment_speech_filters_short_segments(tmp_path):
+    source = tmp_path / 'tone.wav'
+    sample_rate = 16000
+    frames = bytearray()
+    for index in range(sample_rate * 2):
+        value = int(12000 * math.sin(2 * math.pi * 440 * index / sample_rate))
+        frames.extend(value.to_bytes(2, byteorder='little', signed=True))
+    with wave.open(str(source), 'wb') as handle:
+        handle.setnchannels(1)
+        handle.setsampwidth(2)
+        handle.setframerate(sample_rate)
+        handle.writeframes(bytes(frames))
+
+    result = AudioAnalyzer().segment_speech(str(source))
+    assert isinstance(result, list)
