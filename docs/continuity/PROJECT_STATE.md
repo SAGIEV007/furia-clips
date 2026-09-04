@@ -13,7 +13,7 @@
 | Natureza da release atual | Importação append-only de decisões humanas no `hard-negative-v1`, conflitos explícitos, adjudicação e métricas descritivas |
 | Fonte da versão | [`VERSION`](../../VERSION) |
 | Branch de trabalho | `furia-treino-noturno` |
-| Última publicação conhecida | `bcbcbb7` — feat: calibrar grade viral_score A=80/B=25/C=0 (6.63) |
+| Última publicação conhecida | `cfa4a14` — test: adicionar regressão para grade viral_score no parse LLM (A=80/B=25/C=0) (6.63) |
 | Commit funcional 2.6 | `fec34fe` — `feat: primeira ponte funcional Campaign Hub para propostas (2.6)` |
 | Commit funcional 2.7 | `a0452d3` — `fix: declarar confiabilidade da medição no benchmark editorial (2.7)` |
 | Commit funcional 2.8 | `fdf5e6b` — `fix: alinhar seeds do Campaign Hub com a mídia local em processamento (2.8)` |
