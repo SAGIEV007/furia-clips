@@ -1,6 +1,6 @@
 # PROJECT_STATE — Furia Clips
 
-> Estado vivo do projeto. Atualizado em 2026-09-04 17:27 BRT.
+> Estado vivo do projeto. Atualizado em 2026-09-04 18:13 BRT.
 
 ## Estado corrente
 
@@ -10,8 +10,8 @@
 | Repositório | `SAGIEV007/furia-clips` |
 | Versão | `6.63` |
 | Branch de trabalho | `furia-treino-noturno` |
-| HEAD local | `cbf02bf` |
-| Divergência origin | 3 ahead / 0 behind (sincronizada) |
+| HEAD local | `4ec55fa` |
+| Divergência origin | 0 ahead / 4 behind (não sincronizada) |
 | Suíte | **1215 passed, 13 skipped, 3 xfailed** em ~92s |
 | Baseline editorial | Duas fontes medidas na 3.1. `3XJfcqn56Rw` (live 98 min): recall `50/66`, cobertura `25/27`. `j9FRVbb8CAI` (entrevista 31 min): recall `30/34`, cobertura `11/11`. Precisão `1.00`, zero fora de bloco e zero desperdício **nas duas**. |
 | Objetivo | Gerar cortes Renan Santos/MBL concisos, autossuficientes, contextualizados e editorialmente úteis |
@@ -23,6 +23,7 @@
 - `FuriaClipsData/exports/snjkrNF-aIU/` (2 clips)
 
 ### Últimas medições reais
+- `segment_speech` em `cnn-renan-santos-16x9/clip_01.mp4`: 7 segmentos VAD em 1,07s, cobertura completa do áudio, sem falhas.
 - Crop dinâmico (Kalman) em `cnn-renan-santos-16x9/clip_01.mp4`: 30 faces, jitter reduzido **1,72x** (raw 0,0151 → smooth 0,0088). Render bloqueado por bug conhecido do ffmpeg MSYS2; fallback estático por segmento ativo.
 - Transcrição e abertura em `flow-news-065`: manual 0/48 (0% abertura no meio), Whisper 2/40 (5%) — melhoria em relação a 25% documentado anteriormente.
 
@@ -35,7 +36,7 @@
 
 ### Bloqueios ativos
 - ffmpeg MSYS2 no Windows rejeita expressões de crop dinâmico com parênteses/vírgulas (ex.: `between(n,0,1)`). Em estudo: `sendcmd`/`zoompan`/fallback por segmento/build diferente.
-- Branch 1 commit ahead de origin: sincronizada.
+- Branch 4 commits behind origin: não sincronizada.
 
 ## Norte imediato
 
@@ -44,7 +45,7 @@ A integração do Campaign Hub continua como memória/seed read-only. O crop din
 Prioridades:
 1. Validar crop estático/dinâmico em vídeo real do Renan e contornar bug ffmpeg MSYS2.
 2. Reduzir divergência da branch e sincronizar quando autorizado.
-3. Validar `segment_speech` com vídeo real do Renan.
+3. Integrar `segment_speech` validado no pipeline de corte automático.
 
 ## Histórico
 
