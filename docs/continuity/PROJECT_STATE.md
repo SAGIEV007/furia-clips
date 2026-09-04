@@ -1,6 +1,6 @@
 # PROJECT_STATE — Furia Clips
 
-> Estado vivo do projeto. Atualizado em 2026-09-04 16:44 BRT.
+> Estado vivo do projeto. Atualizado em 2026-09-04 17:27 BRT.
 
 ## Estado corrente
 
@@ -10,8 +10,8 @@
 | Repositório | `SAGIEV007/furia-clips` |
 | Versão | `6.63` |
 | Branch de trabalho | `furia-treino-noturno` |
-| HEAD local | `833ceb0` |
-| Divergência origin | 265 ahead / 102 behind (não sincronizada) |
+| HEAD local | `44a3a85` |
+| Divergência origin | 1 ahead / 0 behind (sincronizada) |
 | Suíte | **1215 passed, 13 skipped, 3 xfailed** em ~92s |
 | Baseline editorial | Duas fontes medidas na 3.1. `3XJfcqn56Rw` (live 98 min): recall `50/66`, cobertura `25/27`. `j9FRVbb8CAI` (entrevista 31 min): recall `30/34`, cobertura `11/11`. Precisão `1.00`, zero fora de bloco e zero desperdício **nas duas**. |
 | Objetivo | Gerar cortes Renan Santos/MBL concisos, autossuficientes, contextualizados e editorialmente úteis |
@@ -27,7 +27,7 @@
 - Transcrição e abertura em `flow-news-065`: manual 0/48 (0% abertura no meio), Whisper 2/40 (5%) — melhoria em relação a 25% documentado anteriormente.
 
 ### Decisões recentes
-- `833ceb0`: docs alinhados com HEAD/suite reais.
+- `44a3a85`: docs alinhados com HEAD/suite reais.
 - `c4f9d76`: fronteira de saída do acervo marcada como xfail (crossings são overshoots pequenos sobre fronteiras de território que alinham com boundaries de sentença; seletor não recebe `blocos_de_referencia` em produção).
 - `75f8c11`: quality gate defaults ajustados (`context_complete`/`payoff_complete` usam `True` por padrão) para evitar rejeição silenciosa de clips sem flag explícito.
 - `8b556e7`: crop estático por segmento integrado como padrão no `batch_cut` quando `use_face_tracking=True`, com fallback `center_crop`.
@@ -35,7 +35,7 @@
 
 ### Bloqueios ativos
 - ffmpeg MSYS2 no Windows rejeita expressões de crop dinâmico com parênteses/vírgulas (ex.: `between(n,0,1)`). Em estudo: `sendcmd`/`zoompan`/fallback por segmento/build diferente.
-- Branch 265 commits ahead / 102 behind origin: divergência não sincronizada. Sincronização pendente de autorização explícita.
+- Branch 1 commit ahead de origin: sincronizada.
 
 ## Norte imediato
 
