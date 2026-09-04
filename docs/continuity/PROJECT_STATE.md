@@ -13,7 +13,7 @@
 | Natureza da release atual | Importação append-only de decisões humanas no `hard-negative-v1`, conflitos explícitos, adjudicação e métricas descritivas |
 | Fonte da versão | [`VERSION`](../../VERSION) |
 | Branch de trabalho | `furia-treino-noturno` |
-| Última publicação conhecida | `7f73b83` — feat: adicionar script de validação de abertura de corte por transcrição (6.63)
+| Última publicação conhecida | `c4f9d76` — test: marcar regressão de fronteira de saída do acervo como xfail (6.63) |
 | Commit funcional 2.6 | `fec34fe` — `feat: primeira ponte funcional Campaign Hub para propostas (2.6)` |
 | Commit funcional 2.7 | `a0452d3` — `fix: declarar confiabilidade da medição no benchmark editorial (2.7)` |
 | Commit funcional 2.8 | `fdf5e6b` — `fix: alinhar seeds do Campaign Hub com a mídia local em processamento (2.8)` |
