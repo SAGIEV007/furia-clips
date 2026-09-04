@@ -135,6 +135,34 @@ class ClipSelectionTests(unittest.TestCase):
         )
 
 
+
+    def test_payoff_gate_rejects_cliffhanger_ending(self):
+        cliffhangers = (
+            "Nova informação vem em breve.",
+            "Depois eu explico melhor.",
+            "Fique ligado.",
+        )
+        for text in cliffhangers:
+            flags = self.selector._editorial_flags(text)
+            self.assertFalse(
+                flags["payoff_complete"],
+                msg=f"cliffhanger nao foi marcado: {text}",
+            )
+
+    def test_question_answer_contract_preserves_complete_payoff(self):
+        text = "Por que o orçamento não passou? Porque a maioria votou contra e o prazo acabou."
+        flags = self.selector._editorial_flags(text)
+        self.assertTrue(flags["payoff_complete"])
+        self.assertTrue(flags["question_answer_complete"])
+        self.assertTrue(flags["context_complete"])
+
+    def test_payoff_gate_rejects_two_word_weak_ending(self):
+        weak = self.selector._editorial_flags(
+            "A proposta resolveria o problema e protegeria o cidadão, por isso."
+        )
+        self.assertTrue(weak["payoff_weak_ending"])
+        self.assertFalse(weak["payoff_complete"])
+
 if __name__ == "__main__":
     unittest.main()
 
