@@ -13,7 +13,7 @@
 | Natureza da release atual | Importação append-only de decisões humanas no `hard-negative-v1`, conflitos explícitos, adjudicação e métricas descritivas |
 | Fonte da versão | [`VERSION`](../../VERSION) |
 | Branch de trabalho | `furia-treino-noturno` |
-| Última publicação conhecida | `d297449` — feat: adicionar fallback de crop estático por segmento para contornar bug ffmpeg MSYS2 (6.63)
+| Última publicação conhecida | `8b556e7` — feat: integrar crop estático por segmento como padrão no batch_cut quando use_face_tracking=True (6.63)
 | Commit funcional 2.6 | `fec34fe` — `feat: primeira ponte funcional Campaign Hub para propostas (2.6)` |
 | Commit funcional 2.7 | `a0452d3` — `fix: declarar confiabilidade da medição no benchmark editorial (2.7)` |
 | Commit funcional 2.8 | `fdf5e6b` — `fix: alinhar seeds do Campaign Hub com a mídia local em processamento (2.8)` |
