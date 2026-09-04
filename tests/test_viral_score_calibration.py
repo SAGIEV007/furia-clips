@@ -14,7 +14,7 @@ def test_grade_mapping_locked():
         "duration": 30,
     }
     result = _score_from_grades(clip)
-    assert result["viral_score"] == 29  # 80*0.20 + 25*0.35 + 0*0.25 + 25*0.20 = 29.75 -> 29  # 80*0.20 + 25*0.35 + 0*0.25 + 25*0.20 = 35
+    assert result["viral_score"] == 29  # 80*0.20 + 25*0.35 + 0*0.25 + 25*0.20 = 29.75 -> 29
     assert result["breakdown"] == clip["breakdown"]
 
 

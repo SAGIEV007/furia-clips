@@ -231,3 +231,63 @@ if __name__ == "__main__":
             "ta"
         )
         self.assertFalse(flags["ending_fragmented"])
+
+
+class LocalNlpPenaltyTests(unittest.TestCase):
+    """Score-based penalty formula in _build_clips_from_scored_blocks."""
+
+    def setUp(self):
+        self.selector = ClipSelector(
+            target_duration=20,
+            max_clips=5,
+            min_duration=5,
+            max_duration=30,
+        )
+
+    def _make_block(self, index, start, end, text, score, **meta):
+        return {
+            "index": index,
+            "start": start,
+            "end": end,
+            "duration": end - start,
+            "text": text,
+            "speaker_turn_valid": True,
+            "timing_confidence": 1.0,
+            "sentences": [
+                {"start": start, "end": end, "text": text}
+            ],
+            **meta,
+        }
+
+    @patch.object(ClipSelector, "_editorial_flags")
+    def test_penalties_lock_viral_score_for_avg_47(self, mock_flags):
+        """avg_score=47 with context/complete failures must yield 25."""
+        mock_flags.return_value = {
+            "starts_mid_sentence": False,
+            "starts_with_context_reference": False,
+            "question_detected": False,
+            "question_requires_answer": False,
+            "question_answer_complete": False,
+            "evidence_present": False,
+            "payoff_complete": False,
+            "payoff_weak_ending": False,
+            "ending_fragmented": False,
+            "opening_dependent": False,
+            "context_complete": False,
+            "qa_bridge": False,
+            "speaker_turn_valid": True,
+            "speaker_identity_required": False,
+            "speaker_identity_available": True,
+            "speaker_identity_review_required": False,
+            "overlap_suspected": False,
+            "timing_ambiguous": False,
+            "timing_confidence": 1.0,
+            "review_required": True,
+            "review_reasons": [],
+        }
+        scored = [
+            (self._make_block(0, 0, 8, "Texto de teste para clip.", 47), 47),
+        ]
+        clips = self.selector._build_clips_from_scored_blocks(scored)
+        self.assertEqual(len(clips), 1)
+        self.assertEqual(clips[0]["viral_score"], 25)
