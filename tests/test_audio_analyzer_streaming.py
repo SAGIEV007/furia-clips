@@ -150,3 +150,27 @@ def test_segment_speech_filters_short_segments(tmp_path):
 
     result = AudioAnalyzer().segment_speech(str(source))
     assert isinstance(result, list)
+
+
+def test_extract_audio_forces_overwrite_with_y(tmp_path, monkeypatch):
+    import modules.audio_analyzer as audio_module
+
+    source = tmp_path / "source.mp4"
+    source.write_bytes(b"fake")
+
+    captured = {}
+
+    def fake_run(cmd, **kwargs):
+        captured["cmd"] = cmd
+        class FakeResult:
+            returncode = 0
+            stderr = ""
+            stdout = ""
+        return FakeResult()
+
+    monkeypatch.setattr(audio_module.subprocess, "run", fake_run)
+    monkeypatch.setattr(audio_module.AudioAnalyzer, "_has_audio_stream", lambda self, video_path: True)
+
+    result = AudioAnalyzer().extract_audio(str(source))
+    assert result is not None
+    assert "-y" in captured["cmd"]

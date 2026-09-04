@@ -41,7 +41,7 @@ class AudioAnalyzer:
         tmp.close()
         cmd = [
             "ffmpeg", "-nostdin", "-v", "error", "-i", video_path,
-            "-vn", "-acodec", "pcm_s16le",
+            "-y", "-vn", "-acodec", "pcm_s16le",
             "-ar", str(self.sample_rate), "-ac", "1",
             tmp.name
         ]
