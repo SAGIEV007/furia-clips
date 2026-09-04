@@ -13,7 +13,7 @@
 | Natureza da release atual | Importação append-only de decisões humanas no `hard-negative-v1`, conflitos explícitos, adjudicação e métricas descritivas |
 | Fonte da versão | [`VERSION`](../../VERSION) |
 | Branch de trabalho | `furia-treino-noturno` |
-| Última publicação conhecida | `8d4ccb8` — `docs: alinhar PROJECT_STATE.md com HEAD 7fdc4e0 e release 6.62` |
+| Última publicação conhecida | `2dea39c` — `docs: alinhar PROJECT_STATE.md com HEAD 8d4ccb8 e suite 1170` |
 | Commit funcional 2.6 | `fec34fe` — `feat: primeira ponte funcional Campaign Hub para propostas (2.6)` |
 | Commit funcional 2.7 | `a0452d3` — `fix: declarar confiabilidade da medição no benchmark editorial (2.7)` |
 | Commit funcional 2.8 | `fdf5e6b` — `fix: alinhar seeds do Campaign Hub com a mídia local em processamento (2.8)` |
@@ -22,7 +22,7 @@
 | Commit funcional 3.1 | `a170aab` — `feat: entregar todo candidato com contexto, locutor e veredito de revisão (3.1)` |
 | Última atualização | 2026-09-03 |
 | Baseline editorial | Duas fontes medidas na 3.1. `3XJfcqn56Rw` (live 98 min): recall `50/66`, cobertura `25/27`. `j9FRVbb8CAI` (entrevista 31 min): recall `30/34`, cobertura `11/11`. Precisão `1.00`, zero fora de bloco e zero desperdício **nas duas**. O ciclo 6.14 mediu `3/30` identidades disponíveis no Renan-first com snapshot rico, contra `0/30` sem snapshot. |
-| Suíte no checkout | 1170 aprovados, 13 ignorados, 2 xfailed, 0 failed; execução em ~90s via `./pytest.cmd` |
+| Suíte no checkout | 1170 passed, 13 skipped, 2 xfailed, 0 failed; execução em ~90s via `./pytest.cmd` |
 | Objetivo | Gerar cortes Renan Santos/MBL concisos, autossuficientes, contextualizados e editorialmente úteis |
 
 A branch de trabalho deve ser confirmada no checkout real. O GitHub é a fonte da revisão técnica; o commit funcional publicado da 6.26 é `54a4d8e`. Antes de alterar qualquer arquivo, preserve mudanças locais e confirme `git status`.
