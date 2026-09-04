@@ -18,6 +18,7 @@ from collections import Counter
 from .political_profile import PROFILE_NAME, build_political_prompt_fragment
 from .editorial_chapters import annotate_clip_with_chapters
 from .fronteira_assunto import fim_fragmentado, abre_dependente
+from .quality_gate import apply_quality_gate
 from .interview_turns import (
     classify_broadcast_boundary,
     detect_interviewer_turns,
@@ -610,6 +611,35 @@ class ClipSelector:
         # Do not recreate intervals already generated in a previous run of the same source.
         clips = self._remove_previous_fingerprints(clips)
         self._record_candidate_stage("post_previous_fingerprints", clips)
+
+        # Hard quality gate: drop clips that fail editorial checks (opening
+        # dependent, ending fragmented, no context, no payoff, duplicate).
+        accepted, rejected = apply_quality_gate(clips)
+        gate_diagnostics = {
+            "quality_gate_total": len(clips),
+            "quality_gate_accepted": len(accepted),
+            "quality_gate_rejected": len(rejected),
+            "quality_gate_rejection_reasons": {},
+        }
+        for clip in rejected:
+            for reason in clip.get("rejection_reasons", []):
+                gate_diagnostics["quality_gate_rejection_reasons"][reason] = (
+                    gate_diagnostics["quality_gate_rejection_reasons"].get(reason, 0) + 1
+                )
+        self._candidate_diagnostics.update(gate_diagnostics)
+        if rejected and emit_progress:
+            top_reasons = sorted(
+                gate_diagnostics["quality_gate_rejection_reasons"].items(),
+                key=lambda x: x[1],
+                reverse=True,
+            )[:3]
+            reasons_str = "; ".join(f"{r} ({n})" for r, n in top_reasons)
+            emit_progress(
+                f"[Gate] {len(rejected)}/{len(clips)} candidatos reprovados: {reasons_str}.",
+                "warning",
+            )
+        clips = accepted
+        self._record_candidate_stage("post_quality_gate", clips)
 
         # Limit to the adaptive maximum only after deduplication, so a second run can
         # fill the queue with genuinely new moments instead of truncating repetitions.
