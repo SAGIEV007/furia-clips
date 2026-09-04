@@ -50,3 +50,21 @@ def test_smooth_follows_drift():
     smoothed = kalman_smooth_crop_path(centers, process_noise=0.01, measurement_noise=0.5)
     assert smoothed[-1].x > centers[-1].x - 0.05
     assert smoothed[-1].y > centers[-1].y - 0.05
+
+
+def test_smooth_reduces_jitter_realistic_face_track():
+    rng = np.random.default_rng(123)
+    base_x = 0.62
+    jitter = 0.07
+    centers = [
+        CropState(
+            base_x + rng.uniform(-jitter, jitter),
+            0.5 + rng.uniform(-0.02, 0.02),
+        )
+        for _ in range(60)
+    ]
+    smoothed = kalman_smooth_crop_path(centers)
+    raw_jitter = float(np.mean(np.abs(np.diff([c.x for c in centers]))))
+    smooth_jitter = float(np.mean(np.abs(np.diff([s.x for s in smoothed]))))
+    reduction = raw_jitter / smooth_jitter if smooth_jitter > 0 else float("inf")
+    assert reduction >= 1.5
