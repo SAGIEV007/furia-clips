@@ -108,3 +108,51 @@ def test_invalid_render_is_removed_before_it_can_be_returned(tmp_path):
     assert result is False
     assert not invalid.exists()
     assert any("Renderização rejeitada" in message for message, _ in events)
+
+
+class StaticSegmentCropTests(unittest.TestCase):
+    def test_group_face_positions_by_segment(self):
+        cutter = VideoCutter()
+        fps = [{"time": 0.0, "center_x": 0.6, "center_y": 0.5, "confidence": 0.9},
+               {"time": 1.0, "center_x": 0.7, "center_y": 0.5, "confidence": 0.8},
+               {"time": 2.5, "center_x": 0.8, "center_y": 0.5, "confidence": 0.7},
+               {"time": 3.5, "center_x": 0.4, "center_y": 0.5, "confidence": 0.6}]
+        segs = cutter._group_face_positions_by_segment(fps, 5.0, segment_duration=2.0)
+        self.assertEqual(len(segs), 3)
+        self.assertAlmostEqual(segs[0]["center_x"], 0.65, places=2)
+        self.assertEqual(segs[0]["count"], 2)
+        self.assertAlmostEqual(segs[1]["center_x"], 0.8, places=2)
+        self.assertEqual(segs[1]["count"], 1)
+        self.assertAlmostEqual(segs[2]["center_x"], 0.4, places=2)
+        self.assertEqual(segs[2]["count"], 1)
+
+    def test_group_empty_positions(self):
+        cutter = VideoCutter()
+        segs = cutter._group_face_positions_by_segment([], 3.0, 1.0)
+        self.assertEqual(segs, [])
+
+    @unittest.skipUnless(os.path.exists(FIXTURE), "fixture de mídia ainda não foi gerada")
+    def test_cut_clip_with_static_segment_crops_renders(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            output = os.path.join(tempdir, "segments.mp4")
+            face_positions = [
+                {"time": 0.0, "center_x": 0.7, "center_y": 0.5, "confidence": 0.9},
+                {"time": 0.5, "center_x": 0.7, "center_y": 0.5, "confidence": 0.9},
+                {"time": 1.0, "center_x": 0.7, "center_y": 0.5, "confidence": 0.9},
+            ]
+            cutter = VideoCutter(preset="shorts")
+            result = cutter.cut_clip_with_static_segment_crops(
+                FIXTURE, 0, 1.0, output, face_positions=face_positions,
+                segment_duration=0.5,
+            )
+            self.assertEqual(result, output)
+            self.assertTrue(os.path.exists(output))
+            validation = validate_media(
+                output,
+                expected_width=1080,
+                expected_height=1920,
+                expected_duration=1.0,
+                duration_tolerance=0.5,
+                require_audio=True,
+            )
+            self.assertTrue(validation.valid, validation.as_dict())

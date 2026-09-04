@@ -430,6 +430,154 @@ class VideoCutter:
 
         return output_path
 
+    @staticmethod
+    def _group_face_positions_by_segment(face_positions, duration, segment_duration=2.0):
+        import math
+        if not face_positions or duration <= 0:
+            return []
+        segments = []
+        n = max(1, int(math.ceil(duration / segment_duration)))
+        seg_dur = duration / n
+        for i in range(n):
+            seg_start = i * seg_dur
+            seg_end = min((i + 1) * seg_dur, duration)
+            pts = [p for p in face_positions if seg_start <= float(p.get("time", 0)) < seg_end]
+            if pts:
+                weights = [max(0.01, float(p.get("confidence", 1.0))) for p in pts]
+                wx = sum(float(p.get("center_x", 0.5)) * w for p, w in zip(pts, weights))
+                avg_x = wx / sum(weights)
+                wy = sum(float(p.get("center_y", 0.5)) * w for p, w in zip(pts, weights))
+                avg_y = wy / sum(weights)
+            else:
+                avg_x = 0.5
+                avg_y = 0.5
+            segments.append({
+                "start": seg_start,
+                "end": seg_end,
+                "center_x": avg_x,
+                "center_y": avg_y,
+                "count": len(pts),
+            })
+        return segments
+
+    def cut_clip_with_static_segment_crops(self, video_path, start_time, end_time,
+                                           output_path, face_positions=None,
+                                           segment_duration=2.0, emit_progress=None,
+                                           preset=None, cancel_check=None):
+        if emit_progress:
+            emit_progress(
+                f"Cortando clip com crop estático por segmento {start_time:.1f}s - {end_time:.1f}s..."
+            )
+        duration = end_time - start_time
+        info = self.get_video_info(video_path)
+        video_stream = next(
+            (s for s in info.get("streams", []) if s["codec_type"] == "video"), None
+        )
+        if not video_stream:
+            return self.cut_clip(video_path, start_time, end_time, output_path, True,
+                                 emit_progress, cancel_check=cancel_check)
+
+        orig_w = int(video_stream["width"])
+        orig_h = int(video_stream["height"])
+        crop_w = min(orig_w, max(2, int(orig_h * 9 / 16)))
+        crop_h = orig_h
+        active_preset = preset or self.preset
+
+        segments = self._group_face_positions_by_segment(
+            face_positions or [], duration, segment_duration
+        )
+        if not segments:
+            crop_x = max(0, (orig_w - crop_w) // 2)
+            vf = f"crop={crop_w}:{crop_h}:{crop_x}:0,scale={active_preset['width']}:{active_preset['height']}"
+            cmd = [
+                "ffmpeg", "-y", "-hwaccel", "none",
+                "-ss", str(start_time), "-i", video_path,
+                "-t", str(duration),
+                "-vf", vf,
+                "-c:v", "libx264", "-preset", "medium", "-crf", "23",
+                "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart",
+                output_path,
+            ]
+            return self._run_ffmpeg(
+                cmd, cancel_check=cancel_check, emit_progress=emit_progress,
+                progress_label="clip com crop estático", timeout_seconds=self._render_timeout_seconds(duration),
+            ).returncode == 0 and output_path or None
+
+        import tempfile, os as _os
+        temp_dir = tempfile.mkdtemp(prefix="furia_seg_")
+        seg_files = []
+        try:
+            for i, seg in enumerate(segments):
+                abs_start = start_time + seg["start"]
+                abs_end = start_time + seg["end"]
+                seg_dur = abs_end - abs_start
+                cx = int(seg["center_x"] * orig_w - crop_w / 2)
+                cx = max(0, min(cx, orig_w - crop_w))
+                vf = f"crop={crop_w}:{crop_h}:{cx}:0,scale={active_preset['width']}:{active_preset['height']}"
+                seg_path = _os.path.join(temp_dir, f"seg_{i:03d}.mp4")
+                cmd = [
+                    "ffmpeg", "-y", "-hwaccel", "none",
+                    "-ss", str(abs_start), "-i", video_path,
+                    "-t", str(seg_dur),
+                    "-vf", vf,
+                    "-c:v", "libx264", "-preset", "medium", "-crf", "23",
+                    "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart",
+                    seg_path,
+                ]
+                res = self._run_ffmpeg(
+                    cmd, cancel_check=cancel_check,
+                    progress_label=f"segmento {i+1}/{len(segments)}",
+                    timeout_seconds=self._render_timeout_seconds(seg_dur),
+                )
+                if res.returncode != 0 or not _os.path.exists(seg_path):
+                    if emit_progress:
+                        emit_progress(f"Falha ao renderizar segmento {i}; caindo para crop simples.")
+                    return self.cut_clip(video_path, start_time, end_time, output_path, True,
+                                         emit_progress, cancel_check=cancel_check)
+                seg_files.append(seg_path)
+
+            list_path = _os.path.join(temp_dir, "concat.txt")
+            with open(list_path, "w", encoding="utf-8") as f:
+                for p in seg_files:
+                    f.write("file '" + p + "\n")
+
+            concat_cmd = [
+                "ffmpeg", "-y", "-f", "concat", "-safe", "0",
+                "-i", list_path,
+                "-c", "copy", output_path,
+            ]
+            cres = self._run_ffmpeg(
+                concat_cmd, cancel_check=cancel_check,
+                progress_label="concatenando segmentos",
+                timeout_seconds=30,
+            )
+            if cres.returncode != 0:
+                if emit_progress:
+                    emit_progress("Falha na concatenação; caindo para crop simples.")
+                return self.cut_clip(video_path, start_time, end_time, output_path, True,
+                                     emit_progress, cancel_check=cancel_check)
+        finally:
+            for p in seg_files:
+                try:
+                    _os.remove(p)
+                except OSError:
+                    pass
+            try:
+                _os.rmdir(temp_dir)
+            except OSError:
+                pass
+
+        if not self._validate_rendered_output(
+            output_path, duration, emit_progress,
+            require_audio=self._source_has_audio_stream(video_path) is not False,
+        ):
+            return None
+
+        if emit_progress:
+            emit_progress(f"Clip com crop estático por segmento criado: {_os.path.basename(output_path)}")
+        return output_path
+
+
     def _sanitize_folder_name(self, name, max_len=80):
         """Create a safe folder name from video title."""
         safe = re.sub(r'[<>:"/\\|?*]', '', name)
