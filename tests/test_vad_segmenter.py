@@ -45,3 +45,14 @@ class TestVADSegmenter:
         assert result[0]["start"] <= 0.9
         assert result[0]["end"] >= 1.3
         assert result[0]["end"] <= 1.8
+
+
+class TestVADSegmenterFallback:
+    def test_missing_backend_returns_empty(self, monkeypatch):
+        import modules.vad_segmenter as vad_module
+        monkeypatch.setitem(vad_module.__dict__, "get_vad_model", None)
+        seg = VADSegmenter()
+        # Remove cached model to force reload path
+        seg._model = None
+        result = seg.segment(__import__("numpy").zeros(16000, dtype="float32"), 16000)
+        assert result == []

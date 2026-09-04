@@ -29,10 +29,8 @@ class VADSegmenter:
             try:
                 from faster_whisper.vad import get_vad_model
                 self._model = get_vad_model()
-            except Exception as exc:
-                raise RuntimeError(
-                    "Silero VAD empacotado no faster-whisper não está disponível."
-                ) from exc
+            except Exception:
+                self._model = False
 
     def segment(
         self,
@@ -41,6 +39,8 @@ class VADSegmenter:
     ) -> List[dict]:
         """Retorna segmentos de fala [{start, end}, ...] em segundos."""
         self._load_model()
+        if self._model is False:
+            return []
         from faster_whisper.vad import VadOptions, get_speech_timestamps
         opts = VadOptions(
             threshold=self.threshold,
