@@ -113,6 +113,42 @@ def _ends_on_question(text: str) -> bool:
     return False
 
 
+def _starts_with_reporter_question(text: str) -> bool:
+    """Check if the clip text STARTS with a reporter question marker.
+
+    This is different from _is_reporter_question which checks anywhere in text.
+    The boundary repair should have moved the start past the question.
+    If the text still starts with a reporter question, the boundary repair failed.
+    """
+    if not text:
+        return False
+    stripped = text.lstrip().lower()
+    # Reporter question markers at the very start
+    reporter_starters = [
+        "candidato",
+        "o senhor",
+        "você ",
+        "como o senhor",
+        "como você",
+        "o que o senhor",
+        "o que você",
+        "por que o senhor",
+        "por que você",
+        "quando o senhor",
+        "quando você",
+        "onde o senhor",
+        "onde você",
+        "o presidente da república",
+        "o presidente tem que ser",
+        "seriam 30 mil pessoas",
+        "chamava muito a atenção",
+    ]
+    for marker in reporter_starters:
+        if stripped.startswith(marker):
+            return True
+    return False
+
+
 def _has_minimum_context(text: str, min_words: int = 6) -> bool:
     """Check if the clip has at least min_words of context before the main hook."""
     if not text:
@@ -120,6 +156,29 @@ def _has_minimum_context(text: str, min_words: int = 6) -> bool:
     words = text.split()
     return len(words) >= min_words
 
+
+def _has_substantive_answer(text: str) -> bool:
+    """Check if the clip contains a substantive answer after a question.
+
+    A valid Q&A clip starts with the reporter's question AND includes
+    Renan's substantive answer. We check for first-person/assertion markers
+    after the first question mark.
+    """
+    if not text:
+        return False
+    first_qmark = text.find("?")
+    if first_qmark < 0:
+        return False
+    after_question = text[first_qmark + 1:].strip()
+    if len(after_question) <= 30:
+        return False
+    answer_markers = [
+        "eu ", "nós ", "minha ", "minha opinião", "eu acho", "eu vou",
+        "vamos ", "é ", "não ", "sim ", "acho que", "acredito",
+        "defendo", "proponho", "entendo", "pensamento"
+    ]
+    after_lower = after_question.lower()
+    return any(m in after_lower for m in answer_markers)
 
 
 def apply_quality_gate(clips: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
@@ -169,15 +228,22 @@ def apply_quality_gate(clips: list[dict[str, Any]]) -> tuple[list[dict[str, Any]
             reasons.append("contexto_incompleto")
         if not flags.get("payoff_complete", True):
             reasons.append("payoff_incompleto")
-        # Gate 3b: reporter question should not be the opening
-        if _is_reporter_question(text):
+
+        # Gate 3b: clip STARTS with reporter question (boundary repair failed)
+        # The boundary repair (_align_to_interview_turns, _open_where_the_thought_begins)
+        # should have moved the start past the reporter's question to the guest's answer.
+        # If the clip still starts with a reporter question marker, the repair failed.
+        if _starts_with_reporter_question(text):
             reasons.append("abre_com_pergunta_do_reporter")
+
         # Gate 3c: clip should not end on a question
         if _ends_on_question(text):
             reasons.append("termina_na_pergunta")
+
         # Gate 3d: minimum context check
         if not _has_minimum_context(text, min_words=6):
             reasons.append("contexto_insuficiente")
+
         if flags.get("overlap_suspected"):
             reasons.append("tempo_ambiguo")
         if flags.get("contains_broadcast_break"):
