@@ -657,9 +657,10 @@ class VideoCutter:
             framing_reason = ""
             try:
                 if can_reframe:
-                    result = self.cut_clip_with_face_tracking(
+                    result = self.cut_clip_with_static_segment_crops(
                         video_path, padded_start, padded_end,
-                        output_path, face_pos, emit_progress, active_preset, cancel_check=cancel_check
+                        output_path, face_pos, emit_progress=emit_progress,
+                        preset=active_preset, cancel_check=cancel_check
                     )
                     framing_mode = "face_tracking"
                     framing_reason = "facetracking aplicado com posição facial detectada"
