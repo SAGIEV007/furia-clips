@@ -2317,12 +2317,12 @@ Retorne APENAS o JSON.
                 sel["review_reasons"] = list(sel.get("review_reasons") or [])
                 sel["review_reasons"].append("identidade do locutor não confirmada para o foco Renan-first")
 
-            # Score scale: A=90, B=55, C=25 (wide spread for real differentiation)
-            grade_to_score = {"A": 90, "B": 55, "C": 25}
-            hook_score = grade_to_score.get(sel.get("hook", "B"), 55)
-            flow_score = grade_to_score.get(sel.get("flow", "B"), 55)
-            value_score = grade_to_score.get(sel.get("value", "B"), 55)
-            energy_score = grade_to_score.get(sel.get("energy", "B"), 55)
+            # Score scale: A=80, B=25, C=0 (calibrated to editorial baseline)
+            grade_to_score = {"A": 80, "B": 25, "C": 0}
+            hook_score = grade_to_score.get(sel.get("hook", "B"), 25)
+            flow_score = grade_to_score.get(sel.get("flow", "B"), 25)
+            value_score = grade_to_score.get(sel.get("value", "B"), 25)
+            energy_score = grade_to_score.get(sel.get("energy", "B"), 25)
 
             # Weighted: flow (context completeness) gets highest weight
             viral_score = int(
