@@ -1,6 +1,6 @@
 # PROJECT_STATE — Furia Clips
 
-> Este é o estado vivo do projeto. Atualize-o ao final de cada rodada verificável. O histórico detalhado permanece nos relatórios de ciclo; não misture instruções antigas, hashes obsoletos ou alterações locais já encerradas com o estado corrente.
+> Estado vivo do projeto. Atualizado em 2026-09-04 16:44 BRT.
 
 ## Estado corrente
 
@@ -8,375 +8,44 @@
 | --- | --- |
 | Projeto | Furia Clips |
 | Repositório | `SAGIEV007/furia-clips` |
-| Versão pública atual | `6.63` |
-| Última release funcional anterior | `6.20` |
-| Natureza da release atual | Importação append-only de decisões humanas no `hard-negative-v1`, conflitos explícitos, adjudicação e métricas descritivas |
-| Fonte da versão | [`VERSION`](../../VERSION) |
+| Versão | `6.63` |
 | Branch de trabalho | `furia-treino-noturno` |
-| Última publicação conhecida | `c4f9d76` — test: marcar regressão de fronteira de saída do acervo como xfail (6.63) |
-| Commit funcional 2.6 | `fec34fe` — `feat: primeira ponte funcional Campaign Hub para propostas (2.6)` |
-| Commit funcional 2.7 | `a0452d3` — `fix: declarar confiabilidade da medição no benchmark editorial (2.7)` |
-| Commit funcional 2.8 | `fdf5e6b` — `fix: alinhar seeds do Campaign Hub com a mídia local em processamento (2.8)` |
-| Commit funcional 2.9 | `10c1fad` — `feat: medir recall em fonte longa inteira e descartar não-conteúdo rotulado (2.9)` |
-| Commit funcional 3.0 | `f83d1fb` — `feat: governar o orçamento de candidatos pela fonte, com precisão medida (3.0)` |
-| Commit funcional 3.1 | `a170aab` — `feat: entregar todo candidato com contexto, locutor e veredito de revisão (3.1)` |
-| Última atualização | 2026-09-04 |
-| Baseline editorial | Duas fontes medidas na 3.1. `3XJfcqn56Rw` (live 98 min): recall `50/66`, cobertura `25/27`. `j9FRVbb8CAI` (entrevista 31 min): recall `30/34`, cobertura `11/11`. Precisão `1.00`, zero fora de bloco e zero desperdício **nas duas**. O ciclo 6.14 mediu `3/30` identidades disponíveis no Renan-first com snapshot rico, contra `0/30` sem snapshot. |
-| Suíte no checkout | **1215 passed, 13 skipped, 3 xfailed**; execução em ~92s via `./pytest.cmd` |
+| HEAD local | `833ceb0` |
+| Divergência origin | 265 ahead / 102 behind (não sincronizada) |
+| Suíte | **1215 passed, 13 skipped, 3 xfailed** em ~92s |
+| Baseline editorial | Duas fontes medidas na 3.1. `3XJfcqn56Rw` (live 98 min): recall `50/66`, cobertura `25/27`. `j9FRVbb8CAI` (entrevista 31 min): recall `30/34`, cobertura `11/11`. Precisão `1.00`, zero fora de bloco e zero desperdício **nas duas**. |
 | Objetivo | Gerar cortes Renan Santos/MBL concisos, autossuficientes, contextualizados e editorialmente úteis |
 
-A branch de trabalho deve ser confirmada no checkout real. O GitHub é a fonte da revisão técnica; o commit funcional publicado da 6.26 é `54a4d8e`. Antes de alterar qualquer arquivo, preserve mudanças locais e confirme `git status`.
+### Mídia local validada
+- `FuriaClipsData/downloads/cnn-renan-santos-snjkrNF-aIU.mp4` (3394s, 16:9)
+- `FuriaClipsData/exports/cnn-renan-santos-16x9/` (19 clips, 1920x1080)
+- `FuriaClipsData/exports/cnn-renan-santos/` (19 clips)
+- `FuriaClipsData/exports/snjkrNF-aIU/` (2 clips)
+
+### Últimas medições reais
+- Crop dinâmico (Kalman) em `cnn-renan-santos-16x9/clip_01.mp4`: 30 faces, jitter reduzido **1,72x** (raw 0,0151 → smooth 0,0088). Render bloqueado por bug conhecido do ffmpeg MSYS2; fallback estático por segmento ativo.
+- Transcrição e abertura em `flow-news-065`: manual 0/48 (0% abertura no meio), Whisper 2/40 (5%) — melhoria em relação a 25% documentado anteriormente.
+
+### Decisões recentes
+- `833ceb0`: docs alinhados com HEAD/suite reais.
+- `c4f9d76`: fronteira de saída do acervo marcada como xfail (crossings são overshoots pequenos sobre fronteiras de território que alinham com boundaries de sentença; seletor não recebe `blocos_de_referencia` em produção).
+- `75f8c11`: quality gate defaults ajustados (`context_complete`/`payoff_complete` usam `True` por padrão) para evitar rejeição silenciosa de clips sem flag explícito.
+- `8b556e7`: crop estático por segmento integrado como padrão no `batch_cut` quando `use_face_tracking=True`, com fallback `center_crop`.
+- `7f73b83`: gates de fronteira de abertura/fecho expandidos com conectivos reais, detecção de anáfora órfã e tratamento de toco.
+
+### Bloqueios ativos
+- ffmpeg MSYS2 no Windows rejeita expressões de crop dinâmico com parênteses/vírgulas (ex.: `between(n,0,1)`). Em estudo: `sendcmd`/`zoompan`/fallback por segmento/build diferente.
+- Branch 265 commits ahead / 102 behind origin: divergência não sincronizada. Sincronização pendente de autorização explícita.
 
 ## Norte imediato
 
-A release 6.14 confirma que o Campaign Hub é útil, mas ainda não suficiente: o snapshot rico elevou o recall exploratório de IoU 0,10 de `7,58%` para `27,27%` no genérico e resolveu `3/30` identidades no Renan-first, mas a precisão de borda e a aprovação humana ainda não foram demonstradas. O problema de ingestão autenticada da 6.12 continua separado e não verificado no sandbox.
+A integração do Campaign Hub continua como memória/seed read-only. O crop dinâmico (Kalman) reduz jitter em vídeo real do Renan (1,33x–1,72x), mas a renderização dinâmica está bloqueada no Windows/MSYS2. O fallback estático por segmento já está no `batch_cut`.
 
-O ciclo 31 corrigiu o scorer para receber explicitamente o benchmark e instrumentou as etapas de seleção. No modo Renan-first, apenas propostas Chub com `renanSpeaking=true` entram no pool primário. Na fonte real, o recall Renan-first com Chub passou de `5/66` para `7/66` em IoU 0,10, igualando o caminho sem Chub; o modo genérico permaneceu em `18/66` com Chub. Vinte e quatro propostas sem evidência positiva foram filtradas antes do ranking.
+Prioridades:
+1. Validar crop estático/dinâmico em vídeo real do Renan e contornar bug ffmpeg MSYS2.
+2. Reduzir divergência da branch e sincronizar quando autorizado.
+3. Validar `segment_speech` com vídeo real do Renan.
 
-O ciclo 32 separou a descoberta da publicação. Na mesma fonte, o Chub produziu 30 propostas de descoberta no Renan-first, 6 foram promovidas ao pool guiado e 24 permaneceram em `speaker_gate_review`; o recall publicável ficou em `7/66`, sem alteração do ranking. A interface agora mostra essa diferença, e os diagnósticos persistidos distinguem descoberta, propostas Chub promovidas e candidatos finais gerais.
+## Histórico
 
-O ciclo 33 adicionou processamento parcial por intervalo. O ciclo 34 concentrou-se exclusivamente em UX, tornando o estado do job visível sem rolagem. O ciclo 35 corrigiu a corrida de cancelamento entre a fila e o worker, e tornou a resposta de cancelamento de barra superior verificável. O ciclo 36 implementou identidade persistente de faixa, proveniência e digest de transcrição, contrato narrativo de contexto, gate final de locutor e fidelidade de headlines. O ciclo 37 adicionou eventos estruturados persistentes, retenção, breadcrumbs, endpoints de diagnóstico, captura de erros globais e cópia do resumo completo pela interface, sem alterar o motor editorial. O ciclo 38 pesquisou o MCP/Chub e adicionou recuperação textual conservadora de seeds com timeline incompatível, sempre em revisão. A próxima hipótese única é medir baseline temporal versus `text_anchor` em benchmark real; a observabilidade serve para tornar essa medição reproduzível.
-
-`fim_fragmentado()` e `abre_dependente()` foram integrados ao `_editorial_flags` em `modules/clip_selector.py`: `payoff_complete` agora exige final não fragmentado e `context_complete` rejeita abertura dependente. 3 testes novos garantem o gate; suíte permanece **1170 passed, 13 skipped, 2 xfailed**.
-
-`fim_fragmentado()` e `abre_dependente()` foram integrados ao `_editorial_flags` em `modules/clip_selector.py`: `payoff_complete` agora exige final não fragmentado e `context_complete` rejeita abertura dependente. 3 testes novos garantem o gate; suíte permanece **1170 passed, 13 skipped, 2 xfailed**.
-
-As prioridades editoriais Renan-first continuam preservadas: contexto e payoff antes de hook, gates de locutor antes do ranking, Campaign Hub como memória/seed e não como aprovação, e uma hipótese principal por ciclo.
-
-## Release atual — 6.26
-
-A 6.26 mantém o contrato `hard-negative-v1` da 6.25 e adiciona `apply_hard_negative_decisions()` em `modules/editorial_benchmark.py`. Decisões humanas são anexadas a `decision_history`, limitadas, validadas e associadas a `decision_state`: `unlabeled`, `labeled`, `conflict` ou `adjudicated`. Divergências não são resolvidas pelo último escritor; ficam em `needs_review` até uma decisão com `adjudication=true`. A criação inicial também preserva o histórico da decisão fornecida.
-
-`app.py` expõe `POST /api/editorial/benchmark/<benchmark_id>/decisions`, aceitando mapa ou lista de decisões e retornando somente resumo sanitizado. O armazenamento continua local em `FuriaClipsData/benchmarks/`. `measurement_status` permanece `descriptive_only`: nenhum rótulo humano foi convertido em ajuste automático de ranking.
-
-A suíte completa terminou com **594 aprovados e 4 ignorados**; o BlazeFace foi temporário e removido. Relatório em [`CYCLE_42_REPORT_2026-08-21.md`](CYCLE_42_REPORT_2026-08-21.md). A 6.26 ainda não prova ganho editorial em live real; o commit funcional `54a4d8e` está publicado na branch de trabalho. O próximo ciclo deve importar decisões reais, medir conflitos e produzir before/after antes de alterar qualquer peso.
-
-Instagram está habilitado, mas a API retornou 403 por falta de permissão da aplicação; nenhum perfil foi usado. O Chub permanece como memória/seed read-only e o job segue offline-first.
-
-## Release atual — 6.24 local
-
-A 6.24 adiciona um ledger limitado de `hard_negatives` em `candidate_diagnostics`. Ele preserva até 80 near-misses por execução e conta todos os descartes observados. Cada item guarda intervalo, duração, origem, score, confiança, preview textual curto, motivo e vencedor, quando existe. Foram instrumentados descartes por fingerprint já exportado, duplicata temporal/lexical e irmão contíguo. O ledger é diagnóstico-only: não muda sobreviventes, ranking, gates Chub ou aprovação.
-
-`config.DEFAULT_SETTINGS["whisper_word_timestamps"]` passou a `True`. A configuração ainda pode ser desativada em máquinas com poucos recursos, mas timestamps por palavra são agora o padrão do fluxo editorial para que o refinamento seguro da 6.23 tenha evidência real no processamento local.
-
-A suíte completa terminou com **585 aprovados e 4 ignorados**; o BlazeFace foi temporário e removido. Relatório em [`CYCLE_40_REPORT_2026-08-21.md`](CYCLE_40_REPORT_2026-08-21.md). O próximo ciclo deve transformar hard negatives em benchmark versionado com decisões humanas rastreáveis.
-
-A 6.24 não prova ganho editorial em live real e não altera pesos. O commit funcional `08d8429` está publicado na branch de trabalho. Instagram está habilitado, mas a API retornou 403 por falta de permissão da aplicação; nenhum perfil foi usado nesta rodada. O próximo ciclo continua dependente de fonte/decisão autorizada para medir recall, erro de borda, contexto, payoff e falso Renan.
-
-## Release atual — 6.23 local
-
-A 6.23 consolidou pesquisa de FAVE, HIVE, OpusClip, Vizard, Descript, WhisperX, PySceneDetect e pairwise ranking. A decisão arquitetural é manter um núcleo genérico de seleção, narrativa, borda, locutor, ranking e formato, aprofundado por um perfil Renan/MBL com vocabulário, contas, fontes, gates, famílias editoriais e priors limitados.
-
-`modules/clip_selector.py` agora aproveita timestamps por palavra já presentes na transcrição canônica. O refinamento exige ao menos três palavras, cobertura lexical mínima de `0.55`, deslocamento máximo de `3` segundos por borda e duração dentro dos limites; sem cobertura suficiente, não move a janela e registra o motivo. O campo `word_boundary_refinement` preserva disponibilidade, cobertura, bordas originais/propostas e decisão.
-
-`modules/editorial_ranker.py` agora expõe `eligibility` separado do score: `ready`, `review` ou `blocked`, com bloqueadores, itens de revisão e `publishable_without_review`. O ranking legado não foi alterado e nenhum candidato foi removido por essa camada; ela impede que pontuação alta seja confundida com publicação automática e prepara a fila de revisão futura.
-
-A suíte completa terminou com **582 aprovados e 4 ignorados**; o BlazeFace foi temporário e removido. O relatório está em [`CYCLE_39_REPORT_2026-08-21.md`](CYCLE_39_REPORT_2026-08-21.md), a auditoria em [`AUDIT_CUTTING_PRECISION_CYCLE39_2026-08-21.md`](AUDIT_CUTTING_PRECISION_CYCLE39_2026-08-21.md) e o próximo experimento em [`NEXT_CYCLE.md`](NEXT_CYCLE.md).
-
-A 6.23 ainda não prova ganho editorial em uma live real, não habilita timestamps por palavra automaticamente no transcritor e não altera pesos do ranking. O commit funcional `ee2cc6d` e o fechamento documental `c91cd52` estão publicados na branch de trabalho. O próximo ciclo deve criar hard negatives e comparar erro de borda, contexto, payoff, locutor, headline e revisão.
-
-## Release atual — 6.22 local
-
-A 6.22 é o primeiro ciclo dedicado à pesquisa aprofundada do MCP/Chub depois da observabilidade. A pesquisa confirmou que o MCP é útil como fronteira read-only para pauta, blocos, transcrição paginada, estatísticas e recursos versionados, mas o job normal deve continuar offline-first. A atualização futura deve instalar snapshot sanitizado, hasheado e versionado; não deve chamar o serviço a cada candidato nem colocar credenciais no frontend ou no Git.
-
-`modules/clip_selector.py` agora tenta `text_anchor` somente quando uma seed Chub não sobrepõe a timeline local. A procura é limitada a até três frases, com normalização Unicode, cobertura lexical mínima de `0.55` e score combinado mínimo de `0.62`. O resultado conserva intervalo original, método, score, palavras coincidentes e recebe `alignment_gate=review_required`; texto não prova locutor nem aprova corte.
-
-O diagnóstico de discovery Chub passou a guardar, de forma limitada, seed, block, highlight, resumo, pergunta, tópicos, confiança, ranks, tier, riscos, gates e evidência de alinhamento. Foram adicionadas regressões para correspondência textual válida, ausência de correspondência e ficha explicável. A suíte completa terminou com **576 aprovados e 4 ignorados**; o BlazeFace foi temporário e removido.
-
-A 6.22 ainda não prova ganho editorial em uma live real, não implementa cliente MCP remoto dentro do Furia e não altera pesos de ranking. O commit funcional `6dabc14` está publicado na branch de trabalho. O benchmark seguinte deve comparar baseline temporal versus `text_anchor`, medir falsos alinhamentos e depois testar uma faixa real pela interface usando o diagnóstico copiável. Relatório em [`CYCLE_38_REPORT_2026-08-21.md`](CYCLE_38_REPORT_2026-08-21.md); desenho em [`CYCLE_38_DESIGN_MCP_CHUB_2026-08-21.md`](CYCLE_38_DESIGN_MCP_CHUB_2026-08-21.md).
-
-## Release atual — 6.21
-
-A 6.21 é uma release exclusivamente operacional. O `JobManager` persiste `job_events` com correlação por `job_id`, sequência, etapa, nível, mensagem, detalhes limitados e timestamp. O histórico tem retenção configurável e o diagnóstico reúne job, eventos e breadcrumbs sem registrar chaves, cookies, transcrição integral ou mídia. `JobContext.note()` permite registrar decisões e fallbacks sem alterar o estado visível.
-
-O backend expõe `/api/jobs/<job_id>/events` e `/api/jobs/<job_id>/diagnostic` (com alias plural), enquanto o frontend agrega console textual, eventos estruturados, erros globais e o estado persistido do job em um resumo `ui-diagnostic-v1` copiável pelo botão **Copiar diagnóstico**. Progresso legado carrega versão, revisão, etapa e evento; quando existe job correlacionado, o breadcrumb também é persistido.
-
-A suíte completa validada terminou com **573 aprovados e 4 ignorados**. O modelo BlazeFace foi utilizado somente durante a validação e removido ao final. Relatório em [`CYCLE_37_REPORT_2026-08-21.md`](CYCLE_37_REPORT_2026-08-21.md).
-
-Nenhum peso de ranking, gate Renan-first, integração remota ou lógica de cortes foi alterado nesta release.
-
-## Release anterior — 6.20
-
-A 6.20 preserva o cancelamento seguro, a barra UX, o processamento parcial e os gates Chub/Renan-first. Ela adiciona uma identidade determinística de intervalo, assinatura de fonte, digest/proveniência da transcrição, contrato narrativo de contexto, gate final de locutor no processo completo e relatório de fidelidade para headlines. O pacote é modular e mantém fallback para bancos, plugins e testes legados.
-
-A identidade é propagada para projetos, fingerprints, transcrições, bundles, diagnósticos e payloads finais. O contrato de contexto explicita pergunta/setup, antecedente, resposta/tese, payoff, cobertura e revisão. A voz confirmadamente incompatível não chega ao render Renan-first; voz inconclusiva fica para revisão. O benchmark agora pode registrar identidade de faixa e digest.
-
-A suíte completa validada terminou com **563 aprovados e 4 ignorados**. O modelo BlazeFace foi utilizado somente durante a validação e removido ao final. Relatório em [`CYCLE_36_REPORT_2026-08-21.md`](CYCLE_36_REPORT_2026-08-21.md).
-
-Nenhuma integração remota da fase final foi implementada nesta release.
-
-## Release anterior — 6.19
-
-A 6.19 preserva todo o contrato Chub/Renan-first, de processamento parcial e de UX da 6.18. A mudança é operacional: o gerenciador reivindica um job enfileirado de forma atômica, cancela imediatamente o que ainda não começou e verifica o cancelamento antes do alvo executar qualquer trabalho.
-
-Jobs que já começaram continuam cooperativos: passam por `cancel_requested` e terminam quando alcançam uma etapa segura. A barra superior valida a resposta HTTP, desabilita cliques duplicados, informa aceitação somente após resposta válida e exibe falhas no console e no toast.
-
-Nenhum ranking, gate, contexto, Campaign Hub, endpoint editorial ou renderização foi alterado. A 6.19 adiciona `CYCLE_35_REPORT_2026-08-21.md` e novas regressões em `tests/test_job_manager.py` e `tests/test_frontend_integrity.py`. A suíte validada teve 557 aprovados e 4 ignorados; o modelo BlazeFace foi removido antes do commit.
-
-## Futuro da ferramenta — fase final registrada em 2026-08-21
-
-Depois do fortalecimento do motor de cortes, o produto poderá evoluir para uma plataforma de missões editoriais, mantendo cortes Renan Santos/MBL como núcleo. A expansão futura inclui memória Campaign Hub, pesquisa de notícias e imagens recentes, dossiês com afirmações rastreáveis, watchlists, briefings, fila de revisão, acionamento remoto por mensagens, alertas móveis e notificações de smartwatch. A proposta não significa que essas integrações já estejam implementadas.
-
-O documento completo está em [`FUTURE_PLATFORM_2026-08-21.md`](FUTURE_PLATFORM_2026-08-21.md). O inventário exato de alterações desde o ponto de retomada está em [`HANDOFF_SINCE_CLAUDE_2026-08-21.md`](HANDOFF_SINCE_CLAUDE_2026-08-21.md). Antes da fase final, a prioridade imediata de código é melhorar precisão de cortes e integração Chub/MBL, começando pela identidade persistente de intervalo; cada ciclo terá hipótese, teste e critério de sucesso.
-
-A 6.14 corrigia a integração incompleta do snapshot rico. O job normal passa o arquivo por `campaign_hub_snapshot_path`, mas o anexo de evidência local ignorava esse caminho; agora ele carrega o snapshot e anexa blocos, riscos, proveniência e identidade aos candidatos locais. Quando o candidato cobre pelo menos 75% de um bloco owner/allied com `renanSpeaking=true`, a identidade fica disponível como evidência alinhada, nunca como aprovação automática.
-
-Na fonte real `3XJfcqn56Rw`, a 6.16 encontrou 30 propostas Chub no Renan-first, promoveu 6 e deixou 24 para revisão de locutor. O recall publicável permaneceu em `7/66` no IoU 0,10 e `1/66` no IoU 0,25; o genérico com Chub permaneceu em `18/66` e `6/66`. Relatório em [`CYCLE_32_REPORT_2026-08-20.md`](CYCLE_32_REPORT_2026-08-20.md).
-
-## Release anterior — 6.13
-
-A 6.13 adiciona um contrato explícito de identidade de locutor ao fluxo Renan-first. O sistema diferencia uma fronteira de fala limpa de uma identidade realmente disponível. Quando o perfil/foco é Renan Santos/MBL e a transcrição não tem diarização ou marcador de locutor, `context_complete` e `qa_bridge` não passam, o candidato recebe `review_required=true` e o ranker registra a razão técnica. O modo genérico não recebe esse bloqueio.
-
-A mudança foi medida em uma transcrição persistida real com 247 segmentos e nenhum locutor identificado: `9/9` candidatos Renan-first ficaram com identidade indisponível, revisão obrigatória e contexto não completo. A rota genérica preservou `5/5` candidatos completos. A suíte terminou com 537 testes aprovados e 4 ignorados após asset ambiental temporário. Relatório em [`CYCLE_28_REPORT_2026-08-20.md`](CYCLE_28_REPORT_2026-08-20.md).
-
-## Release anterior — 6.12
-
-A 6.12 adiciona a ponte operacional que faltava entre a interface de Link público e o suporte local do yt-dlp. O usuário pode escolher Chrome/Chromium, Firefox, Edge, Opera/Opera GX ou Brave; o valor é normalizado, validado e usado apenas localmente pelo processo. Um User-Agent opcional é encaminhado com limite de tamanho e permanece vazio por padrão.
-
-O probe, a importação de vídeo, a importação de áudio, a transcrição por URL e a busca de legendas recebem os mesmos parâmetros. Anti-bot e HTTP 403 agora produzem mensagens diferentes e acionáveis. A mudança foi testada com 27 regressões focadas e 532 testes aprovados em suíte completa, com 4 testes ignorados; o modelo BlazeFace usado para separar a falha ambiental foi removido antes do commit.
-
-O download com a sessão real do notebook do usuário permanece **não verificado** no sandbox. O relatório da rodada está em [`CYCLE_27_REPORT_2026-08-20.md`](CYCLE_27_REPORT_2026-08-20.md).
-
-## Release anterior — 3.3
-
-A 3.3 destilou o corpus do Acervo — 517 vídeos, 16.559 blocos, 885.215 frases — em
-`data/chub_priors/acervo_priors.json`, com **3 KB**. O cálculo roda no servidor do
-Chub em consulta somente leitura; volta apenas estatística agregada e não reversível.
-
-O léxico aprendido descobriu categorias que a lista manual não tinha — publicidade,
-doações, jargão do canal — com log-odds até `5.05`. Também mostrou que **o que torna um
-trecho um destaque não é lexical**: log-odds máximo de `0.89`, por isso nenhum léxico de
-destaque foi incluído.
-
-**A hipótese da rodada foi refutada.** O léxico não leva o detector a patamar
-utilizável: teto de 11% de recall, e no nível de unidade a separação é *invertida* na
-fonte com amostra suficiente. O score passou a ser evidência reportada, nunca veredito,
-com regressão travando esse contrato. Relatório em
-[`CYCLE_23_REPORT_2026-08-17.md`](CYCLE_23_REPORT_2026-08-17.md).
-
-## Release anterior — 3.2
-
-A 3.2 ataca a dependência de rótulo externo. Até a 3.1, tudo que o Furia sabia sobre
-estrutura vinha pronto do Acervo — e some numa fonte que o Acervo não processou. O
-tamanho da dependência estava medido desde a 2.9: `11/66` sozinho contra `50/66` com
-os rótulos, ou seja, 4,5×.
-
-A primeira tentativa — reconhecer não-conteúdo por vocabulário — falhou com 3.4% de
-recall, e a falha mostrou que o problema estava mal formulado: região sem conteúdo é o
-complemento dos blocos, então a capacidade real é **segmentar**.
-
-`modules/topic_segmenter.py` encontra fronteiras por vale de coesão lexical. Calibrado
-só na live de 98 minutos, cobre **23/27 blocos (85%)** ali e **9/11 (82%)** na
-entrevista de 31 minutos, que nunca entrou na calibração, com precisão temporal de 75%
-e 85%.
-
-O segmentador **ainda não está ligado ao seletor**: esta rodada entrega e mede a
-capacidade. Relatório em [`CYCLE_22_REPORT_2026-08-17.md`](CYCLE_22_REPORT_2026-08-17.md).
-
-## Release anterior — 3.1
-
-A 3.1 tratou de **entrega**, não de cobertura. `precision@k` foi medida primeiro e
-mostrou que o ranqueamento já funciona: 100% dos 20 primeiros colocados carregam um
-destaque QA-gated, em blocos de densidade 76–83. O Renan-first também já opera, com
-20% do top 20 vindo dos blocos com Renan falando, que são só 9% dos destaques. Nenhum
-peso de ranking foi alterado.
-
-O defeito real era outro: só os candidatos nascidos de seed do Chub carregavam
-proveniência; os demais chegavam ao revisor sem tema, sem risco e sem dizer quem fala
-— num acervo onde 24 de 27 blocos têm `renan_speaking=false`. Agora 121 de 121 (100%)
-chegam com contexto completo e veredito de revisão, sempre como `evidence_only`.
-Relatório em [`CYCLE_21_REPORT_2026-08-17.md`](CYCLE_21_REPORT_2026-08-17.md).
-
-## Release anterior — 3.0
-
-A 3.0 removeu o teto fixo de candidatos. `_selection_coverage_plan()` calculava
-`min(36, ...)`, o que dava a uma fonte de 4 horas praticamente a mesma cota de uma de
-1 hora: quanto mais longa a live, maior a fração dela que nunca era examinada.
-
-A precisão foi medida **antes** de mexer no teto. Numa varredura de 20 a 160
-candidatos, `precision_on_block` ficou em `1.00` em todos os pontos, com zero
-candidatos fora de bloco, e o IoU médio subiu de `0.0772` para `0.2730`. A oferta
-satura em 121: o teto não continha excesso, cortava material já aprovado pelos gates.
-
-Resultado na mesma fonte: recall de `27/66` para `50/66`, cobertura de `20/27` para
-`25/27`, precisão inalterada em `1.00`. Somando as rodadas: `11/66` → `24/66` →
-`27/66` → `50/66`, **4,5× o ponto de partida**. Relatório em
-[`CYCLE_20_REPORT_2026-08-17.md`](CYCLE_20_REPORT_2026-08-17.md).
-
-## Release anterior — 2.9
-
-A 2.9 produziu o primeiro número de recall comparável em uma fonte longa inteira. O
-bloqueio de todas as rodadas anteriores era a falta do MP4; a observação que o removeu
-é que a seleção roda sobre a **transcrição**, não sobre os pixels, então uma
-transcrição autorizada do Acervo já permite medir a seleção.
-
-Medido em `3XJfcqn56Rw` ("O ÚLTIMO ANÁLISES RENAIS", 98 minutos, 27 blocos, 66
-destaques): a seleção local recupera `11/66`; a ponte `campaign_hub_guided` leva a
-`24/66` — **primeira evidência quantitativa de que a integração da 2.6 funciona**; e o
-descarte de não-conteúdo rotulado leva a `27/66`, com cobertura de blocos `20/27`, IoU
-`0.16` e **zero** candidatos desperdiçados, contra 14 no início.
-
-O recall é binário: 24 destaques inteiros, 42 nunca tocados, zero parciais. O gargalo
-é cobertura, não borda de janela. Relatório em
-[`CYCLE_19_REPORT_2026-08-17.md`](CYCLE_19_REPORT_2026-08-17.md).
-
-## Release anterior — 2.8
-
-A 2.8 corrigiu a causa do recall travado: as seeds do Campaign Hub nasciam no eixo de
-tempo errado. `_map_interval()` decidia o mapeamento pela duração declarada em
-`records.sources[].duration_s` — a live inteira — e não pela duração do arquivo em
-processamento. No b354 a live tem `11230s` (valor conferido no Acervo; a documentação
-anterior registrava `7241s`) e o bloco tem `549.44s`: a condição nunca fechava.
-
-Reproduzido em execução real: as três seeds ficavam em `6289.36` / `6365.80` /
-`6631.04` enquanto a transcrição do MP4 do bloco ia de `0` a `497s`. Nenhuma seed caía
-dentro da transcrição.
-
-A reprodução revelou uma segunda falha não prevista. Em vez de zero propostas, o
-seletor devolvia **três propostas idênticas** em `488.48–497.00`, porque
-`_build_campaign_hub_proposal()` ancorava qualquer seed órfã na frase mais próxima sem
-limite de distância — e a frase mais próxima de uma seed em `6289s` é sempre a última
-da transcrição. Três destaques distintos viravam a mesma janela errada carregando
-proveniência do Campaign Hub. Isso é proposta errada com procedência falsa, não apenas
-recall perdido.
-
-Com a duração medida da mídia informada pelo job, os três destaques mapeiam para
-`146.80` / `223.24` / `488.48` e geram três propostas distintas, cada uma abrindo antes
-do destaque para recuperar a pergunta ou o antecedente, todas `review_required=true`
-porque o bloco tem `renanSpeaking=false`.
-
-O recall real continua **não verificado**: a transcrição das regressões é sintética e
-exercita o alinhamento, não a seleção. O MP4 local do b354 não está no ambiente.
-Nenhum ganho sobre o baseline `0/3` é reivindicado. Relatório em
-[`CYCLE_18_REPORT_2026-08-17.md`](CYCLE_18_REPORT_2026-08-17.md).
-
-## Release anterior — 2.7
-
-A release 2.7 corrigiu um modo de falha da **medição**, não da seleção. O benchmark
-podia devolver `recall 0/3` por dois motivos completamente diferentes — a seleção
-realmente errou os destaques, ou as referências nunca foram mapeadas para a timeline
-local — e o relatório não distinguia os dois casos.
-
-O caso foi reproduzido em execução real: sem `--source` legível pelo `ffprobe`,
-`map_interval_to_local()` mantém os destaques em segundos absolutos (`6289.36`)
-enquanto os candidatos estão na timeline local (`146.80`). O relatório então
-acusava `mean_boundary_error_s: 5904.771` — o deslocamento do bloco dentro da live,
-não erro editorial — e mesmo assim exibia `coverage_recall: 0.0` como se fosse
-comparável ao baseline.
-
-`assess_measurement()` em `modules/editorial_benchmark.py` passou a declarar
-`measurement.reliable`, `status`, `mapping_required`, `mapping_applied`,
-`source_is_full_length` e avisos em português. A decisão tem três vias: MP4 do
-bloco (mapeia), fonte longa completa (coerente sem mapear) e qualquer outro caso
-com bloco fora do início (incoerente, avisa). `metrics` repete
-`measurement_reliable` porque `list_benchmarks()` expõe apenas `metrics`.
-
-`scripts/run_editorial_benchmark.py` passou a expandir `~` em `--memory` e
-`--source` — antes falhava silenciosamente com "Bloco não encontrado" — e emite os
-avisos em `stderr`. `app.py` devolve `measurement` na rota de benchmark.
-
-Suíte: **330 aprovados, 7 falhas ambientais** (`ffmpeg`/`ffprobe` ausentes e asset
-externo BlazeFace). As mesmas 7 falhas foram reproduzidas com `git stash` no código
-original (`326 aprovados`), confirmando que não têm relação com a mudança.
-`compileall`, `node --check` e `git diff --check` passaram.
-
-O recall real do b354 continua **não verificado**: o MP4 local do bloco não estava
-presente no ambiente e o conector CHUB ficou indisponível durante a rodada. O
-baseline permanece `0/3`, sem reivindicação de ganho. Seleção, ranking, expansão de
-seeds e renderização não foram alterados. Relatório em
-[`CYCLE_17_REPORT_2026-08-17.md`](CYCLE_17_REPORT_2026-08-17.md).
-
-## Histórico funcional anterior — 2.2
-
-A release 2.2 implementou `modules/editorial_benchmark.py`, `scripts/run_editorial_benchmark.py`, persistência local de comparações, exportação individual de highlights e ações correspondentes no painel de Blocos. O benchmark real usou sete candidatos persistidos pelo Furia e três destaques QA-gated do snapshot local autorizado.
-
-Os destaques foram mapeados para `146.80–150.80s`, `223.24–228.40s` e `488.48–495.20s` no MP4 local de `549.449s`. O recall temporal foi `0/3`; o IoU médio foi `0.0`; os três casos foram classificados como `Campaign Hub melhor` na métrica temporal. O resultado não aumenta o peso do Campaign Hub no ranking e não consulta MCP durante o corte. Isso é uma limitação consciente da release 2.2, não o norte final: a próxima integração deve usar snapshot Chub antes do score para gerar propostas contextualizadas, mantendo o job offline-first.
-
-Os três exports individuais foram validados em 1920×1080 H.264/AAC, com durações aproximadas de `4.004s`, `5.172s` e `6.740s`. A suíte da release 2.2 terminou com **327 testes aprovados**. O modelo pequeno de facetracking permanece um asset externo e não deve ser incluído no Git.
-
-## Release atual — 2.6
-
-A release 2.6 adicionou `modules/campaign_hub_guidance.py`, os caminhos `_select_with_campaign_hub_guidance()` e `_build_campaign_hub_proposal()` em `modules/clip_selector.py`, o diagnóstico de seeds em `modules/editorial_context.py` e a carga única do snapshot em `app.py`. As propostas carregam `source=campaign_hub_guided`, `candidate_origin=campaign_hub_guided`, proveniência completa e gates de contexto, payoff, locutor, timing, risco, técnico, proveniência e avisos.
-
-A suíte terminou com **333 testes aprovados**, incluindo seis regressões novas. Também passaram `compileall`, `node --check static/js/app.js`, `git diff --check` e a verificação SHA-256 do BlazeFace temporário. O payload real do Chub para `gVrW6a5e6Tc` produziu duas seeds e duas propostas: `426.4–451.52s` e `511.0–566.12s`, ambas com `context_complete=true`. Como eram `third_party` e tinham `start_continuation`, ambas ficaram com `review_required=true`.
-
-O recall do b354 continua **não verificado nesta release**, porque o snapshot autorizado correspondente não estava instalado localmente durante o job normal. O baseline permanece `0/3`, sem reivindicação de ganho. Sem snapshot em `~/FuriaClipsData/campaign_hub/profile.json`, o caminho legado permanece disponível.
-
-## Release documental — 2.3
-
-A revisão 2.3 criou [`PROMPT_MESTRE_IA.md`](PROMPT_MESTRE_IA.md), uma versão copiável que consolida o `START_HERE`, os prompts históricos, as decisões permanentes, o norte do benchmark 2.2, as regras do Campaign Hub, o ciclo obrigatório de engenharia, o contrato de documentação, segurança e formato de entrega.
-
-A revisão 2.4 criou [`CHUB_INTEGRATION_CONTRACT.md`](CHUB_INTEGRATION_CONTRACT.md) e reorientou o prompt mestre e o `START_HERE`: a prioridade agora é fazer o contexto do Campaign Hub alimentar seeds, alinhamento, expansão, gates, propostas e renderização de cortes; blocos permanecem como superfície de diagnóstico e revisão.
-
-A revisão 2.5 criou [`PROMPT_EXECUCAO_CHUB_CORTES.md`](PROMPT_EXECUCAO_CHUB_CORTES.md), um roteiro copiável para implementar a ponte funcional Chub→cortes sem misturar escopo. A release 2.6 executou a primeira implementação funcional desse roteiro; o benchmark b354 permanece em `0/3` até ser reprocessado com snapshot local.
-
-Também permanece vigente [`COMMIT_MESSAGE_TEMPLATE.md`](COMMIT_MESSAGE_TEMPLATE.md), que torna obrigatório registrar hipótese, baseline, implementação, escopo excluído, validação, resultado, limitações e continuidade no corpo dos commits relevantes.
-
-`README.md`, `AGENTS.md` e `START_HERE.md` agora encaminham qualquer IA que receba apenas o link do GitHub para o prompt mestre, o estado vivo, a próxima hipótese, as decisões e o modelo de commit. O `PROJECT_STATE.md` foi normalizado para manter uma única seção corrente e corrigir o hash da release 2.2 para `074a129`.
-
-## Estado funcional conhecido
-
-O projeto é uma aplicação local Flask com Socket.IO, SQLite, FFmpeg/FFprobe, faster-whisper, MediaPipe/BlazeFace, yt-dlp e fallbacks locais/online opcionais. O princípio de timeline canônica mantém intervalos derivados vinculados ao vídeo original.
-
-O pipeline conhecido contém ingestão e validação de fonte, download público, transcrição timestampada, análise de contexto, geração de candidatos, ranking editorial explicável, revisão humana, renderização por preset, legendas, validação audiovisual e persistência de jobs/feedback. A release 2.1 adicionou memória local offline-first do Campaign Hub, blocos editoriais e exportação seletiva; a release 2.2 adicionou benchmark persistente e exportação individual de highlights; a release 2.6 adicionou a primeira ponte para propostas guiadas.
-
-O Furia consegue receber MP4 local, transcrever, selecionar e renderizar arquivos tecnicamente válidos, mas ainda não oferece uma experiência diária equivalente ao Garimpo + Campaign Hub. A seleção ainda precisa melhorar em contexto, cobertura, identidade do locutor, completude Q&A, autossuficiência e estabilidade entre reprocessamentos.
-
-## Regras permanentes
-
-As decisões duráveis estão em [`DECISIONS.md`](DECISIONS.md). As mais importantes são:
-
-- contexto e payoff vencem slogan, duração curta ou palavra viral;
-- gates de contexto, timing, locutor, transcrição, mídia e risco vêm antes do ranking;
-- o Campaign Hub é prior fraco e benchmark read-only, nunca aprovador automático;
-- uma rodada deve testar uma hipótese principal e comparar antes/depois;
-- a transcrição fornecida pelo editor é a timeline canônica;
-- `quem fala`, `quem aparece` e `quem é foco editorial` são campos distintos;
-- em ambiguidade de enquadramento, preserve `16:9 original` em vez de crop central arbitrário;
-- o job normal não chama MCP; snapshots autorizados devem ser locais, sanitizados e versionados;
-- contas, plataformas, crossposts, métricas e proveniência permanecem separados;
-- vídeos grandes, bancos, tokens, cookies, chaves, transcrições privadas e dados pessoais ficam fora do Git;
-- trabalho ocorre em branch, commits são pequenos e merge na principal exige autorização explícita;
-- todo commit relevante deve seguir [`COMMIT_MESSAGE_TEMPLATE.md`](COMMIT_MESSAGE_TEMPLATE.md).
-
-## Validação e evidências
-
-A 6.21 passou por `py_compile`, `node --check`, `git diff --check`, 56 regressões focadas e suíte completa com **573 aprovados e 4 ignorados**. Os testes cobrem eventos, retenção, breadcrumbs, diagnóstico HTTP, botão de cópia e captura de erros. O relatório está em [`CYCLE_37_REPORT_2026-08-21.md`](CYCLE_37_REPORT_2026-08-21.md). A observação em uma execução real ainda é necessária para confirmar a cobertura operacional de todos os caminhos legados.
-
-A validação da release 2.6 incluiu suíte com **333 testes aprovados**, `compileall`, `node --check static/js/app.js`, `git diff --check` e verificação SHA-256 do BlazeFace temporário. O payload real do Campaign Hub confirmou duas seeds e duas propostas guiadas com `context_complete=true`, mas o benchmark b354 não foi reprocessado porque o snapshot correspondente não estava instalado localmente. Esses resultados não substituem a medição futura de recall em mídia b354.
-
-Em qualquer rodada, classifique conclusões como `confirmado`, `reproduzido`, `corrigido`, `provável`, `não verificado` ou `bloqueado`. O relatório da rodada anterior está em [`CYCLE_29_REPORT_2026-08-20.md`](CYCLE_29_REPORT_2026-08-20.md). O ciclo 30 está em [`CYCLE_30_REPORT_2026-08-20.md`](CYCLE_30_REPORT_2026-08-20.md).
-
-## Histórico resumido
-
-| Release | Foco | Resultado principal | Relatório |
-| --- | --- | --- | --- |
-| Ciclo 37 / 6.21 | Observabilidade estruturada | Eventos persistentes, diagnóstico HTTP e resumo copiável; 573 testes aprovados e 4 ignorados | [`CYCLE_37_REPORT_2026-08-21.md`](CYCLE_37_REPORT_2026-08-21.md) |
-| Ciclo 32 / 6.16 | Separação de descoberta e pool publicável | 30 descobertas Chub, 6 promovidas, 24 em revisão; recall preservado e diagnóstico visível | [`CYCLE_32_REPORT_2026-08-20.md`](CYCLE_32_REPORT_2026-08-20.md) |
-| Ciclo 31 / 6.15 | Diagnóstico do benchmark e filtro Renan-first | Recall Renan-first com Chub `5/66`→`7/66`; propostas guiadas finais `12`→`5`; genérico preservado | [`CYCLE_31_REPORT_2026-08-20.md`](CYCLE_31_REPORT_2026-08-20.md) |
-| Ciclo 30 | Fusão Chub-local medida e revertida | Sem ganho reproduzível; release 6.14 preservada; divergência histórica do benchmark aberta | [`CYCLE_30_REPORT_2026-08-20.md`](CYCLE_30_REPORT_2026-08-20.md) |
-| 6.14 | Snapshot rico e identidade alinhada | `0/30`→`3/30` identidades Renan-first; recall exploratório genérico `7,58%`→`27,27%` em IoU 0,10 | [`CYCLE_29_REPORT_2026-08-20.md`](CYCLE_29_REPORT_2026-08-20.md) |
-| 6.13 | Identidade Renan-first | `9/9` candidatos sem diarização ficaram para revisão; modo genérico preservado | [`CYCLE_28_REPORT_2026-08-20.md`](CYCLE_28_REPORT_2026-08-20.md) |
-| 6.12 | Ingestão pública segura | Cookies locais opcionais e diagnóstico anti-bot/403; download com sessão do usuário ainda não verificado | [`CYCLE_27_REPORT_2026-08-20.md`](CYCLE_27_REPORT_2026-08-20.md) |
-| 3.3 | Destilação do corpus | 885k frases em 3 KB; ganho no detector refutado e o sinal mantido fora do veredito | [`CYCLE_23_REPORT_2026-08-17.md`](CYCLE_23_REPORT_2026-08-17.md) |
-| 3.2 | Interpretação própria | Segmentação temática nativa cobre 85% e 82% dos blocos do Acervo em duas fontes | [`CYCLE_22_REPORT_2026-08-17.md`](CYCLE_22_REPORT_2026-08-17.md) |
-| 3.1 | Corte pronto e ranqueado | 100% dos candidatos com contexto, locutor e veredito; ranqueamento confirmado (top 20 = 100% com destaque) | [`CYCLE_21_REPORT_2026-08-17.md`](CYCLE_21_REPORT_2026-08-17.md) |
-| 3.0 | Orçamento governado pela fonte | Recall `27/66`→`50/66` e cobertura `20/27`→`25/27` com precisão inalterada em `1.00` | [`CYCLE_20_REPORT_2026-08-17.md`](CYCLE_20_REPORT_2026-08-17.md) |
-| 2.9 | Recall medido em fonte longa | Ponte Chub dobra o recall (`11/66`→`24/66`); filtro de não-conteúdo leva a `27/66` | [`CYCLE_19_REPORT_2026-08-17.md`](CYCLE_19_REPORT_2026-08-17.md) |
-| 2.8 | Alinhamento temporal das seeds | Seeds do b354 passam a cair na timeline local; três propostas falsas idênticas eliminadas | [`CYCLE_18_REPORT_2026-08-17.md`](CYCLE_18_REPORT_2026-08-17.md) |
-| 2.7 | Confiabilidade declarada da medição | Benchmark passa a distinguir `0/3` de seleção de `0/3` por timeline não mapeada | [`CYCLE_17_REPORT_2026-08-17.md`](CYCLE_17_REPORT_2026-08-17.md) |
-| 2.6 | Primeira ponte Campaign Hub→seeds→propostas | 2 seeds e 2 propostas reproduzidas em payload real; recall b354 ainda não medido | [`CYCLE_16_REPORT_2026-08-17.md`](CYCLE_16_REPORT_2026-08-17.md) |
-| 2.5 | Prompt operacional Chub→cortes | Roteiro copiável; sem alteração funcional | [`CYCLE_15_REPORT_2026-08-17.md`](CYCLE_15_REPORT_2026-08-17.md) |
-| 2.4 | Contrato Chub→cortes e reorientação do prompt | Norte funcional atualizado; sem alteração de processamento | [`CYCLE_14_REPORT_2026-08-17.md`](CYCLE_14_REPORT_2026-08-17.md) |
-| 2.3 | Prompt mestre e contrato de continuidade | Documentação consolidada; sem alteração de processamento | [`CYCLE_13_REPORT_2026-08-17.md`](CYCLE_13_REPORT_2026-08-17.md) |
-| 2.2 | Benchmark persistente e highlights individuais | `0/3` highlights cobertos; mapeamento e exports funcionaram | [`CYCLE_12_REPORT_2026-08-17.md`](CYCLE_12_REPORT_2026-08-17.md) |
-| 2.1 | Memória local, blocos e exportação seletiva | b354 exportado e validado; 322 testes | [`CYCLE_11_REPORT_2026-08-17.md`](CYCLE_11_REPORT_2026-08-17.md) |
-| 2.0 | START_HERE canônico e diagnóstico prático | Contexto operacional formalizado; 306 testes | [`CYCLE_10_REPORT_2026-08-17.md`](CYCLE_10_REPORT_2026-08-17.md) |
-| 1.9 | Prompt executor e benchmark como direção | Regras de continuidade e benchmark especificadas | Histórico no `CHANGELOG.md` |
-
-## Leitura obrigatória para a próxima IA
-
-Leia [`AGENTS.md`](../../AGENTS.md), [`README.md`](../../README.md), [`VERSION`](../../VERSION), [`docs/VERSIONING.md`](../VERSIONING.md), [`START_HERE.md`](START_HERE.md), [`PROMPT_MESTRE_IA.md`](PROMPT_MESTRE_IA.md), [`PROMPT_PROXIMOS_CICLOS_6_13.md`](PROMPT_PROXIMOS_CICLOS_6_13.md), este arquivo, [`DECISIONS.md`](DECISIONS.md), [`NEXT_CYCLE.md`](NEXT_CYCLE.md), [`COMMIT_MESSAGE_TEMPLATE.md`](COMMIT_MESSAGE_TEMPLATE.md) e o relatório mais recente. Depois confirme `git status`, branch, commit e testes no checkout real antes de propor qualquer alteração.
-## Ciclo atual — 2026-09-04
-
-Melhoria nos gates de fronteira de abertura e fecho em `modules/fronteira_assunto.py`. Os gates agora avaliam a primeira/última frase em vez do texto completo do clipe, adicionam conectivos reais de Flow News #065 e detectam anáfora órfã na janela de abertura. Três regressões novas travam o comportamento. Suíte **green** com 1199 testes aprovados.
+Relatórios de ciclo e notas diárias detalhadas estão em [`01_SESSIONS/Daily/LATEST.md`](01_SESSIONS/Daily/LATEST.md) e [`03_FURIA/Next-Actions.md`](Next-Actions.md). Releases antigas (6.22–6.26) estão em relatórios específicos; não competem com o estado atual.
