@@ -1,6 +1,7 @@
 import math
-import subprocess
 import wave
+
+import pytest
 
 from modules.audio_analyzer import AudioAnalyzer
 
@@ -76,21 +77,21 @@ def test_analyze_energy_kills_ffmpeg_when_cancelled(monkeypatch):
 
 def test_segment_speech_returns_empty_when_vad_backend_unavailable(monkeypatch):
     import modules.audio_analyzer as audio_module
-    monkeypatch.setattr(audio_module.os.path, 'isfile', lambda p: True)
-    monkeypatch.setattr(audio_module, 'VADSegmenter', None)
+    monkeypatch.setattr(audio_module.os.path, "isfile", lambda p: True)
+    monkeypatch.setattr(audio_module, "VADSegmenter", None)
 
     class DummyAnalyzer(AudioAnalyzer):
         def extract_audio(self, video_path):
             return video_path
 
-    result = DummyAnalyzer().segment_speech('video.mp4')
+    result = DummyAnalyzer().segment_speech("video.mp4")
     assert result == []
 
 
 def test_segment_speech_skips_video_without_audio(monkeypatch):
     import modules.audio_analyzer as audio_module
 
-    monkeypatch.setattr(audio_module.AudioAnalyzer, '_has_audio_stream', lambda self, video_path: False)
+    monkeypatch.setattr(audio_module.AudioAnalyzer, "_has_audio_stream", lambda self, video_path: False)
 
     called = []
 
@@ -99,19 +100,49 @@ def test_segment_speech_skips_video_without_audio(monkeypatch):
             called.append(video_path)
             return video_path
 
-    result = DummyAnalyzer().segment_speech('video.mp4')
+    result = DummyAnalyzer().segment_speech("video.mp4")
     assert result == []
     assert called == []
 
 
-def test_segment_speech_filters_short_segments(tmp_path):
-    source = tmp_path / 'tone.wav'
+def test_segment_speech_uses_vad_segments(tmp_path, monkeypatch):
+    import modules.audio_analyzer as audio_module
+
+    source = tmp_path / "tone.wav"
     sample_rate = 16000
     frames = bytearray()
     for index in range(sample_rate * 2):
         value = int(12000 * math.sin(2 * math.pi * 440 * index / sample_rate))
-        frames.extend(value.to_bytes(2, byteorder='little', signed=True))
-    with wave.open(str(source), 'wb') as handle:
+        frames.extend(value.to_bytes(2, byteorder="little", signed=True))
+    with wave.open(str(source), "wb") as handle:
+        handle.setnchannels(1)
+        handle.setsampwidth(2)
+        handle.setframerate(sample_rate)
+        handle.writeframes(bytes(frames))
+
+    class FakeVAD:
+        def segment(self, audio, sampling_rate):
+            return [{"start": 0.0, "end": 0.4}, {"start": 0.5, "end": 1.5}]
+
+    monkeypatch.setattr(audio_module, "VADSegmenter", FakeVAD)
+    monkeypatch.setattr(audio_module.AudioAnalyzer, "_has_audio_stream", lambda self, video_path: True)
+    monkeypatch.setattr(audio_module.AudioAnalyzer, "extract_audio", lambda self, video_path: str(source))
+
+    result = AudioAnalyzer().segment_speech(str(source))
+    assert len(result) == 1
+    assert result[0]["start"] == pytest.approx(0.5)
+    assert result[0]["end"] == pytest.approx(1.5)
+    assert result[0]["duration"] == pytest.approx(1.0)
+
+
+def test_segment_speech_filters_short_segments(tmp_path):
+    source = tmp_path / "tone.wav"
+    sample_rate = 16000
+    frames = bytearray()
+    for index in range(sample_rate * 2):
+        value = int(12000 * math.sin(2 * math.pi * 440 * index / sample_rate))
+        frames.extend(value.to_bytes(2, byteorder="little", signed=True))
+    with wave.open(str(source), "wb") as handle:
         handle.setnchannels(1)
         handle.setsampwidth(2)
         handle.setframerate(sample_rate)
