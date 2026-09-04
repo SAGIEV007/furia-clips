@@ -1,3 +1,4 @@
+import json
 import unittest
 from unittest.mock import patch
 
@@ -162,6 +163,36 @@ class ClipSelectionTests(unittest.TestCase):
         )
         self.assertTrue(weak["payoff_weak_ending"])
         self.assertFalse(weak["payoff_complete"])
+
+
+    def test_parse_llm_response_uses_calibrated_viral_score_grades(self):
+        """Grade mapping A=80/B=25/C=0 must flow through LLM response parsing."""
+        sentences = [
+            {"start": 0.0, "end": 5.0, "text": "Frase completa sobre o tema."},
+            {"start": 5.0, "end": 10.0, "text": "Outra frase completa com ponto final."},
+        ]
+        all_blocks = [
+            {"index": 0, "start": 0.0, "end": 5.0, "text": "Frase completa sobre o tema."},
+            {"index": 1, "start": 5.0, "end": 10.0, "text": "Outra frase completa com ponto final."},
+        ]
+        response = json.dumps([
+            {
+                "blocks": [0, 1],
+                "title": "Teste",
+                "reason": "Corte de teste",
+                "speaker": "Renan",
+                "hook": "A",
+                "flow": "B",
+                "value": "C",
+                "energy": "B",
+            }
+        ])
+        clips = self.selector._parse_llm_response(response, sentences, all_blocks, 0.0)
+        self.assertEqual(len(clips), 1)
+        # A=80*0.20 + B=25*0.35 + C=0*0.25 + B=25*0.20 = 16 + 8.75 + 0 + 5 = 29.75 -> 29
+        self.assertEqual(clips[0]["viral_score"], 29)
+        self.assertEqual(clips[0]["breakdown"]["hook"], "A")
+        self.assertEqual(clips[0]["breakdown"]["flow"], "B")
 
 if __name__ == "__main__":
     unittest.main()
