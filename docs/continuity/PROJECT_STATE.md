@@ -10,7 +10,7 @@
 | Repositório | `SAGIEV007/furia-clips` |
 | Versão | `6.63` |
 | Branch de trabalho | `furia-treino-noturno` |
-| HEAD | `ab72900` |
+| HEAD | `2905a57` |
 | Divergência origin | 0 ahead / 0 behind (sincronizada) |
 | Suíte | **1215 passed, 13 skipped, 3 xfailed** em ~94s |
 | Baseline editorial | Duas fontes medidas na 3.1. `3XJfcqn56Rw` (live 98 min): recall `50/66`, cobertura `25/27`. `j9FRVbb8CAI` (entrevista 31 min): recall `30/34`, cobertura `11/11`. Precisão `1.00`, zero fora de bloco e zero desperdício **nas duas**. |
