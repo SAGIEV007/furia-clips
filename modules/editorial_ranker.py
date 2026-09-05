@@ -509,12 +509,49 @@ class EditorialRanker:
                 cls._PESOS_DO_ESPELHO = {}
         return cls._PESOS_DO_ESPELHO
 
+    # O que o editor ensinou, medido no caderno de vereditos dele. Mesma
+    # convenção do espelho: `None` = ainda não olhei; `{}` = não havia nada.
+    _APRENDIDO: Optional[dict] = None
+
+    @classmethod
+    def _ajustes_do_editor(cls) -> dict:
+        """O julgamento dele, virado número.
+
+        Existe porque o espelho do CHUB e os blocos do Acervo têm um limite que
+        ele apontou: **uma live de ontem não está em nenhum dos dois.** Ali o
+        motor cai nas regras fixas, que são palpites. O caderno de vereditos é a
+        única evidência de fora que continua chegando depois que o catálogo
+        acaba.
+        """
+        if cls._APRENDIDO is None:
+            try:
+                from .aprendizado import ajustes
+
+                cls._APRENDIDO = ajustes() or {}
+            except (ImportError, OSError, ValueError):
+                cls._APRENDIDO = {}
+        return cls._APRENDIDO
+
     @classmethod
     def _peso(cls, nome: str, padrao: float) -> int:
+        """O peso de um desconto, na ordem em que a evidência manda.
+
+        1. o palpite, que é onde tudo começa
+        2. o espelho do CHUB, medido em 5.339 cortes publicados
+        3. o ajuste do editor, medido no julgamento dele sobre ESTES cortes
+
+        O editor entra por último porque a opinião dele sobre o próprio material
+        vale mais que a média histórica — e porque é a única das três que
+        alcança material que ninguém catalogou ainda.
+        """
         medido = cls._pesos_medidos().get(nome)
-        if isinstance(medido, bool) or not isinstance(medido, (int, float)):
-            return int(padrao)
-        return round(abs(float(medido)))
+        base = float(padrao)
+        if not isinstance(medido, bool) and isinstance(medido, (int, float)):
+            base = abs(float(medido))
+        ajuste = cls._ajustes_do_editor().get(nome)
+        if not isinstance(ajuste, bool) and isinstance(ajuste, (int, float)):
+            base = max(0.0, base * (1.0 + float(ajuste) / 100.0))
+        return round(base)
 
     def _technical_gate(self, clip: dict, factors: dict, political_signals: Optional[dict] = None) -> dict:
         """Apply bounded, explainable penalties for technical uncertainty."""
@@ -564,7 +601,7 @@ class EditorialRanker:
         # aqui, junto com os outros, explicável e com motivo na tela.
         abertura_sem_tese = str(clip.get("opens_without_a_claim") or "").strip()
         if abertura_sem_tese:
-            penalty += 45
+            penalty += self._peso("abre_sem_afirmar", 45)
             reasons.append({
                 "intervalo": "abre na chamada do intervalo, não numa fala",
                 "fala_de_mesa": "abre no programa se administrando, não num assunto",
@@ -585,7 +622,7 @@ class EditorialRanker:
             penalty += self._peso("comeca_no_meio_da_frase", 14)
             reasons.append("início possivelmente no meio da frase")
         if overlap_suspected:
-            penalty += 22
+            penalty += self._peso("repeticao", 22)
             reasons.append("sobreposição de fala ou timestamps")
         if timing_ambiguous:
             penalty += 10
@@ -611,7 +648,7 @@ class EditorialRanker:
             reasons.append("identidade do locutor não confirmada para o foco Renan-first")
         normalized_clip_words = len(_normalize(str(clip.get("text") or "")).split())
         if has_contract and not context_complete and normalized_clip_words < 16:
-            penalty += 8
+            penalty += self._peso("contexto_incompleto", 8)
             reasons.append("pouca evidência textual para contexto autossuficiente")
         starts_with_context_reference = bool(clip.get("starts_with_context_reference"))
         if has_contract and starts_with_context_reference:

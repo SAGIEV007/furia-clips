@@ -72,7 +72,12 @@ def carregar_material(caminho=None):
         "segments": [dict(f) for f in frases],
         "full_text": " ".join(f["text"] for f in frases),
     }
-    return transcricao, blocos, dados.get("fonte", {})
+    # De quem é a resposta certa. O Acervo é catálogo supervisionado; os cortes
+    # do editor são o julgamento dele. Os dois valem — são evidência de fora —
+    # mas dizem coisas diferentes, e a tela não pode trocar um pelo outro.
+    origem = str((dados.get("proveniencia") or {}).get("origem") or "acervo_chub")
+    quem = "você" if origem == "cortes_do_editor" else "o Acervo"
+    return transcricao, blocos, dados.get("fonte", {}), quem
 
 
 def moer(transcricao):
@@ -191,18 +196,21 @@ def diagnosticar(entregues):
     }
 
 
-def imprimir(fonte, fora, dentro, adiados):
+def imprimir(fonte, fora, dentro, adiados, quem=""):
     n = max(1, fora["cortes"])
     b = max(1, fora["blocos_total"])
     alc = max(1, fora["blocos_alcancados"])
 
     print()
     print(f"  material: {fonte.get('titulo', 'sabatina')}  ({fonte.get('duracao_total_s', 0):.0f}s)")
+    # Quem escreveu o gabarito muda o que a tela pode afirmar. Chamar de
+    # "Acervo" um gabarito que o editor fez à mão apagaria a única coisa que
+    # ele precisa saber para julgar o número: de quem é a resposta certa.
     print(f"  entregues: {fora['cortes']} cortes   ·   adiados pelo portão: {len(adiados)}"
-          f"   ·   o Acervo diz que cabem {fora['cortes_esperados']}")
+          f"   ·   {quem} diz que cabem {fora['cortes_esperados']}")
     print()
-    print("  ┌─ VERDADE DE FORA (contra os blocos do Acervo) ─ ESTA É A META ─┐")
-    print(f"     blocos do Acervo alcançados ... {fora['blocos_alcancados']:3}/{fora['blocos_total']:<3}"
+    print(f"  ┌─ VERDADE DE FORA (contra {'os cortes que VOCÊ fez' if quem == 'você' else 'os blocos do Acervo'}) ─ ESTA É A META ─┐")
+    print(f"     assuntos alcançados ........... {fora['blocos_alcancados']:3}/{fora['blocos_total']:<3}"
           f" {100 * fora['blocos_alcancados'] / b:5.0f}%   subir")
     print(f"     abre junto com o assunto ...... {fora['aberturas_ancoradas']:3}/{fora['blocos_alcancados']:<3}"
           f" {100 * fora['aberturas_ancoradas'] / alc:5.0f}%   subir   (dos blocos alcançados)")
@@ -230,7 +238,7 @@ def main():
                         help="acrescenta a medição ao histórico com este rótulo")
     args = parser.parse_args()
 
-    transcricao, blocos, fonte = carregar_material(args.material)
+    transcricao, blocos, fonte, quem = carregar_material(args.material)
     _candidatos, entregues, adiados = moer(transcricao)
     fora = medir(entregues, blocos)
     dentro = diagnosticar(entregues)
@@ -239,7 +247,7 @@ def main():
         print(json.dumps({"fora": fora, "diagnostico": dentro, "adiados": len(adiados)},
                          ensure_ascii=False, indent=2))
     else:
-        imprimir(fonte, fora, dentro, adiados)
+        imprimir(fonte, fora, dentro, adiados, quem)
 
     if args.salvar:
         HISTORICO.parent.mkdir(parents=True, exist_ok=True)

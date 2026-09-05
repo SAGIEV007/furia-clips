@@ -71,6 +71,58 @@ também a etiqueta — é o que liga a opinião dele a um número do motor:
 Se o motivo não cair em nenhuma, guarde o texto como veio e etiquete `outro`.
 Nunca invente etiqueta para forçar encaixe.
 
+## O manifesto — grave ANTES de enviar os cortes
+
+**Isto é obrigatório, e sem isto o caderno inteiro não conserta nada.**
+
+Ao enviar uma rodada de cortes, grave junto o que foi enviado e o que o motor
+achava de cada um: `~/FuriaClipsData/vereditos/<rodada>.manifesto.json`
+
+```json
+{"rodada": "rodada-07", "cortes": [
+  {"numero": "1", "video": "dQw4w9WgXcQ", "start": 120.0, "end": 178.5,
+   "sinais": {"payoff_complete": true, "context_complete": true,
+              "starts_mid_sentence": false, "opens_without_a_claim": "",
+              "overlap_suspected": false}}
+]}
+```
+
+Os `sinais` saem do próprio corte, em `score_factors`. Copie como estão.
+
+**Por que:** sem o manifesto, o caderno vira uma lista de reclamações sem
+endereço. Dá para saber que ele reprovou seis cortes por "final cortado", e não
+dá para saber se o motor tinha achado aqueles seis fechados. É a diferença entre
+os dois que aponta o parafuso solto — e é a única coisa que vira conserto.
+
+`python scripts/aprender.py` avisa quando o manifesto está faltando.
+
+## Os cortes que ELE fez — a peça mais valiosa
+
+Quando ele mandar um corte pronto, ou disser *"eu teria cortado de 12:34 a
+13:45"*, grave em `~/FuriaClipsData/cortes_do_editor/<mês>.txt`:
+
+```
+2026-09-05 14:02 | dQw4w9WgXcQ | 754.0 | 812.5 | a headline que ele usou
+```
+
+Segundos desde o começo do vídeo. Se ele der em minutos, converta.
+
+**Por que isto vale mais que tudo:** ele apontou o buraco sozinho —
+
+> *"quando eu mandar links de lives recentes, essas lives não vão estar no chub"*
+
+O Acervo não tem a live de ontem. Ele tem, porque cortou. Cada corte dele é um
+gabarito para um vídeo que nenhum catálogo cobre, e a régua passa a funcionar
+ali:
+
+```bash
+python scripts/aprender.py --gabarito dQw4w9WgXcQ
+python scripts/regua.py --material tests/fixtures/editor_dQw4w9WgXcQ.json
+```
+
+Pergunte o começo e o fim quando ele mandar um corte sem os tempos. Uma pergunta
+curta, uma vez — não vire um interrogatório a cada clipe.
+
 ## O caderno
 
 Arquivo: `~/FuriaClipsData/vereditos/<rodada>.txt`
