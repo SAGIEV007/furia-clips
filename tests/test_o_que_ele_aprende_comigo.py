@@ -246,3 +246,95 @@ def test_toda_etiqueta_do_caderno_chega_num_peso():
         assert etiqueta in O_QUE_CADA_ETIQUETA_CORRIGE, (
             f"ele pode etiquetar '{etiqueta}' e o motor não sabe o que fazer com isso"
         )
+
+
+# ── 5. trabalhando sozinho, sem o Hermes ────────────────────────────────────
+
+
+def test_o_veredito_dado_na_tela_ensina_igual(tmp_path, monkeypatch):
+    """A fonte principal quando ele trabalha sem agente nenhum.
+
+    Ele já aperta Aprovar/Rejeitar e escolhe o motivo na lista da tela, e o
+    programa já guarda isso junto com os sinais do motor. O "manifesto" que o
+    Hermes precisa escrever à mão, aqui existe de graça: `score_factors` está
+    na mesma linha do corte.
+    """
+    import sqlite3
+
+    banco = tmp_path / "b.sqlite3"
+    conn = sqlite3.connect(banco)
+    conn.executescript(
+        "CREATE TABLE clips (id INTEGER PRIMARY KEY, score_factors TEXT);"
+        "CREATE TABLE clip_feedback (id INTEGER PRIMARY KEY, clip_id INTEGER,"
+        " action TEXT, reason_code TEXT);"
+    )
+    for numero in range(1, 11):
+        conn.execute("INSERT INTO clips VALUES (?, ?)",
+                     (numero, json.dumps({"payoff_complete": True})))
+        conn.execute("INSERT INTO clip_feedback (clip_id, action, reason_code) VALUES (?,?,?)",
+                     (numero, "rejected", "no_payoff"))
+    conn.commit()
+    conn.close()
+
+    monkeypatch.setattr("config.DB_PATH", str(banco))
+    from modules.aprendizado import ajustes, ler_do_programa
+
+    vereditos, sinais = ler_do_programa()
+    assert len(vereditos) == 10
+    assert vereditos[0]["etiqueta"] == "fim", (
+        "'Não conclui o raciocínio' na tela é a mesma coisa que 'fim' no WhatsApp"
+    )
+    assert sinais[("programa", "1")]["sinais"]["payoff_complete"] is True
+
+    movidos = ajustes(tmp_path)
+    assert movidos.get("termina_sem_fechar", 0) > 0
+
+
+def test_ele_muda_de_ideia_na_tela_tambem(tmp_path, monkeypatch):
+    """Apertar Rejeitar e depois Aprovar: vale o último, como no caderno."""
+    import sqlite3
+
+    banco = tmp_path / "b.sqlite3"
+    conn = sqlite3.connect(banco)
+    conn.executescript(
+        "CREATE TABLE clips (id INTEGER PRIMARY KEY, score_factors TEXT);"
+        "CREATE TABLE clip_feedback (id INTEGER PRIMARY KEY, clip_id INTEGER,"
+        " action TEXT, reason_code TEXT);"
+    )
+    conn.execute("INSERT INTO clips VALUES (1, '{}')")
+    conn.execute("INSERT INTO clip_feedback (clip_id, action, reason_code) VALUES (1,'rejected','no_payoff')")
+    conn.execute("INSERT INTO clip_feedback (clip_id, action, reason_code) VALUES (1,'approved','')")
+    conn.commit()
+    conn.close()
+
+    monkeypatch.setattr("config.DB_PATH", str(banco))
+    from modules.aprendizado import ler_do_programa
+
+    vereditos, _ = ler_do_programa()
+    assert len(vereditos) == 1
+    assert vereditos[0]["veredito"] == "ok"
+
+
+def test_sem_banco_nada_quebra(tmp_path, monkeypatch):
+    """Primeira execução numa máquina nova: não há banco, e isso é normal."""
+    monkeypatch.setattr("config.DB_PATH", str(tmp_path / "nao_existe.sqlite3"))
+    from modules.aprendizado import ler_do_programa
+
+    assert ler_do_programa() == ([], {})
+
+
+def test_todo_motivo_da_tela_chega_num_peso():
+    """A lista de motivos da tela não pode ter opção que o motor ignora.
+
+    Ele escolhe um motivo achando que está ensinando alguma coisa. Se aquele
+    motivo não leva a peso nenhum, o programa jogou fora o trabalho dele — e ele
+    não teria como saber.
+    """
+    from modules.aprendizado import O_MENU_DA_TELA, O_QUE_CADA_ETIQUETA_CORRIGE
+
+    tela = (RAIZ / "static" / "js" / "app.js").read_text(encoding="utf-8")
+    for codigo, etiqueta in O_MENU_DA_TELA.items():
+        assert f'"{codigo}"' in tela, f"o motivo {codigo} sumiu da lista da tela"
+        assert etiqueta in O_QUE_CADA_ETIQUETA_CORRIGE, (
+            f"'{codigo}' está na tela e não chega em peso nenhum"
+        )

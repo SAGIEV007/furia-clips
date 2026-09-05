@@ -176,6 +176,77 @@ def ler_cortes_do_editor(data_dir=None) -> list[dict]:
     return cortes
 
 
+# O que a lista de motivos da TELA quer dizer, na mesma língua das etiquetas do
+# WhatsApp. Ele escolhe do menu ao aprovar ou rejeitar um corte, e o motivo já
+# fica gravado no banco — não precisa digitar nada em lugar nenhum.
+O_MENU_DA_TELA = {
+    "no_payoff": "fim",            # "Não conclui o raciocínio"
+    "starts_late": "abertura",     # "Começa no meio da fala"
+    "wrong_speaker": "locutor",    # "Orador errado ou incerto"
+    "missing_context": "contexto",  # "Sem contexto suficiente"
+    "duplicate": "repetido",       # "Repetido ou parecido com outro"
+    "audio_overlap": "repetido",   # "Áudio sobreposto ou confuso"
+}
+
+
+def ler_do_programa() -> tuple[list[dict], dict]:
+    """Os vereditos que ele deu na TELA, e o que o motor achava de cada corte.
+
+    Esta é a fonte principal quando ele trabalha sozinho, sem o Hermes. E é a
+    melhor das duas, porque não depende de ninguém transcrever nada: ele já
+    aperta Aprovar ou Rejeitar e escolhe o motivo na lista, e o programa já
+    guarda isso no banco junto com os sinais que o motor gravou naquele corte.
+
+    O manifesto — que o Hermes precisa escrever à mão quando ele revisa pelo
+    WhatsApp — aqui existe de graça: `score_factors` é o que o motor achava, e
+    está na mesma linha do corte.
+    """
+    try:
+        import sqlite3
+
+        from config import DB_PATH
+    except ImportError:
+        return [], {}
+    if not Path(DB_PATH).is_file():
+        return [], {}
+
+    vereditos: list[dict] = []
+    enviados: dict[tuple[str, str], dict] = {}
+    try:
+        conn = sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True)
+        conn.row_factory = sqlite3.Row
+        # A última decisão de cada corte, do mesmo jeito que o caderno de papel:
+        # ele pode mudar de ideia, e a última é a que vale.
+        linhas = conn.execute(
+            """SELECT f.clip_id, f.action, f.reason_code, c.score_factors
+                 FROM clip_feedback f
+                 JOIN clips c ON c.id = f.clip_id
+                WHERE f.id IN (SELECT MAX(id) FROM clip_feedback GROUP BY clip_id)
+                  AND f.action IN ('approved', 'rejected', 'needs_review')"""
+        ).fetchall()
+        conn.close()
+    except (sqlite3.Error, OSError):
+        return [], {}
+
+    for linha in linhas:
+        numero = str(linha["clip_id"])
+        try:
+            sinais = json.loads(linha["score_factors"] or "{}")
+        except ValueError:
+            sinais = {}
+        if not isinstance(sinais, dict):
+            sinais = {}
+        vereditos.append({
+            "rodada": "programa",
+            "numero": numero,
+            "veredito": "ok" if linha["action"] == "approved" else "nao",
+            "etiqueta": O_MENU_DA_TELA.get(str(linha["reason_code"] or ""), ""),
+            "motivo": str(linha["reason_code"] or ""),
+        })
+        enviados[("programa", numero)] = {"numero": numero, "sinais": sinais}
+    return vereditos, enviados
+
+
 def _acertos_e_erros(vereditos: list[dict], enviados: dict) -> dict[str, dict]:
     """Onde o motor acusou defeito que não havia, e onde não viu o que havia.
 
@@ -213,6 +284,19 @@ def _acertos_e_erros(vereditos: list[dict], enviados: dict) -> dict[str, dict]:
     return dict(contas)
 
 
+def tudo_que_ele_julgou(data_dir=None) -> tuple[list[dict], dict]:
+    """As duas fontes juntas: a tela do programa e o caderno do WhatsApp.
+
+    Ele usa as duas conforme o dia — sozinho no computador aperta os botões;
+    fora de casa responde ao Hermes pelo celular. As duas contam a mesma coisa
+    e nenhuma delas é o programa se avaliando, que é o que importa.
+    """
+    da_tela, manifesto_da_tela = ler_do_programa()
+    do_caderno = ler_vereditos(data_dir)
+    manifesto_do_caderno = ler_manifestos(data_dir)
+    return da_tela + do_caderno, {**manifesto_da_tela, **manifesto_do_caderno}
+
+
 def ajustes(data_dir=None) -> dict[str, float]:
     """Quanto cada peso do motor deve mudar, segundo o julgamento do editor.
 
@@ -225,7 +309,7 @@ def ajustes(data_dir=None) -> dict[str, float]:
     perde. Abaixo de `MINIMO_DE_CASOS`, nada se mexe — e nada se mexe em
     silêncio: `explicar()` diz por quê.
     """
-    contas = _acertos_e_erros(ler_vereditos(data_dir), ler_manifestos(data_dir))
+    contas = _acertos_e_erros(*tudo_que_ele_julgou(data_dir))
     resultado: dict[str, float] = {}
     for peso, conta in contas.items():
         if conta["casos"] < MINIMO_DE_CASOS:
@@ -239,7 +323,7 @@ def ajustes(data_dir=None) -> dict[str, float]:
 
 def explicar(data_dir=None) -> list[dict]:
     """O mesmo cálculo, com o motivo por extenso — para a tela e para o Hermes."""
-    contas = _acertos_e_erros(ler_vereditos(data_dir), ler_manifestos(data_dir))
+    contas = _acertos_e_erros(*tudo_que_ele_julgou(data_dir))
     linhas = []
     for peso, conta in sorted(contas.items()):
         casos = conta["casos"]

@@ -48,35 +48,105 @@ sys.path.insert(0, str(RAIZ))
 
 from modules.aprendizado import (
     MINIMO_DE_CASOS,
+    _pasta,
     explicar,
     gabarito_do_editor,
     ler_cortes_do_editor,
-    ler_manifestos,
+    ler_do_programa,
     ler_vereditos,
 )
 
 DESTINO = RAIZ / "tests" / "fixtures"
 
 
+def onde_ficam():
+    """Os arquivos que viram régua, e onde eles moram.
+
+    Ele usa dois notebooks. Nada disto adianta se ele não souber o que levar de
+    um para o outro — e a resposta não é "a pasta do programa": é esta lista,
+    curta, com o que existe e o que não existe.
+    """
+    from config import DB_PATH
+
+    print()
+    print("  ONDE FICAM OS SEUS DADOS  (é isto que vai de um notebook para o outro)")
+    print()
+    itens = [
+        (Path(DB_PATH), "seus aprovar/rejeitar e os cortes de cada projeto"),
+        (_pasta("cortes_do_editor"), "os cortes que VOCÊ fez, se você anotar algum"),
+        (_pasta("vereditos"), "o caderno do WhatsApp (só se você usar o Hermes)"),
+        (_pasta("chub"), "o espelho do CHUB, se estiver baixado"),
+    ]
+    for caminho, para_que in itens:
+        existe = caminho.exists()
+        marca = "existe" if existe else "ainda não"
+        print(f"    {marca:<10} {caminho}")
+        print(f"               {para_que}")
+    print()
+    print("  Para levar de um notebook ao outro, NÃO copie arquivo na mão:")
+    print("    no notebook onde você revisou:  botão 'Enviar feedback ao GitHub'")
+    print("    no outro notebook:              botão 'Restaurar feedback'")
+    print()
+    print("  O programa já sabe fazer isso e manda só a decisão, sem transcrição")
+    print("  e sem vídeo. Copiar o banco na mão sobrescreve o trabalho do outro lado.")
+    print()
+
+
+def qual_regua(video: str = ""):
+    """Qual gabarito existe para um vídeo — o do CHUB, o seu, ou nenhum.
+
+    A pergunta dele, e ela é a certa: dá para saber se o CHUB está sendo usado
+    de régua quando o vídeo está lá, e principalmente **quando não está**.
+    """
+    print()
+    print("  QUAL RÉGUA EXISTE, VÍDEO POR VÍDEO")
+    print()
+    acervo = {p.stem.replace("acervo_", "") for p in DESTINO.glob("acervo_*.json")}
+    meus = {p.stem.replace("editor_", "") for p in DESTINO.glob("editor_*.json")}
+    cortes_por_video: dict[str, int] = {}
+    for corte in ler_cortes_do_editor():
+        cortes_por_video[corte["video"]] = cortes_por_video.get(corte["video"], 0) + 1
+
+    videos = sorted(acervo | meus | set(cortes_por_video)) if not video else [video]
+    if not videos:
+        print("    Nenhum vídeo tem régua ainda, além da sabatina que vem no programa.")
+        print()
+        print("    Traga um do Acervo:   python scripts/novo_material.py --sortear")
+        print("    Ou anote um corte seu e ele vira régua sozinho.")
+        print()
+        return
+
+    for identificador in videos:
+        tem_acervo = identificador in acervo
+        quantos_meus = cortes_por_video.get(identificador, 0)
+        if tem_acervo and quantos_meus:
+            estado = "CHUB + os seus cortes"
+        elif tem_acervo:
+            estado = "CHUB (blocos do Acervo)"
+        elif quantos_meus:
+            estado = f"só os seus cortes ({quantos_meus})"
+        else:
+            estado = "NENHUMA — não dá para medir este vídeo"
+        print(f"    {identificador:<18} {estado}")
+        if not tem_acervo and not quantos_meus:
+            print("                       o Acervo não tem, e você não anotou corte nenhum")
+    print()
+    print("  Sem régua, o programa ainda corta — ele só não sabe dizer se acertou.")
+    print("  É por isso que anotar os SEUS cortes vale tanto numa live recente.")
+    print()
+
+
 def mostrar():
-    vereditos = ler_vereditos()
-    enviados = ler_manifestos()
+    da_tela, _sinais = ler_do_programa()
+    do_caderno = ler_vereditos()
     cortes = ler_cortes_do_editor()
     linhas = explicar()
 
     print()
-    print(f"  {len(vereditos)} veredito(s) · {len(enviados)} corte(s) com manifesto · "
-          f"{len(cortes)} corte(s) feito(s) por você")
+    print(f"  {len(da_tela)} veredito(s) que você deu na TELA do programa")
+    print(f"  {len(do_caderno)} veredito(s) vindos do caderno do WhatsApp")
+    print(f"  {len(cortes)} corte(s) que você mesmo fez e anotou")
     print()
-
-    if vereditos and not enviados:
-        print("  Os vereditos existem, mas nenhum manifesto.")
-        print()
-        print("  Sem o manifesto eu sei que você reprovou, e não sei o que o motor")
-        print("  tinha achado daquele corte — que é a única informação que conserta")
-        print("  alguma coisa. Quem envia os cortes precisa gravar o manifesto junto.")
-        print()
-        return
 
     if not linhas:
         print("  Ainda não dá para corrigir nada.")
@@ -164,11 +234,19 @@ def main():
     parser = argparse.ArgumentParser(description="O que o Furia aprendeu com o editor.")
     parser.add_argument("--gabarito", metavar="VIDEO",
                         help="vira os cortes do editor naquele vídeo em régua")
+    parser.add_argument("--onde", action="store_true",
+                        help="mostra onde ficam os arquivos, para levar ao outro notebook")
+    parser.add_argument("--regua", nargs="?", const="", metavar="VIDEO",
+                        help="diz qual gabarito existe para cada vídeo (CHUB, seus cortes, ou nenhum)")
     parser.add_argument("--json", action="store_true", help="só os números")
     args = parser.parse_args()
 
     if args.gabarito:
         montar_gabarito(args.gabarito)
+    elif args.onde:
+        onde_ficam()
+    elif args.regua is not None:
+        qual_regua(args.regua)
     elif args.json:
         print(json.dumps({
             "ajustes": explicar(),
