@@ -5,7 +5,7 @@
 **HEAD:** cdcca32
 **Divergência origin:** 0 ahead / 0 behind (sincronizada)
 **Working tree:** limpo
-**Suíte:** 1215 passed, 13 skipped, 3 xfailed (~92s)
+**Suíte:** 1221 passed, 13 skipped, 3 xfailed (~100s)
 
 ## Métricas atuais (régua — sabatina Band)
 Fonte: `scripts/regua.py` em `tests/fixtures/acervo_sabatina_band.json` (1923s).
