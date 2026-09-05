@@ -186,7 +186,8 @@ def _has_substantive_answer(text: str) -> bool:
         "pensamento", "é ", "é exatamente", "sim ", "sim.", "não ", "não.", "é isso",
         "é sim", "é não", "exatamente", "vamos lá", "vamos com", "eu começo", "eu começo a",
         "eu vou dar", "eu vou explicar", "eu vou mostrar", "primeiro ponto",
-        "segundo ponto", "terceiro ponto"
+        "segundo ponto", "terceiro ponto", "vou ter que",
+        "eu pergunto", "como presidente", "como o senhor", "onde o senhor"
     ]
     after_lower = after_question.lower()
     return any(m in after_lower for m in answer_markers)
