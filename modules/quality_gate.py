@@ -81,6 +81,13 @@ def _is_reporter_question(text: str) -> bool:
         "se você não acha",
         "seriam 30 mil pessoas",
         "chamava muito a atenção",
+        "agora candidato",
+        "nós temos seis minutos",
+        "minha pergunta na sequência",
+        "quanto tempo se levaria",
+        "quanto seria de investimento",
+        "qual é o papel da iniciativa privada",
+        "pergunta composta",
     ]
     for marker in reporter_markers:
         if marker in lower:
@@ -158,27 +165,68 @@ def _has_minimum_context(text: str, min_words: int = 6) -> bool:
 
 
 def _has_substantive_answer(text: str) -> bool:
-    """Check if the clip contains a substantive answer after a question.
+    """Check if the clip contains a substantive answer AFTER the reporter's question.
 
     A valid Q&A clip starts with the reporter's question AND includes
-    Renan's substantive answer. We check for first-person/assertion markers
-    after the first question mark.
+    Renan's substantive answer. We look for guest markers AFTER the LAST
+    question mark to ensure the answer is actually present, not just more
+    reporter questions.
     """
     if not text:
         return False
-    first_qmark = text.find("?")
-    if first_qmark < 0:
+    last_qmark = text.rfind("?")
+    if last_qmark < 0:
         return False
-    after_question = text[first_qmark + 1:].strip()
+    after_question = text[last_qmark + 1:].strip()
     if len(after_question) <= 30:
         return False
     answer_markers = [
         "eu ", "nós ", "minha ", "minha opinião", "eu acho", "eu vou",
-        "vamos ", "é ", "não ", "sim ", "acho que", "acredito",
-        "defendo", "proponho", "entendo", "pensamento"
+        "vamos ", "acho que", "acredito", "defendo", "proponho", "entendo",
+        "pensamento", "é ", "é exatamente", "sim ", "sim.", "não ", "não.", "é isso",
+        "é sim", "é não", "exatamente", "vamos lá", "vamos com", "eu começo", "eu começo a",
+        "eu vou dar", "eu vou explicar", "eu vou mostrar", "primeiro ponto",
+        "segundo ponto", "terceiro ponto"
     ]
     after_lower = after_question.lower()
     return any(m in after_lower for m in answer_markers)
+
+
+def _is_reporter_heavy(text: str, threshold: float = 0.55) -> bool:
+    """Detect if the clip is mostly reporter speech, not guest answer.
+
+    Returns True if reporter markers appear more than `threshold` of the time
+    compared to guest markers. This catches clips that start with long reporter
+    questions/setup but have little actual guest content.
+    """
+    if not text:
+        return False
+    lower = text.lower()
+    words = lower.split()
+    if len(words) < 10:
+        return False
+
+    reporter_markers = [
+        "o senhor", "você ", "como o senhor", "como você", "o que o senhor",
+        "o que você", "por que o senhor", "por que você", "quando o senhor",
+        "quando você", "onde o senhor", "onde você", "agora candidato",
+        "candidato,", "nós temos", "minha pergunta", "pergunto ao",
+        "me diga", "me responde", "queria saber"
+    ]
+    guest_markers = [
+        "eu ", "nós ", "minha ", "eu acho", "eu vou", "vamos ",
+        "acredito", "defendo", "proponho", "entendo", "pensamento",
+        "exato", "exatamente", "sim.", "não.", "é isso", "é sim", "é não"
+    ]
+
+    reporter_count = sum(1 for w in words if any(m in w for m in reporter_markers))
+    guest_count = sum(1 for w in words if any(m in w for m in guest_markers))
+
+    total = reporter_count + guest_count
+    if total < 5:
+        return False
+
+    return reporter_count / total > threshold
 
 
 def apply_quality_gate(clips: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
@@ -236,6 +284,17 @@ def apply_quality_gate(clips: list[dict[str, Any]]) -> tuple[list[dict[str, Any]
         if _starts_with_reporter_question(text) and not _has_substantive_answer(text):
             reasons.append("abre_com_pergunta_do_reporter")
 
+        # Gate 3b2: reporter-heavy opening without proportional guest answer
+        # Catches long reporter questions/setup with little actual guest content.
+        if _is_reporter_heavy(text):
+            reasons.append("abertura_pergunta_sem_resposta_substancial")
+
+        # Gate 3b3: direct reporter question without substantive answer
+        # If the clip contains reporter question markers but no guest answer after the LAST
+        # question mark, reject it. This catches clips that are just reporter questions.
+        if _is_reporter_question(text) and not _has_substantive_answer(text):
+            reasons.append("pergunta_do_reporter_sem_resposta")
+
         # Gate 3c: clip should not end on a question
         if _ends_on_question(text):
             reasons.append("termina_na_pergunta")
@@ -259,12 +318,13 @@ def apply_quality_gate(clips: list[dict[str, Any]]) -> tuple[list[dict[str, Any]
                 break
         if duplicate_of:
             existing_score = float(duplicate_of.get("viral_score", 0) or 0)
-            if score <= existing_score:
-                reasons.append(f"duplicata_de_score_{existing_score:.0f}")
-            else:
+            if score > existing_score:
                 # This clip is better — replace the existing one.
                 accepted.remove(duplicate_of)
                 rejected.append({**duplicate_of, "rejection_reasons": ["substituido_por_corte_maior"]})
+                reasons.append(f"substitui_corte_duplicado_score_{existing_score:.0f}")
+            else:
+                reasons.append(f"duplicata_de_score_{existing_score:.0f}")
 
         if reasons:
             rejected.append({**clip, "rejection_reasons": reasons})
