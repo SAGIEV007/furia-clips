@@ -220,8 +220,8 @@ def _is_reporter_heavy(text: str, threshold: float = 0.55) -> bool:
         "exato", "exatamente", "sim.", "não.", "é isso", "é sim", "é não"
     ]
 
-    reporter_count = sum(1 for w in words if any(m in w for m in reporter_markers))
-    guest_count = sum(1 for w in words if any(m in w for m in guest_markers))
+    reporter_count = sum(lower.count(m) for m in reporter_markers)
+    guest_count = sum(lower.count(m) for m in guest_markers)
 
     total = reporter_count + guest_count
     if total < 5:
