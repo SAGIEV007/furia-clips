@@ -1,6 +1,6 @@
 # PROJECT_STATE — Furia Clips
 
-> Estado vivo do projeto. Atualizado em 2026-09-04 19:58 BRT.
+> Estado vivo do projeto. Atualizado em 2026-09-04 20:38 BRT.
 
 ## Estado corrente
 
@@ -10,9 +10,9 @@
 | Repositório | `SAGIEV007/furia-clips` |
 | Versão | `6.63` |
 | Branch de trabalho | `furia-treino-noturno` |
-| HEAD local | `a4991e0` |
+| HEAD | `2f873ed` |
 | Divergência origin | 0 ahead / 0 behind (sincronizada) |
-| Suíte | **1209 passed, 13 skipped, 3 xfailed, 6 failed** em ~94s |
+| Suíte | **1215 passed, 13 skipped, 3 xfailed** em ~94s |
 | Baseline editorial | Duas fontes medidas na 3.1. `3XJfcqn56Rw` (live 98 min): recall `50/66`, cobertura `25/27`. `j9FRVbb8CAI` (entrevista 31 min): recall `30/34`, cobertura `11/11`. Precisão `1.00`, zero fora de bloco e zero desperdício **nas duas**. |
 | Objetivo | Gerar cortes Renan Santos/MBL concisos, autossuficientes, contextualizados e editorialmente úteis |
 
@@ -28,6 +28,8 @@
 - Transcrição e abertura em `flow-news-065`: manual 0/48 (0% abertura no meio), Whisper 2/40 (5%) — melhoria em relação a 25% documentado anteriormente.
 
 ### Decisões recentes
+- `2f873ed`: gate `abre_com_pergunta_do_reporter` agora permite clips Q&A completos (requer resposta substantiva após `?`). Corrigidas 2 regressões de teste em `test_pergunta_e_fronteira` e `test_context_pipeline_e2e`.
+- `2f873ed`: ajustados textos de teste em `test_candidate_volume_diagnostics.py` para cumprir `min_words=6` do quality gate.
 - `cbf02bf`: remoção de artefatos de validação do índice e disco.
 - `c4f9d76`: fronteira de saída do acervo marcada como xfail (crossings são overshoots pequenos sobre fronteiras de território que alinham com boundaries de sentença; seletor não recebe `blocos_de_referencia` em produção).
 - `75f8c11`: quality gate defaults ajustados (`context_complete`/`payoff_complete` usam `True` por padrão) para evitar rejeição silenciosa de clips sem flag explícito.
@@ -37,16 +39,3 @@
 ### Bloqueios ativos
 - ffmpeg MSYS2 no Windows rejeita expressões de crop dinâmico com parênteses/vírgulas (ex.: `between(n,0,1)`). Em estudo: `sendcmd`/`zoompan`/fallback por segmento/build diferente.
 - Branch sincronizada com origin (0 ahead / 0 behind).
-
-## Norte imediato
-
-A integração do Campaign Hub continua como memória/seed read-only. O crop dinâmico (Kalman) reduz jitter em vídeo real do Renan (1,33x–1,72x), mas a renderização dinâmica está bloqueada no Windows/MSYS2. O fallback estático por segmento já está no `batch_cut`.
-
-Prioridades:
-1. Validar crop estático/dinâmico em vídeo real do Renan e contornar bug ffmpeg MSYS2.
-2. Reduzir divergência da branch e sincronizar quando autorizado.
-3. Integrar `segment_speech` validado no pipeline de corte automático.
-
-## Histórico
-
-Relatórios de ciclo e notas diárias detalhadas estão em [`01_SESSIONS/Daily/LATEST.md`](01_SESSIONS/Daily/LATEST.md) e [`03_FURIA/Next-Actions.md`](Next-Actions.md). Releases antigas (6.22–6.26) estão em relatórios específicos; não competem com o estado atual.
