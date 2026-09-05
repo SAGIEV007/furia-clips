@@ -153,11 +153,25 @@ def ler_turnos(desde: datetime) -> list[dict]:
 
 
 def janelas(eventos: list[dict]) -> dict[str, tuple[datetime, datetime]]:
-    """De quando até quando cada bot esteve de pé."""
+    """De quando até quando cada bot esteve de pé.
+
+    Um bot que escreveu `inicio` e nunca escreveu `fim` continua de pé até
+    agora — travado ou trabalhando, mas de pé. Fechar a janela dele no próprio
+    `inicio` daria uma janela de zero minuto, e duas janelas de zero minuto
+    nunca se cruzam: o relatório acusaria "a delegação não subiu" justamente
+    quando ela subiu e um dos bots travou.
+    """
     por_bot: dict[str, list[datetime]] = {}
+    fechados: set[str] = set()
     for evento in eventos:
         por_bot.setdefault(evento["bot"], []).append(evento["quando"])
-    return {bot: (min(horas), max(horas)) for bot, horas in por_bot.items()}
+        if evento["evento"] == "fim":
+            fechados.add(evento["bot"])
+    agora = datetime.now()  # noqa: DTZ005
+    return {
+        bot: (min(horas), max(horas) if bot in fechados else agora)
+        for bot, horas in por_bot.items()
+    }
 
 
 def trabalharam_juntos(intervalos: dict[str, tuple[datetime, datetime]]) -> int:
@@ -222,10 +236,21 @@ def main():
             minutos = (fim - ini).total_seconds() / 60
             tarefa = next((e["tarefa"] for e in eventos if e["bot"] == bot and e["tarefa"]), "")
             print(f"        {bot:<12} {ini:%H:%M}–{fim:%H:%M} ({minutos:.0f} min)  {tarefa[:38]}")
+        # "às vezes ele só para de responder" — a queixa dele. Um agente que
+        # trava não avisa que travou: ele simplesmente não escreve mais nada.
+        # A última linha do rastro é a única coisa que denuncia isso, e é por
+        # isso que a linha de `fim` importa tanto quanto a de `inicio`.
         abertos = [b for b in intervalos
                    if not any(e["bot"] == b and e["evento"] == "fim" for e in eventos)]
         if abertos:
+            ultimo = max(eventos, key=lambda e: e["quando"])["quando"]
+            parado_ha = (datetime.now() - ultimo).total_seconds() / 60  # noqa: DTZ005
             print(f"    começaram e não terminaram .... {', '.join(abertos)}")
+            print(f"    silêncio desde a última linha . {parado_ha:.0f} min"
+                  f"{'':<19}{ok(parado_ha < 45)}")
+            if parado_ha >= 45:
+                print("    Isso é o sintoma de travado. Nada se perdeu: o trabalho está")
+                print("    no ESTADO.md e na nota de passagem. Mande recomeçar de lá.")
     print()
 
     print("  O que ele mediu")

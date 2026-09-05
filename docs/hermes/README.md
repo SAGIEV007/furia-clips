@@ -22,6 +22,10 @@ O ciclo tem quatro partes:
 | `skills/medir-o-corte.md` | Como saber se melhorou de verdade. |
 | `skills/nota-de-passagem.md` | O bilhete que faz o trabalho continuar quando o modelo troca. |
 | `skills/caderno-de-vereditos.md` | Anotar "serviu / serviu com ressalva / não serviu" pelo WhatsApp sem interromper o que está rodando. |
+| `skills/conferir-antes-de-entregar.md` | Provar que a tarefa foi feita antes de dizer que foi. Nasceu de um bot que rodou 19 testes de 1196 e respondeu "passou". |
+| `O-TIME.md` | Quantos bots, quais papéis, e por que dois bastam. |
+| `TESTE-DO-HERMES.md` | Sete perguntas com gabarito, para julgar o Hermes sem ler código. |
+| `FRASES-PRONTAS.md` | O que mandar no WhatsApp, palavra por palavra. |
 
 ## Instalar
 
