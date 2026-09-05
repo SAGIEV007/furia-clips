@@ -233,7 +233,7 @@ def apply_quality_gate(clips: list[dict[str, Any]]) -> tuple[list[dict[str, Any]
         # The boundary repair (_align_to_interview_turns, _open_where_the_thought_begins)
         # should have moved the start past the reporter's question to the guest's answer.
         # If the clip still starts with a reporter question marker, the repair failed.
-        if _starts_with_reporter_question(text):
+        if _starts_with_reporter_question(text) and not _has_substantive_answer(text):
             reasons.append("abre_com_pergunta_do_reporter")
 
         # Gate 3c: clip should not end on a question

@@ -221,11 +221,11 @@ def test_previous_fingerprint_does_not_discard_distant_same_text():
 
 def test_previous_fingerprints_are_reset_for_each_selection_run(monkeypatch):
     selector = ClipSelector(target_duration=30, max_clips=15, min_duration=8, max_duration=180)
-    monkeypatch.setattr(selector, "_select_with_nlp", lambda *args, **kwargs: [_clip(0, 30, "Uma tese completa e independente.")])
+    monkeypatch.setattr(selector, "_select_with_nlp", lambda *args, **kwargs: [_clip(0, 30, "Uma tese completa e independente do Renan sobre o Brasil.")])
     monkeypatch.setattr(clip_selector_module, "annotate_clip_with_chapters", lambda clip, context: clip)
     transcription = {"segments": [{"start": i * 15.0, "end": (i + 1) * 15.0, "text": f"Ideia {i}."} for i in range(20)]}
 
-    selector.select_clips(transcription, settings={"previous_clip_fingerprints": [{"start": 0, "end": 30, "text": "Uma tese completa e independente."}]})
+    selector.select_clips(transcription, settings={"previous_clip_fingerprints": [{"start": 0, "end": 30, "text": "Uma tese completa e independente do Renan sobre o Brasil."}]})
     assert selector.get_candidate_diagnostics()["previous_discarded_count"] == 1
 
     selector.select_clips(transcription, settings={"previous_clip_fingerprints": []})
@@ -235,7 +235,7 @@ def test_previous_fingerprints_are_reset_for_each_selection_run(monkeypatch):
 
 def test_candidate_origin_labels_remain_visible_after_deduplication(monkeypatch):
     selector = ClipSelector(target_duration=30, max_clips=15, min_duration=8, max_duration=180)
-    primary = _clip(0, 30, "Tese primária completa.")
+    primary = _clip(0, 30, "Tese primária completa e independente do Renan.")
     primary["source"] = "gemini"
     monkeypatch.setattr(selector, "_select_with_gemini", lambda *args, **kwargs: [primary])
     monkeypatch.setattr(selector, "_select_with_nlp", lambda *args, **kwargs: [])
