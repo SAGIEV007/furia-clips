@@ -82,8 +82,40 @@ def cohesion_curve(segments: list[dict[str, Any]], window: int) -> list[float]:
     return curve
 
 
+def _profundidade_do_vale(curve: list[float], index: int) -> float:
+    """Quanto o vale é fundo em relação aos picos que o cercam.
+
+    É a medida clássica do TextTiling — `(pico da esquerda + pico da direita −
+    2 × fundo) / 2` — e a primeira coisa que tentei para melhorar a precisão.
+
+    MEDIDA NAS CINCO FONTES, NÃO RESOLVEU
+    -------------------------------------
+    Trocar a ordem "menor coesão primeiro" por "vale mais fundo primeiro" e
+    cortar os cinco mais fundos deu 7 de 39 viradas achadas com 23% de
+    precisão, contra 25 de 39 com 18% da ordem antiga. Ou seja: a profundidade
+    quase não separa vale verdadeiro de vale falso — ordenar por ela acerta o
+    mesmo que ordenar por coesão crua.
+
+    Fica aqui porque o número foi pago e para a próxima sessão não repetir a
+    tentativa achando que é ideia nova. O que resolveu foi a porta da troca de
+    voz, logo abaixo.
+    """
+    esquerda = curve[index]
+    passo = index
+    while passo > 0 and curve[passo - 1] >= curve[passo]:
+        passo -= 1
+        esquerda = max(esquerda, curve[passo])
+    direita = curve[index]
+    passo = index
+    while passo < len(curve) - 1 and curve[passo + 1] >= curve[passo]:
+        passo += 1
+        direita = max(direita, curve[passo])
+    return ((esquerda - curve[index]) + (direita - curve[index])) / 2
+
+
 def _boundaries(curve: list[float], min_gap: int, tempos: list[float] | None = None,
-                min_gap_s: float = 0.0) -> list[int]:
+                min_gap_s: float = 0.0, trocas_de_voz: list[float] | None = None,
+                janela_da_troca: float = 5.0) -> list[int]:
     """Gaps that sit in a cohesion valley deeper than the local average.
 
     A DISTÂNCIA MÍNIMA ERA CONTADA EM FRASES, E ISSO ERA UM TETO
@@ -137,6 +169,49 @@ def _boundaries(curve: list[float], min_gap: int, tempos: list[float] | None = N
         if curve[index] <= threshold and curve[index] <= curve[index - 1] and curve[index] <= curve[index + 1]:
             candidates.append(index)
 
+    # A PORTA DA TROCA DE VOZ
+    #
+    # Das fronteiras que o Furia propunha, 18% eram reais — em todas as cinco
+    # fontes medidas, inclusive nas que "funcionavam". O problema não era a
+    # regra de escolha: ordenar os candidatos por vale mais fundo em vez de
+    # coesão mais baixa acertou praticamente o mesmo (ver
+    # `_profundidade_do_vale`). O problema era não haver nada separando vale
+    # verdadeiro de vale falso.
+    #
+    # A separação estava no arquivo o tempo todo e ninguém lia. Medido nas
+    # cinco fontes com gabarito do Acervo:
+    #
+    #     34 das 39 viradas de assunto (87%) caem a menos de 15 s de uma
+    #     troca de locutor
+    #
+    # Faz sentido para o material desta casa: numa entrevista o assunto vira
+    # quando o repórter pergunta outra coisa. A troca sozinha não serve de
+    # fronteira — são 395 trocas para 39 viradas — mas serve de PORTA: só é
+    # candidato o vale que cai em cima de uma.
+    #
+    # Efeito medido de ponta a ponta pela `regua_assuntos.py`:
+    #
+    #     antes   25/39 achadas (64%) · 26/143 certeiras (18%)
+    #     depois  22/39 achadas (56%) · 22/74  certeiras (30%)
+    #
+    # Custa oito pontos de alcance e devolve doze de precisão. É a troca certa
+    # para quem edita: fronteira errada vira corte que ele joga fora, fronteira
+    # perdida vira só um bloco mais longo, que o seletor ainda corta por dentro.
+    #
+    # Duas travas de segurança, porque nem todo material tem diarização boa:
+    # com menos de três marcas a porta não abre (material sem locutor
+    # identificado seguiria com zero fronteiras), e se a porta deixar o
+    # candidato zerado ela é ignorada.
+    marcas = sorted(set(trocas_de_voz or []))
+    if len(marcas) >= 3 and tempos and janela_da_troca > 0:
+        na_troca = [
+            index for index in candidates
+            if index + 1 < len(tempos)
+            and min(abs(tempos[index + 1] - marca) for marca in marcas) <= janela_da_troca
+        ]
+        if na_troca:
+            candidates = na_troca
+
     def longe_o_bastante(index: int, taken: int) -> bool:
         if tempos and min_gap_s > 0:
             try:
@@ -150,6 +225,30 @@ def _boundaries(curve: list[float], min_gap: int, tempos: list[float] | None = N
         if all(longe_o_bastante(index, taken) for taken in chosen):
             chosen.append(index)
     return sorted(chosen)
+
+
+def _instantes_de_troca(segments: list[dict[str, Any]]) -> list[float]:
+    """Os instantes em que quem fala mudou, do jeito que o motor os carrega.
+
+    `_build_sentences` guarda a marca ">>" do arquivo em `speaker_change_at`,
+    com o instante exato — uma frase montada pode conter mais de uma. Quem vem
+    de outro caminho traz `speaker_change` na própria frase; aí o instante é o
+    começo dela. Os dois formatos entram, para a porta não depender de por onde
+    a transcrição chegou.
+    """
+    instantes: list[float] = []
+    for item in segments:
+        for instante in item.get("speaker_change_at") or []:
+            try:
+                instantes.append(float(instante))
+            except (TypeError, ValueError):
+                continue
+        if item.get("speaker_change"):
+            try:
+                instantes.append(float(item.get("start", 0) or 0))
+            except (TypeError, ValueError):
+                continue
+    return sorted(set(instantes))
 
 
 def segment_transcript(
@@ -178,6 +277,7 @@ def segment_transcript(
     cuts = _boundaries(
         cohesion_curve(usable, window), min_sentences,
         tempos=tempos, min_gap_s=min_duration_s,
+        trocas_de_voz=_instantes_de_troca(usable),
     )
     edges = [0, *[cut + 1 for cut in cuts], len(usable)]
 

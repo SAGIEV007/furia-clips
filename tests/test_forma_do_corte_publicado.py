@@ -201,3 +201,104 @@ def test_o_limite_nunca_fica_abaixo_do_alcancavel():
     assert achadas, (
         "com o limite negativo nada passava e a live inteira virava um bloco só"
     )
+
+
+# ── a porta da troca de voz ─────────────────────────────────────────────────
+
+
+def test_so_vale_de_fronteira_onde_alguem_troca_de_vez():
+    """O que levou a precisão de 18% para 30% nas cinco fontes.
+
+    Vale de coesão sozinho não distingue virada de assunto de variação normal
+    de vocabulário: 18% das fronteiras propostas eram reais. Nas cinco fontes
+    com gabarito do Acervo, 34 das 39 viradas (87%) caem a menos de 15 s de uma
+    troca de locutor. A troca sozinha também não serve — são 395 trocas para 39
+    viradas — mas serve de porta.
+    """
+    from modules.topic_segmenter import _boundaries
+
+    # Dois vales iguais; só o segundo cai onde alguém trocou de vez.
+    curva = [0.9, 0.9, 0.1, 0.9, 0.9, 0.1, 0.9, 0.9]
+    tempos = [0.0, 40.0, 80.0, 120.0, 160.0, 200.0, 240.0, 280.0]
+
+    sem_porta = _boundaries(curva, min_gap=2, tempos=tempos, min_gap_s=15.0)
+    com_porta = _boundaries(
+        curva, min_gap=2, tempos=tempos, min_gap_s=15.0,
+        # a fronteira do vale em `i` cai em tempos[i + 1]: o vale em 5 cai aos
+        # 240 s e tem marca em cima; o vale em 2 cai aos 120 s e não tem
+        trocas_de_voz=[3.0, 239.0, 300.0],
+    )
+
+    assert len(sem_porta) == 2, "sem a porta, os dois vales viram fronteira"
+    assert com_porta == [5], "com a porta, só o vale que cai numa troca de voz"
+
+
+def test_sem_diarizacao_a_porta_nao_fecha_o_programa():
+    """Material sem locutor identificado não pode sair com zero fronteiras.
+
+    A porta é uma peneira; peneira sem nada para peneirar tem que deixar passar.
+    Sem esta trava, uma transcrição sem marca de locutor — que existe — viraria
+    um bloco só, que é exatamente o defeito que a live já teve uma vez.
+    """
+    from modules.topic_segmenter import _boundaries
+
+    curva = [0.9, 0.9, 0.1, 0.9, 0.9, 0.1, 0.9, 0.9]
+    tempos = [0.0, 40.0, 80.0, 120.0, 160.0, 200.0, 240.0, 280.0]
+    sem_porta = _boundaries(curva, min_gap=2, tempos=tempos, min_gap_s=15.0)
+
+    # Nenhuma marca, e marcas de menos para confiar: nos dois casos o resultado
+    # é o de sempre.
+    assert _boundaries(curva, min_gap=2, tempos=tempos, min_gap_s=15.0,
+                       trocas_de_voz=[]) == sem_porta
+    assert _boundaries(curva, min_gap=2, tempos=tempos, min_gap_s=15.0,
+                       trocas_de_voz=[10.0, 20.0]) == sem_porta
+
+
+def test_porta_que_nao_deixa_ninguem_passar_e_ignorada():
+    """Diarização que erra todos os instantes não pode zerar a leitura."""
+    from modules.topic_segmenter import _boundaries
+
+    curva = [0.9, 0.9, 0.1, 0.9, 0.9, 0.1, 0.9, 0.9]
+    tempos = [0.0, 40.0, 80.0, 120.0, 160.0, 200.0, 240.0, 280.0]
+
+    achadas = _boundaries(
+        curva, min_gap=2, tempos=tempos, min_gap_s=15.0,
+        trocas_de_voz=[1.0, 2.0, 3.0],  # nenhuma perto de um vale
+    )
+    assert achadas == _boundaries(curva, min_gap=2, tempos=tempos, min_gap_s=15.0)
+
+
+def test_os_dois_formatos_de_marca_de_troca_entram():
+    """A marca chega de dois jeitos conforme o caminho da transcrição.
+
+    Pelo motor, `_build_sentences` guarda o instante exato em
+    `speaker_change_at` — uma frase montada pode ter mais de um. Por outros
+    caminhos vem `speaker_change` na frase, e aí o instante é o começo dela. Se
+    só um formato fosse lido, a porta ficaria fechada sem ninguém notar: o
+    número não some, ele só volta a ser 18%.
+    """
+    from modules.topic_segmenter import _instantes_de_troca
+
+    lidos = _instantes_de_troca([
+        {"start": 0.0, "speaker_change_at": [12.5, 20.0]},
+        {"start": 33.0, "speaker_change": True},
+        {"start": 40.0},
+        {"start": 50.0, "speaker_change_at": ["nao é número"]},
+    ])
+    assert lidos == [12.5, 20.0, 33.0]
+
+
+def test_ordenar_por_vale_mais_fundo_ficou_registrado_como_tentado():
+    """A tentativa que não deu certo tem que estar escrita, com o número.
+
+    Sem isto, a próxima sessão tenta profundidade de vale de novo achando que é
+    ideia nova. Foi medida: 7/39 achadas com 23% de precisão, contra 25/39 com
+    18%. Quase não separa vale verdadeiro de falso.
+    """
+    from pathlib import Path
+
+    fonte = (Path(__file__).resolve().parents[1] / "modules" / "topic_segmenter.py").read_text(
+        encoding="utf-8"
+    )
+    assert "_profundidade_do_vale" in fonte
+    assert "não resolveu" in fonte.lower() or "nao resolveu" in fonte.lower()

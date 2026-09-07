@@ -166,8 +166,53 @@ deixar a fonte decidir qual pesa mais — com medição, não com palpite.
   não desce ali. Afrouxar o limiar só cria fronteira falsa; medido.
 - ~~A live do Ceará vira UM pedaço só~~ **RESOLVIDO em 07/09.** Era o limite
   ficando negativo (ver abaixo). Foi de **0/4 para 4/4**.
-- **A precisão continua baixa em tudo**: 9% a 26% das fronteiras propostas são
-  reais. É o que sobra de problema de verdade nesta frente.
+- ~~A precisão continua baixa em tudo~~ **MELHOROU em 07/09, de 18% para 30%**,
+  com a porta da troca de voz (abaixo). Continua sendo o número mais baixo do
+  quadro e o alvo da frente seguinte.
+
+### RESOLVIDO em parte — a porta da troca de voz levou a precisão de 18% a 30%
+
+A regra de escolha não era o problema. Ordenar os candidatos por **vale mais
+fundo** — a medida clássica do TextTiling, `_profundidade_do_vale` — em vez de
+coesão mais baixa acertou praticamente o mesmo: 7/39 com 23% contra 25/39 com
+18%. Ou seja, a profundidade quase não separa vale verdadeiro de falso.
+
+O que separa estava no arquivo o tempo todo:
+
+```
+34 das 39 viradas de assunto (87%) caem a menos de 15 s de uma troca de locutor
+```
+
+A troca sozinha não serve de fronteira — são 395 trocas para 39 viradas — mas
+serve de **porta**: só é candidato o vale que cai em cima de uma. Medido nas
+cinco fontes:
+
+```
+                              achadas          certeiras
+antes                         25/39   64%      26/143   18%
+depois (porta de 5 s)         22/39   56%      22/74    30%
+```
+
+Custa oito pontos de alcance e devolve doze de precisão. É a troca certa para
+quem edita: fronteira errada vira corte jogado fora; fronteira perdida vira só
+um bloco mais longo, que o seletor ainda corta por dentro.
+
+### E ISSO RESPONDE A PERGUNTA DELE SOBRE O CHUB, COM NÚMERO
+
+> "o fúria não deveria estar SEMPRE usando o chub? mesmo de régua?"
+
+Sim, e agora dá para dizer por quê. As marcas de troca de voz vêm do CHUB
+(`speakerChange`) ou de arquivo de legenda com `>>`. O Whisper rodando na
+máquina **não produz nenhuma**. Medido, com as marcas apagadas de propósito
+para simular o vídeo transcrito na máquina:
+
+```
+com marca do arquivo (CHUB/legenda) .... 22/39  56%  |  22/74   30%
+sem marca nenhuma (Whisper local) ...... 24/39  62%  |  25/133  19%
+```
+
+Sem CHUB o programa não fica quebrado — fica com a precisão de antes. **O CHUB
+vale 11 pontos de precisão**, e essa é a resposta medida à pergunta.
 
 ### RESOLVIDO — o limite que ficava negativo, e a live virava um bloco só
 
@@ -317,6 +362,46 @@ nada AQUI, porque as listas que o `clip_selector` já tinha cobrem o mesmo
 terreno. Desfeito na hora; o módulo não ficou no repositório.
 
 Não tentar de novo sem material em que as duas discordem.
+
+### O silêncio longo entre frases — MORTA, o dado não existe
+
+Estava no prompt que o Google sugeriu ao editor: "pausas longas indicam virada
+de assunto". Medido nas cinco fontes:
+
+```
+silêncio >= 0,5 s entre o fim de uma frase e o começo da próxima:  0 ocorrências
+```
+
+Zero, em todas. As transcrições do Acervo são contíguas — o fim de cada frase é
+o começo da seguinte, por construção. Não é sinal fraco: **o dado não está no
+arquivo.** Só volta a valer se algum dia entrar detecção de silêncio no áudio,
+que é outra máquina de medir.
+
+### Deduzir a troca de voz do texto quando não há diarização — MORTA
+
+Tentativa de estender a porta ao vídeo transcrito na máquina, usando
+`is_interviewer_sentence` (quem faz pergunta é outro locutor) no lugar da marca
+do arquivo. Medido:
+
+```
+marca do arquivo ........  22/39  56%  |  22/74  30%
+marca do texto ..........   7/39  18%  |   7/31  23%
+```
+
+Acha poucas marcas — de 1 a 20 num vídeo inteiro, contra 28 a 172 do arquivo —
+e o alcance desaba. Não substitui. Só volta a valer com diarização de verdade
+rodando na máquina.
+
+### Ordenar por vale mais fundo (profundidade do TextTiling) — MORTA
+
+7/39 achadas com 23% de precisão, contra 25/39 com 18% da ordem por coesão
+crua. A função ficou no repositório (`_profundidade_do_vale`) com o número
+escrito, para ninguém tentar de novo achando que é ideia nova.
+
+### Forçar uma virada a cada 2–3 minutos — MORTA antes de tentar
+
+Também do prompt do Google. Numa live de 234 minutos isso proporia ~117
+fronteiras para achar 4. A conta já diz o resultado; não precisou medir.
 
 ## O modelo dos bots
 
