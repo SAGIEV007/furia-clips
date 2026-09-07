@@ -137,3 +137,40 @@ def test_o_formato_do_chub_e_lido_como_vem(tmp_path, monkeypatch):
     cortes = ler()
     assert len(cortes) == 1
     assert medir(cortes)["duracao_mediana_s"] == 60.0
+
+
+# ── a distância mínima entre viradas de assunto ─────────────────────────────
+
+
+def test_a_distancia_minima_entre_viradas_e_em_segundos():
+    """O teto mecânico que impedia o Furia de ver quatro dos dez assuntos.
+
+    `min_sentences` fazia dois trabalhos: decidir se havia material para
+    segmentar, e servir de distância mínima entre duas viradas. O segundo uso
+    era um proxy ruim — medido na sabatina, 4 dos 10 blocos do Acervo têm menos
+    de 32 frases, e o menor tem 11. Com 32 frases de distância obrigatória eles
+    eram impossíveis por construção.
+
+    Este teste trava a regra em segundos. Se alguém voltar a contar em frases, a
+    leitura de assunto cai de 3/9 para 1/9 sem nenhum erro aparecer na tela.
+    """
+    from modules.topic_segmenter import _boundaries
+
+    # Um vale de coesão em duas posições próximas em índice, mas distantes no
+    # relógio: é o caso do bloco curto do Acervo.
+    curva = [0.9, 0.9, 0.1, 0.9, 0.9, 0.1, 0.9, 0.9]
+    tempos = [0.0, 40.0, 80.0, 120.0, 160.0, 200.0, 240.0, 280.0]
+
+    so_frases = _boundaries(curva, min_gap=32)
+    com_tempo = _boundaries(curva, min_gap=32, tempos=tempos, min_gap_s=15.0)
+
+    assert len(so_frases) == 1, "contando frases, a segunda virada é impossível"
+    assert len(com_tempo) == 2, "contando segundos, as duas cabem"
+
+
+def test_sem_tempos_o_comportamento_antigo_continua():
+    """Quem chama sem os tempos não muda de comportamento."""
+    from modules.topic_segmenter import _boundaries
+
+    curva = [0.9, 0.1, 0.9, 0.1, 0.9]
+    assert _boundaries(curva, min_gap=3) == _boundaries(curva, min_gap=3, tempos=None)

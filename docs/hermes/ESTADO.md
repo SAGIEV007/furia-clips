@@ -96,9 +96,24 @@ estar errada e parecer resolvida.
 
 ### 1. O Furia é quase cego para virada de assunto  ← A RAIZ, MEDIDA EM 07/09
 
-**Das 9 viradas de assunto da sabatina, a leitura própria do Furia acha 1.**
-Onze por cento. Maior pedaço que ele enxerga: 357 s — onde o Acervo marca três
-assuntos diferentes.
+**Era 1 das 9. Agora são 3.** Medido em 07/09, `antes-viradas`/`depois-viradas`.
+
+A causa era um teto mecânico, não calibração: `min_sentences` fazia dois
+trabalhos — decidir se havia material para segmentar, e servir de **distância
+mínima entre duas viradas**. O segundo uso era um proxy ruim:
+
+```
+4 dos 10 blocos do Acervo têm menos de 32 frases; o menor tem 11
+```
+
+Com trinta e duas frases de distância obrigatória, esses quatro eram
+**impossíveis de achar por construção**. A regra de verdade sempre foi em
+segundos e já existia — `min_duration_s`, 15 s, o piso do próprio Acervo.
+Trocado o proxy pela regra: 1/9 → 3/9, e a régua do Acervo **não se mexeu**
+(9/10, 2/16, 18%, 1 engolido). Travado por teste.
+
+Ainda faltam 6 das 9. Maior pedaço que o Furia enxerga: 357 s, onde o Acervo
+marca três assuntos.
 
 ```
   ACERVO      o mais próximo que o Furia viu

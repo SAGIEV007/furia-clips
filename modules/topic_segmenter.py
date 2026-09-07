@@ -82,8 +82,27 @@ def cohesion_curve(segments: list[dict[str, Any]], window: int) -> list[float]:
     return curve
 
 
-def _boundaries(curve: list[float], min_gap: int) -> list[int]:
-    """Gaps that sit in a cohesion valley deeper than the local average."""
+def _boundaries(curve: list[float], min_gap: int, tempos: list[float] | None = None,
+                min_gap_s: float = 0.0) -> list[int]:
+    """Gaps that sit in a cohesion valley deeper than the local average.
+
+    A DISTÂNCIA MÍNIMA ERA CONTADA EM FRASES, E ISSO ERA UM TETO
+    ------------------------------------------------------------
+    O parâmetro `min_sentences` fazia dois trabalhos: decidia se havia material
+    suficiente para segmentar, e servia de distância mínima entre duas viradas.
+    O segundo uso era um proxy ruim. Medido na sabatina da Band contra os dez
+    blocos do Acervo:
+
+        4 dos 10 blocos têm menos de 32 frases — o menor tem 11
+
+    Com trinta e duas frases de distância obrigatória, esses quatro eram
+    **impossíveis de achar**, por construção. O programa encontrava 1 das 9
+    viradas de assunto.
+
+    A regra de verdade sempre foi em segundos, e já existia: `min_duration_s`,
+    15 s, que é o piso do próprio Acervo. `min_gap_s` põe a distância mínima
+    onde ela pertence. Sem tempos, o comportamento antigo continua valendo.
+    """
     if not curve:
         return []
     mean = sum(curve) / len(curve)
@@ -99,9 +118,17 @@ def _boundaries(curve: list[float], min_gap: int) -> list[int]:
         if curve[index] <= threshold and curve[index] <= curve[index - 1] and curve[index] <= curve[index + 1]:
             candidates.append(index)
 
+    def longe_o_bastante(index: int, taken: int) -> bool:
+        if tempos and min_gap_s > 0:
+            try:
+                return abs(tempos[index] - tempos[taken]) >= min_gap_s
+            except IndexError:
+                pass
+        return abs(index - taken) >= min_gap
+
     chosen: list[int] = []
     for index in sorted(candidates, key=lambda position: curve[position]):
-        if all(abs(index - taken) >= min_gap for taken in chosen):
+        if all(longe_o_bastante(index, taken) for taken in chosen):
             chosen.append(index)
     return sorted(chosen)
 
@@ -128,7 +155,11 @@ def segment_transcript(
     if len(usable) < min_sentences * 2:
         return []
 
-    cuts = _boundaries(cohesion_curve(usable, window), min_sentences)
+    tempos = [float(item.get("start", 0) or 0) for item in usable]
+    cuts = _boundaries(
+        cohesion_curve(usable, window), min_sentences,
+        tempos=tempos, min_gap_s=min_duration_s,
+    )
     edges = [0, *[cut + 1 for cut in cuts], len(usable)]
 
     units: list[dict[str, Any]] = []
