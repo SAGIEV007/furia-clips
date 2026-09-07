@@ -26,6 +26,7 @@
 | Régua do assunto próprio | `python scripts/regua_assuntos.py` (o Furia enxerga as viradas?) |
 | Material novo | `python scripts/novo_material.py --sortear` (traz do Acervo, com gabarito) |
 | Gabarito padrão | `tests/fixtures/acervo_sabatina_band.json` — versionado no repositório |
+| Material de comparação | mais 4 fixtures `acervo_*.json`: 2 entrevistas inteiras e 2 lives. **Medir sempre em mais de uma** — a sabatina é edição de melhores momentos e sozinha engana. |
 | Verdade de fora | 10 blocos do Acervo (CHUB), supervisionados por gente |
 | Números que contam | `blocos alcançados`, `abre junto com o assunto`, `atravessa dois assuntos`, `pior repetição` |
 | Números que **não** são meta | tudo sob "diagnóstico — o Furia se avaliando" |
@@ -126,18 +127,49 @@ sabatina_band        1/9     3/9         1/7      3/20
 A precisão **não caiu** — é isso que separa a melhora do chute. Se eu tivesse
 só proposto mais fronteiras, ela desabaria.
 
+### CORREÇÃO (mesmo dia, com material novo do Garimpo)
+
+**Eu disse que "o Furia é quase cego para virada de assunto". Isso era da
+FONTE, não do programa.** A sabatina do gabarito é um "MELHORES MOMENTOS" — a
+edição tirou as perguntas do jornalista. Medir só nela me deu uma conclusão
+geral a partir de um caso particular.
+
+Trazidas duas entrevistas inteiras do Acervo, com as perguntas no lugar:
+
+```
+material              formato             coesão            turno do jornalista
+sabatina_band         melhores momentos   3/9  de 20 prop    2/9  de  9 prop
+bYi5Xhrv5ps           entrevista CNN      6/8  de 23 prop    7/8  de 14 prop
+p5ZRVXBpBYk           conversa 68 min    10/14 de 50 prop    3/14 de 10 prop
+live_ceara            live                0/4  de  0 prop    1/4  de  2 prop
+inteligencia_1607     live                2/4  de 22 prop    0/4  de  1 prop
+```
+
+**Numa entrevista de verdade a leitura própria acha 71% a 75% das viradas.**
+Não é cegueira; é uma fonte editada que engana a medição.
+
+### Os dois sinais se revezam, e nenhum ganha sempre
+
+- **Entrevista CNN:** o turno do jornalista ganha — 7/8 propondo só 14 (metade
+  das propostas certeiras), contra 6/8 propondo 23.
+- **Conversa de 68 min:** a coesão ganha — 10/14 contra 3/14.
+- **Live:** os dois fracassam, e **é o formato dele.**
+
+Isso mata a ideia de trocar um sinal pelo outro. O caminho é usar os dois e
+deixar a fonte decidir qual pesa mais — com medição, não com palpite.
+
 ### O que continua ruim, e é muito
 
 - **Só 9% a 15% das fronteiras propostas são reais.** O sinal (coesão lexical
   numa janela de 6 frases) é fraco para este material.
 - **6 das 9 viradas nem aparecem como candidatas** — não perdem disputa, a curva
   não desce ali. Afrouxar o limiar só cria fronteira falsa; medido.
-- **A live do Ceará vira UM pedaço só** (720 s, o teto). Zero viradas achadas.
-  É um defeito à parte e provavelmente o mais grave dos três.
-- **O turno do jornalista não salva:** na sabatina há só 9 turnos em 32 min e
-  eles acham 2 das 9. A fonte é um "melhores momentos" — a edição tirou as
-  perguntas. Num material com as perguntas inteiras o sinal pode valer mais;
-  **medir antes de apostar.**
+- **A live do Ceará vira UM pedaço só** (720 s, o teto): a coesão propõe **zero**
+  fronteiras. É o defeito mais grave, e é no formato que ele mais usa.
+- **Nas duas lives, os dois sinais falham** (0/4 e 2/4). O Furia sabe ler
+  entrevista e não sabe ler live — e a live é o material dele.
+- **O turno do jornalista salva numa entrevista e não salva numa live.** Medido:
+  7/8 na CNN, 0/4 na live da inteligência. Era hipótese; agora é número.
 
 ```
   ACERVO      o mais próximo que o Furia viu
