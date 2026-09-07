@@ -166,9 +166,23 @@ deixar a fonte decidir qual pesa mais — com medição, não com palpite.
   não desce ali. Afrouxar o limiar só cria fronteira falsa; medido.
 - ~~A live do Ceará vira UM pedaço só~~ **RESOLVIDO em 07/09.** Era o limite
   ficando negativo (ver abaixo). Foi de **0/4 para 4/4**.
-- ~~A precisão continua baixa em tudo~~ **MELHOROU em 07/09, de 18% para 30%**,
-  com a porta da troca de voz (abaixo). Continua sendo o número mais baixo do
-  quadro e o alvo da frente seguinte.
+- ~~A precisão continua baixa em tudo~~ **MELHOROU em 07/09, de 18% para 40%**,
+  em três passos medidos um a um (abaixo). Continua sendo o número mais baixo
+  do quadro e o alvo da frente seguinte.
+
+### O dia inteiro numa tabela
+
+```
+                                        achadas          certeiras     propostas
+como amanheceu                          25/39   64%      26/143  18%      143
++ porta da troca de voz                 22/39   56%      22/74   30%       74
++ idf e plural na curva de coesão       26/39   67%      26/73   36%       73
++ piso do pedaço em 30 s (era 15 s)     25/39   64%      25/63   40%       63
+```
+
+**Mesmo alcance do começo do dia, com 63 fronteiras propostas no lugar de 143.**
+A régua principal não mudou em nenhum dos três passos: 9/10 assuntos, 2/16
+atravessa, 18% de repetição, 1 engolido.
 
 ### RESOLVIDO em parte — a porta da troca de voz levou a precisão de 18% a 30%
 
@@ -196,6 +210,39 @@ depois (porta de 5 s)         22/39   56%      22/74    30%
 Custa oito pontos de alcance e devolve doze de precisão. É a troca certa para
 quem edita: fronteira errada vira corte jogado fora; fronteira perdida vira só
 um bloco mais longo, que o seletor ainda corta por dentro.
+
+### RESOLVIDO — a palavra que aparece em tudo pesava igual à que aparece em três
+
+A curva de coesão contava palavra por palavra, com uma lista de stopwords
+escrita à mão. A lista acerta o óbvio ("que", "para") e erra o que só é óbvio
+dentro do material: numa entrevista sobre o Brasil, "brasil" está em toda frase
+e não separa nada.
+
+O `idf` mede isso em vez de adivinhar — cada palavra pesa pelo inverso de em
+quantas frases ela aparece, calculado dentro do próprio vídeo. Junto com juntar
+plural ao singular (só plural, só em palavra de seis letras ou mais):
+
+```
+antes    22/39 achadas 56%   22/74 certeiras 30%
+depois   26/39 achadas 67%   26/73 certeiras 36%
+```
+
+As duas colunas subiram e nenhuma das cinco fontes piorou. A lista de stopwords
+continua valendo — tirá-la custou cinco pontos de alcance.
+
+### RESOLVIDO — o piso de 15 s era um número errado escrito com confiança
+
+Estava no código que "os blocos do Acervo vão de 15 s a uns 12 minutos". A
+primeira metade não se sustenta. Contados os 44 blocos das cinco fontes:
+
+```
+menor 34 s · décimo percentil 78 s · mediana 220 s · maior 644 s
+blocos abaixo de 30 s: NENHUM
+```
+
+O piso de 15 s abria espaço para "assunto" de meio minuto que o Acervo nunca
+produz, e cada um era fronteira falsa. Com 30 s — logo abaixo do menor bloco já
+visto, com folga — a precisão foi de 36% para 40%.
 
 ### E ISSO RESPONDE A PERGUNTA DELE SOBRE O CHUB, COM NÚMERO
 

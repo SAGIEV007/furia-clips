@@ -47,7 +47,7 @@ def _tokens(text: str) -> list[str]:
     return [word for word in _WORD.findall(lowered) if len(word) > 2 and word not in _STOPWORDS]
 
 
-def _cosine(left: dict[str, int], right: dict[str, int]) -> float:
+def _cosine(left: dict[str, float], right: dict[str, float]) -> float:
     if not left or not right:
         return 0.0
     shared = set(left) & set(right)
@@ -66,18 +66,79 @@ def _counts(words: list[str]) -> dict[str, int]:
     return counts
 
 
+def _singular(word: str) -> str:
+    """Junta o plural ao singular, e só isso.
+
+    "reforma" e "reformas" são a mesma palavra para efeito de assunto, e contá-las
+    separado deixa a curva de coesão mais rasa do que devia. Isto NÃO é um
+    radicalizador completo de propósito: a versão que corta sufixo de verbo e de
+    substantivo ("educação/educacional/educar" → "educ") deu duas viradas a mais
+    no total mas derrubou a live do Ceará de 4/4 para 3/4, porque junta palavra
+    que não é a mesma. Aqui só o plural, só em palavra de seis letras ou mais.
+
+    Medido nas cinco fontes, contra só idf: uma virada a mais achada, dois pontos
+    a mais de precisão, e nenhuma fonte piorou.
+    """
+    if len(word) < 6 or not word.endswith("s") or word.endswith("ss"):
+        return word
+    if word.endswith(("ões", "ães", "oes", "aes")):
+        return word[:-3] + "ão"
+    if word.endswith(("ais", "eis", "óis", "uis")):
+        return word[:-3] + word[-3] + "l"
+    if word.endswith("es") and word[-3] in "rzs":
+        return word[:-2]
+    return word[:-1]
+
+
 def cohesion_curve(segments: list[dict[str, Any]], window: int) -> list[float]:
     """Lexical similarity across each gap between sentences.
 
     Each gap is scored by comparing the vocabulary of the ``window`` sentences
     before it with the ``window`` sentences after it. A low value means the two
     sides talk about different things.
+
+    PALAVRA QUE APARECE EM TUDO NÃO DIZ DE QUE ASSUNTO SE TRATA
+    -----------------------------------------------------------
+    A lista `_STOPWORDS` acima é um palpite escrito à mão sobre quais palavras
+    não carregam assunto. Ela acerta o óbvio — "que", "para", "então" — e erra o
+    que só é óbvio DENTRO deste material: numa entrevista sobre o Brasil, a
+    palavra "brasil" aparece em toda frase e não separa nada; num vídeo sobre
+    segurança, "segurança" é o assunto inteiro.
+
+    O `idf` mede isso em vez de adivinhar: cada palavra pesa pelo INVERSO de em
+    quantas frases ela aparece. Palavra em toda frase pesa quase zero; palavra em
+    três frases pesa muito. É calculado dentro do próprio vídeo, então se adapta
+    sozinho a cada material — sem lista, sem ajuste, sem ninguém decidir nada.
+
+    Medido nas cinco fontes com gabarito do Acervo, com a porta da troca de voz
+    já ligada:
+
+        antes (contagem crua)   22/39 achadas 56%   22/74 certeiras 30%
+        com idf + plural        26/39 achadas 67%   26/73 certeiras 36%
+
+    As duas colunas subiram, e nenhuma das cinco fontes piorou. A lista de
+    stopwords continua valendo: tirá-la custou cinco pontos de alcance, porque
+    "que"/"para" aparecem em toda frase de todo vídeo e o idf sozinho não os
+    derruba o bastante.
     """
-    words = [_tokens(item.get("text")) for item in segments]
+    words = [[_singular(word) for word in _tokens(item.get("text"))] for item in segments]
+    total = len(words) or 1
+    frases_com: dict[str, int] = {}
+    for chunk in words:
+        for word in set(chunk):
+            frases_com[word] = frases_com.get(word, 0) + 1
+    peso = {word: math.log(total / (1 + n)) for word, n in frases_com.items()}
+
+    def pesados(bag: list[str]) -> dict[str, float]:
+        counts: dict[str, float] = {}
+        for word in bag:
+            counts[word] = counts.get(word, 0.0) + peso.get(word, 1.0)
+        return counts
+
     curve = []
     for gap in range(1, len(segments)):
-        before = _counts([word for chunk in words[max(0, gap - window):gap] for word in chunk])
-        after = _counts([word for chunk in words[gap:gap + window] for word in chunk])
+        before = pesados([word for chunk in words[max(0, gap - window):gap] for word in chunk])
+        after = pesados([word for chunk in words[gap:gap + window] for word in chunk])
         curve.append(_cosine(before, after))
     return curve
 
@@ -256,14 +317,30 @@ def segment_transcript(
     *,
     window: int = 6,
     min_sentences: int = 32,
-    min_duration_s: float = 15.0,
+    min_duration_s: float = 30.0,
     max_duration_s: float = 720.0,
 ) -> list[dict[str, Any]]:
     """Split the transcript into thematic units and judge each one.
 
-    The duration bounds mirror what the Acervo produces: its blocks run from 15s
-    to about 12 minutes. Each unit is returned with the evidence behind the
-    verdict, never as a bare accept or reject.
+    The duration bounds mirror what the Acervo produces. Each unit is returned
+    with the evidence behind the verdict, never as a bare accept or reject.
+
+    O PISO DE 15 s ERA UM NÚMERO ERRADO ESCRITO COM CONFIANÇA
+    ---------------------------------------------------------
+    Estava aqui que "os blocos do Acervo vão de 15 s a uns 12 minutos". A
+    primeira metade não se sustenta. Contados os 44 blocos das cinco fontes com
+    gabarito:
+
+        menor 34 s · décimo percentil 78 s · mediana 220 s · maior 644 s
+        blocos abaixo de 30 s: NENHUM
+
+    Ou seja, o piso de 15 s abria espaço para "assunto" de meio minuto que o
+    Acervo nunca produz — e cada um deles era fronteira falsa. Trinta segundos
+    fica logo abaixo do menor bloco já visto, com folga: não exclui nada real.
+
+    Medido nas cinco fontes: a precisão foi de 36% para 40%, ao custo de uma
+    virada achada a menos. É o mesmo raciocínio do resto — o número vem do
+    catálogo, não do meu palpite.
     """
     usable = [
         item for item in segments or []
