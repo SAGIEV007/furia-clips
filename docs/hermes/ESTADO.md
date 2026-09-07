@@ -142,6 +142,19 @@ Isso é decisão editorial, não defeito técnico: um corte que abre na pergunta
 jornalista ganha contexto e perde ritmo. Só ele decide qual quer, e os
 vereditos dele são o que responde. **Não mexer antes disso.**
 
+### 3. A emenda das janelas, quando o Ollama está instalado
+
+`_select_with_llm` pica a transcrição em janelas de 25 blocos **sem
+sobreposição** (`range(0, n, 25)` e `blocks[i:i+25]`). Um bom momento que cai
+bem na emenda entre a janela 1 e a 2 é partido e pode se perder.
+
+Os cortadores abertos resolvem isso com janelas sobrepostas — é a única técnica
+deles que o Furia não tem.
+
+Vale só quando `ai_backend` acha o Ollama; sem ele o caminho é o NLP, que não
+pica. Por isso está em terceiro: pode não afetar a máquina dele. **Conferir
+primeiro se o Ollama está instalado lá** antes de gastar uma rodada nisto.
+
 ## Linhas mortas — não tentar de novo sem ideia nova
 
 Registrar aqui o que já foi tentado três vezes sem mover o número.

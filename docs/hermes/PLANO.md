@@ -96,6 +96,46 @@ de maior alavancagem que existe hoje, e é a única que ainda pede digitação.
 
 ---
 
+## O que a pesquisa dos geradores de shorts acrescentou (07/09)
+
+Ele mandou vídeos e pediu para eu pesquisar os geradores famosos do GitHub.
+Duas categorias, e só uma interessa:
+
+**Os "faceless" — DarkPlanner, AutoShorts.ai, Syllaby, Sendshort.** Geram vídeo
+do ZERO: roteiro de IA, voz sintética, imagem de banco. Não cortam vídeo de
+ninguém. Categoria errada para o Renan.
+
+**Os cortadores — Opus Clip, Klap, e os clones abertos** (o maior é o
+`AI-Youtube-Shorts-Generator`, 4,8 mil estrelas). Esses fazem o que o Furia faz.
+
+Comparado item por item, **eles não têm nada que o Furia não tenha**:
+
+| | eles | Furia |
+|---|---|---|
+| word timestamps do Whisper | sim | sim, ligado por padrão |
+| corte vertical seguindo o rosto | sim | `face_tracker` + `layout_planner`, ligados |
+| legenda queimada | sim | `caption_lexicon`, ligado |
+| dedup por sobreposição | >50% | mais apertado |
+| régua de fora | **não** | Acervo do CHUB |
+| aprende com o editor | **não** | caderno de vereditos |
+| sabe quem está falando | **não** | Renan vs jornalista |
+
+E como eles escolhem o corte: mandam a transcrição para um LLM e perguntam
+"quais são os momentos virais". Isso é uma opinião sem como conferir — é
+exatamente o problema que a régua existe para resolver. Além disso mandaria a
+fala do Renan para um terceiro, o que a regra de dados proíbe.
+
+**O único achado técnico aproveitável** é a técnica, não a ferramenta: eles
+picam vídeo longo em janelas **com sobreposição**, para não perder um momento
+que cai bem na emenda. O Furia pica em janelas de 25 blocos **sem
+sobreposição** (`_select_with_llm`, linha ~1565). Vale só quando o Ollama está
+instalado — sem ele o caminho é o NLP, que não pica. Anotado na fila.
+
+Conclusão para o planejamento: **não muda nada.** O plano continua sendo encher
+o caderno, porque o que separa o Furia dessas ferramentas já é a régua e o
+aprendizado — e as duas coisas estão esperando o julgamento dele, não código
+novo.
+
 ## O que NÃO vou fazer, e por quê
 
 **Não vou perseguir `abre junto com o assunto`.** Você decidiu; o número saiu da
