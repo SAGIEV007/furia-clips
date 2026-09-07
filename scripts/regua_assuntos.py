@@ -87,9 +87,19 @@ def main():
         marca = "ACHOU" if erro <= TOLERANCIA_S else ""
         achadas += 1 if erro <= TOLERANCIA_S else 0
         print(f"  {borda:10.1f}   ->  {perto:8.1f}   ({erro:6.1f}s)  {marca}")
+    # Quantas das fronteiras que o Furia PROPÔS são reais. Sem este número,
+    # "achadas" se conserta propondo mais: quem chuta uma virada a cada dez
+    # segundos acha todas e não sabe nada. Foi o que quase aconteceu aqui — uma
+    # mudança levou "achadas" de 1/9 a 3/9 e o total de fronteiras de 7 a 20,
+    # com a precisão parada em 14%.
+    certeiras = sum(
+        1 for f in furia if gabarito and min(abs(f - b) for b in gabarito) <= TOLERANCIA_S
+    )
     print()
     print(f"    viradas de assunto achadas .... {achadas:3}/{len(gabarito)}"
           f"  {100 * achadas / len(gabarito):5.0f}%   subir")
+    print(f"    fronteiras propostas certeiras  {certeiras:3}/{len(furia) or 1}"
+          f"  {100 * certeiras / max(1, len(furia)):5.0f}%   subir   (anti-chute)")
     print(f"    maior pedaço que o Furia vê ... {max(u['duration_s'] for u in unidades):8.0f}s")
     print(f"    maior bloco do gabarito ....... "
           f"{max(float(b['end']) - float(b['start']) for b in blocos):8.0f}s")

@@ -112,8 +112,32 @@ segundos e já existia — `min_duration_s`, 15 s, o piso do próprio Acervo.
 Trocado o proxy pela regra: 1/9 → 3/9, e a régua do Acervo **não se mexeu**
 (9/10, 2/16, 18%, 1 engolido). Travado por teste.
 
-Ainda faltam 6 das 9. Maior pedaço que o Furia enxerga: 357 s, onde o Acervo
-marca três assuntos.
+**Conferido em três materiais, não em um** (a primeira medição foi só na
+sabatina, e isso não bastava):
+
+```
+material              achadas          certeiras (anti-chute)
+                    antes  depois       antes    depois
+inteligência_1607    0/4     2/4         0/7      2/22
+live_ceara           0/4     0/4         0/1      0/1
+sabatina_band        1/9     3/9         1/7      3/20
+```
+
+A precisão **não caiu** — é isso que separa a melhora do chute. Se eu tivesse
+só proposto mais fronteiras, ela desabaria.
+
+### O que continua ruim, e é muito
+
+- **Só 9% a 15% das fronteiras propostas são reais.** O sinal (coesão lexical
+  numa janela de 6 frases) é fraco para este material.
+- **6 das 9 viradas nem aparecem como candidatas** — não perdem disputa, a curva
+  não desce ali. Afrouxar o limiar só cria fronteira falsa; medido.
+- **A live do Ceará vira UM pedaço só** (720 s, o teto). Zero viradas achadas.
+  É um defeito à parte e provavelmente o mais grave dos três.
+- **O turno do jornalista não salva:** na sabatina há só 9 turnos em 32 min e
+  eles acham 2 das 9. A fonte é um "melhores momentos" — a edição tirou as
+  perguntas. Num material com as perguntas inteiras o sinal pode valer mais;
+  **medir antes de apostar.**
 
 ```
   ACERVO      o mais próximo que o Furia viu
