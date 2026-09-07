@@ -22,7 +22,10 @@ from database import get_db, restore_feedback_snapshot as restore_local_feedback
 
 SYNC_FORMAT = "furia-clips-editorial-feedback"
 SYNC_FORMAT_VERSION = 2
-DEFAULT_BRANCH = "manus/rebuild-opus-parity"
+# A branch que a sincronização usa quando ninguém disser outra coisa. Só vale
+# como último recurso: o normal é usar a branch em que o checkout está.
+FALLBACK_BRANCH = "manus/rebuild-opus-parity"
+DEFAULT_BRANCH = FALLBACK_BRANCH  # nome antigo, mantido para quem já importava
 SNAPSHOT_RELATIVE_PATH = Path("data") / "editorial_feedback_snapshot.json"
 
 
@@ -38,7 +41,36 @@ def _repo_path(repo_path: str | None = None) -> Path:
 
 
 def _branch(repo: Path) -> str:
-    return os.environ.get("FURIA_GIT_BRANCH", DEFAULT_BRANCH).strip() or DEFAULT_BRANCH
+    """A branch para onde o feedback vai: a que o checkout está usando.
+
+    O BOTÃO DOS DOIS NOTEBOOKS NUNCA FUNCIONOU, E FOI POR ISTO
+    ----------------------------------------------------------
+    Isto devolvia `manus/rebuild-opus-parity`, escrito à mão numa época em que
+    era essa a branch entregue. O editor baixa `claude/repo-access-commits-...`.
+    E `push_feedback_snapshot` recusa quando as duas não batem:
+
+        "O checkout está na branch 'claude/...', não em 'manus/...'."
+
+    Ou seja: **apertar 'Enviar feedback ao GitHub' sempre deu erro**, desde que
+    a branch entregue mudou de nome. O `data/editorial_feedback_snapshot.json`
+    nunca chegou a existir no repositório — a prova de que nunca rodou.
+
+    Ele descreveu o sintoma sem saber a causa: *"eu uso dois notebooks (...) o
+    arquivo de resultados de aprovados e rejeitados não é compartilhado"*.
+
+    A branch certa é sempre a que o programa está rodando, seja qual for o
+    nome dela hoje ou daqui a seis meses. `FURIA_GIT_BRANCH` continua mandando
+    mais, para quem precisar forçar. O nome fixo fica só como último recurso,
+    se o `git` não souber dizer em que branch está (checkout solto num commit).
+    """
+    forcada = os.environ.get("FURIA_GIT_BRANCH", "").strip()
+    if forcada:
+        return forcada
+    try:
+        atual = _run_git(repo, "branch", "--show-current").stdout.strip()
+    except RepositorySyncError:
+        atual = ""
+    return atual or FALLBACK_BRANCH
 
 
 def _run_git(repo: Path, *args: str, timeout: int = 30) -> subprocess.CompletedProcess[str]:

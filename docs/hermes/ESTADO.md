@@ -464,6 +464,44 @@ do que recebe. Enquanto não houver, vale a regra conservadora: **transcrição,
 fala do Renan, dados do CHUB e chaves não passam por bot.** Bot mexe em código e
 número.
 
+## RESOLVIDO — o botão dos dois notebooks nunca tinha funcionado
+
+Ele perguntou: *"eu uso dois notebooks (...) o arquivo de resultados de
+aprovados e rejeitados não é compartilhado, não sei se é bem utilizado para
+treinar e não sei nem se o fúria ou você o usam"*.
+
+Conferido item por item:
+
+| a pergunta dele | a resposta, conferida no código |
+|---|---|
+| é salvo? | sim — `~/FuriaClipsData/database/editorial_learning.sqlite3` |
+| é usado para treinar? | sim, a ligação existe: botão → sqlite → `aprendizado.ajustes()` → `EditorialRanker._peso()` → a nota de cada corte |
+| eu uso? | sim, `regua_vereditos.py` — a régua do alvo de verdade |
+| muda alguma coisa hoje? | **não**: 0 vereditos, 0 cortes dele, `ajustes()` devolve `{}` |
+| vai de um notebook ao outro? | **NÃO IA** — era um defeito, agora consertado |
+
+**O defeito:** `repository_sync._branch()` devolvia `manus/rebuild-opus-parity`,
+escrito à mão numa época em que era essa a branch entregue. Ele baixa
+`claude/repo-access-commits-...`, e `push_feedback_snapshot` recusa quando as
+duas não batem:
+
+```
+"O checkout está na branch 'claude/...', não em 'manus/...'."
+```
+
+Apertar **"Enviar feedback ao GitHub" sempre deu erro**, desde que o nome da
+branch entregue mudou. A prova: `data/editorial_feedback_snapshot.json` nunca
+chegou a existir no repositório.
+
+Agora a branch é a que o checkout está usando, seja qual for o nome dela.
+`FURIA_GIT_BRANCH` continua mandando mais; o nome fixo virou só reserva para
+checkout solto num commit. Três testes travam isso.
+
+**O que vai no arquivo compartilhado** (conferido em `build_feedback_snapshot`):
+chave do corte, início, fim, duração, nota, aprovado/rejeitado, motivo,
+etiquetas e data. **Nenhuma transcrição, nenhum caminho de arquivo, nenhum
+vídeo.** É seguro mesmo num repositório público.
+
 ## Travado / precisa do editor
 
 - **Faltam exemplos aprovados e rejeitados.** Dez cortes que ele aprovaria e dez

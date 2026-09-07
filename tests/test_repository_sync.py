@@ -80,6 +80,84 @@ class RepositorySyncTests(unittest.TestCase):
         self.assertTrue(status["feedback_snapshot_dirty"])
         self.assertFalse(status["update_available"])
 
+    def test_a_branch_do_feedback_e_a_que_o_programa_esta_usando(self):
+        """O defeito que impedia os dois notebooks de trocar feedback.
+
+        `_branch` devolvia `manus/rebuild-opus-parity`, escrito à mão. O editor
+        baixa `claude/repo-access-commits-...`, e `push_feedback_snapshot`
+        recusa quando as duas não batem. Resultado: apertar "Enviar feedback ao
+        GitHub" sempre deu erro, e `data/editorial_feedback_snapshot.json`
+        nunca chegou a existir no repositório.
+
+        Ele descreveu o sintoma sem saber a causa: "eu uso dois notebooks (...)
+        o arquivo de aprovados e rejeitados não é compartilhado".
+
+        Se alguém voltar a fixar o nome, o botão volta a dar erro numa tela que
+        eu não vejo, e a única evidência de fora que o motor tem para de chegar.
+        """
+        def fake_git(_repo, *args, **kwargs):
+            outputs = {
+                ("branch", "--show-current"): "claude/repo-access-commits-imgjmk\n",
+                ("rev-parse", "HEAD"): "abc\n",
+                ("rev-parse", "origin/claude/repo-access-commits-imgjmk"): "abc\n",
+                ("status", "--porcelain=v1"): "",
+            }
+            return CompletedProcess(["git", *args], 0, outputs.get(tuple(args), ""), "")
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = Path(temp_dir)
+            (repo / ".git").mkdir()
+            with patch("modules.repository_sync._run_git", side_effect=fake_git):
+                status = get_repository_status(str(repo), fetch=False)
+
+        self.assertEqual(status["branch"], "claude/repo-access-commits-imgjmk")
+        self.assertTrue(
+            status["on_expected_branch"],
+            "o feedback tem que ir para a branch em que o programa está rodando",
+        )
+
+    def test_quem_precisar_forcar_a_branch_ainda_consegue(self):
+        """`FURIA_GIT_BRANCH` continua mandando mais que tudo."""
+        import os
+
+        def fake_git(_repo, *args, **kwargs):
+            outputs = {
+                ("branch", "--show-current"): "uma-branch-qualquer\n",
+                ("rev-parse", "HEAD"): "abc\n",
+                ("rev-parse", "origin/forcada"): "abc\n",
+                ("status", "--porcelain=v1"): "",
+            }
+            return CompletedProcess(["git", *args], 0, outputs.get(tuple(args), ""), "")
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = Path(temp_dir)
+            (repo / ".git").mkdir()
+            with patch.dict(os.environ, {"FURIA_GIT_BRANCH": "forcada"}), \
+                    patch("modules.repository_sync._run_git", side_effect=fake_git):
+                status = get_repository_status(str(repo), fetch=False)
+
+        self.assertEqual(status["branch"], "forcada")
+
+    def test_checkout_solto_num_commit_nao_derruba_a_sincronizacao(self):
+        """Sem branch atual, cai no nome de reserva em vez de quebrar."""
+        from modules.repository_sync import FALLBACK_BRANCH
+
+        def fake_git(_repo, *args, **kwargs):
+            outputs = {
+                ("branch", "--show-current"): "\n",  # detached HEAD
+                ("rev-parse", "HEAD"): "abc\n",
+                ("status", "--porcelain=v1"): "",
+            }
+            return CompletedProcess(["git", *args], 0, outputs.get(tuple(args), ""), "")
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = Path(temp_dir)
+            (repo / ".git").mkdir()
+            with patch("modules.repository_sync._run_git", side_effect=fake_git):
+                status = get_repository_status(str(repo), fetch=False)
+
+        self.assertEqual(status["branch"], FALLBACK_BRANCH)
+
     def test_snapshot_writer_does_not_write_outside_checkout(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             repo = Path(temp_dir)
