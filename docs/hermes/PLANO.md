@@ -136,6 +136,70 @@ o caderno, porque o que separa o Furia dessas ferramentas já é a régua e o
 aprendizado — e as duas coisas estão esperando o julgamento dele, não código
 novo.
 
+## A pergunta dele que mudou o plano (07/09, mais tarde)
+
+> *"os padrões do chub não são o suficiente? (...) até um vídeo que nem estava
+> no chub pode ser interpretado e transformado em blocos através de sumarização
+> (...) além de eu enviar cortes prontos (...) através dos cortes do Renan que
+> já estão no Instagram"*
+
+Três pontos. Ele acertou em dois, e o terceiro eu testei e achei o obstáculo.
+
+### 1. "Interpretar um vídeo que não está no CHUB em blocos" — o Furia JÁ FAZ
+
+E a prova estava na própria régua, escrita e não lida: **o Furia lê a sabatina
+em 8 blocos temáticos próprios; o Acervo marca 10.** Ele nunca precisou do CHUB
+para segmentar — `editorial_block.py` e `editorial_chapters.py` fazem isso na
+live de ontem igual.
+
+Eu tinha tratado a ideia 1 (`atravessa dois assuntos`) como "consertar 2 de 16".
+**Errado, e o erro é de tamanho.** Aqueles 8 contra 10 são a medida de quão bem
+a leitura própria do Furia substitui o CHUB num vídeo que o CHUB nunca viu. É a
+mesma coisa que o problema da live recente, e dá para medir hoje.
+
+A ideia 1 sobe de importância por causa da pergunta dele.
+
+### 2. Os cortes publicados no Instagram — a maior fonte disponível
+
+Testado de ponta a ponta com dados reais, e o resultado tem duas metades.
+
+**O que NÃO funciona: recuperar o começo e o fim no vídeo longo.**
+
+Peguei o corte mais visto (9,1 M) e procurei o texto dele na sabatina. Não bate.
+Procurei no Acervo: **78 blocos, em pelo menos quatro vídeos diferentes**, com o
+mesmo argumento e palavras diferentes a cada vez. O Renan repete as teses dele.
+
+A busca acha o **argumento**, não a **gravação**. Alinhar automático atribuiria o
+corte ao vídeo errado, e gabarito com hora errada é pior que gabarito nenhum —
+ensinaria o motor a cortar no lugar errado com confiança.
+
+**O que funciona, e é muito: a FORMA do corte publicado, que não precisa de
+alinhamento nenhum.** Medido em três dos mais vistos:
+
+| | duração | como abre | como fecha |
+|---|---|---|---|
+| 9,1 M "Que Brasil vou pegar" | ~92 s | **pergunta do repórter, 1,5 s** | conclusão fechada |
+| 5,9 M "propaganda do PT" | ~127 s | cena + tese em 7 s | assinatura |
+| 5,8 M "Lula há 30 anos" | ~52 s | tese direta | frase de soco |
+
+Três coisas que isso já mostra, e nenhuma delas é palpite meu:
+
+- **Duração publicada: 52 a 127 s.** Vale conferir contra o teto do Furia.
+- **Abrir na pergunta curta do repórter é padrão de campeão**, não exceção — o
+  mais visto de todos faz isso, com 1,5 s de pergunta. Confirma a regra dele.
+- **A legenda do post é uma frase do próprio corte, ou a pergunta que o abre.**
+  Isso é evidência de headline, que é justamente um dos dois testes parados.
+
+São **5.339 cortes publicados** com transcrição disponível. É a maior fonte de
+"como é um corte pronto do Renan" que existe, ela não exige que ele digite nada,
+e é verdade de fora (NORTE §15): quem publicou foi a equipe, não o programa.
+
+### 3. Os cortes que ele mesmo manda — continuam valendo
+
+Esses têm o que os publicados não têm: **ele sabe de qual vídeo e de que hora**.
+Cinco por vídeo dão régua de tempo. Os publicados dão régua de forma. As duas
+juntas cobrem o que faltava.
+
 ## O que NÃO vou fazer, e por quê
 
 **Não vou perseguir `abre junto com o assunto`.** Você decidiu; o número saiu da
