@@ -174,3 +174,30 @@ def test_sem_tempos_o_comportamento_antigo_continua():
 
     curva = [0.9, 0.1, 0.9, 0.1, 0.9]
     assert _boundaries(curva, min_gap=3) == _boundaries(curva, min_gap=3, tempos=None)
+
+
+def test_o_limite_nunca_fica_abaixo_do_alcancavel():
+    """O defeito que fazia uma live de duas horas virar um bloco só.
+
+    `média − desvio` supõe que a coesão varia pouco em torno da média. Numa
+    entrevista vale; numa live não. Medido na live do Ceará (234 min):
+
+        média 0,093 · desvio 0,100 · limite -0,007
+
+    Coesão não é negativa, então NENHUM ponto podia passar — as duas horas
+    viravam um bloco só e a régua marcava 0 de 4 viradas achadas. Com o piso no
+    décimo percentil: 4 de 4, e as outras quatro fontes medidas não mudaram uma
+    vírgula.
+
+    Se alguém tirar o piso, a live volta a 0/4 sem nenhum erro na tela.
+    """
+    from modules.topic_segmenter import _boundaries
+
+    # Uma curva como a da live: muitos zeros, então o desvio supera a média e
+    # `média − desvio` fica negativo.
+    curva = [0.0, 0.5, 0.0, 0.6, 0.0, 0.5, 0.0, 0.6, 0.0, 0.5]
+    achadas = _boundaries(curva, min_gap=2)
+
+    assert achadas, (
+        "com o limite negativo nada passava e a live inteira virava um bloco só"
+    )

@@ -112,7 +112,26 @@ def _boundaries(curve: list[float], min_gap: int, tempos: list[float] | None = N
     # Calibrated against 27 Acervo blocks on a 98-minute source: a shallower
     # threshold fragmented one subject into many, a deeper one collapsed the
     # whole transcript into a single unit.
-    threshold = mean - deviation
+    # O LIMITE PODIA FICAR NEGATIVO, E AÍ NADA PASSAVA NUNCA
+    #
+    # `média − desvio` supõe que a coesão varia pouco em torno da média. Numa
+    # entrevista isso vale. Numa live, não: o Renan fala sozinho por horas, a
+    # curva tem muitos pontos de coesão zero, o desvio fica MAIOR que a média e
+    # o limite vira negativo. Medido na live do Ceará (234 min):
+    #
+    #     média 0,093 · desvio 0,100 · limite −0,007
+    #
+    # Coesão não é negativa, então nenhum ponto podia passar: as duas horas
+    # viravam UM bloco só, e a régua marcava 0 de 4 viradas achadas. Não era
+    # sinal fraco — era uma conta que quebra em material longo e monológico.
+    #
+    # O piso é o décimo percentil da própria curva: alcançável por definição
+    # (dez por cento dos pontos estão nele ou abaixo) e sem número mágico. Onde
+    # `média − desvio` já é maior que ele — as quatro outras fontes medidas —
+    # nada muda.
+    ordenada = sorted(curve)
+    piso = ordenada[min(len(ordenada) - 1, int(len(ordenada) * 0.10))]
+    threshold = max(mean - deviation, piso)
     candidates = []
     for index in range(1, len(curve) - 1):
         if curve[index] <= threshold and curve[index] <= curve[index - 1] and curve[index] <= curve[index + 1]:

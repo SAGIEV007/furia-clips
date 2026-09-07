@@ -164,10 +164,43 @@ deixar a fonte decidir qual pesa mais — com medição, não com palpite.
   numa janela de 6 frases) é fraco para este material.
 - **6 das 9 viradas nem aparecem como candidatas** — não perdem disputa, a curva
   não desce ali. Afrouxar o limiar só cria fronteira falsa; medido.
-- **A live do Ceará vira UM pedaço só** (720 s, o teto): a coesão propõe **zero**
-  fronteiras. É o defeito mais grave, e é no formato que ele mais usa.
-- **Nas duas lives, os dois sinais falham** (0/4 e 2/4). O Furia sabe ler
-  entrevista e não sabe ler live — e a live é o material dele.
+- ~~A live do Ceará vira UM pedaço só~~ **RESOLVIDO em 07/09.** Era o limite
+  ficando negativo (ver abaixo). Foi de **0/4 para 4/4**.
+- **A precisão continua baixa em tudo**: 9% a 26% das fronteiras propostas são
+  reais. É o que sobra de problema de verdade nesta frente.
+
+### RESOLVIDO — o limite que ficava negativo, e a live virava um bloco só
+
+`média − desvio` supõe que a coesão varia pouco em torno da média. Numa
+entrevista vale. Numa live o Renan fala sozinho por horas, a curva tem muitos
+pontos de coesão zero, **o desvio fica maior que a média e o limite vira
+negativo**:
+
+```
+material            média  desvio   limite
+live_ceara          0,093  0,100   −0,007   <- nada podia passar, nunca
+entrevista CNN      0,116  0,080   +0,036
+sabatina            0,127  0,084   +0,042
+```
+
+Coesão não é negativa, então nenhum ponto passava: as duas horas viravam UM
+bloco. Não era sinal fraco — era uma conta que quebra em material longo e
+monológico. Terceiro defeito mecânico da mesma família achado hoje.
+
+O conserto é um piso no décimo percentil da própria curva — alcançável por
+definição, sem número mágico. Medido nas cinco fontes:
+
+```
+                     ANTES              DEPOIS
+live_ceara           0/4    0%          4/4   100%
+bYi5Xhrv5ps          6/8   75%          6/8    75%   idêntico
+inteligencia_1607    2/4   50%          2/4    50%   idêntico
+p5ZRVXBpBYk         10/14  71%         10/14   71%   idêntico
+sabatina_band        3/9   33%          3/9    33%   idêntico
+```
+
+A régua do Acervo também não se mexeu (9/10, 2/16, 18%, 1 engolido). Travado
+por teste: sem o piso, a live volta a 0/4 sem nenhum erro aparecer na tela.
 - **O turno do jornalista salva numa entrevista e não salva numa live.** Medido:
   7/8 na CNN, 0/4 na live da inteligência. Era hipótese; agora é número.
 
