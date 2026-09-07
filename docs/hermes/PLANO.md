@@ -246,6 +246,36 @@ Ela já achou uma diferença de verdade, medida em três dos mais vistos:
 é evidência de fora, não opinião minha, e vai para a fila com medição antes e
 depois.
 
+## A raiz, medida no fim do dia 07/09
+
+Ele perguntou se o planejamento já estava todo feito. Não estava: faltava a
+parte do motor, que é minha. Fui fazer a ideia 1 e ela virou outra coisa.
+
+**Tentei o conserto óbvio e ele não podia funcionar.** As duas travessias são
+sobras pequenas de cauda (5,8 s e 8,3 s). Escrevi a apara, medi: nada mudou —
+porque a apara **nunca dispara**. O Furia não vê aquelas fronteiras. Desfeito.
+
+**O que a medição achou é a raiz de quase tudo:**
+
+```
+    viradas de assunto achadas ....   1/9     11%
+    maior pedaço que o Furia vê ...      357s
+    maior bloco do gabarito .......      368s
+```
+
+Das nove viradas de assunto da sabatina, **a leitura própria do Furia acha uma**.
+Ele enxerga um pedaço de 357 segundos onde o Acervo marca três assuntos.
+
+E é a resposta à pergunta dele sobre o CHUB: **num vídeo catalogado essa falha
+fica escondida**, porque os blocos revisados cobrem. **Na live de ontem não há o
+que cobrir.** Por isso "usar sempre o CHUB" ajuda e não basta.
+
+Nova régua para isso: `python scripts/regua_assuntos.py`.
+
+**O cuidado que vale mais que a ideia:** não usar a borda do Acervo para cortar
+e depois medir contra a borda do Acervo. O gabarito não pode ser a entrada — o
+número subiria sem o corte melhorar, e a régua estaria conferindo a própria cola.
+
 ## O que NÃO vou fazer, e por quê
 
 **Não vou perseguir `abre junto com o assunto`.** Você decidiu; o número saiu da

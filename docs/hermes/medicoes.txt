@@ -3,3 +3,4 @@
 2026-09-03T20:38:50 | depois-vocativo | K6mQqjqqJqo | blocos 9/10 | ancorados 22% | atravessa 2/16 | repeticao 18% | engolidos 1 | cortes 16
 2026-09-07T03:01:11 | antes-fronteira | K6mQqjqqJqo | blocos 9/10 | ancorados 22% | atravessa 2/16 | repeticao 18% | engolidos 1 | cortes 16
 2026-09-07T03:02:40 | depois-fronteira | K6mQqjqqJqo | blocos 9/10 | ancorados 22% | atravessa 2/16 | repeticao 18% | engolidos 1 | cortes 16
+2026-09-07T11:03:05 | antes-travessia | K6mQqjqqJqo | blocos 9/10 | ancorados 22% | atravessa 2/16 | repeticao 18% | engolidos 1 | cortes 16

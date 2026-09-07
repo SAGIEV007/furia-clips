@@ -23,6 +23,7 @@
 | Régua do assunto | `python scripts/regua.py [--material <arquivo>]` |
 | Régua do editor | `python scripts/regua_vereditos.py` |
 | Régua da forma | `python scripts/regua_publicados.py` (contra os cortes publicados) |
+| Régua do assunto próprio | `python scripts/regua_assuntos.py` (o Furia enxerga as viradas?) |
 | Material novo | `python scripts/novo_material.py --sortear` (traz do Acervo, com gabarito) |
 | Gabarito padrão | `tests/fixtures/acervo_sabatina_band.json` — versionado no repositório |
 | Verdade de fora | 10 blocos do Acervo (CHUB), supervisionados por gente |
@@ -93,17 +94,41 @@ sobre o que entrou nela. Instrumente etapa por etapa antes de escrever "não é
 aqui" — a frase "já apurado, para não refazer" custou tempo justamente por
 estar errada e parecer resolvida.
 
-### 1. O corte que atravessa dois assuntos  ← COMEÇAR POR AQUI
+### 1. O Furia é quase cego para virada de assunto  ← A RAIZ, MEDIDA EM 07/09
 
-2 em 16 hoje. O caso concreto: o corte 1742,3–1773,4 pisa no bloco 8
-(prefeitos/reeleição) e no bloco 9 (privatizações) — dois assuntos colados num
-clipe só.
+**Das 9 viradas de assunto da sabatina, a leitura própria do Furia acha 1.**
+Onze por cento. Maior pedaço que ele enxerga: 357 s — onde o Acervo marca três
+assuntos diferentes.
 
-O Furia lê a fonte em **8** blocos temáticos próprios; o Acervo marca **10**. A
-travessia acontece onde as duas leituras discordam. Comparar as duas divisões e
-ver onde elas se afastam.
+```
+  ACERVO      o mais próximo que o Furia viu
+   168,5   ->    50,8   (117,6s de erro)
+   353,4   ->   348,8   (  4,6s)  ACHOU
+   584,8   ->   584,8   (  0,0s)  quase — some no _build_sentences
+   618,4   ->   584,8   ( 33,6s)
+   894,3   ->   834,3   ( 60,0s)
+  1116,0   ->  1144,8   ( 28,8s)
+  1484,0   ->  1462,3   ( 21,7s)
+  1765,2   ->  1742,3   ( 22,9s)
+  1871,2   ->  1742,3   (128,9s)
+```
 
-Alvo: `atravessa dois assuntos` chegar a 0/16.
+**Isto é a raiz de quase tudo o que sobrou na fila**, e é a resposta à pergunta
+do editor sobre por que não dá 10 de 10:
+
+- `atravessa dois assuntos` (2 em 16) não se conserta aparando cauda — tentei,
+  medi, e a apara **nunca dispara**, porque o Furia não vê a fronteira. Os dois
+  cortes que atravessam estão, na leitura dele, no meio de um pedaço só.
+- num vídeo do Acervo isso fica escondido: os blocos revisados cobrem a falha.
+- **na live de ontem não cobre nada** — e é lá que ele trabalha.
+
+Alvo: `viradas de assunto achadas` subir de 1/9, com
+`python scripts/regua_assuntos.py` antes e depois. A régua do Acervo
+(`regua.py`) continua sendo o juiz de que o corte melhorou de verdade.
+
+**Cuidado que vale mais que a ideia:** não usar a borda do Acervo para cortar e
+depois medir contra a borda do Acervo. O gabarito não pode ser a entrada — o
+número subiria sem o corte melhorar.
 
 ### 2. Abrir onde o assunto começa — ARQUIVADA, ele decidiu em 07/09
 
