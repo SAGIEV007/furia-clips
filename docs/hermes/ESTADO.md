@@ -104,10 +104,24 @@ ver onde elas se afastam.
 
 Alvo: `atravessa dois assuntos` chegar a 0/16.
 
-### 2. Abrir onde o assunto começa — PRECISA DE DECISÃO DO EDITOR
+### 2. Abrir onde o assunto começa — ARQUIVADA, ele decidiu em 07/09
 
-2 de 9 hoje. Mas a medição de 07/09 mostrou que o problema **não é o que estava
-escrito aqui**, e por isso a ideia está parada esperando ele.
+**Não perseguir este número.** Ele decidiu:
+
+> "Não precisa ser na melhor frase do Renan, APENAS se o que ele falar no corte
+> tiver sentido completo, e se for uma pergunta curta do repórter não tem
+> problema mostrar"
+
+O alvo é **sentido completo**, não a borda. Otimizar `abre junto com o assunto`
+levaria o motor para o lado errado: um corte que abre 40 s dentro do assunto e
+se sustenta é bom; um que abre na borda e fica pela metade é ruim, e aquele
+número não distingue os dois. Já saiu da meta da régua e virou referência.
+
+Sentido completo não se mede de dentro — o Furia se dá 14/16 e 16/16. Quem sabe
+é ele, pelo caderno de vereditos. A frente principal passou a ser encher o
+caderno; ver `PLANO.md`.
+
+O que a medição achou, guardado porque explica por que a ideia morreu:
 
 Distância entre o começo de cada bloco e o corte mais próximo:
 

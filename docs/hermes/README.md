@@ -16,6 +16,7 @@ O ciclo tem quatro partes:
 
 | arquivo | o que é |
 |---|---|
+| `PLANO.md` | **O que fazer daqui para frente, em ordem.** Comece por ele. |
 | `CARTA.md` | As ordens permanentes. Qualquer modelo lê antes de agir. |
 | `ESTADO.md` | O quadro de aviso. Uma página, sempre atual, lida antes de tudo. |
 | `skills/modo-autonomo.md` | O ciclo inteiro: trazer material, medir, corrigir, aprender, relatar. |

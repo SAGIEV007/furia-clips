@@ -212,13 +212,30 @@ def imprimir(fonte, fora, dentro, adiados, quem=""):
     print(f"  ┌─ VERDADE DE FORA (contra {'os cortes que VOCÊ fez' if quem == 'você' else 'os blocos do Acervo'}) ─ ESTA É A META ─┐")
     print(f"     assuntos alcançados ........... {fora['blocos_alcancados']:3}/{fora['blocos_total']:<3}"
           f" {100 * fora['blocos_alcancados'] / b:5.0f}%   subir")
-    print(f"     abre junto com o assunto ...... {fora['aberturas_ancoradas']:3}/{fora['blocos_alcancados']:<3}"
-          f" {100 * fora['aberturas_ancoradas'] / alc:5.0f}%   subir   (dos blocos alcançados)")
     print(f"     atravessa dois assuntos ....... {fora['atravessam_assunto']:3}/{n:<3}"
           f" {100 * fora['atravessam_assunto'] / n:5.0f}%   baixar")
     print(f"     pior repetição entre cortes ... {fora['pior_repeticao']:>10}%   baixar")
     print(f"     blocos engolidos por um corte . {fora['blocos_engolidos']:>10}    baixar   (guarda anti-trapaça)")
     print("  └─────────────────────────────────────────────────────────────────┘")
+    print()
+    # O editor decidiu em 07/09, e a decisão rebaixou este número:
+    #
+    #   "Não precisa ser na melhor frase do Renan, APENAS se o que ele falar no
+    #    corte tiver sentido completo, e se for uma pergunta curta do repórter
+    #    não tem problema mostrar"
+    #
+    # Ou seja: onde o corte abre em relação à borda do bloco não é o alvo. Um
+    # corte que abre 40 s dentro do assunto e tem sentido completo é bom; um que
+    # abre exatamente na borda e fica pela metade é ruim. Perseguir esta
+    # porcentagem levaria o motor para o lado errado, então ela sai da meta e
+    # fica aqui, como sinal.
+    print("   referência — onde o corte cai. NÃO é meta (ele decidiu em 07/09):")
+    print(f"     abre junto com o assunto ...... {fora['aberturas_ancoradas']:3}/{fora['blocos_alcancados']:<3}"
+          f" {100 * fora['aberturas_ancoradas'] / alc:5.0f}%")
+    print()
+    print("   O ALVO DE VERDADE é 'sentido completo', e ele não se mede aqui:")
+    print("   nenhum número que o Furia dá sobre si mesmo prova isso. Quem sabe")
+    print("   é você.  ->  python scripts/regua_vereditos.py")
     print()
     print("   diagnóstico — o Furia se avaliando. NÃO é meta; serve para entender:")
     print(f"     contexto completo ............. {dentro['contexto_completo']:3}/{n}")
