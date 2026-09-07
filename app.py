@@ -375,11 +375,19 @@ def _settings_with_acervo(settings, video_path):
     An export the operator configured by hand still wins, so nothing that used to
     work stops working.
     """
-    from modules.acervo_library import find_snapshot_for
+    from modules.acervo_library import buscar_no_acervo_se_faltar, find_snapshot_for
 
     if (settings or {}).get("campaign_hub_snapshot_path"):
         return settings
     found = find_snapshot_for(video_path)
+    if not found:
+        # O fio que faltava, e a pergunta do editor que o achou: "o Furia não
+        # deveria estar SEMPRE usando o chub?". Deveria. Até aqui, um vídeo
+        # publicado no Acervo era moído às cegas sempre que o arquivo não
+        # tivesse sido baixado antes à mão — a chave estava configurada, o bloco
+        # existia, e ninguém ia buscar.
+        buscar_no_acervo_se_faltar(video_path, settings=settings)
+        found = find_snapshot_for(video_path)
     if not found:
         return settings
     return {**(settings or {}), "campaign_hub_snapshot_path": str(found)}

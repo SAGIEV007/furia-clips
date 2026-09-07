@@ -22,6 +22,7 @@
 |---|---|
 | Régua do assunto | `python scripts/regua.py [--material <arquivo>]` |
 | Régua do editor | `python scripts/regua_vereditos.py` |
+| Régua da forma | `python scripts/regua_publicados.py` (contra os cortes publicados) |
 | Material novo | `python scripts/novo_material.py --sortear` (traz do Acervo, com gabarito) |
 | Gabarito padrão | `tests/fixtures/acervo_sabatina_band.json` — versionado no repositório |
 | Verdade de fora | 10 blocos do Acervo (CHUB), supervisionados por gente |
@@ -142,7 +143,17 @@ Isso é decisão editorial, não defeito técnico: um corte que abre na pergunta
 jornalista ganha contexto e perde ritmo. Só ele decide qual quer, e os
 vereditos dele são o que responde. **Não mexer antes disso.**
 
-### 3. A emenda das janelas, quando o Ollama está instalado
+### 3. Os cortes do Furia são mais curtos que os publicados
+
+Medido em 07/09 com a régua nova: os publicados vão de 52 s a 127 s (meio 92 s);
+o Furia entrega de 16 s a 79 s (meio 52 s). **O mais curto do Furia tem 16 s; o
+mais curto que a equipe publicou tem 52 s.**
+
+Evidência de fora, não opinião. Antes de mexer em duração mínima: medir o efeito
+nas outras réguas, porque encurtar o teto foi decisão medida um dia e pode ter
+outro motivo. Uma mudança, antes e depois.
+
+### 4. A emenda das janelas, quando o Ollama está instalado
 
 `_select_with_llm` pica a transcrição em janelas de 25 blocos **sem
 sobreposição** (`range(0, n, 25)` e `blocks[i:i+25]`). Um bom momento que cai

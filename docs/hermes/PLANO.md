@@ -200,6 +200,52 @@ Esses têm o que os publicados não têm: **ele sabe de qual vídeo e de que hor
 Cinco por vídeo dão régua de tempo. Os publicados dão régua de forma. As duas
 juntas cobrem o que faltava.
 
+## A auditoria do CHUB e o fio solto (07/09, cobrado por ele)
+
+Detalhes em `CHUB-AUDITORIA.md`. O essencial:
+
+**Uma correção minha.** Escrevi que "o Furia lê em 8 blocos, o Acervo marca 10",
+e ele leu como "acertou 8 de 10". Não é. `assuntos alcançados` é **9 de 10**,
+medido. O "8" é só em quantos pedaços o Furia divide o vídeo — granularidade,
+não nota. Nunca medi se aqueles 8 caem nos mesmos lugares. Não repito mais.
+
+**O defeito que a pergunta dele achou.** Ele perguntou se o Furia não deveria
+estar SEMPRE usando o CHUB. Deveria, e não estava — por um fio solto, não por
+decisão. `find_snapshot_for` procurava o Acervo no disco; `ChubClient.exportar`
+sabia buscar. Entre as duas, nada. Sem o arquivo baixado antes à mão, a moagem
+seguia cega **mesmo com o vídeo publicado no Acervo e a chave configurada**.
+Mesmo formato do erro dos pesos do CHUB: a capacidade existia, a ligação não.
+**Consertado** — `buscar_no_acervo_se_faltar` busca na hora da moagem.
+
+**Das 18 ferramentas do CHUB, o Furia usava 2. Agora usa 4.** As outras 14 são
+"não" **certo**: desempenho por tema, audiência, dossiê municipal e Livro
+Amarelo dizem sobre o que FALAR — pauta, não corte. O Furia não escolhe assunto;
+corta o que já foi falado.
+
+## A terceira régua, construída (07/09)
+
+`python scripts/regua_publicados.py`
+
+Ela já achou uma diferença de verdade, medida em três dos mais vistos:
+
+```
+  A FORMA DO QUE FOI PUBLICADO  (3 cortes da equipe)
+    duração ....................... 52s a 127s   ·   meio: 92s
+    abrem em quem não é o Renan ...   1/3
+      dessas, abertura curta ......   1      (até 8s — o que você liberou)
+    fecham em frase terminada .....   3/3
+
+  O QUE O FURIA ENTREGA  (16 cortes · sabatina)
+    duração ....................... 16s a 79s   ·   meio: 52s
+
+    Os cortes do Furia são MAIS CURTOS que os publicados:
+    52s contra 92s no meio da faixa.
+```
+
+**O corte mais curto do Furia tem 16 s; o mais curto publicado tem 52 s.** Isso
+é evidência de fora, não opinião minha, e vai para a fila com medição antes e
+depois.
+
 ## O que NÃO vou fazer, e por quê
 
 **Não vou perseguir `abre junto com o assunto`.** Você decidiu; o número saiu da

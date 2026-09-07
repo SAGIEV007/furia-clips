@@ -81,6 +81,7 @@ horas de treino de sete horas de uma máquina se achando ótima.
 ```bash
 python scripts/novo_material.py --sortear     # traz material novo COM gabarito
 python scripts/regua.py --material <arquivo>  # mede contra o Acervo
+python scripts/regua_publicados.py            # mede contra o que a equipe publicou
 python scripts/regua_vereditos.py             # mede contra o julgamento do editor
 ```
 

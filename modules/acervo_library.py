@@ -425,3 +425,64 @@ def store_export(payload: Any, transcript: Any = None, *, video_path=None, data_
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(json.dumps(export, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return {"path": str(target), **describe_snapshot(target)}
+
+
+def buscar_no_acervo_se_faltar(video_path, data_dir=None, *, settings=None) -> dict[str, Any]:
+    """Trazer o Acervo deste vídeo na hora de moer, quando ele não está no disco.
+
+    O DEFEITO QUE ISTO CONSERTA, NAS PALAVRAS DO EDITOR
+    ---------------------------------------------------
+        "o fúria não deveria estar SEMPRE usando o chub? mesmo de régua?"
+
+    Ele estava certo, e o motivo é um fio solto, não uma decisão. O programa
+    sabia fazer as duas pontas e ninguém as ligava:
+
+        `find_snapshot_for`  procura o Acervo deste vídeo NO DISCO
+        `ChubClient.exportar` sabe BUSCAR o Acervo de qualquer vídeo
+
+    Entre as duas não havia nada. Se o arquivo não tivesse sido baixado antes à
+    mão (`scripts/sincronizar_acervo.py`), a moagem seguia cega — **mesmo com o
+    vídeo publicado no Acervo e a chave configurada.** Todo corte saía com
+    `bloco_chub: null` num vídeo que tinha bloco revisado por gente.
+
+    É o mesmo formato de erro dos pesos do CHUB, que ficaram semanas no disco
+    sem nenhum arquivo lê-los: a capacidade existia, a ligação não.
+
+    O QUE ELA NÃO FAZ
+    -----------------
+    Não inventa nada quando o vídeo não está no Acervo, não interrompe a moagem
+    quando a rede falha e não fala nada quando o arquivo já existe. Sem CHUB
+    configurado ela devolve vazio na hora, e o Furia corta com a própria leitura
+    — que continua sendo o caminho normal para a live de ontem.
+    """
+    caminho = snapshot_path_for(video_path, data_dir)
+    if caminho is None:
+        return {"buscou": False, "motivo": "não dá para saber de que vídeo do YouTube este arquivo é"}
+    if caminho.is_file():
+        return {"buscou": False, "motivo": "já estava no disco", "path": str(caminho),
+                **describe_snapshot(caminho)}
+
+    video_id = resolved_id_for(video_path, data_dir)
+    try:
+        from .chub_client import ChubClient, ChubError, endpoint_configurado
+    except ImportError:
+        return {"buscou": False, "motivo": "cliente do CHUB indisponível"}
+
+    if not endpoint_configurado(settings, data_dir=data_dir):
+        return {"buscou": False, "motivo": "CHUB não configurado nesta máquina"}
+
+    try:
+        cliente = ChubClient(endpoint_configurado(settings, data_dir=data_dir))
+        export = cliente.exportar(video_id)
+    except (ChubError, OSError) as erro:
+        # Rede fora, chave trocada, Acervo em manutenção: nada disso pode parar
+        # uma moagem. O editor perde o bloco, não o corte.
+        return {"buscou": True, "motivo": f"não deu para buscar: {str(erro)[:120]}"}
+
+    if not (export.get("records") or {}).get("blocks"):
+        return {"buscou": True, "motivo": "o Acervo não tem bloco publicado para este vídeo"}
+
+    caminho.parent.mkdir(parents=True, exist_ok=True)
+    caminho.write_text(json.dumps(export, ensure_ascii=False), encoding="utf-8")
+    return {"buscou": True, "motivo": "buscado agora no Acervo", "path": str(caminho),
+            **describe_snapshot(caminho)}
