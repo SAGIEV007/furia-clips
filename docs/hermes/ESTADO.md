@@ -104,23 +104,52 @@ ver onde elas se afastam.
 
 Alvo: `atravessa dois assuntos` chegar a 0/16.
 
-### 2. Abrir onde o assunto começa
+### 2. Abrir onde o assunto começa — PRECISA DE DECISÃO DO EDITOR
 
-2 de 9 hoje — e agora é a maior sobra do quadro. O Furia chega em 9 dos 10
-assuntos, e abre no lugar certo em 2. Alcançar melhorou; entrar bem, não.
+2 de 9 hoje. Mas a medição de 07/09 mostrou que o problema **não é o que estava
+escrito aqui**, e por isso a ideia está parada esperando ele.
 
-Existe pesquisa pronta para isso na branch `furia-sync-portable`:
-`modules/fronteira_assunto.py` — recuo até a fronteira do assunto, com validação
-contra 400 trechos de gabarito humano (anáfora órfã: 100% de precisão;
-conectivo dependente: 87,5%). **Portar e medir**, não reescrever do zero.
+Distância entre o começo de cada bloco e o corte mais próximo:
 
-Alvo: `abre junto com o assunto` subir de 2/9.
+```
+bloco  1   +13,4s      bloco  6   +67,1s
+bloco  2   -49,9s      bloco  7   +21,8s
+bloco  3   -80,2s      bloco  8    +0,0s   no lugar
+bloco  4   +81,5s      bloco  9   -22,9s
+bloco  5   +47,9s      bloco 10    +0,0s   no lugar
+```
+
+Não são bordas mal aparadas — são **treze a oitenta segundos**. Nenhum conserto
+de fronteira move oitenta segundos, e o recuo é limitado por construção. O
+seletor não erra a borda: ele escolhe **outro lugar** do assunto, o momento
+mais forte em vez do momento de abertura.
+
+Isso é decisão editorial, não defeito técnico: um corte que abre na pergunta do
+jornalista ganha contexto e perde ritmo. Só ele decide qual quer, e os
+vereditos dele são o que responde. **Não mexer antes disso.**
 
 ## Linhas mortas — não tentar de novo sem ideia nova
 
 Registrar aqui o que já foi tentado três vezes sem mover o número.
 
-- (nada ainda)
+### Portar `fronteira_assunto` da `furia-sync-portable` — MORTA na primeira
+
+Medido em 07/09, `antes-fronteira` e `depois-fronteira`: **número idêntico em
+todas as colunas**. O motivo, apurado em vez de suposto:
+
+```
+o sinal dispara em                      39 das 382 frases
+dessas, as listas de _opens_a_thought
+já rejeitavam                           39
+o que a pesquisa acrescenta              0
+```
+
+A pesquisa foi validada contra 400 trechos julgados por gente (anáfora órfã
+100%, conectivo dependente 87,5%) e continua correta. Ela só não acrescenta
+nada AQUI, porque as listas que o `clip_selector` já tinha cobrem o mesmo
+terreno. Desfeito na hora; o módulo não ficou no repositório.
+
+Não tentar de novo sem material em que as duas discordem.
 
 ## O modelo dos bots
 
