@@ -276,6 +276,88 @@ Nova régua para isso: `python scripts/regua_assuntos.py`.
 e depois medir contra a borda do Acervo. O gabarito não pode ser a entrada — o
 número subiria sem o corte melhorar, e a régua estaria conferindo a própria cola.
 
+## A pesquisa das ferramentas que ele pediu (07/09, fim do dia)
+
+> "quero uma pesquisa aprofundada nas melhores ferramentas possíveis que fazem
+>  isso sejam as pagas ou as gratuitas e um planejamento muito bom para fazermos
+>  isso com qualidade, mas como não sei programar quero ter certeza disso"
+
+Fui olhar o que as ferramentas famosas fazem, o que a pesquisa acadêmica diz, e
+o que dessas duas coisas serve **aqui**, num programa que roda sem internet num
+notebook de 1366×768.
+
+### O que as ferramentas pagas realmente fazem
+
+| ferramenta | como decide onde cortar | serve para nós? |
+|---|---|---|
+| **Opus Clip** | lê fala, imagem, som e emoção juntos; dá uma nota de viralidade de 0 a 100 | **não** — manda o vídeo para o servidor deles |
+| **Vizard** | lê a transcrição, mais detecção de cena e de quem está falando | **não** — mesma coisa, e não tem nota |
+| **Klap** | corte e legenda bonitos; a escolha do trecho é o ponto mais fraco | não |
+| **Descript / Riverside** | o humano corta o texto, o vídeo acompanha | não |
+
+**A conclusão que interessa é uma só, e vale mais que a tabela:** nenhuma delas
+inventou um jeito melhor de achar onde o assunto vira. Todas fazem a mesma
+coisa — **um modelo de linguagem grande lê a transcrição inteira e diz quais
+trechos valem**. A inteligência está no modelo, não no algoritmo.
+
+E isso é exatamente o que **não** dá para fazer aqui, por três motivos que já
+estão escritos no projeto: o material do Renan não sai desta máquina, o programa
+precisa funcionar sem internet, e modelo de graça treina em cima do que você
+manda.
+
+### O que a pesquisa acadêmica diz
+
+O caminho que o Furia usa — medir se as palavras dos dois lados de um ponto se
+parecem, e cortar no vale — é o **TextTiling**, de 1997. Ainda é a base de tudo.
+O que mudou desde então, e que dá para aproveitar:
+
+1. **Trocar contagem de palavra por peso de palavra rara.** Foi o que fiz hoje
+   (o `idf`): +6 pontos de precisão, custo zero.
+2. **Trocar a comparação de palavras por comparação de sentido.** É o único
+   ganho grande que a literatura documenta — um trabalho de 2021 que fez isso em
+   transcrição de reunião mediu **15,5% menos erro**. Explicado abaixo, porque é
+   a próxima frente.
+3. **Medir a fundura do vale em vez do valor absoluto.** Testei hoje. **Não
+   funcionou aqui** — 7 de 39 contra 25 de 39. Está registrado como linha morta.
+4. **Usar quem está falando.** A literatura mal menciona; foi o que mais rendeu
+   aqui (18% → 30%), porque o material desta casa é entrevista.
+
+### A próxima frente: o Furia comparar SENTIDO, não palavra
+
+Hoje o Furia compara **as palavras** dos dois lados de um ponto. Se antes ele
+fala em "reforma tributária" e depois em "imposto de renda", as palavras são
+diferentes e o programa acha que o assunto virou — quando não virou. E se ele
+fala em "segurança" antes e depois, mas de coisas diferentes, o programa acha
+que continua o mesmo.
+
+Comparar **sentido** resolve os dois casos. Isso é feito por um arquivo que
+traduz frase em número de um jeito que frases parecidas ficam com números
+parecidos. Roda na máquina, sem internet, depois de baixado uma vez.
+
+**O que eu conferi, e é a parte que te dá certeza:**
+
+- O motor que roda esse arquivo (`onnxruntime`) **já está instalado no Furia** —
+  veio junto com o Whisper, que é o que transcreve. Não precisa instalar nada
+  novo, não precisa de placa de vídeo.
+- O arquivo em si tem **cerca de 130 MB**, baixa uma vez e fica.
+- Depois de baixado, funciona **sem internet para sempre**.
+
+**O que eu NÃO posso te garantir ainda, e não vou fingir que posso:** o quanto
+isso melhora o número. A máquina onde eu trabalho tem o download desse arquivo
+bloqueado, então não consegui medir. Os 15,5% são de um trabalho publicado sobre
+reunião gravada, não sobre entrevista do Renan.
+
+Por isso a frente é feita **nesta ordem**, e não em outra:
+
+1. Eu escrevo o código e um **botão** na tela: "baixar a leitura de sentido".
+2. Você aperta o botão uma vez, na sua máquina.
+3. Você roda `python scripts/regua_assuntos.py` antes e depois.
+4. **Se o número não subir, a gente desliga o botão e apaga o arquivo.** Fica
+   registrado como linha morta, igual às outras quatro de hoje.
+
+Nada disso muda o Furia enquanto o número não subir na sua máquina. É a mesma
+regra do dia inteiro: só entra o que a régua aprova.
+
 ## O que NÃO vou fazer, e por quê
 
 **Não vou perseguir `abre junto com o assunto`.** Você decidiu; o número saiu da
@@ -325,6 +407,31 @@ descartava os primeiros onze minutos.
 
 1. Revisar uma live com os botões — **começa hoje, custa nada**
 2. Anotar cinco cortes seus daquela live
-3. Eu ataco `atravessa dois assuntos` enquanto o caderno enche
+3. Eu monto o botão da leitura de sentido; **você mede na sua máquina** e ele só
+   fica se o número subir
 4. Com 8 vereditos do mesmo defeito, o primeiro peso se move sozinho
 5. Com 30, eu reordeno esta fila com o seu padrão na mão em vez do meu palpite
+
+**Por que a 1 continua na frente da 3, mesmo a 3 sendo a mais interessante:** o
+que a régua mede é se o Furia acha a virada de assunto. O que ela **não** mede é
+se o corte tem sentido completo — e isso é a coisa que você mais pediu, desde o
+começo. Nenhum número que o Furia dá sobre si mesmo prova isso. Só o caderno.
+
+## Onde o CHUB entrou de vez (07/09)
+
+Ele perguntou três vezes, de jeitos diferentes:
+
+> "o fúria não deveria estar SEMPRE usando o chub? mesmo de régua?"
+
+Agora tem resposta com número, e não é opinião. As marcas de quem está falando —
+que hoje valem 11 pontos de precisão — vêm do CHUB ou de arquivo de legenda. O
+Whisper rodando na máquina **não produz nenhuma**:
+
+```
+vídeo com as marcas (CHUB) ......  22/39 achadas 56%  |  22/74   certeiras 30%
+vídeo sem as marcas (só Whisper)   24/39 achadas 62%  |  25/133  certeiras 19%
+```
+
+Sem CHUB o programa não quebra — volta a errar mais. **Com CHUB ele erra
+menos.** É por isso que vale sempre buscar o vídeo no Acervo antes de moer, e é
+por isso que `buscar_no_acervo_se_faltar` foi ligado ao botão de moer.
