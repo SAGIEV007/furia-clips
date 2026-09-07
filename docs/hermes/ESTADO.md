@@ -502,6 +502,39 @@ chave do corte, início, fim, duração, nota, aprovado/rejeitado, motivo,
 etiquetas e data. **Nenhuma transcrição, nenhum caminho de arquivo, nenhum
 vídeo.** É seguro mesmo num repositório público.
 
+### E o teste que provou, porque ele desconfiou
+
+> "pode testar você mesmo se está funcionando? porque apesar do fúria ter a
+>  função de 'se atualizar' isso nunca funcionou então acho difícil"
+
+`tests/test_os_dois_notebooks.py` monta um repositório bare local no lugar do
+GitHub, dois checkouts no lugar dos dois notebooks, e roda `push` e `pull` **de
+git de verdade**. O que se confere no fim é o banco do segundo notebook, lido
+direto — não o que a função disse sobre si mesma.
+
+**Por que os testes que já existiam não pegaram o defeito:**
+`tests/test_repository_sync.py` falsifica o `git` com `patch`, e um `git` de
+mentira aceita qualquer branch. O esquema do banco também é criado pelo próprio
+`init_db`, pela mesma razão: esquema escrito à mão aceita coisa que o de verdade
+recusa.
+
+Achou mais um defeito no caminho: **apertar o botão duas vezes criava um commit
+vazio.** `push_feedback_snapshot` tem um caminho para "já estava sincronizado"
+que nunca era alcançado, porque `generated_at` mudava a cada escrita e o git
+sempre via mudança. Agora, se as decisões são as mesmas, o arquivo fica como
+está.
+
+### O Furia NÃO tem função de se atualizar sozinho — nunca teve
+
+Ele disse que "a função de se atualizar nunca funcionou". Conferido: **ela não
+existe.** A rota `/api/repository/sync` aceita três ações — `check`,
+`push_feedback` e `restore_feedback` — e nenhuma delas baixa versão nova. A tela
+só **avisa** se há atualização; quem atualiza é ele, baixando como já faz.
+
+Não é defeito escondido, é função que nunca foi escrita. Se for para existir,
+tem que ser decisão dele: um `git pull` automático na máquina de quem edita pode
+derrubar trabalho local sem avisar.
+
 ## Travado / precisa do editor
 
 - **Faltam exemplos aprovados e rejeitados.** Dez cortes que ele aprovaria e dez

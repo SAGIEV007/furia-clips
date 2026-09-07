@@ -279,6 +279,26 @@ def write_feedback_snapshot(repo_path: str | None = None) -> dict[str, Any]:
     target = repo / SNAPSHOT_RELATIVE_PATH
     target.parent.mkdir(parents=True, exist_ok=True)
     payload = build_feedback_snapshot()
+
+    # APERTAR O BOTÃO DUAS VEZES CRIAVA UM COMMIT VAZIO
+    #
+    # `push_feedback_snapshot` tem um caminho para "já estava sincronizado", e
+    # ele nunca era alcançado: `generated_at` muda a cada escrita, então o
+    # arquivo sempre saía diferente e o git sempre via mudança. Quem apertasse
+    # o botão duas vezes publicava duas vezes, com as mesmas decisões dentro.
+    #
+    # Se as decisões são as mesmas, o arquivo fica como está — carimbo de hora
+    # incluído. O que interessa é o que ele decidiu, não a hora em que o botão
+    # foi apertado.
+    if target.is_file():
+        try:
+            anterior = json.loads(target.read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+            anterior = None
+        if isinstance(anterior, dict) and anterior.get("records") == payload.get("records"):
+            return {"path": str(target), "relative_path": SNAPSHOT_RELATIVE_PATH.as_posix(),
+                    **payload, "generated_at": anterior.get("generated_at", payload.get("generated_at"))}
+
     fd, temporary = tempfile.mkstemp(prefix="editorial-feedback-", suffix=".json", dir=str(target.parent))
     try:
         with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as handle:
