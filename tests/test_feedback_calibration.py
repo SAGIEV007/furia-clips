@@ -233,3 +233,68 @@ def test_origin_signal_requires_balanced_origin_sample(monkeypatch, tmp_path):
         "confidence": 0.9,
     })
     assert scored["feedback_calibration"]["candidate_origin_adjustment"] == 0.0
+
+
+def test_veredito_importado_conta_mesmo_sem_mexer_no_estado_do_corte(monkeypatch, tmp_path):
+    """O veredito vale onde ele foi dado: em clip_feedback.
+
+    Esta conta é a ÚNICA calibração que entra na moagem de verdade, e ela só
+    olhava `clips.review_status`. Vereditos trazidos do outro notebook chegam
+    como veredito e não mexem no estado do corte — logo não contavam.
+
+    Medido no banco do editor, antes e depois:
+
+        decisões vistas .......  58  ->  169
+        com motivo explícito ..  32  ->   93
+
+    Ou seja: 111 julgamentos dele estavam fora da conta enquanto a tela dizia
+    "Calibração aplicada com 58 decisões finais".
+    """
+    test_db = tmp_path / "furia_importados.sqlite"
+    monkeypatch.setattr(database, "DB_PATH", str(test_db))
+    database.init_db()
+    project_id = database.create_project("Importados", "workspace/uploads/live.mp4")
+
+    for index in range(12):
+        aprovado = index < 6
+        clip_id = database.save_clip(
+            project_id,
+            f"workspace/exports/clip-{index}.mp4",
+            index * 40.0,
+            index * 40.0 + 35.0,
+            35.0,
+            viral_score=86 if aprovado else 34,
+        )
+        # Só o veredito, sem tocar em review_status — é assim que a junção
+        # entre computadores grava.
+        database.save_clip_feedback(
+            clip_id,
+            "approved" if aprovado else "rejected",
+            reason_code="excellent_context" if aprovado else "missing_context",
+        )
+
+    calibration = database.get_feedback_calibration()
+
+    assert calibration["sample_size"] == 12, "os doze vereditos contam"
+    assert calibration["approved_count"] == 6
+    assert calibration["rejected_count"] == 6
+    assert calibration["eligible"] is True
+    assert calibration["reason_coverage"]["explicit_reason_total"] == 12
+
+
+def test_o_veredito_mais_novo_ganha_do_estado_antigo_do_corte(monkeypatch, tmp_path):
+    """Ele muda de ideia; a conta tem que acompanhar."""
+    test_db = tmp_path / "furia_mudou.sqlite"
+    monkeypatch.setattr(database, "DB_PATH", str(test_db))
+    database.init_db()
+    project_id = database.create_project("Mudou", "workspace/uploads/live.mp4")
+
+    clip_id = database.save_clip(
+        project_id, "workspace/exports/c.mp4", 0.0, 35.0, 35.0, viral_score=70)
+    database.update_clip_review_status(clip_id, "rejected")
+    database.save_clip_feedback(clip_id, "approved", reason_code="editor_approved")
+
+    calibration = database.get_feedback_calibration(min_samples=1, min_per_outcome=0)
+
+    assert calibration["approved_count"] == 1
+    assert calibration["rejected_count"] == 0

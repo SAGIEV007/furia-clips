@@ -327,6 +327,33 @@ def init_db():
             (key, json.dumps(value))
         )
 
+    # Corrige um "false" que ninguém escolheu.
+    #
+    # Em agosto o padrão nasceu desligado e foi gravado no banco de quem já
+    # tinha o programa. Depois o padrão virou ligado — mas valor gravado ganha
+    # do padrão, e nunca houve tela para mudar isso. Resultado medido no banco
+    # do editor: 26 transcrições guardadas, ZERO com marcação de palavra, e o
+    # passo que encosta o início e o fim do corte na borda da palavra nunca
+    # rodou uma vez sequer ("word_boundary_segments_available: false" nos três
+    # últimos relatórios de moagem).
+    #
+    # É exatamente a reclamação dele: "o corte 18 deveria começar em 0:25, em
+    # 'candidato'". Sem marcação de palavra não há como encostar ali.
+    # A marca garante que isto acontece UMA vez: se um dia existir tela para
+    # desligar, a escolha dele fica de pé.
+    ja_corrigido = cursor.execute(
+        "SELECT 1 FROM settings WHERE key = 'marcacao_de_palavra_religada'"
+    ).fetchone()
+    if not ja_corrigido:
+        cursor.execute(
+            "UPDATE settings SET value = 'true'"
+            " WHERE key = 'whisper_word_timestamps' AND value = 'false'"
+        )
+        cursor.execute(
+            "INSERT OR REPLACE INTO settings (key, value) VALUES"
+            " ('marcacao_de_palavra_religada', 'true')"
+        )
+
     conn.commit()
     conn.close()
 
@@ -1161,9 +1188,23 @@ def get_feedback_calibration(min_samples=12, min_per_outcome=3):
     ``score_factors``; in that case we expose a bounded duration signal derived
     from the reviewed intervals instead of pretending missing factors exist.
     """
+    # O veredito vale onde ele foi dado: em `clip_feedback`.
+    #
+    # Antes esta conta só olhava `clips.review_status`. No banco do editor isso
+    # deixava 111 dos 169 cortes que ele julgou de fora — inclusive TODOS os
+    # vereditos trazidos do outro notebook, que chegam como veredito e não
+    # mexem no estado do corte. A calibração enxergava 58 decisões e dizia,
+    # na tela, que estava calibrada. Estava, com um terço do material dele.
     conn = get_db()
     rows = conn.execute(
-        """SELECT clips.id, viral_score, duration, score_factors, review_status,
+        """SELECT clips.id, viral_score, duration, score_factors,
+                  COALESCE(
+                      (SELECT action FROM clip_feedback
+                        WHERE clip_feedback.clip_id = clips.id
+                          AND clip_feedback.action IN ('approved', 'rejected')
+                        ORDER BY clip_feedback.id DESC LIMIT 1),
+                      review_status
+                  ) AS review_status,
                   (SELECT reason_code FROM clip_feedback
                    WHERE clip_feedback.clip_id = clips.id
                      AND clip_feedback.action IN ('approved', 'rejected')
@@ -1173,13 +1214,18 @@ def get_feedback_calibration(min_samples=12, min_per_outcome=3):
                      AND clip_feedback.action IN ('approved', 'rejected')
                    ORDER BY clip_feedback.id DESC LIMIT 1) AS quality_tags
            FROM clips
-           WHERE review_status IN ('approved', 'rejected')"""
+           WHERE review_status IN ('approved', 'rejected')
+              OR EXISTS (SELECT 1 FROM clip_feedback
+                          WHERE clip_feedback.clip_id = clips.id
+                            AND clip_feedback.action IN ('approved', 'rejected'))"""
     ).fetchall()
     conn.close()
 
     groups = {"approved": [], "rejected": []}
     for row in rows:
         item = dict(row)
+        if item.get("review_status") not in groups:
+            continue
         try:
             factors = json.loads(item.get("score_factors") or "{}")
         except (TypeError, json.JSONDecodeError):
