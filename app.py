@@ -5737,6 +5737,31 @@ def api_juntar_vereditos():
             pass
 
 
+@app.route("/api/editorial/desfazer-juncao", methods=["POST"])
+def api_desfazer_juncao():
+    """Voltar o banco para antes da última junção de vereditos.
+
+    Eu entreguei a junção sem isto, e na primeira vez que ele usou a tela disse
+    "115 vereditos novos; 0 já estavam aqui" — número que na minha bancada dá o
+    contrário. Operação que escreve no julgamento dele não pode existir sem
+    desfazer.
+    """
+    if current_task.get("active"):
+        return jsonify({"error": "Aguarde o processamento atual terminar."}), 409
+    try:
+        from modules.aprendizado import ajustes, desfazer_ultima_juncao
+
+        resultado = desfazer_ultima_juncao()
+        return jsonify({
+            "success": True, **resultado, "ajustes": ajustes(),
+            "message": "Banco voltou para antes da última junção.",
+        })
+    except FileNotFoundError as erro:
+        return jsonify({"error": str(erro)[:200]}), 404
+    except (OSError, ValueError) as erro:
+        return jsonify({"error": str(erro)[:200]}), 400
+
+
 @app.route("/api/preparar-para-o-claude", methods=["POST"])
 def api_preparar_para_o_claude():
     """Juntar numa pasta só tudo o que eu preciso para achar um defeito.

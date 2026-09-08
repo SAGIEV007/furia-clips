@@ -510,6 +510,19 @@ def juntar_vereditos_de(caminho, destino=None) -> dict[str, Any]:
     if not alvo.is_file():
         raise FileNotFoundError("Este computador ainda não tem banco editorial.")
 
+    # UMA CÓPIA ANTES DE ESCREVER, SEMPRE
+    #
+    # Eu entreguei este botão sem rede: ele escreve no banco de vereditos dele e
+    # não havia como voltar atrás. Na primeira vez que ele usou, a tela disse
+    # "115 vereditos novos; 0 já estavam aqui" — número que na minha bancada dá
+    # 0 novos e 115 já presentes, ou seja, alguma coisa não bateu na máquina
+    # dele e pode ter entrado repetido. Veredito repetido pesa em dobro na
+    # calibração sem ninguém ver.
+    #
+    # Operação que escreve no julgamento dele não pode existir sem desfazer.
+    copia = _guardar_copia_antes_de_juntar(alvo)
+    resumo["copia_de_seguranca"] = str(copia) if copia else ""
+
     consulta = """SELECT f.action, COALESCE(f.reason_code,'') rc, f.created_at,
                          c.start_time s, c.end_time e, c.duration d, c.viral_score v,
                          c.score_factors sf, c.file_path fp, c.editorial_key ek,
@@ -686,3 +699,66 @@ def cortes_ajustados_no_programa() -> list[dict]:
             "movido_no_fim_s": round(fim - antes_fim, 2) if antes_fim is not None else None,
         })
     return cortes
+
+
+def _guardar_copia_antes_de_juntar(banco: Path):
+    """A cópia que permite desfazer a junção. Escrita antes de qualquer INSERT."""
+    import sqlite3
+    from datetime import datetime, timezone
+
+    try:
+        from config import PERSISTENT_BACKUPS_DIR
+
+        pasta = Path(PERSISTENT_BACKUPS_DIR)
+    except ImportError:
+        pasta = Path(banco).parent
+    try:
+        pasta.mkdir(parents=True, exist_ok=True)
+        # Milissegundos no nome, e nunca sobrescrever.
+        #
+        # Com carimbo só até o segundo, desfazer logo depois de juntar gerava o
+        # MESMO nome de arquivo: a cópia de segurança do estado anterior era
+        # sobrescrita pela do estado atual, e restaurá-la devolvia exatamente o
+        # que se queria desfazer. Medido: 144 vereditos antes de desfazer, 144
+        # depois. O desfazer não desfazia nada e dizia que sim.
+        carimbo = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S-%f")
+        destino = pasta / f"antes-de-juntar-{carimbo}.sqlite3"
+        while destino.exists():
+            carimbo += "x"
+            destino = pasta / f"antes-de-juntar-{carimbo}.sqlite3"
+        origem = sqlite3.connect(f"file:{banco}?mode=ro", uri=True)
+        copia = sqlite3.connect(destino)
+        with copia:
+            origem.backup(copia)
+        copia.close()
+        origem.close()
+        return destino
+    except (OSError, ValueError, ImportError, sqlite3.Error):
+        # A cópia é best-effort, mas a falta dela não pode passar em silêncio:
+        # sem cópia não há como desfazer, e quem chama precisa saber disso.
+        return None
+
+
+def desfazer_ultima_juncao(destino=None) -> dict:
+    """Voltar o banco para antes da última junção de vereditos.
+
+    Sem isto, uma junção que trouxe repetido é irreversível — e o editor
+    descobriria só quando o motor começasse a errar mais, sem ligar uma coisa à
+    outra.
+    """
+    import shutil
+
+    from config import DB_PATH, PERSISTENT_BACKUPS_DIR
+
+    banco = Path(destino or DB_PATH)
+    copias = sorted(
+        Path(PERSISTENT_BACKUPS_DIR).glob("antes-de-juntar-*.sqlite3"),
+        key=lambda p: p.stat().st_mtime, reverse=True,
+    )
+    if not copias:
+        raise FileNotFoundError("Não há cópia de antes de nenhuma junção.")
+    mais_recente = copias[0]
+    # A cópia de agora, para o caso de ele querer voltar ao estado de depois.
+    _guardar_copia_antes_de_juntar(banco)
+    shutil.copy2(mais_recente, banco)
+    return {"voltou_para": mais_recente.name, "quando": mais_recente.stat().st_mtime}

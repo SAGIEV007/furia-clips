@@ -177,3 +177,78 @@ class JuntarVereditos(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DesfazerAJuncao(unittest.TestCase):
+    """Operação que escreve no julgamento dele não pode existir sem desfazer.
+
+    Eu entreguei a junção sem rede. Na primeira vez que ele usou, a tela disse
+    "115 vereditos novos; 0 já estavam aqui" — número que na minha bancada dá o
+    contrário, 0 novos e 115 já presentes. Alguma coisa não bateu na máquina
+    dele, e sem desfazer não havia como voltar atrás.
+    """
+
+    def setUp(self):
+        import tempfile
+
+        self.raiz = Path(tempfile.mkdtemp(prefix="desfazer-"))
+        self.addCleanup(__import__("shutil").rmtree, self.raiz, ignore_errors=True)
+        self.copias = self.raiz / "backups"
+        self.copias.mkdir()
+        self.aqui = self.raiz / "aqui.sqlite3"
+        self.la = self.raiz / "la.sqlite3"
+        _banco(self.aqui, [(10.0, 70.0, "rejected", "no_payoff", "2026-09-01 10:00:00")])
+        _banco(self.la, [
+            (200.0, 260.0, "rejected", "starts_late", "2026-08-20 09:00:00"),
+            (300.0, 360.0, "approved", "editor_approved", "2026-08-20 09:05:00"),
+        ])
+
+    def _com_config(self):
+        return patch.multiple("config", DB_PATH=str(self.aqui),
+                              PERSISTENT_BACKUPS_DIR=str(self.copias))
+
+    def test_a_junção_deixa_uma_copia_e_o_desfazer_volta_tudo(self):
+        import modules.aprendizado as ap
+
+        with self._com_config():
+            antes = _quantos(self.aqui)
+            resumo = ap.juntar_vereditos_de(str(self.la))
+            self.assertTrue(resumo["copia_de_seguranca"], "sem cópia não há desfazer")
+            self.assertEqual(_quantos(self.aqui), antes + 2)
+
+            ap.desfazer_ultima_juncao()
+            self.assertEqual(_quantos(self.aqui), antes)
+
+    def test_desfazer_logo_depois_de_juntar_nao_se_atropela(self):
+        """O carimbo ia só até o segundo, e as duas cópias colidiam no nome.
+
+        A cópia do estado ANTERIOR era sobrescrita pela do estado atual, e
+        restaurá-la devolvia exatamente o que se queria desfazer. Medido: 144
+        vereditos antes de desfazer, 144 depois. O desfazer não desfazia nada e
+        dizia que sim.
+        """
+        import modules.aprendizado as ap
+
+        with self._com_config():
+            antes = _quantos(self.aqui)
+            ap.juntar_vereditos_de(str(self.la))
+            ap.desfazer_ultima_juncao()
+
+        self.assertEqual(_quantos(self.aqui), antes)
+        nomes = {p.name for p in self.copias.glob("antes-de-juntar-*.sqlite3")}
+        self.assertGreaterEqual(len(nomes), 2, "cada cópia precisa de nome próprio")
+
+    def test_sem_juncao_nenhuma_o_desfazer_explica_em_portugues(self):
+        import modules.aprendizado as ap
+
+        with self._com_config(), self.assertRaises(FileNotFoundError) as erro:
+            ap.desfazer_ultima_juncao()
+        self.assertIn("cópia", str(erro.exception))
+
+    def test_o_botao_de_desfazer_existe_na_tela(self):
+        raiz = Path(__file__).resolve().parents[1]
+        tela = (raiz / "templates" / "index.html").read_text(encoding="utf-8")
+        script = (raiz / "static" / "js" / "app.js").read_text(encoding="utf-8")
+
+        self.assertIn('id="btnDesfazerJuncao"', tela)
+        self.assertIn("/api/editorial/desfazer-juncao", script)

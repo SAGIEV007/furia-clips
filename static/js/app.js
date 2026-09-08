@@ -5093,3 +5093,21 @@ document.getElementById("arquivoDeVereditos")?.addEventListener("change", async 
         evento.target.value = "";
     }
 });
+
+// Desfazer a última junção. Existe porque eu entreguei a junção sem rede.
+document.getElementById("btnDesfazerJuncao")?.addEventListener("click", async () => {
+    if (!confirm("Voltar o banco de vereditos para antes da última junção?")) return;
+    const botao = document.getElementById("btnDesfazerJuncao");
+    if (botao) botao.disabled = true;
+    try {
+        const resposta = await fetch("/api/editorial/desfazer-juncao", { method: "POST" });
+        const dados = await resposta.json().catch(() => ({}));
+        if (!resposta.ok || dados.error) throw new Error(dados.error || "Não deu para desfazer.");
+        showToast(dados.message, "success");
+        addConsoleLog(`[Aprendizado] Desfeito. Voltou para ${dados.voltou_para}.`, "info");
+    } catch (erro) {
+        showToast(erro.message || "Não deu para desfazer.", "error");
+    } finally {
+        if (botao) botao.disabled = false;
+    }
+});
