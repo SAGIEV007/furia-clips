@@ -509,6 +509,12 @@ class ClipSelector:
         # corte que termina em "segundo ponto:", com o raciocínio pela metade.
         clips = self._trim_trailing_announcement(clips, sentences, emit_progress)
 
+        # E o rabo mais comum de todos, que nenhum dos dois pegava: o corte
+        # continua depois que o Renan termina, dentro da pergunta do próximo
+        # repórter. Ele relatou em três cortes da mesma leva, um deles com
+        # trinta segundos de sobra.
+        clips = self._cortar_o_rabo_de_quem_pergunta(clips, sentences, emit_progress)
+
         # Record the remaining editorial risks after all deterministic boundary
         # repairs. Question-only windows are deferred by the render gate; an
         # interrupted answer remains available for human review.
@@ -3493,6 +3499,99 @@ Retorne APENAS o JSON.
             return True
 
         return False
+
+    def _cortar_o_rabo_de_quem_pergunta(self, clips, sentences, emit_progress=None):
+        """Terminar quando o Renan termina, não quando o próximo repórter começa.
+
+        A QUEIXA DO EDITOR, EM TRÊS CORTES DA MESMA LEVA
+        ------------------------------------------------
+            #17 "está bom mas deveria acabar em 1:24 que é quando o Renan acaba
+                 de falar, depois continua com a pergunta do próximo repórter
+                 por mais de 30 segundos"
+            #13 "o Renan para de falar aos 47-48 segundos e o vídeo continua
+                 até os 58"
+            #7  "é um corte de 40 segundos e termina com uma pergunta do
+                 repórter"
+
+        POR QUE NENHUM PASSO PEGAVA ISSO
+        --------------------------------
+        `_close_where_the_thought_ends` só sabe SOMAR material — foi ele que
+        estendeu quinze cortes naquela moagem. `_trim_trailing_announcement`
+        sabe tirar, mas tira **uma frase só** e apenas quando ela anuncia
+        assunto novo por enumeração ("segundo ponto:"). Uma pergunta de repórter
+        não anuncia nada nesse sentido, e trinta segundos de pergunta são várias
+        frases. O rabo passava pelos dois.
+
+        A REGRA
+        -------
+        Do fim para trás, enquanto a última frase for de quem entrevista, ela
+        sai. Para quando encontra o entrevistado — que é onde ele disse que o
+        corte deveria acabar.
+
+        O CUIDADO QUE IMPORTA
+        ---------------------
+        Isto NÃO mexe na abertura. Ele foi explícito: "se for uma pergunta curta
+        do repórter não tem problema mostrar" — no começo. No fim, não.
+
+        E nunca apaga um corte: se o que sobra fica abaixo da duração mínima, o
+        aparo é desfeito inteiro. Um corte com rabo continua sendo um corte que
+        ele pode aparar à mão; um corte que sumiu não volta.
+        """
+        if not sentences or not clips:
+            return clips
+        from .interview_turns import is_interviewer_sentence
+
+        ordenadas = sorted(sentences, key=lambda item: float(item.get("start", 0) or 0))
+        aparados = 0
+        segundos_devolvidos = 0.0
+
+        for clip in clips:
+            inicio = float(clip.get("start", 0) or 0)
+            fim = float(clip.get("end", 0) or 0)
+            if fim <= inicio:
+                continue
+            dentro = [
+                item for item in ordenadas
+                if float(item.get("start", 0) or 0) >= inicio - 0.25
+                and float(item.get("end", 0) or 0) <= fim + 0.25
+            ]
+            if len(dentro) < 2:
+                continue
+
+            ultima_do_entrevistado = len(dentro) - 1
+            while ultima_do_entrevistado >= 0 and is_interviewer_sentence(
+                dentro[ultima_do_entrevistado].get("text")
+            ):
+                ultima_do_entrevistado -= 1
+            # Nada a tirar, ou o corte inteiro é de quem pergunta (aí o problema
+            # é outro, e apagar não é a resposta).
+            if ultima_do_entrevistado in (-1, len(dentro) - 1):
+                continue
+
+            novo_fim = float(dentro[ultima_do_entrevistado].get("end", 0) or 0)
+            if novo_fim <= inicio or (novo_fim - inicio) < self.min_duration:
+                continue
+
+            clip["end"] = round(novo_fim, 3)
+            clip["duration"] = round(novo_fim - inicio, 3)
+            refeito = self._text_between(ordenadas, inicio, novo_fim)
+            if refeito:
+                clip["text"] = refeito
+            clip["closing_trimmed_s"] = round(
+                float(clip.get("closing_trimmed_s", 0) or 0) + (fim - novo_fim), 3
+            )
+            clip["closing_trim_reason"] = "o fim era a pergunta do próximo repórter"
+            segundos_devolvidos += fim - novo_fim
+            aparados += 1
+
+        if aparados and emit_progress:
+            emit_progress(
+                f"[Fecho] {aparados} corte(s) terminavam na pergunta do próximo repórter; "
+                f"o fim voltou para onde o entrevistado para de falar "
+                f"({segundos_devolvidos:.0f}s a menos de rabo).",
+                "info",
+            )
+        return clips
 
     def _trim_trailing_announcement(self, clips, sentences, emit_progress=None):
         """Tira do fim a frase que anuncia um assunto novo.
