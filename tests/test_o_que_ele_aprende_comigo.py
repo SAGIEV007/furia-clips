@@ -406,3 +406,169 @@ def test_todo_motivo_da_tela_chega_num_peso():
         assert etiqueta in O_QUE_CADA_ETIQUETA_CORRIGE, (
             f"'{codigo}' está na tela e não chega em peso nenhum"
         )
+
+
+def test_aprovar_marcando_o_defeito_nao_afrouxa_o_desconto(tmp_path, monkeypatch):
+    """A resposta dele em 08/09, quando perguntei o que aquilo queria dizer.
+
+        eu: "quando você aprova marcando um defeito, quer dizer 'tem o defeito
+             mas serve' ou 'o motor errou'?"
+        ele: **"tem o defeito, mas dá para usar"**
+
+    Ele concorda com o diagnóstico e publica assim mesmo. A regra antiga contava
+    isso como alarme falso — e alarme falso AFROUXA o desconto. Ou seja: ele
+    confirmava que o defeito existe e o motor passava a se importar menos com
+    ele, que é o oposto exato do que ele quis dizer.
+
+    No banco dele são oito casos: aprovou marcando `starts_late` três vezes,
+    `no_payoff` uma, `too_long` quatro. Hoje o número não muda, porque o motor
+    não tinha acusado nenhum deles — este teste existe para o dia em que tiver.
+    """
+    import sqlite3
+
+    banco = tmp_path / "b.sqlite3"
+    conn = sqlite3.connect(banco)
+    conn.executescript(
+        "CREATE TABLE clips (id INTEGER PRIMARY KEY, score_factors TEXT);"
+        "CREATE TABLE clip_feedback (id INTEGER PRIMARY KEY, clip_id INTEGER,"
+        " action TEXT, reason_code TEXT);"
+    )
+    # O motor ACUSOU o defeito (payoff_complete falso) e ele aprovou assim
+    # mesmo, marcando o mesmo defeito: "tem, mas dá para usar".
+    motor_acusou = json.dumps({"_review_flags": {"payoff_complete": False}})
+    for numero in range(1, 11):
+        conn.execute("INSERT INTO clips VALUES (?,?)", (numero, motor_acusou))
+        conn.execute("INSERT INTO clip_feedback (clip_id, action, reason_code)"
+                     " VALUES (?,?,?)", (numero, "approved", "no_payoff"))
+    conn.commit()
+    conn.close()
+
+    monkeypatch.setattr("config.DB_PATH", str(banco))
+    from modules.aprendizado import _acertos_e_erros, ler_do_programa
+
+    contas = _acertos_e_erros(*ler_do_programa())
+    self_conta = contas["termina_sem_fechar"]
+    assert self_conta["alarme_falso"] == 0, (
+        "ele confirmou o defeito ao marcá-lo; isso não é o motor exagerando"
+    )
+
+
+def test_aprovar_SEM_apontar_o_defeito_continua_sendo_alarme_falso(tmp_path, monkeypatch):
+    """O caso legítimo: o motor viu problema onde ele não viu.
+
+    Sem esta metade, o desconto só saberia subir, e um sinal mal calibrado para
+    cima nunca mais desceria.
+    """
+    import sqlite3
+
+    banco = tmp_path / "b.sqlite3"
+    conn = sqlite3.connect(banco)
+    conn.executescript(
+        "CREATE TABLE clips (id INTEGER PRIMARY KEY, score_factors TEXT);"
+        "CREATE TABLE clip_feedback (id INTEGER PRIMARY KEY, clip_id INTEGER,"
+        " action TEXT, reason_code TEXT);"
+    )
+    motor_acusou = json.dumps({"_review_flags": {"payoff_complete": False}})
+    for numero in range(1, 11):
+        conn.execute("INSERT INTO clips VALUES (?,?)", (numero, motor_acusou))
+        conn.execute("INSERT INTO clip_feedback (clip_id, action, reason_code)"
+                     " VALUES (?,?,?)", (numero, "approved", "excellent_context"))
+    conn.commit()
+    conn.close()
+
+    monkeypatch.setattr("config.DB_PATH", str(banco))
+    from modules.aprendizado import _acertos_e_erros, ajustes, ler_do_programa
+
+    contas = _acertos_e_erros(*ler_do_programa())
+    assert contas["termina_sem_fechar"]["alarme_falso"] == 10
+    assert ajustes(tmp_path).get("termina_sem_fechar", 0) < 0, "o desconto tem que descer"
+
+
+# ── 5. as bordas que ele move na tela viram gabarito ────────────────────────
+
+
+def _banco_com_ajuste(tmp_path, ajuste, nota="", assinatura="live-do-ceara"):
+    import sqlite3
+
+    banco = tmp_path / "b.sqlite3"
+    conn = sqlite3.connect(banco)
+    conn.executescript(
+        "CREATE TABLE projects (id INTEGER PRIMARY KEY, source_signature TEXT, source_video TEXT);"
+        "CREATE TABLE clips (id INTEGER PRIMARY KEY, project_id INTEGER,"
+        " start_time REAL, end_time REAL, score_factors TEXT);"
+        "CREATE TABLE clip_feedback (id INTEGER PRIMARY KEY, clip_id INTEGER, action TEXT,"
+        " adjustments TEXT, note TEXT, created_at TEXT, reason_code TEXT);"
+    )
+    conn.execute("INSERT INTO projects VALUES (1,?,?)", (assinatura, "C:/v/live.mp4"))
+    conn.execute("INSERT INTO clips VALUES (1,1,100.0,200.0,'{}')")
+    conn.execute(
+        "INSERT INTO clip_feedback (clip_id,action,adjustments,note,created_at,reason_code)"
+        " VALUES (1,'adjusted',?,?,?,'')",
+        (json.dumps(ajuste), nota, "2026-09-08 13:00:00"))
+    conn.commit()
+    conn.close()
+    return banco
+
+
+def test_a_borda_que_ele_move_vira_gabarito(tmp_path, monkeypatch):
+    """A escolha dele em 08/09, quando perguntei como preferia corrigir.
+
+    "arrastar as bordas do corte na tela" — e ele estava certo: o programa já
+    grava começo e fim corrigidos, e ninguém lia. No banco dele há cinco linhas
+    `adjusted`, todas com start igual a original_start.
+
+    Uma etiqueta diz que existe defeito. **Uma borda movida diz onde estava o
+    certo** — e numa live que o Acervo não catalogou é a única resposta certa
+    que existe no mundo.
+    """
+    banco = _banco_com_ajuste(tmp_path, {
+        "start": 100.0, "end": 184.0,
+        "original_start": 100.0, "original_end": 200.0,
+    }, nota="acabava no meio da pergunta do repórter")
+    monkeypatch.setattr("config.DB_PATH", str(banco))
+    from modules.aprendizado import cortes_ajustados_no_programa, gabarito_do_editor
+
+    movidos = cortes_ajustados_no_programa()
+    assert len(movidos) == 1
+    assert movidos[0]["end"] == 184.0
+    assert movidos[0]["movido_no_fim_s"] == -16.0, "encurtou dezesseis segundos"
+
+    blocos = gabarito_do_editor("live-do-ceara", tmp_path)
+    assert len(blocos) == 1
+    assert blocos[0]["end"] == 184.0
+    assert blocos[0]["fonte_do_gabarito"] == "editor"
+
+
+def test_salvar_sem_mexer_nao_e_gabarito(tmp_path, monkeypatch):
+    """As cinco linhas do banco dele são exatamente este caso.
+
+    Contar isso como correção seria o programa se elogiando com o próprio
+    palpite — o que a regra do NORTE §15 proíbe.
+    """
+    banco = _banco_com_ajuste(tmp_path, {
+        "start": 100.0, "end": 200.0,
+        "original_start": 100.0, "original_end": 200.0,
+    })
+    monkeypatch.setattr("config.DB_PATH", str(banco))
+    from modules.aprendizado import cortes_ajustados_no_programa
+
+    assert cortes_ajustados_no_programa() == []
+
+
+def test_borda_invertida_ou_ilegivel_e_ignorada(tmp_path, monkeypatch):
+    banco = _banco_com_ajuste(tmp_path, {
+        "start": 200.0, "end": 100.0,
+        "original_start": 100.0, "original_end": 200.0,
+    })
+    monkeypatch.setattr("config.DB_PATH", str(banco))
+    from modules.aprendizado import cortes_ajustados_no_programa
+
+    assert cortes_ajustados_no_programa() == []
+
+
+def test_sem_banco_nenhum_nada_quebra(tmp_path, monkeypatch):
+    monkeypatch.setattr("config.DB_PATH", str(tmp_path / "nao-existe.sqlite3"))
+    from modules.aprendizado import cortes_ajustados_no_programa, gabarito_do_editor
+
+    assert cortes_ajustados_no_programa() == []
+    assert gabarito_do_editor("qualquer", tmp_path) == []

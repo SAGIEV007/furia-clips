@@ -323,7 +323,23 @@ def _acertos_e_erros(vereditos: list[dict], enviados: dict) -> dict[str, dict]:
             conta["casos"] += 1
             if etiqueta == nome_etiqueta and not motor_acusou:
                 conta["cegueira"] += 1
-            elif aprovado and motor_acusou:
+            elif aprovado and motor_acusou and etiqueta != nome_etiqueta:
+                # APROVAR MARCANDO O DEFEITO NÃO É DIZER QUE O MOTOR EXAGEROU
+                #
+                # Perguntei a ele em 08/09 o que quer dizer aprovar um corte
+                # marcando um defeito. A resposta: **"tem o defeito, mas dá para
+                # usar"**. Ele concorda com o diagnóstico e publica assim mesmo.
+                #
+                # A regra antiga contava isso como alarme falso, e alarme falso
+                # AFROUXA o desconto. Ou seja: ele confirmava que o defeito
+                # existe e o motor passava a se importar menos com ele — o
+                # oposto exato do que ele quis dizer.
+                #
+                # No banco dele são oito casos: aprovou marcando `starts_late`
+                # três vezes, `no_payoff` uma, `too_long` quatro.
+                #
+                # Alarme falso agora só conta quando ele aprovou **sem** apontar
+                # aquele defeito. Aí sim o motor viu problema onde ele não viu.
                 conta["alarme_falso"] += 1
     return dict(contas)
 
@@ -405,7 +421,16 @@ def gabarito_do_editor(video: str, data_dir=None) -> list[dict[str, Any]]:
     aquele vídeo; ele tem — porque cortou. Cada corte dele vira um bloco de
     referência com um corte esperado, e todo o resto do sistema continua igual.
     """
-    cortes = [c for c in ler_cortes_do_editor(data_dir) if c["video"] == video]
+    # As duas fontes do gabarito dele: o arquivo que ele digita e as bordas que
+    # ele move na tela. A segunda é a que não dá trabalho, e foi a que ele
+    # escolheu quando eu perguntei — por isso ela entra aqui, e não num caminho
+    # separado que alguém teria que lembrar de chamar.
+    do_arquivo = ler_cortes_do_editor(data_dir)
+    da_tela = cortes_ajustados_no_programa()
+    cortes = [
+        c for c in (do_arquivo + da_tela)
+        if video and (c.get("video") == video or video in str(c.get("arquivo") or ""))
+    ]
     return [
         {
             "start": round(corte["start"], 2),
@@ -573,3 +598,91 @@ def datetime_agora() -> str:
     from datetime import datetime, timezone
 
     return datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+
+
+def cortes_ajustados_no_programa() -> list[dict]:
+    """As bordas que ELE moveu na tela. O gabarito que não precisa ser digitado.
+
+    A ESCOLHA DELE, EM 08/09
+    ------------------------
+    Perguntei como ele preferia dizer "deveria acabar em 1:24". Ele escolheu
+    **arrastar as bordas do corte na tela** — e estava certo: o programa já tem
+    esse mecanismo, já grava o começo e o fim corrigidos, e ninguém lia.
+
+    No banco dele há cinco linhas `adjusted`, todas com `start` igual a
+    `original_start`: ele apertou e não moveu, ou a tela não deixou mover. O
+    caminho existe e nunca carregou nada.
+
+    POR QUE ISTO VALE MAIS QUE UMA ETIQUETA
+    ---------------------------------------
+    "Não conclui o raciocínio" diz que há um defeito. **Uma borda movida diz
+    onde estava o certo** — e para uma live que o Acervo não catalogou, é a
+    única resposta certa que existe no mundo. É a mesma coisa que
+    `cortes_do_editor` guarda, sem ele precisar digitar nada em arquivo nenhum.
+
+    Só entram bordas que ele REALMENTE moveu. Salvar sem mexer não é gabarito:
+    seria o programa se elogiando com o próprio palpite, que é o que a regra do
+    NORTE §15 proíbe.
+    """
+    try:
+        import sqlite3
+
+        from config import DB_PATH
+    except ImportError:
+        return []
+    if not Path(DB_PATH).is_file():
+        return []
+
+    try:
+        conn = sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True)
+        conn.row_factory = sqlite3.Row
+        linhas = conn.execute(
+            """SELECT f.adjustments, f.note, f.created_at,
+                      c.start_time, c.end_time,
+                      p.source_signature, p.source_video
+                 FROM clip_feedback f
+                 JOIN clips c ON c.id = f.clip_id
+                 JOIN projects p ON p.id = c.project_id
+                WHERE COALESCE(f.adjustments, '') NOT IN ('', '{}')"""
+        ).fetchall()
+        conn.close()
+    except (sqlite3.Error, OSError):
+        return []
+
+    def numero(valor):
+        try:
+            return float(valor)
+        except (TypeError, ValueError):
+            return None
+
+    cortes = []
+    for linha in linhas:
+        try:
+            ajuste = json.loads(linha["adjustments"] or "{}")
+        except ValueError:
+            continue
+        if not isinstance(ajuste, dict):
+            continue
+        inicio, fim = numero(ajuste.get("start")), numero(ajuste.get("end"))
+        antes_inicio = numero(ajuste.get("original_start"))
+        antes_fim = numero(ajuste.get("original_end"))
+        if inicio is None or fim is None or fim <= inicio:
+            continue
+        # Salvar sem mexer não é correção. Meio segundo é a folga do arrasto.
+        mexeu = (
+            (antes_inicio is None or abs(inicio - antes_inicio) > 0.5)
+            or (antes_fim is None or abs(fim - antes_fim) > 0.5)
+        )
+        if not mexeu:
+            continue
+        cortes.append({
+            "quando": str(linha["created_at"] or "")[:16],
+            "video": str(linha["source_signature"] or ""),
+            "arquivo": str(linha["source_video"] or ""),
+            "start": inicio,
+            "end": fim,
+            "headline": str(linha["note"] or "").strip(),
+            "movido_no_comeco_s": round(inicio - antes_inicio, 2) if antes_inicio is not None else None,
+            "movido_no_fim_s": round(fim - antes_fim, 2) if antes_fim is not None else None,
+        })
+    return cortes
