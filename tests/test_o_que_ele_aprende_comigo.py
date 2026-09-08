@@ -264,13 +264,18 @@ def test_o_veredito_dado_na_tela_ensina_igual(tmp_path, monkeypatch):
     banco = tmp_path / "b.sqlite3"
     conn = sqlite3.connect(banco)
     conn.executescript(
-        "CREATE TABLE clips (id INTEGER PRIMARY KEY, score_factors TEXT);"
+        "CREATE TABLE projects (id INTEGER PRIMARY KEY, source_signature TEXT);"
+        "INSERT INTO projects VALUES (1, 'v');"
+        "CREATE TABLE clips (id INTEGER PRIMARY KEY, project_id INTEGER DEFAULT 1,"
+        " start_time REAL, end_time REAL, score_factors TEXT);"
         "CREATE TABLE clip_feedback (id INTEGER PRIMARY KEY, clip_id INTEGER,"
         " action TEXT, reason_code TEXT);"
     )
     for numero in range(1, 11):
-        conn.execute("INSERT INTO clips VALUES (?, ?)",
-                     (numero, json.dumps({"payoff_complete": True})))
+        conn.execute("INSERT INTO clips (id, project_id, start_time, end_time,"
+                     " score_factors) VALUES (?,1,?,?,?)",
+                     (numero, numero * 100.0, numero * 100.0 + 60,
+                      json.dumps({"payoff_complete": True})))
         conn.execute("INSERT INTO clip_feedback (clip_id, action, reason_code) VALUES (?,?,?)",
                      (numero, "rejected", "no_payoff"))
     conn.commit()
@@ -318,7 +323,10 @@ def test_os_sinais_vem_do_formato_que_o_motor_grava_de_verdade(tmp_path, monkeyp
     banco = tmp_path / "b.sqlite3"
     conn = sqlite3.connect(banco)
     conn.executescript(
-        "CREATE TABLE clips (id INTEGER PRIMARY KEY, score_factors TEXT);"
+        "CREATE TABLE projects (id INTEGER PRIMARY KEY, source_signature TEXT);"
+        "INSERT INTO projects VALUES (1, 'v');"
+        "CREATE TABLE clips (id INTEGER PRIMARY KEY, project_id INTEGER DEFAULT 1,"
+        " start_time REAL, end_time REAL, score_factors TEXT);"
         "CREATE TABLE clip_feedback (id INTEGER PRIMARY KEY, clip_id INTEGER,"
         " action TEXT, reason_code TEXT);"
     )
@@ -334,8 +342,10 @@ def test_os_sinais_vem_do_formato_que_o_motor_grava_de_verdade(tmp_path, monkeyp
         "_review_metadata": {"selection_source": "gemini"},
     }
     for numero in range(1, 11):
-        conn.execute("INSERT INTO clips VALUES (?, ?)",
-                     (numero, json.dumps(como_o_motor_grava)))
+        conn.execute("INSERT INTO clips (id, project_id, start_time, end_time,"
+                     " score_factors) VALUES (?,1,?,?,?)",
+                     (numero, numero * 100.0, numero * 100.0 + 60,
+                      json.dumps(como_o_motor_grava)))
         conn.execute("INSERT INTO clip_feedback (clip_id, action, reason_code) VALUES (?,?,?)",
                      (numero, "rejected", "no_payoff"))
     conn.commit()
@@ -365,11 +375,15 @@ def test_ele_muda_de_ideia_na_tela_tambem(tmp_path, monkeypatch):
     banco = tmp_path / "b.sqlite3"
     conn = sqlite3.connect(banco)
     conn.executescript(
-        "CREATE TABLE clips (id INTEGER PRIMARY KEY, score_factors TEXT);"
+        "CREATE TABLE projects (id INTEGER PRIMARY KEY, source_signature TEXT);"
+        "INSERT INTO projects VALUES (1, 'v');"
+        "CREATE TABLE clips (id INTEGER PRIMARY KEY, project_id INTEGER DEFAULT 1,"
+        " start_time REAL, end_time REAL, score_factors TEXT);"
         "CREATE TABLE clip_feedback (id INTEGER PRIMARY KEY, clip_id INTEGER,"
         " action TEXT, reason_code TEXT);"
     )
-    conn.execute("INSERT INTO clips VALUES (1, '{}')")
+    conn.execute("INSERT INTO clips (id, project_id, start_time, end_time,"
+                 " score_factors) VALUES (1,1,10.0,70.0,'{}')")
     conn.execute("INSERT INTO clip_feedback (clip_id, action, reason_code) VALUES (1,'rejected','no_payoff')")
     conn.execute("INSERT INTO clip_feedback (clip_id, action, reason_code) VALUES (1,'approved','')")
     conn.commit()
@@ -429,7 +443,10 @@ def test_aprovar_marcando_o_defeito_nao_afrouxa_o_desconto(tmp_path, monkeypatch
     banco = tmp_path / "b.sqlite3"
     conn = sqlite3.connect(banco)
     conn.executescript(
-        "CREATE TABLE clips (id INTEGER PRIMARY KEY, score_factors TEXT);"
+        "CREATE TABLE projects (id INTEGER PRIMARY KEY, source_signature TEXT);"
+        "INSERT INTO projects VALUES (1, 'v');"
+        "CREATE TABLE clips (id INTEGER PRIMARY KEY, project_id INTEGER DEFAULT 1,"
+        " start_time REAL, end_time REAL, score_factors TEXT);"
         "CREATE TABLE clip_feedback (id INTEGER PRIMARY KEY, clip_id INTEGER,"
         " action TEXT, reason_code TEXT);"
     )
@@ -437,7 +454,9 @@ def test_aprovar_marcando_o_defeito_nao_afrouxa_o_desconto(tmp_path, monkeypatch
     # mesmo, marcando o mesmo defeito: "tem, mas dá para usar".
     motor_acusou = json.dumps({"_review_flags": {"payoff_complete": False}})
     for numero in range(1, 11):
-        conn.execute("INSERT INTO clips VALUES (?,?)", (numero, motor_acusou))
+        conn.execute("INSERT INTO clips (id, project_id, start_time, end_time,"
+                     " score_factors) VALUES (?,1,?,?,?)",
+                     (numero, numero * 100.0, numero * 100.0 + 60, motor_acusou))
         conn.execute("INSERT INTO clip_feedback (clip_id, action, reason_code)"
                      " VALUES (?,?,?)", (numero, "approved", "no_payoff"))
     conn.commit()
@@ -464,13 +483,18 @@ def test_aprovar_SEM_apontar_o_defeito_continua_sendo_alarme_falso(tmp_path, mon
     banco = tmp_path / "b.sqlite3"
     conn = sqlite3.connect(banco)
     conn.executescript(
-        "CREATE TABLE clips (id INTEGER PRIMARY KEY, score_factors TEXT);"
+        "CREATE TABLE projects (id INTEGER PRIMARY KEY, source_signature TEXT);"
+        "INSERT INTO projects VALUES (1, 'v');"
+        "CREATE TABLE clips (id INTEGER PRIMARY KEY, project_id INTEGER DEFAULT 1,"
+        " start_time REAL, end_time REAL, score_factors TEXT);"
         "CREATE TABLE clip_feedback (id INTEGER PRIMARY KEY, clip_id INTEGER,"
         " action TEXT, reason_code TEXT);"
     )
     motor_acusou = json.dumps({"_review_flags": {"payoff_complete": False}})
     for numero in range(1, 11):
-        conn.execute("INSERT INTO clips VALUES (?,?)", (numero, motor_acusou))
+        conn.execute("INSERT INTO clips (id, project_id, start_time, end_time,"
+                     " score_factors) VALUES (?,1,?,?,?)",
+                     (numero, numero * 100.0, numero * 100.0 + 60, motor_acusou))
         conn.execute("INSERT INTO clip_feedback (clip_id, action, reason_code)"
                      " VALUES (?,?,?)", (numero, "approved", "excellent_context"))
     conn.commit()
@@ -572,3 +596,82 @@ def test_sem_banco_nenhum_nada_quebra(tmp_path, monkeypatch):
 
     assert cortes_ajustados_no_programa() == []
     assert gabarito_do_editor("qualquer", tmp_path) == []
+
+
+def test_o_mesmo_trecho_julgado_duas_vezes_conta_uma(tmp_path, monkeypatch):
+    """O defeito que a primeira importação dele deixou no banco.
+
+    Agrupar por `clip_id` parece certo e não é. Um trecho ganha linha de corte
+    nova toda vez que a fonte é moída de novo, e ganha outra quando o veredito
+    vem importado de outro computador — três linhas para o mesmo julgamento
+    sobre o mesmo pedaço de vídeo.
+
+    Medido no banco dele em 08/09, depois da primeira importação:
+
+        177 vereditos finais · 14 trechos julgados duas vezes
+        contando por trecho: 159
+
+    Nenhum é repetição exata (a hora difere), então a peneira da importação não
+    os pega. E como a inflação é toda no mesmo sentido, as porcentagens quase
+    não se mexem — que é o que torna o erro invisível.
+    """
+    import sqlite3
+
+    banco = tmp_path / "b.sqlite3"
+    conn = sqlite3.connect(banco)
+    conn.executescript(
+        "CREATE TABLE projects (id INTEGER PRIMARY KEY, source_signature TEXT);"
+        "INSERT INTO projects VALUES (1, 'video-a');"
+        "INSERT INTO projects VALUES (2, 'video-a');"   # o mesmo vídeo, importado
+        "CREATE TABLE clips (id INTEGER PRIMARY KEY, project_id INTEGER,"
+        " start_time REAL, end_time REAL, score_factors TEXT);"
+        "CREATE TABLE clip_feedback (id INTEGER PRIMARY KEY, clip_id INTEGER,"
+        " action TEXT, reason_code TEXT);"
+    )
+    sinais = json.dumps({"_review_flags": {"payoff_complete": True}})
+    # O MESMO trecho (100–160) em duas linhas de corte: uma daqui, uma importada.
+    conn.execute("INSERT INTO clips VALUES (1,1,100.0,160.0,?)", (sinais,))
+    conn.execute("INSERT INTO clips VALUES (2,2,100.0,160.0,?)", (sinais,))
+    conn.execute("INSERT INTO clip_feedback (clip_id,action,reason_code)"
+                 " VALUES (1,'rejected','no_payoff')")
+    conn.execute("INSERT INTO clip_feedback (clip_id,action,reason_code)"
+                 " VALUES (2,'rejected','no_payoff')")
+    conn.commit()
+    conn.close()
+
+    monkeypatch.setattr("config.DB_PATH", str(banco))
+    from modules.aprendizado import ler_do_programa
+
+    vereditos, _ = ler_do_programa()
+    assert len(vereditos) == 1, (
+        "o mesmo trecho julgado duas vezes é um julgamento, não dois"
+    )
+
+
+def test_trechos_diferentes_do_mesmo_video_continuam_contando_separado(tmp_path, monkeypatch):
+    """A metade que impede o conserto de virar outro defeito."""
+    import sqlite3
+
+    banco = tmp_path / "b.sqlite3"
+    conn = sqlite3.connect(banco)
+    conn.executescript(
+        "CREATE TABLE projects (id INTEGER PRIMARY KEY, source_signature TEXT);"
+        "INSERT INTO projects VALUES (1, 'video-a');"
+        "CREATE TABLE clips (id INTEGER PRIMARY KEY, project_id INTEGER,"
+        " start_time REAL, end_time REAL, score_factors TEXT);"
+        "CREATE TABLE clip_feedback (id INTEGER PRIMARY KEY, clip_id INTEGER,"
+        " action TEXT, reason_code TEXT);"
+    )
+    sinais = json.dumps({"_review_flags": {"payoff_complete": True}})
+    for numero, inicio in enumerate([100.0, 300.0, 500.0], start=1):
+        conn.execute("INSERT INTO clips VALUES (?,1,?,?,?)",
+                     (numero, inicio, inicio + 60, sinais))
+        conn.execute("INSERT INTO clip_feedback (clip_id,action,reason_code)"
+                     " VALUES (?,'rejected','no_payoff')", (numero,))
+    conn.commit()
+    conn.close()
+
+    monkeypatch.setattr("config.DB_PATH", str(banco))
+    from modules.aprendizado import ler_do_programa
+
+    assert len(ler_do_programa()[0]) == 3

@@ -239,13 +239,39 @@ def ler_do_programa() -> tuple[list[dict], dict]:
     try:
         conn = sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True)
         conn.row_factory = sqlite3.Row
-        # A última decisão de cada corte, do mesmo jeito que o caderno de papel:
-        # ele pode mudar de ideia, e a última é a que vale.
+        # A última decisão de cada TRECHO, e não de cada linha de corte.
+        #
+        # O MESMO TRECHO CONTAVA DUAS VEZES, E O NÚMERO NÃO DENUNCIAVA
+        #
+        # Agrupar por `clip_id` parece certo e não é. Um trecho ganha uma linha
+        # de corte nova toda vez que a fonte é moída de novo, e ganha outra
+        # quando o veredito vem importado de outro computador — três linhas
+        # diferentes para o mesmo julgamento sobre o mesmo pedaço de vídeo.
+        #
+        # Medido no banco do editor em 08/09, depois da primeira importação:
+        #
+        #     177 vereditos finais · 14 trechos julgados duas vezes
+        #
+        # Nenhum deles é repetição exata (mesma hora), então a peneira da
+        # importação não os pega. E como a inflação é toda no mesmo sentido, as
+        # porcentagens quase não se mexem — que é o que torna o erro invisível.
+        #
+        # Agrupando pelo trecho (que vídeo, que segundo começa, que segundo
+        # acaba), cada julgamento dele conta uma vez, venha de onde vier.
         linhas = conn.execute(
             """SELECT f.clip_id, f.action, f.reason_code, c.score_factors
                  FROM clip_feedback f
                  JOIN clips c ON c.id = f.clip_id
-                WHERE f.id IN (SELECT MAX(id) FROM clip_feedback GROUP BY clip_id)
+                 JOIN projects p ON p.id = c.project_id
+                WHERE f.id IN (
+                          SELECT MAX(f2.id)
+                            FROM clip_feedback f2
+                            JOIN clips c2 ON c2.id = f2.clip_id
+                            JOIN projects p2 ON p2.id = c2.project_id
+                           WHERE f2.action IN ('approved', 'rejected', 'needs_review')
+                           GROUP BY COALESCE(p2.source_signature, ''),
+                                    ROUND(c2.start_time, 1), ROUND(c2.end_time, 1)
+                      )
                   AND f.action IN ('approved', 'rejected', 'needs_review')"""
         ).fetchall()
         conn.close()
@@ -448,7 +474,7 @@ def gabarito_do_editor(video: str, data_dir=None) -> list[dict[str, Any]]:
 # ── juntar vereditos de outro computador ────────────────────────────────────
 
 
-def _identidade(assinatura, inicio, fim, acao, motivo, quando) -> tuple:
+def _identidade(assinatura, inicio, fim, acao, motivo, quando=None) -> tuple:
     """O que faz um veredito ser o MESMO veredito, em qualquer computador.
 
     Não dá para usar o número do corte: ele é contado por banco, e o corte 12
@@ -461,9 +487,19 @@ def _identidade(assinatura, inicio, fim, acao, motivo, quando) -> tuple:
         except (TypeError, ValueError):
             return 0.0
 
+    # A HORA FICA DE FORA, E ISSO IMPORTA
+    #
+    # A primeira versão punha `created_at` na identidade. Com isso, o mesmo
+    # julgamento sobre o mesmo trecho entrava de novo só por ter sido gravado
+    # noutro instante — e foi o que aconteceu na máquina dele: a importação
+    # trouxe 115 "novos", e depois havia 14 trechos julgados duas vezes.
+    #
+    # O que faz dois vereditos serem o mesmo é o conteúdo: que vídeo, que
+    # trecho, que decisão, por que motivo. Se ele mudou de ideia, a decisão
+    # muda, e aí são dois mesmo — e o leitor pega a mais recente.
     return (
         str(assinatura or ""), numero(inicio), numero(fim),
-        str(acao or ""), str(motivo or ""), str(quando or "")[:19],
+        str(acao or ""), str(motivo or ""),
     )
 
 
