@@ -125,5 +125,95 @@ class TerminarQuandoOEntrevistadoTermina(unittest.TestCase):
         self.assertIn("clips = self._cortar_o_rabo_de_quem_pergunta(", fonte)
 
 
+
+class EncurtarAteFechar(unittest.TestCase):
+    """A regra que ele deu em 08/09, com as palavras dele.
+
+        "não tem problema o vídeo ter até 2 minutos mais ou menos, só é
+         preferível o vídeo mais curto mesmo (...) mas o foco mesmo é muito mais
+         a coerência e fechar o raciocínio do que um corte curto"
+
+        "boa parte dos que eu rejeitei por não concluir o raciocínio eu até
+         conseguiria aproveitar se eu cortasse manualmente e deixasse o corte
+         menor"
+
+    `_close_where_the_thought_ends` só sabe AVANÇAR. Quando bate no teto de
+    duração, o corte termina no meio do raciocínio — foi a rejeição mais
+    frequente dele, 20 de 109.
+
+    Medido sobre janelas de onze frases nas fontes com gabarito:
+
+        sabatina_band   10 de 32 recuados ·  95 s encurtados
+        p5ZRVXBpBYk     29 de 73 recuados · 226 s encurtados
+        live_ceara      11 de 31 recuados ·  67 s encurtados
+
+    Nos candidatos da própria régua não dispara, porque ali o fecho já estava
+    completo (16/16 na sabatina). O ganho aparece no material dele.
+    """
+
+    def setUp(self):
+        self.seletor = ClipSelector(min_duration=15, max_duration=180, max_clips=12)
+
+    def test_corte_que_termina_no_meio_do_raciocinio_encurta_ate_o_fecho(self):
+        frases = _frases([
+            ("O Brasil se tornou um país injusto com quem trabalha.", 30),
+            ("E é por isso que a nossa proposta começa pela segurança.", 30),
+            ("Nós vamos devolver a prisão em segunda instância.", 25),
+            ("E depois disso, e ainda por cima, e além de tudo o mais.", 20),
+            ("E continua falando, porque o raciocínio não acabou ali.", 20),
+        ])
+        # o corte para aos 105 s, no meio de uma emenda: o vídeo continua
+        cortes = [{"start": 0.0, "end": 105.0, "text": "x"}]
+
+        self.seletor._recuar_ate_o_raciocinio_fechar(cortes, frases)
+
+        # 85 s NÃO serve: ali o corte pararia logo antes de "E depois disso",
+        # que é emenda da frase anterior — o raciocínio segue aberto. O último
+        # ponto onde ele fecha de verdade é 60 s, antes de "Nós vamos devolver",
+        # que começa um pensamento novo.
+        self.assertEqual(cortes[0]["end"], 60.0,
+                         "recua até o último ponto em que o que vem depois é assunto novo")
+        self.assertIn("raciocínio fecha", cortes[0]["closing_trim_reason"])
+
+    def test_corte_que_ja_fecha_nao_e_encurtado(self):
+        frases = _frases([
+            ("O Brasil se tornou um país injusto com quem trabalha.", 30),
+            ("Nós vamos devolver a prisão em segunda instância.", 30),
+            ("Candidato, e sobre a economia?", 10),
+        ])
+        cortes = [{"start": 0.0, "end": 60.0, "text": "x"}]
+
+        self.seletor._recuar_ate_o_raciocinio_fechar(cortes, frases)
+
+        self.assertEqual(cortes[0]["end"], 60.0)
+        self.assertNotIn("closing_trim_reason", cortes[0])
+
+    def test_nunca_recua_mais_que_a_metade_do_corte(self):
+        """Ele quer o raciocínio inteiro mais curto, não um pedaço dele.
+
+        Sem esse limite, um corte de dois minutos viraria quinze segundos para
+        "fechar" numa vírgula qualquer.
+        """
+        frases = _frases([
+            ("Uma tese que se sustenta sozinha e fecha aqui mesmo.", 20),
+            ("E continua, e emenda, e não para mais de falar disso.", 25),
+            ("E segue emendando, e ainda continua no mesmo fôlego.", 25),
+            ("E não fecha, e emenda de novo, e continua.", 25),
+        ])
+        cortes = [{"start": 0.0, "end": 95.0, "text": "x"}]
+
+        self.seletor._recuar_ate_o_raciocinio_fechar(cortes, frases)
+
+        self.assertGreaterEqual(cortes[0]["end"], 47.5,
+                                "recuar até 20 s destruiria o corte para 'fechar'")
+
+    def test_o_recuo_esta_ligado_no_caminho_que_o_programa_usa(self):
+        from pathlib import Path
+
+        fonte = (Path(__file__).resolve().parents[1] / "modules" / "clip_selector.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("clips = self._recuar_ate_o_raciocinio_fechar(", fonte)
+
 if __name__ == "__main__":
     unittest.main()

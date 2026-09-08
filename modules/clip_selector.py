@@ -515,6 +515,13 @@ class ClipSelector:
         # trinta segundos de sobra.
         clips = self._cortar_o_rabo_de_quem_pergunta(clips, sentences, emit_progress)
 
+        # E o último recurso, na regra que ele deu: quando não deu para avançar
+        # até fechar, encurtar até o último fecho vale mais que terminar aberto.
+        # "o foco mesmo é muito mais a coerência e fechar o raciocínio do que um
+        # corte curto" — e boa parte do que ele rejeitou por não concluir, ele
+        # próprio salvaria encurtando à mão.
+        clips = self._recuar_ate_o_raciocinio_fechar(clips, sentences, emit_progress)
+
         # Record the remaining editorial risks after all deterministic boundary
         # repairs. Question-only windows are deferred by the render gate; an
         # interrupted answer remains available for human review.
@@ -3499,6 +3506,106 @@ Retorne APENAS o JSON.
             return True
 
         return False
+
+    def _recuar_ate_o_raciocinio_fechar(self, clips, sentences, emit_progress=None):
+        """Quando não dá para AVANÇAR até fechar, RECUAR até o último fecho.
+
+        A REGRA QUE O EDITOR DEU EM 08/09
+        ---------------------------------
+            "não tem problema o vídeo ter até 2 minutos mais ou menos, só é
+             preferível o vídeo mais curto mesmo (...) mas o foco mesmo é muito
+             mais a coerência e fechar o raciocínio do que um corte curto"
+
+        E antes disso, sobre os que ele rejeitou:
+
+            "boa parte dos que eu rejeitei por não concluir o raciocínio eu até
+             conseguiria aproveitar se eu cortasse manualmente e deixasse o
+             corte menor"
+
+        Ele está descrevendo um corte que ele mesmo salvaria encurtando. O
+        programa nunca tenta isso: `_close_where_the_thought_ends` só sabe
+        AVANÇAR, e quando bate no teto de duração o corte simplesmente termina
+        no meio do raciocínio. Foi a rejeição mais frequente dele — 20 de 109.
+
+        A REGRA
+        -------
+        Se a frase seguinte à última é continuação — começa com "e", "mas",
+        "então", "aí", "porque" —, o raciocínio não fechou ali. Então volta-se
+        para trás até o último ponto onde a frase SEGUINTE começa um pensamento
+        novo ou é do entrevistador: nesses dois lugares o raciocínio fechou.
+
+        O LIMITE QUE IMPEDE O ESTRAGO
+        -----------------------------
+        Recua no máximo até a metade do corte, e nunca abaixo da duração mínima.
+        Sem esse limite, um corte de dois minutos poderia virar quinze segundos
+        para "fechar" numa vírgula qualquer — que é o oposto do que ele pediu:
+        ele quer o raciocínio inteiro, mais curto, não um pedaço.
+        """
+        if not sentences or not clips:
+            return clips
+        from .interview_turns import is_interviewer_sentence
+
+        ordenadas = sorted(sentences, key=lambda item: float(item.get("start", 0) or 0))
+        cased = self._casing_is_meaningful(ordenadas)
+        recuados = 0
+
+        def fecha_depois_de(indice: int, dentro: list) -> bool:
+            """O raciocínio fechou no fim da frase `indice`?"""
+            if indice >= len(dentro) - 1:
+                # A última frase do corte: quem decide é a próxima do vídeo.
+                fim = float(dentro[indice].get("end", 0) or 0)
+                seguintes = [
+                    item for item in ordenadas
+                    if float(item.get("start", 0) or 0) >= fim - 0.05
+                ]
+                if not seguintes:
+                    return True
+                texto = str(seguintes[0].get("text") or "")
+            else:
+                texto = str(dentro[indice + 1].get("text") or "")
+            return bool(is_interviewer_sentence(texto) or self._opens_a_thought(texto, cased))
+
+        for clip in clips:
+            inicio = float(clip.get("start", 0) or 0)
+            fim = float(clip.get("end", 0) or 0)
+            if fim <= inicio:
+                continue
+            dentro = [
+                item for item in ordenadas
+                if float(item.get("start", 0) or 0) >= inicio - 0.25
+                and float(item.get("end", 0) or 0) <= fim + 0.25
+            ]
+            if len(dentro) < 2 or fecha_depois_de(len(dentro) - 1, dentro):
+                continue  # já fecha; nada a fazer
+
+            piso = max(inicio + self.min_duration, inicio + (fim - inicio) / 2)
+            for indice in range(len(dentro) - 2, -1, -1):
+                candidato = float(dentro[indice].get("end", 0) or 0)
+                if candidato < piso:
+                    break
+                if not fecha_depois_de(indice, dentro):
+                    continue
+                clip["end"] = round(candidato, 3)
+                clip["duration"] = round(candidato - inicio, 3)
+                refeito = self._text_between(ordenadas, inicio, candidato)
+                if refeito:
+                    clip["text"] = refeito
+                clip["closing_trimmed_s"] = round(
+                    float(clip.get("closing_trimmed_s", 0) or 0) + (fim - candidato), 3
+                )
+                clip["closing_trim_reason"] = (
+                    "encurtado até onde o raciocínio fecha, em vez de terminar aberto"
+                )
+                recuados += 1
+                break
+
+        if recuados and emit_progress:
+            emit_progress(
+                f"[Fecho] {recuados} corte(s) terminavam no meio do raciocínio e foram "
+                "encurtados até o último ponto onde ele fecha.",
+                "info",
+            )
+        return clips
 
     def _cortar_o_rabo_de_quem_pergunta(self, clips, sentences, emit_progress=None):
         """Terminar quando o Renan termina, não quando o próximo repórter começa.

@@ -597,6 +597,46 @@ marcas de locutor só vêm do CHUB ou de legenda.**
 E um corte com `eligibility_status: blocked` e nota 38 **foi entregue mesmo
 assim** — é o que ele descreveu como "nem era o Renan falando".
 
+## A REGRA DELE SOBRE DURAÇÃO (08/09) — vale mais que qualquer número meu
+
+> "não tem problema o vídeo ter até 2 minutos mais ou menos, só é preferível o
+>  vídeo mais curto mesmo, pode manter nessa média mesmo mas **o foco mesmo é
+>  muito mais a coerência e fechar o raciocínio do que um corte curto**"
+
+Ordem de prioridade, na letra dele: **fechar o raciocínio > ser curto**. Até uns
+120 s está bom. Nunca perseguir duração curta às custas de coerência.
+
+## O CHUB NÃO ESTÁ MELHORANDO O CORTE — medido em 08/09
+
+Ele perguntou direto: *"o chub está realmente fazendo o fúria ficar melhor na
+parte dos cortes melhorando a precisão??"*. Medido, e a resposta é **não**.
+
+O espelho carrega 29.596 posts, 5.339 cortes publicados, 17.673 blocos do
+Acervo. Do outro lado, o que chega ao corte:
+
+```
+pergunta_e_resposta_completas    14.0
+comeca_no_meio_da_frase         -28.0
+termina_sem_fechar              -18.0
+duracao_e_preferencia_suave      True
+```
+
+**Três números e um sim/não.** E desligando o espelho inteiro, a régua não muda
+uma vírgula em NENHUMA das cinco fontes — entregues, assuntos alcançados,
+travessias, repetição, engolidos: tudo idêntico.
+
+Os pesos mudam (20→28, 14→18, 10→14) e mesmo assim nenhum corte muda de lugar.
+
+**Por que é assim, e não é defeito de ligação:** o espelho mede DESEMPENHO de
+post publicado — que família de gancho rende, que tema anda bem, quem é
+adversário. Isso responde "que corte promover", não "onde o assunto acaba". A
+parte do CHUB que ajuda o CORTE é outra: **os blocos do Acervo e as marcas de
+locutor**, que valem 11 pontos de precisão (medido em 07/09) e só existem por
+vídeo catalogado.
+
+Não desligar o espelho — ele custa nada e pode valer para a nota. Mas parar de
+apresentá-lo como o que calibra o corte.
+
 ## Travado / precisa do editor
 
 - **Faltam exemplos aprovados e rejeitados.** Dez cortes que ele aprovaria e dez
