@@ -2296,6 +2296,9 @@ async function startSmartCut() {
     const userContext = document.getElementById("userContextInput").value.trim();
     addConsoleLog("[Acao] Iniciando corte inteligente de shorts...", "info");
     addConsoleLog(`[Enquadramento] Facetracking ${state.faceTracking ? "ativado" : "desativado"}; o fallback mantém a proporção original quando necessário.`, "info");
+    if (document.getElementById("moerDoZero")?.checked) {
+        addConsoleLog("[Deduplicação] Desligada a seu pedido: o vídeo será lido do zero, inclusive os trechos que já saíram antes.", "info");
+    }
     if (userContext) addConsoleLog(`[Contexto] "${userContext}"`, "info");
     const videoGenre = document.getElementById("settingVideoGenre").value;
     const geminiKey = document.getElementById("settingGeminiKey").value.trim();
@@ -2317,6 +2320,7 @@ async function startSmartCut() {
         body: JSON.stringify({
             video_path: state.selectedVideo,
             face_tracking: state.faceTracking,
+            moer_do_zero: Boolean(document.getElementById("moerDoZero")?.checked),
             user_context: userContext,
             video_genre: videoGenre,
             transcription_source: document.getElementById("settingTranscriptionSource")?.value || "auto",

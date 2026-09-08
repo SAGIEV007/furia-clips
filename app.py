@@ -616,6 +616,76 @@ def _selection_coverage_plan(source_video, video_duration, *, allow_previous=Tru
     return {"previous_clip_fingerprints": fingerprints, "adaptive_max_clips": max_clips}
 
 
+def _avisos_da_deduplicacao(coverage_plan, evitar_repetidos):
+    """O que a tela precisa dizer sobre não repetir corte já gerado.
+
+    MOER DE NOVO O MESMO VÍDEO DEVOLVIA QUASE NADA, E NINGUÉM SABIA POR QUÊ
+    ----------------------------------------------------------------------
+    Medido no ato de 7 de setembro (60 min), na segunda moagem da mesma fonte,
+    lido do arquivo de diagnóstico que o próprio programa salvou:
+
+        45 candidatos -> 30 (filtro de não-conteúdo) -> 23 (sobreposição)
+            -> 7 POR JÁ TER MOÍDO ANTES -> 2 entregues
+
+    **Dezesseis caíram num passo só, e seis deles ele já tinha APROVADO** numa
+    moagem anterior. A tela dizia "19 intervalos já gerados serão evitados" —
+    verdade, e inútil: ninguém liga essa frase a "por isso vieram dois". Ele leu
+    o resultado como o programa tendo piorado, e não tinha como saber que não
+    era isso.
+
+    Evitar repetição está certo quando se mói material novo. Está errado quando
+    se mói o MESMO vídeo de novo para comparar duas versões — que é exatamente o
+    que eu tinha pedido a ele para fazer.
+    """
+    if not evitar_repetidos:
+        return [(
+            "[Deduplicação] Desligada nesta moagem: o vídeo será lido do zero, "
+            "inclusive os trechos que já saíram antes.",
+            "info",
+        )]
+    quantos = len(coverage_plan.get("previous_clip_fingerprints") or [])
+    if not quantos:
+        return []
+    return [(
+        f"[Deduplicação] {quantos} intervalos já gerados para esta fonte serão evitados. "
+        "Se você está moendo este vídeo DE NOVO para comparar versões, desligue a "
+        "deduplicação nos ajustes — senão o programa só pode entregar o que sobrou, "
+        "e vem muito menos corte sem nada estar quebrado.",
+        "warning",
+    )]
+
+
+def _quanto_custou_a_deduplicacao(diagnostico):
+    """Depois da seleção, dizer quantos cortes a deduplicação levou embora.
+
+    O aviso de antes é um alerta; este é a conta. Sem ele o editor vê "2 clips
+    gerados" e não tem como saber que o motor tinha dezesseis a mais na mão e os
+    devolveu por já terem saído numa moagem anterior — seis dos quais ele mesmo
+    tinha aprovado.
+
+    Um número que só aparece dentro de um JSON de diagnóstico é um número que
+    ninguém lê. Este vai para a tela, junto dos outros.
+    """
+    descartados = int(diagnostico.get("previous_discarded_count") or 0)
+    if not descartados:
+        return []
+    aprovados = int(diagnostico.get("previous_discarded_approved") or 0)
+    rejeitados = int(diagnostico.get("previous_discarded_rejected") or 0)
+    detalhe = ""
+    if aprovados:
+        detalhe = f" — **{aprovados} deles você já tinha aprovado** antes"
+        if rejeitados:
+            detalhe += f", e {rejeitados} você já tinha rejeitado"
+    elif rejeitados:
+        detalhe = f" — {rejeitados} deles você já tinha rejeitado"
+    return [(
+        f"[Deduplicação] {descartados} candidato(s) saíram por já terem sido gerados numa "
+        f"moagem anterior desta mesma fonte{detalhe}. Para moer do zero, desligue a "
+        "deduplicação nos ajustes.",
+        "warning" if aprovados else "info",
+    )]
+
+
 def _clip_transcript(segments, start, end):
     """The lines actually inside a clip, with their times.
 
@@ -3486,6 +3556,11 @@ def api_cut_shorts():
         return jsonify({"error": "Video não encontrado ou caminho inválido"}), 404
     project_id = data.get("project_id")
     use_face_tracking = _coerce_bool(data.get("face_tracking"), default=True)
+    # "Moer do zero": ignorar o que já saiu numa moagem anterior desta fonte.
+    # Sem isto, moer o mesmo vídeo de novo só pode entregar as sobras — foi o que
+    # fez o ato de 7 de setembro devolver 2 cortes em vez de muitos, com dezesseis
+    # candidatos descartados num passo só e seis deles já aprovados pelo editor.
+    moer_do_zero = _coerce_bool(data.get("moer_do_zero"), default=False)
     transcription_source = data.get("transcription_source")
     user_context = str(data.get("user_context", "") or "").strip()
     video_genre = data.get("video_genre", "")
@@ -3524,6 +3599,8 @@ def api_cut_shorts():
             settings["processing_interval"] = dict(processing_interval)
             settings["processing_identity"] = processing_identity
             settings["source_signature"] = source_sig
+            if moer_do_zero:
+                settings["evitar_ja_gerados"] = False
             if transcription_source:
                 settings = {**settings, "transcription_source": transcription_source}
             _announce_acervo_source(settings, video_path)
@@ -3835,17 +3912,15 @@ def api_cut_shorts():
                 emit_progress(f"[Contexto] Hooks com áudio não disponíveis; mantendo sinais textuais: {str(exc)[:140]}", "warning")
 
             coverage_source = data.get("video_path", source_video_path)
+            evitar_repetidos = bool(settings.get("evitar_ja_gerados", True))
             coverage_plan = _selection_coverage_plan(
                 coverage_source,
                 video_duration,
-                allow_previous=True,
+                allow_previous=evitar_repetidos,
                 processing_identity=processing_identity,
             )
-            if coverage_plan["previous_clip_fingerprints"]:
-                emit_progress(
-                    f"[Deduplicação] {len(coverage_plan['previous_clip_fingerprints'])} intervalos já gerados para esta fonte serão evitados.",
-                    "info",
-                )
+            for linha, nivel in _avisos_da_deduplicacao(coverage_plan, evitar_repetidos):
+                emit_progress(linha, nivel)
             settings.update(coverage_plan)
             emit_progress(
                 f"[Cobertura] Até {coverage_plan['adaptive_max_clips']} candidatos nesta execução; "
@@ -3875,6 +3950,8 @@ def api_cut_shorts():
             candidate_diagnostics["processing_identity"] = processing_identity
             candidate_diagnostics["transcript_digest"] = transcription.get("transcript_digest", "")
             candidate_diagnostics["selection_scope"] = selection_transcription.get("selection_scope", "full_source")
+            for linha, nivel in _quanto_custou_a_deduplicacao(candidate_diagnostics):
+                emit_progress(linha, nivel)
             socketio.emit("selection_mode", {"source": selection_source, "candidate_diagnostics": candidate_diagnostics})
 
             ctx.update(stage="ranking", progress=64, message=f"Ranqueando {len(top_clips)} candidatos")
@@ -4822,6 +4899,11 @@ def api_process_complete():
     # etapa de enquadramento do "Executar Tudo" nunca chegou a rodar até o fim.
     # A rota de cortes já lia assim; esta ficou para trás.
     use_face_tracking = _coerce_bool(data.get("face_tracking"), default=True)
+    # "Moer do zero": ignorar o que já saiu numa moagem anterior desta fonte.
+    # Sem isto, moer o mesmo vídeo de novo só pode entregar as sobras — foi o que
+    # fez o ato de 7 de setembro devolver 2 cortes em vez de muitos, com dezesseis
+    # candidatos descartados num passo só e seis deles já aprovados pelo editor.
+    moer_do_zero = _coerce_bool(data.get("moer_do_zero"), default=False)
 
     if not os.path.exists(video_path):
         return jsonify({"error": "Video nao encontrado"}), 404
@@ -4849,6 +4931,8 @@ def api_process_complete():
             settings["processing_interval"] = dict(processing_interval)
             settings["processing_identity"] = processing_identity
             settings["source_signature"] = source_sig
+            if moer_do_zero:
+                settings["evitar_ja_gerados"] = False
             if transcription_source:
                 settings = {**settings, "transcription_source": transcription_source}
             ctx.update(stage="project", progress=3, message="Criando projeto")
@@ -5058,17 +5142,15 @@ def api_process_complete():
                 emit_progress(f"[Contexto] Hooks com áudio não disponíveis; mantendo sinais textuais: {str(exc)[:140]}", "warning")
 
             coverage_source = data.get("video_path", source_video_path)
+            evitar_repetidos = bool(settings.get("evitar_ja_gerados", True))
             coverage_plan = _selection_coverage_plan(
                 coverage_source,
                 video_duration,
-                allow_previous=True,
+                allow_previous=evitar_repetidos,
                 processing_identity=processing_identity,
             )
-            if coverage_plan["previous_clip_fingerprints"]:
-                emit_progress(
-                    f"[Deduplicação] {len(coverage_plan['previous_clip_fingerprints'])} intervalos já gerados para esta fonte serão evitados.",
-                    "info",
-                )
+            for linha, nivel in _avisos_da_deduplicacao(coverage_plan, evitar_repetidos):
+                emit_progress(linha, nivel)
             settings.update(coverage_plan)
             emit_progress(
                 f"[Cobertura] Até {coverage_plan['adaptive_max_clips']} candidatos nesta execução; "
@@ -5096,6 +5178,8 @@ def api_process_complete():
             candidate_diagnostics["processing_identity"] = processing_identity
             candidate_diagnostics["transcript_digest"] = transcription.get("transcript_digest", "")
             candidate_diagnostics["selection_scope"] = transcription.get("selection_scope", "full_source")
+            for linha, nivel in _quanto_custou_a_deduplicacao(candidate_diagnostics):
+                emit_progress(linha, nivel)
             socketio.emit("selection_mode", {"source": selection_source, "candidate_diagnostics": candidate_diagnostics})
             ctx.update(stage="candidate_generation", progress=55, message=f"{len(top_clips)} candidatos encontrados")
             ctx.check_cancel()

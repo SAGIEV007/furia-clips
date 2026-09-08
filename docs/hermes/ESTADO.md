@@ -535,6 +535,68 @@ Não é defeito escondido, é função que nunca foi escrita. Se for para existi
 tem que ser decisão dele: um `git pull` automático na máquina de quem edita pode
 derrubar trabalho local sem avisar.
 
+## CORREÇÃO IMPORTANTE — o caderno NÃO está vazio
+
+Passei a sessão inteira dizendo que o caderno de vereditos estava em zero.
+**Estava zerado nesta máquina, não na dele.** O banco que ele mandou em 08/09:
+
+```
+101 vereditos · 90 finais (um por corte)
+  rejected 57 · approved 35 · adjusted 5 · needs_review 4
+
+  starts_late       14   <- passou do mínimo de 8
+  no_payoff         13   <- passou
+  missing_context   10   <- passou
+  editor_rejected    6
+  too_long           3
+  wrong_speaker      1
+```
+
+**Três etiquetas já passaram do piso de oito**, e a tela dele confirma:
+`[Feedback editorial] Calibração aplicada com 88 decisões finais`. O aprendizado
+está ligado e mexendo no motor há tempo. Nunca mais afirmar que está vazio sem
+ler o banco DELE.
+
+## RESOLVIDO — moer o mesmo vídeo de novo devolvia quase nada
+
+> "ficou péssimo o resultado (...) onde consegui VÁRIOS cortes, dessa vez com a
+>  sua nova atualização, eu consegui 2"
+
+Ele moeu o ato de 7 de setembro de novo porque **eu pedi** que conferisse a
+mudança do motor. Lido no diagnóstico que o próprio programa salvou:
+
+```
+45 candidatos -> 30 (não-conteúdo) -> 23 (sobreposição)
+    -> 7 POR JÁ TER MOÍDO ANTES -> 2 entregues
+
+previous_discarded_count      16
+previous_discarded_approved    6   <- ele mesmo já tinha aprovado
+```
+
+**Dezesseis caíram num passo só.** A tela dizia "19 intervalos já gerados serão
+evitados" — verdade, e inútil: ninguém liga aquela frase a "por isso vieram
+dois". O motor não piorou; estava proibido de repetir o que já tinha feito.
+
+**Não foi a mudança de ontem.** Rodada a segmentação de ontem e a de hoje na
+transcrição real dele: **21 blocos ontem, 23 hoje** — mais, não menos. E a porta
+da troca de voz nem abriu: a transcrição do Whisper local tem **zero marcas de
+locutor**, então a trava de segurança manteve o comportamento antigo.
+
+Consertado com três coisas: o aviso de antes ensina a desligar, a conta de
+depois diz quanto custou (e grita quando havia corte aprovado no meio), e existe
+uma **caixa "Moer este vídeo do zero"** na tela de opções.
+
+### O que sobra de defeito real nessa moagem, e não é pequeno
+
+`identidade do locutor não confirmada para o foco Renan-first` apareceu nos
+**sete** candidatos — nos cinco adiados e nos dois entregues. Num ato de rua com
+plateia, o reconhecimento de voz não decide nada, e a transcrição local não traz
+diarização. Isso é o próximo alvo, e é o mesmo buraco medido em 07/09: **as
+marcas de locutor só vêm do CHUB ou de legenda.**
+
+E um corte com `eligibility_status: blocked` e nota 38 **foi entregue mesmo
+assim** — é o que ele descreveu como "nem era o Renan falando".
+
 ## Travado / precisa do editor
 
 - **Faltam exemplos aprovados e rejeitados.** Dez cortes que ele aprovaria e dez
