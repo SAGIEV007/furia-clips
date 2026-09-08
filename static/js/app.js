@@ -5040,3 +5040,23 @@ document.getElementById("acervoImportInput")?.addEventListener("change", (event)
     importAcervoBlocks(event.target.files?.[0]);
     event.target.value = "";
 });
+
+// O botão que junta o que eu preciso para achar um defeito. Ele perguntou
+// "onde fica o arquivo de feedback para eu te mandar?" — e a resposta certa
+// não é um caminho, é um botão.
+document.getElementById("btnPrepararParaOClaude")?.addEventListener("click", async () => {
+    const botao = document.getElementById("btnPrepararParaOClaude");
+    if (botao) botao.disabled = true;
+    try {
+        const resposta = await fetch("/api/preparar-para-o-claude", { method: "POST" });
+        const dados = await resposta.json().catch(() => ({}));
+        if (!resposta.ok || dados.error) throw new Error(dados.error || "Não deu para preparar os arquivos.");
+        showToast(`Pasta aberta com ${dados.total} arquivo(s). Arraste para a conversa.`, "success");
+        addConsoleLog(`[Suporte] Preparado em ${dados.pasta}: ${(dados.arquivos || []).join(", ")}`, "info");
+    } catch (erro) {
+        showToast(erro.message || "Não deu para preparar os arquivos.", "error");
+        addConsoleLog(`[Suporte] ${erro.message || erro}`, "error");
+    } finally {
+        if (botao) botao.disabled = false;
+    }
+});

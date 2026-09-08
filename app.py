@@ -5680,6 +5680,89 @@ def api_open_logs():
     return jsonify({"success": True, "pasta": pasta})
 
 
+@app.route("/api/preparar-para-o-claude", methods=["POST"])
+def api_preparar_para_o_claude():
+    """Juntar numa pasta só tudo o que eu preciso para achar um defeito.
+
+    A PERGUNTA DELE QUE ORIGINOU ISTO
+    ---------------------------------
+        "mandei os arquivos certos antes ou faltou algum? e onde fica o arquivo
+         de feedback dos aprovados e rejeitados para eu te mandar?"
+
+    Ele mandou cinco arquivos e acertou — mas por sorte, e dois eram cópia um do
+    outro. Os que resolveram foram dois, e moram em pastas DIFERENTES:
+
+        FuriaClipsData/diagnostics/selecao-*.json   (por que cada corte entrou)
+        FuriaClipsData/database/editorial_learning.sqlite3  (os vereditos dele)
+
+    Existia até uma rota que abria a pasta de diagnóstico, e ela **não tinha
+    botão em tela nenhuma** — ou seja, era como se não existisse. Ele não navega
+    no explorador atrás de arquivo, e não deveria mesmo.
+
+    Isto copia os dois para `FuriaClipsData/para-o-claude/` e abre a pasta.
+    Arrastar para a conversa vira um gesto só.
+
+    A cópia do banco é uma CÓPIA: mandar o arquivo vivo enquanto o programa
+    escreve nele entrega banco pela metade.
+    """
+    import shutil
+    from pathlib import Path
+
+    raiz = Path(os.environ.get("FURIA_CLIPS_DATA_DIR") or (Path.home() / "FuriaClipsData"))
+    destino = raiz / "para-o-claude"
+    try:
+        if destino.exists():
+            shutil.rmtree(destino)
+        destino.mkdir(parents=True, exist_ok=True)
+    except OSError as erro:
+        return jsonify({"error": f"Não deu para preparar a pasta: {str(erro)[:120]}"}), 500
+
+    levados = []
+    # O diagnóstico das últimas moagens: é o que diz por que cada corte entrou
+    # ou ficou de fora, e foi o que resolveu o caso de 8 de setembro.
+    diagnosticos = sorted(
+        (raiz / "diagnostics").glob("selecao-*.json"),
+        key=lambda p: p.stat().st_mtime, reverse=True,
+    )[:3]
+    for arquivo in diagnosticos:
+        try:
+            shutil.copy2(arquivo, destino / arquivo.name)
+            levados.append(arquivo.name)
+        except OSError:
+            continue
+    # Os vereditos. Cópia consistente: sqlite tem backup próprio para isso.
+    banco = Path(DB_PATH)
+    if banco.is_file():
+        try:
+            import sqlite3
+
+            origem = sqlite3.connect(f"file:{banco}?mode=ro", uri=True)
+            copia = sqlite3.connect(destino / banco.name)
+            with copia:
+                origem.backup(copia)
+            copia.close()
+            origem.close()
+            levados.append(banco.name)
+        except (sqlite3.Error, OSError):
+            try:
+                shutil.copy2(banco, destino / banco.name)
+                levados.append(banco.name)
+            except OSError:
+                pass
+
+    corpo = {"pasta": str(destino), "arquivos": levados, "total": len(levados)}
+    if not levados:
+        return jsonify({
+            "error": "Nada para mandar ainda: moa um vídeo e dê alguns vereditos primeiro.",
+            **corpo,
+        }), 404
+    try:
+        open_local_path(str(destino))
+    except (FileNotFoundError, OSError) as erro:
+        return jsonify({"error": f"Preparei, mas não deu para abrir: {str(erro)[:120]}", **corpo}), 500
+    return jsonify({"success": True, **corpo})
+
+
 @app.route("/api/open-diagnostics", methods=["POST"])
 def api_open_diagnostics():
     """Abrir a pasta onde o relatório de cada rodada é gravado.
