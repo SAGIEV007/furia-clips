@@ -236,6 +236,26 @@ def ler_do_programa() -> tuple[list[dict], dict]:
             sinais = {}
         if not isinstance(sinais, dict):
             sinais = {}
+        # O APRENDIZADO LIA A GAVETA ERRADA, E NÃO CORRIGIA NADA
+        #
+        # `score_factors` guarda duas coisas diferentes no mesmo lugar: as NOTAS
+        # do ranqueamento (hook, flow, value, clarity...) na raiz, e as MARCAS
+        # do corte (`payoff_complete`, `starts_mid_sentence`, ...) dentro de
+        # `_review_flags`. Eu só olhava a raiz.
+        #
+        # Medido no banco do editor em 08/09, com 90 vereditos dados por ele:
+        #
+        #     manifestos lidos ....... 90
+        #     casos contados ......... 0    <- nenhum sinal batia
+        #     ajustes no motor ....... {}
+        #
+        # Quatro dos cinco sinais que este arquivo procura estão em
+        # `_review_flags`, presentes em 279 cortes. Ou seja: ele apertou
+        # Aprovar e Rejeitar noventa vezes e o motor **não mudou uma vírgula**,
+        # sem nenhum erro aparecer na tela.
+        marcas = sinais.get("_review_flags")
+        if isinstance(marcas, dict):
+            sinais = {**marcas, **{k: v for k, v in sinais.items() if not k.startswith("_")}}
         vereditos.append({
             "rodada": "programa",
             "numero": numero,

@@ -290,6 +290,74 @@ def test_o_veredito_dado_na_tela_ensina_igual(tmp_path, monkeypatch):
     assert movidos.get("termina_sem_fechar", 0) > 0
 
 
+def test_os_sinais_vem_do_formato_que_o_motor_grava_de_verdade(tmp_path, monkeypatch):
+    """O aprendizado lia a gaveta errada, e noventa vereditos não moveram nada.
+
+    O teste acima monta `score_factors` como `{"payoff_complete": True}` — plano.
+    **O motor não grava assim.** Ele guarda duas coisas diferentes no mesmo
+    lugar: as NOTAS do ranqueamento na raiz (hook, flow, value, clarity...) e as
+    MARCAS do corte dentro de `_review_flags`. E este arquivo só olhava a raiz.
+
+    Medido no banco do editor em 08/09, com 90 vereditos dados por ele na tela:
+
+        manifestos lidos ....... 90
+        casos contados .......... 0    <- nenhum sinal batia
+        ajustes no motor ....... {}
+
+    Ele apertou Aprovar e Rejeitar noventa vezes e o motor não mudou uma
+    vírgula, sem nenhum erro aparecer na tela. Depois do conserto, o mesmo banco
+    dá +20% em 'começa no meio da frase', +20% em 'termina sem fechar' e +16,7%
+    em 'contexto incompleto' — que são exatamente as três etiquetas que ele mais
+    usou (starts_late 14, no_payoff 13, missing_context 10).
+
+    Este teste usa o formato REAL. O de cima usa um simplificado, e foi por isso
+    que ele passou o tempo todo enquanto a coisa não funcionava.
+    """
+    import sqlite3
+
+    banco = tmp_path / "b.sqlite3"
+    conn = sqlite3.connect(banco)
+    conn.executescript(
+        "CREATE TABLE clips (id INTEGER PRIMARY KEY, score_factors TEXT);"
+        "CREATE TABLE clip_feedback (id INTEGER PRIMARY KEY, clip_id INTEGER,"
+        " action TEXT, reason_code TEXT);"
+    )
+    # O formato de verdade: notas na raiz, marcas em `_review_flags`.
+    como_o_motor_grava = {
+        "hook": 72, "flow": 65, "value": 80, "clarity": 70,
+        "_review_flags": {
+            "payoff_complete": True,
+            "starts_mid_sentence": False,
+            "context_complete": True,
+            "overlap_suspected": False,
+        },
+        "_review_metadata": {"selection_source": "gemini"},
+    }
+    for numero in range(1, 11):
+        conn.execute("INSERT INTO clips VALUES (?, ?)",
+                     (numero, json.dumps(como_o_motor_grava)))
+        conn.execute("INSERT INTO clip_feedback (clip_id, action, reason_code) VALUES (?,?,?)",
+                     (numero, "rejected", "no_payoff"))
+    conn.commit()
+    conn.close()
+
+    monkeypatch.setattr("config.DB_PATH", str(banco))
+    from modules.aprendizado import ajustes, ler_do_programa
+
+    _, sinais = ler_do_programa()
+    assert sinais[("programa", "1")]["sinais"]["payoff_complete"] is True, (
+        "a marca está dentro de _review_flags; sem entrar lá, nada é contado"
+    )
+    assert sinais[("programa", "1")]["sinais"]["hook"] == 72, (
+        "as notas da raiz continuam valendo — as duas gavetas contam"
+    )
+
+    movidos = ajustes(tmp_path)
+    assert movidos.get("termina_sem_fechar", 0) > 0, (
+        "dez rejeições por 'não conclui' têm que mover o peso do fecho"
+    )
+
+
 def test_ele_muda_de_ideia_na_tela_tambem(tmp_path, monkeypatch):
     """Apertar Rejeitar e depois Aprovar: vale o último, como no caderno."""
     import sqlite3
