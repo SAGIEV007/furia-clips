@@ -5060,3 +5060,36 @@ document.getElementById("btnPrepararParaOClaude")?.addEventListener("click", asy
         if (botao) botao.disabled = false;
     }
 });
+
+// Juntar vereditos de outro computador, sem GitHub e sem substituir nada.
+// O caminho pelo GitHub dependia de branch, checkout limpo e rede — e deixou
+// trinta e sete julgamentos dele parados numa pasta.
+document.getElementById("btnJuntarVereditos")?.addEventListener("click", () => {
+    document.getElementById("arquivoDeVereditos")?.click();
+});
+document.getElementById("arquivoDeVereditos")?.addEventListener("change", async (evento) => {
+    const arquivo = evento.target.files?.[0];
+    if (!arquivo) return;
+    const botao = document.getElementById("btnJuntarVereditos");
+    if (botao) botao.disabled = true;
+    try {
+        const corpo = new FormData();
+        corpo.append("banco", arquivo);
+        const resposta = await fetch("/api/editorial/juntar-vereditos", { method: "POST", body: corpo });
+        const dados = await resposta.json().catch(() => ({}));
+        if (!resposta.ok || dados.error) throw new Error(dados.error || "Não deu para juntar os vereditos.");
+        showToast(dados.message, dados.novos ? "success" : "info");
+        addConsoleLog(`[Aprendizado] ${dados.message} Lidos ${dados.lidos}.`, "info");
+        const ajustes = dados.ajustes || {};
+        const nomes = Object.keys(ajustes);
+        if (nomes.length) {
+            addConsoleLog(`[Aprendizado] O motor agora corrige: ${nomes.map((n) => `${n} ${ajustes[n] > 0 ? "+" : ""}${ajustes[n]}%`).join(" · ")}`, "info");
+        }
+    } catch (erro) {
+        showToast(erro.message || "Não deu para juntar os vereditos.", "error");
+        addConsoleLog(`[Aprendizado] ${erro.message || erro}`, "error");
+    } finally {
+        if (botao) botao.disabled = false;
+        evento.target.value = "";
+    }
+});

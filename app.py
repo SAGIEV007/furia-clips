@@ -5680,6 +5680,63 @@ def api_open_logs():
     return jsonify({"success": True, "pasta": pasta})
 
 
+@app.route("/api/editorial/juntar-vereditos", methods=["POST"])
+def api_juntar_vereditos():
+    """Trazer os vereditos de outro computador, juntando em vez de substituir.
+
+    O EDITOR, DEPOIS DE DESCOBRIR QUE O SINCRONISMO NUNCA FUNCIONOU
+    --------------------------------------------------------------
+        "não precisa ter essa interface de atualizar via github a versão do
+         fúria já que não funciona mesmo, mas tem que ser realmente funcional a
+         parte dos aprendizados também"
+
+    Ele está certo nas duas metades. O caminho pelo GitHub dependia de branch,
+    de checkout limpo e de rede — três coisas que quebram sem avisar, e que
+    quebraram: trinta e sete julgamentos dele ficaram parados em pasta.
+
+    Isto não depende de nada disso. Ele escolhe o arquivo, o programa junta.
+    Nada é substituído: `restore_editorial_backup` substitui, e substituir joga
+    fora o que este computador julgou.
+    """
+    enviado = request.files.get("banco")
+    if not enviado or not enviado.filename:
+        return jsonify({"error": "Escolha um arquivo editorial_learning.sqlite3."}), 400
+    if not enviado.filename.lower().endswith(".sqlite3"):
+        return jsonify({"error": "Escolha um arquivo terminado em .sqlite3."}), 400
+    if current_task.get("active"):
+        return jsonify({"error": "Aguarde o processamento atual terminar."}), 409
+
+    from config import PERSISTENT_BACKUPS_DIR
+
+    os.makedirs(PERSISTENT_BACKUPS_DIR, exist_ok=True)
+    temporario = tempfile.NamedTemporaryFile(
+        prefix="juntar-", suffix=".sqlite3", dir=PERSISTENT_BACKUPS_DIR, delete=False
+    )
+    caminho = temporario.name
+    temporario.close()
+    try:
+        enviado.save(caminho)
+        from modules.aprendizado import ajustes, juntar_vereditos_de
+
+        resumo = juntar_vereditos_de(caminho)
+        depois = ajustes()
+        return jsonify({
+            "success": True, **resumo,
+            "ajustes": depois,
+            "message": (
+                f"{resumo['novos']} veredito(s) novo(s) trazido(s); "
+                f"{resumo['ja_tinha']} já estavam aqui."
+            ),
+        })
+    except (FileNotFoundError, ValueError) as erro:
+        return jsonify({"error": str(erro)[:200]}), 400
+    finally:
+        try:
+            os.unlink(caminho)
+        except OSError:
+            pass
+
+
 @app.route("/api/preparar-para-o-claude", methods=["POST"])
 def api_preparar_para_o_claude():
     """Juntar numa pasta só tudo o que eu preciso para achar um defeito.

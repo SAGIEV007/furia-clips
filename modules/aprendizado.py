@@ -188,6 +188,30 @@ O_MENU_DA_TELA = {
     "audio_overlap": "repetido",   # "Áudio sobreposto ou confuso"
 }
 
+# Os nomes que a tela usava em versões anteriores. Aparecem nos bancos que ele
+# guardou dos outros notebooks — dois dos trinta e sete vereditos recuperados em
+# 08/09 vêm com `sem_contexto` e `sem_payoff`.
+#
+# Ficam SEPARADOS do menu de hoje de propósito. `O_MENU_DA_TELA` é a lista da
+# tela, e existe um teste que exige que toda opção de lá chegue num peso — se
+# esses nomes entrassem ali, o teste passaria a cobrar deles uma opção na tela
+# que não existe mais, e a proteção viraria ruído.
+#
+# Um veredito que ele já deu não pode valer menos por ter sido dado numa versão
+# antiga do programa.
+MOTIVOS_DE_VERSOES_ANTIGAS = {
+    "sem_payoff": "fim",
+    "sem_contexto": "contexto",
+    "comeca_tarde": "abertura",
+    "locutor_errado": "locutor",
+}
+
+
+def etiqueta_do_motivo(codigo) -> str:
+    """A etiqueta de um motivo, venha ele da tela de hoje ou de uma antiga."""
+    chave = str(codigo or "").strip().lower()
+    return O_MENU_DA_TELA.get(chave) or MOTIVOS_DE_VERSOES_ANTIGAS.get(chave, "")
+
 
 def ler_do_programa() -> tuple[list[dict], dict]:
     """Os vereditos que ele deu na TELA, e o que o motor achava de cada corte.
@@ -260,7 +284,7 @@ def ler_do_programa() -> tuple[list[dict], dict]:
             "rodada": "programa",
             "numero": numero,
             "veredito": "ok" if linha["action"] == "approved" else "nao",
-            "etiqueta": O_MENU_DA_TELA.get(str(linha["reason_code"] or ""), ""),
+            "etiqueta": etiqueta_do_motivo(linha["reason_code"]),
             "motivo": str(linha["reason_code"] or ""),
         })
         enviados[("programa", numero)] = {"numero": numero, "sinais": sinais}
@@ -394,3 +418,158 @@ def gabarito_do_editor(video: str, data_dir=None) -> list[dict[str, Any]]:
         }
         for corte in sorted(cortes, key=lambda c: c["start"])
     ]
+
+
+# ── juntar vereditos de outro computador ────────────────────────────────────
+
+
+def _identidade(assinatura, inicio, fim, acao, motivo, quando) -> tuple:
+    """O que faz um veredito ser o MESMO veredito, em qualquer computador.
+
+    Não dá para usar o número do corte: ele é contado por banco, e o corte 12
+    de um notebook é outro corte no outro. O que viaja é o conteúdo — que vídeo,
+    que trecho, que decisão, quando foi tomada.
+    """
+    def numero(valor):
+        try:
+            return round(float(valor or 0), 2)
+        except (TypeError, ValueError):
+            return 0.0
+
+    return (
+        str(assinatura or ""), numero(inicio), numero(fim),
+        str(acao or ""), str(motivo or ""), str(quando or "")[:19],
+    )
+
+
+def juntar_vereditos_de(caminho, destino=None) -> dict[str, Any]:
+    """Trazer para cá os vereditos dados em outro computador. Sem apagar nada.
+
+    POR QUE ISTO PRECISOU EXISTIR
+    -----------------------------
+    O botão que mandava feedback ao GitHub estava quebrado desde que o nome da
+    branch entregue mudou — ou seja, **nunca funcionou na prática**. Enquanto
+    isso ele revisava cortes nos dois notebooks. Medido nos bancos antigos que
+    ele guardou:
+
+        banco de hoje ............ 120 vereditos
+        de um notebook antigo ..... 35 vereditos, NENHUM aqui dentro
+        de outro ...................2 vereditos, NENHUM aqui dentro
+
+    Trinta e sete julgamentos dele parados em pasta, sem efeito nenhum. Com eles
+    juntos, os casos que a calibração conta vão de 79 para 102.
+
+    O QUE ISTO NÃO FAZ, DE PROPÓSITO
+    --------------------------------
+    Não substitui o banco. `restore_editorial_backup` faz isso, e é a ferramenta
+    errada aqui: substituir joga fora o que este computador julgou. Juntar
+    preserva os dois lados.
+
+    Também não repete: um veredito que já está aqui é reconhecido pelo conteúdo
+    — que vídeo, que trecho, que decisão, quando — e ignorado. Importar duas
+    vezes o mesmo arquivo dá o mesmo resultado que importar uma.
+
+    Quando o corte julgado não existe neste computador, ele vem junto, com os
+    sinais que o motor tinha gravado. Sem isso o veredito chegaria sem o que o
+    motor achava, e a calibração não teria contra o que comparar.
+    """
+    import sqlite3
+
+    from config import DB_PATH
+
+    alvo = Path(destino or DB_PATH)
+    origem = Path(caminho)
+    resumo = {"lidos": 0, "novos": 0, "ja_tinha": 0, "ignorados": 0}
+    if not origem.is_file():
+        raise FileNotFoundError(f"Arquivo não encontrado: {origem}")
+    if not alvo.is_file():
+        raise FileNotFoundError("Este computador ainda não tem banco editorial.")
+
+    consulta = """SELECT f.action, COALESCE(f.reason_code,'') rc, f.created_at,
+                         c.start_time s, c.end_time e, c.duration d, c.viral_score v,
+                         c.score_factors sf, c.file_path fp, c.editorial_key ek,
+                         p.source_signature sig, p.name pname
+                    FROM clip_feedback f
+                    JOIN clips c ON c.id = f.clip_id
+                    JOIN projects p ON p.id = c.project_id
+                   WHERE f.action IN ('approved','rejected','needs_review')"""
+
+    de_fora = sqlite3.connect(f"file:{origem}?mode=ro", uri=True)
+    de_fora.row_factory = sqlite3.Row
+    try:
+        linhas = de_fora.execute(consulta).fetchall()
+    except sqlite3.Error as erro:
+        de_fora.close()
+        raise ValueError(f"Não parece um banco do Furia: {str(erro)[:120]}") from erro
+    de_fora.close()
+    resumo["lidos"] = len(linhas)
+    if not linhas:
+        return resumo
+
+    aqui = sqlite3.connect(alvo)
+    aqui.row_factory = sqlite3.Row
+    try:
+        conhecidos = {
+            _identidade(r["sig"], r["s"], r["e"], r["action"], r["rc"], r["created_at"])
+            for r in aqui.execute(consulta).fetchall()
+        }
+        # A ASSINATURA DO VÍDEO TEM QUE SOBREVIVER À IMPORTAÇÃO
+        #
+        # A primeira versão criava um projeto novo com assinatura
+        # "importado-<hora>". Isso quebrava a identidade: no reimport, o mesmo
+        # veredito chegava com a assinatura ORIGINAL e não batia com a que eu
+        # tinha guardado. Medido — importar o mesmo arquivo duas vezes trazia os
+        # 35 vereditos duas vezes, e um veredito contado em dobro pesa em dobro
+        # na calibração, sem ninguém perceber.
+        #
+        # Guardando a assinatura original, o veredito é reconhecido de onde quer
+        # que venha, e o corte ainda cai no projeto certo quando este computador
+        # já conhece aquele vídeo.
+        projetos: dict[str, int] = {}
+
+        def projeto_para(assinatura: str) -> int:
+            chave = str(assinatura or "")
+            if chave in projetos:
+                return projetos[chave]
+            achado = aqui.execute(
+                "SELECT id FROM projects WHERE source_signature = ? LIMIT 1", (chave,)
+            ).fetchone()
+            if achado:
+                projetos[chave] = int(achado["id"])
+            else:
+                projetos[chave] = aqui.execute(
+                    "INSERT INTO projects (name, source_video, source_signature)"
+                    " VALUES (?,?,?)",
+                    (f"Importado de outro computador ({chave[:16] or 'sem assinatura'})",
+                     "importado", chave),
+                ).lastrowid
+            return projetos[chave]
+
+        for linha in linhas:
+            if _identidade(linha["sig"], linha["s"], linha["e"], linha["action"],
+                           linha["rc"], linha["created_at"]) in conhecidos:
+                resumo["ja_tinha"] += 1
+                continue
+            projeto_importado = projeto_para(linha["sig"])
+            corte = aqui.execute(
+                "INSERT INTO clips (project_id, file_path, editorial_key, start_time,"
+                " end_time, duration, viral_score, score_factors) VALUES (?,?,?,?,?,?,?,?)",
+                (projeto_importado, linha["fp"] or "importado", linha["ek"],
+                 linha["s"], linha["e"], linha["d"], linha["v"], linha["sf"]),
+            ).lastrowid
+            aqui.execute(
+                "INSERT INTO clip_feedback (clip_id, action, reason_code, created_at)"
+                " VALUES (?,?,?,?)",
+                (corte, linha["action"], linha["rc"], linha["created_at"]),
+            )
+            resumo["novos"] += 1
+        aqui.commit()
+    finally:
+        aqui.close()
+    return resumo
+
+
+def datetime_agora() -> str:
+    from datetime import datetime, timezone
+
+    return datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
