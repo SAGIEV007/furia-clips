@@ -254,6 +254,7 @@ class ClipSelector:
             "fallback_discarded_overlap": 0,
             "fallback_discarded_similarity": 0,
             "previous_discarded_count": 0,
+            "acervo": dict(getattr(self, "_candidate_diagnostics", {}).get("acervo") or {}),
             "previous_kept_approved": 0,
             "previous_kept_unjudged": 0,
             "previous_discarded_approved": 0,
@@ -302,6 +303,15 @@ class ClipSelector:
             or focus in {"", "auto", "generic_political"} and (renan_profile or renan_channel)
         )
         self._selection_source = None
+        # O que o Acervo do CHUB entregou para ESTA fonte, para acabar no
+        # relatório de diagnóstico. A linha do console rola e some; o arquivo
+        # fica, e é por ele que o editor confere depois se o CHUB entrou mesmo.
+        acervo = settings.get("acervo")
+        self._candidate_diagnostics["acervo"] = (
+            dict(acervo) if isinstance(acervo, dict)
+            else {"estado": "nao_verificado", "available": False, "blocks": 0,
+                  "highlights": 0, "possible_cuts": 0, "video_id": ""}
+        )
         # De onde escutar as bordas quando a transcrição é texto colado.
         self._caminho_da_midia = str(settings.get("caminho_da_midia") or "")
         self._escutar_bordas_ligado = bool(
@@ -436,6 +446,7 @@ class ClipSelector:
             "fallback_discarded_overlap": 0,
             "fallback_discarded_similarity": 0,
             "previous_discarded_count": 0,
+            "acervo": dict(getattr(self, "_candidate_diagnostics", {}).get("acervo") or {}),
             "previous_kept_approved": 0,
             "previous_kept_unjudged": 0,
             "previous_discarded_approved": 0,

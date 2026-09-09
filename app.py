@@ -416,40 +416,50 @@ def _announce_acervo_source(settings, video_path):
         )
     else:
         emit_progress(
-            "[Espelho CHUB] Nenhum espelho encontrado; o Furia vai ranquear sem a "
-            "memória de desempenho. Rode: chub.bat --espelho",
+            "[Espelho CHUB] Nenhum espelho de desempenho neste computador; o Furia "
+            "vai ranquear sem a memória do que funcionou. Isso não impede a moagem.",
             "warning",
         )
 
     described = describe_snapshot((settings or {}).get("campaign_hub_snapshot_path"))
     if described.get("available") and described.get("blocks"):
+        cortes = int(described.get("possible_cuts") or 0)
         emit_progress(
-            f"[Acervo] {described['blocks']} blocos revisados encontrados para esta fonte "
-            f"({described['highlights']} momentos fortes). As fronteiras vêm deles.",
+            f"[CHUB] CORTANDO COM O ACERVO — {described['blocks']} bloco(s) revisado(s) por gente, "
+            f"{described['highlights']} momento(s) forte(s)"
+            + (f", {cortes} corte(s) previsto(s)." if cortes else ".")
+            + " As fronteiras vêm deles.",
             "success",
         )
-        return
+        return {"estado": "com_acervo", **described}
 
     # Uma frase só cobria duas situações que não têm nada a ver uma com a outra,
     # e o editor não tinha como distinguir: "o Acervo não tem blocos deste vídeo"
     # e "eu não faço ideia de qual vídeo é este". A segunda é a comum, porque
     # todo o vínculo com o Acervo depende de onze caracteres no nome do arquivo,
     # e renomear um download — que é o normal — desliga o Acervo em silêncio.
+    # Mandar o editor digitar comando é o mesmo que não avisar. A regra dele é
+    # antiga e vale aqui: se ele precisa fazer alguma coisa, existe um botão.
     youtube_id = resolved_id_for(video_path)
     if not youtube_id:
         nome = os.path.basename(str(video_path or "")) or "este arquivo"
         emit_progress(
-            f"[Acervo] Desligado nesta fonte: não há id do YouTube no nome de '{nome}', "
-            f"então o Furia não tem como saber qual vídeo do Acervo procurar. "
-            f"Vincule com: chub.bat --vincular \"{nome}\" ID_DO_YOUTUBE",
+            f"[CHUB] CORTANDO SEM O ACERVO — não sei de que vídeo do YouTube "
+            f"'{nome}' é, então não tenho onde procurar os blocos revisados. "
+            f"Para ligar: botão \"Este vídeo é deste link\", na Leitura da fonte.",
             "warning",
         )
-        return
+        return {"estado": "video_nao_identificado", "available": False,
+                "blocks": 0, "highlights": 0, "possible_cuts": 0, "video_id": ""}
+
     emit_progress(
-        f"[Acervo] Vídeo reconhecido ({youtube_id}), mas nenhum bloco baixado para ele. "
-        f"Baixe com: chub.bat {youtube_id} — por enquanto o Furia vai ler o vídeo sozinho.",
+        f"[CHUB] CORTANDO SEM O ACERVO — reconheci o vídeo ({youtube_id}), mas o "
+        f"acervo dele não está neste computador e não deu para buscar agora. "
+        f"O Furia vai ler o vídeo pela própria transcrição.",
         "info",
     )
+    return {"estado": "sem_blocos", "available": False, "blocks": 0,
+            "highlights": 0, "possible_cuts": 0, "video_id": youtube_id}
 
 
 def _resolve_media_input(requested):
@@ -3648,7 +3658,10 @@ def api_cut_shorts():
                 settings["evitar_ja_gerados"] = False
             if transcription_source:
                 settings = {**settings, "transcription_source": transcription_source}
-            _announce_acervo_source(settings, video_path)
+            # O estado do Acervo viaja com a moagem para acabar no relatório:
+            # sem isso o editor precisa acreditar na linha do console, que rola
+            # e some. No arquivo ele confere depois, e eu também.
+            settings["acervo"] = _announce_acervo_source(settings, video_path)
             active_project_id = project_id
             if not active_project_id:
                 auto_project_name = os.path.splitext(os.path.basename(source_video_path))[0]
@@ -4970,7 +4983,10 @@ def api_process_complete():
                 source_video_path, processing_interval, emit_progress, ctx.check_cancel
             )
             video_path = working_video
-            settings = get_all_settings()
+            # Este caminho de moagem nunca consultava o Acervo: só o outro
+            # chamava `_settings_with_acervo`. Duas portas para a mesma sala, e
+            # uma delas cortava sempre às cegas.
+            settings = _settings_with_acervo(get_all_settings(), source_video_path)
             source_sig = source_signature(source_video_path)
             processing_identity = processing_interval_identity(
                 source_video_path,
@@ -4984,6 +5000,7 @@ def api_process_complete():
                 settings["evitar_ja_gerados"] = False
             if transcription_source:
                 settings = {**settings, "transcription_source": transcription_source}
+            settings["acervo"] = _announce_acervo_source(settings, video_path)
             ctx.update(stage="project", progress=3, message="Criando projeto")
             ctx.check_cancel()
             video_name = os.path.splitext(os.path.basename(source_video_path))[0]
