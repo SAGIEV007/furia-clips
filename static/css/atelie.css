@@ -78,7 +78,7 @@
 .inspetor-vazio p { margin: 0; font-size: 0.82rem; line-height: 1.55; }
 
 .inspetor-titulo {
-    font-size: 0.68rem;
+    font-size: 0.75rem;
     font-weight: 700;
     letter-spacing: 0.11em;
     text-transform: uppercase;
@@ -166,7 +166,7 @@
 .gaveta[data-aberta="true"] .gaveta-seta { transform: rotate(180deg); }
 .gaveta-contagem {
     font-family: var(--at-mono);
-    font-size: 0.7rem;
+    font-size: 0.75rem;
     padding: 0.1em 0.42em;
     border-radius: 3px;
     background: var(--at-elevado);
@@ -207,7 +207,7 @@
 .talho-relogio i {
     font-style: normal;
     font-family: Inter, sans-serif;
-    font-size: 0.68rem;
+    font-size: 0.75rem;
     font-weight: 600;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -297,12 +297,12 @@
 .talho-acoes { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
 .talho-dica {
     margin-left: auto;
-    font-size: 0.72rem;
+    font-size: 0.75rem;
     color: var(--at-tinta-fraca);
 }
 .talho-dica kbd {
     font-family: var(--at-mono);
-    font-size: 0.68rem;
+    font-size: 0.75rem;
     padding: 0.08em 0.32em;
     border: 1px solid var(--at-linha-forte);
     border-radius: 3px;
@@ -371,7 +371,7 @@
     cursor: pointer;
 }
 .paleta-item .material-icons-round { font-size: 18px; color: var(--at-tinta-fraca); }
-.paleta-item small { margin-left: auto; font-size: 0.72rem; color: var(--at-tinta-fraca); }
+.paleta-item small { margin-left: auto; font-size: 0.75rem; color: var(--at-tinta-fraca); }
 .paleta-item.marcado { background: var(--at-alto); color: var(--at-tinta); }
 .paleta-item.marcado .material-icons-round { color: var(--at-ouro); }
 .paleta-vazio { padding: 1.4rem 1.1rem; color: var(--at-tinta-fraca); font-size: 0.86rem; }
@@ -565,9 +565,9 @@ body.light-mode .section, [data-theme="light"] .section { background: var(--at-s
     background: var(--at-superficie);
 }
 .marco-rotulo {
-    font-size: 9.5px !important;
+    font-size: 12px !important;
     letter-spacing: .17em !important;
-    font-size: 0.68rem;
+    font-size: 0.75rem;
     font-weight: 600;
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -635,7 +635,7 @@ body.light-mode .section, [data-theme="light"] .section { background: var(--at-s
     display: grid;
     grid-template-columns: 9.5rem 1fr 2.6rem 2.2rem;
     align-items: center;
-    font-size: 0.66rem;
+    font-size: 0.75rem;
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--at-tinta-fraca);
@@ -723,7 +723,7 @@ body.light-mode .section, [data-theme="light"] .section { background: var(--at-s
 }
 .faixa-n {
     font-family: var(--at-mono);
-    font-size: 0.7rem;
+    font-size: 0.75rem;
     font-variant-numeric: tabular-nums;
     text-align: right;
     color: var(--at-tinta-fraca);
@@ -763,7 +763,7 @@ body.light-mode .section, [data-theme="light"] .section { background: var(--at-s
 .mapa-barra i { display: block; height: 100%; background: var(--viz-abaixo); border-radius: 3px; }
 .mapa-n {
     font-family: var(--at-mono);
-    font-size: 0.7rem;
+    font-size: 0.75rem;
     color: var(--at-tinta-fraca);
     font-variant-numeric: tabular-nums;
 }
@@ -783,7 +783,7 @@ body.light-mode .section, [data-theme="light"] .section { background: var(--at-s
 
 .painel-rodape {
     margin: 0;
-    font-size: 0.74rem;
+    font-size: 0.75rem;
     color: var(--at-tinta-fraca);
     line-height: 1.55;
 }
@@ -887,4 +887,4 @@ body.light-mode .section, [data-theme="light"] .section { background: var(--at-s
 }
 .gaveta-acoes button:hover { border-color: var(--at-ouro-linha); color: var(--at-ouro); }
 .gaveta-acoes .material-icons-round { font-size: 16px; }
-.gaveta-acoes .gaveta-aviso { margin-left: auto; font-size: 0.74rem; color: var(--at-tinta-fraca); }
+.gaveta-acoes .gaveta-aviso { margin-left: auto; font-size: 0.75rem; color: var(--at-tinta-fraca); }
