@@ -2128,6 +2128,48 @@ def api_acervo_status():
     return jsonify(payload)
 
 
+@app.route("/api/acervo/placar", methods=["POST"])
+def api_acervo_placar():
+    """Quantas viradas de assunto o Furia acerta neste vídeo, contra o CHUB.
+
+    O número já existia — `scripts/regua_assuntos.py` — e só rodava digitando
+    num terminal. Eu mandei o editor rodar assim e ele respondeu "esse código é
+    para rodar onde??". A pergunta estava certa: a regra desta casa é que se ele
+    precisa de alguma coisa, existe um botão.
+
+    Roda o MESMO caminho da moagem, com os ajustes dele: com chave configurada
+    mede o modelo, sem chave mede a leitura local.
+    """
+    from modules.acervo_library import find_snapshot_for
+    from modules.clip_selector import ClipSelector
+    from modules.placar_das_fronteiras import medir_fonte
+
+    data = request.get_json(silent=True) or {}
+    try:
+        video_path = _resolve_media_input(data.get("video_path", ""))
+    except UnsafePathError as exc:
+        return jsonify({"error": str(exc)}), 400
+    if not video_path:
+        return jsonify({"error": "Escolha primeiro o vídeo."}), 400
+
+    acervo = find_snapshot_for(video_path)
+    if not acervo:
+        return jsonify({
+            "disponivel": False,
+            "motivo": "Este vídeo não tem blocos do CHUB neste computador. "
+                      "Se ele está no Garimpo, use \"Este vídeo é deste link\" e moa "
+                      "uma vez para o Furia baixar os blocos.",
+        })
+
+    seletor = ClipSelector(min_duration=15, max_duration=180, max_clips=12)
+    seletor._settings_da_moagem = get_all_settings()
+    seletor._candidate_diagnostics = {}
+    try:
+        return jsonify(medir_fonte(acervo, seletor))
+    except (OSError, ValueError, TypeError) as exc:
+        return jsonify({"error": f"Não deu para medir: {str(exc)[:160]}"}), 500
+
+
 @app.route("/api/acervo/vincular", methods=["POST"])
 def api_acervo_vincular():
     """Dizer de que link do YouTube é um arquivo que já está no computador.

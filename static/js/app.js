@@ -5069,6 +5069,60 @@ async function vincularAoLink() {
     }
 }
 
+// O placar: quantas viradas de assunto o Furia acerta neste vídeo.
+//
+// O número existia e só rodava digitando um comando num terminal. Eu mandei o
+// editor rodar assim e ele respondeu "esse código é para rodar onde??". A
+// pergunta estava certa — a regra desta casa é que se ele precisa de alguma
+// coisa, existe um botão.
+async function placarDasFronteiras() {
+    const botao = document.getElementById("btnPlacarDasFronteiras");
+    if (!state.selectedVideo) {
+        showToast("Escolha o vídeo primeiro.", "warning");
+        return;
+    }
+    if (botao) botao.disabled = true;
+    addConsoleLog("[Placar] Comparando os assuntos deste vídeo com os do CHUB...", "info");
+    try {
+        const response = await fetch("/api/acervo/placar", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ video_path: state.selectedVideo }),
+        });
+        const p = await response.json();
+        if (!response.ok) throw new Error(p.error || "Não deu para medir.");
+        if (!p.disponivel) {
+            showToast(p.motivo, "warning");
+            addConsoleLog(`[Placar] ${p.motivo}`, "warning");
+            return;
+        }
+        const lendo = p.origem === "modelo_por_frase"
+            ? "lendo o vídeo inteiro com a IA"
+            : "lendo por conta própria, sem IA";
+        addConsoleLog(
+            `[Placar] ${p.titulo || p.video_id} — o CHUB marca ${p.blocos_do_chub} assuntos, `
+            + `o Furia vê ${p.assuntos_do_furia} (${lendo}).`, "info");
+        addConsoleLog(
+            `[Placar] VIRADAS ACHADAS: ${p.achadas}/${p.viradas_no_gabarito} (${p.achadas_pct}%)  ·  `
+            + `das ${p.propostas} que ele propôs, ${p.certeiras} eram reais (${p.certeiras_pct}%)`,
+            p.achadas_pct >= 50 ? "success" : "warning");
+        (p.detalhe || []).forEach((linha, i) => {
+            const marca = linha.achou ? "ACHOU" : "passou batido";
+            const onde = linha.furia_s === null ? "nada por perto"
+                : `${linha.furia_s}s (erro de ${linha.erro_s}s)`;
+            addConsoleLog(`   virada ${i + 1}: CHUB ${linha.gabarito_s}s -> ${onde}  ${marca}`,
+                          linha.achou ? "success" : "info");
+        });
+        showToast(`${p.achadas} de ${p.viradas_no_gabarito} viradas de assunto achadas.`,
+                  p.achadas_pct >= 50 ? "success" : "warning");
+    } catch (error) {
+        showToast(error.message || "Não deu para medir.", "error");
+    } finally {
+        if (botao) botao.disabled = false;
+    }
+}
+
+document.getElementById("btnPlacarDasFronteiras")?.addEventListener("click", placarDasFronteiras);
 document.getElementById("btnVincularAoLink")?.addEventListener("click", vincularAoLink);
 document.getElementById("btnRefreshReading")?.addEventListener("click", refreshSourceReading);
 document.getElementById("btnImportAcervo")?.addEventListener("click", () => document.getElementById("acervoImportInput")?.click());
