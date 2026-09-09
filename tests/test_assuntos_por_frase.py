@@ -240,6 +240,134 @@ class OSeletorEscolheEntreOsDoisCaminhos(unittest.TestCase):
         seletor._assuntos_do_video(_frases(200))
         self.assertEqual(seletor._candidate_diagnostics["assuntos_origem"], "coesao_local")
 
+    def test_thinking_ligado_por_padrao(self):
+        """O editor pediu para testar com 'thinking' — fica ligado por padrão."""
+        from unittest.mock import patch
+
+        seletor = self._seletor({"gemini_api_key": "x"})
+        capturado = {}
+
+        def espia(self_ignorado, pedido, api_key, model_name, thinking=True):
+            capturado["thinking"] = thinking
+            return '{"assuntos":[{"inicio":0,"fim":199,"titulo":"x"}]}'
+
+        with patch.object(type(seletor), "_perguntar_ao_gemini", espia):
+            seletor._assuntos_do_video(_frases(200))
+        self.assertTrue(capturado["thinking"])
+
+    def test_ajuste_gemini_thinking_desliga(self):
+        from unittest.mock import patch
+
+        seletor = self._seletor({"gemini_api_key": "x", "gemini_thinking": False})
+        capturado = {}
+
+        def espia(self_ignorado, pedido, api_key, model_name, thinking=True):
+            capturado["thinking"] = thinking
+            return '{"assuntos":[{"inicio":0,"fim":199,"titulo":"x"}]}'
+
+        with patch.object(type(seletor), "_perguntar_ao_gemini", espia):
+            seletor._assuntos_do_video(_frases(200))
+        self.assertFalse(capturado["thinking"])
+
+
+class ORetryEmAltaDemanda(unittest.TestCase):
+    """Medido de verdade com gemini-3.6-flash: 2 de 3 tentativas vieram 503
+    ("alta demanda, tente de novo" — a própria mensagem do Google) e a
+    terceira veio 200. Desistir na primeira jogava fora uma resposta boa."""
+
+    def _seletor(self):
+        from modules.clip_selector import ClipSelector
+
+        seletor = ClipSelector.__new__(ClipSelector)
+        seletor.GEMINI_TIMEOUT_S = 30
+        seletor.GEMINI_ESPERA_ENTRE_TENTATIVAS_S = 0
+        return seletor
+
+    def test_503_tenta_de_novo_e_aproveita_o_sucesso(self):
+        from unittest.mock import MagicMock, patch
+
+        chamadas = []
+
+        def resposta_falsa(*args, **kwargs):
+            chamadas.append(1)
+            r = MagicMock()
+            if len(chamadas) <= 2:
+                r.status_code = 503
+                r.raise_for_status = MagicMock(side_effect=Exception("503"))
+            else:
+                r.status_code = 200
+                r.raise_for_status = lambda: None
+                r.json.return_value = {"candidates": [{"content": {"parts": [{"text": "ok"}]}}]}
+            return r
+
+        seletor = self._seletor()
+        with patch("modules.clip_selector.requests.post", side_effect=resposta_falsa):
+            resultado = seletor._perguntar_ao_gemini("pergunta", "chave", "modelo")
+
+        self.assertEqual(resultado, "ok")
+        self.assertEqual(len(chamadas), 3, "duas 503 e uma que deu certo")
+
+    def test_erro_permanente_nao_insiste_quatro_vezes(self):
+        """Chave inválida ou cota zerada não se resolvem tentando de novo."""
+        from unittest.mock import MagicMock, patch
+
+        chamadas = []
+
+        def resposta_falsa(*args, **kwargs):
+            chamadas.append(1)
+            r = MagicMock()
+            r.status_code = 400
+            r.raise_for_status = MagicMock(side_effect=Exception("400: chave invalida"))
+            return r
+
+        seletor = self._seletor()
+        with patch("modules.clip_selector.requests.post", side_effect=resposta_falsa):
+            with self.assertRaises(Exception):
+                seletor._perguntar_ao_gemini("pergunta", "chave", "modelo")
+
+        self.assertEqual(len(chamadas), 1, "erro permanente não deveria repetir")
+
+    def test_thinking_config_vai_no_pedido_quando_ligado(self):
+        from unittest.mock import MagicMock, patch
+
+        capturado = {}
+
+        def resposta_falsa(*args, **kwargs):
+            capturado["json"] = kwargs.get("json")
+            r = MagicMock()
+            r.status_code = 200
+            r.raise_for_status = lambda: None
+            r.json.return_value = {"candidates": [{"content": {"parts": [{"text": "ok"}]}}]}
+            return r
+
+        seletor = self._seletor()
+        with patch("modules.clip_selector.requests.post", side_effect=resposta_falsa):
+            seletor._perguntar_ao_gemini("pergunta", "chave", "modelo", thinking=True)
+
+        self.assertEqual(
+            capturado["json"]["generationConfig"]["thinkingConfig"],
+            {"thinkingBudget": -1},
+        )
+
+    def test_thinking_config_fora_do_pedido_quando_desligado(self):
+        from unittest.mock import MagicMock, patch
+
+        capturado = {}
+
+        def resposta_falsa(*args, **kwargs):
+            capturado["json"] = kwargs.get("json")
+            r = MagicMock()
+            r.status_code = 200
+            r.raise_for_status = lambda: None
+            r.json.return_value = {"candidates": [{"content": {"parts": [{"text": "ok"}]}}]}
+            return r
+
+        seletor = self._seletor()
+        with patch("modules.clip_selector.requests.post", side_effect=resposta_falsa):
+            seletor._perguntar_ao_gemini("pergunta", "chave", "modelo", thinking=False)
+
+        self.assertNotIn("thinkingConfig", capturado["json"]["generationConfig"])
+
 
 if __name__ == "__main__":
     unittest.main()

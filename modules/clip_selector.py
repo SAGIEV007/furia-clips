@@ -4260,19 +4260,50 @@ Retorne APENAS o JSON.
                 return offset
         return 0
 
-    def _perguntar_ao_gemini(self, pergunta, api_key, model_name):
-        """Uma pergunta ao Gemini, a resposta em texto. Levanta quando falha."""
+    # 503 do Gemini diz a própria mensagem: "alta demanda, geralmente
+    # passageiro, tente de novo". Medido com gemini-3.6-flash: 2 de 3
+    # tentativas vieram 503 e a terceira veio 200. Desistir na primeira
+    # é jogar fora uma resposta que ia vir.
+    GEMINI_TENTATIVAS_EM_ALTA_DEMANDA = 4
+    GEMINI_ESPERA_ENTRE_TENTATIVAS_S = 8
+
+    def _perguntar_ao_gemini(self, pergunta, api_key, model_name, thinking=True):
+        """Uma pergunta ao Gemini, a resposta em texto. Levanta quando falha de vez.
+
+        `thinking` liga o espaço de raciocínio antes da resposta
+        (`thinkingConfig.thinkingBudget: -1`, deixa o modelo decidir quanto
+        precisa). É exatamente o tipo de julgamento fino que achar fronteira
+        de assunto pede, e é o editor quem pediu para testar com isso ligado.
+
+        503 ("alta demanda") tenta de novo, com espera entre tentativas — é o
+        que a própria mensagem do Google recomenda. Qualquer outro erro
+        (chave inválida, cota zerada, modelo desativado) levanta na hora: são
+        permanentes, e insistir só atrasa a queda para a leitura local.
+        """
+        import time as _time
+
         import requests as _requests
 
-        resposta = _requests.post(
-            f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent",
-            headers={"x-goog-api-key": api_key, "Content-Type": "application/json"},
-            json={
-                "contents": [{"parts": [{"text": pergunta}]}],
-                "generationConfig": {"temperature": 0.2, "maxOutputTokens": 16384},
-            },
-            timeout=self.GEMINI_TIMEOUT_S,
-        )
+        config_geracao = {"temperature": 0.2, "maxOutputTokens": 16384}
+        if thinking:
+            config_geracao["thinkingConfig"] = {"thinkingBudget": -1}
+
+        ultimo_erro = None
+        for tentativa in range(self.GEMINI_TENTATIVAS_EM_ALTA_DEMANDA):
+            resposta = _requests.post(
+                f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent",
+                headers={"x-goog-api-key": api_key, "Content-Type": "application/json"},
+                json={"contents": [{"parts": [{"text": pergunta}]}], "generationConfig": config_geracao},
+                timeout=self.GEMINI_TIMEOUT_S,
+            )
+            if resposta.status_code != 503:
+                break
+            ultimo_erro = resposta
+            if tentativa < self.GEMINI_TENTATIVAS_EM_ALTA_DEMANDA - 1:
+                _time.sleep(self.GEMINI_ESPERA_ENTRE_TENTATIVAS_S)
+        else:
+            resposta = ultimo_erro
+
         resposta.raise_for_status()
         partes = ((resposta.json().get("candidates") or [{}])[0]
                   .get("content", {}).get("parts") or [])
@@ -4303,9 +4334,14 @@ Retorne APENAS o JSON.
                 from .assuntos_por_frase import assuntos_por_modelo
 
                 modelo = str(settings.get("gemini_model") or "gemini-2.5-flash")
+                # Achar onde um assunto termina e outro começa é julgamento
+                # fino — o tipo de tarefa em que "pensar antes de responder"
+                # ajuda. Ligado por padrão; um ajuste desliga se um dia
+                # `thinkingConfig` não for aceito por algum modelo.
+                pensar = bool(settings.get("gemini_thinking", True))
                 unidades = assuntos_por_modelo(
                     sentences,
-                    lambda pedido: self._perguntar_ao_gemini(pedido, api_key, modelo),
+                    lambda pedido: self._perguntar_ao_gemini(pedido, api_key, modelo, thinking=pensar),
                     avisar=emit_progress,
                 )
                 if unidades:
