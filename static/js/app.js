@@ -292,6 +292,18 @@ socket.on("connect", () => {
         recovered ? "[Sistema] Conexão restaurada; os jobs persistidos continuam disponíveis." : "[Sistema] Conectado ao servidor.",
         "success",
     );
+    // Enquanto o canal esteve fora do ar o servidor continuou trabalhando —
+    // e falando sozinho. Cada `progress` emitido nesse intervalo se perdeu,
+    // porque `progress` é aviso ao vivo, não histórico: quem não estava
+    // ouvindo não recebe depois.
+    //
+    // Sem reler o estado, a tela volta exibindo a última frase de antes da
+    // queda. Foi assim que um "Processando vídeo online (0s)..." ficou
+    // congelado por mais de meia hora enquanto o job já tinha seguido em
+    // frente — e a conclusão natural de quem olha é que o programa travou.
+    //
+    // O estado dos jobs é do servidor. Ao reconectar, é dele que se relê.
+    if (recovered) loadOperationDashboard();
 });
 
 socket.on("disconnect", (reason) => {
@@ -2640,11 +2652,43 @@ function renderEditorialContextPreview(context = {}) {
     result.innerHTML = `<div class="context-result-summary"><strong>${escapeHtml(context.description || "Contexto editorial analisado.")}</strong><div class="context-result-facts"><span>${escapeHtml(mode)}</span><span>${qa} pergunta(s)–resposta</span><span>${chapters} capítulo(s)</span><span>${windows} janela(s) de entrevista</span><span>${Number(quality.segment_count || 0)} segmentos · ${escapeHtml(quality.status || "qualidade não validada")}</span>${participantMarkup}${speakerMarkup}${transcriptMarkup}${proxyMarkup}${hubMarkup}${multimodalMarkup}</div></div>${localAudioMarkup}${hookMarkup}`;
 }
 
+// Quantas consultas seguidas podem falhar antes de a tela declarar que o
+// servidor caiu. A ~1,2 s cada, vinte e cinco dão meio minuto de tolerância:
+// o bastante para uma engasgada do servidor ocupado, curto o bastante para
+// não deixar o editor olhando para uma tela viva com um motor morto atrás.
+const CONTEXT_POLL_FALHAS_ATE_DESISTIR = 25;
+
 async function pollEditorialContextJob(jobId, button, status) {
-    const started = Date.now();
-    while (Date.now() - started < 20 * 60 * 1000) {
+    // Aqui havia um prazo de vinte minutos, e ele era impossível de cumprir.
+    //
+    // Numa fonte de duas horas só a compactação leva quinze minutos, e depois
+    // o servidor ainda se dá até vinte e cinco para a análise em si — o teto
+    // da tela estourava sempre, no meio de um job perfeitamente vivo. O editor
+    // então via "a análise de contexto excedeu o tempo esperado" sobre algo
+    // que estava indo bem, e o instinto seguinte era mandar parar.
+    //
+    // Quem tem tempo-limite de verdade é cada etapa do servidor: o upload, a
+    // espera do arquivo ficar ativo, a análise. Todas terminam, e todas sabem
+    // dizer por quê. A tela não tem informação para arbitrar prazo nenhum; o
+    // que ela tem é a resposta do servidor, e é só isso que ela deve esperar.
+    //
+    // O relógio some, mas a tela não fica cega: a falha que ela sabe
+    // diagnosticar sozinha é o servidor parar de atender.
+    let falhasSeguidas = 0;
+    for (;;) {
         await new Promise(resolve => setTimeout(resolve, 1200));
-        const response = await fetch(`/api/jobs/${encodeURIComponent(jobId)}`);
+        let response;
+        try {
+            response = await fetch(`/api/jobs/${encodeURIComponent(jobId)}`);
+        } catch (error) {
+            // Uma falha isolada é servidor ocupado, não servidor morto.
+            if (++falhasSeguidas < CONTEXT_POLL_FALHAS_ATE_DESISTIR) continue;
+            throw new Error(
+                "O servidor do Furia parou de responder durante a análise. " +
+                "O trabalho pode continuar rodando; confira a janela preta do programa.",
+            );
+        }
+        falhasSeguidas = 0;
         const job = await parseJsonResponse(response, "Status da análise de contexto");
         if (!response.ok) throw new Error(job.error || "Não foi possível consultar a análise");
         if (job.message && status) status.textContent = job.message;
@@ -2659,7 +2703,6 @@ async function pollEditorialContextJob(jobId, button, status) {
             throw new Error(job.error || job.message || "A análise de contexto não foi concluída.");
         }
     }
-    throw new Error("A análise de contexto excedeu o tempo esperado; verifique o console.");
 }
 
 document.getElementById("btnAnalyzeEditorialContext")?.addEventListener("click", async () => {
@@ -4784,11 +4827,19 @@ document.addEventListener("keydown", (e) => {
             if (transcriptSearchInput) transcriptSearchInput.focus();
             break;
         case "Escape":
-            if (state.activeJob && ["queued", "running", "cancel_requested"].includes(state.activeJob.state)) {
-                requestCancelOperation();
-                return;
-            }
-            // Close any open modal
+            // Esc fecha o que está aberto. Só isso.
+            //
+            // Ele também cancelava a moagem em andamento, sem confirmação
+            // nenhuma. Esc é a tecla que todo mundo aperta para tirar um aviso
+            // da frente — e é exatamente o que o editor faz quando um aviso
+            // aparece no meio de uma moagem longa. O resultado registrado: um
+            // job de quase dezoito minutos morto treze segundos depois de a
+            // tela mostrar um erro, junto com toda a compactação já paga, que
+            // o cancelamento apaga.
+            //
+            // Parar uma operação é destrutivo e irreversível; tem que custar
+            // um clique deliberado no botão que existe para isso, nunca um
+            // reflexo de teclado.
             document.querySelectorAll(".modal-overlay.active").forEach(m => m.classList.remove("active"));
             break;
     }

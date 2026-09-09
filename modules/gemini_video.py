@@ -13,8 +13,10 @@ import os
 import random
 import subprocess
 import tempfile
+import threading
 import time
 import uuid
+from collections import deque
 from pathlib import Path
 
 import requests
@@ -22,6 +24,52 @@ import requests
 
 class GeminiVideoError(RuntimeError):
     pass
+
+
+def _drenar_andamento(stream, andamento: dict) -> None:
+    """Lê o que o `-progress pipe:1` publica e guarda só o relógio da fonte.
+
+    O ffmpeg escreve blocos de `chave=valor` a cada meio segundo. Interessa
+    `out_time_us`: quantos microssegundos da fonte já foram processados. Nos
+    primeiros blocos ele às vezes vem `N/A`, então o valor só é aceito quando
+    é mesmo um número.
+    """
+    try:
+        for linha in stream:
+            chave, _, valor = linha.strip().partition("=")
+            valor = valor.strip()
+            if chave == "out_time_us" and valor.lstrip("-").isdigit():
+                andamento["out_time_us"] = float(valor)
+    except (OSError, ValueError):
+        pass
+    finally:
+        try:
+            stream.close()
+        except OSError:
+            pass
+
+
+def _drenar_erros(stream, destino: deque) -> None:
+    """Esvazia o `stderr` enquanto o processo vive, em vez de depois que morre.
+
+    Ler o `stderr` só após o fim era uma trava de verdade: se o ffmpeg
+    enchesse o buffer do cano (uns 64 KB), ele bloqueava escrevendo, nunca
+    terminava, e o `poll()` do laço nunca mais retornava — um congelamento
+    permanente que nenhum tempo-limite pegava. A fila é curta de propósito:
+    o que importa de um erro do ffmpeg são as últimas linhas.
+    """
+    try:
+        for linha in stream:
+            linha = linha.strip()
+            if linha:
+                destino.append(linha)
+    except OSError:
+        pass
+    finally:
+        try:
+            stream.close()
+        except OSError:
+            pass
 
 
 def _pasta_das_copias() -> Path:
@@ -177,6 +225,38 @@ class GeminiVideoAnalyzer:
         estimado = cls.ANALYSIS_TIMEOUT_MIN_S + minutos * cls.ANALYSIS_TIMEOUT_PER_MINUTE_S
         return int(min(cls.ANALYSIS_TIMEOUT_MAX_S, max(cls.ANALYSIS_TIMEOUT_MIN_S, estimado)))
 
+    # De quanto em quanto tempo a compactação diz onde está. Cinco segundos é
+    # curto o bastante para a tela parecer viva e longo o bastante para não
+    # virar enchente no console de quem está acompanhando.
+    PROGRESS_INTERVAL_S = 5
+
+    @classmethod
+    def _fala_do_andamento(cls, out_time_us: float, duration: float, decorrido: float) -> str:
+        """Traduz o relógio do ffmpeg na única pergunta que o editor faz: falta muito?"""
+        feito = max(0.0, float(out_time_us or 0.0)) / 1_000_000.0
+        duracao = max(0.0, float(duration or 0.0))
+        if duracao <= 0 or feito <= 0:
+            return "[Gemini] Compactando cópia de análise; medindo o ritmo..."
+        fracao = min(1.0, feito / duracao)
+        fala = f"[Gemini] Compactando cópia de análise: {int(fracao * 100)}%"
+        # Abaixo de 1% a projeção é ruído: dividir por um número quase zero
+        # anuncia "faltam 4 horas" no primeiro segundo e assusta à toa. E no
+        # fim "faltam ~0 s" não informa nada; a linha seguinte já é o upload.
+        if 0.01 <= fracao < 0.99 and decorrido > 0:
+            fala += f" · faltam ~{cls._tempo_curto(decorrido * (1.0 - fracao) / fracao)}"
+        return fala + "."
+
+    @staticmethod
+    def _tempo_curto(segundos: float) -> str:
+        segundos = max(0.0, float(segundos or 0.0))
+        if segundos < 90:
+            return f"{int(segundos)} s"
+        minutos = int(round(segundos / 60.0))
+        if minutos < 60:
+            return f"{minutos} min"
+        horas, resto = divmod(minutos, 60)
+        return f"{horas} h {resto:02d} min"
+
     @classmethod
     def _prepare_analysis_media(cls, path: Path, emit_progress=None, cancel_check=None):
         duration = cls._probe_duration(path)
@@ -230,8 +310,22 @@ class GeminiVideoAnalyzer:
         fd, proxy_name = tempfile.mkstemp(prefix="furia-gemini-proxy-", suffix=".mp4", dir=str(cache))
         os.close(fd)
         proxy = Path(proxy_name)
+        # O ffmpeg sempre soube dizer onde estava; ninguém perguntava.
+        #
+        # O laço aqui era `while process.poll() is None: sleep(0.5)`, sem uma
+        # única fala. Numa fonte de duas horas isso são quinze minutos de
+        # silêncio absoluto depois da linha "Compactando cópia de análise",
+        # indistinguíveis de um travamento. O editor cancelou duas moagens boas
+        # por causa disso — uma delas a dois minutos do fim, jogando fora os
+        # onze que já tinham sido pagos, porque o cancelamento apaga o
+        # temporário e a próxima rodada recomeça do zero.
+        #
+        # `-progress pipe:1` faz ele publicar `out_time_us` a cada meio segundo.
+        # Com a duração que o `ffprobe` já mediu ali em cima, isso vira
+        # percentual e tempo restante — e a espera deixa de ser um vazio.
         command = [
-            "ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", str(path),
+            "ffmpeg", "-hide_banner", "-loglevel", "error", "-nostats",
+            "-progress", "pipe:1", "-y", "-i", str(path),
             "-vf", f"scale='min({profile['max_width']},iw)':-2,fps={profile['fps']}",
             "-c:v", "libx264", "-preset", "ultrafast", "-crf", "36",
             "-maxrate", profile["maxrate"], "-bufsize", profile["maxrate"],
@@ -240,7 +334,24 @@ class GeminiVideoAnalyzer:
         ]
         process = None
         try:
-            process = subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+            process = subprocess.Popen(
+                command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+            )
+            # As duas saídas são esvaziadas por threads enquanto o processo
+            # vive. O laço principal continua sendo quem pergunta pelo
+            # cancelamento, para que parar continue respondendo na hora.
+            andamento = {"out_time_us": 0.0}
+            erros: deque = deque(maxlen=40)
+            leitor_do_andamento = threading.Thread(
+                target=_drenar_andamento, args=(process.stdout, andamento), daemon=True
+            )
+            leitor_dos_erros = threading.Thread(
+                target=_drenar_erros, args=(process.stderr, erros), daemon=True
+            )
+            leitor_do_andamento.start()
+            leitor_dos_erros.start()
+            comeco = time.monotonic()
+            ultima_fala = comeco
             while process.poll() is None:
                 if cancel_check:
                     try:
@@ -249,8 +360,22 @@ class GeminiVideoAnalyzer:
                         process.kill()
                         process.wait(timeout=10)
                         raise
+                agora = time.monotonic()
+                if emit_progress and agora - ultima_fala >= cls.PROGRESS_INTERVAL_S:
+                    ultima_fala = agora
+                    emit_progress(
+                        cls._fala_do_andamento(
+                            andamento["out_time_us"], duration, agora - comeco
+                        ),
+                        "info",
+                    )
                 time.sleep(0.5)
-            stderr = process.stderr.read() if process.stderr else ""
+            # O processo morreu, então os canos vão dar EOF e as threads
+            # terminam sozinhas em seguida. Esperar por elas é o que garante
+            # que a última linha do ffmpeg — justamente a que diz por que ele
+            # falhou — esteja na fila antes de montar a mensagem de erro.
+            leitor_dos_erros.join(timeout=5)
+            stderr = "\n".join(erros)
             if process.returncode != 0:
                 raise GeminiVideoError(f"Não foi possível compactar a cópia para análise: {stderr[-240:]}")
             # Só entra no nome definitivo depois de pronta: se a máquina desligar
