@@ -156,9 +156,15 @@ def test_erro_comum_de_lote_nao_interrompe_os_outros(monkeypatch):
         lambda mensagem, nivel="info": avisos.append(mensagem),
     )
     lotes_pedidos = sum(1 for a in avisos if re.match(r"\[Gemini\] Lote \d+/", a))
-    assert lotes_pedidos == 5, (
-        f"pediu {lotes_pedidos} de 5 lotes; falha comum de lote não pode cancelar "
-        f"a corrida inteira"
+    # Quantos lotes existem é conta do fatiador, não deste teste: os lotes
+    # passaram a se cobrir para nenhuma fala morrer na emenda, e 40 blocos de 8
+    # com 2 de sobra dão 7, não 5. O que este teste mede é que TODOS foram
+    # pedidos apesar do erro — não quantos são.
+    esperados = len(ClipSelector._lotes_com_sobra(
+        blocos, seletor.GEMINI_BLOCKS_PER_REQUEST, seletor.GEMINI_BLOCOS_DE_SOBRA))
+    assert lotes_pedidos == esperados, (
+        f"pediu {lotes_pedidos} de {esperados} lotes; falha comum de lote não pode "
+        f"cancelar a corrida inteira"
     )
 
 

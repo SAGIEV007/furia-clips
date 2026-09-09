@@ -300,6 +300,12 @@ class ClipSelector:
             or focus in {"", "auto", "generic_political"} and (renan_profile or renan_channel)
         )
         self._selection_source = None
+        # De onde escutar as bordas quando a transcrição é texto colado.
+        self._caminho_da_midia = str(settings.get("caminho_da_midia") or "")
+        self._escutar_bordas_ligado = bool(
+            settings.get("escutar_as_bordas", True))
+        self._modelo_para_bordas = str(
+            settings.get("whisper_model") or "small")
         self._previous_clip_fingerprints = [
             item for item in (settings.get("previous_clip_fingerprints") or [])
             if isinstance(item, dict)
@@ -1079,6 +1085,42 @@ class ClipSelector:
     # for a prompt that no longer exists, and a slow answer is still an answer.
     GEMINI_TIMEOUT_S = 240
 
+    # Quantos blocos o lote seguinte repete do anterior.
+    #
+    # Os lotes eram encostados um no outro: 1-8, 9-16, 17-24. Uma fala que
+    # começa no bloco 8 e fecha no 9 não aparece INTEIRA em lote nenhum — o
+    # primeiro vê só a abertura, o segundo vê só o fecho, e os dois descartam
+    # por não fechar o raciocínio. Numa fonte de 1h30 são dezenas dessas
+    # emendas, e cada uma é uma fala boa que ninguém chegou a ver.
+    #
+    # Dois blocos de sobra custam cerca de um terço a mais de requisições e
+    # fazem toda fala aparecer inteira em pelo menos um lote.
+    GEMINI_BLOCOS_DE_SOBRA = 2
+
+    @staticmethod
+    def _lotes_com_sobra(blocos, tamanho, sobra):
+        """Fatia em lotes que se cobrem, para nada morrer numa emenda.
+
+        Devolve pares (posição do primeiro bloco, lote) — a posição vai no
+        prompt, e procurá-la depois pelo conteúdo do bloco erraria o alvo assim
+        que dois blocos fossem iguais.
+
+        A sobra é limitada a menos de um lote inteiro; com sobra >= tamanho o
+        passo seria zero e o laço não terminaria nunca.
+        """
+        tamanho = max(1, int(tamanho))
+        sobra = max(0, min(int(sobra), tamanho - 1))
+        passo = tamanho - sobra
+        lotes = []
+        for inicio in range(0, len(blocos), passo):
+            lote = blocos[inicio:inicio + tamanho]
+            if not lote:
+                break
+            lotes.append((inicio, lote))
+            if inicio + tamanho >= len(blocos):
+                break
+        return lotes
+
     def _select_with_gemini(self, sentences, energy_profile, user_context, settings, emit_progress):
         """Select clips with Gemini, a few blocks at a time.
 
@@ -1105,14 +1147,16 @@ class ClipSelector:
 
         system_prompt = self._get_gemini_system_prompt(settings.get("editorial_profile", PROFILE_NAME))
         size = max(1, int(self.GEMINI_BLOCKS_PER_REQUEST))
-        lots = [transcript_blocks[at:at + size] for at in range(0, len(transcript_blocks), size)]
+        sobra = int(self.GEMINI_BLOCOS_DE_SOBRA)
+        lots = self._lotes_com_sobra(transcript_blocks, size, sobra)
         if emit_progress:
             emit_progress(
-                f"[Gemini] {len(transcript_blocks)} blocos em {len(lots)} lote(s) de até {size}.", "info"
+                f"[Gemini] {len(transcript_blocks)} blocos em {len(lots)} lote(s) de até {size}"
+                f", com {sobra} de sobra entre eles.", "info"
             )
 
         selections, failed = [], 0
-        for position, lot in enumerate(lots, start=1):
+        for position, (_, lot) in enumerate(lots, start=1):
             if emit_progress:
                 emit_progress(f"[Gemini] Lote {position}/{len(lots)}...", "info")
             found = self._gemini_lot(
@@ -1148,8 +1192,42 @@ class ClipSelector:
                 )
             elif selections:
                 emit_progress(f"[Gemini] {len(selections)} candidato(s) encontrados.", "info")
+
+        # A sobra entre os lotes faz o mesmo trecho ser oferecido duas vezes, de
+        # propósito. Aqui ele volta a ser um: mesmo início e mesmo fim é o mesmo
+        # corte, e fica o de maior nota. Sem isto a sobra viraria exatamente a
+        # reclamação de "cortes do mesmo trecho".
+        antes = len(selections)
+        selections = self._sem_repetir_o_mesmo_trecho(selections)
+        if emit_progress and antes != len(selections):
+            emit_progress(
+                f"[Gemini] {antes - len(selections)} candidato(s) vinham repetidos da "
+                "sobra entre lotes e viraram um só.", "info",
+            )
+
         selections.sort(key=lambda item: item.get("viral_score", 0), reverse=True)
         return selections
+
+    @staticmethod
+    def _sem_repetir_o_mesmo_trecho(selecoes):
+        """Um trecho oferecido por dois lotes é um corte, não dois."""
+        melhor = {}
+        ordem = []
+        for item in selecoes:
+            if not isinstance(item, dict):
+                continue
+            try:
+                chave = (round(float(item.get("start", 0)), 1),
+                         round(float(item.get("end", 0)), 1))
+            except (TypeError, ValueError):
+                continue
+            atual = melhor.get(chave)
+            if atual is None:
+                melhor[chave] = item
+                ordem.append(chave)
+            elif float(item.get("viral_score", 0) or 0) > float(atual.get("viral_score", 0) or 0):
+                melhor[chave] = item
+        return [melhor[chave] for chave in ordem]
 
     # A block sitting this far above the source's own median counts as raised
     # voice. Relative, because a studio and a street have different floors and an
@@ -1574,9 +1652,12 @@ Retorne APENAS o array JSON. Nenhum texto antes ou depois."""
 
         all_selections = []
         chunk_size = 25
+        # Mesma emenda do caminho Gemini, mesma sobra: uma fala que atravessa a
+        # divisão precisa aparecer inteira em algum pedaço.
+        pedacos = self._lotes_com_sobra(
+            transcript_blocks, chunk_size, self.GEMINI_BLOCOS_DE_SOBRA)
 
-        for chunk_idx in range(0, len(transcript_blocks), chunk_size):
-            chunk = transcript_blocks[chunk_idx:chunk_idx + chunk_size]
+        for numero, (chunk_idx, chunk) in enumerate(pedacos, start=1):
             prompt = self._build_llm_prompt(
                 chunk,
                 user_context,
@@ -1586,10 +1667,7 @@ Retorne APENAS o array JSON. Nenhum texto antes ou depois."""
             )
 
             if emit_progress:
-                emit_progress(
-                    f"Analisando trecho {chunk_idx // chunk_size + 1}/"
-                    f"{math.ceil(len(transcript_blocks) / chunk_size)} com IA..."
-                )
+                emit_progress(f"Analisando trecho {numero}/{len(pedacos)} com IA...")
 
             try:
                 response = requests.post(
@@ -3897,6 +3975,47 @@ Retorne APENAS o JSON.
             )
         return clips
 
+    def _escutar_so_as_bordas(self, clips, emit_progress=None):
+        """A hora de cada palavra nas janelas dos cortes, quando o texto é colado.
+
+        Só acontece quando há mídia à mão e o editor não desligou. Qualquer
+        falha aqui devolve lista vazia: a moagem continua com as bordas que
+        tinha, porque uma borda melhor nunca vale perder a moagem.
+        """
+        caminho = getattr(self, "_caminho_da_midia", "") or ""
+        if not caminho or not getattr(self, "_escutar_bordas_ligado", True):
+            return []
+
+        janelas = []
+        for clip in clips or []:
+            if not isinstance(clip, dict):
+                continue
+            try:
+                janelas.append((float(clip.get("start", 0) or 0), float(clip.get("end", 0) or 0)))
+            except (TypeError, ValueError):
+                continue
+        if not janelas:
+            return []
+
+        try:
+            from .palavras_dos_trechos import palavras_das_janelas
+            from .transcriber import Transcriber
+
+            ouvinte = Transcriber(
+                model_name=getattr(self, "_modelo_para_bordas", "small"),
+                language="pt",
+                word_timestamps=True,
+            )
+            return palavras_das_janelas(caminho, janelas, ouvinte, emit_progress)
+        except Exception as erro:  # noqa: BLE001 - nunca derrubar a moagem por isto
+            if emit_progress:
+                emit_progress(
+                    f"[Bordas] Não deu para escutar os trechos ({str(erro)[:100]}); "
+                    "as bordas ficam como estão.",
+                    "warning",
+                )
+            return []
+
     def _refine_boundaries_with_words(self, clips, segments, emit_progress=None):
         """Snap candidate seams to covered word timestamps when safe.
 
@@ -3931,6 +4050,14 @@ Retorne APENAS o JSON.
                 seen.add(key)
                 words.append({"start": start, "end": end, "word": token})
         words.sort(key=lambda item: (item["start"], item["end"]))
+
+        # Texto colado não tem hora de palavra, e nunca vai ter: a informação
+        # não existe num texto. Nesse caso escutamos o áudio SÓ das janelas que
+        # já viraram corte — vinte trechos de um a dois minutos, em vez do vídeo
+        # inteiro. É o que faltava para acertar a borda no material que ele mais
+        # moe (21 das 26 transcrições guardadas dele são texto colado).
+        if not words:
+            words = self._escutar_so_as_bordas(clips, emit_progress)
 
         available = bool(words)
         refined_count = 0

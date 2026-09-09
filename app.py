@@ -3937,7 +3937,11 @@ def api_cut_shorts():
                 selection_transcription,
                 energy_profile=energy_profile,
                 user_context=user_context,
-                settings=settings,
+                # O caminho do vídeo entra para o passo das bordas: quando a
+                # transcrição é texto colado, ela não tem a hora de cada
+                # palavra, e o programa escuta só as janelas que viraram corte
+                # para descobrir onde a palavra da borda começa.
+                settings={**settings, "caminho_da_midia": video_path},
                 emit_progress=emit_progress,
                 scene_changes=scene_changes,
                 video_layout=video_layout,
@@ -5167,7 +5171,7 @@ def api_process_complete():
                 transcription,
                 energy_profile=energy_profile,
                 user_context=user_context,
-                settings=settings,
+                settings={**settings, "caminho_da_midia": video_path},
                 emit_progress=emit_progress,
             )
             top_clips = _attach_multimodal_visual_observations(top_clips, multimodal_result)
