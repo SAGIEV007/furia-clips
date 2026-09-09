@@ -86,6 +86,59 @@ def _relogio(segundos: float) -> str:
     return f"{total // 60}:{total % 60:02d}"
 
 
+# Abaixo disto por minuto, o vídeo é tratado como monólogo. Medido nos seis
+# materiais com gabarito do Acervo, trocas de voz por minuto:
+#
+#     7set_ato (comício) ......  0,34   <- o único abaixo da linha
+#     bYi5Xhrv5ps .............  0,89
+#     p5ZRVXBpBYk .............  1,49
+#     sabatina_band ...........  1,22
+#     inteligencia_1607 .......  2,18
+#     live_ceara ..............  5,38
+#
+# O comício fica isolado, com folga de quase o triplo para o segundo mais
+# baixo — não é um limiar no chute, é a fronteira que os próprios dados
+# desenham. É o mesmo raciocínio da porta da troca de voz em
+# `topic_segmenter.py`: quando ninguém interrompe, a régua de "assunto vira
+# quando outra pessoa fala" não tem o que medir.
+LIMIAR_DE_TROCAS_POR_MINUTO = 0.6
+
+
+def _e_monologo(tabela: list[dict[str, Any]]) -> bool:
+    """O material é uma pessoa falando sozinha por quase tudo, tipo comício."""
+    if len(tabela) < 2:
+        return False
+    duracao_min = (tabela[-1]["end"] - tabela[0]["start"]) / 60
+    if duracao_min <= 0:
+        return False
+    trocas = sum(1 for frase in tabela if frase["speaker_change"])
+    return (trocas / duracao_min) < LIMIAR_DE_TROCAS_POR_MINUTO
+
+
+# A instrução extra para quando ninguém interrompe quem fala.
+#
+# O CHUB tem uma variante do prompt dele so para isto — "-irl-coletiva" no
+# nome da receita — e roda a consolidação duas vezes nesse caso. A receita
+# exata deles não é pública; isto é a versão do Furia do mesmo problema:
+# achar fronteira quando não existe "o repórter mudou de pergunta" para
+# apoiar a divisão.
+INSTRUCAO_DO_MONOLOGO = (
+    "\n\nAVISO: esta é uma fala de UMA SÓ PESSOA por quase todo o vídeo — um "
+    "comício, uma entrevista coletiva com um só entrevistado, um discurso. Não "
+    "espere o interlocutor mudar de pergunta para separar os assuntos, porque "
+    "isso quase não acontece aqui.\n\n"
+    "Nesse formato, um assunto novo geralmente começa quando a pessoa:\n"
+    "- anuncia a virada explicitamente (\"agora eu quero falar sobre...\", "
+    "\"outro ponto importante é...\", \"vamos falar de...\");\n"
+    "- muda de quem ou do que está criticando ou defendendo;\n"
+    "- sai de um argumento já fechado para levantar um argumento novo.\n\n"
+    "Um grito de plateia, um bordão repetido (a mesma frase revisitada várias "
+    "vezes, tipo palavra de ordem) ou uma pausa para aplauso NÃO é assunto "
+    "novo por si só — é pontuação do discurso. Só vira fronteira se, depois "
+    "dele, a pessoa realmente passa a desenvolver uma ideia diferente."
+)
+
+
 def _transcricao_numerada(tabela: list[dict[str, Any]]) -> str:
     """A transcrição inteira, uma frase por linha, com número e relógio."""
     return "\n".join(
@@ -98,7 +151,7 @@ def _transcricao_numerada(tabela: list[dict[str, Any]]) -> str:
 def montar_pedido(tabela: list[dict[str, Any]], minimo: int = MINIMO_DE_FRASES) -> str:
     """O vídeo inteiro, numerado, e o que se quer dele."""
     corpo = _transcricao_numerada(tabela)
-    return (
+    pedido = (
         "Você está lendo a transcrição INTEIRA de um vídeo, frase por frase, com o "
         "número de cada frase entre colchetes. ' >>' marca onde quem fala mudou.\n\n"
         "Divida este vídeo em ASSUNTOS. Um assunto é um trecho em que a pessoa "
@@ -111,7 +164,12 @@ def montar_pedido(tabela: list[dict[str, Any]], minimo: int = MINIMO_DE_FRASES) 
         "- abertura, encerramento, pedido de like e conversa de produção NÃO são "
         "assunto: marque-os com \"conteudo\": false;\n"
         "- responda com o NÚMERO da primeira e da última frase de cada assunto, "
-        "nunca com horário.\n\n"
+        "nunca com horário."
+    )
+    if _e_monologo(tabela):
+        pedido += INSTRUCAO_DO_MONOLOGO
+    return (
+        pedido + "\n\n"
         "Responda SÓ com JSON, sem cercas e sem comentário:\n"
         '{"assuntos":[{"inicio":0,"fim":97,"titulo":"frase curta que resume",'
         '"conteudo":true}]}\n\n'
@@ -132,14 +190,19 @@ def montar_correcao(tabela: list[dict[str, Any]], blocos: list[dict[str, Any]],
         f"- assunto {n}: frases {b['inicio']}–{b['fim']} · {b.get('titulo', '')}"
         for n, b in enumerate(blocos, start=1)
     )
-    return (
+    pedido = (
         "Esta foi a divisão em assuntos que você propôs para a transcrição abaixo:\n\n"
         + resumo
         + "\n\nConfira frase a frase nas fronteiras. Dois erros são comuns:\n"
         "- partir um assunto no meio, quando a pessoa só deu um exemplo;\n"
         "- juntar dois assuntos que só compartilham palavras.\n\n"
         f"Devolva a divisão CORRIGIDA no mesmo formato, com pelo menos {minimo} "
-        "frases por assunto. Se estiver certa, devolva igual.\n\n"
+        "frases por assunto. Se estiver certa, devolva igual."
+    )
+    if _e_monologo(tabela):
+        pedido += INSTRUCAO_DO_MONOLOGO
+    return (
+        pedido + "\n\n"
         "Responda SÓ com JSON:\n"
         '{"assuntos":[{"inicio":0,"fim":97,"titulo":"...","conteudo":true}]}\n\n'
         "TRANSCRIÇÃO:\n" + _transcricao_numerada(tabela)
@@ -237,15 +300,24 @@ def assuntos_por_modelo(
         return []
 
     if corrigir:
-        try:
-            revisado = ler_resposta(
-                perguntar(montar_correcao(tabela, blocos, minimo)), len(tabela), minimo)
-            # A correção só entra se sobreviver à mesma conferência. Uma segunda
-            # passada que devolve lixo não pode apagar uma primeira que estava boa.
-            if revisado:
-                blocos = revisado
-        except Exception:  # noqa: BLE001
-            pass
+        # No comício, ninguém interrompe para marcar onde um assunto vira
+        # outro — é o material em que a primeira passada mais erra. O CHUB
+        # tem uma variante do prompt só para isto ("-irl-coletiva-x2" no nome
+        # da receita) que roda a consolidação duas vezes; aqui é o mesmo
+        # princípio, sem saber a receita exata deles.
+        passadas = 2 if _e_monologo(tabela) else 1
+        for _ in range(passadas):
+            try:
+                revisado = ler_resposta(
+                    perguntar(montar_correcao(tabela, blocos, minimo)), len(tabela), minimo)
+                # A correção só entra se sobreviver à mesma conferência. Uma
+                # passada que devolve lixo não pode apagar uma que estava boa.
+                if revisado:
+                    blocos = revisado
+                else:
+                    break
+            except Exception:  # noqa: BLE001
+                break
 
     unidades = []
     for bloco in blocos:

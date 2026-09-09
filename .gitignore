@@ -72,3 +72,7 @@ Thumbs.db
 # Credenciais locais (o endereco do CHUB carrega a chave no caminho)
 chub-endpoint.txt
 *.chub-endpoint
+
+# Caminhos locais que o lancador detecta na maquina de cada um - nao e
+# portavel entre computadores e nao deve ir para o repositorio.
+.runtime/

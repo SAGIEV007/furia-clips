@@ -369,5 +369,135 @@ class ORetryEmAltaDemanda(unittest.TestCase):
         self.assertNotIn("thinkingConfig", capturado["json"]["generationConfig"])
 
 
+def _frases_com_trocas(quantas, trocas_por_minuto, passo=4.0):
+    """Frases com `speaker_change` espalhado para dar a densidade pedida.
+
+    A cada N frases (N escolhido para bater a densidade em trocas/minuto),
+    uma frase nasce com `speaker_change=True`.
+    """
+    minutos = (quantas * passo) / 60
+    trocas_totais = max(1, round(trocas_por_minuto * minutos)) if trocas_por_minuto else 0
+    passo_da_troca = max(1, quantas // max(1, trocas_totais)) if trocas_totais else quantas + 1
+    saida = []
+    for n in range(quantas):
+        item = {"start": n * passo, "end": (n + 1) * passo,
+               "text": f"Frase número {n} sobre alguma coisa do país."}
+        if trocas_totais and n % passo_da_troca == 0:
+            item["speaker_change"] = True
+        saida.append(item)
+    return saida
+
+
+class DetectarOComicio(unittest.TestCase):
+    """Limiar medido nos seis materiais com gabarito do Acervo: o comício tem
+    0,34 trocas/min; o segundo mais baixo já é 0,89 — quase o triplo. Não é
+    chute, é a fronteira que os próprios dados desenham."""
+
+    def test_poucas_trocas_e_monologo(self):
+        from modules.assuntos_por_frase import _e_monologo, numerar
+
+        tabela = numerar(_frases_com_trocas(300, trocas_por_minuto=0.34))
+        self.assertTrue(_e_monologo(tabela))
+
+    def test_muitas_trocas_nao_e_monologo(self):
+        from modules.assuntos_por_frase import _e_monologo, numerar
+
+        tabela = numerar(_frases_com_trocas(300, trocas_por_minuto=5.0))
+        self.assertFalse(_e_monologo(tabela))
+
+    def test_o_segundo_mais_baixo_medido_fica_do_lado_certo(self):
+        """0,89 trocas/min (bYi5Xhrv5ps) não pode cair no ramo do comício."""
+        from modules.assuntos_por_frase import _e_monologo, numerar
+
+        tabela = numerar(_frases_com_trocas(300, trocas_por_minuto=0.89))
+        self.assertFalse(_e_monologo(tabela))
+
+    def test_transcricao_de_uma_frase_nao_quebra(self):
+        from modules.assuntos_por_frase import _e_monologo, numerar
+
+        self.assertFalse(_e_monologo(numerar([{"start": 0.0, "end": 4.0, "text": "só isto"}])))
+
+
+class OPedidoMudaParaOComicio(unittest.TestCase):
+    def test_a_instrucao_do_comicio_entra_so_quando_e_comicio(self):
+        from modules.assuntos_por_frase import INSTRUCAO_DO_MONOLOGO, montar_pedido, numerar
+
+        comicio = montar_pedido(numerar(_frases_com_trocas(300, trocas_por_minuto=0.34)))
+        entrevista = montar_pedido(numerar(_frases_com_trocas(300, trocas_por_minuto=5.0)))
+
+        self.assertIn(INSTRUCAO_DO_MONOLOGO, comicio)
+        self.assertNotIn(INSTRUCAO_DO_MONOLOGO, entrevista)
+
+    def test_a_correcao_tambem_ganha_a_instrucao_no_comicio(self):
+        from modules.assuntos_por_frase import INSTRUCAO_DO_MONOLOGO, montar_correcao, numerar
+
+        tabela = numerar(_frases_com_trocas(300, trocas_por_minuto=0.34))
+        pedido = montar_correcao(tabela, [{"inicio": 0, "fim": 29, "titulo": "x"}])
+        self.assertIn(INSTRUCAO_DO_MONOLOGO, pedido)
+
+
+class AConsolidacaoDobraNoComicio(unittest.TestCase):
+    """O CHUB tem "-irl-coletiva-x2" no nome da receita: consolidação roda
+    duas vezes nesse tipo de material. Mesmo princípio aqui, sem saber a
+    receita exata deles."""
+
+    def test_comicio_pede_correcao_duas_vezes(self):
+        from modules.assuntos_por_frase import assuntos_por_modelo
+
+        frases = _frases_com_trocas(300, trocas_por_minuto=0.34)
+        chamadas = []
+
+        def perguntar(pedido):
+            chamadas.append(pedido)
+            n = len(chamadas)
+            fim = len(frases) - 1
+            if n == 1:
+                return f'{{"assuntos":[{{"inicio":0,"fim":{fim},"titulo":"a"}}]}}'
+            if n == 2:
+                return f'{{"assuntos":[{{"inicio":0,"fim":149,"titulo":"a"}},{{"inicio":150,"fim":{fim},"titulo":"b"}}]}}'
+            return f'{{"assuntos":[{{"inicio":0,"fim":99,"titulo":"a"}},{{"inicio":100,"fim":199,"titulo":"b"}},{{"inicio":200,"fim":{fim},"titulo":"c"}}]}}'
+
+        unidades = assuntos_por_modelo(frases, perguntar)
+
+        self.assertEqual(len(chamadas), 3, "pedido inicial + duas correções")
+        self.assertEqual(len(unidades), 3, "o resultado da SEGUNDA correção venceu")
+
+    def test_entrevista_pede_correcao_uma_vez_so(self):
+        from modules.assuntos_por_frase import assuntos_por_modelo
+
+        frases = _frases_com_trocas(300, trocas_por_minuto=5.0)
+        chamadas = []
+
+        def perguntar(pedido):
+            chamadas.append(pedido)
+            fim = len(frases) - 1
+            return f'{{"assuntos":[{{"inicio":0,"fim":{fim},"titulo":"a"}}]}}'
+
+        assuntos_por_modelo(frases, perguntar)
+        self.assertEqual(len(chamadas), 2, "pedido inicial + uma correção")
+
+    def test_segunda_correcao_que_falha_mantem_a_primeira(self):
+        """A regra de sempre: passada ruim não apaga uma que estava boa."""
+        from modules.assuntos_por_frase import assuntos_por_modelo
+
+        frases = _frases_com_trocas(300, trocas_por_minuto=0.34)
+        chamadas = []
+
+        def perguntar(pedido):
+            chamadas.append(pedido)
+            n = len(chamadas)
+            fim = len(frases) - 1
+            if n == 1:
+                return f'{{"assuntos":[{{"inicio":0,"fim":149,"titulo":"a"}},{{"inicio":150,"fim":{fim},"titulo":"b"}}]}}'
+            if n == 2:
+                return "não entendi"
+            raise AssertionError("não devia perguntar uma terceira vez se a segunda já falhou")
+
+        unidades = assuntos_por_modelo(frases, perguntar)
+
+        self.assertEqual(len(chamadas), 2)
+        self.assertEqual(len(unidades), 2, "ficou a divisão original, a correção ruim não apagou nada")
+
+
 if __name__ == "__main__":
     unittest.main()
