@@ -4878,3 +4878,50 @@ body.furia-cursor-off.furia-dragging, body.furia-cursor-off.furia-dragging * { c
     border-color: var(--gold);
     background: rgba(240, 185, 11, 0.15);
 }
+
+/* Trecho da fonte a cortar.
+   O motor sempre soube receber um intervalo; só esta tela nunca teve onde
+   pedi-lo. Numa entrevista de 1h46 em que o convidado entra aos 32:46, treze
+   dos vinte e quatro cortes saíram do que veio antes dele. */
+.processing-interval {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 4px;
+}
+.processing-interval-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+}
+.processing-interval-chip {
+    font-size: 12px;
+    font-weight: 500;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgba(127, 127, 127, 0.16);
+}
+.processing-interval-fields {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.processing-interval-fields label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+}
+.processing-interval-fields .setting-input {
+    width: 108px;
+}
+.processing-interval-separator {
+    opacity: 0.7;
+    font-size: 13px;
+}
+.setting-hint.interval-error {
+    color: #d64545;
+}

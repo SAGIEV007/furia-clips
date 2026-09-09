@@ -540,6 +540,15 @@
                             <option value="square_alfinetei">1:1 — Alfinetei</option>
                         </select>
                     </label>
+                    <div class="processing-interval" aria-label="Trecho da fonte a processar">
+                        <span class="processing-interval-title">Trecho da fonte a cortar <span class="processing-interval-chip" id="processingIntervalChip">Fonte inteira</span></span>
+                        <div class="processing-interval-fields">
+                            <label for="processingStartInput">Início <input type="text" id="processingStartInput" class="setting-input" placeholder="32:46" inputmode="numeric" autocomplete="off"></label>
+                            <span class="processing-interval-separator">até</span>
+                            <label for="processingEndInput">Fim <input type="text" id="processingEndInput" class="setting-input" placeholder="1:46:00" inputmode="numeric" autocomplete="off"></label>
+                        </div>
+                        <small class="setting-hint" id="processingIntervalHint">Deixe os dois campos vazios para usar a fonte inteira. Aceita segundos, mm:ss ou hh:mm:ss.</small>
+                    </div>
                     <p class="source-help-inline">A auditoria completa não inventa fatos nem substitui sua revisão. Ela usa a transcrição canônica, o perfil editorial local, feedback aprovado/rejeitado e priors agregados somente de leitura para explicar a escolha.</p>
                 </div>
             </div>

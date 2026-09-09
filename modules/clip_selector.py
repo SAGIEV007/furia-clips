@@ -563,6 +563,15 @@ class ClipSelector:
             emit_progress,
         )
 
+        # Encostar em palavra impede partir a palavra; não impede parar no meio
+        # da frase, que é o que o editor sente como "começa no meio da fala" e
+        # "termina antes de concluir o raciocínio". Este passe fecha a frase.
+        clips = self._snap_to_sentence_ends(
+            clips,
+            transcription.get("segments") or [],
+            emit_progress,
+        )
+
         # Two candidates that merely touch are one answer served twice.
         # Cutting a long block into pieces makes neighbours by construction, and the
         # ranker scored each on its own merits without ever seeing that the clip
@@ -1941,6 +1950,22 @@ Retorne APENAS o JSON.
     # stretch of talk handed over in two files.
     TOUCHING_GAP_S = 3.0
 
+    # E acima disto uma sobreposição não é encostar: é outro problema.
+    #
+    # A regra exigia `gap >= 0`, e isso a desligou inteira numa entrevista de
+    # 1h46. Os nove pares que se encostavam lá tinham folga NEGATIVA por
+    # frações de segundo — o corte 1 terminava em 2200,4 e o 18 começava em
+    # 2199,9; o 7 terminava em 2455,9 e o 20 começava em 2455,4. O editor
+    # olhou esses dois pares e disse "o 18 apenas continua outro corte" e "o
+    # perfeito seria o 1+18 juntos". A máquina, para a qual −0,4 s não era
+    # encostar, entregou os dois.
+    #
+    # Onde os limites vêm de blocos que particionam a fonte, a folga é 0,0
+    # exata e a regra funcionava; onde vêm de candidatos com limites próprios,
+    # ela é levemente negativa e a regra não via nada. Meio segundo de
+    # sobreposição é a mesma fala servida duas vezes, não duas respostas.
+    TOUCHING_OVERLAP_S = 2.0
+
     def _drop_touching_siblings(self, clips, emit_progress=None, sentences=None):
         """Keep one of two candidates that sit end to end.
 
@@ -1984,13 +2009,15 @@ Retorne APENAS o JSON.
             start = float(clip.get("start", 0) or 0)
             previous = kept[-1] if kept else None
             gap = start - float(previous.get("end", 0) or 0) if previous is not None else None
-            # Overlap is a different problem with its own handling and its own
-            # diagnostics; swallowing it here hid which candidate had lost to
-            # which. This pass only owns the case where one clip ends and the
-            # next begins.
+            # Uma sobreposição GRANDE continua sendo outro problema, com
+            # tratamento e diagnóstico próprios; engolir aquilo aqui escondia
+            # qual candidato tinha perdido para qual. O que este passe passou a
+            # possuir é a lasca: até dois segundos de sobra, que é ruído de
+            # arredondamento de limite, não dois trechos disputando o mesmo
+            # material.
             if (
                 gap is not None
-                and 0.0 <= gap <= self.TOUCHING_GAP_S
+                and -self.TOUCHING_OVERLAP_S <= gap <= self.TOUCHING_GAP_S
                 and not pergunta_entre(float(previous.get("end", 0) or 0), start)
             ):
                 current_score = float(clip.get("viral_score", 0) or 0)
@@ -4036,6 +4063,114 @@ Retorne APENAS o JSON.
                     "warning",
                 )
             return []
+
+    # Quanto um limite pode recuar ou avançar atrás do fim de uma frase. Acima
+    # disto já não é ajuste de borda — é escolher outro corte.
+    SENTENCE_SNAP_S = 4.0
+
+    @staticmethod
+    def _sentence_marks(segments):
+        """Onde as frases começam e terminam, segundo a pontuação da legenda.
+
+        A legenda desta fonte vem em blocos de dois segundos que não respeitam
+        frase nenhuma: "Eu tava conversando com o Vini antes de" é um bloco
+        inteiro. Quem carrega a informação de que um raciocínio fechou é a
+        pontuação, e ela está dentro do texto, não nos limites dos blocos.
+        """
+        inicios: list[float] = []
+        fins: list[float] = []
+        anterior_fechou = True
+        for segment in segments or []:
+            if not isinstance(segment, dict):
+                continue
+            try:
+                comeco = float(segment.get("start"))
+                fim = float(segment.get("end"))
+            except (TypeError, ValueError):
+                continue
+            if fim <= comeco:
+                continue
+            # Um bloco só começa frase se o bloco anterior fechou a dele.
+            if anterior_fechou:
+                inicios.append(comeco)
+            anterior_fechou = str(segment.get("text") or "").strip().endswith((".", "!", "?", "…"))
+            if anterior_fechou:
+                fins.append(fim)
+        return sorted(set(inicios)), sorted(set(fins))
+
+    @classmethod
+    def _marca_mais_proxima(cls, marcas, alvo):
+        """A marca de frase mais próxima do alvo, se couber no recuo permitido."""
+        melhor = None
+        menor = cls.SENTENCE_SNAP_S
+        for marca in marcas:
+            distancia = abs(marca - alvo)
+            if distancia < menor:
+                menor = distancia
+                melhor = marca
+        return melhor
+
+    def _snap_to_sentence_ends(self, clips, segments, emit_progress=None):
+        """Terminar a frase, não a palavra.
+
+        O passe de palavras logo abaixo garante que o corte não parta uma
+        palavra ao meio. Só que parar entre duas palavras no meio de uma frase
+        é exatamente o defeito que o editor descreve como "termina antes de
+        concluir o raciocínio" — e ele descreveu isso em sete dos vinte e
+        quatro cortes de uma entrevista de 1h46, enquanto o portão
+        `payoff_complete` afirmava que vinte e dois dos vinte e quatro
+        fechavam bem.
+
+        O portão não mentia por conta própria. Ele julgava o texto montado a
+        partir dos segmentos inteiros, que termina com ponto; o trecho de fato
+        renderizado ia mais de um segundo adiante e parava no meio da palavra
+        seguinte. No corte 20 daquela rodada o portão leu "...É a turma do Lula
+        no STF." e aprovou, enquanto o espectador ouvia "...no STF. Eu tava
+        conver—".
+
+        Encaixar o limite no fim da frase faz os dois passarem a falar da mesma
+        coisa: o texto julgado vira o áudio entregue.
+        """
+        inicios, fins = self._sentence_marks(segments)
+        # Quem decide se há frase para encaixar é a pontuação, e ela aparece
+        # nos FINS. Numa legenda automática sem ponto nenhum a lista de inícios
+        # ainda viria com um item — o começo da fonte — e isso faria o passe se
+        # declarar disponível sabendo nada. Sem um único fim de frase, não há
+        # o que encaixar e o passe não toca em nada.
+        self._candidate_diagnostics["sentence_snap_available"] = bool(fins)
+        if not fins:
+            return clips
+
+        ajustados = 0
+        for clip in clips or []:
+            try:
+                comeco = float(clip.get("start", 0) or 0)
+                fim = float(clip.get("end", 0) or 0)
+            except (TypeError, ValueError):
+                continue
+            novo_comeco = self._marca_mais_proxima(inicios, comeco)
+            novo_fim = self._marca_mais_proxima(fins, fim)
+            mudou = False
+            # Um corte nunca pode encolher a ponto de deixar de ser um corte;
+            # se o encaixe faria isso, a borda original é preferível.
+            if novo_comeco is not None and novo_comeco != comeco and fim - novo_comeco >= 1.0:
+                clip["start"] = novo_comeco
+                comeco = novo_comeco
+                mudou = True
+            if novo_fim is not None and novo_fim != fim and novo_fim - comeco >= 1.0:
+                clip["end"] = novo_fim
+                mudou = True
+            if mudou:
+                ajustados += 1
+                clip["sentence_snapped"] = True
+        self._candidate_diagnostics["sentence_snapped_count"] = ajustados
+        if emit_progress and ajustados:
+            emit_progress(
+                f"[Fronteiras] {ajustados} corte(s) encaixados no fim da frase, "
+                "para não abrir nem fechar no meio do raciocínio.",
+                "info",
+            )
+        return clips
 
     def _refine_boundaries_with_words(self, clips, segments, emit_progress=None):
         """Snap candidate seams to covered word timestamps when safe.

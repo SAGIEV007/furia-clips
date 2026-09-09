@@ -2301,9 +2301,90 @@ function openCutOptionsModal() {
 function closeCutOptionsModal() {
     document.getElementById("cutOptionsModal")?.classList.remove("active");
 }
+// ─── Trecho da fonte a cortar ───
+//
+// O motor sempre soube receber um intervalo: `_requested_processing_interval`
+// existe no app.py e a tela Mesa já o enviava. Esta tela nunca teve onde
+// pedi-lo, e o resultado apareceu inteiro numa entrevista de 1h46 em que o
+// convidado só entra aos 32:46: dos vinte e quatro cortes entregues, treze
+// começavam antes disso — jornalistas conversando, um documento na tela, uma
+// reportagem. O editor reprovou exatamente esses treze, um por um.
+//
+// Ele já vinha recortando a fonte à mão antes de carregar, justamente para
+// contornar a ausência deste campo.
+
+function parseProcessingTime(value) {
+    const text = String(value || "").trim().replace(",", ".");
+    if (!text) return null;
+    if (/^\d+(?:\.\d+)?$/.test(text)) return Number(text);
+    const parts = text.split(":").map(Number);
+    if (parts.some((part) => !Number.isFinite(part)) || ![2, 3].includes(parts.length)) return NaN;
+    if (parts.slice(1).some((part) => part < 0 || part >= 60)) return NaN;
+    return parts.length === 2 ? parts[0] * 60 + parts[1] : parts[0] * 3600 + parts[1] * 60 + parts[2];
+}
+
+function formatProcessingTime(seconds) {
+    if (!Number.isFinite(seconds)) return "tempo inválido";
+    const total = Math.max(0, Math.round(seconds));
+    const hours = Math.floor(total / 3600);
+    const minutes = Math.floor((total % 3600) / 60);
+    const rest = total % 60;
+    return hours
+        ? `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(rest).padStart(2, "0")}`
+        : `${String(minutes).padStart(2, "0")}:${String(rest).padStart(2, "0")}`;
+}
+
+function readProcessingInterval() {
+    const start = document.getElementById("processingStartInput")?.value.trim() || "";
+    const end = document.getElementById("processingEndInput")?.value.trim() || "";
+    const startSeconds = parseProcessingTime(start);
+    const endSeconds = parseProcessingTime(end);
+    if (!start && !end) return { valid: true, start: null, end: null, label: "fonte inteira" };
+    if ((start && !Number.isFinite(startSeconds)) || (end && !Number.isFinite(endSeconds))) {
+        return { valid: false, error: "Use segundos, mm:ss ou hh:mm:ss no início e no fim." };
+    }
+    const finalStart = Number.isFinite(startSeconds) ? startSeconds : 0;
+    const finalEnd = Number.isFinite(endSeconds) ? endSeconds : Infinity;
+    if (finalStart < 0) return { valid: false, error: "O início do intervalo não pode ser negativo." };
+    if (finalEnd <= finalStart) return { valid: false, error: "O fim do intervalo precisa ser maior que o início." };
+    return {
+        valid: true,
+        start: start || null,
+        end: end || null,
+        label: `${start ? formatProcessingTime(finalStart) : "início da fonte"}–${end ? formatProcessingTime(finalEnd) : "fim da fonte"}`,
+    };
+}
+
+function updateProcessingIntervalHint() {
+    const hint = document.getElementById("processingIntervalHint");
+    const chip = document.getElementById("processingIntervalChip");
+    const interval = readProcessingInterval();
+    if (chip) chip.textContent = interval.valid ? (interval.label || "Fonte inteira") : "Verificar faixa";
+    if (!hint) return;
+    hint.textContent = interval.valid
+        ? (interval.start || interval.end
+            ? `Esta execução usará somente ${interval.label}. A mídia original não será alterada.`
+            : "Deixe os dois campos vazios para usar a fonte inteira. Aceita segundos, mm:ss ou hh:mm:ss.")
+        : interval.error;
+    hint.classList.toggle("interval-error", !interval.valid);
+}
+
+["processingStartInput", "processingEndInput"].forEach((id) => {
+    document.getElementById(id)?.addEventListener("input", updateProcessingIntervalHint);
+});
+
 async function startSmartCut() {
+    const interval = readProcessingInterval();
+    if (!interval.valid) {
+        updateProcessingIntervalHint();
+        showToast(interval.error, "warning");
+        return;
+    }
     closeCutOptionsModal();
     if (!requireVideo()) return;
+    if (interval.start || interval.end) {
+        addConsoleLog(`[Trecho] Esta execução lê somente ${interval.label} da fonte; o resto não será considerado.`, "info");
+    }
     state.faceTracking = Boolean(document.getElementById("faceTrackingEnabled")?.checked);
     const userContext = document.getElementById("userContextInput").value.trim();
     addConsoleLog("[Acao] Iniciando corte inteligente de shorts...", "info");
@@ -2338,6 +2419,8 @@ async function startSmartCut() {
             transcription_source: document.getElementById("settingTranscriptionSource")?.value || "auto",
             audit_mode: document.getElementById("settingAuditMode")?.value || "standard",
             preferred_format: document.getElementById("settingPreferredFormat")?.value || "auto",
+            processing_start: interval.start,
+            processing_end: interval.end,
             ...(state.manualTranscript ? {
                 transcript_segments: state.manualTranscript.segments,
                 transcript_language: state.manualTranscript.language || "pt",
