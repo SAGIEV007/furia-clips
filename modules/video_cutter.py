@@ -571,7 +571,27 @@ class VideoCutter:
                             "error",
                         )
                     continue
+
+                # A conferência acima olha os METADADOS: duração, resolução,
+                # existe faixa de áudio. Existir faixa de áudio não é ter som —
+                # um corte inteiramente mudo passa por ali e é entregue. Esta
+                # olha o CONTEÚDO, e só avisa: quem decide se um silêncio é
+                # defeito ou pausa dramática é o editor.
+                conferencia = {}
+                try:
+                    from .conferir_o_corte import conferir
+
+                    conferencia = conferir(result, duracao_s=float(cut.get("duration") or 0))
+                    if conferencia.get("avisos") and emit_progress:
+                        emit_progress(
+                            f"[Conferência] Corte {rank}: " + " · ".join(conferencia["avisos"]),
+                            "warning",
+                        )
+                except Exception:  # noqa: BLE001 - conferir nunca derruba a entrega
+                    conferencia = {}
+
                 pronto = {
+                    "conferencia": conferencia,
                     "index": i,
                     "path": output_path,
                     "start": cut["start"],
