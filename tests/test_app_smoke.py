@@ -5,14 +5,43 @@ from pathlib import Path
 from unittest.mock import patch
 
 import app as furia_app
+import config
 import database
 
 
 class AppSmokeTests(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
+    """DEFEITO GRAVE ACHADO NA MÁQUINA DELE: ESTA CLASSE ESCREVIA NO BANCO REAL
+
+    `setUpClass` chamava `database.init_db()` sem isolar `database.DB_PATH` —
+    e `test_settings_do_not_return_api_key`, logo abaixo, faz
+    `database.set_setting("gemini_api_key", "secret-for-test")`. Sem
+    isolamento, "database.DB_PATH" é o caminho de sempre: o banco de
+    produção dele.
+
+    Achado assim: rodei a suíte na máquina dele e o placar contra o CHUB deu
+    `origem: coesao_local` mesmo com a chave do Gemini configurada. A causa
+    não era o Fúria — era esta classe, que sobrescrevia a chave real com o
+    texto de teste toda vez que a suíte rodava. Conferi um backup de 8 de
+    setembro: já estava com o texto de teste. Um de 16 de agosto ainda tinha
+    a chave real, testada e funcionando; foi restaurada no banco dele.
+
+    Cada `setUp` agora aponta `database.DB_PATH` e `config.DB_PATH` para um
+    arquivo temporário, do mesmo jeito que todo o resto da suíte já fazia —
+    esta classe era a exceção.
+    """
+
+    def setUp(self):
+        self._pasta_temporaria = tempfile.TemporaryDirectory()
+        self.addCleanup(self._pasta_temporaria.cleanup)
+        banco_de_teste = os.path.join(self._pasta_temporaria.name, "smoke.sqlite3")
+        self._remendo_database = patch.object(database, "DB_PATH", banco_de_teste)
+        self._remendo_config = patch.object(config, "DB_PATH", banco_de_teste)
+        self._remendo_database.start()
+        self._remendo_config.start()
+        self.addCleanup(self._remendo_database.stop)
+        self.addCleanup(self._remendo_config.stop)
         database.init_db()
-        cls.client = furia_app.app.test_client()
+        self.client = furia_app.app.test_client()
 
     def test_render_presets_endpoint(self):
         response = self.client.get("/api/render-presets")
