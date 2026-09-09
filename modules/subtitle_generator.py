@@ -1,8 +1,10 @@
 import subprocess
 import os
 import json
+import shutil
 import tempfile
 import unicodedata
+import uuid
 from config import PROCESSED_DIR
 from .render_presets import get_preset
 
@@ -127,27 +129,41 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         if emit_progress:
             emit_progress("Queimando legendas no video...")
 
-        # O ffmpeg le o caminho da legenda como parte da "linguagem" de filtros
-        # (-vf ass=<caminho>), onde virgula, aspas, colchetes e ponto-e-virgula
-        # tem significado especial (separam filtros/opcoes). Titulos de corte
-        # como "Renan Santos 'Que tristeza de país! ..., com jornalistas, com"
-        # tem virgula, e sem escapar isso o ffmpeg quebrava o nome do arquivo
-        # no meio (ex: "No such filter: 'com.ass'").
-        ass_escaped = ass_path.replace("\\", "/").replace(":", "\\:")
-        for special_char in (",", "'", "[", "]", ";"):
-            ass_escaped = ass_escaped.replace(special_char, "\\" + special_char)
+        # O titulo do corte vira o nome do arquivo .ass (ex.: "Renan Santos
+        # 'Não vou ser populista', com jornalistas.ass"), e o ffmpeg le esse
+        # caminho como parte da propria "linguagem" de filtros do -vf, onde
+        # virgula, aspas simples, colchetes e ponto-e-virgula tem significado
+        # especial. Testamos de verdade (nao so em teoria) todas as formas
+        # razoaveis de escapar isso dentro do valor do filtro - aspas
+        # simples, escapar cada caractere com barra invertida, o truque de
+        # fechar/escapar/reabrir aspas do shell POSIX - e NENHUMA sobrevive
+        # a uma aspas simples literal no titulo: o proprio ffmpeg descarta
+        # a aspas ao processar o valor, e o libass tenta abrir um arquivo
+        # com o nome errado e falha ("fopen failed"). A saida robusta,
+        # usada por qualquer ferramenta que faz isso, e nao arriscar:
+        # copiar a legenda para um nome temporario sem nenhum caractere
+        # especial antes de mandar pro ffmpeg.
+        safe_ass_path = self._copy_ass_to_safe_temp_name(ass_path)
+        try:
+            ass_arg = self._ass_filter_value(safe_ass_path)
 
-        cmd = [
-            "ffmpeg", "-y",
-            "-i", video_path,
-            "-vf", f"ass={ass_escaped}",
-            "-c:v", "libx264", "-preset", "medium", "-crf", "23",
-            "-c:a", "copy",
-            "-movflags", "+faststart",
-            output_path
-        ]
+            cmd = [
+                "ffmpeg", "-y",
+                "-i", video_path,
+                "-vf", f"ass={ass_arg}",
+                "-c:v", "libx264", "-preset", "medium", "-crf", "23",
+                "-c:a", "copy",
+                "-movflags", "+faststart",
+                output_path
+            ]
 
-        result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
+            result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
+        finally:
+            if safe_ass_path != ass_path:
+                try:
+                    os.remove(safe_ass_path)
+                except OSError:
+                    pass
 
         if result.returncode != 0:
             if emit_progress:
@@ -158,6 +174,32 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             emit_progress(f"Legendas queimadas com sucesso: {os.path.basename(output_path)}")
 
         return output_path
+
+    def _copy_ass_to_safe_temp_name(self, ass_path):
+        """Copia a legenda para um nome sem caractere especial nenhum.
+
+        Ver o comentario em burn_subtitles(): o nome do arquivo vem do
+        titulo do corte, e uma aspas simples nele nao sobrevive a nenhuma
+        forma de escapar dentro do valor do filtro -vf do ffmpeg. Um nome
+        so com letras/numeros/underscore nao tem esse problema.
+        """
+        safe_name = f"furia_legenda_{uuid.uuid4().hex}.ass"
+        safe_path = os.path.join(os.path.dirname(ass_path) or ".", safe_name)
+        shutil.copyfile(ass_path, safe_path)
+        return safe_path
+
+    def _ass_filter_value(self, ass_path):
+        """Empacota o caminho (ja com nome seguro) como valor para -vf ass=....
+
+        O "C:" da unidade do Windows precisa virar "C\\:" e o valor inteiro
+        precisa ficar entre aspas simples - testado e confirmado neste
+        ffmpeg 8.1.1: sem isso, mesmo um caminho sem nenhum outro caractere
+        especial fazia o ffmpeg ler o resto do caminho como se fosse a
+        opcao seguinte do filtro ("original_size"), e falhava com "Invalid
+        argument" em quase todo corte.
+        """
+        normalized = ass_path.replace("\\", "/").replace(":", "\\:")
+        return "'" + normalized + "'"
 
     def generate_srt(self, segments, output_path):
         with open(output_path, "w", encoding="utf-8") as f:
