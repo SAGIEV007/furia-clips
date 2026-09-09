@@ -2104,14 +2104,59 @@ def api_waveform():
 @app.route("/api/acervo/status", methods=["GET"])
 def api_acervo_status():
     """Whether this source arrives with blocks a person already reviewed."""
-    from modules.acervo_library import describe_snapshot, find_snapshot_for, youtube_id_from_name
+    # `resolved_id_for`, não `youtube_id_from_name`: um arquivo pode ter a
+    # origem anotada no caderninho sem carregá-la no nome — que é o caso normal
+    # depois que o Furia carimba o próprio número aleatório ao guardar. Lendo só
+    # o nome, a tela dizia "não reconhecido" para arquivo já vinculado.
+    from modules.acervo_library import describe_snapshot, find_snapshot_for, resolved_id_for
 
     video_path = _resolve_media_input(request.args.get("video_path", ""))
     found = find_snapshot_for(video_path) if video_path else None
     payload = describe_snapshot(found)
-    payload["youtube_id"] = youtube_id_from_name(os.path.basename(str(video_path or ""))) or ""
+    payload["youtube_id"] = (resolved_id_for(video_path) if video_path else "") or ""
     payload["source_recognised"] = bool(payload["youtube_id"])
     return jsonify(payload)
+
+
+@app.route("/api/acervo/vincular", methods=["POST"])
+def api_acervo_vincular():
+    """Dizer de que link do YouTube é um arquivo que já está no computador.
+
+    O caderninho e a função de vincular existiam desde sempre; a única porta
+    para eles era `chub.bat --vincular "ARQUIVO" ID`, digitado num terminal. O
+    editor não usa terminal, e por isso os arquivos dele nunca foram vinculados
+    — nem o ato de 7 de setembro, com 21 blocos revisados esperando no CHUB.
+    """
+    from modules.acervo_library import anotar_do_link, describe_snapshot, find_snapshot_for
+
+    data = request.get_json(silent=True) or {}
+    try:
+        video_path = _resolve_media_input(data.get("video_path", ""))
+    except UnsafePathError as exc:
+        return jsonify({"error": str(exc)}), 400
+    if not video_path:
+        return jsonify({"error": "Escolha primeiro o vídeo."}), 400
+
+    link = str(data.get("url") or "").strip()
+    identificador = anotar_do_link(video_path, link)
+    if not identificador:
+        return jsonify({
+            "error": "Não reconheci um endereço do YouTube nesse link. "
+                     "Cole o endereço inteiro, como aparece na barra do navegador."
+        }), 400
+
+    acervo = describe_snapshot(find_snapshot_for(video_path))
+    return jsonify({
+        "youtube_id": identificador,
+        "arquivo": os.path.basename(str(video_path)),
+        "acervo": acervo,
+        "mensagem": (
+            f"Anotado: este arquivo é o vídeo {identificador}. "
+            + (f"O CHUB tem {acervo['blocks']} bloco(s) para ele."
+               if acervo.get("available") else
+               "O acervo deste vídeo ainda não está no disco; ele é buscado na próxima moagem.")
+        ),
+    })
 
 
 @app.route("/api/voz/status", methods=["GET"])

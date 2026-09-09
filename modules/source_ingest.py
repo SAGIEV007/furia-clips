@@ -96,6 +96,21 @@ def _yt_dlp():
     return yt_dlp
 
 
+def _anotar_a_origem(caminho, url) -> None:
+    """Guardar de que endereço do YouTube este arquivo veio.
+
+    Anotar não pode derrubar um download que deu certo, então qualquer falha
+    aqui é engolida: o pior caso volta a ser o de antes, um arquivo sem origem
+    conhecida — nunca um vídeo baixado que se perde.
+    """
+    try:
+        from .acervo_library import anotar_do_link
+
+        anotar_do_link(str(caminho), url)
+    except Exception:  # noqa: BLE001 - ver docstring
+        pass
+
+
 def probe_public_url(url: str, cookie_browser: str = "", user_agent: str = "") -> dict:
     value = validate_public_url(url)
     yt_dlp = _yt_dlp()
@@ -378,6 +393,12 @@ def download_public_video(url: str, destination: str, progress=None, max_height:
         detail = "; ".join(validation.errors)
         raise SourceIngestError(f"O arquivo baixado não passou na validação de mídia: {detail}")
 
+    # De que vídeo do YouTube este arquivo é. O nome do arquivo não guarda
+    # isso — o Furia carimba um número aleatório nele — e sem esta anotação o
+    # Acervo do CHUB fica inalcançável para sempre. Aqui é o único instante em
+    # que a informação existe de graça.
+    _anotar_a_origem(output, value)
+
     return {
         "path": str(output),
         "title": info.get("title", ""),
@@ -478,6 +499,8 @@ def download_public_video_interval(url: str, destination_path: str, start_s: flo
             pass
         detail = "; ".join(validation.errors)
         raise SourceIngestError(f"O trecho baixado não passou na validação de mídia: {detail}")
+
+    _anotar_a_origem(actual_path, url)
 
     return {
         "path": str(actual_path),

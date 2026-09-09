@@ -32,24 +32,6 @@ _SEPARATORS = re.compile(r"[^0-9A-Za-z_-]+|_")
 _ID_SHAPE = re.compile(r"^[0-9A-Za-z_-]{11}$")
 
 
-def youtube_id_from_url(url: str) -> str | None:
-    """Recover the YouTube id from a standard URL."""
-    from urllib.parse import urlparse, parse_qs
-    try:
-        parsed = urlparse(url)
-        if parsed.hostname in ("youtu.be", "www.youtu.be"):
-            return parsed.path[1:12] if len(parsed.path) >= 12 else None
-        if parsed.hostname in ("youtube.com", "www.youtube.com", "m.youtube.com"):
-            if parsed.path.startswith("/live/") or parsed.path.startswith("/shorts/"):
-                return parsed.path.split("/")[2][:11]
-            qs = parse_qs(parsed.query)
-            if "v" in qs:
-                return qs["v"][0][:11]
-    except Exception:
-        pass
-    return None
-
-
 def youtube_id_from_name(name: str) -> str | None:
     """Recover the YouTube id a downloader left in the file name.
 
@@ -124,6 +106,64 @@ def bind(video_path, youtube_id: str, data_dir=None) -> dict[str, Any]:
     destino.parent.mkdir(parents=True, exist_ok=True)
     destino.write_text(json.dumps(registro, ensure_ascii=False, indent=2), encoding="utf-8")
     return {"arquivo": nome, "youtube_id": identificador, "vinculos": str(destino)}
+
+
+def youtube_id_from_url(url) -> str | None:
+    """The video id inside a YouTube address, in any of the shapes it takes.
+
+        https://www.youtube.com/watch?v=tY62sQiv0-A
+        https://www.youtube.com/live/tY62sQiv0-A?is=Q0srA1RSO3mJ3Y6k
+        https://youtu.be/tY62sQiv0-A?t=12
+        https://www.youtube.com/shorts/tY62sQiv0-A
+        https://www.youtube.com/embed/tY62sQiv0-A
+
+    O formato `/live/` importa: foi por ele que o editor mandou o ato de 7 de
+    setembro, e é o formato de toda transmissão ao vivo — que é metade do
+    material dele.
+    """
+    endereco = str(url or "").strip()
+    if not endereco:
+        return None
+    achado = re.search(r"[?&]v=([0-9A-Za-z_-]{11})(?![0-9A-Za-z_-])", endereco)
+    if achado:
+        return achado.group(1)
+    achado = re.search(
+        r"(?:youtu\.be/|/live/|/shorts/|/embed/|/v/)([0-9A-Za-z_-]{11})(?![0-9A-Za-z_-])",
+        endereco,
+    )
+    return achado.group(1) if achado else None
+
+
+def anotar_do_link(video_path, url, data_dir=None) -> str | None:
+    """Guardar de que vídeo do YouTube este arquivo é, no momento do download.
+
+    O DEFEITO QUE ISTO CONSERTA, MEDIDO NOS ARQUIVOS DELE
+    -----------------------------------------------------
+    Tudo que liga o Furia ao Acervo pendura em onze caracteres no nome do
+    arquivo. Só que o próprio Furia carimba um número ALEATÓRIO ao guardar
+    (`secrets.token_hex(6)`), e o id do YouTube se perde ali:
+
+        7 DE SETEMBRO - ATO CONTRA STF...._cecc818df5a8.mp4
+                                          ^^^^^^^^^^^^ aleatório, não é o id
+
+    Seis dos sete arquivos recentes dele não achavam o Acervo por isso —
+    inclusive o ato de 7 de setembro, que tem 21 blocos revisados por gente no
+    CHUB e foi moído às cegas.
+
+    O download conhece o endereço. Anotar aqui, na hora, é o único momento em
+    que a informação existe sem ninguém precisar digitar nada.
+
+    Nunca levanta: um vídeo que não é do YouTube simplesmente não tem o que
+    anotar, e falhar em anotar jamais pode derrubar um download que deu certo.
+    """
+    identificador = youtube_id_from_url(url)
+    if not identificador or not video_path:
+        return None
+    try:
+        bind(video_path, identificador, data_dir)
+    except (OSError, ValueError):
+        return None
+    return identificador
 
 
 def resolved_id_for(video_path, data_dir=None) -> str | None:

@@ -5034,6 +5034,42 @@ async function importAcervoBlocks(file) {
     }
 }
 
+// Dizer de que link é este arquivo.
+//
+// Tudo que liga o Furia ao Acervo pendura no id do YouTube, e o próprio Furia
+// apaga esse id ao guardar o arquivo (carimba um número aleatório no nome).
+// Seis dos sete arquivos recentes dele não achavam o Acervo por isso — o ato
+// de 7 de setembro entre eles, com 21 blocos revisados esperando no CHUB.
+//
+// A função de vincular existia; a única porta para ela era digitar um comando
+// no terminal. Aqui ela vira botão.
+async function vincularAoLink() {
+    if (!state.selectedVideo) {
+        showToast("Escolha o vídeo primeiro.", "warning");
+        return;
+    }
+    const link = window.prompt(
+        "Cole o endereço do YouTube deste vídeo:\n\n" +
+        "Serve qualquer formato — youtube.com/watch?v=..., youtube.com/live/... ou youtu.be/..."
+    );
+    if (!link) return;
+    try {
+        const response = await fetch("/api/acervo/vincular", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ video_path: state.selectedVideo, url: link }),
+        });
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.error || "Não deu para anotar.");
+        showToast(payload.mensagem, "success");
+        addConsoleLog(`[Acervo] ${payload.mensagem}`, "success");
+        await refreshSourceReading();
+    } catch (error) {
+        showToast(error.message || "Não deu para anotar o link.", "error");
+    }
+}
+
+document.getElementById("btnVincularAoLink")?.addEventListener("click", vincularAoLink);
 document.getElementById("btnRefreshReading")?.addEventListener("click", refreshSourceReading);
 document.getElementById("btnImportAcervo")?.addEventListener("click", () => document.getElementById("acervoImportInput")?.click());
 document.getElementById("acervoImportInput")?.addEventListener("change", (event) => {
