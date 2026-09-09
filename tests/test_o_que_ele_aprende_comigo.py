@@ -39,13 +39,23 @@ def _caderno(tmp_path, vereditos, sinais_por_corte):
 # ── 1. a trava da evidência fraca ───────────────────────────────────────────
 
 
-def test_poucos_vereditos_nao_mexem_em_nada(tmp_path):
+def test_poucos_vereditos_nao_mexem_em_nada(monkeypatch, tmp_path):
     """Três reprovações não são um padrão; são três reprovações.
 
     Sem esta trava o motor viraria uma gangorra: cada rodada de revisão
     empurraria os pesos para o defeito daquela rodada, e o editor veria o
     programa piorar justamente por estar "aprendendo".
+
+    ISOLAMENTO ACHADO RODANDO NA MÁQUINA DELE
+    -------------------------------------------
+    `ajustes(data_dir)` só isola a metade do caderno; a metade da tela
+    (`ler_do_programa`, dentro de `tudo_que_ele_julgou`) sempre lê
+    `config.DB_PATH` de verdade, sem jeito de apontar para outro lugar por
+    fora. Na nuvem esse banco estava vazio, e o teste passava por acidente.
+    Aqui é o banco real dele, com 169 vereditos — e os três exatamente do
+    tipo que este teste finge não existir.
     """
+    monkeypatch.setattr("config.DB_PATH", str(tmp_path / "sem-vereditos-na-tela.sqlite3"))
     from modules.aprendizado import ajustes
 
     dados = _caderno(tmp_path, [("nao", "fim")] * 3, {"payoff_complete": True})
@@ -66,13 +76,14 @@ def test_com_casos_suficientes_o_peso_se_move(tmp_path):
     assert movidos["termina_sem_fechar"] > 0
 
 
-def test_o_motor_exagerando_faz_o_desconto_descer(tmp_path):
+def test_o_motor_exagerando_faz_o_desconto_descer(monkeypatch, tmp_path):
     """A direção contrária, que é a que ninguém lembra de testar.
 
     Se o motor acusa um defeito e o editor aprova o corte assim mesmo, o
     desconto está caro demais — e um aprendizado que só sabe apertar acaba
     reprovando tudo.
     """
+    monkeypatch.setattr("config.DB_PATH", str(tmp_path / "sem-vereditos-na-tela.sqlite3"))
     from modules.aprendizado import ajustes
 
     dados = _caderno(tmp_path, [("ok", "")] * 10, {"payoff_complete": False})
@@ -94,12 +105,13 @@ def test_nenhum_ajuste_passa_do_teto(tmp_path):
         assert abs(valor) <= TETO
 
 
-def test_veredito_sem_manifesto_nao_ensina_nada(tmp_path):
+def test_veredito_sem_manifesto_nao_ensina_nada(monkeypatch, tmp_path):
     """Reclamação sem endereço não conserta parafuso.
 
     Sem o manifesto sabe-se que ele reprovou, não o que o motor tinha achado
     daquele corte — e é a diferença entre os dois que diz onde está o erro.
     """
+    monkeypatch.setattr("config.DB_PATH", str(tmp_path / "sem-vereditos-na-tela.sqlite3"))
     from modules.aprendizado import ajustes
 
     pasta = tmp_path / "vereditos"

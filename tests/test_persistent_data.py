@@ -2,6 +2,8 @@ import json
 import os
 import sqlite3
 
+import pytest
+
 
 def _create_legacy_database(path):
     connection = sqlite3.connect(path)
@@ -128,9 +130,16 @@ def test_portable_backup_and_restore_preserve_editorial_decisions(monkeypatch, t
         assert "transcripts/live_hash/transcript.json" in archive.namelist()
         assert "transcripts/live_hash/metadata.json" in archive.namelist()
 
-    with sqlite3.connect(db_path) as connection:
-        connection.execute("UPDATE projects SET name = 'Versão descartável'")
-        connection.commit()
+    # `with sqlite3.connect(...) as connection:` só comita ou desfaz a
+    # transação — não fecha a conexão. Sem o `.close()` explícito, o
+    # handle do arquivo continua aberto, e no Windows isso derruba o
+    # `os.replace()` de dentro de `restore_editorial_backup` com um
+    # PermissionError. Achado rodando a suíte na máquina dele: na nuvem o
+    # SO deixa renomear por cima de um arquivo aberto; o Windows não.
+    connection = sqlite3.connect(db_path)
+    connection.execute("UPDATE projects SET name = 'Versão descartável'")
+    connection.commit()
+    connection.close()
 
     restored = persistent_data.restore_editorial_backup(backup["path"])
     assert restored["restored"] is True
@@ -181,3 +190,61 @@ def test_manual_editorial_zip_without_manifest_is_imported_safely(monkeypatch, t
     with sqlite3.connect(db_path) as connection:
         assert connection.execute("SELECT name FROM projects").fetchone()[0] == "Importação manual"
     assert (root / "transcripts" / "manual" / "transcript.txt").exists()
+
+
+def test_restaurar_tolera_o_arquivo_travado_um_instante(monkeypatch, tmp_path):
+    """O antivírus ou o indexador do Windows travam o arquivo por um instante.
+
+    Achado rodando a suíte pela primeira vez na máquina dele: o teste do
+    restore falhava com PermissionError porque, no Windows, um handle aberto
+    (mesmo um esquecido dentro do próprio teste) impede o `os.replace()`. Isso
+    também acontece de verdade fora do teste — antivírus varrendo, indexador
+    do Windows — e passa sozinho em menos de um segundo. Antes, a primeira
+    tentativa falhava e o editor via um erro em inglês sem saber o que fazer.
+    """
+    import modules.persistent_data as persistent_data
+
+    _root, db_path, _backup_dir = _configure_persistent_module(monkeypatch, tmp_path)
+    db_path.parent.mkdir(parents=True)
+    _create_editorial_schema(str(db_path), "Versão preservada")
+    backup = persistent_data.create_editorial_backup()
+
+    # Segura o arquivo travado nas duas primeiras tentativas, como um
+    # antivírus faria, e libera na terceira.
+    chamadas = {"n": 0}
+    original = persistent_data.os.replace
+
+    def trava_duas_vezes(origem, destino):
+        chamadas["n"] += 1
+        if chamadas["n"] <= 2:
+            raise PermissionError("simulando o Windows com o arquivo em uso")
+        return original(origem, destino)
+
+    monkeypatch.setattr(persistent_data.os, "replace", trava_duas_vezes)
+    monkeypatch.setattr(persistent_data.time, "sleep", lambda *_a, **_k: None)
+
+    restored = persistent_data.restore_editorial_backup(backup["path"])
+
+    assert restored["restored"] is True
+    assert chamadas["n"] == 3, "tentou de novo em vez de desistir na primeira falha"
+
+
+def test_restaurar_desiste_com_mensagem_em_portugues(monkeypatch, tmp_path):
+    """Se o arquivo continuar travado, o erro tem que ser algo que ele entenda."""
+    import modules.persistent_data as persistent_data
+
+    _root, db_path, _backup_dir = _configure_persistent_module(monkeypatch, tmp_path)
+    db_path.parent.mkdir(parents=True)
+    _create_editorial_schema(str(db_path), "Versão preservada")
+    backup = persistent_data.create_editorial_backup()
+
+    def sempre_trava(origem, destino):
+        raise PermissionError("simulando o Windows com o arquivo em uso o tempo todo")
+
+    monkeypatch.setattr(persistent_data.os, "replace", sempre_trava)
+    monkeypatch.setattr(persistent_data.time, "sleep", lambda *_a, **_k: None)
+
+    with pytest.raises(persistent_data.PersistentDataError) as erro:
+        persistent_data.restore_editorial_backup(backup["path"])
+
+    assert "usado por outro programa" in str(erro.value)

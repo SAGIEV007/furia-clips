@@ -80,9 +80,23 @@ def source_signature(source_video):
 
 
 def _editorial_clip_key(source_video, start_time, end_time, transcript):
-    """Return a stable identity independent of the rendered output filename."""
+    """Return a stable identity independent of the rendered output filename.
+
+    O DEFEITO SÓ APARECIA NO WINDOWS, QUE É ONDE ELE RODA
+    -------------------------------------------------------
+    `"\\\\"` em código Python é a string de DUAS barras invertidas. Um caminho
+    normal do Windows tem uma barra só entre as pastas
+    (algo como "C: barra invertida Users barra invertida live.mp4"), então
+    este `.replace()` nunca encontrava nada
+    para trocar — a barra invertida sobrevivia, e a identidade do corte
+    carregava o caminho inteiro sem normalizar.
+
+    Achado rodando a suíte de testes pela primeira vez na máquina dele: o
+    mesmo `tests/test_existing_clip_fingerprints.py` que passava na nuvem
+    (caminhos com `/`) falhava aqui, porque `tmp_path` no Windows usa `\`.
+    """
     canonical = "|".join([
-        str(source_video or "").replace("\\\\", "/").strip().lower(),
+        str(source_video or "").replace("\\", "/").strip().lower(),
         f"{float(start_time or 0):.3f}",
         f"{float(end_time or 0):.3f}",
         " ".join(str(transcript or "").split()).lower(),
@@ -734,8 +748,21 @@ def get_existing_clip_fingerprints(source_video="", processing_identity=""):
     Importa aqui porque quem chama usa esse campo para decidir o que esconder
     numa segunda moagem. Ler o campo errado é esconder o que ele aprovou e
     mostrar o que ele rejeitou — exatamente ao contrário.
+
+    O NOME DO ARQUIVO NUNCA BATIA NO WINDOWS
+    ------------------------------------------
+    `"\\\\"` é a string de DUAS barras invertidas; um caminho do Windows tem
+    uma só entre as pastas. O `.replace()` nunca encontrava nada para trocar,
+    então `source_basename` saía com o caminho INTEIRO, barras e tudo —
+    o caminho inteiro com barra invertida em vez de só `live.mp4`. O SQL abaixo
+    converte a barra do lado do banco (`char(92)` é a barra invertida), mas
+    comparava com um `%/{isto}` que ainda carregava barra invertida do lado de
+    cá. Nunca casava.
+
+    Achado rodando a suíte na máquina dele pela primeira vez: este é o
+    programa inteiro em Windows, e o defeito só existe lá.
     """
-    source_text = str(source_video or "").replace("\\\\", "/").strip().lower()
+    source_text = str(source_video or "").replace("\\", "/").strip().lower()
     source_basename = source_text.rsplit("/", 1)[-1]
     if not processing_identity and not source_basename:
         return []

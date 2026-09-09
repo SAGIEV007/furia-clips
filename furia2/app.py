@@ -103,6 +103,19 @@ def _tem_imagem(caminho):
         return False
 
 
+def _chave_relativa(caminho, raiz):
+    """O caminho de um arquivo, relativo à pasta de trabalho, sempre com "/".
+
+    `Path.relative_to()` devolve barra invertida no Windows — que é onde este
+    programa roda. A chave sai da tela, volta numa requisição, e vira URL; uma
+    barra invertida ali não é o mesmo caractere que o resto do programa espera
+    (é o que `database.py` normaliza para "/" ao comparar `source_video`).
+    Achado rodando a suíte pela primeira vez na máquina dele: o teste que
+    conferia isso já existia e nunca tinha rodado em Windows de verdade.
+    """
+    return str(caminho.relative_to(raiz)).replace("\\", "/")
+
+
 def _ficha(caminho, chave):
     tamanho = caminho.stat().st_size if caminho.exists() else 0
     return {
@@ -140,7 +153,7 @@ def api_fonte_lista():
         for caminho in candidatos:
             if not caminho.is_file() or caminho.suffix.lower() not in ALLOWED_EXTENSIONS:
                 continue
-            relativo = str(caminho.relative_to(raiz))
+            relativo = _chave_relativa(caminho, raiz)
             if relativo in vistos:
                 continue
             vistos.add(relativo)
@@ -309,7 +322,7 @@ def api_fonte_escolher():
     # relativa, que é exatamente o que o motor aceita.
     return jsonify({
         "ok": True, "desistiu": False,
-        "fonte": _ficha(caminho, str(caminho.relative_to(raiz))),
+        "fonte": _ficha(caminho, _chave_relativa(caminho, raiz)),
     })
 
 

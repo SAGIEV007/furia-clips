@@ -6,6 +6,7 @@ import json
 import os
 import sqlite3
 import tempfile
+import time
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -160,6 +161,36 @@ def _read_or_infer_manifest(archive: zipfile.ZipFile):
     return manifest
 
 
+def _substituir_com_tolerancia(origem: str, destino) -> None:
+    """Troca o banco pelo novo, tolerando um arquivo momentaneamente travado.
+
+    No Windows, `os.replace()` recusa se QUALQUER coisa tiver o arquivo de
+    destino aberto no instante exato — o antivírus varrendo, o indexador do
+    Windows, uma janela dele mesmo com o `.sqlite3` aberto num programa de
+    banco de dados. Isso é comum e passa sozinho em menos de um segundo; a
+    versão anterior falhava na primeira tentativa com um erro em inglês que
+    ele não teria como entender ("PermissionError: [WinError 5]").
+
+    Cinco tentativas, um quarto de segundo entre elas — dois segundos de
+    tolerância no total. Se ainda assim não der, o erro final é em português
+    e diz o que fazer.
+    """
+    ultimo_erro = None
+    for tentativa in range(5):
+        try:
+            os.replace(origem, destino)
+            return
+        except PermissionError as erro:
+            ultimo_erro = erro
+            if tentativa < 4:
+                time.sleep(0.25)
+    raise PersistentDataError(
+        "O arquivo do banco está sendo usado por outro programa (antivírus, "
+        "indexador do Windows, ou o próprio arquivo aberto em outro lugar). "
+        "Feche o que estiver usando o arquivo e tente restaurar de novo."
+    ) from ultimo_erro
+
+
 def restore_editorial_backup(archive_path: str):
     """Validate a backup and atomically replace the persistent database.
 
@@ -192,7 +223,7 @@ def restore_editorial_backup(archive_path: str):
             destination_path.parent.mkdir(parents=True, exist_ok=True)
             replacement = destination_path.with_suffix(".restore.sqlite3")
             _sqlite_snapshot(candidate, str(replacement))
-            os.replace(replacement, destination_path)
+            _substituir_com_tolerancia(str(replacement), destination_path)
 
             transcript_root = Path(PERSISTENT_TRANSCRIPTS_DIR).resolve()
             transcript_root.mkdir(parents=True, exist_ok=True)

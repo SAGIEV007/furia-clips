@@ -166,7 +166,13 @@ class RepositorySyncTests(unittest.TestCase):
             with patch("modules.repository_sync.get_db", return_value=_FakeConnection(rows)):
                 result = write_feedback_snapshot(str(repo))
             target = repo / SNAPSHOT_RELATIVE_PATH
-            self.assertEqual(Path(result["path"]), target)
+            # `_repo_path` chama `.resolve()`; no Windows dele isso pode
+            # devolver o nome curto 8.3 (`701562~1` em vez de
+            # `70156213125`) — apelido do MESMO arquivo, não outro lugar.
+            # Resolver os dois lados antes de comparar é o jeito certo de
+            # testar "é o arquivo certo", em vez de "é escrito com as
+            # mesmas letras".
+            self.assertEqual(Path(result["path"]).resolve(), target.resolve())
             self.assertTrue(target.is_file())
             self.assertFalse((repo.parent / "editorial_feedback_snapshot.json").exists())
             saved = json.loads(target.read_text(encoding="utf-8"))
