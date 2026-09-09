@@ -127,7 +127,15 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         if emit_progress:
             emit_progress("Queimando legendas no video...")
 
+        # O ffmpeg le o caminho da legenda como parte da "linguagem" de filtros
+        # (-vf ass=<caminho>), onde virgula, aspas, colchetes e ponto-e-virgula
+        # tem significado especial (separam filtros/opcoes). Titulos de corte
+        # como "Renan Santos 'Que tristeza de país! ..., com jornalistas, com"
+        # tem virgula, e sem escapar isso o ffmpeg quebrava o nome do arquivo
+        # no meio (ex: "No such filter: 'com.ass'").
         ass_escaped = ass_path.replace("\\", "/").replace(":", "\\:")
+        for special_char in (",", "'", "[", "]", ";"):
+            ass_escaped = ass_escaped.replace(special_char, "\\" + special_char)
 
         cmd = [
             "ffmpeg", "-y",

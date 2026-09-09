@@ -1,6 +1,7 @@
 import os
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from modules.subtitle_generator import SubtitleGenerator
 
@@ -66,6 +67,25 @@ class SubtitleGeneratorTests(unittest.TestCase):
             with open(path, encoding="utf-8") as handle:
                 content = handle.read()
         self.assertIn(",360,1\n", content)
+
+    def test_burn_subtitles_escapes_comma_in_title_based_filename(self):
+        # Titulos de corte viram nome de arquivo (ex: "...com jornalistas, com.ass").
+        # A virgula tem significado especial no filtro -vf do ffmpeg e, se nao
+        # for escapada, quebra o caminho no meio (bug real visto em producao:
+        # "No such filter: 'com.ass'").
+        generator = SubtitleGenerator()
+        with tempfile.TemporaryDirectory() as tempdir:
+            video_path = os.path.join(tempdir, "clip.mp4")
+            ass_path = os.path.join(tempdir, "8. Renan Santos critica cobertura da mídia, com jornalistas, com.ass")
+            output_path = os.path.join(tempdir, "clip_leg.mp4")
+
+            with patch("modules.subtitle_generator.subprocess.run") as mock_run:
+                mock_run.return_value.returncode = 0
+                generator.burn_subtitles(video_path, ass_path, output_path)
+
+            cmd = mock_run.call_args[0][0]
+            vf_arg = cmd[cmd.index("-vf") + 1]
+            self.assertIn("\\, com jornalistas\\, com.ass", vf_arg)
 
     def test_generates_srt_with_non_negative_time(self):
         generator = SubtitleGenerator()
