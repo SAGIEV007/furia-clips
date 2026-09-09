@@ -161,8 +161,14 @@ def test_a_distancia_minima_entre_viradas_e_em_segundos():
     curva = [0.9, 0.9, 0.1, 0.9, 0.9, 0.1, 0.9, 0.9]
     tempos = [0.0, 40.0, 80.0, 120.0, 160.0, 200.0, 240.0, 280.0]
 
-    so_frases = _boundaries(curva, min_gap=32)
-    com_tempo = _boundaries(curva, min_gap=32, tempos=tempos, min_gap_s=15.0)
+    # As marcas de voz nos dois vales põem os dois na preferência, que é onde a
+    # regra de distância decide. Sem marca nenhuma o programa cai no teto do
+    # catálogo, que é outra regra e não é a que este teste mede.
+    marcas = [119.0, 239.0]
+
+    so_frases = _boundaries(curva, min_gap=32, trocas_de_voz=marcas)
+    com_tempo = _boundaries(curva, min_gap=32, tempos=tempos, min_gap_s=15.0,
+                            trocas_de_voz=marcas)
 
     assert len(so_frases) == 1, "contando frases, a segunda virada é impossível"
     assert len(com_tempo) == 2, "contando segundos, as duas cabem"
@@ -206,14 +212,30 @@ def test_o_limite_nunca_fica_abaixo_do_alcancavel():
 # ── a porta da troca de voz ─────────────────────────────────────────────────
 
 
-def test_so_vale_de_fronteira_onde_alguem_troca_de_vez():
-    """O que levou a precisão de 18% para 30% nas cinco fontes.
+def test_o_vale_que_cai_numa_troca_de_voz_e_atendido_primeiro():
+    """A porta virou PREFERÊNCIA, porque como filtro ela apagava um ato inteiro.
 
-    Vale de coesão sozinho não distingue virada de assunto de variação normal
-    de vocabulário: 18% das fronteiras propostas eram reais. Nas cinco fontes
-    com gabarito do Acervo, 34 das 39 viradas (87%) caem a menos de 15 s de uma
-    troca de locutor. A troca sozinha também não serve — são 395 trocas para 39
-    viradas — mas serve de porta.
+    Como filtro duro ela levou a precisão de 18% para 30% nas cinco fontes de
+    entrevista, e era a regra certa lá: numa entrevista o assunto vira quando o
+    repórter pergunta outra coisa.
+
+    Num comício não. Medido no ato de 7 de setembro (57 min, 21 assuntos no
+    Acervo), onde o Renan fala sozinho:
+
+        42 candidatos -> a porta deixa 2 -> 1 das 20 viradas achada (5%)
+
+    A trava de "só fecha com três marcas ou mais" não protegia: o ato tem 19
+    trocas, ela abre, e leva 40 candidatos junto.
+
+    Agora quem cai numa troca é atendido PRIMEIRO e os outros continuam
+    elegíveis, completando até o piso do catálogo. Medido nas seis fontes:
+
+        porta como filtro       26/59 achadas 44%   26/65  certeiras 40%
+        porta como preferência  34/59         58%   34/101           34%
+
+    Catorze pontos de alcance por seis de precisão. É a troca certa para quem
+    edita: fronteira perdida vira um bloco mais longo, que o seletor ainda corta
+    por dentro; fronteira a mais vira um corte que ele descarta na tela.
     """
     from modules.topic_segmenter import _boundaries
 
@@ -221,16 +243,30 @@ def test_so_vale_de_fronteira_onde_alguem_troca_de_vez():
     curva = [0.9, 0.9, 0.1, 0.9, 0.9, 0.1, 0.9, 0.9]
     tempos = [0.0, 40.0, 80.0, 120.0, 160.0, 200.0, 240.0, 280.0]
 
-    sem_porta = _boundaries(curva, min_gap=2, tempos=tempos, min_gap_s=15.0)
-    com_porta = _boundaries(
+    com_preferencia = _boundaries(
         curva, min_gap=2, tempos=tempos, min_gap_s=15.0,
         # a fronteira do vale em `i` cai em tempos[i + 1]: o vale em 5 cai aos
         # 240 s e tem marca em cima; o vale em 2 cai aos 120 s e não tem
         trocas_de_voz=[3.0, 239.0, 300.0],
     )
 
-    assert len(sem_porta) == 2, "sem a porta, os dois vales viram fronteira"
-    assert com_porta == [5], "com a porta, só o vale que cai numa troca de voz"
+    assert com_preferencia == [5], (
+        "o vale com troca de voz em cima é o primeiro atendido, e neste material "
+        "curto ele já preenche o que o catálogo prevê"
+    )
+
+    # E o vale sem troca de voz continua ALCANÇÁVEL: é o que devolve o comício.
+    # Aqui o piso é forçado por um material longo o bastante para pedir duas
+    # fronteiras.
+    longos = [passo * 400.0 for passo in range(8)]
+    com_piso = _boundaries(
+        curva, min_gap=2, tempos=longos, min_gap_s=15.0,
+        trocas_de_voz=[3.0, 2000.0, 4000.0],
+    )
+    assert len(com_piso) >= 2, (
+        "num material longo, o vale sem troca de voz completa o piso em vez de "
+        "o vídeo inteiro virar um bloco só"
+    )
 
 
 def test_sem_diarizacao_a_porta_nao_fecha_o_programa():

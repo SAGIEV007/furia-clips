@@ -1,0 +1,5863 @@
+{
+ "fonte": {
+  "videoId": "tY62sQiv0-A",
+  "url": "https://www.youtube.com/watch?v=tY62sQiv0-A",
+  "titulo": "7 DE SETEMBRO - ATO CONTRA STF E TRAIDORES DA NAÇÃO",
+  "duracao_total_s": 3394.4,
+  "canal": "UCMLluq-qSne85Un73ToYI2w"
+ },
+ "janela": {
+  "inicio_s": 12.24,
+  "fim_s": 3394.4
+ },
+ "proveniencia": {
+  "transcriptSource": "youtube_auto:5a20160c43d3d5d91c07ce12b7db293907828b571dbd62a000f9f436fdfbc25f",
+  "tokenizerVersion": "sent-pt-v2",
+  "qualityTier": "automatic",
+  "isQuotation": false,
+  "audioVerificationRequired": true,
+  "note": "Texto de legenda do YouTube: é evidência automática para análise e navegação, nunca uma citação. Confira palavras, nomes e números no áudio; audioCheckRanges marca os tokens de maior risco."
+ },
+ "blocos_de_referencia": [
+  {
+   "start": 12.24,
+   "end": 401.8,
+   "dur": 389.56,
+   "cortes": 4,
+   "titulo": "A apatia brasileira mantém o país preso ao discurso do mal menor",
+   "q": "Por que a sociedade brasileira aceita a apatia e o discurso do mal menor?"
+  },
+  {
+   "start": 401.8,
+   "end": 467.76,
+   "dur": 65.96,
+   "cortes": 2,
+   "titulo": "Lula ou Flávio Bolsonaro: dois caminhos para um país sem reformas",
+   "q": "O que aconteceria com as instituições e as reformas se Lula ou Flávio Bolsonaro vencesse a eleição?"
+  },
+  {
+   "start": 467.76,
+   "end": 610.16,
+   "dur": 142.4,
+   "cortes": 3,
+   "titulo": "Nova direita troca propostas por performance e slogans sobre mulheres",
+   "q": "A nova direita deve apostar em slogans sobre mulheres ou em propostas objetivas para suas vidas?"
+  },
+  {
+   "start": 610.16,
+   "end": 632.84,
+   "dur": 22.68,
+   "cortes": 0,
+   "titulo": "Nomear mulheres para o STF não resolve a crise da Corte",
+   "q": "Nomear mulheres para o STF resolve o problema da Corte?"
+  },
+  {
+   "start": 632.84,
+   "end": 1020.6,
+   "dur": 387.76,
+   "cortes": 4,
+   "titulo": "A prisão mental que impede imaginar e mudar o Brasil",
+   "q": "Como romper a prisão mental e mobilizar os inconformados para mudar o Brasil?"
+  },
+  {
+   "start": 1020.6,
+   "end": 1084.8,
+   "dur": 64.2,
+   "cortes": 2,
+   "titulo": "Elites brasileiras são acusadas de sustentar a decadência do país",
+   "q": "Por que o orador responsabiliza as elites brasileiras pela decadência do país?"
+  },
+  {
+   "start": 1084.8,
+   "end": 1271.36,
+   "dur": 186.56,
+   "cortes": 4,
+   "titulo": "Combater o crime e buscar prosperidade não é radicalismo",
+   "q": "Por que combater o crime e buscar prosperidade não deveriam ser tratados como radicalismo?"
+  },
+  {
+   "start": 1271.36,
+   "end": 1432.64,
+   "dur": 161.28,
+   "cortes": 4,
+   "titulo": "Insubmissão como nova independência contra um país de joelhos",
+   "q": "A insubmissão pode libertar o Brasil de um projeto político de dependência e mediocridade?"
+  },
+  {
+   "start": 1438.36,
+   "end": 1551.8,
+   "dur": 113.44,
+   "cortes": 4,
+   "titulo": "A minoria inconformada pode despertar o Brasil e promover reformas",
+   "q": "Como uma minoria inconformada pode enfrentar os polos políticos e promover reformas?"
+  },
+  {
+   "start": 1601.08,
+   "end": 2136.36,
+   "dur": 535.28,
+   "cortes": 3,
+   "titulo": "Manifesto de 7 de setembro convoca ruptura com elites e ação política",
+   "q": "Como o manifesto de 7 de setembro propõe reagir à crise política brasileira?"
+  },
+  {
+   "start": 2143.64,
+   "end": 2179.08,
+   "dur": 35.44,
+   "cortes": 1,
+   "titulo": "Convite a candidatos de direita para assinar manifesto contra envolvidos no Banco Master",
+   "q": "Por que os candidatos de direita são convidados a assinar o manifesto?"
+  },
+  {
+   "start": 2193.44,
+   "end": 2445.48,
+   "dur": 252.04,
+   "cortes": 5,
+   "titulo": "Propostas para mulheres devem ir além de promessas simbólicas",
+   "q": "Como beneficiar as mulheres sem recorrer a promessas simbólicas?"
+  },
+  {
+   "start": 2461.64,
+   "end": 2514.76,
+   "dur": 53.12,
+   "cortes": 2,
+   "titulo": "Candidato cobra justiça, transparência e respeito à Constituição no STF",
+   "q": "O que o candidato espera do voto de Carmen Lúcia e dos ministros da Suprema Corte?"
+  },
+  {
+   "start": 2517.72,
+   "end": 2688.16,
+   "dur": 170.44,
+   "cortes": 3,
+   "titulo": "Entrevistado rejeita decisões do STF que considera subordinadas ao Banco Master",
+   "q": "O que fazer diante de decisões do STF que o entrevistado considera ilegais e subordinadas ao Banco Master?"
+  },
+  {
+   "start": 2704.64,
+   "end": 2779.52,
+   "dur": 74.88,
+   "cortes": 3,
+   "titulo": "Independência formal não basta: o Estado não representa o povo",
+   "q": "Por que a independência formal do Brasil não significa que o povo seja realmente independente?"
+  },
+  {
+   "start": 2781.8,
+   "end": 2813.84,
+   "dur": 32.04,
+   "cortes": 1,
+   "titulo": "Sem medo de represálias do STF, mas prevendo que elas podem ocorrer",
+   "q": "O respondente teme novas represálias do STF após o ato?"
+  },
+  {
+   "start": 2820.56,
+   "end": 2902.96,
+   "dur": 82.4,
+   "cortes": 3,
+   "titulo": "Prisão em segunda instância e instituições independentes contra a corrupção",
+   "q": "Quais medidas o plano de governo propõe para recuperar a prisão em segunda instância e fortalecer o combate à corrupção?"
+  },
+  {
+   "start": 2911.04,
+   "end": 3070.48,
+   "dur": 159.44,
+   "cortes": 2,
+   "titulo": "Eleição polarizada e vazia exige debate aberto e mobilização nacional",
+   "q": "Como romper a polarização e fazer uma candidatura crescer em uma eleição sem propostas nem debates?"
+  },
+  {
+   "start": 3071.92,
+   "end": 3177.8,
+   "dur": 105.88,
+   "cortes": 2,
+   "titulo": "Colete à prova de balas só é usado diante de risco concreto",
+   "q": "Quando o colete à prova de balas é necessário?"
+  },
+  {
+   "start": 3201.92,
+   "end": 3314.72,
+   "dur": 112.8,
+   "cortes": 2,
+   "titulo": "Manifesto exige candidatos sem ligação com Banco Master e com coragem",
+   "q": "Quais requisitos os candidatos devem cumprir para assinar o manifesto?"
+  },
+  {
+   "start": 3340.64,
+   "end": 3394.4,
+   "dur": 53.76,
+   "cortes": 1,
+   "titulo": "Delações podem levar ministros à prisão",
+   "q": "Delações podem levar ministros à prisão?"
+  }
+ ],
+ "sentencas": [
+  {
+   "start": 12.24,
+   "end": 16.48,
+   "text": "Eh, este aqui é um momento muito interessante, especialmente retornando de viagem,",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 16.48,
+   "end": 19.0,
+   "text": "eh, e entendendo o momento que o país passa.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 19.0,
+   "end": 22.32,
+   "text": "E a mensagem que eu quero passar para vocês não é uma mensagem",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 22.32,
+   "end": 25.56,
+   "text": "feliz, ao menos o curto prazo, tá?",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 25.56,
+   "end": 29.56,
+   "text": "Teu país tá completamente destruído e não há,",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 29.56,
+   "end": 33.8,
+   "text": "eu vou repetir, não há da sociedade brasileira",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 33.8,
+   "end": 38.0,
+   "text": "nenhum pingo de vontade em alterar isso.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 38.0,
+   "end": 43.08,
+   "text": "Não há no seio da sociedade brasileira nenhuma vontade",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 43.08,
+   "end": 48.0,
+   "text": "em abandonar as velhas práticas que dominam a política brasileira,",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 48.0,
+   "end": 51.16,
+   "text": "em se revoltar com aqueles que estão nos roubando.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 51.16,
+   "end": 55.32,
+   "text": "Eu tive agora em Recife, em Fortaleza, em São Luís do Maranhão,",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 55.32,
+   "end": 58.64,
+   "text": "retorno para São Paulo e o que eu percebo cada vez mais",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 58.64,
+   "end": 64.28,
+   "text": "que é apenas a geração mais nova que está de fato preocupada com o futuro do Brasil.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 64.28,
+   "end": 70.36,
+   "text": "Eu tenho certeza absoluta que os brasileiros continuam deitados em berço esplêndido,",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 70.36,
+   "end": 74.0,
+   "text": "sem aceitar que o destino pode ser diferente",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 74.0,
+   "end": 79.48,
+   "text": "e apenas abraçando o a mesmice, o erro como algo constante",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 79.48,
+   "end": 81.28,
+   "text": "na sua natureza.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 81.28,
+   "end": 85.4,
+   "text": "É impressionante que as pessoas não estejam indignadas",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 85.4,
+   "end": 87.36,
+   "text": "com o que a Suprema Corte está fazendo.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 87.36,
+   "end": 90.88,
+   "text": "E é mais impressionante ainda que diante desses fatos,",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 90.88,
+   "end": 94.96,
+   "text": "Lula e Flávio Bolsonaro continuem liderando as pesquisas.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 94.96,
+   "end": 97.04,
+   "text": "Isso é assustador, meus amigos.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 97.04,
+   "end": 103.76,
+   "text": "Isso é assustador, porque o povo brasileiro que no fim nunca foi sobre combater a corrupção,",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 103.76,
+   "end": 109.96,
+   "text": "nunca foi sobre ter um país decente, mas sim fala que o seu ladrão rouba menos do que o avizinho.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 109.96,
+   "end": 115.36,
+   "text": "E é isso que tá sendo legado para vocês das gerações mais novas.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 115.36,
+   "end": 121.12,
+   "text": "Um país completamente cínico, um país que abandonou qualquer vontade de mudar,",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 121.12,
+   "end": 126.44,
+   "text": "um país que além de colocar esses dois, esses dois seres,",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 126.44,
+   "end": 130.48,
+   "text": "eu tenho que ser, eu tenho que ter cuidado com as palavras, que disseram que eu agora sou agressivo,",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 130.48,
+   "end": 130.88,
+   "text": "né?",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 130.88,
+   "end": 133.6,
+   "text": "esses dois seres humanos, esses dois ajuntamentos",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 133.6,
+   "end": 140.32,
+   "text": "de carbono, na primeira colocação e na segunda nas pesquisas,",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 140.32,
+   "end": 146.32,
+   "text": "os brasileiros avisam ainda que nada precisa ser feito,",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 146.32,
+   "end": 153.88,
+   "text": "que não há revolta, que veja que parte daquilo que a gente chamava de antipetismo, que 10 anos atrás",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 153.88,
+   "end": 159.68,
+   "text": "estava conosco nas manifestações que pediram o impeachment de Russef e que conseguiram vencer de Russef,",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 159.68,
+   "end": 166.04,
+   "text": "que hoje aceitam de maneira tranquila o discurso do ah, talvez fulano é mal menor,",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 166.04,
+   "end": 168.64,
+   "text": "talvez cicrano é mal menor.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 168.64,
+   "end": 175.76,
+   "text": "Falo isso com o coração cheio de dor, porque a nossa função é despertar o Brasil.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 175.76,
+   "end": 182.4,
+   "text": "Mas eu vou repetir, o papel dessa não será o papel de despertar os brasileiros.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 182.4,
+   "end": 186.48,
+   "text": "Nós precisamos despertar primeiro os melhores.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 186.48,
+   "end": 188.76,
+   "text": "E vocês vêm cumprindo esse papel.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 188.76,
+   "end": 193.48,
+   "text": "As gerações mais novas no Brasil são as únicas que entenderam o problema brasileiro,",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 193.48,
+   "end": 196.68,
+   "text": "porque as gerações mais velhas decidiram, por conta própria,",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 196.68,
+   "end": 200.12,
+   "text": "abandonar o país a própria sorte.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 200.12,
+   "end": 204.44,
+   "text": "Isso aqui não é a palavra fácil de um discurso político eleitoral",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 204.44,
+   "end": 206.84,
+   "text": "de um candidato buscando votos.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 206.84,
+   "end": 211.52,
+   "text": "Isso aqui é o a fala verdadeira de uma pessoa que antes de candidato",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 211.52,
+   "end": 215.12,
+   "text": "é um brasileiro e que tá vendo o seu país novamente",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 215.12,
+   "end": 220.6,
+   "text": "sergado às traças pelos erros tomados pelas pessoas em posição de poder,",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 220.6,
+   "end": 224.52,
+   "text": "pelas lideranças empresariais, lideranças setoriais",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 224.52,
+   "end": 229.08,
+   "text": "e pelos homens e mulheres mais velhos que continuam",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 229.08,
+   "end": 233.32,
+   "text": "ano após ano viciados no erro.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 233.32,
+   "end": 239.2,
+   "text": "As pessoas estão viciadas no erro.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 239.2,
+   "end": 243.64,
+   "text": "A raiva que me vem no coração é muito grande.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 243.64,
+   "end": 248.88,
+   "text": "Eu olho pesquisas e o que eu vejo agora é ascensão.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 248.88,
+   "end": 254.12,
+   "text": "Veja só, não só a manutenção do absurdo, mas a ascensão da covardia,",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 254.12,
+   "end": 256.92,
+   "text": "a ascensão do discurso vazio.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 256.92,
+   "end": 261.24,
+   "text": "A resposta de que certo eleitor tá dando de meia idade, especialmente",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 261.24,
+   "end": 264.52,
+   "text": "mulher, é: \"Não quero saber nada com política.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 264.52,
+   "end": 271.88,
+   "text": "que era um rivotril, que é o discurso de Augusto Curi, que é ainda pior do que o discurso dos demais que lideram.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 271.88,
+   "end": 275.2,
+   "text": "Os demais são dois ladrões, os demais são bandidos,",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 275.2,
+   "end": 278.32,
+   "text": "os demais estão envolvidos no escândalo do Banco Master, do NSS",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 278.32,
+   "end": 280.48,
+   "text": "e nos escândalos de emenda.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 280.48,
+   "end": 282.16,
+   "text": "São esses dois primeiros.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 282.16,
+   "end": 287.04,
+   "text": "O terceiro colocado agora nas pesquisas prega que vocês não façam nada,",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 287.04,
+   "end": 288.72,
+   "text": "nada.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 288.72,
+   "end": 294.84,
+   "text": "Numa recente entrevista que deu junto a a um veículo de imprensa numa dessas sabatinas,",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 294.84,
+   "end": 297.96,
+   "text": "ele afirmou que ele consegue subir na favela",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 297.96,
+   "end": 301.44,
+   "text": "porque os traficantes gostam de ler os livros dele na cadeia",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 301.44,
+   "end": 305.32,
+   "text": "e que isso e que isso é bom.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 305.32,
+   "end": 307.16,
+   "text": "E que isso é bom.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 307.16,
+   "end": 311.48,
+   "text": "E pessoas assistem uma entrevista dela e falam: \"Nossa, me parece sensato.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 311.48,
+   "end": 315.16,
+   "text": "Me parece sensato que negociar com um traficante",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 315.16,
+   "end": 322.08,
+   "text": "que mata a gente todo dia e ser admirado por um traficante que mata a gente todo dia é uma coisa boa.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 322.08,
+   "end": 324.76,
+   "text": "E que se você adotar a postura que nós adotamos,",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 324.76,
+   "end": 328.6,
+   "text": "que é de enfrentar o mal, não importa o tamanho do mal,",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 328.6,
+   "end": 332.56,
+   "text": "de que você é agressivo, de que você está errado.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 332.56,
+   "end": 335.48,
+   "text": "Eu conversei nos últimos dias com jornalistas,",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 335.48,
+   "end": 338.92,
+   "text": "com analistas e até marqueteiros vieram falar comigo: \"Renan,",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 338.92,
+   "end": 345.24,
+   "text": "mude sua forma de falar, mude o discurso, mude suas propostas\".",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 345.24,
+   "end": 348.16,
+   "text": "O povo está cansado de política.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 348.16,
+   "end": 351.2,
+   "text": "O povo quer apenas, eu falei, quer apenas o quê?",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 351.2,
+   "end": 353.76,
+   "text": "Aí o marqueteiro, o povo não sabe o que quer,",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 353.76,
+   "end": 356.64,
+   "text": "mas seja legal com ele.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 356.64,
+   "end": 359.8,
+   "text": "Eu não posso ser legal com quem não sabe o que quer.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 359.8,
+   "end": 363.76,
+   "text": "Quando você não sabe o que quer, você é conduzido por quem sabe o que quer.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 363.76,
+   "end": 367.64,
+   "text": "Quando você não sabe o que quer, seu destino não é seu.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 367.64,
+   "end": 372.72,
+   "text": "Seu destino é das circunstâncias, ou pior, de pessoas más.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 372.72,
+   "end": 376.4,
+   "text": "As gerações mais velhas nos entregaram como um",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 376.4,
+   "end": 382.88,
+   "text": "como a deriva, perdida em alto mar, sem saber para onde ir.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 382.88,
+   "end": 385.6,
+   "text": "É terrível, é terrível o cenário.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 385.6,
+   "end": 389.68,
+   "text": "Só que todas as vezes que eu rodo o Brasil também",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 389.68,
+   "end": 393.0,
+   "text": "eu me deparo com pessoas como vocês que estão aqui,",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 393.0,
+   "end": 397.24,
+   "text": "que é um misto de gerações mais novas, com pessoas que entenderam",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 397.24,
+   "end": 398.96,
+   "text": "a gravidade do momento.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 398.96,
+   "end": 401.8,
+   "text": "E a grave do gravidade do momento é terrível.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 401.8,
+   "end": 407.6,
+   "text": "Estamos diante de um quadro em que se Lula for reeleito, ele coloca mais quatro ministros do STF.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 407.6,
+   "end": 413.52,
+   "text": "Ele terá controle total sobre o STF e depois ele terá controle total sobre a Câmara dos Deputados e o Senado,",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 413.52,
+   "end": 417.28,
+   "text": "porque com o com o STF dominado, ele vai para cima das emendas",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 417.28,
+   "end": 423.08,
+   "text": "dos bandidos que controlam os poderes e aí ele vai submetê-los todos ao seu projeto de poder.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 423.08,
+   "end": 425.96,
+   "text": "Vai ser pela primeira vez um governo verdadeiramente",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 425.96,
+   "end": 431.0,
+   "text": "petista dos quatro governos que Lula teve e de um governo e meio que a Dilma teve.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 431.0,
+   "end": 435.44,
+   "text": "Se Flávio Bolsonaro vem vence, nós teremos o governo dos corruptos.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 435.44,
+   "end": 438.92,
+   "text": "Ou seja, a gente pode ter ou com o Lula um governo",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 438.92,
+   "end": 443.0,
+   "text": "autoritário à esquerda, ou com Flávio Bolsonaro,",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 443.0,
+   "end": 451.28,
+   "text": "uma oligarquia de corruptos do centrão fazendo nomeações para STF para salvar todos eles dos mesmos escândalos de corrupção que nós mencionamos.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 451.28,
+   "end": 453.64,
+   "text": "Em ambos os casos, o seu país está destruído.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 453.64,
+   "end": 455.88,
+   "text": "Em ambos os casos, não haverá reforma.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 455.88,
+   "end": 459.72,
+   "text": "Em ambos os casos, o futuro de todos vocês que estão aqui nos assistindo",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 459.72,
+   "end": 462.32,
+   "text": "será rifado.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 462.32,
+   "end": 465.36,
+   "text": "E as pessoas não querem despertar.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 465.36,
+   "end": 467.76,
+   "text": "As pessoas não querem despertar.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 467.76,
+   "end": 473.24,
+   "text": "E quando eu olho, volto a repetir, a reação do povo",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 473.24,
+   "end": 477.24,
+   "text": "diante do problema, eu me espanto.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 477.24,
+   "end": 480.76,
+   "text": "Eu me espanto com as pessoas perdidas em redes sociais,",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 480.76,
+   "end": 483.72,
+   "text": "arrastando o dedo para lá e para cá, perdendo tempo com distrações,",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 483.72,
+   "end": 484.76,
+   "text": "idiotas.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 484.76,
+   "end": 492.56,
+   "text": "Eu me assusto quando eu vejo o discurso dos jovens de direita hoje.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 492.56,
+   "end": 495.4,
+   "text": "Agora todo mundo para ser direita tem que dançar funk,",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 495.4,
+   "end": 498.52,
+   "text": "colocar um óculos Juliete e ficar dançando no meio da rua.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 498.52,
+   "end": 500.12,
+   "text": "É isso que traz voto.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 500.12,
+   "end": 503.84,
+   "text": "Provavelmente os deputados mais votados de Minas Gerais e de São Paulo,",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 503.84,
+   "end": 506.96,
+   "text": "eles ganharão suas eleições dançando funk.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 506.96,
+   "end": 510.96,
+   "text": "Não há uma proposta dessas pessoas, uma proposta pro Brasil",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 510.96,
+   "end": 513.0,
+   "text": "oriunda dessas pessoas.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 513.0,
+   "end": 514.88,
+   "text": "Zero.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 514.88,
+   "end": 517.8,
+   "text": "Ninguém propôs nada.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 517.8,
+   "end": 524.64,
+   "text": "Quando eu conversei com jornalistas e marqueteiros, o que disseram para mim foi: \"Você tá colocando muitas propostas e as pessoas ficam confusas.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 524.64,
+   "end": 529.6,
+   "text": "É muita coisa que você tá falando e quando você apresenta muita coisa, ninguém sabe como escolher\".",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 529.6,
+   "end": 532.8,
+   "text": "Eu fiquei até um pouco assustado.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 532.8,
+   "end": 533.96,
+   "text": "Falei: \"Ah, eu entendi.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 533.96,
+   "end": 539.04,
+   "text": "É para tratar as pessoas como idiotas e não idiotas, mas",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 539.04,
+   "end": 544.72,
+   "text": "as pessoas elas e elas estão com a atenção um pouco atrapalhada.\" Falei: \"Entendi, as pessoas estão idiotas.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 544.72,
+   "end": 549.6,
+   "text": "É isso que você quer dizer para mim?\" disseram para mim, Renan, você vai melhorar",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 549.6,
+   "end": 553.64,
+   "text": "sua votação entre as mulheres falando de mulheres?",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 553.64,
+   "end": 556.44,
+   "text": "Falei: \"Mas eu falo de educação, eu tô falando de um problema",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 556.44,
+   "end": 558.08,
+   "text": "concernente à vida das mulheres.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 558.08,
+   "end": 561.08,
+   "text": "Quando eu falo de segurança, eu tô falando de um problema para as mulheres.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 561.08,
+   "end": 567.8,
+   "text": "Quando eu falo de de problemas econômicos, eu tô falando de um problema que aflige o bolso também das mulheres.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 567.8,
+   "end": 572.2,
+   "text": "Quando eu falo de questões de crescimento econômico, eu falo em dinheiro no bolso",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 572.2,
+   "end": 573.84,
+   "text": "das mulheres.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 573.84,
+   "end": 577.52,
+   "text": "Quando eu falo de todas as nossas propostas, tô falando de propostas para as mulheres,",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 577.52,
+   "end": 581.24,
+   "text": "mas me disseram: \"Não, você precisa falar de mulheres\".",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 581.24,
+   "end": 585.56,
+   "text": "Eu entendi, eu entendi.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 585.56,
+   "end": 590.64,
+   "text": "Eu tenho que falar mulher, parabéns por ser mulher",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 590.64,
+   "end": 592.28,
+   "text": "e obter votos.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 592.28,
+   "end": 598.04,
+   "text": "Eu não consigo aceitar que as mulheres precisem ser tratadas iguais idiotas",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 598.04,
+   "end": 601.44,
+   "text": "e que nós não podemos ter um discurso político objetivo",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 601.44,
+   "end": 604.2,
+   "text": "que fale da vida das mulheres, que não passe",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 604.2,
+   "end": 608.36,
+   "text": "em ter que ficar na prática citando mulher como um fim em si mesmo.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 608.36,
+   "end": 610.16,
+   "text": "Mulher, viva mulher.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 610.16,
+   "end": 615.84,
+   "text": "Meus adversários nas eleições estão propondo como solução para o problema que nós temos no STF",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 615.84,
+   "end": 619.28,
+   "text": "nomear mulheres para o STF.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 619.28,
+   "end": 625.0,
+   "text": "Não me parece ser essa solução a despeito de termos mulheres muito qualificadas pro cargo.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 625.0,
+   "end": 627.4,
+   "text": "Me parece apenas está todo mundo fazendo média",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 627.4,
+   "end": 629.64,
+   "text": "num país em que as mulheres também desistiram",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 629.64,
+   "end": 632.84,
+   "text": "de discutir política.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 632.84,
+   "end": 636.24,
+   "text": "Todos vêm me pedindo o tempo todo para eu ser falso,",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 636.24,
+   "end": 638.56,
+   "text": "para eu diminuir a qualidade do nosso discurso",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 638.56,
+   "end": 641.88,
+   "text": "e diminuir a veemência para não machucar os corações das pessoas.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 641.88,
+   "end": 645.12,
+   "text": "Não fale de desfavorização, por favor.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 645.12,
+   "end": 648.64,
+   "text": "As pessoas que moram nas nos bairros, nas comunidades e nas favelas",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 648.64,
+   "end": 650.0,
+   "text": "podem ficarcadas.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 650.0,
+   "end": 652.72,
+   "text": "Eu, mas como eu quero que elas vivam melhor?",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 652.72,
+   "end": 657.68,
+   "text": "O que que nós estamos falando de errado quando nós propomos mudar um país radicalmente?",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 657.68,
+   "end": 661.96,
+   "text": "E a verdade é que as pessoas odeiam hoje tanto o Brasil",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 661.96,
+   "end": 666.72,
+   "text": "que quando você pensa em melhorar ele, as pessoas fazem objeções contra você.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 666.72,
+   "end": 673.56,
+   "text": "Quando você tenta sonhar que o seu país vai ser melhor para todo mundo, homens e mulheres, brancos e negros, todo mundo,",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 673.56,
+   "end": 679.64,
+   "text": "todos virão com objeções, porque ninguém pode deixar que você imagine que o seu país pode ser diferente",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 679.64,
+   "end": 681.76,
+   "text": "deste lixo que ele se tornou.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 681.76,
+   "end": 684.0,
+   "text": "O Brasil se tornou um lixo.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 684.0,
+   "end": 687.08,
+   "text": "O Brasil se tornou um país injusto com quem trabalha.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 687.08,
+   "end": 693.52,
+   "text": "O Brasil se tornou um país mal com homens e mulheres que saem às ruas para trabalhar, para construir sua vida.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 693.52,
+   "end": 696.28,
+   "text": "O Brasil se tornou um país de privilegiados.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 696.28,
+   "end": 698.96,
+   "text": "O Brasil se tornou um país em que o juiz ganha R$ 300.000",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 698.96,
+   "end": 699.92,
+   "text": "por mês.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 699.92,
+   "end": 704.84,
+   "text": "O Brasil se tornou um país em que membros da Suprema Corte participam de escândalos de corrupção",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 704.84,
+   "end": 709.48,
+   "text": "com os mesmos inimigos políticos dele, à esquerda e à direita, que vocês veem no noticiário",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 709.48,
+   "end": 712.0,
+   "text": "xingando uns aos outros.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 712.0,
+   "end": 715.56,
+   "text": "O Brasil se tornou este país que não vale a pena ser vivido",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 715.56,
+   "end": 721.48,
+   "text": "e a única coisa que nos resta é imaginar que ele pode ser diferente.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 721.48,
+   "end": 724.48,
+   "text": "A imaginação é a válvula de escape das pessoas",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 724.48,
+   "end": 727.84,
+   "text": "que não aceitam a prisão a qual elas foram submetidas.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 727.84,
+   "end": 730.4,
+   "text": "Vocês foram submetidos a uma prisão.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 730.4,
+   "end": 734.12,
+   "text": "Ter Lula e Flávio Bolsonaro nos primeiros lugares",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 734.12,
+   "end": 737.36,
+   "text": "nessas eleições é uma prisão mental.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 737.36,
+   "end": 739.84,
+   "text": "É uma prisão que vocês estão sendo submetidos",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 739.84,
+   "end": 745.68,
+   "text": "pelos covardes e pelos preguiçosos que querem te impor que o teu destino é apenas esta porcaria,",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 745.68,
+   "end": 749.52,
+   "text": "que o teu país não pode ser diferente.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 749.52,
+   "end": 754.52,
+   "text": "E aí na prisão como alternativa um livro do Augusto Curi",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 754.52,
+   "end": 759.12,
+   "text": "para que você possa ler e saia de lá como uma pessoa melhor,",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 759.12,
+   "end": 766.6,
+   "text": "alienada, num torpor eterno, mentindo para si própria,",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 766.6,
+   "end": 769.64,
+   "text": "num ciclo de Rivotril.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 769.64,
+   "end": 774.2,
+   "text": "Que maluquice, que tristeza de país.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 774.2,
+   "end": 779.76,
+   "text": "O que que fizeram com esta que era para ser uma das maiores nações do mundo?",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 779.76,
+   "end": 786.0,
+   "text": "Só resta a nós, na data da independência organizarmos",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 786.0,
+   "end": 791.6,
+   "text": "aquilo que há de melhor no nosso país, que são essas pessoas que despertaram",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 791.6,
+   "end": 797.8,
+   "text": "e que ousaram trancafiar sua imaginação na prisão mental desses nossos inimigos.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 797.8,
+   "end": 804.04,
+   "text": "Quem ousou libertar a sua imaginação e sonhar conosco as propostas de Brasil",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 804.04,
+   "end": 809.32,
+   "text": "diferente que eu continuei apresentando a despeito de todas essas críticas,",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 809.32,
+   "end": 814.56,
+   "text": "tem que continuar esta luta, porque assim como não recuamos pro Dias Toófoli,",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 814.56,
+   "end": 817.8,
+   "text": "não recuaremos pra covardia do brasileiro.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 817.8,
+   "end": 819.8,
+   "text": "Nós não recuaremos.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 819.8,
+   "end": 824.4,
+   "text": "O nosso partido, a nossa causa, a nossa luta",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 824.4,
+   "end": 828.0,
+   "text": "é essa imaginação que ninguém vai aprisionar.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 828.0,
+   "end": 832.08,
+   "text": "E eu aviso para todos vocês aqui, eu não vou mudar.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 832.08,
+   "end": 834.6,
+   "text": "Eu não vou mudar uma vírgula como candidato.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 834.6,
+   "end": 836.92,
+   "text": "Eu não vou mudar uma vírgula como pessoa.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 836.92,
+   "end": 840.08,
+   "text": "E eu não vou mudar uma vírgula como líder.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 840.08,
+   "end": 844.2,
+   "text": "Porque quem se conforma ao erro errado está.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 844.2,
+   "end": 846.72,
+   "text": "Não vamos nos conformar ao erro.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 846.72,
+   "end": 849.56,
+   "text": "Sejamos inconformados.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 849.56,
+   "end": 851.96,
+   "text": "Sejamos indignados.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 851.96,
+   "end": 854.88,
+   "text": "Não aceitemos os números de um Flávio Bolsonaro",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 854.88,
+   "end": 857.52,
+   "text": "corrupto, nem de um Lula corrupto.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 857.52,
+   "end": 861.92,
+   "text": "Não aceitemos o torpor ou a covardia.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 861.92,
+   "end": 864.12,
+   "text": "Sejam inconformados.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 864.12,
+   "end": 870.44,
+   "text": "Há milhões de brasileiros como vocês e eu os encontro todas as vezes que eu saio de São Paulo.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 870.44,
+   "end": 872.8,
+   "text": "Estive em Recife numa plateia gigantesca.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 872.8,
+   "end": 876.12,
+   "text": "Estive em Fortaleza numa plateia gigantesca.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 876.12,
+   "end": 878.92,
+   "text": "Todas as pessoas pensam como vocês.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 878.92,
+   "end": 883.28,
+   "text": "Vocês têm uma irmandade espalhada pelo Brasil.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 883.28,
+   "end": 889.48,
+   "text": "Vocês são o Brasil que vale a pena, porque diferente dos demais, vocês não desistiram do Brasil.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 889.48,
+   "end": 893.92,
+   "text": "E com vocês nós iremos até o inferno.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 893.92,
+   "end": 897.72,
+   "text": "Com vocês nós faremos o que for necessário.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 897.72,
+   "end": 901.0,
+   "text": "Com vocês nós nunca vergaremos a coluna.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 901.0,
+   "end": 904.92,
+   "text": "Nós nunca alteraremos o discurso, porque quem fala a verdade",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 904.92,
+   "end": 908.16,
+   "text": "tem o dever moral de propagar a verdade.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 908.16,
+   "end": 912.2,
+   "text": "Não deixemos de falar verdade, porque a verdade não é conveniente",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 912.2,
+   "end": 915.12,
+   "text": "para um eleitor covarde.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 915.12,
+   "end": 919.12,
+   "text": "Não deixemos de falar a verdade, porque a verdade não é conveniente",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 919.12,
+   "end": 924.28,
+   "text": "para pessoas que querem se submeter, que querem aceitar que viver tem que ser ruim,",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 924.28,
+   "end": 928.92,
+   "text": "que a nossa nação que tem que ser injusta, que você será roubado no meio da rua.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 928.92,
+   "end": 930.56,
+   "text": "Não aceite isso.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 930.56,
+   "end": 935.76,
+   "text": "Se você conhece a verdade, a verdade te liberta.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 935.76,
+   "end": 939.8,
+   "text": "Só que a liberdade vem com a responsabilidade.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 939.8,
+   "end": 943.84,
+   "text": "E a nossa responsabilidade é vencer todos esses caras,",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 943.84,
+   "end": 946.16,
+   "text": "é vencer todos esses bandidos.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 946.16,
+   "end": 950.28,
+   "text": "E a nossa responsabilidade é lutar duas, três,",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 950.28,
+   "end": 953.28,
+   "text": "quatro vezes mais.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 953.28,
+   "end": 954.52,
+   "text": "Esse é o nosso dever.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 954.52,
+   "end": 967.4,
+   "text": "Vocês têm um dever gigantesco.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 967.4,
+   "end": 972.08,
+   "text": "Eu não vim aqui repetir palavra de ordem para vocês.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 972.08,
+   "end": 974.56,
+   "text": "Não sou eu essa pessoa.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 974.56,
+   "end": 979.96,
+   "text": "Eu não vou passar o discurso bonitinho que às vezes na eventos como esse",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 979.96,
+   "end": 980.64,
+   "text": "merecem.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 980.64,
+   "end": 984.6,
+   "text": "Eu também poderia dizer aqui, aqui nós estamos para prender o Diastófol",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 984.6,
+   "end": 986.44,
+   "text": "e para prender o Alexandre de Moraes.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 986.44,
+   "end": 989.6,
+   "text": "Ora, precisamos ganhar as eleições para fazer isso,",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 989.6,
+   "end": 993.2,
+   "text": "porque antes dela ninguém o fará.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 993.2,
+   "end": 995.68,
+   "text": "Ninguém o fará.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 995.68,
+   "end": 999.56,
+   "text": "Há um acordão gestado entre todos os líderes nas pesquisas,",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 999.56,
+   "end": 1002.92,
+   "text": "tanto o Lula quanto o Flávio.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1002.92,
+   "end": 1008.16,
+   "text": "Há um acordão entre todos eles, porque todos eles estão nos mesmos escândalos.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1008.16,
+   "end": 1009.92,
+   "text": "Não aceitem isso.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1009.92,
+   "end": 1013.4,
+   "text": "Não aceitem aí o comportamento de manada que",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1013.4,
+   "end": 1017.8,
+   "text": "avança para vocês e avança para cima de da família de vocês, exigindo que vocês",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1017.8,
+   "end": 1020.6,
+   "text": "desistam.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1020.6,
+   "end": 1025.0,
+   "text": "Sejam mais fortes, derrotem eles.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1025.0,
+   "end": 1029.96,
+   "text": "Eu volto a colocar, a única coisa bonita e verdadeira",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1029.96,
+   "end": 1033.28,
+   "text": "que está acontecendo no Brasil são vocês.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1033.28,
+   "end": 1035.8,
+   "text": "Eu estive com todas as elites do Brasil.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1035.8,
+   "end": 1040.08,
+   "text": "Eu tive com empresários, tive com gente importante,",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1040.08,
+   "end": 1045.56,
+   "text": "tive com políticos, tive com juristas, tive com intelectuais.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1045.56,
+   "end": 1051.76,
+   "text": "Nenhum deles imagina o que vocês imaginam e nenhum deles transformam em ação a sua indignação.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1051.76,
+   "end": 1053.88,
+   "text": "A nossa elite é um lixo.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1053.88,
+   "end": 1056.44,
+   "text": "A nossa elite intelectual é um lixo.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1056.44,
+   "end": 1059.28,
+   "text": "As pessoas que comandam as posições de poder no Brasil",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1059.28,
+   "end": 1061.84,
+   "text": "merecem o lixo que se tornou o nosso país.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1061.84,
+   "end": 1065.04,
+   "text": "Elas são corresponsáveis por isso.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1065.04,
+   "end": 1067.52,
+   "text": "Elas são o fracasso.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1067.52,
+   "end": 1071.16,
+   "text": "O fracasso que é ambulante e é o fracasso que caminha.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1071.16,
+   "end": 1074.72,
+   "text": "E é o fracasso que olha para vocês com medo.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1074.72,
+   "end": 1080.8,
+   "text": "E é por isso que todas as entrevistas que eu dou e todas as sabatinas são acompanhadas por um susto",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1080.8,
+   "end": 1084.8,
+   "text": "e por um medo dos jornalistas e das jornalistas.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1084.8,
+   "end": 1087.2,
+   "text": "Eu não falo nada de radical.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1087.2,
+   "end": 1090.6,
+   "text": "Absolutamente nada é radical no nosso discurso.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1090.6,
+   "end": 1097.4,
+   "text": "Ousar dizer que um homem que aparece com uma arma e aponta para uma pessoa na rua tem que tomar um tiro do policial",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1097.4,
+   "end": 1099.28,
+   "text": "é radicalismo.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1099.28,
+   "end": 1103.96,
+   "text": "É aceitar, portanto, que normal é ser assaltado.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1103.96,
+   "end": 1107.56,
+   "text": "Eu não acho que ser assaltado é normal.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1107.56,
+   "end": 1111.4,
+   "text": "Chamar de radical você querer que a sua nação seja poderosa.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1111.4,
+   "end": 1116.72,
+   "text": "Chamar de radical você querer que milhões de brasileiros que vivam em favelas tenham moradia digna.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1116.72,
+   "end": 1124.88,
+   "text": "que tem um emprego perto de casa, que tem uma escola, que tem um polícia perto de casa, que isso é ser radical e preconceituoso,",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1124.88,
+   "end": 1128.36,
+   "text": "é aceitar que pessoas que bebem o próprio esgoto,",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1128.36,
+   "end": 1130.88,
+   "text": "pessoas que vivem sob o julgo do crime organizado,",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1130.88,
+   "end": 1134.32,
+   "text": "é o normal, é o democrático.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1134.32,
+   "end": 1138.6,
+   "text": "Eu não aceito essa democracia que torna brasileiros escravos do crime organizado",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1138.6,
+   "end": 1140.72,
+   "text": "e ladrões donos das nossas ruas.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1140.72,
+   "end": 1144.2,
+   "text": "Se isso é democracia para vocês, eu não sou um democrata.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1144.2,
+   "end": 1148.16,
+   "text": "Eu volto a repetir, se isso é democracia para esses senhores,",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1148.16,
+   "end": 1150.16,
+   "text": "eu não sou um democrata.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1150.16,
+   "end": 1154.08,
+   "text": "A democracia se baseia numa república, numa república.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1154.08,
+   "end": 1157.88,
+   "text": "Antes de tudo, nós somos uma república democrática,",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1157.88,
+   "end": 1161.48,
+   "text": "uma república que é federativa, uma república,",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1161.48,
+   "end": 1163.6,
+   "text": "portanto, que tem um sistema de valores.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1163.6,
+   "end": 1167.2,
+   "text": "E antes de tudo, os direitos humanos os brasileiros têm que ser respeitados.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1167.2,
+   "end": 1174.64,
+   "text": "dizer que vou respeitar direito humano de bandido, que o direito humano do bandido veio do direito antes do direito humano do brasileiro.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1174.64,
+   "end": 1177.08,
+   "text": "Isto é mal, isto é perverso.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1177.08,
+   "end": 1181.0,
+   "text": "Mas toda vez que eu vocalizo isso em alguma sabatina,",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1181.0,
+   "end": 1183.68,
+   "text": "vem uma cara de espanto.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1183.68,
+   "end": 1186.44,
+   "text": "Querem normalizar isso para vocês?",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1186.44,
+   "end": 1193.68,
+   "text": "Eu fiz até agora uma campanha em que eu falei dos assuntos de segurança pública da maneira mais enfática e clara possível.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1193.68,
+   "end": 1197.8,
+   "text": "trouxe todos os números e dados, mas me parece que a nossa nação",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1197.8,
+   "end": 1201.76,
+   "text": "que tá presa nesse torpor não quer mudar isso.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1201.76,
+   "end": 1206.32,
+   "text": "Flávio Bolsonaro ou Lula não falam sobre segurança pública.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1206.32,
+   "end": 1209.96,
+   "text": "Flávio Bolsonaro e Lula fazem na internet e na televisão",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1209.96,
+   "end": 1217.6,
+   "text": "pequenos ataques um contra o outro ou fazem propostas populistas e vazias para tentar ganhar o eleitor.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1217.6,
+   "end": 1221.72,
+   "text": "Flávio Bolsonaro e Lula aceitam que você continue sendo roubado.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1221.72,
+   "end": 1223.92,
+   "text": "aceitam que você tenha o medo de andar na rua,",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1223.92,
+   "end": 1228.48,
+   "text": "mas em grande medida seus eleitores hoje também aceitam isso.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1228.48,
+   "end": 1231.68,
+   "text": "Seus eleitores hoje não estão ligando.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1231.68,
+   "end": 1235.4,
+   "text": "Flávio, Bolsonaro e Lula dizem que você vai consumir mais comida,",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1235.4,
+   "end": 1239.88,
+   "text": "diz que você vai comprar mais coisas, mas nenhum apresenta um plano para resolveria",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1239.88,
+   "end": 1241.24,
+   "text": "brasileira.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1241.24,
+   "end": 1246.08,
+   "text": "Os eleitores de Flávio Bolsonaro parecem conformados em aceitar isso.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1246.08,
+   "end": 1249.76,
+   "text": "Você não está conformado, mas se eles se tornarem maioria,",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1249.76,
+   "end": 1255.64,
+   "text": "você vai aceitar que você não vai poder nem consumir mais, nem comprar um carro, uma casa, que só um celular",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1255.64,
+   "end": 1259.08,
+   "text": "do modelo que você deseja.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1259.08,
+   "end": 1263.84,
+   "text": "A falta de ambição e dignidade de parte do Brasil",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1263.84,
+   "end": 1271.36,
+   "text": "está cobrando um preço sobre todos nós e nós temos que nos rebelar contra todos eles.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1271.36,
+   "end": 1274.96,
+   "text": "Sejam insubmissos sempre.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1274.96,
+   "end": 1280.12,
+   "text": "A independência do Brasil, o 7 de setembro veio da vontade de uma nação",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1280.12,
+   "end": 1283.88,
+   "text": "através dos seus líderes da família real, em serem insubmissos",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1283.88,
+   "end": 1286.28,
+   "text": "naquele momento.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1286.28,
+   "end": 1291.36,
+   "text": "Maria Quitéria foi insubmissa naquele momento",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1291.36,
+   "end": 1293.16,
+   "text": "e nós nos tornamos uma nação.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1293.16,
+   "end": 1296.88,
+   "text": "Você se torna uma nação quando você se torna insubmisso",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1296.88,
+   "end": 1297.76,
+   "text": "a outro.",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1297.76,
+   "end": 1302.4,
+   "text": "E eu pergunto agora, nós somos independentes hoje?",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1302.4,
+   "end": 1308.44,
+   "text": "Uma pessoa que vive na favela é livre?",
+   "turn": 1,
+   "speaker_change": false
+  },
+  {
+   "start": 1308.44,
+   "end": 1312.96,
+   "text": "Uma pessoa que tem um pensamento político para além",
+   "turn": 2,
+   "speaker_change": true
+  },
+  {
+   "start": 1312.96,
+   "end": 1319.28,
+   "text": "do pensamento dominante e que quer mudar o país hoje está livre para fazer isso?",
+   "turn": 2,
+   "speaker_change": false
+  },
+  {
+   "start": 1319.28,
+   "end": 1324.16,
+   "text": "Nós fomos aprisionados e nós precisamos de uma nova independência.",
+   "turn": 3,
+   "speaker_change": true
+  },
+  {
+   "start": 1324.16,
+   "end": 1328.24,
+   "text": "Nós precisamos botar abaixo um regime político",
+   "turn": 3,
+   "speaker_change": false
+  },
+  {
+   "start": 1328.24,
+   "end": 1331.88,
+   "text": "que torna a gente dependente de ladrões que controlam a grana,",
+   "turn": 3,
+   "speaker_change": false
+  },
+  {
+   "start": 1331.88,
+   "end": 1335.08,
+   "text": "o tempo de TV e a forma de fazer política.",
+   "turn": 3,
+   "speaker_change": false
+  },
+  {
+   "start": 1335.08,
+   "end": 1337.96,
+   "text": "São os ladrões do centrão, são os ladrões da esquerda,",
+   "turn": 3,
+   "speaker_change": false
+  },
+  {
+   "start": 1337.96,
+   "end": 1340.4,
+   "text": "são os ladrões da direita.",
+   "turn": 3,
+   "speaker_change": false
+  },
+  {
+   "start": 1340.4,
+   "end": 1343.88,
+   "text": "Está fazendo um ano que se iniciaram as rebeliões do Nepal,",
+   "turn": 3,
+   "speaker_change": false
+  },
+  {
+   "start": 1343.88,
+   "end": 1347.16,
+   "text": "em que a geração lá despertou, geração Z por lá despertou.",
+   "turn": 3,
+   "speaker_change": false
+  },
+  {
+   "start": 1347.16,
+   "end": 1350.4,
+   "text": "A nossa também não despertou.",
+   "turn": 3,
+   "speaker_change": false
+  },
+  {
+   "start": 1350.4,
+   "end": 1355.48,
+   "text": "Porque eu volto a repetir, vocês aqui ainda são a minoria,",
+   "turn": 3,
+   "speaker_change": false
+  },
+  {
+   "start": 1355.48,
+   "end": 1360.24,
+   "text": "vocês são o que há de melhor no Brasil, mas nós precisamos contagiar o resto do Brasil.",
+   "turn": 3,
+   "speaker_change": false
+  },
+  {
+   "start": 1360.24,
+   "end": 1363.32,
+   "text": "Nós temos 30 dias para contagiar o resto do Brasil,",
+   "turn": 3,
+   "speaker_change": false
+  },
+  {
+   "start": 1363.32,
+   "end": 1366.76,
+   "text": "para que o resto do Brasil desperte para uma guerra,",
+   "turn": 3,
+   "speaker_change": false
+  },
+  {
+   "start": 1366.76,
+   "end": 1371.68,
+   "text": "para uma luta, para algo maior do que as nossas próprias vidas.",
+   "turn": 3,
+   "speaker_change": false
+  },
+  {
+   "start": 1371.68,
+   "end": 1377.08,
+   "text": "Nossa vida hoje está destinada a ser medíocre,",
+   "turn": 3,
+   "speaker_change": false
+  },
+  {
+   "start": 1377.08,
+   "end": 1378.4,
+   "text": "mediana.",
+   "turn": 3,
+   "speaker_change": false
+  },
+  {
+   "start": 1378.4,
+   "end": 1380.48,
+   "text": "Quando eu chamo de medío, vocês entendem?",
+   "turn": 3,
+   "speaker_change": false
+  },
+  {
+   "start": 1380.48,
+   "end": 1383.8,
+   "text": "Não é que vocês vão passar fome, alguns vão,",
+   "turn": 3,
+   "speaker_change": false
+  },
+  {
+   "start": 1383.8,
+   "end": 1385.52,
+   "text": "mas vocês não vão.",
+   "turn": 3,
+   "speaker_change": false
+  },
+  {
+   "start": 1385.52,
+   "end": 1388.28,
+   "text": "Vocês só não vão realizar nenhum sonho.",
+   "turn": 3,
+   "speaker_change": false
+  },
+  {
+   "start": 1388.28,
+   "end": 1392.08,
+   "text": "Vocês vão viver mais ou menos, vão conquistar mais ou menos,",
+   "turn": 3,
+   "speaker_change": false
+  },
+  {
+   "start": 1392.08,
+   "end": 1395.88,
+   "text": "vão andar nas ruas mais ou menos, vocês vão consumir mais ou menos,",
+   "turn": 3,
+   "speaker_change": false
+  },
+  {
+   "start": 1395.88,
+   "end": 1404.32,
+   "text": "porque você aqui são a bucha de canhão, vocês são a galinha dos ovos de ouro que são taxadas para manter o jogo rodando.",
+   "turn": 3,
+   "speaker_change": false
+  },
+  {
+   "start": 1404.32,
+   "end": 1407.52,
+   "text": "Vocês não podem cair, mas vocês vão ficar de joelhos.",
+   "turn": 3,
+   "speaker_change": false
+  },
+  {
+   "start": 1407.52,
+   "end": 1408.8,
+   "text": "Esse é o desenho de país.",
+   "turn": 3,
+   "speaker_change": false
+  },
+  {
+   "start": 1408.8,
+   "end": 1411.36,
+   "text": "É um desenho de país que coloca vocês de joelhos.",
+   "turn": 3,
+   "speaker_change": false
+  },
+  {
+   "start": 1411.36,
+   "end": 1414.52,
+   "text": "E todo dia essas figuras patéticas que nos governam",
+   "turn": 3,
+   "speaker_change": false
+  },
+  {
+   "start": 1414.52,
+   "end": 1416.68,
+   "text": "deixam isso claro para vocês.",
+   "turn": 3,
+   "speaker_change": false
+  },
+  {
+   "start": 1416.68,
+   "end": 1432.64,
+   "text": "Eles fazem a política da maioria.",
+   "turn": 3,
+   "speaker_change": false
+  },
+  {
+   "start": 1438.36,
+   "end": 1446.16,
+   "text": "A a eu vejo tanto da campanha do lulismo quanto do bolsonarismo",
+   "turn": 4,
+   "speaker_change": true
+  },
+  {
+   "start": 1446.16,
+   "end": 1449.44,
+   "text": "essa tentativa de imposição via números.",
+   "turn": 4,
+   "speaker_change": false
+  },
+  {
+   "start": 1449.44,
+   "end": 1453.52,
+   "text": "Olha, eu tenho 30 e tantos por se juntem a mim.",
+   "turn": 4,
+   "speaker_change": false
+  },
+  {
+   "start": 1453.52,
+   "end": 1461.16,
+   "text": "Nunca, nunca nós nunca estaremos ao lado de ladrões.",
+   "turn": 4,
+   "speaker_change": false
+  },
+  {
+   "start": 1461.16,
+   "end": 1463.4,
+   "text": "Nunca estaremos ao lado de ladrões.",
+   "turn": 4,
+   "speaker_change": false
+  },
+  {
+   "start": 1463.4,
+   "end": 1466.36,
+   "text": "Eles não entendem do material que nós somos feito.",
+   "turn": 4,
+   "speaker_change": false
+  },
+  {
+   "start": 1466.36,
+   "end": 1470.44,
+   "text": "Nós somos feitos de um material dominante.",
+   "turn": 4,
+   "speaker_change": false
+  },
+  {
+   "start": 1470.44,
+   "end": 1473.12,
+   "text": "Porque quando minoria não nos vergamos.",
+   "turn": 4,
+   "speaker_change": false
+  },
+  {
+   "start": 1473.12,
+   "end": 1474.36,
+   "text": "Entendam sempre.",
+   "turn": 4,
+   "speaker_change": false
+  },
+  {
+   "start": 1474.36,
+   "end": 1480.84,
+   "text": "Quando você é minoritário e você não verga, você conquista a sua maior batalha e sua maior vitória.",
+   "turn": 4,
+   "speaker_change": false
+  },
+  {
+   "start": 1480.84,
+   "end": 1484.0,
+   "text": "Porque é fácil ser dominante quando você é maioria.",
+   "turn": 4,
+   "speaker_change": false
+  },
+  {
+   "start": 1484.0,
+   "end": 1485.0,
+   "text": "É fácil.",
+   "turn": 4,
+   "speaker_change": false
+  },
+  {
+   "start": 1485.0,
+   "end": 1486.76,
+   "text": "Quando você é minoria, não.",
+   "turn": 4,
+   "speaker_change": false
+  },
+  {
+   "start": 1486.76,
+   "end": 1490.32,
+   "text": "E nós estamos sendo dominantes como minoria.",
+   "turn": 4,
+   "speaker_change": false
+  },
+  {
+   "start": 1490.32,
+   "end": 1494.72,
+   "text": "Basta despertar o Brasil, que todos esses canalhas que nos governam,",
+   "turn": 4,
+   "speaker_change": false
+  },
+  {
+   "start": 1494.72,
+   "end": 1497.84,
+   "text": "que todas essas pessoas más que nos governam,",
+   "turn": 4,
+   "speaker_change": false
+  },
+  {
+   "start": 1497.84,
+   "end": 1500.92,
+   "text": "o que elas verão, elas nunca viram na história do país.",
+   "turn": 4,
+   "speaker_change": false
+  },
+  {
+   "start": 1500.92,
+   "end": 1503.8,
+   "text": "Nós faremos o que é certo em pouco tempo.",
+   "turn": 4,
+   "speaker_change": false
+  },
+  {
+   "start": 1503.8,
+   "end": 1508.48,
+   "text": "Nós faremos todas as reformas que vão tornar o nosso país um local decente.",
+   "turn": 4,
+   "speaker_change": false
+  },
+  {
+   "start": 1508.48,
+   "end": 1512.04,
+   "text": "Torne o seu sonho e a sua imaginação independentes,",
+   "turn": 4,
+   "speaker_change": false
+  },
+  {
+   "start": 1512.04,
+   "end": 1516.48,
+   "text": "porque hoje é isso, a única coisa que nos resta.",
+   "turn": 4,
+   "speaker_change": false
+  },
+  {
+   "start": 1516.48,
+   "end": 1519.56,
+   "text": "A única coisa que nos resta, porque todo o resto",
+   "turn": 4,
+   "speaker_change": false
+  },
+  {
+   "start": 1519.56,
+   "end": 1525.2,
+   "text": "é prisão, é derrota, ignorância, é covardia,",
+   "turn": 4,
+   "speaker_change": false
+  },
+  {
+   "start": 1525.2,
+   "end": 1528.6,
+   "text": "é vadiagem, é traição.",
+   "turn": 4,
+   "speaker_change": false
+  },
+  {
+   "start": 1528.6,
+   "end": 1533.08,
+   "text": "Traidores da pátria nos governam em todos os poderes",
+   "turn": 4,
+   "speaker_change": false
+  },
+  {
+   "start": 1533.08,
+   "end": 1536.68,
+   "text": "e aceitar isso seria algo que apenas covardes",
+   "turn": 4,
+   "speaker_change": false
+  },
+  {
+   "start": 1536.68,
+   "end": 1537.6,
+   "text": "concordariam.",
+   "turn": 4,
+   "speaker_change": false
+  },
+  {
+   "start": 1537.6,
+   "end": 1538.96,
+   "text": "Eu não sou covarde.",
+   "turn": 4,
+   "speaker_change": false
+  },
+  {
+   "start": 1538.96,
+   "end": 1540.92,
+   "text": "Ninguém que está aqui ao meu lado é covarde.",
+   "turn": 4,
+   "speaker_change": false
+  },
+  {
+   "start": 1540.92,
+   "end": 1545.08,
+   "text": "E nenhum de vocês que está aí nessa plateia ou me assistindo em casa é covarde.",
+   "turn": 4,
+   "speaker_change": false
+  },
+  {
+   "start": 1545.08,
+   "end": 1548.64,
+   "text": "Sejam insubmissos, vençam os canalhas.",
+   "turn": 4,
+   "speaker_change": false
+  },
+  {
+   "start": 1548.64,
+   "end": 1551.8,
+   "text": "Nunca aceite o domínio ilegítimo de outro.",
+   "turn": 4,
+   "speaker_change": false
+  },
+  {
+   "start": 1601.08,
+   "end": 1605.96,
+   "text": "Agora é o seguinte, para deixar claro e consignado com vocês, vou deixar aqui",
+   "turn": 4,
+   "speaker_change": false
+  },
+  {
+   "start": 1605.96,
+   "end": 1609.0,
+   "text": "o manifesto que foi escrito pelo nosso time nesse 7 de setembro,",
+   "turn": 4,
+   "speaker_change": false
+  },
+  {
+   "start": 1609.0,
+   "end": 1611.88,
+   "text": "que é um manifesto que representa a alma desse problema",
+   "turn": 4,
+   "speaker_change": false
+  },
+  {
+   "start": 1611.88,
+   "end": 1614.48,
+   "text": "e é o manifesto pelo futuro da nossa nação.",
+   "turn": 4,
+   "speaker_change": false
+  },
+  {
+   "start": 1614.48,
+   "end": 1620.8,
+   "text": "A nossa nação que hoje perde significado, perde sentido no coração de todos os brasileiros.",
+   "turn": 4,
+   "speaker_change": false
+  },
+  {
+   "start": 1620.8,
+   "end": 1624.4,
+   "text": "Não à toa, a maior parte da população já desistiu do Brasil.",
+   "turn": 4,
+   "speaker_change": false
+  },
+  {
+   "start": 1624.4,
+   "end": 1625.4,
+   "text": "Isso tem que ficar claro.",
+   "turn": 4,
+   "speaker_change": false
+  },
+  {
+   "start": 1625.4,
+   "end": 1628.0,
+   "text": "A maior parte da população desistiu.",
+   "turn": 4,
+   "speaker_change": false
+  },
+  {
+   "start": 1628.0,
+   "end": 1629.6,
+   "text": "Votar no Flávio é desistir do Brasil.",
+   "turn": 4,
+   "speaker_change": false
+  },
+  {
+   "start": 1629.6,
+   "end": 1631.32,
+   "text": "Votar no Lula, desistir do Brasil.",
+   "turn": 4,
+   "speaker_change": false
+  },
+  {
+   "start": 1631.32,
+   "end": 1633.92,
+   "text": "E agora que tem os fãs do Curi, é a desistência",
+   "turn": 4,
+   "speaker_change": false
+  },
+  {
+   "start": 1633.92,
+   "end": 1635.16,
+   "text": "em essência.",
+   "turn": 4,
+   "speaker_change": false
+  },
+  {
+   "start": 1635.16,
+   "end": 1636.92,
+   "text": "Não quero resolver nada.",
+   "turn": 4,
+   "speaker_change": false
+  },
+  {
+   "start": 1636.92,
+   "end": 1640.64,
+   "text": "Me dê um rivotril que eu quero dormir.",
+   "turn": 4,
+   "speaker_change": false
+  },
+  {
+   "start": 1640.64,
+   "end": 1642.8,
+   "text": "Não é aceitável isso.",
+   "turn": 4,
+   "speaker_change": false
+  },
+  {
+   "start": 1642.8,
+   "end": 1643.32,
+   "text": "Vamos lá.",
+   "turn": 4,
+   "speaker_change": false
+  },
+  {
+   "start": 1643.32,
+   "end": 1645.76,
+   "text": "O manifesto é este aqui.",
+   "turn": 4,
+   "speaker_change": false
+  },
+  {
+   "start": 1645.76,
+   "end": 1650.6,
+   "text": "Somos pessoas comuns num país que se contentou com a irresponsabilidade,",
+   "turn": 4,
+   "speaker_change": false
+  },
+  {
+   "start": 1650.6,
+   "end": 1655.28,
+   "text": "a covardia, a a desonestidade e o tédio, bastou ter responsabilidade,",
+   "turn": 4,
+   "speaker_change": false
+  },
+  {
+   "start": 1655.28,
+   "end": 1658.52,
+   "text": "coragem, honestidade e apetite",
+   "turn": 4,
+   "speaker_change": false
+  },
+  {
+   "start": 1658.52,
+   "end": 1661.96,
+   "text": "para que nos tornássemos excepcionais.",
+   "turn": 5,
+   "speaker_change": true
+  },
+  {
+   "start": 1661.96,
+   "end": 1665.96,
+   "text": "Nos últimos 13 anos, e não poderia ser outro número senão este maldito,",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1665.96,
+   "end": 1669.08,
+   "text": "vivemos tempos de hiperpolitização.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1669.08,
+   "end": 1672.56,
+   "text": "Nos mobilizamos para defender a Lava-Jato, derrubar Dilma,",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1672.56,
+   "end": 1676.6,
+   "text": "eleger um governo de direita e prender Luís Inácio Lula da Silva.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1676.6,
+   "end": 1686.92,
+   "text": "Em 2016, há 10 anos, pedimos pela primeira vez na história da sexta república o impeachment de um ministro da Suprema Corte e fomos nós os primeiros a pedir.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1686.92,
+   "end": 1690.8,
+   "text": "A hiperpolitização foi esvaziada pelos erros de quem foi escolhido",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1690.8,
+   "end": 1692.44,
+   "text": "para conduzi-la.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1692.44,
+   "end": 1696.2,
+   "text": "O peso do Brasil, dos nossos sonhos, das nossas vidas, era grande demais",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1696.2,
+   "end": 1699.88,
+   "text": "para homens tão pequenos.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1699.88,
+   "end": 1703.4,
+   "text": "Hoje estamos tomados pelo torpor.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1703.4,
+   "end": 1706.12,
+   "text": "Estamos anestesiados, sem indignação real.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1706.12,
+   "end": 1709.2,
+   "text": "E a nossa única condição permanente é a de vítima,",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1709.2,
+   "end": 1712.96,
+   "text": "da violência, do crime comum e organizado, da mentira,",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1712.96,
+   "end": 1717.08,
+   "text": "vítimas dos nossos ídolos e das nossas próprias ideias.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1717.08,
+   "end": 1721.12,
+   "text": "O Brasil, enquanto nação, um lugar onde um povo se reconhece em unidade,",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1721.12,
+   "end": 1723.32,
+   "text": "morreu em meados do século XX.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1723.32,
+   "end": 1731.88,
+   "text": "O que veio depois é o rascunho dos fetiches mais perversos das nossas elites, em que o declínio cultural delas virou o declínio da pátria.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1731.88,
+   "end": 1735.08,
+   "text": "Desse rascunho não seria outra coisa senão um regime fundado,",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1735.08,
+   "end": 1738.68,
+   "text": "permeado e sustentado por convescotes, acordões,",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1738.68,
+   "end": 1741.2,
+   "text": "dinheiro em maleta e negócios com banqueiros",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1741.2,
+   "end": 1744.32,
+   "text": "fechados em escritórios de advocacia, em chocolaterias",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1744.32,
+   "end": 1746.92,
+   "text": "ou dentro das estatais.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1746.92,
+   "end": 1755.24,
+   "text": "O debate público brasileiro é uma farsa e nenhuma de suas mentiras supera de que vivemos num país polarizado.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1755.24,
+   "end": 1758.12,
+   "text": "Ess está aí a raiz de todas as más escolhas.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1758.12,
+   "end": 1761.28,
+   "text": "Quem acredita na polarização aceita como legítimos",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1761.28,
+   "end": 1766.24,
+   "text": "os que se dizem donos dos polos e para escapar deles passa a pedir mais moderação,",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1766.24,
+   "end": 1770.44,
+   "text": "mais passividade, mais acordo.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1770.44,
+   "end": 1772.2,
+   "text": "Não há polarização.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1772.2,
+   "end": 1774.56,
+   "text": "A direita hegemônica e a esquerda governista",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1774.56,
+   "end": 1779.08,
+   "text": "são dominadas pelos mesmos sócios do crime, Daniel Vorcaro, entre eles.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1779.08,
+   "end": 1782.16,
+   "text": "O Supremo Tribunal Federal, peça central desse arranjo,",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1782.16,
+   "end": 1785.2,
+   "text": "tem gangster em seus quadros, homens que se acomodaram",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1785.2,
+   "end": 1787.56,
+   "text": "ao banditismo cotidiano.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1787.56,
+   "end": 1794.36,
+   "text": "A submissão da direita, da esquerda e do Supremo ao crime é a submissão do brasileiro a uma humilhação que o faz ainda mais vítima.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1794.36,
+   "end": 1797.84,
+   "text": "Massacrado a ponto de não se revoltar.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1797.84,
+   "end": 1802.68,
+   "text": "O que viemos oferecer é um meio de ação, um modo de organização,",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1802.68,
+   "end": 1807.92,
+   "text": "um caminho por onde a raiva, a indignação e a indignidade que carregamos possam finalmente escoar",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1807.92,
+   "end": 1810.16,
+   "text": "para alguma saída.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1810.16,
+   "end": 1813.88,
+   "text": "Nossa história, desde a fundação, mostra de que material fomos feitos.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1813.88,
+   "end": 1817.12,
+   "text": "A maior experiência tropical de construção de uma civilização",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1817.12,
+   "end": 1824.92,
+   "text": "não pode se acostumar a uma condição tão rebaixada.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1824.92,
+   "end": 1827.28,
+   "text": "A saída é política.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1827.28,
+   "end": 1830.72,
+   "text": "E a reforma do Brasil é responsabilidade nossa.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1830.72,
+   "end": 1836.4,
+   "text": "Para isso, temos como dever primordial soterrar o estado de coisas para o qual fomos empurrados.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1836.4,
+   "end": 1843.6,
+   "text": "A imaginação política dos nossos pais e avós construiu um mundo com menos guerra, menos fome e mais estabilidade econômica.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1843.6,
+   "end": 1846.12,
+   "text": "Somos gratos pelo mundo que herdamos.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1846.12,
+   "end": 1849.24,
+   "text": "Contudo, ele já não nos basta.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1849.24,
+   "end": 1852.32,
+   "text": "Nossas vidas são, via de regra melhores que as deles.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1852.32,
+   "end": 1855.8,
+   "text": "Nossa miséria política, entretanto, é maior.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1855.8,
+   "end": 1859.08,
+   "text": "E já não temos a certeza de que entregaremos uma vida melhor",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1859.08,
+   "end": 1861.32,
+   "text": "a filhos e netos.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1861.32,
+   "end": 1866.04,
+   "text": "A soma de todos os nossos erros fez de Daniel Vorcar, o homem mais poderoso da República.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1866.04,
+   "end": 1871.6,
+   "text": "Que alguém tão ordinário chegue a um lugar tão singular é o retrato do nosso vício existencial.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1871.6,
+   "end": 1875.88,
+   "text": "Por isso, temos que defender de forma aberta e sem medo.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1875.88,
+   "end": 1890.4,
+   "text": "Um, a imediata saída de Dias Tofol e Alexandre de Moraes do STF.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1890.4,
+   "end": 1902.76,
+   "text": "Dois, a imediata saída de Andrei Rodrigues da direção geral da Polícia Federal.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1902.76,
+   "end": 1913.6,
+   "text": "Três, a imediata saída de Paulo Gonê da PGR.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1913.6,
+   "end": 1917.24,
+   "text": "Quatro, a manutenção das investigações sobre o Banco Master",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1917.24,
+   "end": 1922.32,
+   "text": "custe a quem custar, pegando absolutamente todos os líderes políticos,",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1922.32,
+   "end": 1925.0,
+   "text": "empresariais e do meio jurídico brasileiro.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1925.0,
+   "end": 1937.32,
+   "text": "Que se abra a caixa preta do Banco Master e que parem todos na cadeia.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1937.32,
+   "end": 1940.8,
+   "text": "Essa é a última convocatória em favor do futuro do nação,",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1940.8,
+   "end": 1944.88,
+   "text": "o último chamado para que o Brasil ainda possa existir como nação.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1944.88,
+   "end": 1948.64,
+   "text": "Convocamos cada brasileiro a romper com o círculo das nossas elites podres",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1948.64,
+   "end": 1950.28,
+   "text": "e moribundas.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1950.28,
+   "end": 1952.68,
+   "text": "Ainda podemos pôr fim ao caos.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1952.68,
+   "end": 1955.44,
+   "text": "Ainda podemos fazer que o nosso desejo manda.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1955.44,
+   "end": 1958.48,
+   "text": "Basta termos a coragem de romper com o nosso medo.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1958.48,
+   "end": 1963.36,
+   "text": "Lembrem-se de que a covardia nunca escreveu seu nome com glória na história.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1963.36,
+   "end": 1982.12,
+   "text": "Esse é o nosso manifesto.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1982.12,
+   "end": 1989.44,
+   "text": "É importante ler esse manifesto porque o Brasil já passou por grandes momentos na sua história",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1989.44,
+   "end": 1993.2,
+   "text": "em que os melhores se levantavam, os melhores se erguiam.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1993.2,
+   "end": 1995.88,
+   "text": "Isso aconteceu durante a ditadura militar.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 1995.88,
+   "end": 2000.92,
+   "text": "No final do regime da ditadura militar, o professor Gofredo fez lá onde eu iniciei minha campanha",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 2000.92,
+   "end": 2006.16,
+   "text": "a leitura de uma carta aos brasileiros exigindo o retorno ao estado democrático de direito.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 2006.16,
+   "end": 2011.72,
+   "text": "Em 32, veja só aqui onde estão enterrados heróis.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 2011.72,
+   "end": 2015.56,
+   "text": "que lutaram para que o nosso país não vivesse sob o julgo de uma ditadura.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 2015.56,
+   "end": 2019.48,
+   "text": "Em 32, os melhores se levantaram e sergueram",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 2019.48,
+   "end": 2022.52,
+   "text": "para tentar fazer com que o Brasil fosse de fato uma república",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 2022.52,
+   "end": 2025.24,
+   "text": "focado no interesse público.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 2025.24,
+   "end": 2030.56,
+   "text": "Em 7 de setembro de 1822, pessoas se ergueram",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 2030.56,
+   "end": 2034.64,
+   "text": "até o filho do rei para tornar o Brasil uma nação.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 2034.64,
+   "end": 2041.92,
+   "text": "E aqui nós estamos juntos, só que dessa vez sem ninguém das elites, sem nenhum filho de príncipe,",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 2041.92,
+   "end": 2044.56,
+   "text": "sem nenhum grande jurista.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 2044.56,
+   "end": 2048.64,
+   "text": "O que restou fomos nós, porque os demais foram comprados,",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 2048.64,
+   "end": 2050.6,
+   "text": "as elites estão compradas.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 2050.6,
+   "end": 2055.52,
+   "text": "O príncipe agora se tornou imperador, é o Alexandre de Moraes.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 2055.52,
+   "end": 2061.96,
+   "text": "Então, veja que bonito, de todas as grandes rebeliões e manifestos da nossa história,",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 2061.96,
+   "end": 2065.44,
+   "text": "esta é a única que não conta com a presença da elite,",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 2065.44,
+   "end": 2069.16,
+   "text": "porque a elite quer ganhar dinheiro com o caos.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 2069.16,
+   "end": 2073.72,
+   "text": "Nós precisamos vencer as eleições para que o nosso país se torne uma nação,",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 2073.72,
+   "end": 2077.36,
+   "text": "para que a gente tenha uma nova constituição.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 2077.36,
+   "end": 2078.48,
+   "text": "Isso precisa ser dito.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 2078.48,
+   "end": 2080.96,
+   "text": "A nossa Constituição e os nossos constituintes",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 2080.96,
+   "end": 2082.52,
+   "text": "fracassaram.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 2082.52,
+   "end": 2085.76,
+   "text": "E para que a nossa elite política, a nossa elite econômica",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 2085.76,
+   "end": 2087.56,
+   "text": "não seja a mesma.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 2087.56,
+   "end": 2093.04,
+   "text": "A elite econômica brasileira está vendendo centavo a centavo das nossas riquezas,",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 2093.04,
+   "end": 2094.56,
+   "text": "rifando o nosso futuro.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 2094.56,
+   "end": 2097.96,
+   "text": "Como eu já denunciei essa semana, estão vendendo até as terras raras.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 2097.96,
+   "end": 2102.12,
+   "text": "antes mesmo de serem negociadas oficialmente,",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 2102.12,
+   "end": 2105.44,
+   "text": "estão entregando o nosso país e entregando o nosso destino.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 2105.44,
+   "end": 2114.32,
+   "text": "Sejamos nós a nos rebelar sempre, sempre.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 2114.32,
+   "end": 2123.4,
+   "text": "Eu convoco também os demais, os outros presidenciáveis",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 2123.4,
+   "end": 2127.8,
+   "text": "a subscrever esse manifesto, deixando muito claro",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 2127.8,
+   "end": 2132.52,
+   "text": "que nós pediremos a cabeça e a prisão de todos os envolvidos no campo do Banco Master.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 2132.52,
+   "end": 2134.88,
+   "text": "Estou muito curioso em saber se todos assinarão.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 2134.88,
+   "end": 2136.36,
+   "text": "Sei de alguns que assinarão.",
+   "turn": 5,
+   "speaker_change": false
+  },
+  {
+   "start": 2143.64,
+   "end": 2146.88,
+   "text": "Eu acho que nós formaríamos uma força muito poderosa",
+   "turn": 6,
+   "speaker_change": false
+  },
+  {
+   "start": 2146.88,
+   "end": 2150.28,
+   "text": "se todos os candidatos à direita tivessem coragem de assinar esse manifesto.",
+   "turn": 6,
+   "speaker_change": false
+  },
+  {
+   "start": 2150.28,
+   "end": 2154.08,
+   "text": "Acho que a gente teria uma força poderosa o suficiente para derrotar",
+   "turn": 6,
+   "speaker_change": false
+  },
+  {
+   "start": 2154.08,
+   "end": 2155.96,
+   "text": "todos os envolvidos no escândalo do Banco Master.",
+   "turn": 6,
+   "speaker_change": false
+  },
+  {
+   "start": 2155.96,
+   "end": 2159.8,
+   "text": "Então fica o convite aqui para que todos assinem o manifesto.",
+   "turn": 6,
+   "speaker_change": false
+  },
+  {
+   "start": 2159.8,
+   "end": 2161.8,
+   "text": "Hoje todos farão atos de 7 de setembro.",
+   "turn": 6,
+   "speaker_change": false
+  },
+  {
+   "start": 2161.8,
+   "end": 2164.04,
+   "text": "Acho que todos terão a oportunidade de se manifestar",
+   "turn": 6,
+   "speaker_change": false
+  },
+  {
+   "start": 2164.04,
+   "end": 2165.16,
+   "text": "publicamente.",
+   "turn": 6,
+   "speaker_change": false
+  },
+  {
+   "start": 2165.16,
+   "end": 2179.08,
+   "text": "Estamos de coração aberto para que todos assinem o nosso manifesto.",
+   "turn": 6,
+   "speaker_change": false
+  },
+  {
+   "start": 2193.44,
+   "end": 2196.88,
+   "text": "O senhor falou público feminino, olhando majorit majoritariamente,",
+   "turn": 8,
+   "speaker_change": false
+  },
+  {
+   "start": 2196.88,
+   "end": 2200.16,
+   "text": "não só hoje, mas em outros eventos, grande parte",
+   "turn": 8,
+   "speaker_change": false
+  },
+  {
+   "start": 2200.16,
+   "end": 2201.88,
+   "text": "do seu público é de homens.",
+   "turn": 8,
+   "speaker_change": false
+  },
+  {
+   "start": 2201.88,
+   "end": 2219.12,
+   "text": "também as pesquisas eleitorais que acontece mesmo com resultados em pesquisa,",
+   "turn": 8,
+   "speaker_change": false
+  },
+  {
+   "start": 2219.12,
+   "end": 2222.8,
+   "text": "não falando hoje, então, para não haver nenhuma discordância,",
+   "turn": 8,
+   "speaker_change": false
+  },
+  {
+   "start": 2222.8,
+   "end": 2226.08,
+   "text": "existe alguma proposta que o senhor pretende fazer?",
+   "turn": 8,
+   "speaker_change": false
+  },
+  {
+   "start": 2226.08,
+   "end": 2230.32,
+   "text": "Não é um erro da campanha na avaliação do senhor não ter propostas justamente.",
+   "turn": 8,
+   "speaker_change": false
+  },
+  {
+   "start": 2230.32,
+   "end": 2234.44,
+   "text": "E olhando também pro público, você senta mais numa pesquisa da Nextos, por exemplo,",
+   "turn": 8,
+   "speaker_change": false
+  },
+  {
+   "start": 2234.44,
+   "end": 2235.04,
+   "text": "recente,",
+   "turn": 8,
+   "speaker_change": false
+  },
+  {
+   "start": 2235.04,
+   "end": 2239.6,
+   "text": "a pergunta dele é boa e ele não está pessoal, ele não tá errado na pergunta deleondente, não é coletiv,",
+   "turn": 9,
+   "speaker_change": true
+  },
+  {
+   "start": 2239.6,
+   "end": 2241.8,
+   "text": "ele não tá errado,",
+   "turn": 10,
+   "speaker_change": true
+  },
+  {
+   "start": 2241.8,
+   "end": 2244.36,
+   "text": "ele não está errado na pergunta dele.",
+   "turn": 11,
+   "speaker_change": true
+  },
+  {
+   "start": 2244.36,
+   "end": 2247.36,
+   "text": "Eh, só a única coisa que eu discordo é levar a sério",
+   "turn": 11,
+   "speaker_change": false
+  },
+  {
+   "start": 2247.36,
+   "end": 2251.08,
+   "text": "pesquisa anexos, pesquisa contratada pelo Banco BTG.",
+   "turn": 11,
+   "speaker_change": false
+  },
+  {
+   "start": 2251.08,
+   "end": 2254.68,
+   "text": "O Banco BTG é parte desse mesmo grupo que eu estava criticando.",
+   "turn": 11,
+   "speaker_change": false
+  },
+  {
+   "start": 2254.68,
+   "end": 2257.72,
+   "text": "Ele tá fazendo preço pras eleições.",
+   "turn": 11,
+   "speaker_change": false
+  },
+  {
+   "start": 2257.72,
+   "end": 2262.96,
+   "text": "Mulher,",
+   "turn": 11,
+   "speaker_change": false
+  },
+  {
+   "start": 2262.96,
+   "end": 2263.8,
+   "text": "ela tá certa.",
+   "turn": 12,
+   "speaker_change": true
+  },
+  {
+   "start": 2263.8,
+   "end": 2265.44,
+   "text": "Prendeu, matou.",
+   "turn": 13,
+   "speaker_change": true
+  },
+  {
+   "start": 2265.44,
+   "end": 2269.8,
+   "text": "Prendeu, matou, prendeu, matou, prendeu.",
+   "turn": 13,
+   "speaker_change": false
+  },
+  {
+   "start": 2269.8,
+   "end": 2274.84,
+   "text": "Matou, prendeu, matou, prendeu, matou, prendeu,",
+   "turn": 13,
+   "speaker_change": false
+  },
+  {
+   "start": 2274.84,
+   "end": 2275.4,
+   "text": "matou.",
+   "turn": 13,
+   "speaker_change": false
+  },
+  {
+   "start": 2275.4,
+   "end": 2279.88,
+   "text": "Eu não, eu nem o nosso grupo podemos obrigar",
+   "turn": 13,
+   "speaker_change": false
+  },
+  {
+   "start": 2279.88,
+   "end": 2283.84,
+   "text": "as mulheres a se conscientizar sobre esses temas nacionais.",
+   "turn": 13,
+   "speaker_change": false
+  },
+  {
+   "start": 2283.84,
+   "end": 2287.04,
+   "text": "As mulheres querem falar menos sobre esses problemas.",
+   "turn": 13,
+   "speaker_change": false
+  },
+  {
+   "start": 2287.04,
+   "end": 2289.24,
+   "text": "Todas as nossas propostas são para mulheres.",
+   "turn": 13,
+   "speaker_change": false
+  },
+  {
+   "start": 2289.24,
+   "end": 2291.52,
+   "text": "Absolutamente todas.",
+   "turn": 13,
+   "speaker_change": false
+  },
+  {
+   "start": 2291.52,
+   "end": 2293.0,
+   "text": "Todas.",
+   "turn": 13,
+   "speaker_change": false
+  },
+  {
+   "start": 2293.0,
+   "end": 2299.16,
+   "text": "Agora, se querem que eu fale apenas: \"Ah, vou colocar quatro ministras mulheres no STF que isso vai resolver\".",
+   "turn": 13,
+   "speaker_change": false
+  },
+  {
+   "start": 2299.16,
+   "end": 2300.28,
+   "text": "Eu vou est mentindo.",
+   "turn": 13,
+   "speaker_change": false
+  },
+  {
+   "start": 2300.28,
+   "end": 2302.88,
+   "text": "Não é isso que vai resolver os problemas do STF.",
+   "turn": 13,
+   "speaker_change": false
+  },
+  {
+   "start": 2302.88,
+   "end": 2305.76,
+   "text": "Ah, Renan, você vai ser fazer um ministeriado que tem 60%",
+   "turn": 13,
+   "speaker_change": false
+  },
+  {
+   "start": 2305.76,
+   "end": 2306.36,
+   "text": "mulheres.",
+   "turn": 13,
+   "speaker_change": false
+  },
+  {
+   "start": 2306.36,
+   "end": 2308.24,
+   "text": "Isso não vai resolver a vida de mulheres.",
+   "turn": 13,
+   "speaker_change": false
+  },
+  {
+   "start": 2308.24,
+   "end": 2311.6,
+   "text": "O PT ganhou a última eleição falando em mulheres o tempo todo.",
+   "turn": 13,
+   "speaker_change": false
+  },
+  {
+   "start": 2311.6,
+   "end": 2315.36,
+   "text": "A vida das mulheres melhorou no Brasil?",
+   "turn": 13,
+   "speaker_change": false
+  },
+  {
+   "start": 2315.36,
+   "end": 2319.44,
+   "text": "As mulheres deixaram de ficar mais pobres no Brasil?",
+   "turn": 14,
+   "speaker_change": true
+  },
+  {
+   "start": 2319.44,
+   "end": 2322.52,
+   "text": "Eu quero resolver os problemas, mas me parece",
+   "turn": 15,
+   "speaker_change": true
+  },
+  {
+   "start": 2322.52,
+   "end": 2325.2,
+   "text": "que às vezes o eleitor não concorda com isso.",
+   "turn": 15,
+   "speaker_change": false
+  },
+  {
+   "start": 2325.2,
+   "end": 2328.68,
+   "text": "Às vezes o eleitor quer sentimentalismo, homem e mulher.",
+   "turn": 15,
+   "speaker_change": false
+  },
+  {
+   "start": 2328.68,
+   "end": 2334.4,
+   "text": "Os eleitores mais velhos, eles estão loucos para me ver de joelhos pro Flávio Bolsonaro.",
+   "turn": 15,
+   "speaker_change": false
+  },
+  {
+   "start": 2334.4,
+   "end": 2337.2,
+   "text": "Parte do eleitor feminino, as pesquisas mostram também",
+   "turn": 15,
+   "speaker_change": false
+  },
+  {
+   "start": 2337.2,
+   "end": 2340.56,
+   "text": "se apaixonaram nas propostas do Curi.",
+   "turn": 15,
+   "speaker_change": false
+  },
+  {
+   "start": 2340.56,
+   "end": 2342.36,
+   "text": "Elas estão erradas.",
+   "turn": 15,
+   "speaker_change": false
+  },
+  {
+   "start": 2342.36,
+   "end": 2346.84,
+   "text": "O que eu vou falar para essa eleitora mulher que tá se apaixonando por uma não proposta é que ela tá errada.",
+   "turn": 15,
+   "speaker_change": false
+  },
+  {
+   "start": 2346.84,
+   "end": 2350.92,
+   "text": "Talvez ela não goste, mas eu não vou me tornar um mentiroso.",
+   "turn": 15,
+   "speaker_change": false
+  },
+  {
+   "start": 2350.92,
+   "end": 2353.72,
+   "text": "Não vou me tornar o que eu o que eu não sou.",
+   "turn": 15,
+   "speaker_change": false
+  },
+  {
+   "start": 2353.72,
+   "end": 2357.32,
+   "text": "Eu não vou mentir simplesmente para ser um produto eleitoral.",
+   "turn": 15,
+   "speaker_change": false
+  },
+  {
+   "start": 2357.32,
+   "end": 2360.12,
+   "text": "Eu não posso ser um produto eleitoral.",
+   "turn": 15,
+   "speaker_change": false
+  },
+  {
+   "start": 2360.12,
+   "end": 2370.36,
+   "text": "E porque é isso, ó? É tratar a mulher como massa de manobra.",
+   "turn": 15,
+   "speaker_change": false
+  },
+  {
+   "start": 2370.36,
+   "end": 2377.36,
+   "text": "Eu não acredito que mulheres são pessoas menos inteligentes do que homens para eu entender que quando eu falo de uma reforma nas contas públicas,",
+   "turn": 15,
+   "speaker_change": false
+  },
+  {
+   "start": 2377.36,
+   "end": 2379.84,
+   "text": "elas serão beneficiadas diretamente disso.",
+   "turn": 15,
+   "speaker_change": false
+  },
+  {
+   "start": 2379.84,
+   "end": 2386.48,
+   "text": "As mulheres, elas são as boa parte dos orçamentos domésticos são controlados por mulheres, na verdade, a maioria deles no Brasil.",
+   "turn": 15,
+   "speaker_change": false
+  },
+  {
+   "start": 2386.48,
+   "end": 2390.96,
+   "text": "Portanto, quem cuida da grana que vai gastar no supermercado são as mulheres.",
+   "turn": 15,
+   "speaker_change": false
+  },
+  {
+   "start": 2390.96,
+   "end": 2395.4,
+   "text": "E quando eu falo em diminuir juros e diminuir impostos e fazer com que inflação seja controlada,",
+   "turn": 15,
+   "speaker_change": false
+  },
+  {
+   "start": 2395.4,
+   "end": 2399.12,
+   "text": "eu tô beneficiando milhões de mulheres donas de casa.",
+   "turn": 15,
+   "speaker_change": false
+  },
+  {
+   "start": 2399.12,
+   "end": 2403.8,
+   "text": "Agora, se essas mulheres querem ouvir que eu vou colocar uma mulher no STF,",
+   "turn": 15,
+   "speaker_change": false
+  },
+  {
+   "start": 2403.8,
+   "end": 2405.36,
+   "text": "que que eu posso fazer?",
+   "turn": 15,
+   "speaker_change": false
+  },
+  {
+   "start": 2405.36,
+   "end": 2406.72,
+   "text": "Ela tá errada.",
+   "turn": 15,
+   "speaker_change": false
+  },
+  {
+   "start": 2406.72,
+   "end": 2407.88,
+   "text": "Ela tá errada.",
+   "turn": 15,
+   "speaker_change": false
+  },
+  {
+   "start": 2407.88,
+   "end": 2410.84,
+   "text": "Eu não vou ser populista com mulheres.",
+   "turn": 15,
+   "speaker_change": false
+  },
+  {
+   "start": 2410.84,
+   "end": 2411.56,
+   "text": "Eu não vou.",
+   "turn": 16,
+   "speaker_change": true
+  },
+  {
+   "start": 2411.56,
+   "end": 2414.32,
+   "text": "Eu deixa, deixa, deixa eu responder ele, por favor.",
+   "turn": 16,
+   "speaker_change": false
+  },
+  {
+   "start": 2414.32,
+   "end": 2416.28,
+   "text": "Eh, então é isso.",
+   "turn": 16,
+   "speaker_change": false
+  },
+  {
+   "start": 2416.28,
+   "end": 2419.08,
+   "text": "Eu serei eu mesmo até o fim da campanha.",
+   "turn": 16,
+   "speaker_change": false
+  },
+  {
+   "start": 2419.08,
+   "end": 2422.76,
+   "text": "Eu tenho as melhores propostas pro Brasil, para homens e mulheres no Brasil.",
+   "turn": 16,
+   "speaker_change": false
+  },
+  {
+   "start": 2422.76,
+   "end": 2427.28,
+   "text": "E essas propostas eles atingem diretamente a vida das mulheres, dos homens, das crianças,",
+   "turn": 16,
+   "speaker_change": false
+  },
+  {
+   "start": 2427.28,
+   "end": 2430.04,
+   "text": "dos gays, dos negros, dos brancos, dos nordestinos,",
+   "turn": 16,
+   "speaker_change": false
+  },
+  {
+   "start": 2430.04,
+   "end": 2431.6,
+   "text": "dos paulistas, dos gaúchos.",
+   "turn": 16,
+   "speaker_change": false
+  },
+  {
+   "start": 2431.6,
+   "end": 2435.56,
+   "text": "Ninguém tem propostas que melhorem a vida dos brasileiros como nós.",
+   "turn": 16,
+   "speaker_change": false
+  },
+  {
+   "start": 2435.56,
+   "end": 2439.04,
+   "text": "Agora não peçam para eu virar um boneco eleitoral",
+   "turn": 16,
+   "speaker_change": false
+  },
+  {
+   "start": 2439.04,
+   "end": 2440.88,
+   "text": "que eu jamais o serei.",
+   "turn": 16,
+   "speaker_change": false
+  },
+  {
+   "start": 2440.88,
+   "end": 2442.68,
+   "text": "Jamais o serei.",
+   "turn": 16,
+   "speaker_change": false
+  },
+  {
+   "start": 2442.68,
+   "end": 2445.48,
+   "text": "Não serei.",
+   "turn": 16,
+   "speaker_change": false
+  },
+  {
+   "start": 2461.64,
+   "end": 2465.12,
+   "text": "O voto da ministra Carmen Lúcia é considerado decisivo",
+   "turn": 19,
+   "speaker_change": false
+  },
+  {
+   "start": 2465.12,
+   "end": 2468.64,
+   "text": "quando as petições do Mendonça quantra o Morais,",
+   "turn": 19,
+   "speaker_change": false
+  },
+  {
+   "start": 2468.64,
+   "end": 2472.52,
+   "text": "tanto a do Morais quanto o Mendonça, irem a plenário.",
+   "turn": 19,
+   "speaker_change": false
+  },
+  {
+   "start": 2472.52,
+   "end": 2476.36,
+   "text": "Eh, qual que é a expectativa do senhor em relação ao voto da ministra?",
+   "turn": 19,
+   "speaker_change": false
+  },
+  {
+   "start": 2476.36,
+   "end": 2485.68,
+   "text": "E o senhor faria algum pedido especial para que a ministra considere na hora de votar?",
+   "turn": 19,
+   "speaker_change": false
+  },
+  {
+   "start": 2485.68,
+   "end": 2487.12,
+   "text": "Eu quero apenas justiça.",
+   "turn": 19,
+   "speaker_change": false
+  },
+  {
+   "start": 2487.12,
+   "end": 2489.96,
+   "text": "Eu quero que a ministra faça o correto.",
+   "turn": 19,
+   "speaker_change": false
+  },
+  {
+   "start": 2489.96,
+   "end": 2491.16,
+   "text": "Apenas isso.",
+   "turn": 19,
+   "speaker_change": false
+  },
+  {
+   "start": 2491.16,
+   "end": 2493.16,
+   "text": "Eu quero que tudo venha à tona.",
+   "turn": 19,
+   "speaker_change": false
+  },
+  {
+   "start": 2493.16,
+   "end": 2496.36,
+   "text": "Eu quero que o Brasil saiba quem se corrompeu e quem se vendeu.",
+   "turn": 19,
+   "speaker_change": false
+  },
+  {
+   "start": 2496.36,
+   "end": 2499.56,
+   "text": "Eu quero que os superperes do Alexandre de Morais deixem de existir.",
+   "turn": 19,
+   "speaker_change": false
+  },
+  {
+   "start": 2499.56,
+   "end": 2503.64,
+   "text": "E eu quero que os ministros da Suprema Corte defendam o que ainda resta nossa constituição.",
+   "turn": 19,
+   "speaker_change": false
+  },
+  {
+   "start": 2503.64,
+   "end": 2505.92,
+   "text": "Vamos cobrar ela, assim como cobraremos a todos.",
+   "turn": 19,
+   "speaker_change": false
+  },
+  {
+   "start": 2505.92,
+   "end": 2514.76,
+   "text": "que esse é o nosso papel.",
+   "turn": 19,
+   "speaker_change": false
+  },
+  {
+   "start": 2517.72,
+   "end": 2520.88,
+   "text": "Se não me engano, esse final de semana você esteve em Fortaleza.",
+   "turn": 19,
+   "speaker_change": false
+  },
+  {
+   "start": 2520.88,
+   "end": 2526.64,
+   "text": "Numa dos vídeos da campanha, o senhor visitou uma área que disse ser dominada pelo comando vermelho",
+   "turn": 19,
+   "speaker_change": false
+  },
+  {
+   "start": 2526.64,
+   "end": 2531.24,
+   "text": "e lá naquele momento, você fez uma menção dizendo que não devemos aceitar ordens de facções",
+   "turn": 19,
+   "speaker_change": false
+  },
+  {
+   "start": 2531.24,
+   "end": 2533.12,
+   "text": "nem do STF.",
+   "turn": 19,
+   "speaker_change": false
+  },
+  {
+   "start": 2533.12,
+   "end": 2538.28,
+   "text": "É possível fazer essa relação e como se posicionar tanto contra",
+   "turn": 19,
+   "speaker_change": false
+  },
+  {
+   "start": 2538.28,
+   "end": 2544.52,
+   "text": "ministros e ao mesmo tempo respeitar ou preservar uma das instituições que é um dos três poderes da nossa ordem.",
+   "turn": 19,
+   "speaker_change": false
+  },
+  {
+   "start": 2544.52,
+   "end": 2548.2,
+   "text": "Bom, se ministros que operam institucionalmente",
+   "turn": 20,
+   "speaker_change": true
+  },
+  {
+   "start": 2548.2,
+   "end": 2551.16,
+   "text": "em nome do Banco Master continuarem emitindo decisões,",
+   "turn": 20,
+   "speaker_change": false
+  },
+  {
+   "start": 2551.16,
+   "end": 2553.96,
+   "text": "significa que não existe mais institucionalidade.",
+   "turn": 20,
+   "speaker_change": false
+  },
+  {
+   "start": 2553.96,
+   "end": 2555.48,
+   "text": "Esse é o problema.",
+   "turn": 20,
+   "speaker_change": false
+  },
+  {
+   "start": 2555.48,
+   "end": 2560.56,
+   "text": "O Alexandre de Moraes colocou um colega ministro dele dentro do inquérito dele",
+   "turn": 20,
+   "speaker_change": false
+  },
+  {
+   "start": 2560.56,
+   "end": 2564.76,
+   "text": "numa chicana, numa nova jurídica para se proteger",
+   "turn": 20,
+   "speaker_change": false
+  },
+  {
+   "start": 2564.76,
+   "end": 2570.44,
+   "text": "do fato de que ele próprio estava se relacionando na casa das centenas de milhões de reais com o Banco Master.",
+   "turn": 20,
+   "speaker_change": false
+  },
+  {
+   "start": 2570.44,
+   "end": 2573.72,
+   "text": "Ou seja, a República se submete a um banco.",
+   "turn": 20,
+   "speaker_change": false
+  },
+  {
+   "start": 2573.72,
+   "end": 2578.2,
+   "text": "A discussão minha é se a República se submete aos valores do próprio povo",
+   "turn": 20,
+   "speaker_change": false
+  },
+  {
+   "start": 2578.2,
+   "end": 2581.24,
+   "text": "e a institucionalidade assim é respeitada.",
+   "turn": 20,
+   "speaker_change": false
+  },
+  {
+   "start": 2581.24,
+   "end": 2586.88,
+   "text": "É isso ou aceitar que ser institucional é permitir que ladrões mandem na gente?",
+   "turn": 20,
+   "speaker_change": false
+  },
+  {
+   "start": 2586.88,
+   "end": 2592.48,
+   "text": "Nós não podemos reconhecer nenhuma decisão que venha de gente como Dias Tofol e Alexandre de Moraes.",
+   "turn": 20,
+   "speaker_change": false
+  },
+  {
+   "start": 2592.48,
+   "end": 2595.88,
+   "text": "As decisões deles emanam de uma fonte ilegal.",
+   "turn": 20,
+   "speaker_change": false
+  },
+  {
+   "start": 2595.88,
+   "end": 2598.88,
+   "text": "Eles são furto de uma árvore envenenada.",
+   "turn": 20,
+   "speaker_change": false
+  },
+  {
+   "start": 2598.88,
+   "end": 2602.16,
+   "text": "Nada do que venha dali pode ser considerado válido.",
+   "turn": 20,
+   "speaker_change": false
+  },
+  {
+   "start": 2602.16,
+   "end": 2607.04,
+   "text": "O meu governo não vai reconhecer decisões que venham deles,",
+   "turn": 20,
+   "speaker_change": false
+  },
+  {
+   "start": 2607.04,
+   "end": 2609.56,
+   "text": "porque decisão ilegal não se cumpre.",
+   "turn": 20,
+   "speaker_change": false
+  },
+  {
+   "start": 2609.56,
+   "end": 2611.6,
+   "text": "Essa é a verdade.",
+   "turn": 20,
+   "speaker_change": false
+  },
+  {
+   "start": 2611.6,
+   "end": 2620.32,
+   "text": "E eu acho, eu acho um absurdo vi dizer que é uma decisão autoritária.",
+   "turn": 20,
+   "speaker_change": false
+  },
+  {
+   "start": 2620.32,
+   "end": 2623.76,
+   "text": "Eu vi algumas falar, alguma decisão autoritária da minha parte falar isso.",
+   "turn": 20,
+   "speaker_change": false
+  },
+  {
+   "start": 2623.76,
+   "end": 2625.52,
+   "text": "Como pode?",
+   "turn": 20,
+   "speaker_change": false
+  },
+  {
+   "start": 2625.52,
+   "end": 2628.04,
+   "text": "Nó nós somos cordeiros indo pro abate.",
+   "turn": 20,
+   "speaker_change": false
+  },
+  {
+   "start": 2628.04,
+   "end": 2629.44,
+   "text": "Nós vamos aceitar que seja isso.",
+   "turn": 20,
+   "speaker_change": false
+  },
+  {
+   "start": 2629.44,
+   "end": 2633.8,
+   "text": "Então, que eles decidam tudo baseado em grana que eles eles receberam grana",
+   "turn": 20,
+   "speaker_change": false
+  },
+  {
+   "start": 2633.8,
+   "end": 2637.92,
+   "text": "para dar as decisões que eles deram e que isso é constituição, isso é democracia.",
+   "turn": 20,
+   "speaker_change": false
+  },
+  {
+   "start": 2637.92,
+   "end": 2640.28,
+   "text": "Isso não é democracia em nenhum lugar do mundo.",
+   "turn": 20,
+   "speaker_change": false
+  },
+  {
+   "start": 2640.28,
+   "end": 2643.68,
+   "text": "Em todas as democracias sérias do mundo, essas figuras teriam caído,",
+   "turn": 20,
+   "speaker_change": false
+  },
+  {
+   "start": 2643.68,
+   "end": 2646.48,
+   "text": "mas muito antes, teriam caído anos atrás.",
+   "turn": 20,
+   "speaker_change": false
+  },
+  {
+   "start": 2646.48,
+   "end": 2650.6,
+   "text": "O fato da gente tá agora assistindo essa esses duelos institucionais",
+   "turn": 20,
+   "speaker_change": false
+  },
+  {
+   "start": 2650.6,
+   "end": 2657.32,
+   "text": "e ficar falando, não, veja só, parece que agora o a turma do lado do Mendonça acumulou mais poder, não, acho que o Xandão vai retrucar.",
+   "turn": 20,
+   "speaker_change": false
+  },
+  {
+   "start": 2657.32,
+   "end": 2663.48,
+   "text": "O fato de a gente aceitar isso é a gente aceitando que existe uma ditadura em si e a gente tá vindo às brigas",
+   "turn": 20,
+   "speaker_change": false
+  },
+  {
+   "start": 2663.48,
+   "end": 2666.36,
+   "text": "palacianas dessa ditadura.",
+   "turn": 20,
+   "speaker_change": false
+  },
+  {
+   "start": 2666.36,
+   "end": 2671.24,
+   "text": "E sim, a partir do momento que se você se submete ao Banco Master, você é parte do crime organizado.",
+   "turn": 20,
+   "speaker_change": false
+  },
+  {
+   "start": 2671.24,
+   "end": 2674.0,
+   "text": "E sim, nós somos organizados pelo crime organizado.",
+   "turn": 20,
+   "speaker_change": false
+  },
+  {
+   "start": 2674.0,
+   "end": 2676.0,
+   "text": "Isso é isso é são é um dado da realidade.",
+   "turn": 20,
+   "speaker_change": false
+  },
+  {
+   "start": 2676.0,
+   "end": 2680.0,
+   "text": "As favelas pelo comando vermelho PCC e as ruas, os prédios,",
+   "turn": 20,
+   "speaker_change": false
+  },
+  {
+   "start": 2680.0,
+   "end": 2688.16,
+   "text": "os comércios e as cidades pelo STF.",
+   "turn": 20,
+   "speaker_change": false
+  },
+  {
+   "start": 2704.64,
+   "end": 2706.24,
+   "text": "Que que é sua candidatura?",
+   "turn": 21,
+   "speaker_change": true
+  },
+  {
+   "start": 2706.24,
+   "end": 2711.6,
+   "text": "V essa onde viu o eleitor hoje nesse s de setembro nesse fado.",
+   "turn": 21,
+   "speaker_change": false
+  },
+  {
+   "start": 2711.6,
+   "end": 2715.56,
+   "text": "Falar",
+   "turn": 21,
+   "speaker_change": false
+  },
+  {
+   "start": 2715.56,
+   "end": 2719.76,
+   "text": "a mensagem do eleitor é nós conquistamos nossa independência",
+   "turn": 22,
+   "speaker_change": true
+  },
+  {
+   "start": 2719.76,
+   "end": 2725.2,
+   "text": "há mais de 200 anos atrás, só que hoje ela é uma independência formal,",
+   "turn": 22,
+   "speaker_change": false
+  },
+  {
+   "start": 2725.2,
+   "end": 2727.92,
+   "text": "igual é formal os direitos que estão na nossa constituição.",
+   "turn": 22,
+   "speaker_change": false
+  },
+  {
+   "start": 2727.92,
+   "end": 2732.6,
+   "text": "Para conquistar nossa independência real, nós temos que ter um governo que seja de fato do povo e pelo povo.",
+   "turn": 22,
+   "speaker_change": false
+  },
+  {
+   "start": 2732.6,
+   "end": 2734.72,
+   "text": "E hoje o governo não é pelo povo.",
+   "turn": 22,
+   "speaker_change": false
+  },
+  {
+   "start": 2734.72,
+   "end": 2739.04,
+   "text": "Hoje as instituições não estão pelo povo e hoje, portanto, nós não somos um povo independente.",
+   "turn": 22,
+   "speaker_change": false
+  },
+  {
+   "start": 2739.04,
+   "end": 2741.68,
+   "text": "Nós somos escravos do Estado brasileiro.",
+   "turn": 22,
+   "speaker_change": false
+  },
+  {
+   "start": 2741.68,
+   "end": 2745.0,
+   "text": "O escravo, estado brasileiro que toma o nosso dinheiro com impostos,",
+   "turn": 22,
+   "speaker_change": false
+  },
+  {
+   "start": 2745.0,
+   "end": 2748.72,
+   "text": "que permite que a gente seja morto nas ruas, nas mãos dos bandidos",
+   "turn": 22,
+   "speaker_change": false
+  },
+  {
+   "start": 2748.72,
+   "end": 2753.0,
+   "text": "e que quando a gente protesta ou reclama retira o nosso direito.",
+   "turn": 22,
+   "speaker_change": false
+  },
+  {
+   "start": 2753.0,
+   "end": 2755.36,
+   "text": "Brasileiro, portanto, é inimigo dos brasileiros",
+   "turn": 22,
+   "speaker_change": false
+  },
+  {
+   "start": 2755.36,
+   "end": 2761.96,
+   "text": "e essa quadrilha que nos administra tem que ser na prática os novos portugueses a qual nós temos que conquistar nossa independência.",
+   "turn": 22,
+   "speaker_change": false
+  },
+  {
+   "start": 2761.96,
+   "end": 2764.56,
+   "text": "Sejamos nós donos do nosso novo 7 de setembro",
+   "turn": 22,
+   "speaker_change": false
+  },
+  {
+   "start": 2764.56,
+   "end": 2779.52,
+   "text": "e que a gente torne o nosso país finalmente independente de quem nos rouba.",
+   "turn": 22,
+   "speaker_change": false
+  },
+  {
+   "start": 2781.8,
+   "end": 2791.2,
+   "text": "o senhor teme novas represalhas do STF e dos ministros da corte após o ato de hoje?",
+   "turn": 23,
+   "speaker_change": false
+  },
+  {
+   "start": 2791.2,
+   "end": 2793.04,
+   "text": "O Kim veio com uma boa aqui.",
+   "turn": 23,
+   "speaker_change": false
+  },
+  {
+   "start": 2793.04,
+   "end": 2801.32,
+   "text": "É só não cumprir.",
+   "turn": 23,
+   "speaker_change": false
+  },
+  {
+   "start": 2801.32,
+   "end": 2803.08,
+   "text": "Eu acho que",
+   "turn": 24,
+   "speaker_change": true
+  },
+  {
+   "start": 2803.08,
+   "end": 2804.04,
+   "text": "pode, pode falar.",
+   "turn": 25,
+   "speaker_change": true
+  },
+  {
+   "start": 2804.04,
+   "end": 2806.84,
+   "text": "Eu acho que temer a gente já não tá temendo mais.",
+   "turn": 26,
+   "speaker_change": true
+  },
+  {
+   "start": 2806.84,
+   "end": 2813.84,
+   "text": "Ah, agora se eu acredito que haverá, eu imagino que sim.",
+   "turn": 26,
+   "speaker_change": false
+  },
+  {
+   "start": 2820.56,
+   "end": 2826.12,
+   "text": "Alguma ação propositiva do seu plano do governo que eu pretenda destacar hoje?",
+   "turn": 29,
+   "speaker_change": false
+  },
+  {
+   "start": 2826.12,
+   "end": 2829.68,
+   "text": "Eu escolhi algumas, mas a principal ação propositiva",
+   "turn": 29,
+   "speaker_change": false
+  },
+  {
+   "start": 2829.68,
+   "end": 2832.6,
+   "text": "nossa,",
+   "turn": 29,
+   "speaker_change": false
+  },
+  {
+   "start": 2832.6,
+   "end": 2837.6,
+   "text": "a principal ação propositiva para eu entregar hoje, no 7 de setembro, que seja simbólica,",
+   "turn": 30,
+   "speaker_change": true
+  },
+  {
+   "start": 2837.6,
+   "end": 2843.48,
+   "text": "é devolver ao Brasil o senso natural de que se você vive numa nação,",
+   "turn": 30,
+   "speaker_change": false
+  },
+  {
+   "start": 2843.48,
+   "end": 2845.2,
+   "text": "justiça será feita.",
+   "turn": 30,
+   "speaker_change": false
+  },
+  {
+   "start": 2845.2,
+   "end": 2847.88,
+   "text": "Nós precisamos voltar a ter a prisão em segunda instância",
+   "turn": 30,
+   "speaker_change": false
+  },
+  {
+   "start": 2847.88,
+   "end": 2850.84,
+   "text": "para que corruptos no Brasil, corruptos de toda sorte,",
+   "turn": 30,
+   "speaker_change": false
+  },
+  {
+   "start": 2850.84,
+   "end": 2854.92,
+   "text": "vão pra cadeia sem precisar apelar pra Suprema Corte ou pro STJ,",
+   "turn": 30,
+   "speaker_change": false
+  },
+  {
+   "start": 2854.92,
+   "end": 2858.52,
+   "text": "lugares onde hoje eles fazem negócios com escritórios de advocacia",
+   "turn": 30,
+   "speaker_change": false
+  },
+  {
+   "start": 2858.52,
+   "end": 2860.84,
+   "text": "de ministros dessas cores.",
+   "turn": 30,
+   "speaker_change": false
+  },
+  {
+   "start": 2860.84,
+   "end": 2866.84,
+   "text": "Voltar a ter uma luta séria anticorrupção, colocar no poder um procurador geral da República independente,",
+   "turn": 30,
+   "speaker_change": false
+  },
+  {
+   "start": 2866.84,
+   "end": 2869.52,
+   "text": "tornar a Polícia Federal, que é patrimônio nacional",
+   "turn": 30,
+   "speaker_change": false
+  },
+  {
+   "start": 2869.52,
+   "end": 2874.76,
+   "text": "independente, e o COAF também para que eles possam agir e pegar aqueles que nos roubam.",
+   "turn": 30,
+   "speaker_change": false
+  },
+  {
+   "start": 2874.76,
+   "end": 2876.88,
+   "text": "É um ato de libertação no Brasil.",
+   "turn": 30,
+   "speaker_change": false
+  },
+  {
+   "start": 2876.88,
+   "end": 2879.88,
+   "text": "E é isso que o meu governo já propõe, o meu livro de proposta já propõe.",
+   "turn": 30,
+   "speaker_change": false
+  },
+  {
+   "start": 2879.88,
+   "end": 2883.36,
+   "text": "Voltarmos ao status antes do fim da operação Lava Jato,",
+   "turn": 30,
+   "speaker_change": false
+  },
+  {
+   "start": 2883.36,
+   "end": 2886.52,
+   "text": "quando as instituições apoavam de maneira independente",
+   "turn": 30,
+   "speaker_change": false
+  },
+  {
+   "start": 2886.52,
+   "end": 2890.6,
+   "text": "e com isso empresários, políticos e ministros",
+   "turn": 30,
+   "speaker_change": false
+  },
+  {
+   "start": 2890.6,
+   "end": 2893.84,
+   "text": "eram investigados e quando culpados presos.",
+   "turn": 30,
+   "speaker_change": false
+  },
+  {
+   "start": 2893.84,
+   "end": 2896.2,
+   "text": "Este é o tipo de Brasil que nós precisamos construir a partir de hoje.",
+   "turn": 30,
+   "speaker_change": false
+  },
+  {
+   "start": 2896.2,
+   "end": 2899.0,
+   "text": "Um país que justiça faz parte do nosso vocabulário.",
+   "turn": 30,
+   "speaker_change": false
+  },
+  {
+   "start": 2899.0,
+   "end": 2902.96,
+   "text": "Hoje ela não faz mais.",
+   "turn": 30,
+   "speaker_change": false
+  },
+  {
+   "start": 2911.04,
+   "end": 2914.4,
+   "text": "Queria fazer uma pergunta naquilo tudo que o senhor já refletiu aqui.",
+   "turn": 30,
+   "speaker_change": false
+  },
+  {
+   "start": 2914.4,
+   "end": 2919.76,
+   "text": "Num país que a quatro eleições para presidente sempre fica polarizado",
+   "turn": 30,
+   "speaker_change": false
+  },
+  {
+   "start": 2919.76,
+   "end": 2923.08,
+   "text": "entre esquerda e direita, entre Lula.",
+   "turn": 30,
+   "speaker_change": false
+  },
+  {
+   "start": 2923.08,
+   "end": 2928.8,
+   "text": "Flávio Bolsonaro, como tirar o medo dessas pessoas que o senhor começou no seu discurso?",
+   "turn": 30,
+   "speaker_change": false
+  },
+  {
+   "start": 2928.8,
+   "end": 2934.2,
+   "text": "como reverter e fazer crescer o seu o seu a sua cotação, a sua votação",
+   "turn": 30,
+   "speaker_change": false
+  },
+  {
+   "start": 2934.2,
+   "end": 2936.08,
+   "text": "para chegar no segundo turno?",
+   "turn": 30,
+   "speaker_change": false
+  },
+  {
+   "start": 2936.08,
+   "end": 2941.72,
+   "text": "Seria esperar mais um escândalo no Brasil ou seria um debate aberto entre todos os candidatos",
+   "turn": 30,
+   "speaker_change": false
+  },
+  {
+   "start": 2941.72,
+   "end": 2945.92,
+   "text": "num horário eh que todos possam assistir?",
+   "turn": 30,
+   "speaker_change": false
+  },
+  {
+   "start": 2945.92,
+   "end": 2947.84,
+   "text": "Eles não virão os debates.",
+   "turn": 30,
+   "speaker_change": false
+  },
+  {
+   "start": 2947.84,
+   "end": 2953.12,
+   "text": "Eh, haverá o eles não virão os debates.",
+   "turn": 30,
+   "speaker_change": false
+  },
+  {
+   "start": 2953.12,
+   "end": 2956.88,
+   "text": "A situação ela é cômoda pros dois que estão em primeiro.",
+   "turn": 30,
+   "speaker_change": false
+  },
+  {
+   "start": 2956.88,
+   "end": 2962.04,
+   "text": "E quem deixou essa situação ficar cômoda foram as torcidas organizadas de ambos.",
+   "turn": 30,
+   "speaker_change": false
+  },
+  {
+   "start": 2962.04,
+   "end": 2966.84,
+   "text": "As torcidas organizadas de ambos não querem discutir nada de novo pelo Brasil.",
+   "turn": 30,
+   "speaker_change": false
+  },
+  {
+   "start": 2966.84,
+   "end": 2972.4,
+   "text": "Essa é a eleição mais vazia em termos de propostas e debate que nós já vimos.",
+   "turn": 30,
+   "speaker_change": false
+  },
+  {
+   "start": 2972.4,
+   "end": 2978.04,
+   "text": "Quando quando há uma sabatina, a única sabatina que os jornalistas ficam animados em fazer perguntas",
+   "turn": 30,
+   "speaker_change": false
+  },
+  {
+   "start": 2978.04,
+   "end": 2980.64,
+   "text": "são as minhas, porque há propostas.",
+   "turn": 30,
+   "speaker_change": false
+  },
+  {
+   "start": 2980.64,
+   "end": 2983.04,
+   "text": "Nos demais não há discussão sobre absolutamente",
+   "turn": 30,
+   "speaker_change": false
+  },
+  {
+   "start": 2983.04,
+   "end": 2983.84,
+   "text": "nada.",
+   "turn": 30,
+   "speaker_change": false
+  },
+  {
+   "start": 2983.84,
+   "end": 2986.72,
+   "text": "Quando eu fui na Globo News, quando eu fui no Globo,",
+   "turn": 30,
+   "speaker_change": false
+  },
+  {
+   "start": 2986.72,
+   "end": 2989.96,
+   "text": "havia uma na CNN havia uma disposição em discutir,",
+   "turn": 30,
+   "speaker_change": false
+  },
+  {
+   "start": 2989.96,
+   "end": 2992.2,
+   "text": "em pegar polêmicas, encontrar fragilidades.",
+   "turn": 30,
+   "speaker_change": false
+  },
+  {
+   "start": 2992.2,
+   "end": 2994.92,
+   "text": "Ou seja, o jornalista podia ser jornalista comigo,",
+   "turn": 30,
+   "speaker_change": false
+  },
+  {
+   "start": 2994.92,
+   "end": 2996.32,
+   "text": "com os demais não há.",
+   "turn": 30,
+   "speaker_change": false
+  },
+  {
+   "start": 2996.32,
+   "end": 2998.8,
+   "text": "Eles vão falar de escândalos ou de platitudes.",
+   "turn": 30,
+   "speaker_change": false
+  },
+  {
+   "start": 2998.8,
+   "end": 3001.4,
+   "text": "E as respostas são respostas ensaiadas com marqueteiros.",
+   "turn": 30,
+   "speaker_change": false
+  },
+  {
+   "start": 3001.4,
+   "end": 3002.72,
+   "text": "Esse foi o desenho dessa eleição.",
+   "turn": 30,
+   "speaker_change": false
+  },
+  {
+   "start": 3002.72,
+   "end": 3006.36,
+   "text": "É um desenho muito triste que foi construído para as eleições brasileiras.",
+   "turn": 30,
+   "speaker_change": false
+  },
+  {
+   "start": 3006.36,
+   "end": 3010.48,
+   "text": "Eh, para reverter isso, é apenas pegando o que nos trouxe até aqui.",
+   "turn": 30,
+   "speaker_change": false
+  },
+  {
+   "start": 3010.48,
+   "end": 3013.0,
+   "text": "Há uma massa de brasileiros que entendeu o que tá acontecendo",
+   "turn": 30,
+   "speaker_change": false
+  },
+  {
+   "start": 3013.0,
+   "end": 3017.24,
+   "text": "e que estão indignados e eles existem e estão em todo o território nacional.",
+   "turn": 30,
+   "speaker_change": false
+  },
+  {
+   "start": 3017.24,
+   "end": 3024.12,
+   "text": "A compreensão deles dessa realidade é igual, seja aqui em São Paulo, seja em Porto Alegre, seja em Manaus, seja em Fortaleza.",
+   "turn": 30,
+   "speaker_change": false
+  },
+  {
+   "start": 3024.12,
+   "end": 3027.2,
+   "text": "Ou seja, esses brasileiros estão presentes em todo o território nacional.",
+   "turn": 30,
+   "speaker_change": false
+  },
+  {
+   "start": 3027.2,
+   "end": 3036.36,
+   "text": "E a beleza disso é justamente porque isso mostra que existe uma união nacional, sim, que nós somos uma nação como um todo, de todos os cantos, do norte a sul, leste, oeste.",
+   "turn": 30,
+   "speaker_change": false
+  },
+  {
+   "start": 3036.36,
+   "end": 3039.04,
+   "text": "Entretanto, há um corte nessas pessoas.",
+   "turn": 30,
+   "speaker_change": false
+  },
+  {
+   "start": 3039.04,
+   "end": 3042.28,
+   "text": "Há um corte geracional e um corte de esclarecimento.",
+   "turn": 30,
+   "speaker_change": false
+  },
+  {
+   "start": 3042.28,
+   "end": 3044.88,
+   "text": "Estas pessoas, portanto, que têm esse esclarecimento,",
+   "turn": 30,
+   "speaker_change": false
+  },
+  {
+   "start": 3044.88,
+   "end": 3047.44,
+   "text": "elas têm agora 30 dias para despertar o resto,",
+   "turn": 30,
+   "speaker_change": false
+  },
+  {
+   "start": 3047.44,
+   "end": 3052.64,
+   "text": "despertar o resto do sono, da mentira, da enganação, do efeito manada.",
+   "turn": 30,
+   "speaker_change": false
+  },
+  {
+   "start": 3052.64,
+   "end": 3058.84,
+   "text": "Nós nunca dissemos que seria fácil, mas a glória, né, e o futuro só é glorioso se ele vem depois de muito sofrimento.",
+   "turn": 30,
+   "speaker_change": false
+  },
+  {
+   "start": 3058.84,
+   "end": 3070.48,
+   "text": "Então são 30 dias de sofrimento até lá.",
+   "turn": 30,
+   "speaker_change": false
+  },
+  {
+   "start": 3071.92,
+   "end": 3074.24,
+   "text": "Eh, se eu não me engano, desde que as campanhas começaram,",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 3074.24,
+   "end": 3078.24,
+   "text": "essa talvez seja a primeira aparição pública do senhor sem o colete a prova de balas.",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 3078.24,
+   "end": 3079.8,
+   "text": "Que que mudou?",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 3079.8,
+   "end": 3081.8,
+   "text": "Não é várias vezes não tem.",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 3081.8,
+   "end": 3083.56,
+   "text": "Essa aqui é uma das que não tiveram.",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 3083.56,
+   "end": 3085.4,
+   "text": "Na verdade, a maior parte das minhas aparições",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 3085.4,
+   "end": 3087.2,
+   "text": "eu não tenho colete a prova de balas.",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 3087.2,
+   "end": 3090.36,
+   "text": "Eu quando eu coloco colete a prova de balas é por recomendação da Polícia Federal",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 3090.36,
+   "end": 3094.56,
+   "text": "em lugares onde ou já ameaças, onde há um risco iminente",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 3094.56,
+   "end": 3097.36,
+   "text": "e ou onde há uma eu estou muito exposto.",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 3097.36,
+   "end": 3098.44,
+   "text": "Aqui não é o caso.",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 3098.44,
+   "end": 3100.08,
+   "text": "Então não recebi a recomendação.",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 3100.08,
+   "end": 3103.4,
+   "text": "Agora em outros lugares a recomendação de colocar o colete a prova de balas.",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 3103.4,
+   "end": 3106.36,
+   "text": "Ontem por exemplo eu coloquei o colete a prova de balas para",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 3106.36,
+   "end": 3108.36,
+   "text": "quando tava na favela Vicente Pinzon.",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 3108.36,
+   "end": 3111.48,
+   "text": "um lugar em que o comando vermelho proibiu a gente fazer campanha.",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 3111.48,
+   "end": 3114.56,
+   "text": "Eh, outra aparição minha com o colete a prova de balas",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 3114.56,
+   "end": 3119.04,
+   "text": "foi o Largo São Francisco ou em que havia uma ameaça prévia de um estudante",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 3119.04,
+   "end": 3120.96,
+   "text": "eh avisando que ia atirar em mim.",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 3120.96,
+   "end": 3125.24,
+   "text": "Eh, anteriormente tivemos numa numa favela, no Jardim Panorama",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 3125.24,
+   "end": 3131.72,
+   "text": "também num local que é dominado pelo PCC, um discurso nosso e que tinha um salve do PCC para que nós não estivéssemos lá.",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 3131.72,
+   "end": 3135.44,
+   "text": "Então, alguns lugares você, outros não, mas na maior parte das minhas aparições",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 3135.44,
+   "end": 3136.64,
+   "text": "eu não estou com colete.",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 3136.64,
+   "end": 3145.32,
+   "text": "E eu até falo, porque existe hoje o colete performático, para te responder bem, existe o colete performático, polí a prova de balas que colocam para falar: \"Ah, o sistema tá atrás de mim\".",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 3145.32,
+   "end": 3146.4,
+   "text": "Eu não gosto de usar colete.",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 3146.4,
+   "end": 3149.48,
+   "text": "Eu já sempre falei mal dos políticos do colete performático.",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 3149.48,
+   "end": 3152.24,
+   "text": "Tanto que se eu quisesse performar, eu estaria aqui hoje,",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 3152.24,
+   "end": 3152.96,
+   "text": "mas não tô.",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 3152.96,
+   "end": 3154.44,
+   "text": "Se eu não preciso, eu não estarei.",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 3154.44,
+   "end": 3177.8,
+   "text": "Essa é a ideia.",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 3201.92,
+   "end": 3205.76,
+   "text": "De que, como a gente passou toda essa manhã falando,",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 3205.76,
+   "end": 3209.72,
+   "text": "todas as pessoas que estão aqui são a vanguarda da transformação",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 3209.72,
+   "end": 3210.92,
+   "text": "política desse país.",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 3210.92,
+   "end": 3214.2,
+   "text": "São os únicos que têm independência, são os únicos que têm coragem.",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 3214.2,
+   "end": 3219.96,
+   "text": "Nós falamos que o futuro é glorioso, mas para que o futuro seja glorioso,",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 3219.96,
+   "end": 3224.56,
+   "text": "o presente precisa ser corajoso e a gente precisa ter cada vez mais pessoas corajosas",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 3224.56,
+   "end": 3227.04,
+   "text": "ao nosso lado.",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 3227.04,
+   "end": 3231.16,
+   "text": "E para ter cada vez mais pessoas corajosas ao nosso lado",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 3231.16,
+   "end": 3235.96,
+   "text": "e menos pessoas enganadas ao lado daqueles que estão",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 3235.96,
+   "end": 3238.52,
+   "text": "em primeiro e segundo nas pesquisas.",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 3238.52,
+   "end": 3245.12,
+   "text": "Eu confesso para vocês genuinamente que estou muito curioso",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 3245.12,
+   "end": 3251.0,
+   "text": "e que vou divulgar ao máximo a resposta dos outros candidatos",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 3251.0,
+   "end": 3254.4,
+   "text": "em relação à assinatura do nosso manifesto.",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 3254.4,
+   "end": 3258.08,
+   "text": "E é com esse pedido que eu vou terminar o dia de hoje.",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 3258.08,
+   "end": 3264.0,
+   "text": "O TSE limitou o alcance das redes de todos os candidatos,",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 3264.0,
+   "end": 3266.96,
+   "text": "não limitou o alcance de vocês.",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 3266.96,
+   "end": 3271.0,
+   "text": "Fiquem de olho nas respostas de todos os candidatos",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 3271.0,
+   "end": 3274.32,
+   "text": "em relação à assinatura do nosso manifesto.",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 3274.32,
+   "end": 3279.36,
+   "text": "Só vai assinar o nosso manifesto os candidatos que cumprirem dois requisitos.",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 3279.36,
+   "end": 3282.76,
+   "text": "Primeiro, quem não tiver envolvido no escândalo do Banco Master.",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 3282.76,
+   "end": 3285.12,
+   "text": "Segundo, quem tiver coragem.",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 3285.12,
+   "end": 3290.36,
+   "text": "Então, todos nós temos uma lição de casa, acompanhar",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 3290.36,
+   "end": 3298.72,
+   "text": "as respostas de cada candidato e espalhar ao máximo essas respostas para mostrar pro pro eleitor",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 3298.72,
+   "end": 3303.24,
+   "text": "o único que cumpre esses dois requisitos, não ter um sujeito",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 3303.24,
+   "end": 3308.32,
+   "text": "chamado Dani marcado nos seus contatos e número dois",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 3308.32,
+   "end": 3312.76,
+   "text": "ter a coragem de falar sobre todos aqueles que t o contato",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 3312.76,
+   "end": 3314.72,
+   "text": "de quem vai em festinha de astronauta.",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 3340.64,
+   "end": 3343.44,
+   "text": "Cuidado com a delação.",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 3343.44,
+   "end": 3346.92,
+   "text": "Daqui a pouco tem ministro da prisão.",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 3346.92,
+   "end": 3349.88,
+   "text": "Cuidado com a delação.",
+   "turn": 31,
+   "speaker_change": false
+  },
+  {
+   "start": 3349.88,
+   "end": 3394.4,
+   "text": "Daqui a pouco tem ministro na prisão.",
+   "turn": 31,
+   "speaker_change": false
+  }
+ ]
+}

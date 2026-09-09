@@ -174,6 +174,16 @@ def _profundidade_do_vale(curve: list[float], index: int) -> float:
     return ((esquerda - curve[index]) + (direita - curve[index])) / 2
 
 
+# Quanto dura um bloco típico do Acervo. Mediana dos 44 blocos das cinco fontes
+# com gabarito que existiam ANTES do ato de 7 de setembro entrar na bancada — de
+# propósito: o material novo não pode informar a régua com que ele é medido.
+MEDIANA_DO_BLOCO_S = 220.0
+
+# Quão fundo um vale precisa ser para virar candidato, como percentil da própria
+# curva. Ver a varredura em `_boundaries`.
+PERCENTIL_DO_VALE = 0.40
+
+
 def _boundaries(curve: list[float], min_gap: int, tempos: list[float] | None = None,
                 min_gap_s: float = 0.0, trocas_de_voz: list[float] | None = None,
                 janela_da_troca: float = 5.0) -> list[int]:
@@ -223,7 +233,7 @@ def _boundaries(curve: list[float], min_gap: int, tempos: list[float] | None = N
     # `média − desvio` já é maior que ele — as quatro outras fontes medidas —
     # nada muda.
     ordenada = sorted(curve)
-    piso = ordenada[min(len(ordenada) - 1, int(len(ordenada) * 0.10))]
+    piso = ordenada[min(len(ordenada) - 1, int(len(ordenada) * PERCENTIL_DO_VALE))]
     threshold = max(mean - deviation, piso)
     candidates = []
     for index in range(1, len(curve) - 1):
@@ -259,19 +269,30 @@ def _boundaries(curve: list[float], min_gap: int, tempos: list[float] | None = N
     # para quem edita: fronteira errada vira corte que ele joga fora, fronteira
     # perdida vira só um bloco mais longo, que o seletor ainda corta por dentro.
     #
-    # Duas travas de segurança, porque nem todo material tem diarização boa:
-    # com menos de três marcas a porta não abre (material sem locutor
-    # identificado seguiria com zero fronteiras), e se a porta deixar o
-    # candidato zerado ela é ignorada.
     marcas = sorted(set(trocas_de_voz or []))
-    if len(marcas) >= 3 and tempos and janela_da_troca > 0:
-        na_troca = [
+
+    # A PORTA VIROU PREFERÊNCIA, PORQUE ELA APAGAVA UM ATO INTEIRO
+    #
+    # Como filtro duro, a porta supõe que assunto vira quando outra pessoa fala.
+    # Vale numa entrevista. Num comício ou numa live o Renan fala sozinho por
+    # uma hora e o assunto vira sem ninguém interromper. Medido no ato de 7 de
+    # setembro (57 min, 21 assuntos no Acervo):
+    #
+    #     42 candidatos -> a porta deixa 2 -> 1 das 20 viradas achada (5%)
+    #
+    # A trava de "só fecha com três marcas ou mais" não protegia: o ato tem 19
+    # trocas, ela abre, e leva 40 candidatos junto.
+    #
+    # Agora quem cai numa troca de voz é atendido PRIMEIRO, e os outros
+    # continuam elegíveis. Onde a diarização é boa nada muda na prática — os
+    # preferidos preenchem as vagas antes.
+    perto_da_troca: set[int] = set()
+    if marcas and tempos and janela_da_troca > 0:
+        perto_da_troca = {
             index for index in candidates
             if index + 1 < len(tempos)
             and min(abs(tempos[index + 1] - marca) for marca in marcas) <= janela_da_troca
-        ]
-        if na_troca:
-            candidates = na_troca
+        }
 
     def longe_o_bastante(index: int, taken: int) -> bool:
         if tempos and min_gap_s > 0:
@@ -281,10 +302,56 @@ def _boundaries(curve: list[float], min_gap: int, tempos: list[float] | None = N
                 pass
         return abs(index - taken) >= min_gap
 
+    # QUANTAS FRONTEIRAS ESTE MATERIAL COMPORTA — COMO PISO, NÃO COMO TETO
+    #
+    # A primeira tentativa foi usar este número como teto, cortando os
+    # candidatos piores. Medido nas seis fontes, foi ruim em toda faixa:
+    #
+    #     sem teto      34/59 achadas 58%   34/129 certeiras 26%
+    #     teto 400 s    15/59         25%   15/31             48%
+    #     teto 220 s    23/59         39%   23/58             40%
+    #     teto 120 s    32/59         54%   32/107            30%
+    #
+    # Nenhuma linha bate a de cima nas duas colunas: o teto corta fronteira
+    # verdadeira junto com a falsa, porque ele não sabe distinguir — só conta.
+    # Nas fontes pequenas, de quatro viradas reais, cortava duas delas.
+    #
+    # Invertido: a porta da troca de voz volta a mandar, e o número vira PISO.
+    # Onde a porta já entrega fronteiras suficientes, nada muda — é o caso da
+    # entrevista, e a precisão alta de lá fica de pé. Onde ela entrega quase
+    # nada, porque ninguém interrompe o Renan, os vales de fora completam até o
+    # piso em vez de o vídeo inteiro virar um bloco.
+    #
+    # O número vem do catálogo, não deste vídeo: mediana de 220 s nos 44 blocos
+    # das cinco fontes que já tinham gabarito antes do ato de 7 de setembro.
+    alvo = 1
+    if tempos and len(tempos) > 1:
+        duracao = float(tempos[-1]) - float(tempos[0])
+        if duracao > 0:
+            alvo = max(1, round(duracao / MEDIANA_DO_BLOCO_S) - 1)
+
+    def escolher(entre: list[int], chosen: list[int], limite: int | None = None) -> None:
+        for index in sorted(entre, key=lambda position: curve[position]):
+            if limite is not None and len(chosen) >= limite:
+                return
+            if all(longe_o_bastante(index, taken) for taken in chosen):
+                chosen.append(index)
+
     chosen: list[int] = []
-    for index in sorted(candidates, key=lambda position: curve[position]):
-        if all(longe_o_bastante(index, taken) for taken in chosen):
-            chosen.append(index)
+    preferidos = [index for index in candidates if index in perto_da_troca]
+    resto = [index for index in candidates if index not in perto_da_troca]
+    if preferidos:
+        # Cair numa troca de voz é evidência: esses entram todos, e o piso só
+        # completa com os de fora quando eles não bastam.
+        escolher(preferidos, chosen)
+        if len(chosen) < alvo:
+            escolher(resto, chosen, alvo)
+    else:
+        # Sem nenhuma marca de locutor não há evidência para separar vale
+        # verdadeiro de falso, e sem limite o programa propõe TODO vale acima do
+        # limiar — num texto de dois assuntos ele achava nove. Aqui o número do
+        # catálogo é a única régua disponível, e vira teto.
+        escolher(candidates, chosen, alvo)
     return sorted(chosen)
 
 
