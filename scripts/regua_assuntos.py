@@ -43,9 +43,16 @@ sys.path.insert(0, str(RAIZ))
 TOLERANCIA_S = 15.0
 
 
-def medir(material: str = ""):
+def medir(material: str = "", *, pelo_modelo: bool = False):
+    """As fronteiras que o Furia vê, pelo caminho que ele usaria de verdade.
+
+    `pelo_modelo` mede o caminho que manda o vídeo INTEIRO numerado ao Gemini e
+    recebe as fronteiras pelo número da frase — a receita do CHUB. Precisa de
+    chave configurada, e por isso não roda na bancada offline: o número dele só
+    existe na máquina do editor. Sem a bandeira, mede a leitura local por
+    coesão, que é a que roda sem internet.
+    """
     from modules.clip_selector import ClipSelector
-    from modules.topic_segmenter import segment_transcript
     from scripts.regua import carregar_material
 
     transcricao, blocos, fonte, quem = carregar_material(material or None)
@@ -53,7 +60,16 @@ def medir(material: str = ""):
     # As frases como o MOTOR as constrói, não as do arquivo: a diferença entre
     # as duas já mudou o resultado uma vez.
     frases = seletor._build_sentences(transcricao["segments"])
-    unidades = segment_transcript(frases)
+    if pelo_modelo:
+        from database import get_all_settings
+
+        seletor._settings_da_moagem = get_all_settings()
+    else:
+        seletor._settings_da_moagem = {}
+    seletor._candidate_diagnostics = {}
+    # O MESMO caminho que a moagem usa, não uma cópia dele. Medir uma cópia foi
+    # como quatro defeitos desta semana passaram pelos testes.
+    unidades = seletor._assuntos_do_video(frases)
 
     bordas_gabarito = [float(b["start"]) for b in blocos[1:]]
     bordas_furia = [float(u["start_s"]) for u in unidades[1:]]
@@ -63,9 +79,12 @@ def medir(material: str = ""):
 def main():
     parser = argparse.ArgumentParser(description="Mede se o Furia enxerga as viradas de assunto.")
     parser.add_argument("--material", help="outro material com gabarito")
+    parser.add_argument("--pelo-modelo", action="store_true",
+                        help="medir o caminho que pergunta ao Gemini pelo número da frase")
     args = parser.parse_args()
 
-    fonte, quem, blocos, unidades, gabarito, furia = medir(args.material)
+    fonte, quem, blocos, unidades, gabarito, furia = medir(
+        args.material, pelo_modelo=args.pelo_modelo)
 
     print()
     print(f"  material: {fonte.get('titulo', '')[:52]}")

@@ -255,6 +255,7 @@ class ClipSelector:
             "fallback_discarded_similarity": 0,
             "previous_discarded_count": 0,
             "acervo": dict(getattr(self, "_candidate_diagnostics", {}).get("acervo") or {}),
+            "assuntos_origem": str(getattr(self, "_candidate_diagnostics", {}).get("assuntos_origem") or ""),
             "previous_kept_approved": 0,
             "previous_kept_unjudged": 0,
             "previous_discarded_approved": 0,
@@ -303,6 +304,10 @@ class ClipSelector:
             or focus in {"", "auto", "generic_political"} and (renan_profile or renan_channel)
         )
         self._selection_source = None
+        # Os ajustes desta moagem, ao alcance dos passos que precisam saber se
+        # há chave de modelo configurada. Sem isto o passo dos assuntos não tem
+        # como escolher entre o modelo e a leitura local.
+        self._settings_da_moagem = dict(settings)
         # O que o Acervo do CHUB entregou para ESTA fonte, para acabar no
         # relatório de diagnóstico. A linha do console rola e some; o arquivo
         # fica, e é por ele que o editor confere depois se o CHUB entrou mesmo.
@@ -447,6 +452,7 @@ class ClipSelector:
             "fallback_discarded_similarity": 0,
             "previous_discarded_count": 0,
             "acervo": dict(getattr(self, "_candidate_diagnostics", {}).get("acervo") or {}),
+            "assuntos_origem": str(getattr(self, "_candidate_diagnostics", {}).get("assuntos_origem") or ""),
             "previous_kept_approved": 0,
             "previous_kept_unjudged": 0,
             "previous_discarded_approved": 0,
@@ -4254,6 +4260,69 @@ Retorne APENAS o JSON.
                 return offset
         return 0
 
+    def _perguntar_ao_gemini(self, pergunta, api_key, model_name):
+        """Uma pergunta ao Gemini, a resposta em texto. Levanta quando falha."""
+        import requests as _requests
+
+        resposta = _requests.post(
+            f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent",
+            headers={"x-goog-api-key": api_key, "Content-Type": "application/json"},
+            json={
+                "contents": [{"parts": [{"text": pergunta}]}],
+                "generationConfig": {"temperature": 0.2, "maxOutputTokens": 16384},
+            },
+            timeout=self.GEMINI_TIMEOUT_S,
+        )
+        resposta.raise_for_status()
+        partes = ((resposta.json().get("candidates") or [{}])[0]
+                  .get("content", {}).get("parts") or [])
+        for parte in partes:
+            texto = str(parte.get("text") or "").strip()
+            if texto:
+                return texto
+        raise ValueError("resposta vazia")
+
+    def _assuntos_do_video(self, sentences, emit_progress=None):
+        """Onde cada assunto começa e termina — o vídeo inteiro, de uma vez.
+
+        DUAS LEITURAS, E A MELHOR DELAS
+        -------------------------------
+        Com chave configurada, o vídeo INTEIRO vai numerado para o modelo, que
+        devolve as fronteiras pelo NÚMERO DA FRASE — é a receita que o CHUB usa
+        e a razão de as fronteiras dele caírem no lugar. Sem chave, ou se o
+        modelo falhar, vale a leitura local por coesão léxica, que é offline e
+        nunca falha.
+
+        A leitura local nunca é pulada em silêncio: quando ela entra em vez do
+        modelo, o console diz por quê.
+        """
+        settings = getattr(self, "_settings_da_moagem", {}) or {}
+        api_key = str(settings.get("gemini_api_key") or "").strip()
+        if api_key and settings.get("assuntos_pelo_modelo", True):
+            try:
+                from .assuntos_por_frase import assuntos_por_modelo
+
+                modelo = str(settings.get("gemini_model") or "gemini-2.5-flash")
+                unidades = assuntos_por_modelo(
+                    sentences,
+                    lambda pedido: self._perguntar_ao_gemini(pedido, api_key, modelo),
+                    avisar=emit_progress,
+                )
+                if unidades:
+                    self._candidate_diagnostics["assuntos_origem"] = "modelo_por_frase"
+                    return unidades
+            except (ImportError, TypeError, ValueError):
+                pass
+
+        try:
+            from .topic_segmenter import segment_transcript
+
+            unidades = segment_transcript(sentences)
+        except (ImportError, TypeError, ValueError):
+            return []
+        self._candidate_diagnostics["assuntos_origem"] = "coesao_local"
+        return unidades
+
     def _attach_local_topic_context(self, clips, sentences, emit_progress=None):
         """Give each candidate the subject of the stretch it belongs to.
 
@@ -4269,11 +4338,7 @@ Retorne APENAS o JSON.
         """
         if not clips or not sentences:
             return clips
-        try:
-            from .topic_segmenter import segment_transcript
-            units = segment_transcript(sentences)
-        except (ImportError, TypeError, ValueError):
-            return clips
+        units = self._assuntos_do_video(sentences, emit_progress)
         if not units:
             return clips
 
@@ -4300,7 +4365,16 @@ Retorne APENAS o JSON.
                 "carries_subject": best["carries_subject"],
                 "non_content_cues": best["non_content_cues"],
                 "coverage_of_candidate": round(best_overlap / (end - start), 3),
-                "provenance": "furia_topic_segmenter",
+                # O ENDEREÇO DE ONDE A BORDA NASCEU
+                #
+                # Sem isto, "o Furia está usando os assuntos" é uma coisa em que
+                # o editor tem que acreditar. Com isto o relatório diz "começa
+                # na frase nº 47 · bloco 5", e se um dia aparecer vazio o fio
+                # arrebentou — e ele vê sozinho, sem depender de eu conferir.
+                "primeira_frase": best.get("primeira_frase"),
+                "ultima_frase": best.get("ultima_frase"),
+                "titulo": best.get("titulo", ""),
+                "provenance": best.get("origem") or "furia_topic_segmenter",
                 "evidence_only": True,
             }
             tagged += 1
