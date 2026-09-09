@@ -723,6 +723,17 @@ def get_existing_clip_fingerprints(source_video="", processing_identity=""):
 
     New interval-aware jobs compare the durable processing identity. Legacy calls
     retain the basename/signature fallback so old projects remain deduplicable.
+
+    O VEREDITO VALE ONDE ELE FOI DADO: em `clip_feedback`.
+
+    `review_status` só é preenchido quando o editor decide NESTA máquina, pela
+    tela. Um veredito trazido do outro notebook chega como veredito e não mexe
+    no estado do corte — no banco dele são 111 dos 169 julgamentos. Quem lê só
+    `review_status` acha que ele nunca decidiu nada sobre esses cortes.
+
+    Importa aqui porque quem chama usa esse campo para decidir o que esconder
+    numa segunda moagem. Ler o campo errado é esconder o que ele aprovou e
+    mostrar o que ele rejeitou — exatamente ao contrário.
     """
     source_text = str(source_video or "").replace("\\\\", "/").strip().lower()
     source_basename = source_text.rsplit("/", 1)[-1]
@@ -732,7 +743,15 @@ def get_existing_clip_fingerprints(source_video="", processing_identity=""):
     if processing_identity:
         rows = conn.execute(
             """SELECT clips.start_time, clips.end_time, clips.duration,
-                             clips.transcript, clips.review_status, clips.editorial_key,
+                             clips.transcript,
+                             COALESCE(
+                                 (SELECT action FROM clip_feedback
+                                   WHERE clip_feedback.clip_id = clips.id
+                                     AND clip_feedback.action IN ('approved', 'rejected')
+                                   ORDER BY clip_feedback.id DESC LIMIT 1),
+                                 clips.review_status
+                             ) AS review_status,
+                             clips.editorial_key,
                              projects.source_signature, projects.processing_identity,
                              projects.source_start, projects.source_end
                FROM clips
@@ -743,7 +762,15 @@ def get_existing_clip_fingerprints(source_video="", processing_identity=""):
     else:
         rows = conn.execute(
             """SELECT clips.start_time, clips.end_time, clips.duration,
-                             clips.transcript, clips.review_status, clips.editorial_key,
+                             clips.transcript,
+                             COALESCE(
+                                 (SELECT action FROM clip_feedback
+                                   WHERE clip_feedback.clip_id = clips.id
+                                     AND clip_feedback.action IN ('approved', 'rejected')
+                                   ORDER BY clip_feedback.id DESC LIMIT 1),
+                                 clips.review_status
+                             ) AS review_status,
+                             clips.editorial_key,
                              projects.source_signature, projects.processing_identity,
                              projects.source_start, projects.source_end
                FROM clips

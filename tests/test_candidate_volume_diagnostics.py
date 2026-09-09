@@ -97,7 +97,13 @@ def test_primary_candidate_wins_overlapping_local_fallback(monkeypatch):
     assert diagnostics["fallback_discarded_overlap"] == 1
 
 
-def test_previous_fingerprints_discard_overlap_and_preserve_new_moment():
+def test_previous_fingerprints_discard_only_what_the_editor_rejected():
+    """A peneira reconhece o trecho repetido; o VEREDITO decide o destino.
+
+    Antes ela escondia tudo que já tinha saído, aprovado inclusive. No ato de
+    7 de setembro isso derrubou 16 candidatos num passo só — seis deles
+    aprovados por ele — e a moagem entregou dois cortes.
+    """
     selector = ClipSelector(target_duration=30, max_clips=15, min_duration=8, max_duration=180)
     selector._previous_clip_fingerprints = [
         {"start": 100.0, "end": 140.0, "duration": 40.0, "text": "Tese já aprovada", "review_status": "approved"},
@@ -107,18 +113,25 @@ def test_previous_fingerprints_discard_overlap_and_preserve_new_moment():
         "previous_discarded_count": 0,
         "previous_discarded_approved": 0,
         "previous_discarded_rejected": 0,
+        "previous_kept_approved": 0,
+        "previous_kept_unjudged": 0,
     }
 
     kept = selector._remove_previous_fingerprints([
         _clip(105.0, 138.0, "A tese já aprovada"),
+        _clip(245.0, 268.0, "O trecho rejeitado"),
         _clip(300.0, 332.0, "Uma tese nova e completa"),
     ])
 
-    assert len(kept) == 1
-    assert kept[0]["start"] == 300.0
+    assert [clip["start"] for clip in kept] == [105.0, 300.0], (
+        "o aprovado volta para a mesa; o rejeitado some; o novo passa"
+    )
+    assert kept[0]["ja_saiu_antes"] is True
+    assert kept[0]["veredito_anterior"] == "approved"
+    assert "ja_saiu_antes" not in kept[1]
     assert selector._candidate_diagnostics["previous_discarded_count"] == 1
-    assert selector._candidate_diagnostics["previous_discarded_approved"] == 1
-    assert selector._candidate_diagnostics["previous_discarded_rejected"] == 0
+    assert selector._candidate_diagnostics["previous_discarded_rejected"] == 1
+    assert selector._candidate_diagnostics["previous_kept_approved"] == 1
 
 
 def test_hard_negative_ledger_records_duplicate_reason_and_winner():
@@ -212,7 +225,11 @@ def test_previous_fingerprints_are_reset_for_each_selection_run(monkeypatch):
     monkeypatch.setattr(clip_selector_module, "annotate_clip_with_chapters", lambda clip, context: clip)
     transcription = {"segments": [{"start": i * 15.0, "end": (i + 1) * 15.0, "text": f"Ideia {i}."} for i in range(20)]}
 
-    selector.select_clips(transcription, settings={"previous_clip_fingerprints": [{"start": 0, "end": 30, "text": "Uma tese completa e independente."}]})
+    # Com veredito de rejeição, porque só o rejeitado é escondido — e o banco
+    # sempre devolve o veredito junto da digital.
+    selector.select_clips(transcription, settings={"previous_clip_fingerprints": [
+        {"start": 0, "end": 30, "text": "Uma tese completa e independente.",
+         "review_status": "rejected"}]})
     assert selector.get_candidate_diagnostics()["previous_discarded_count"] == 1
 
     selector.select_clips(transcription, settings={"previous_clip_fingerprints": []})

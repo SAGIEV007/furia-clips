@@ -254,6 +254,8 @@ class ClipSelector:
             "fallback_discarded_overlap": 0,
             "fallback_discarded_similarity": 0,
             "previous_discarded_count": 0,
+            "previous_kept_approved": 0,
+            "previous_kept_unjudged": 0,
             "previous_discarded_approved": 0,
             "previous_discarded_rejected": 0,
             "campaign_hub_guided_filtered_by_speaker": 0,
@@ -434,6 +436,8 @@ class ClipSelector:
             "fallback_discarded_overlap": 0,
             "fallback_discarded_similarity": 0,
             "previous_discarded_count": 0,
+            "previous_kept_approved": 0,
+            "previous_kept_unjudged": 0,
             "previous_discarded_approved": 0,
             "previous_discarded_rejected": 0,
             "campaign_hub_guided_filtered_by_speaker": int(getattr(self, "_campaign_hub_guided_filtered_by_speaker", 0) or 0),
@@ -626,7 +630,7 @@ class ClipSelector:
         self._record_candidate_stage("post_overlap", clips)
 
         # Do not recreate intervals already generated in a previous run of the same source.
-        clips = self._remove_previous_fingerprints(clips)
+        clips = self._remove_previous_fingerprints(clips, emit_progress)
         self._record_candidate_stage("post_previous_fingerprints", clips)
 
         # Limit to the adaptive maximum only after deduplication, so a second run can
@@ -5342,11 +5346,34 @@ Retorne APENAS o JSON.
 
         return adjusted
 
-    def _remove_previous_fingerprints(self, clips):
-        """Drop candidates that were already exported for this source video."""
+    def _remove_previous_fingerprints(self, clips, emit_progress=None):
+        """Esconder o que ele JÁ REJEITOU — e só isso.
+
+        O DEFEITO, MEDIDO NO ATO DE 7 DE SETEMBRO
+        -----------------------------------------
+        Segunda moagem da mesma fonte, lido do diagnóstico que o próprio
+        programa salvou:
+
+            45 candidatos -> 30 (não-conteúdo) -> 23 (sobreposição)
+                -> 7 POR JÁ TER MOÍDO ANTES -> 2 entregues
+
+        Dezesseis caíram neste passo. **Seis deles ele tinha APROVADO.**
+
+        Esconder um corte porque ele já saiu antes trata "já saiu" como defeito.
+        Não é. O veredito dele é que manda:
+
+            rejeitou ......  esconde. Ele já disse não.
+            aprovou .......  mostra. Ele disse SIM — é prova de que presta,
+                             não motivo para sumir.
+            não julgou ....  mostra. Ninguém decidiu nada.
+
+        Quem quiser a moagem virgem tem o botão "Moer este vídeo do zero", que
+        não traz veredito nenhum para cá.
+        """
         previous = self._previous_clip_fingerprints
         if not previous or not clips:
             return clips
+        mantidos_por_terem_sido_aprovados = 0
         selected = []
         for clip in clips:
             repeated = None
@@ -5370,19 +5397,44 @@ Retorne APENAS o JSON.
             if repeated is None:
                 selected.append(clip)
                 continue
+
+            status = str(repeated.get("review_status") or "").lower()
+            if status != "rejected":
+                # Já saiu antes, e ele não disse não. Volta para a mesa.
+                clip["ja_saiu_antes"] = True
+                clip["veredito_anterior"] = status or "sem veredito"
+                selected.append(clip)
+                if status == "approved":
+                    mantidos_por_terem_sido_aprovados += 1
+                    self._candidate_diagnostics["previous_kept_approved"] = int(
+                        self._candidate_diagnostics.get("previous_kept_approved", 0) or 0
+                    ) + 1
+                else:
+                    self._candidate_diagnostics["previous_kept_unjudged"] = int(
+                        self._candidate_diagnostics.get("previous_kept_unjudged", 0) or 0
+                    ) + 1
+                continue
+
             self._record_hard_negative(
                 clip,
                 "already_exported_fingerprint",
-                details={"review_status": str(repeated.get("review_status") or "")[:24]},
+                details={"review_status": status[:24]},
             )
             self._candidate_diagnostics["previous_discarded_count"] = int(
                 self._candidate_diagnostics.get("previous_discarded_count", 0) or 0
             ) + 1
-            status = str(repeated.get("review_status") or "").lower()
-            if status == "approved":
-                self._candidate_diagnostics["previous_discarded_approved"] += 1
-            elif status == "rejected":
-                self._candidate_diagnostics["previous_discarded_rejected"] += 1
+            self._candidate_diagnostics["previous_discarded_rejected"] += 1
+
+        if emit_progress:
+            escondidos = int(self._candidate_diagnostics.get("previous_discarded_count", 0) or 0)
+            devolvidos = int(self._candidate_diagnostics.get("previous_kept_unjudged", 0) or 0)
+            if escondidos or mantidos_por_terem_sido_aprovados or devolvidos:
+                emit_progress(
+                    f"[Já moído antes] {escondidos} escondido(s) porque você rejeitou · "
+                    f"{mantidos_por_terem_sido_aprovados} mantido(s) porque você aprovou · "
+                    f"{devolvidos} mantido(s) sem veredito.",
+                    "info",
+                )
         return selected
 
     def _remove_overlaps(self, clips):
